@@ -33,6 +33,9 @@ import { localStudioUser } from './me.ts';
 import { memoryLockStore } from './locks/lock-store.ts';
 import { fileCatalogVersion } from './storage/catalog-version.ts';
 import { registry } from './modules.ts';
+import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
+import { exportTree } from './pg/export.ts';
+import { backendFromEnv, type Backend } from './pg/config.ts';
 
 /** A catalog data file, parsed; `undefined` when it is not there. */
 function rawJson(relative: string): unknown {
@@ -62,6 +65,8 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     loadDb,
     // the unit of work reuses the loaded db until one of its files changes (50a.49)
     catalogVersion: () => fileCatalogVersion(dataPath('')),
+    // GET /api/export: the catalog's text files, the same shape the database backend answers
+    exportCatalog: async () => exportTree(readCatalogTree(dataPath('..')), fileCatalogVersion(dataPath(''))),
     // the catalog's part-number configuration, as stored (absent: the scheme's defaults)
     loadPartNumberFiles: () => ({ scheme: rawJson('part-numbers.json') }),
     // who a studio without a login names (read once: env, else git config)
@@ -79,4 +84,21 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
       now: () => new Date().toISOString(),
     },
   };
+}
+
+/**
+ * The deps `WIREHUB_BACKEND` picks (`specs/postgres-backend.md` §2): the file
+ * stores above (`files`, the default), or the Postgres backend (`pg`, read-only
+ * until its write path lands). The pg module is loaded only when asked for.
+ */
+export async function workbenchDepsFromEnv(
+  env: Record<string, string | undefined>,
+  options: { blobs?: BlobStore } = {},
+): Promise<{ backend: Backend; deps: WorkbenchDeps; describe: string; close: () => Promise<void> }> {
+  const backend = backendFromEnv(env);
+  if (backend === 'files') return { backend, deps: defaultWorkbenchDeps(options), describe: 'files (packages/catalog/data)', close: async () => {} };
+  const { openPgBackend } = await import('./pg/deps.ts');
+  const pg = await openPgBackend(env, { ...options, depictionsDir: dataPath('../depictions') });
+  const snapshot = pg.cache.peek();
+  return { backend, deps: pg.deps, describe: `pg (org ${pg.cache.orgId}, catalog version ${snapshot?.version ?? '?'}; read-only until the write path lands)`, close: pg.close };
 }

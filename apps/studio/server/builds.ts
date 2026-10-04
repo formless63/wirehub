@@ -54,7 +54,8 @@ export function fileBuildsStore(dir = dataPath('builds')): BuildsStore {
   const path = (name: string): string => `${dir}/${name}.json`;
   return {
     list: () =>
-      readdirSync(dir)
+      // the directory is optional (the starter catalog has none): no directory, no builds
+      (existsSync(dir) ? readdirSync(dir) : [])
         .filter((f) => f.endsWith('.json'))
         .sort()
         .map((f) => ({ name: f.slice(0, -'.json'.length), file: JSON.parse(readFileSync(`${dir}/${f}`, 'utf8')) as BoardBuilds })),
