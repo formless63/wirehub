@@ -75,6 +75,12 @@ its manifest, and a record may declare its own (`docs/catalog-store.md`).
 Loading, installing or publishing a pack does not place it under the AGPL;
 its own licence applies.
 
+The starter catalog data (`packages/catalog/data`, and its frozen copy in
+`packages/catalog/fixtures/v1/data`) and the catalog packs of the bundled
+modules (`modules/*/pack`) are not under the AGPL either: they are
+dedicated to the public domain under CC0 1.0 Universal (`CC0-1.0`, the
+`LICENSE` file in each of those directories).
+
 ## 4. Keeping or removing this exception
 
 If you modify WireHub, you may extend this exception to your version, but
@@ -88,6 +94,11 @@ notation, `AGPL-3.0-only WITH AdditionRef-WireHub-Module-Exception-1.0`),
 except:
 
 - `packages/modules/` — `MIT` (`packages/modules/LICENSE`);
+- the starter catalog data, `packages/catalog/data/` and
+  `packages/catalog/fixtures/v1/data/` — `CC0-1.0` (the `LICENSE` file in
+  each);
+- the bundled modules, `modules/*/` — `MIT` (each module's `LICENSE`), their
+  catalog packs `modules/*/pack/` `CC0-1.0` (`pack/LICENSE`);
 - third-party material listed in `NOTICE`, under its own licence;
 - catalog packs and records that declare their own licence.
 

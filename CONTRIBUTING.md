@@ -73,7 +73,9 @@ welcome but not required).
 
 Catalog data you contribute must come from a source you may use (a public
 standard cited by number, a datasheet, your own measurement) and carry its
-licence if it differs from the pack's (`docs/catalog-store.md` §5).
+licence if it differs from the pack's (`docs/catalog-store.md` §5). The starter
+catalog and the bundled packs are CC0-1.0: data contributed to them is
+dedicated to the public domain under the same terms.
 
 ## Code of conduct
 

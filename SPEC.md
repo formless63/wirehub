@@ -328,6 +328,8 @@ Full design: `docs/modules.md`.
 
 A small, generic catalog so a fresh install has something real to open. Every record cites
 a public standard or says "synthetic example"; no value comes from any private source.
+The data is **CC0-1.0** (`data/LICENSE`), like the bundled packs; the catalog's code is
+AGPL-3.0-only with the module exception.
 
 | Kind | Records |
 | --- | --- |

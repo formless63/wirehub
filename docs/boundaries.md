@@ -34,7 +34,7 @@ privacy check (§9) must stay clean, including this file.
 | `SPEC.md` | BASE-gen | rewritten for the base: the model, the starter catalog, the phase plan |
 | `AGENTS.md` / `CLAUDE.md` | BASE-gen | rewritten; no private paths, hosts or remote |
 | `README.md` | BASE-gen | new |
-| `LICENSE` | BASE-gen | AGPL-3.0-only, with the WireHub Module Exception (`LICENSE-EXCEPTION.md`); `packages/modules` MIT |
+| `LICENSE` | BASE-gen | AGPL-3.0-only, with the WireHub Module Exception (`LICENSE-EXCEPTION.md`); `packages/modules` MIT; the starter catalog data and the bundled packs CC0-1.0 |
 | `NOTICE` | BASE-gen | now lists the embedded fonts; the 3D-library section went with the model import script |
 | `package.json` (root) | BASE-gen | deploy scripts removed; `packageManager` pinned; tests run one workspace at a time |
 | `pnpm-lock.yaml` | BASE-gen | regenerated from the base's package set |
@@ -168,7 +168,11 @@ Renamed: the word "core" names a separate product; the truth model is now
 
 ## 4. The starter catalog (new)
 
-Every record cites a public standard or says "synthetic example".
+Every record cites a public standard or says "synthetic example". The data is CC0-1.0
+(`packages/catalog/data/LICENSE`, owner decision of 2026-10-04). The table is the
+catalog as the split created it; its video, serial, networking and audio records have
+since moved into domain modules (`docs/modules.md`), and `SPEC.md` lists what the
+starter holds now.
 
 | Kind | Records |
 | --- | --- |

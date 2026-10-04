@@ -104,13 +104,16 @@ WireHub is free software under the **GNU Affero General Public License v3.0 only
   be MIT, proprietary, or anything else. You can build and distribute a WireHub image that
   includes it without the module becoming AGPL, and without publishing its source.
 - **`@wirehub/modules` is MIT**, so module authors can depend on it freely.
-- **Catalog packs are data.** Each pack, and each record in it, carries its own licence
+- **Catalog data is CC0-1.0.** The starter catalog (`packages/catalog/data`) and the
+  bundled modules' packs are dedicated to the public domain, so the facts in them can
+  be reused anywhere. Other packs, and records in them, carry their own licence
   (`docs/catalog-store.md`).
 - Third-party material keeps its own licence (`NOTICE`).
 
 There are no per-file licence headers: `LICENSE`, `LICENSE-EXCEPTION.md` and each
 package's `license` field are the record (`SPDX: AGPL-3.0-only WITH
-AdditionRef-WireHub-Module-Exception-1.0`, `packages/modules`: `MIT`). This summary is
+AdditionRef-WireHub-Module-Exception-1.0`, `packages/modules`: `MIT`; `packages/catalog`: `AGPL-3.0-only AND CC0-1.0`, the code and
+its data; bundled modules: `MIT`, their packs `CC0-1.0`). This summary is
 not legal advice; the licence texts govern.
 
 Contributing: `CONTRIBUTING.md` · Security: `SECURITY.md` · Conduct: `CODE_OF_CONDUCT.md`

@@ -57,7 +57,7 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
   (`packages/model/src/signal-words.ts`) — never a hard-coded signal name.
 - Licensing: the repository is AGPL-3.0-only with the module exception
   (`LICENSE-EXCEPTION.md`); `packages/modules` is MIT; bundled modules are MIT with
-  CC0-1.0 pack data. No per-file licence headers.
+  CC0-1.0 pack data; the starter catalog data is CC0-1.0 too. No per-file licence headers.
 
 ## Git
 
