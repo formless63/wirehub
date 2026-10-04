@@ -26,17 +26,23 @@ saying so.
 
 ## Container
 
-`docker-compose.yml` at the repository root builds `docker/app.Dockerfile`
-(install, bundle, serve) and runs it on port 5183 with the catalog
-(`packages/catalog/data`) mounted from the checkout, so saves land in your
-working tree:
+`compose.yaml` at the repository root builds `docker/app.Dockerfile` (install,
+bundle, serve) or pulls `ghcr.io/formless63/wirehub`, and runs it with Garage
+(S3-compatible blob storage) and PostgreSQL — see `../../docs/self-hosting.md`:
 
 ```
-docker compose up --build      # then open http://localhost:5183
+bash scripts/setup-env.sh      # once: .env with generated secrets
+docker compose up -d           # then open http://localhost:5183
 ```
 
-`GET /healthz` is the healthcheck. Settings go in `.env` at the repository
-root (`.env.example` lists them); every one is optional.
+The catalog lives in the `catalog` volume (seeded from the image's starter
+catalog on first start). Uploaded file bytes go to the blob store named by
+`STUDIO_BLOBS` (`server/blobs.ts`): `s3` (Garage, by default), `fs:<dir>`, or
+unset — beside the catalog, as in development. `GET /healthz` is the
+healthcheck. Settings go in `.env` (`.env.example` documents every one).
+
+To work on the catalog in your checkout instead, run the app from source
+(`pnpm --filter studio dev`), where saves land in `packages/catalog/data`.
 
 ## Modules
 

@@ -1,6 +1,15 @@
 **/node_modules
 **/dist
+**/coverage
 .git
+.github
+.githooks
 .beads
+.env
+.env.*
+!.env.example
+.privacy-terms
 data/auth/*
-!data/auth/.gitkeep
+brand/.preview-*.png
+packages/catalog/data/.model-cache
+packages/catalog/data/.kicad-3d-cache

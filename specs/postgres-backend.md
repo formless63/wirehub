@@ -1,11 +1,18 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6 (the first revision in the open base). Nothing here is
+Status: **plan**, rev 6.1 (rev 6 was the first revision in the open base). Nothing here is
 implemented yet; the storage seam it plugs into is (`storage-seam.md`). The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.1** — the default self-hosted stack exists now (`compose.yaml`: the app,
+  Garage as the S3-compatible blob store, PostgreSQL 18 provisioned ahead of this plan)
+  and the backup add-on (`compose.backup.yaml`: pg_dump + bucket mirror + restic through
+  Backrest). The blob seam is wired for uploaded file bytes in the file backend already
+  (`apps/studio/server/blobs.ts`, `STUDIO_BLOBS`); Garage replaces the MinIO profile and
+  object storage replaces the filesystem as the default (§5.1, §8, §9, Q3). Secrets come
+  from `scripts/setup-env.sh` instead of a `setup` one-shot service (§9.1).
 - **rev 6 (base)** — ported from the private studio's plan (revs 1–5.2) and generalised.
   Kept: the schema, the write path, API tokens / batches / dry runs, the worker, blobs,
   migrations, import and parity. Replaced: every host-, owner- and service-specific
@@ -1308,13 +1315,15 @@ same auth gate and rate limits; no network is treated as trusted.
 
 ### 5.1 The blob store and its keys
 
-- **One interface, two implementations** (`apps/studio/server/pg/blobs.ts`):
-  `BlobStore { put, get, head, delete, list }`:
-  - `fsBlobStore(dir)` — a directory on a volume; the default for the self-hosted compose
-    (§8.1) and for tests;
-  - `s3BlobStore` — any S3-compatible service (AWS S3, MinIO, Garage, Ceph RGW, Backblaze
-    B2, Cloudflare R2, …), `@aws-sdk/client-s3`, endpoint, region and path-style from env.
-  `STUDIO_BLOBS=fs:<dir>|s3`.
+- **One interface, two implementations** (`apps/studio/server/blobs.ts`, **exists
+  today** for uploaded file bytes in the file backend): `BlobStore { get, has, put,
+  delete }`, to which this plan adds `list` (for GC):
+  - `s3BlobStore` — any S3-compatible service (Garage, the default in `compose.yaml`;
+    AWS S3, RustFS, MinIO, Ceph RGW, Backblaze B2, Cloudflare R2, …): a dependency-free
+    SigV4 client over `fetch` (path-style), endpoint, region, bucket and keys from env;
+  - `fsBlobStore(dir)` — a directory on a volume; the documented fallback without object
+    storage, and the store for tests.
+  `STUDIO_BLOBS=s3|fs:<dir>`; unset keeps bytes beside the catalog (development).
 - **One bucket (or directory) for record and derived blobs.** Every key is the sha256 of
   its bytes, so an object is never overwritten with different content. No bucket
   versioning is needed; the only delete is the GC's (§5.4), and the protection against a
@@ -1509,26 +1518,33 @@ until configured.
 
 ### 8.1 Compose services
 
-`docker-compose.yml` (the file backend, today) stays the zero-dependency install.
-`docker-compose.pg.yml` (Phase S) is the database-backed one:
+`compose.yaml` is the one compose file (`docs/self-hosting.md`). **Today** (before this
+plan) it runs the file-backed app with Garage for uploaded bytes and PostgreSQL
+provisioned but unused:
 
-| Service | Image | Memory cap | Notes |
-| --- | --- | --- | --- |
-| `postgres` | `postgres:18-bookworm` (pinned minor) | 512 MiB | volume `pg_data`; `docker/postgres/bootstrap.sh` creates the roles and the database on first start |
-| `migrate` | the studio image, `db:migrate` | 256 MiB | one-shot; `studio` and `worker` depend on its successful completion |
-| `studio` | the studio image (`docker/app.Dockerfile`) | 512 MiB | port `${STUDIO_PORT:-5183}`; volume `blobs` at `/data/blobs` when `STUDIO_BLOBS=fs:/data/blobs` |
-| `worker` | the studio image, `server/worker.ts` | 1.5 GiB | shares the `blobs` volume |
-| `minio` (profile `s3`) | `minio/minio` (pinned) | 256 MiB | optional: for people who want S3 semantics locally; any external S3 works instead |
+| Service | Image | Memory cap | Today | After Phase S |
+| --- | --- | --- | --- | --- |
+| `wirehub` | `ghcr.io/formless63/wirehub` (`docker/app.Dockerfile`) | 768 MiB | the app; volumes `catalog`, `auth`, `blobs`, `cache` | the app with `STUDIO_BACKEND=pg`; the `catalog` volume only for import/export |
+| `garage` | `dxflrs/garage` (pinned) | 256 MiB | blob store, single node, internal network | the same |
+| `garage-init` | the app image, `docker/garage/init.mjs` | 128 MiB | one-shot: layout, app key + read-only backup key, bucket | the same |
+| `postgres` | `postgres:18.x-bookworm` (pinned minor) | 512 MiB | provisioned, unused; volume `pg_data` | `docker/postgres/bootstrap.sh` creates the roles and the database on first start |
+| `migrate` | the app image, `db:migrate` | 256 MiB | — | one-shot; `wirehub` and `worker` depend on its successful completion |
+| `worker` | the app image, `server/worker.ts` | 1.5 GiB | — | jobs (§2), model conversion |
+
+`STUDIO_BLOBS=fs:/data/blobs` with `docker compose up -d --no-deps wirehub` is the
+documented fallback without object storage.
 
 - **Networks:** one internal network for all services; only the studio's port is
   published. Postgres and the blob store are never published.
-- **Volumes:** `pg_data`, `blobs`, and `backups` (when the backup job is on). Nothing is
-  bind-mounted from the source tree in the pg compose.
+- **Volumes:** `catalog`, `auth`, `blobs`, `cache`, `garage_meta`, `garage_data`,
+  `pg_data`, and `backups` (with `compose.backup.yaml`). Only the Garage config is
+  bind-mounted from the source tree.
 - **TLS:** terminate it in front of the studio with the reverse proxy of the deployer's
   choice (Caddy, Traefik, nginx); set `BETTER_AUTH_URL` to the public origin. An example
   Caddy service is in the compose file as a commented profile.
-- **Images:** `docker compose build` builds locally; release images are published to a
-  registry by CI (a follow-up), tagged by version and git sha.
+- **Images:** `docker compose build` builds locally; the release workflow publishes
+  multi-arch images to `ghcr.io/formless63/wirehub` (`edge` from main, `X.Y.Z`/`X.Y`/`latest`
+  from `v*` tags, `sha-…` for both).
 
 ### 8.2 Configuration
 
@@ -1536,17 +1552,19 @@ All in `.env` (`.env.example` documents every variable):
 
 | Variable | Default | |
 | --- | --- | --- |
-| `STUDIO_ENV` | `prod` in the pg compose | `dev` / `prod`; the environment guard (§8.7) |
-| `STUDIO_BACKEND` | `pg` in the pg compose | `files` / `pg` |
+| `STUDIO_ENV` | `prod` in compose | `dev` / `prod`; the environment guard (§8.7) |
+| `STUDIO_BACKEND` | `pg` in compose once Phase S lands | `files` / `pg` |
 | `DATABASE_URL` | the compose's postgres, as `studio_app` | the app's connection |
 | `DATABASE_OWNER_URL` | as `studio_owner` | `migrate` only |
-| `POSTGRES_PASSWORD`, `STUDIO_APP_PASSWORD`, `STUDIO_RO_PASSWORD` | generated on first run if empty (§9.1) | written back to `.env` by the setup script |
-| `STUDIO_BLOBS` | `fs:/data/blobs` | or `s3` |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | — | with `STUDIO_BLOBS=s3` |
-| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | secret generated on first run; URL `http://localhost:5183` | |
+| `POSTGRES_PASSWORD`, `STUDIO_APP_PASSWORD`, `STUDIO_RO_PASSWORD` | generated by `scripts/setup-env.sh` (§9.1) | (`POSTGRES_PASSWORD` exists today; the role passwords arrive with S2) |
+| `STUDIO_BLOBS` | `s3` | or `fs:<dir>` (fallback) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | the bundled Garage; keys generated | path-style always |
+| `S3_BACKUP_ACCESS_KEY_ID`, `S3_BACKUP_SECRET_ACCESS_KEY` | generated | the read-only key the backup mirror uses |
+| `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `GARAGE_CAPACITY` | generated; `100G` | the bundled Garage |
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | secret generated by `scripts/setup-env.sh`; URL `http://localhost:5183` | |
 | `AUTH_LOCAL_ACCOUNTS` | `true` in pg mode | email + password sign-in |
 | `AUTH_OIDC_*`, `AUTH_SMTP_*` | — | optional sign-in methods (`apps/studio/README.md`) |
-| `STUDIO_BACKUP_DIR`, `STUDIO_BACKUP_AT`, `STUDIO_BACKUP_KEEP` | off; `03:00`; `14` | the bundled backup job (§8.4) |
+| `BACKUP_DUMP_AT`, `BACKUP_KEEP_DUMPS`, `BACKUP_MIRROR_INTERVAL`, `BACKREST_PORT` | `02:30`; `7`; `3600`; `9898` | the backup add-on (§8.4) |
 | `STUDIO_NOTIFY_URL` | — | optional webhook for alerts (§8.6) |
 
 ### 8.3 Health checks
@@ -1561,23 +1579,28 @@ All in `.env` (`.env.example` documents every variable):
 
 ### 8.4 Backups
 
-Built in, because a self-hosted tool nobody backs up loses data. With `STUDIO_BACKUP_DIR`
-set (the compose mounts the `backups` volume there), the worker's `backup` job runs daily:
+An add-on, `compose.backup.yaml` (exists today; `docs/self-hosting.md`), because a
+self-hosted tool nobody backs up loses data, and because restic already does the hard
+part better than a bundled job would:
 
-1. `pg_dump -Fc` as `studio_ro` into `<dir>/pg/studio-<date>.dump`, with a per-table row
-   count file beside it;
-2. a mirror of the **record** blobs (not derived ones) into `<dir>/blobs/` as plain files
-   named by sha256, copying only what is new; `blob.backed_up_at` is set for each;
-3. a redacted config export (the compose file, `.env` with secrets blanked, migration
-   `CHECKSUMS`, the image version);
-4. retention: keep the last `STUDIO_BACKUP_KEEP` dumps; blobs are content-addressed and
-   kept while any kept dump references them.
+1. `backup-dump` — `pg_dump -Fc` into the `backups` volume at start and daily at
+   `BACKUP_DUMP_AT`, keeping `BACKUP_KEEP_DUMPS`. After Phase S it connects as
+   `studio_ro` and writes a per-table row-count file beside each dump.
+2. `backup-mirror` — an rclone mirror of the bucket into the same volume with the
+   **read-only** key. Only **record** blobs belong in a backup: once derived blobs share
+   the bucket (§5.5) they move under their own prefix, which the mirror excludes.
+3. `backrest` — restic with a web UI; it snapshots the dump, the mirror and the `catalog`
+   and `auth` volumes to a repository the deployer chooses (a restic REST server on
+   another machine, S3/B2/R2, SFTP), with retention, checks and notifications.
 
-The backup directory is meant to be shipped off the machine by whatever the deployer
-uses — restic, borg, rclone, a NAS snapshot. The docs give a restic example (a sidecar
-container that runs `restic backup /backups` after the job's sentinel file changes), but
-the base depends on no backup service. Point-in-time recovery (WAL archiving with
-pgBackRest or WAL-G) is an optional add-on for larger installs.
+Recommended plan: daily after the dump, 7 daily / 4 weekly / 12 monthly, a weekly
+`check`. Databasus is a fine alternative for the Postgres dump alone (it does not cover
+the bucket or, before Phase D, the catalog volume). Point-in-time recovery (WAL archiving
+with pgBackRest or WAL-G) stays an optional add-on for larger installs.
+
+For GC safety (§5.4) the worker needs to know when a backup last completed: Backrest
+runs a post-snapshot hook that touches `backups/.last-snapshot` (mounted read-only into
+the worker), and the deep health check reports its age.
 
 ### 8.5 Restore and restore checks
 
@@ -1641,18 +1664,19 @@ working studio in minutes, without editing a file.
 ### 9.1 One command
 
 ```
-git clone <repo> wirehub && cd wirehub
-docker compose -f docker-compose.pg.yml up -d
+git clone https://github.com/formless63/wirehub && cd wirehub
+bash scripts/setup-env.sh
+docker compose up -d
 # open http://localhost:5183
 ```
 
-On first start:
+This much works today (on the file backend). `scripts/setup-env.sh` writes `.env` from
+`.env.example` with every secret generated (S3 keys, Garage secrets, database passwords,
+`BETTER_AUTH_SECRET`), readable only by the owner of the checkout; compose refuses to
+start without them, naming the script. With Phase S, on first start:
 
 - `docker/postgres/bootstrap.sh` creates the roles (`studio_owner`, `studio_app`,
-  `studio_ro`) and the database. Passwords come from `.env`; when `.env` is absent, the
-  `setup` one-shot service writes one from `.env.example` with random passwords and a
-  random `BETTER_AUTH_SECRET` (printed nowhere, readable only by the owner of the
-  checkout), and every other service waits for it.
+  `studio_ro`) and the database, with the passwords from `.env`.
 - `migrate` runs every migration; the database has **no org yet**.
 - The studio starts in **setup mode**: every route but `/setup`, `/healthz` and the static
   bundle answers `503 {state: 'setup'}`, and the SPA shows the setup page.
@@ -1700,12 +1724,13 @@ the link is emailed when SMTP is configured, else shown to copy).
 - Either way the result is an ordinary catalog: it can be exported, and packs can be
   installed into it later.
 
-### 9.5 The file-backend quick start stays
+### 9.5 The file backend stays
 
-`docker compose up` (the existing compose file) remains the no-database install: the
+Running from source (`pnpm --filter studio dev`) remains the no-database setup: the
 catalog is files in the checkout, the login is off unless configured, and the optional
-git export can version saves. It is the right choice for one person evaluating the tool;
-the pg compose is the right choice for a team.
+git export can version saves. It is the right choice for developing WireHub or a module;
+the compose stack is the right choice for a team. Until Phase S the compose stack itself
+runs the file backend, with the catalog in a volume.
 
 ---
 
@@ -1723,7 +1748,7 @@ the pg compose is the right choice for a team.
   real run commits; rate limits (injected clock); redaction (no `cst_` string in any log
   line or error body); a **secret scan** test that fails on any token-shaped string in a
   tracked file and on a committed `.env`.
-- **Clean install** (S8): a CI job brings up `docker-compose.pg.yml` from nothing, drives
+- **Clean install** (S8): a CI job brings up `compose.yaml` from nothing, drives
   `/setup` over HTTP (starter catalog), signs in, saves a design, runs `pg:export` and
   diffs it against `packages/catalog/data` (+ the one saved change).
 - **Setup safety**: `/setup` refuses without the setup code, refuses after an org exists,
@@ -1737,7 +1762,8 @@ the pg compose is the right choice for a team.
   (on `fixtures/v1` and the starter catalog).
 - **Postgres in tests:** `docker-compose.test.yml` `pg-test` (tmpfs, `fsync=off`, 256 MiB);
   a template database; one database per file; a single fork. Blobs use `fsBlobStore`.
-  S3 cases run only with `STUDIO_TEST_S3_URL` (a throwaway MinIO container).
+  S3 cases run only with `STUDIO_TEST_S3_URL` (a throwaway Garage container; the client's
+  signer is also checked against the AWS documentation's worked example).
 - **RAM discipline:** only the suites a change touches; the full run one workspace at a
   time with `--maxWorkers=2`.
 
@@ -1816,8 +1842,8 @@ worker's peak stays under its cap.
 
 | # | Task | Size | Depends on |
 | --- | --- | --- | --- |
-| S1 | `docker-compose.pg.yml` (§8.1): postgres, migrate, studio, worker, optional minio and Caddy profiles; caps; health checks; volumes | 1.5 d | C1 |
-| S2 | The `setup` one-shot: `.env` from `.env.example` with generated secrets; `bootstrap.sh` roles and database | 1 d | S1 |
+| S1 | `compose.yaml` (§8.1): add migrate and worker, the Caddy example profile, `STUDIO_BACKEND=pg`; health checks (garage, postgres, wirehub, garage-init exist today) | 1 d | C1 |
+| S2 | `scripts/setup-env.sh` gains the role passwords (exists today); `bootstrap.sh` roles and database | 0.5 d | S1 |
 | S3 | Setup mode and `/setup` (§9.1–9.2): setup code, org, admin, starter/empty catalog, PN scheme; one transaction; the SPA page | 3 d | B8, A4 |
 | S4 | Settings → People: invitations, roles, revoking access | 2 d | B8 |
 | S5 | Environment guard and dev banner (§8.7); dev refresh by restore | 1 d | A1 |
@@ -1852,8 +1878,8 @@ file catalog worth migrating. B0 and B7 (file-backend changes) can land early.
 | R6 | Non-deterministic model builds weaken the gate | compare key sets and triangle counts when shas differ |
 | R7 | Module migrations interfering with the base schema | separate schema per module, references only from module to base, RLS suite covers them (§3.13) |
 | R8 | A self-hosted studio exposed before setup | setup code printed to the log; setup mode answers 503 everywhere else |
-| R9 | People never configure backups | the backup job is on by default in the pg compose (to the `backups` volume) and the deep health check reports its age; the docs say plainly that the volume must leave the machine |
-| R10 | S3-compatible services differ | rely only on the common subset (§5.1); the S3 test runs against MinIO; re-read verification by default |
+| R9 | People never configure backups | `compose.backup.yaml` is one command and the self-hosting guide recommends it first; the deep health check reports the age of the last snapshot; the docs say plainly that the repository must be on another machine |
+| R10 | S3-compatible services differ | rely only on the common subset (§5.1); the S3 test runs against Garage; re-read verification by default |
 | Q1 | Should local accounts stay on once OIDC is configured? | recommendation: on until an owner switches them off, so nobody is locked out by a misconfigured provider |
 | Q2 | One org per deployment forever? | recommendation: yes for v1; the schema and RLS keep multi-org possible without promising it |
-| Q3 | Default blob store in the pg compose: filesystem or bundled MinIO? | recommendation: filesystem (one volume fewer, no extra service); MinIO as a profile |
+| Q3 | Default blob store: filesystem or bundled object storage? | **decided (rev 6.1):** Garage by default, filesystem as the documented fallback (`docs/self-hosting.md`) |

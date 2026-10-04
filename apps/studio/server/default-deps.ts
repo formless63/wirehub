@@ -19,6 +19,7 @@ import { dataPath, loadDb } from '@wirehub/catalog';
 
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';
+import type { BlobStore } from './blobs.ts';
 import { fileModelLinkStore } from './models/links.ts';
 import { fileModelCache } from './models/cache.ts';
 import { fileBuildsStore } from './builds.ts';
@@ -39,10 +40,11 @@ function rawJson(relative: string): unknown {
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as unknown) : undefined;
 }
 
-export function defaultWorkbenchDeps(): WorkbenchDeps {
+export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): WorkbenchDeps {
   // one asset store, shared: `drawings` dedups every photo it is handed
-  // against exactly this store, and `assets` is what the picker lists
-  const assets = fileAssetStore();
+  // against exactly this store, and `assets` is what the picker lists; its
+  // bytes go to the blob store when the host configured one (STUDIO_BLOBS)
+  const assets = fileAssetStore(options.blobs);
   return {
     designs: fileDesignStore(),
     definitions: fileDefinitionStore(),

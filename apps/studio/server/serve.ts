@@ -28,6 +28,8 @@ import { AuthConfigError } from './auth/config.ts';
 import { studioAuthFromEnv, type StudioAuth } from './auth/studio-auth.ts';
 import { studioBackupFromEnv } from './backup/backup.ts';
 import { createStandaloneApp } from './standalone-app.ts';
+import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
+import { defaultWorkbenchDeps } from './default-deps.ts';
 
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 
@@ -66,12 +68,39 @@ if (backup !== undefined) {
   console.log(`[backup] ${status.remote}/${status.branch}: ${status.state}${status.message === '' ? '' : ` — ${status.message}`}`);
 }
 
-const app = createStandaloneApp({ distDir, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
+// where uploaded file bytes go: an S3-compatible store, a directory, or (unset)
+// beside the catalog — STUDIO_BLOBS, see server/blobs.ts and .env.example
+let blobs: BlobStore | undefined;
+try {
+  blobs = blobStoreFromEnv(process.env);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+if (blobs !== undefined && 'ensureBucket' in blobs && typeof blobs.ensureBucket === 'function') {
+  // the store may still be starting: retry for a minute before giving up
+  const ensure = blobs.ensureBucket as () => Promise<void>;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await ensure();
+      break;
+    } catch (error) {
+      if (attempt >= 30) {
+        console.error(`[blobs] ${blobs.describe}: ${error instanceof Error ? error.message : String(error)}`);
+        process.exit(1);
+      }
+      await new Promise((done) => setTimeout(done, 2000));
+    }
+  }
+}
+
+const app = createStandaloneApp({ distDir, deps: defaultWorkbenchDeps(blobs === undefined ? {} : { blobs }), ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 
 serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`WireHub serving ${distDir}`);
   console.log(`  http://${info.address === '0.0.0.0' || info.address === '::' ? 'localhost' : info.address}:${info.port}`);
   console.log(`  (bound to ${host}:${info.port} — reachable on the LAN unless HOST was narrowed)`);
+  console.log(`  blobs: ${blobs === undefined ? 'beside the catalog (STUDIO_BLOBS unset)' : blobs.describe}`);
   if (auth !== undefined) {
     const methods = [auth.config.oidc === undefined ? '' : auth.config.oidc.name, auth.config.smtp === undefined ? '' : 'magic link']
       .filter((m) => m !== '')

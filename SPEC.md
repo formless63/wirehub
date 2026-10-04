@@ -67,7 +67,8 @@ apps/studio/                    the app: Vite SPA + Hono server (file store, aut
                                 optional git export, module routes)
 specs/                          per-epic build specs (storage seam, Postgres backend)
 docs/                           boundaries, module system, catalog store
-docker/, docker-compose.yml     the single-container deployment
+docker/, compose.yaml         the self-hosted stack (app, Garage, PostgreSQL) and
+compose.backup.yaml            its optional restic/Backrest backups (docs/self-hosting.md)
 ```
 
 ---

@@ -33,6 +33,7 @@ import { dirname } from 'node:path';
 
 import { dataPath } from '@wirehub/catalog';
 import { writeFileAtomic } from './atomic-write.ts';
+import type { BlobStore } from './blobs.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
 /**
@@ -100,26 +101,52 @@ function writeIndex(records: AssetSummary[]): void {
   writeFileAtomic(path, next, 'utf8');
 }
 
-/** The committed catalog tree as the store. */
-export function fileAssetStore(): AssetStore {
+/** The blob key of an asset's bytes when they live in a blob store. */
+export function assetBlobKey(id: string, mime: AssetMime): string {
+  return `assets/${id}.${ASSET_MIME_EXT[mime]}`;
+}
+
+/**
+ * The committed catalog tree as the store. The index (`assets/index.json`)
+ * is always catalog data; the bytes are beside it, or — given `blobs`
+ * (`STUDIO_BLOBS`, `blobs.ts`) — in the blob store. With a blob store, an
+ * asset whose bytes are still only in the catalog directory (one committed
+ * before the store was configured) is read from there and copied into the
+ * store on first read.
+ */
+export function fileAssetStore(blobs?: BlobStore): AssetStore {
   return {
     list: () => readIndex(),
-    get(id) {
+    async get(id) {
       const record = readIndex().find((r) => r.id === id);
       if (record === undefined) return undefined;
       const path = assetPath(id, record.mime);
+      if (blobs !== undefined) {
+        const key = assetBlobKey(id, record.mime);
+        const stored = await blobs.get(key);
+        if (stored !== undefined) return { record, bytes: stored };
+        if (!existsSync(path)) return undefined;
+        const local = readFileSync(path);
+        await blobs.put(key, local, record.mime);
+        return { record, bytes: local };
+      }
       if (!existsSync(path)) return undefined;
       return { record, bytes: readFileSync(path) };
     },
-    put(bytes, mime, originalName, src) {
+    async put(bytes, mime, originalName, src) {
       const id = sha256Of(bytes);
       const records = readIndex();
       const existing = records.find((r) => r.id === id);
       if (existing !== undefined) return existing;
       const record: AssetSummary = { id, mime, originalName, src, bytes: bytes.length };
-      const path = assetPath(id, mime);
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileAtomic(path, bytes);
+      if (blobs !== undefined) {
+        // bytes first, record second: a failed upload leaves no record naming missing bytes
+        await blobs.put(assetBlobKey(id, mime), bytes, mime);
+      } else {
+        const path = assetPath(id, mime);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileAtomic(path, bytes);
+      }
       writeIndex([...records, record]);
       return record;
     },

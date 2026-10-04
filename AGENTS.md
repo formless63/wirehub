@@ -28,8 +28,8 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
 - `bash scripts/privacy-check.sh --tree` — must stay clean (`CONTRIBUTING.md`, `docs/boundaries.md` §9).
   The git hooks in `.githooks/` (enabled by `pnpm install`) run it on every commit; a
   local, gitignored `.privacy-terms` file adds private words without publishing them.
-- The app: `pnpm --filter studio dev`, or `docker compose up --build`
-  (`apps/studio/README.md`).
+- The app: `pnpm --filter studio dev`, or the compose stack
+  (`docs/self-hosting.md`, `apps/studio/README.md`).
 
 ## Conventions
 
