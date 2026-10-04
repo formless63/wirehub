@@ -1,12 +1,12 @@
 {
   "schemaVersion": 4,
-  "id": "rj45-patch-t568b",
-  "label": "RJ45 → RJ45, Cat 5e patch cable, T568B straight-through",
+  "id": "rj45-crossover-t568a-b",
+  "label": "RJ45 T568A → RJ45 T568B, Cat 5e crossover cable",
   "instances": {
     "connectors": [
       {
         "id": "j1",
-        "def": "rj45-plug-t568b",
+        "def": "rj45-plug-t568a",
         "role": "end A"
       },
       {
@@ -47,7 +47,84 @@
       },
       "b": {
         "instance": "w1",
+        "terminal": "pair-3.b",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-3.a",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "3"
+      },
+      "b": {
+        "instance": "w1",
         "terminal": "pair-2.b",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-1.a",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "5"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-1.b",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "6"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-2.a",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "7"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-4.b",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "8"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-4.a",
         "end": "a"
       }
     },
@@ -64,17 +141,6 @@
     },
     {
       "a": {
-        "instance": "j1",
-        "terminal": "2"
-      },
-      "b": {
-        "instance": "w1",
-        "terminal": "pair-2.a",
-        "end": "a"
-      }
-    },
-    {
-      "a": {
         "instance": "w1",
         "terminal": "pair-2.a",
         "end": "b"
@@ -82,17 +148,6 @@
       "b": {
         "instance": "j2",
         "terminal": "2"
-      }
-    },
-    {
-      "a": {
-        "instance": "j1",
-        "terminal": "3"
-      },
-      "b": {
-        "instance": "w1",
-        "terminal": "pair-3.b",
-        "end": "a"
       }
     },
     {
@@ -108,17 +163,6 @@
     },
     {
       "a": {
-        "instance": "j1",
-        "terminal": "4"
-      },
-      "b": {
-        "instance": "w1",
-        "terminal": "pair-1.a",
-        "end": "a"
-      }
-    },
-    {
-      "a": {
         "instance": "w1",
         "terminal": "pair-1.a",
         "end": "b"
@@ -126,17 +170,6 @@
       "b": {
         "instance": "j2",
         "terminal": "4"
-      }
-    },
-    {
-      "a": {
-        "instance": "j1",
-        "terminal": "5"
-      },
-      "b": {
-        "instance": "w1",
-        "terminal": "pair-1.b",
-        "end": "a"
       }
     },
     {
@@ -152,17 +185,6 @@
     },
     {
       "a": {
-        "instance": "j1",
-        "terminal": "6"
-      },
-      "b": {
-        "instance": "w1",
-        "terminal": "pair-3.a",
-        "end": "a"
-      }
-    },
-    {
-      "a": {
         "instance": "w1",
         "terminal": "pair-3.a",
         "end": "b"
@@ -174,17 +196,6 @@
     },
     {
       "a": {
-        "instance": "j1",
-        "terminal": "7"
-      },
-      "b": {
-        "instance": "w1",
-        "terminal": "pair-4.b",
-        "end": "a"
-      }
-    },
-    {
-      "a": {
         "instance": "w1",
         "terminal": "pair-4.b",
         "end": "b"
@@ -192,17 +203,6 @@
       "b": {
         "instance": "j2",
         "terminal": "7"
-      }
-    },
-    {
-      "a": {
-        "instance": "j1",
-        "terminal": "8"
-      },
-      "b": {
-        "instance": "w1",
-        "terminal": "pair-4.a",
-        "end": "a"
       }
     },
     {
@@ -217,5 +217,5 @@
       }
     }
   ],
-  "src": "synthetic example: a TIA-568 T568B straight-through patch cord (pin 1 white/orange, 2 orange, 3 white/green, 4 blue, 5 white/blue, 6 green, 7 white/brown, 8 brown at both ends)"
+  "src": "TIA-568 T568A at end A and T568B at end B: the orange and green pairs swap ends, so pins 1/2 meet 3/6 (the classic 10/100BASE-T crossover); synthetic example"
 }

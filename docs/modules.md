@@ -7,9 +7,10 @@ build time in the deployment's manifest.
 
 The skeleton exists today: `@wirehub/modules` (`packages/modules/src/index.ts`) defines
 the module shape and the registry; `apps/studio/modules.config.ts` is the manifest; the
-server and browser each build the registry from it. The base bundles two optional **domain
-modules** there (`modules/av-video`, `modules/automotive`, below). Not every extension point
-is mounted in the app yet — the table below says which.
+server and browser each build the registry from it. The base bundles five optional **domain
+modules** there (`modules/pc-serial`, `modules/networking`, `modules/pro-audio`,
+`modules/av-video`, `modules/automotive`, below). Not every extension point is mounted in the
+app yet — the table below says which.
 
 **Licensing.** `@wirehub/modules` is **MIT**, so a module can depend on it whatever its own
 licence. WireHub itself is AGPL-3.0-only with the **WireHub Module Exception**
@@ -60,7 +61,7 @@ export const avVideo = defineModule({
   label: 'AV / video',
   version: '0.1.0',
   license: 'MIT',
-  setup: { kind: 'domain', description: 'Video signals, VGA and SCART connectors …', suggested: false },
+  setup: { kind: 'domain', description: 'Video signals, VGA and SCART connectors …' },
   catalogPacks: [{ id: 'av-video', label: 'AV / video', version: '0.1.0', root: AV_VIDEO_PACK, license: 'CC0-1.0' }],
 });
 ```
@@ -72,14 +73,26 @@ the catalog (`installPack`, `docs/catalog-store.md` §3); the selection is store
 when the host sets `WIREHUB_SETUP_PROMPT=1` (the container image does); the command palette
 reaches it any time, to enable more. Enabling is additive.
 
-| Bundled module | Adds |
-| --- | --- |
-| `modules/av-video` (`@wirehub/module-av-video`) | video R/G/B, H/V and composite sync, composite, S-Video, component, DDC, SCART switching signals and their returns; lanes and levels; HD15, SCART and BNC families; the VGA and SCART connectors; a VGA monitor cable |
-| `modules/automotive` (`@wirehub/module-automotive`) | CAN, K/L-line, J1850 and battery-positive signals; the OBD-II (SAE J1962) plug with its mandated pins |
+| Bundled module | Suggested | Adds |
+| --- | --- | --- |
+| `modules/pc-serial` (`@wirehub/module-pc-serial`) | yes | RS-232 data and handshake, RS-485 A/B and USB D± signals; RS-232 and RS-485 levels; the RS-232 DTE (TIA-574) and PROFIBUS-style RS-485 pinouts on the base's DE-9 bodies; USB 2.0 on a Type-A plug; a null modem, an RS-485 cable to the base's terminated adapter board, a USB LED supply lead |
+| `modules/networking` (`@wirehub/module-networking`) | yes | the Ethernet MDI pair signals; the RJ45 (8P8C) body and family, plugs terminated T568A and T568B; a boot; a T568B patch cable and a T568A-to-T568B crossover on the base's Cat 5e stock |
+| `modules/pro-audio` (`@wirehub/module-pro-audio`) | yes | audio L/R/mono and hot/cold signals and the audio return; audio lanes, line level, the RCA and microphone colour codes; XLR3, RCA and 3.5 mm TRS bodies, pinouts and connectors; microphone and stereo stocks; an XLR microphone cable and a TRS-to-2×RCA Y lead |
+| `modules/av-video` (`@wirehub/module-av-video`) | no | video R/G/B, H/V and composite sync, composite, S-Video, component, DDC, SCART switching signals and their returns; lanes and levels; HD15, SCART and BNC families; the VGA and SCART connectors; a VGA monitor cable (and identical copies of the audio signals SCART carries, so it installs with or without `pro-audio`) |
+| `modules/automotive` (`@wirehub/module-automotive`) | no | CAN, K/L-line, J1850 and battery-positive signals; the OBD-II (SAE J1962) plug with its mandated pins |
 
-The starter catalog still carries the serial, networking and audio examples the tests are
-built on; splitting them into `pc-serial`, `networking` and `pro-audio` packs is tracked in
-beads. Connector face drawings (`packages/layout/src/connector-art.ts`) and body layouts
+`/setup` also mentions domains that have no module yet (fieldbus today) as plain
+suggestions, not installable.
+
+Every bundled pack is laid over the **generic starter catalog** (`packages/catalog/data`): it
+reuses the base's DE-9 bodies, stocks, components, mechanicals and terminal adapter board and
+adds only its field's records. Pack records carry no part numbers (a deployment numbers them
+through its scheme when it adopts them); each keeps its `src` citation. Each module's tests
+(`modules/<id>/test`) check that its pack validates over the starter, installs into a copy of
+it without a conflict, and teaches the base's readers its words — the serial, networking and
+audio cases that used to be the base's own tests live there now.
+
+Connector face drawings (`packages/layout/src/connector-art.ts`) and body layouts
 (`packages/editor-react/src/body-templates.ts`) remain a base library of physical shapes —
 they appear only for a family a catalog actually has; letting a pack contribute its own is
 a follow-up.
@@ -212,6 +225,5 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 Tracked in beads: mount panels and UI routes in the app; mount importers and exporters in
 the Library and Documents views; wire the commit hook from the registry into the editor;
-an `examples/hello-module` package exercising every point in tests; split the starter
-catalog's serial, networking and audio examples into domain packs; let a pack contribute
+an `examples/hello-module` package exercising every point in tests; let a pack contribute
 connector drawings and body layouts.

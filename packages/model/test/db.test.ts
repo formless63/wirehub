@@ -32,13 +32,14 @@ describe('the starter catalog', () => {
   });
 
   it('composes connector pins from body + interface', () => {
-    const de9 = db.connectors.find((c) => c.id === 'de9-female-rs232');
+    const de9 = db.connectors.find((c) => c.id === 'de9-female');
     expect(de9?.pins.map((p) => p.id)).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', 'shell']);
-    expect(de9?.pins.find((p) => p.id === '3')?.signal).toBe('rs232-txd');
+    expect(de9?.pins.find((p) => p.id === '3')).toMatchObject({ label: '3', signal: 'any' });
+    expect(de9?.pins.find((p) => p.id === 'shell')?.signal).toBe('gnd-chassis');
   });
 
   it('exposes integrated connector pins as PCBA terminals', () => {
-    const board = db.pcbas.find((p) => p.id === 'rs485-terminal-board');
+    const board = db.pcbas.find((p) => p.id === 'pair-terminal-board');
     expect(board?.integratedConnectors?.[0]?.terminalPrefix).toBe('tb');
   });
 

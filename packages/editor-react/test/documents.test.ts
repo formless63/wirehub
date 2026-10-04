@@ -31,7 +31,7 @@ import { editorReducer, initialEditorState } from '../src/store.ts';
 import { dataUriBytes, downscaleTarget, PHOTO_SIZE_LIMIT } from '../src/panels/DrawingForm.tsx';
 
 const db: Db = loadDb();
-const design = loadDesign('db9-null-modem');
+const design = loadDesign('de9-crossover');
 
 function html(result: ReturnType<typeof renderDocument>): string {
   expect('html' in result, 'error' in result ? result.error : '').toBe(true);

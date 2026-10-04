@@ -1,7 +1,7 @@
 [
   {
-    "id": "rs485-terminal-board",
-    "label": "RS-485 terminal adapter board (synthetic)",
+    "id": "pair-terminal-board",
+    "label": "Terminal adapter board, one terminated pair (synthetic)",
     "partNumber": "PCA-00001",
     "revision": "Rev1",
     "build": "terminated",
@@ -64,9 +64,9 @@
             "ohms": 120
           }
         ],
-        "note": "termination, fitted when JP1 is closed"
+        "note": "pair termination, fitted when JP1 is closed"
       }
     ],
-    "src": "synthetic example: a small board with cable pads, a 4-way terminal block and a jumper-selectable 120 Ω RS-485 termination"
+    "src": "synthetic example: a small board with cable pads, a 4-way terminal block and a jumper-selectable 120 Ω termination across one differential pair (A/B) — the kind of adapter an RS-485 or CAN bus uses"
   }
 ]

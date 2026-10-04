@@ -31,24 +31,24 @@ const path = (spec: TestSpec, from: string, to: string): PathCheck => {
  * ------------------------------------------------------------------ */
 
 describe('DC continuity vs resistors and boards', () => {
-  it('the LED lead VBUS path through its 150 Ω resistor predicts its own reading', () => {
-    const spec = deriveTestSpec(loadDesign('usb-a-led-lead'), db);
+  it('the LED lead supply path through its 150 Ω resistor predicts its own reading', () => {
+    const spec = deriveTestSpec(loadDesign('dc-led-lead'), db);
     const check = path(spec, 'j1:1', 'j2:1');
     expect(check.behaviour.verdict).toBe('resistive');
     expect(check.behaviour.ohms).toBe(150);
     expect(check.behaviour.dcContinuous).toBe(true);
   });
 
-  it('the RS-485 termination reads 120 Ω between A and B', () => {
-    const spec = deriveTestSpec(loadDesign('rs485-de9-terminal-board'), db);
+  it('the pair termination reads 120 Ω between A and B', () => {
+    const spec = deriveTestSpec(loadDesign('de9-terminal-board'), db);
     const check = path(spec, 'j1:8', 'j1:3');
     expect(check.behaviour.ohms).toBe(120);
   });
 
-  it('a straight patch cord is plain copper: one net per pin, no path checks', () => {
-    const spec = deriveTestSpec(loadDesign('rj45-patch-t568b'), db);
+  it('a crossover with loopbacks is plain copper: nets only, no path checks', () => {
+    const spec = deriveTestSpec(loadDesign('de9-crossover'), db);
     expect(spec.pathChecks).toEqual([]);
-    expect(spec.netChecks.length).toBeGreaterThanOrEqual(8);
+    expect(spec.netChecks.length).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -75,8 +75,8 @@ function shorted(id: DesignId, a: [string, string], b: [string, string]): CableD
 
 describe('isolation', () => {
   it('catches a line deliberately shorted to ground', () => {
-    // the microphone lead's hot pin bridged to its shield pin
-    const spec = deriveTestSpec(shorted('xlr-mic-cable', ['j1', '2'], ['j1', '1']), db);
+    // the LED lead's supply pin bridged to its 0 V pin at the module connector
+    const spec = deriveTestSpec(shorted('dc-led-lead', ['j2', '1'], ['j2', '2']), db);
     expect(spec.violations.length).toBeGreaterThan(0);
   });
 
@@ -105,7 +105,7 @@ describe('isolation', () => {
 
 describe('deliberate opens', () => {
   it('reports the spare core cut at the board end, citing the design note', () => {
-    const spec = deriveTestSpec(loadDesign('rs485-de9-terminal-board'), db);
+    const spec = deriveTestSpec(loadDesign('de9-terminal-board'), db);
     expect(spec.openChecks.some((check) => check.key === 'w1:pair-2.b@b')).toBe(true);
   });
 

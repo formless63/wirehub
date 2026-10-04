@@ -18,30 +18,30 @@ function passages(design: CableDesign, from: TerminalRef, to: string): string[] 
   return (step?.passages ?? []).map((p) => p.description);
 }
 
-describe('db9-null-modem', () => {
-  const design = loadDesign('db9-null-modem');
+describe('de9-crossover', () => {
+  const design = loadDesign('de9-crossover');
 
-  it('TXD at end A reaches RXD at end B through nothing', () => {
+  it('pin 3 at end A reaches pin 2 at end B through nothing', () => {
     expect(passages(design, { instance: 'j1', terminal: '3' }, 'j2:2')).toEqual([]);
   });
 
-  it('RXD at end A reaches TXD at end B', () => {
+  it('pin 2 at end A reaches pin 3 at end B', () => {
     expect(passages(design, { instance: 'j1', terminal: '2' }, 'j2:3')).toEqual([]);
   });
 
-  it('signal ground runs straight through', () => {
+  it('pin 5 runs straight through', () => {
     expect(passages(design, { instance: 'j1', terminal: '5' }, 'j2:5')).toEqual([]);
   });
 
-  it('RTS loops back to CTS at its own end and never crosses the cable', () => {
+  it('the 7–8 loopback stays at its own end and never crosses the cable', () => {
     const result = trace(design, db, { instance: 'j1', terminal: '7' });
     expect(reachedTerminal(result, 'j1:8')).toBeDefined();
     expect(reachedTerminal(result, 'j2:8')).toBeUndefined();
   });
 });
 
-describe('rs485-de9-terminal-board', () => {
-  const design = loadDesign('rs485-de9-terminal-board');
+describe('de9-terminal-board', () => {
+  const design = loadDesign('de9-terminal-board');
 
   it('B (pin 3) reaches terminal 2 of the board through nothing', () => {
     expect(passages(design, { instance: 'j1', terminal: '3' }, 'u1:tb.2')).toEqual([]);
@@ -58,30 +58,30 @@ describe('rs485-de9-terminal-board', () => {
   });
 });
 
-describe('usb-a-led-lead', () => {
-  const design = loadDesign('usb-a-led-lead');
+describe('dc-led-lead', () => {
+  const design = loadDesign('dc-led-lead');
 
-  it('VBUS reaches the module connector through the series resistor', () => {
+  it('the supply reaches the module connector through the series resistor', () => {
     const via = passages(design, { instance: 'j1', terminal: '1' }, 'j2:1');
     expect(via).toHaveLength(1);
     expect(via[0]).toContain('r1');
   });
 
-  it('GND runs straight through', () => {
-    expect(passages(design, { instance: 'j1', terminal: '4' }, 'j2:2')).toEqual([]);
+  it('0 V runs straight through', () => {
+    expect(passages(design, { instance: 'j1', terminal: '2' }, 'j2:2')).toEqual([]);
   });
 });
 
-describe('trs-to-2rca-y', () => {
-  const design = loadDesign('trs-to-2rca-y');
+describe('dc-y-splitter', () => {
+  const design = loadDesign('dc-y-splitter');
 
-  it('the tip (left) reaches the left RCA tip through the mould splice', () => {
-    expect(passages(design, { instance: 'j1', terminal: 'tip' }, 'j2:tip')).toEqual([]);
+  it('channel 1 + reaches the channel 1 plug through the mould splice', () => {
+    expect(passages(design, { instance: 'j1', terminal: '1' }, 'j2:1')).toEqual([]);
   });
 
-  it('the ring (right) reaches the right RCA tip and not the left', () => {
-    const result = trace(design, db, { instance: 'j1', terminal: 'ring' });
-    expect(reachedTerminal(result, 'j3:tip')).toBeDefined();
-    expect(reachedTerminal(result, 'j2:tip')).toBeUndefined();
+  it('channel 2 + reaches the channel 2 plug and not channel 1', () => {
+    const result = trace(design, db, { instance: 'j1', terminal: '3' });
+    expect(reachedTerminal(result, 'j3:1')).toBeDefined();
+    expect(reachedTerminal(result, 'j2:1')).toBeUndefined();
   });
 });

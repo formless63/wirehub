@@ -36,8 +36,8 @@ describe('designs', () => {
   }
 
   it('loads fresh objects each time (no shared mutable singleton)', () => {
-    const first = loadDesign('xlr-mic-cable');
-    const second = loadDesign('xlr-mic-cable');
+    const first = loadDesign('dc-led-lead');
+    const second = loadDesign('dc-led-lead');
     expect(first).not.toBe(second);
     first.joints.length = 0;
     expect(second.joints.length).toBeGreaterThan(0);
@@ -85,7 +85,7 @@ describe('derived views survive a round trip', () => {
 
 describe('schema version migration', () => {
   it('upgrades any older document to the current version without touching its body, idempotently', () => {
-    const current = loadDesign('xlr-mic-cable');
+    const current = loadDesign('dc-led-lead');
     for (const v of [1, 2, 3] as const) {
       const old = { ...current, schemaVersion: v };
       const up = upgradeDesignSchema(old);

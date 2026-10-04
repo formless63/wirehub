@@ -1,0 +1,153 @@
+[
+  {
+    "id": "rs232-dte",
+    "label": "RS-232 DTE (DE-9)",
+    "short": "RS-232",
+    "bodies": [
+      "de9-female",
+      "de9-male"
+    ],
+    "pins": {
+      "1": {
+        "signal": "rs232-dcd",
+        "label": "DCD",
+        "dir": "in"
+      },
+      "2": {
+        "signal": "rs232-rxd",
+        "label": "RXD",
+        "dir": "in"
+      },
+      "3": {
+        "signal": "rs232-txd",
+        "label": "TXD",
+        "dir": "out"
+      },
+      "4": {
+        "signal": "rs232-dtr",
+        "label": "DTR",
+        "dir": "out"
+      },
+      "5": {
+        "signal": "gnd-signal",
+        "label": "GND"
+      },
+      "6": {
+        "signal": "rs232-dsr",
+        "label": "DSR",
+        "dir": "in"
+      },
+      "7": {
+        "signal": "rs232-rts",
+        "label": "RTS",
+        "dir": "out"
+      },
+      "8": {
+        "signal": "rs232-cts",
+        "label": "CTS",
+        "dir": "in"
+      },
+      "9": {
+        "signal": "rs232-ri",
+        "label": "RI",
+        "dir": "in"
+      },
+      "shell": {
+        "signal": "gnd-chassis",
+        "label": "Shell"
+      }
+    },
+    "confidence": "documented",
+    "src": "TIA-574 (EIA/TIA-574) 9-position non-synchronous DTE/DCE interface — public standard pin assignment as seen from the DTE"
+  },
+  {
+    "id": "profibus-dp",
+    "label": "RS-485 (PROFIBUS DP, DE-9)",
+    "short": "RS-485",
+    "bodies": [
+      "de9-female",
+      "de9-male"
+    ],
+    "pins": {
+      "1": {
+        "signal": "nc",
+        "label": "Shield (optional)"
+      },
+      "2": {
+        "signal": "nc",
+        "label": "n/c"
+      },
+      "3": {
+        "signal": "rs485-b",
+        "label": "B (RxD/TxD-P)",
+        "dir": "bidir"
+      },
+      "4": {
+        "signal": "nc",
+        "label": "CNTR-P (optional)"
+      },
+      "5": {
+        "signal": "gnd-signal",
+        "label": "DGND"
+      },
+      "6": {
+        "signal": "pwr-5v",
+        "label": "VP (+5 V, termination supply)",
+        "dir": "out"
+      },
+      "7": {
+        "signal": "nc",
+        "label": "n/c"
+      },
+      "8": {
+        "signal": "rs485-a",
+        "label": "A (RxD/TxD-N)",
+        "dir": "bidir"
+      },
+      "9": {
+        "signal": "nc",
+        "label": "n/c"
+      },
+      "shell": {
+        "signal": "gnd-chassis",
+        "label": "Shell"
+      }
+    },
+    "confidence": "documented",
+    "src": "IEC 61158 / IEC 61784 PROFIBUS DP 9-pin D-sub assignment (pins 3 = B, 8 = A, 5 = DGND, 6 = VP) — public"
+  },
+  {
+    "id": "usb2-power-data",
+    "label": "USB 2.0 (Type-A)",
+    "short": "USB-A",
+    "bodies": [
+      "usb-a-plug"
+    ],
+    "pins": {
+      "1": {
+        "signal": "pwr-5v",
+        "label": "VBUS",
+        "dir": "in"
+      },
+      "2": {
+        "signal": "usb-dn",
+        "label": "D−",
+        "dir": "bidir"
+      },
+      "3": {
+        "signal": "usb-dp",
+        "label": "D+",
+        "dir": "bidir"
+      },
+      "4": {
+        "signal": "gnd",
+        "label": "GND"
+      },
+      "shell": {
+        "signal": "gnd-chassis",
+        "label": "Shield"
+      }
+    },
+    "src": "USB 2.0 Specification table 6-1 (USB-IF): 1 VBUS, 2 D−, 3 D+, 4 GND"
+  }
+]

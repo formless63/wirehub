@@ -9,7 +9,10 @@ Analog and digital video for WireHub, as a catalog pack (`pack/`):
   read pin labels like "Red GND" or "CSync";
 - lanes, levels and connector families (HD15, SCART, BNC);
 - the VGA (DE-15) and SCART connectors, and a VGA monitor cable on a
-  three-coax multicore.
+  three-coax multicore;
+- identical copies of the audio L/R/mono signals and their return, which
+  SCART's audio pins need: the pack installs with or without the pro-audio
+  module, and beside it without a conflict.
 
 Enable it at first-run setup (`/setup`), or list it in
 `apps/studio/modules.config.ts` and install its pack. Code: MIT; data:

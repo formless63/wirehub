@@ -71,7 +71,7 @@ describe('determinism', () => {
   });
 
   it('does not depend on what was laid out before', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const first = autoLayout(design, db, depictions);
     for (const other of designs.slice(0, 5)) autoLayout(other, db, depictions);
     expect(autoLayout(design, db, depictions)).toEqual(first);
@@ -80,7 +80,7 @@ describe('determinism', () => {
 
 describe('the Auto-arrange action', () => {
   it('replaces a dragged arrangement with the ELK one, and only when asked', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const start = initialEditorState(design, db, undefined, depictions);
     const moved = editorReducer(start, { type: 'move-node', id: 'w1', position: { x: 9999, y: 9999 } });
     expect(moved.positions['w1']).toEqual({ x: 9999, y: 9999 });

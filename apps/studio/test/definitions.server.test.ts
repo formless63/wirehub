@@ -40,7 +40,7 @@ const CATALOG: Db = loadDb();
 
 /** The hand-authored boards — the half of the board list editors own. */
 const CURATED_FILE: PcbaDefinition[] = [
-  'rs485-terminal-board',
+  'pair-terminal-board',
 ].map((id) => CATALOG.pcbas.find((pcba) => pcba.id === id) as PcbaDefinition);
 
 const GENERATED: PcbaDefinition[] = CATALOG.pcbas.filter(
@@ -103,7 +103,7 @@ function memoryDesignStore(seed: CableDesign[]): DesignStore {
 }
 
 /** Designs that actually exercise the definitions under test. */
-const DESIGNS = ['db9-null-modem', 'rs485-de9-terminal-board']
+const DESIGNS = ['de9-crossover', 'de9-terminal-board']
   .filter((id) => listDesignIds().includes(id))
   .map((id) => loadDesign(id));
 
@@ -161,7 +161,7 @@ function stored<T extends DefinitionRecord>(kind: DefinitionKind, id: string): T
 }
 
 const connector = (): ConnectorDefinition =>
-  stored<ConnectorDefinition>('connectors', 'de9-female-rs232') as ConnectorDefinition;
+  stored<ConnectorDefinition>('connectors', 'de9-female') as ConnectorDefinition;
 
 /* ------------------------------------------------------------------ *
  * Reading
@@ -239,13 +239,13 @@ describe('GET /api/definitions/:kind/:id/usage', () => {
   });
 
   it("reports a connector's mounting split: board-straddle vs direct-solder", async () => {
-    // the terminal block reaches the RS-485 design only through the board's
+    // the terminal block reaches the DE-9 terminal-board design only through the board's
     // own integratedConnectors — always board-straddle
     const block = (await call('GET', '/api/definitions/connectors/terminal-block-4/usage')).body;
     expect(block.mounting).toEqual({ straddle: 1, direct: 0 });
 
     // the DE-9 connectors are soldered straight to the wire (counted per design)
-    const de9 = (await call('GET', '/api/definitions/connectors/de9-female-rs232/usage')).body;
+    const de9 = (await call('GET', '/api/definitions/connectors/de9-female/usage')).body;
     expect(de9.mounting).toEqual({ straddle: 0, direct: 1 });
   });
 
@@ -293,8 +293,8 @@ describe('the stale-write guard', () => {
 
   it('hands out every record\'s version with the kind\'s list, for an editor opened from it', async () => {
     const list = (await call('GET', '/api/definitions/connectors')).body as { etags: Record<string, string> };
-    const one = (await call('GET', '/api/definitions/connectors/de9-female-rs232')).headers?.['ETag'];
-    expect(list.etags['de9-female-rs232']).toBe(one);
+    const one = (await call('GET', '/api/definitions/connectors/de9-female')).headers?.['ETag'];
+    expect(list.etags['de9-female']).toBe(one);
   });
 });
 
@@ -499,7 +499,7 @@ describe('bodies and pinouts', () => {
     id: 'test-serial',
     label: 'Test serial',
     bodies: ['minidin8-male'],
-    pins: { '1': { signal: 'rs232-txd' }, '2': { signal: 'rs232-rxd' }, '3': { signal: 'pwr-5v' }, '4': { signal: 'gnd' }, shell: { signal: 'gnd-chassis' } },
+    pins: { '1': { signal: 'any' }, '2': { signal: 'any' }, '3': { signal: 'pwr-5v' }, '4': { signal: 'gnd' }, shell: { signal: 'gnd-chassis' } },
     src: 'test',
   };
 

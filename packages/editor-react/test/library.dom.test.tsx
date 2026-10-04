@@ -30,7 +30,7 @@ import { diskDepictions, loadDbFromDisk, loadDepictionMetaFromDisk, loadDesignFr
 import { memoryDefinitions } from './memory-definitions.ts';
 
 const db: Db = loadDbFromDisk();
-const design: CableDesign = loadDesignFromDisk('db9-null-modem');
+const design: CableDesign = loadDesignFromDisk('de9-crossover');
 
 afterEach(() => {
   cleanup();

@@ -1,0 +1,19 @@
+{
+  "id": "pad-roles",
+  "label": "Pad roles",
+  "src": "what a board pad is for, and the lane that lands on it",
+  "entries": [
+    {
+      "id": "audio-l",
+      "label": "Audio L",
+      "lane": "audio-l",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-r",
+      "label": "Audio R",
+      "lane": "audio-r",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

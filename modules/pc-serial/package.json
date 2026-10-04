@@ -1,0 +1,33 @@
+{
+  "name": "@wirehub/module-pc-serial",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "description": "WireHub domain module: RS-232, RS-485 and USB signals, their DE-9 and USB-A pinouts, and example serial cables.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src",
+    "pack"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@wirehub/model": "workspace:*",
+    "@wirehub/modules": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.2",
+    "@wirehub/catalog": "workspace:*",
+    "@wirehub/docs": "workspace:*",
+    "@wirehub/editor-react": "workspace:*",
+    "@wirehub/layout": "workspace:*",
+    "@wirehub/model": "workspace:*",
+    "@wirehub/modules": "workspace:*",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

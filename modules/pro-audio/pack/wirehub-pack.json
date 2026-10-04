@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "id": "pro-audio",
+  "name": "Pro audio",
+  "version": "0.1.0",
+  "publisher": {
+    "id": "wirehub",
+    "name": "WireHub bundled modules"
+  },
+  "license": "CC0-1.0",
+  "catalogSchema": 4,
+  "requires": {
+    "wirehub": ">=0.1 <1"
+  },
+  "counts": {},
+  "description": "Pro audio: balanced (hot/cold) and unbalanced (L/R) audio signals with their returns, lanes and line level; XLR3, RCA and 3.5 mm TRS bodies and pinouts (AES14 / IEC 61076-2-103, IEC 60603-11/-12); microphone and stereo stocks with their colour codes; an XLR microphone cable and a TRS-to-2×RCA Y lead with a breakout."
+}

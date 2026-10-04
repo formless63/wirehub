@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 4,
+  "id": "dc-led-lead",
+  "label": "Terminal block → JST XH 2-pin, LED supply lead with series resistor",
+  "instances": {
+    "connectors": [
+      {
+        "id": "j1",
+        "def": "terminal-block-4",
+        "role": "supply terminal block"
+      },
+      {
+        "id": "j2",
+        "def": "jst-xh-2-dc",
+        "role": "LED module connector"
+      }
+    ],
+    "segments": [
+      {
+        "id": "w1",
+        "def": "dc-2core-24awg",
+        "lengthMm": 1000
+      }
+    ],
+    "components": [
+      {
+        "id": "r1",
+        "def": "r-150",
+        "location": "source-hood"
+      }
+    ],
+    "pcbas": [],
+    "mechanical": [
+      {
+        "id": "m1",
+        "def": "heatshrink-6mm",
+        "qty": 1,
+        "note": "over r1 at the supply end"
+      }
+    ]
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "1"
+      },
+      "b": {
+        "instance": "r1",
+        "terminal": "a"
+      },
+      "note": "+5 V into the series resistor"
+    },
+    {
+      "a": {
+        "instance": "r1",
+        "terminal": "b"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "red",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "black",
+        "end": "a"
+      },
+      "b": {
+        "instance": "j1",
+        "terminal": "2"
+      },
+      "note": "0 V"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "red",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "1"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "black",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "2"
+      }
+    }
+  ],
+  "src": "synthetic example: a 5 V supply from terminal block positions 1 (+) and 2 (0 V) through a 150 Ω series resistor, under heat-shrink, to a 2-pin JST XH LED module connector"
+}

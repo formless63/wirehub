@@ -212,7 +212,7 @@ describe('wireFormIssues', () => {
 describe('draftIssues', () => {
 
   it('catches a duplicate pin inside the record itself', () => {
-    const connector = db.connectors.find((c) => c.id === 'rca-male')!;
+    const connector = db.connectors.find((c) => c.id === 'jst-xh-2-dc')!;
     const issues = draftIssues(db, 'connectors', {
       ...connector,
       pins: [...connector.pins, connector.pins[0]!],

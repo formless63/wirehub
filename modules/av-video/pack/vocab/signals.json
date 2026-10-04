@@ -265,6 +265,43 @@
         "Blanking GND"
       ],
       "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+    },
+    {
+      "id": "audio-l",
+      "label": "Audio L",
+      "kind": "audio",
+      "aliases": [
+        "Left"
+      ],
+      "src": "IEC 60603-11 stereo plug convention",
+      "standIn": "audio-mono"
+    },
+    {
+      "id": "audio-r",
+      "label": "Audio R",
+      "kind": "audio",
+      "aliases": [
+        "Right"
+      ],
+      "src": "IEC 60603-11 stereo plug convention",
+      "standIn": "audio-mono"
+    },
+    {
+      "id": "audio-mono",
+      "label": "Audio (mono)",
+      "kind": "audio",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "gnd-audio",
+      "label": "Audio ground",
+      "kind": "ground",
+      "returnFor": [
+        "audio-l",
+        "audio-r",
+        "audio-mono"
+      ],
+      "src": "synthetic example: base starter vocabulary"
     }
   ]
 }

@@ -49,7 +49,7 @@ function loadDbFromDisk(): Db {
 }
 const loadDesign = (id: string): CableDesign => read<CableDesign>('designs', `${id}.json`);
 
-const A = 'rs485-de9-terminal-board';
+const A = 'de9-terminal-board';
 const IDS = [A];
 
 const db: Db = loadDbFromDisk();

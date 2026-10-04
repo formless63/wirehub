@@ -84,7 +84,7 @@ function loadDbFromDisk(): Db {
 
 const loadDesign = (id: string): CableDesign => read<CableDesign>('designs', `${id}.json`);
 
-const ID = 'rs485-de9-terminal-board';
+const ID = 'de9-terminal-board';
 const db: Db = loadDbFromDisk();
 const realFetch = globalThis.fetch;
 let files: Map<string, string>;

@@ -18,7 +18,7 @@ import { liveCatalogInMemory } from './catalog-in-memory.ts';
 import { browserDepictions, depictionDefsOf } from '../src/depictions.browser.ts';
 
 const db = liveCatalogInMemory().loadDb();
-const design = liveCatalogInMemory().loadDesign('db9-null-modem');
+const design = liveCatalogInMemory().loadDesign('de9-crossover');
 
 function html(result: ReturnType<typeof renderDocument>): string {
   expect('html' in result, 'error' in result ? result.error : '').toBe(true);

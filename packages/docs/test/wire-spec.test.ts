@@ -37,14 +37,14 @@ describe('wire spec sheet', () => {
   });
 
   it('numbers the document with the canonical part number and names the file after it', () => {
-    expect(wireSpecDocNumber(wire('mic-2core-braid'))).toBe('WIR-00003');
-    expect(wireSpecFileName(wire('mic-2core-braid'), 'html')).toBe('WSS_WIR-00003.html');
+    expect(wireSpecDocNumber(wire('dc-2core-24awg'))).toBe('WIR-00005');
+    expect(wireSpecFileName(wire('dc-2core-24awg'), 'html')).toBe('WSS_WIR-00005.html');
   });
 
   it('carries the organisation and standard a deployment names, and no rights line unless given one', () => {
-    const plain = sheet('mic-2core-braid');
+    const plain = sheet('dc-2core-24awg');
     expect(plain).toContain('WireHub Standard');
-    const branded = sheet('mic-2core-braid', { organisation: 'Acme Cables', standard: 'Acme Wire Standard', rightsNotice: 'Acme internal' });
+    const branded = sheet('dc-2core-24awg', { organisation: 'Acme Cables', standard: 'Acme Wire Standard', rightsNotice: 'Acme internal' });
     expect(branded).toContain('ACME CABLES');
     expect(branded).toContain('Acme Wire Standard');
     expect(branded).toContain('Acme internal');

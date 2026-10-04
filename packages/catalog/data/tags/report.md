@@ -7,18 +7,18 @@ Do not edit: correct a tag in `data/tags/review.json` (with its reason) and re-r
 
 | What | Count | Tagged | Unclassified | Used by a live design and unclassified |
 |---|---:|---:|---:|---:|
-| Connector pins (10 connectors) | 53 | 49 | 4 | 0 |
+| Connector pins (4 connectors) | 26 | 26 | 0 | 0 |
 | Board terminals (1 boards; 4 cable pads) | 4 | 0 | 0 | 0 |
-| Wire stocks (colour code) | 6 | 0 | 3 | — |
-| Instance role strings (6 designs) | 13 | 3 | 10 | — |
+| Wire stocks (colour code) | 4 | 0 | 3 | — |
+| Instance role strings (4 designs) | 10 | 2 | 8 | — |
 
 **0 unclassified terminal(s) are soldered by a live design** (the gate is 0).
 
 ## Counts
 
-- **45 distinct pin labels** → 32 distinct signals.
+- **12 distinct pin labels** → 4 distinct signals.
 - **0 distinct cable-pad ids** → 0 pad roles.
-- **13 distinct instance role strings** across 6 designs → 2 slots.
+- **10 distinct instance role strings** across 4 designs → 1 slots.
 
 ## Pin labels → signals
 
@@ -26,49 +26,16 @@ Do not edit: correct a tag in `data/tags/review.json` (with its reason) and re-r
 |---|---|
 | +V | `pwr-v` |
 | 0 V | `gnd` |
-| 1 | — |
-| 2 | — |
-| 3 | — |
-| 4 | — |
-| A (RxD/TxD-N) | `rs485-a` |
-| B (RxD/TxD-P) | `rs485-b` |
-| BI_DA+ | `eth-da-p` |
-| BI_DA− | `eth-da-n` |
-| BI_DB+ | `eth-db-p` |
-| BI_DB− | `eth-db-n` |
-| BI_DC+ | `eth-dc-p` |
-| BI_DC− | `eth-dc-n` |
-| BI_DD+ | `eth-dd-p` |
-| BI_DD− | `eth-dd-n` |
-| CNTR-P (optional) | `nc` |
-| Cold (−) | `audio-cold` |
-| CTS | `rs232-cts` |
-| D+ | `usb-dp` |
-| D− | `usb-dn` |
-| DCD | `rs232-dcd` |
-| DGND | `gnd-signal` |
-| DSR | `rs232-dsr` |
-| DTR | `rs232-dtr` |
-| GND | `gnd-signal`; `gnd` |
-| Ground | `gnd-audio` |
-| Ground / shield | `gnd` |
-| Hot (+) | `audio-hot` |
-| Left | `audio-l` |
-| n/c | `nc` |
-| RI | `rs232-ri` |
-| Right | `audio-r` |
-| RTS | `rs232-rts` |
-| RXD | `rs232-rxd` |
+| 1 | `any` |
+| 2 | `any` |
+| 3 | `any` |
+| 4 | `any` |
+| 5 | `any` |
+| 6 | `any` |
+| 7 | `any` |
+| 8 | `any` |
+| 9 | `any` |
 | Shell | `gnd-chassis` |
-| Shell (not connected) | `nc` |
-| Shield | `gnd-chassis` |
-| Shield (optional) | `nc` |
-| Shield (STP only) | `gnd-chassis` |
-| Shield / ground | `gnd-chassis` |
-| Signal | `any` |
-| TXD | `rs232-txd` |
-| VBUS | `pwr-5v` |
-| VP (+5 V, termination supply) | `pwr-5v` |
 
 ## Cable-pad ids → pad roles
 
@@ -77,12 +44,7 @@ Do not edit: correct a tag in `data/tags/review.json` (with its reason) and re-r
 
 ## Unclassified connector pins
 
-| Connector | Pin | Label | Soldered by a live design |
-|---|---|---|---|
-| terminal-block-4 | 1 | 1 | no |
-| terminal-block-4 | 2 | 2 | no |
-| terminal-block-4 | 3 | 3 | no |
-| terminal-block-4 | 4 | 4 | no |
+None.
 
 ## Unclassified board terminals
 
@@ -98,8 +60,6 @@ None.
 |---|---|
 | cat5e-utp | — (unclassified) |
 | shielded-2pair-24awg | — (unclassified) |
-| mic-2core-braid | — (unclassified) |
-| audio-stereo-2core | — (unclassified) |
 | dc-2core-24awg | — (unclassified) |
 | multicore-3coax-4core | — (unclassified) |
 
@@ -109,19 +69,16 @@ Kept in `data/tags/instance-slots.json`; design files are never rewritten by the
 
 | Role string | Kind | Instances | Slot |
 |---|---|---:|---|
-| bus connector | connector | 1 | — (unclassified) |
-| end A | connector | 2 | — (unclassified) |
-| end B | connector | 2 | — (unclassified) |
+| channel 1 leg | segment | 1 | `leg` |
+| channel 1 plug | connector | 1 | — (unclassified) |
+| channel 2 leg | segment | 1 | `leg` |
+| channel 2 plug | connector | 1 | — (unclassified) |
+| end A | connector | 1 | — (unclassified) |
+| end B | connector | 1 | — (unclassified) |
 | LED module connector | connector | 1 | — (unclassified) |
-| left leg | segment | 1 | `leg` |
-| left plug | connector | 1 | — (unclassified) |
-| microphone end | connector | 1 | — (unclassified) |
-| mixer end | connector | 1 | — (unclassified) |
-| right leg | segment | 1 | `leg` |
-| right plug | connector | 1 | — (unclassified) |
-| source plug | connector | 1 | `source-plug` |
+| line connector | connector | 1 | — (unclassified) |
 | stem | segment | 1 | — (unclassified) |
-| USB plug | connector | 1 | — (unclassified) |
+| supply terminal block | connector | 2 | — (unclassified) |
 
 ## Owner corrections applied (`data/tags/review.json`)
 

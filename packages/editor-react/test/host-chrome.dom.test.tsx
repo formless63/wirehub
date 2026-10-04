@@ -21,7 +21,7 @@ import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 import { memoryPersistence } from './memory-persistence.ts';
 
 const db: Db = loadDbFromDisk();
-const REAL = loadDesignFromDisk('rs485-de9-terminal-board');
+const REAL = loadDesignFromDisk('de9-terminal-board');
 
 afterEach(cleanup);
 
@@ -114,7 +114,7 @@ describe('a rejected edit in host chrome', () => {
    * `CableEditor`'s `chrome="host"` effect reports through `onEditRejected`.
    */
   it('calls onEditRejected instead of showing the in-canvas alert', async () => {
-    const design = loadDesignFromDisk('db9-null-modem');
+    const design = loadDesignFromDisk('de9-crossover');
     const broken = structuredClone(design);
     broken.instances.connectors.push({ id: 'j99', def: 'no-such-connector' });
 
@@ -130,7 +130,7 @@ describe('a rejected edit in host chrome', () => {
   });
 
   it('shows the in-canvas alert instead, in full chrome', async () => {
-    const design = loadDesignFromDisk('db9-null-modem');
+    const design = loadDesignFromDisk('de9-crossover');
     const broken = structuredClone(design);
     broken.instances.connectors.push({ id: 'j99', def: 'no-such-connector' });
 

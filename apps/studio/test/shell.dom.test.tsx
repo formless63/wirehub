@@ -100,7 +100,7 @@ function loadDbFromDisk(): Db {
 
 const loadDesign = (id: string): CableDesign => read<CableDesign>('designs', `${id}.json`);
 
-const IDS = ['rs485-de9-terminal-board', 'xlr-mic-cable'];
+const IDS = ['de9-terminal-board', 'dc-led-lead'];
 
 const db: Db = loadDbFromDisk();
 const realFetch = globalThis.fetch;
@@ -333,7 +333,7 @@ describe('the catalog changes', () => {
     const first = IDS[0] as string;
     await readyOnCable(first);
     const created: CableDesign = {
-      ...loadDesign('rs485-de9-terminal-board'),
+      ...loadDesign('de9-terminal-board'),
       id: 'fresh-cable',
       label: 'Fresh cable',
     };

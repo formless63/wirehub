@@ -12,8 +12,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
-import { automotive } from '@wirehub/module-automotive';
-import { avVideo } from '@wirehub/module-av-video';
 import { createRegistry } from '@wirehub/modules';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -21,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { readSetup } from '../server/setup.ts';
+import { modules as manifest } from '../modules.config.ts';
 
 const { App } = await import('../src/App.tsx');
 const { createStudioRouter } = await import('../src/router.tsx');
@@ -34,7 +33,7 @@ function serve(prompt: boolean): void {
   const deps: WorkbenchDeps = {
     designs: { list: () => [], has: () => false, read: () => undefined, write: () => ({ changed: false }), remove: () => undefined },
     loadDb: () => catalog.loadDb(),
-    modules: createRegistry([avVideo, automotive]),
+    modules: createRegistry(manifest),
     setup: { dataDir: dir, prompt, now: () => '2026-10-04T12:00:00.000Z' },
   };
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -68,13 +67,20 @@ describe('first-run setup', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Set up WireHub' })).toBeDefined());
     const av = await screen.findByRole('checkbox', { name: /AV \/ video/ });
     const auto = screen.getByRole('checkbox', { name: /Automotive/ });
+    const networking = screen.getByRole('checkbox', { name: /Networking/ });
     expect((av as HTMLInputElement).checked).toBe(false);
     expect((auto as HTMLInputElement).checked).toBe(false);
-    expect(screen.getByText(/Pro audio/)).toBeDefined();
+    // the serial, networking and audio modules are suggested: pre-ticked, not forced
+    for (const name of [/PC & serial/, /Networking/, /Pro audio/]) {
+      expect((screen.getByRole('checkbox', { name }) as HTMLInputElement).checked, String(name)).toBe(true);
+    }
+    // a domain with no module yet is only mentioned
+    expect(screen.getByText(/Fieldbus/)).toBeDefined();
 
     fireEvent.click(av);
+    fireEvent.click(networking);
     fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
-    await waitFor(() => expect(readSetup(dir)?.modules).toEqual(['av-video']));
+    await waitFor(() => expect([...(readSetup(dir)?.modules ?? [])].sort()).toEqual(['av-video', 'pc-serial', 'pro-audio']));
     await waitFor(() => expect(r.state.location.pathname).toBe('/cables'));
   });
 

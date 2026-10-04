@@ -1,13 +1,13 @@
 {
   "schemaVersion": 4,
-  "id": "rs485-de9-terminal-board",
-  "label": "DE-9 RS-485 → terminal adapter board, terminated",
+  "id": "de9-terminal-board",
+  "label": "DE-9 → terminal adapter board, terminated pair",
   "instances": {
     "connectors": [
       {
         "id": "j1",
-        "def": "de9-male-profibus",
-        "role": "bus connector"
+        "def": "de9-male",
+        "role": "line connector"
       }
     ],
     "segments": [
@@ -33,8 +33,8 @@
     "pcbas": [
       {
         "id": "u1",
-        "def": "rs485-terminal-board",
-        "note": "JP1 fitted: the board terminates the bus"
+        "def": "pair-terminal-board",
+        "note": "JP1 fitted: the board terminates the pair"
       }
     ],
     "mechanical": [
@@ -57,7 +57,7 @@
         "terminal": "pair-1.a",
         "end": "a"
       },
-      "note": "B (data +)"
+      "note": "pair, line B"
     },
     {
       "a": {
@@ -80,7 +80,7 @@
         "terminal": "pair-1.b",
         "end": "a"
       },
-      "note": "A (data −)"
+      "note": "pair, line A"
     },
     {
       "a": {
@@ -103,7 +103,7 @@
         "terminal": "pair-2.a",
         "end": "a"
       },
-      "note": "signal ground"
+      "note": "common"
     },
     {
       "a": {
@@ -148,11 +148,11 @@
         "terminal": "pair-2.b",
         "end": "a"
       },
-      "note": "VP (+5 V) carried for a remote terminator"
+      "note": "supply carried for a remote terminator"
     }
   ],
   "notes": [
-    "w1:pair-2.b@b is cut back and insulated at the board — the +5 V termination supply is not used when JP1 terminates on the board."
+    "w1:pair-2.b@b is cut back and insulated at the board — the supply on pin 6 is not used when JP1 terminates on the board."
   ],
-  "src": "synthetic example: a PROFIBUS-DP-style DE-9 (3 = B, 8 = A, 5 = DGND) to a small terminal-block board carrying a jumper-selected 120 Ω termination; shield drained at both ends"
+  "src": "synthetic example: a numbered DE-9 (pair on 3 and 8, common on 5, supply on 6) to a small terminal-block board carrying a jumper-selected 120 Ω termination; shield drained at both ends"
 }

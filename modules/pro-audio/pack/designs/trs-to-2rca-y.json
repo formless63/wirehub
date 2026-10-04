@@ -45,7 +45,7 @@
     "mechanical": [
       {
         "id": "m1",
-        "def": "overmold-y-3-5mm",
+        "def": "overmold-y",
         "qty": 1,
         "note": "the moulded Y the stem splits in"
       }

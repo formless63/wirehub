@@ -49,16 +49,16 @@ afterEach(() => {
 describe('arrangements', () => {
   it('round-trips one design without touching another', () => {
     const layout = localLayoutStore();
-    expect(layout.positions('rs485-de9-terminal-board')).toBeUndefined();
+    expect(layout.positions('de9-terminal-board')).toBeUndefined();
 
-    layout.savePositions('rs485-de9-terminal-board', { j1: { x: 10, y: -20 } });
-    expect(layout.positions('rs485-de9-terminal-board')).toEqual({ j1: { x: 10, y: -20 } });
+    layout.savePositions('de9-terminal-board', { j1: { x: 10, y: -20 } });
+    expect(layout.positions('de9-terminal-board')).toEqual({ j1: { x: 10, y: -20 } });
     expect(layout.positions('no-such-design')).toBeUndefined();
   });
 
   it('reads a hand-mangled record as nothing remembered', () => {
     const layout = localLayoutStore();
-    const key = 'wirehub/layout/1/positions/rs485-de9-terminal-board';
+    const key = 'wirehub/layout/1/positions/de9-terminal-board';
     for (const junk of [
       'not json',
       '[]',
@@ -68,7 +68,7 @@ describe('arrangements', () => {
       '{}',
     ]) {
       store.set(key, junk);
-      expect(layout.positions('rs485-de9-terminal-board')).toBeUndefined();
+      expect(layout.positions('de9-terminal-board')).toBeUndefined();
     }
   });
 });
@@ -89,8 +89,8 @@ describe('storage that says no', () => {
   it('is not an error the user ever sees', () => {
     const layout = localLayoutStore();
     refuseWrites = true;
-    expect(() => layout.savePositions('rs485-de9-terminal-board', { j1: { x: 1, y: 2 } })).not.toThrow();
+    expect(() => layout.savePositions('de9-terminal-board', { j1: { x: 1, y: 2 } })).not.toThrow();
     expect(() => layout.savePanes({ palette: 200, side: 300, dock: 400 })).not.toThrow();
-    expect(layout.positions('rs485-de9-terminal-board')).toBeUndefined();
+    expect(layout.positions('de9-terminal-board')).toBeUndefined();
   });
 });

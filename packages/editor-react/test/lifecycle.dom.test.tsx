@@ -22,7 +22,7 @@ import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 import { memoryPersistence } from './memory-persistence.ts';
 
 const db: Db = loadDbFromDisk();
-const REAL: CableDesign = loadDesignFromDisk('rs485-de9-terminal-board');
+const REAL: CableDesign = loadDesignFromDisk('de9-terminal-board');
 
 afterEach(cleanup);
 

@@ -34,7 +34,7 @@ import { formatDesignJson, type DesignStore } from '../server/designs.ts';
 import { createStandaloneApp } from '../server/standalone-app.ts';
 
 const CATALOG: Db = loadDb();
-const REAL: CableDesign = loadDesign('rs485-de9-terminal-board');
+const REAL: CableDesign = loadDesign('de9-terminal-board');
 const BASE = 'http://studio.test';
 const OWNER = 'owner@example.test';
 const STRANGER = 'stranger@elsewhere.test';

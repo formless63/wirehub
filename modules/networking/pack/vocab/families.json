@@ -1,0 +1,16 @@
+{
+  "id": "families",
+  "label": "Connector families",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "rj45",
+      "label": "RJ45 (8P8C)",
+      "aliases": [
+        "8P8C",
+        "RJ45"
+      ],
+      "src": "IEC 60603-7"
+    }
+  ]
+}

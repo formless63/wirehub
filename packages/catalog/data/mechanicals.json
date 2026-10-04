@@ -14,14 +14,7 @@
     "src": "4-40 UNC jackscrews per the D-sub convention (IEC 60807-3 shell hardware); synthetic example"
   },
   {
-    "id": "rj45-boot",
-    "label": "RJ45 strain-relief boot",
-    "partNumber": "SHL-00002",
-    "kind": "shell",
-    "src": "generic snag-less RJ45 boot; synthetic example"
-  },
-  {
-    "id": "overmold-y-3-5mm",
+    "id": "overmold-y",
     "label": "Moulded Y splitter body",
     "partNumber": "MEC-00001",
     "kind": "shell",

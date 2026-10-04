@@ -43,15 +43,15 @@ describe('the BOM against the numbering scheme', () => {
   });
 
   it('proposes a product number for a design that has none, from the scheme', () => {
-    const sheet = deriveBomSheet(loadDesign('xlr-mic-cable'), db, {
+    const sheet = deriveBomSheet(loadDesign('dc-led-lead'), db, {
       partNumbers: { scheme: DEFAULT_PART_NUMBER_SCHEME, known: knownPartNumbers(db, loadDesigns()) },
     });
     expect(sheet.productProposal?.pn).toBe('CBL-00001');
   });
 
   it('the markdown BOM names the parts by part number', () => {
-    const md = renderBomMarkdown(loadDesign('rj45-patch-t568b'), db, { depictions: false });
-    expect(md).toContain('CON-');
-    expect(md).toContain('WIR-00001');
+    const md = renderBomMarkdown(loadDesign('de9-crossover'), db, { depictions: false });
+    expect(md).toContain('CON-00012');
+    expect(md).toContain('WIR-00002');
   });
 });

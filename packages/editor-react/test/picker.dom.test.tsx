@@ -22,7 +22,7 @@ import {
 import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();
-const DESIGN = loadDesignFromDisk('rs485-de9-terminal-board');
+const DESIGN = loadDesignFromDisk('de9-terminal-board');
 
 afterEach(cleanup);
 

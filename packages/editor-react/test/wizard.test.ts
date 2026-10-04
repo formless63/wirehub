@@ -29,7 +29,7 @@ import {
   wizardReducer,
   type WizardState,
 } from '../src/wizard.ts';
-import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
+import { loadDbFromDisk } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();
 
@@ -56,28 +56,29 @@ function jointKey(joint: Joint): string {
 
 describe('what the catalog says a terminal is for', () => {
   it('reads the role out of a label, against the vocabulary', () => {
-    expect(roleOfLabels(db, ['Audio L'])?.role).toBe('audio-l');
-    expect(roleOfLabels(db, ['Audio (mono)'])?.role).toBe('audio-mono');
     expect(roleOfLabels(db, ['+5 V'])?.role).toBe('pwr-5v');
     expect(roleOfLabels(db, ['+12 V'])?.role).toBe('pwr-12v');
-    expect(roleOfLabels(db, ['TXD'])?.role).toBe('rs232-txd');
+    expect(roleOfLabels(db, ['+V'])?.role).toBe('pwr-v');
     expect(roleOfLabels(db, ['Not connected'])).toBeUndefined();
+    // a domain's words mean nothing until its pack is installed (the modules test that)
+    expect(roleOfLabels(db, ['TXD'])).toBeUndefined();
+    expect(roleOfLabels(db, ['Audio L'])).toBeUndefined();
     expect(roleOfLabels(db, ['Mode select'])).toBeUndefined();
   });
 
   it('keeps every signal a pin and its aliases name, label first', () => {
-    expect(readingsOfLabels(db, ['Audio L', '2', 'Audio (mono)']).map((r) => r.role)).toEqual(['audio-l', 'audio-mono']);
+    expect(readingsOfLabels(db, ['+5 V', '2', 'VCC']).map((r) => r.role)).toEqual(['pwr-5v', 'pwr-v']);
   });
 
   it('classes a ground by whatever it is a return for', () => {
-    expect(roleOfLabels(db, ['Audio GND'])).toEqual({ role: 'ground', ground: 'gnd-audio' });
     expect(roleOfLabels(db, ['GND'])).toEqual({ role: 'ground' });
+    expect(roleOfLabels(db, ['0 V'])).toEqual({ role: 'ground' });
     expect(roleOfLabels(db, ['Shell / chassis'])).toEqual({ role: 'ground', ground: 'chassis' });
   });
 
   it('knows no signal the vocabulary does not have', () => {
     const bare: Db = { ...db, vocab: {} };
-    expect(roleOfLabels(bare, ['Audio L'])).toBeUndefined();
+    expect(roleOfLabels(bare, ['+5 V'])).toBeUndefined();
   });
 });
 
@@ -117,7 +118,7 @@ describe('length', () => {
 
 describe('the flow', () => {
   it('will not leave the first step without a name, an id and a source', () => {
-    const fresh = initialWizardState(db, ['db9-null-modem']);
+    const fresh = initialWizardState(db, ['de9-crossover']);
     expect(stepBlockers(fresh)).toHaveLength(3);
 
     const blocked = wizardReducer(fresh, { type: 'next' });
@@ -127,7 +128,7 @@ describe('the flow', () => {
   });
 
   it('refuses an id that is already in the catalog, in plain words', () => {
-    const state = answers({ id: 'db9-null-modem', taken: ['db9-null-modem'] });
+    const state = answers({ id: 'de9-crossover', taken: ['de9-crossover'] });
     expect(stepBlockers(state).join(' ')).toContain('already exists');
   });
 
@@ -178,26 +179,29 @@ describe('the flow', () => {
 
 describe('the plan', () => {
 
-  it('reproduces the hand-made microphone lead from the vocabulary alone', () => {
+  it('wires a DC lead from the vocabulary and the stock’s colour code alone', () => {
     const state = answers({
-      source: { kind: 'connector', def: 'xlr3-female', plugs: {} },
-      destination: { kind: 'connector', def: 'xlr3-male', plugs: {} },
-      wireDef: 'mic-2core-braid',
-      lengthText: '3000',
+      source: { kind: 'connector', def: 'jst-xh-2-dc', plugs: {} },
+      destination: { kind: 'connector', def: 'jst-xh-2-dc', plugs: {} },
+      wireDef: 'dc-2core-24awg',
+      lengthText: '500',
     });
     const plan = planCable(state);
     expect(plan.errors).toEqual([]);
     expect(plan.choices).toEqual([]);
     expect(plan.unconnected).toEqual([]);
-    const handMade = loadDesignFromDisk('xlr-mic-cable');
-    expect(plan.design.joints.map(jointKey).sort()).toEqual(handMade.joints.map(jointKey).sort());
+    const keys = plan.design.joints.map(jointKey);
+    // red is the power lane (+V, pin 1), black the ground lane (0 V, pin 2), at both ends
+    expect(keys.filter((k) => k.includes('red')).length).toBe(2);
+    expect(keys.filter((k) => k.includes('red')).every((k) => /\.1( |$)/.test(k))).toBe(true);
+    expect(keys.filter((k) => k.includes('black')).every((k) => /\.2( |$)/.test(k))).toBe(true);
   });
 
   it('is the same document every time it is asked for', () => {
     const state = answers({
-      source: { kind: 'connector', def: 'xlr3-female', plugs: {} },
-      destination: { kind: 'pcba', def: 'rs485-terminal-board', plugs: {} },
-      wireDef: 'mic-2core-braid',
+      source: { kind: 'connector', def: 'de9-male', plugs: {} },
+      destination: { kind: 'pcba', def: 'pair-terminal-board', plugs: {} },
+      wireDef: 'shielded-2pair-24awg',
       lengthText: '1830',
     });
     expect(JSON.stringify(planCable(state).design)).toBe(JSON.stringify(planCable(state).design));

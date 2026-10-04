@@ -40,8 +40,8 @@ import {
 const db: Db = loadDb();
 
 /** A real curated board, and a real connector — both with terminals to anchor. */
-const BOARD = 'rs485-terminal-board';
-const CONNECTOR = 'de9-female-rs232';
+const BOARD = 'pair-terminal-board';
+const CONNECTOR = 'de9-female';
 
 /* ------------------------------------------------------------------ *
  * Fixtures

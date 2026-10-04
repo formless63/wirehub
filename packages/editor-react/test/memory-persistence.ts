@@ -19,7 +19,7 @@ import type { DesignSummary, Outcome, PersistenceAdapter } from '../src/persiste
 export interface MemoryPersistence extends PersistenceAdapter {
   /** what is "on disk" */
   stored: Map<string, CableDesign>;
-  /** every call made, in order — `save:rs485-de9-terminal-board` */
+  /** every call made, in order — `save:de9-terminal-board` */
   calls: string[];
 }
 

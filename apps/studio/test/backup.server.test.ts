@@ -152,7 +152,7 @@ const log = (repo: string, format: string, ref = 'HEAD'): string[] => git(repo, 
 
 describe('commit message and author', () => {
   it('names the action, the record kind and the id', async () => {
-    expect(describeSave({ method: 'PUT', path: '/api/designs/xlr-mic-cable' })).toBe('update design xlr-mic-cable');
+    expect(describeSave({ method: 'PUT', path: '/api/designs/dc-led-lead' })).toBe('update design dc-led-lead');
     expect(describeSave({ method: 'DELETE', path: '/api/designs/x' })).toBe('delete design x');
     expect(describeSave({ method: 'POST', path: '/api/designs', body: { id: 'new-cable' } })).toBe('create design new-cable');
     expect(describeSave({ method: 'POST', path: '/api/designs/a/rename', body: { newId: 'b' } })).toBe('rename design a → b');
@@ -176,11 +176,11 @@ describe('commit message and author', () => {
     expect(
       commitMessage({
         method: 'PUT',
-        path: '/api/designs/db9-null-modem',
+        path: '/api/designs/de9-crossover',
         changes: ['~ moved w1:pair-1.a@b from j2:2 to j2:3 (note was: "old\nnote")', '− joint j1:7 — j1:8'],
       }),
     ).toBe(
-      'studio: update design db9-null-modem\n\n~ moved w1:pair-1.a@b from j2:2 to j2:3 (note was: "old note")\n− joint j1:7 — j1:8\n\nStudio-Request: PUT /api/designs/db9-null-modem',
+      'studio: update design de9-crossover\n\n~ moved w1:pair-1.a@b from j2:2 to j2:3 (note was: "old note")\n− joint j1:7 — j1:8\n\nStudio-Request: PUT /api/designs/de9-crossover',
     );
     const many = Array.from({ length: 45 }, (_, i) => `+ joint j1:${i} — w1:x@b`);
     const text = commitMessage({ method: 'PUT', path: '/api/designs/a', changes: many });
@@ -398,7 +398,7 @@ describe('/api/backup', () => {
 
   it('a PUT through the Hono host commits the design file it wrote', async () => {
     const designFile = (id: string): string => join(live, 'data', 'designs', `${id}.json`);
-    const real = loadDesign('rs485-de9-terminal-board');
+    const real = loadDesign('de9-terminal-board');
     const designs: DesignStore = {
       list: () => [],
       has: (id) => id === real.id || existsSync(designFile(id)),

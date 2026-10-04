@@ -63,7 +63,8 @@ packages/layout/                ELK layout of a design into a drawable graph
 packages/render-svg/            deterministic SVG schematics and cross-sections
 packages/docs/                  build sheet, BOM, continuity spec, drawing sheet, wire spec
 packages/editor-react/          the React editor: canvas, library, wizard, inspectors
-modules/                        bundled optional domain modules (av-video, automotive):
+modules/                        bundled optional domain modules (pc-serial, networking,
+                                pro-audio, av-video, automotive):
                                 catalog packs + module objects, offered at first-run setup
 apps/studio/                    the app: Vite SPA + Hono server (file store, auth, locks,
                                 optional git export, module routes)
@@ -333,20 +334,25 @@ AGPL-3.0-only with the module exception.
 
 | Kind | Records |
 | --- | --- |
-| bodies (10) | DE-9 M/F, RJ45 8P8C plug, XLR3 M/F, RCA plug, 3.5 mm TRS plug, USB-A plug, JST XH 2-pin, 4-way terminal block |
-| interfaces (8) | RS-232 DTE (TIA-574), PROFIBUS DP / RS-485 (IEC 61158), Ethernet MDI T568B (IEEE 802.3 / TIA-568), balanced audio (AES14 / IEC 61076-2-103), RCA, stereo TRS, USB 2.0, DC 2-pin |
-| connectors (10) | `CON-00001` … `CON-00011` (`CON-00003` moved to the av-video module) |
-| wires (6) | Cat 5e U/UTP, 2-pair shielded 24 AWG, mic 2-core + braid, stereo 2-core + spiral, DC 2 × 24 AWG, a multicore of 3 × mini-coax + 4 cores (foil + drain) |
+| bodies (4) | DE-9 M/F, JST XH 2-pin, 4-way terminal block |
+| interfaces (2) | DE-9 pins by number (no signals), DC 2-pin |
+| connectors (4) | `de9-female` / `de9-male` (`CON-00012`, `CON-00013`, pins by number), `jst-xh-2-dc` (`CON-00010`), `terminal-block-4` (`CON-00011`) |
+| wires (4) | Cat 5e U/UTP, 2-pair shielded 24 AWG (foil + drain), DC 2 × 24 AWG, a neutral multicore of 3 × mini-coax + 4 cores (foil + drain) |
 | components (4) | 150 Ω and 120 Ω resistors, 100 nF capacitor, red 5 mm LED |
-| mechanicals (5), kits (1) | DE-9 backshell, 4-40 jackscrews, RJ45 boot, moulded Y body, heat-shrink; a backshell kit |
-| PCBAs (1) | `rs485-terminal-board`: DE-9 to a 4-way terminal block with a jumper-selected 120 Ω termination |
-| designs (6) | `db9-null-modem`, `rj45-patch-t568b`, `xlr-mic-cable` (+ a length-family drawing), `trs-to-2rca-y` (breakout), `rs485-de9-terminal-board`, `usb-a-led-lead` (inline resistor) |
-| vocab (19 lists) | signals (serial, Ethernet, USB, audio, power, ground — **no video**: that is the av-video module), levels, lanes, colour codes, pad roles, families, genders, locations, materials, constructions, core kinds, colours, component kinds, conditioning, sources, manufacturers, connector constructions / mountings / sourcing |
+| mechanicals (4), kits (1) | DE-9 backshell, 4-40 jackscrews, moulded Y body, heat-shrink; a backshell kit |
+| PCBAs (1) | `pair-terminal-board`: cable pads to a 4-way terminal block with a jumper-selected 120 Ω termination across one pair |
+| designs (4) | `de9-crossover` (2 ↔ 3 crossed, loopbacks, a pigtail), `de9-terminal-board` (board + termination), `dc-led-lead` (inline resistor; a length-family drawing), `dc-y-splitter` (breakout) |
+| vocab (19 lists) | signals (power, ground and the none kinds only — **no domain**), levels, lanes, colour codes, pad roles, families, genders, locations, materials, constructions, core kinds, colours, component kinds, conditioning, sources, manufacturers, connector constructions / mountings / sourcing |
 
 **Domain modules** (`modules/`, `docs/modules.md`) bring the vocabulary and records of one
-field as catalog packs, installed at first-run setup when a person picks them:
+field as catalog packs laid over the starter, installed at first-run setup when a person
+picks them: `pc-serial` (RS-232, RS-485 and USB signals and pinouts, a null modem, an RS-485
+board cable, a USB LED lead), `networking` (Ethernet MDI signals, RJ45 plugs wired T568A and
+T568B, a patch cable and a crossover), `pro-audio` (audio signals, XLR, RCA and TRS, audio
+stocks, a microphone cable and a Y lead) — these three suggested at setup — and
 `av-video` (video signals, VGA and SCART, a VGA cable) and `automotive` (bus signals, the
-OBD-II plug). The base code knows no domain's signals: label reading goes through the
+OBD-II plug). Pack data is CC0-1.0 and every record keeps its `src`; pack records carry no
+part numbers. The base code knows no domain's signals: label reading goes through the
 vocabulary (`signal-words.ts`), and signal kinds are open strings.
 
 `fixtures/v1/data` is a frozen copy the snapshot tests render from; refresh it deliberately
@@ -362,7 +368,8 @@ optional, so an empty catalog is three `[]` files.
 vitest per package; `pnpm test` runs each workspace in turn. Every design in the starter
 catalog validates with zero errors; nets, trace, bonds, breakouts, part numbers, the module
 registry, layouts, SVG goldens, documents and the app's API and browser paths are covered.
-Tests that need data use the starter or fixture catalog, never a private one.
+Tests that need data use the starter or fixture catalog, never a private one; a domain's
+cases live in its module's tests, over the starter plus that module's pack.
 
 ## Verification bar
 
@@ -375,9 +382,10 @@ Tests that need data use the starter or fixture catalog, never a private one.
 1. **Done in the base**: the model, the file-backed catalog, layout and SVG, documents, the
    editor and the app with login, edit locks, versions and the optional git export; the
    module registry skeleton; the pluggable part-number scheme; the starter catalog. Since
-   the rename to WireHub: vocabulary-driven signal reading, the av-video and automotive
-   domain modules, first-run setup (`/setup`), pack layering and install in the file
-   backend, the compose stack with Garage blob storage and the backup add-on.
+   the rename to WireHub: vocabulary-driven signal reading, the pc-serial, networking,
+   pro-audio, av-video and automotive domain modules (the starter now generic), first-run
+   setup (`/setup`), pack layering and install in the file backend, the compose stack with
+   Garage blob storage and the backup add-on.
 2. **Postgres backend** (`specs/postgres-backend.md`, `specs/storage-seam.md`): a database
    and blob store behind the storage seam, a write path with batch / dry-run API tokens and a
    worker, and a clean self-hosted install (`docker compose up`, first-run setup).
@@ -385,7 +393,6 @@ Tests that need data use the starter or fixture catalog, never a private one.
    mounted in the editor and server; a first example module.
 4. **Catalog store** (`docs/catalog-store.md`): pack format, install/update, provenance and
    licence per record, signing.
-5. **More generic coverage**: connector art for the starter families that draw as generic
+5. **More generic coverage**: connector art for the families that draw as generic
    rectangles today (RJ45, XLR, USB, JST, terminal block), re-covered tests for what the
-   private suite tested on private data, generic specs for the drawing language; the
-   starter's serial, networking and audio examples split into domain packs.
+   private suite tested on private data, generic specs for the drawing language.

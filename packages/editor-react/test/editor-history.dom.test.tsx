@@ -49,7 +49,7 @@ const oneAsset: DepictionSource = {
 describe('<CableEditor depictionSource>', () => {
 
   it('renders every block abstractly when the host supplies no source', async () => {
-    const design = loadDesignFromDisk('db9-null-modem');
+    const design = loadDesignFromDisk('de9-crossover');
     const { container } = render(<CableEditor design={design} db={db} />);
     const svg = (): string => container.querySelector('.cs-svg')?.innerHTML ?? '';
     await waitFor(() => expect(svg().length).toBeGreaterThan(0));

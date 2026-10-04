@@ -29,7 +29,7 @@ import {
 } from '../src/index.ts';
 
 const db = loadDb();
-const ID = 'rs485-de9-terminal-board';
+const ID = 'de9-terminal-board';
 const design = loadDesign(ID);
 
 function v0(): ReturnType<typeof createVersion> {
@@ -39,9 +39,9 @@ function v0(): ReturnType<typeof createVersion> {
 describe('freezing', () => {
   it('keeps only the definitions the design references, sorted', () => {
     const frozen = freezeDefinitions(design, db);
-    expect(frozen.connectors.map((c) => c.id)).toEqual(expect.arrayContaining(['de9-male-profibus']));
+    expect(frozen.connectors.map((c) => c.id)).toEqual(expect.arrayContaining(['de9-male']));
     expect(frozen.wires.map((w) => w.id)).toEqual(['shielded-2pair-24awg']);
-    expect(frozen.pcbas.map((p) => p.id)).toEqual(['rs485-terminal-board']);
+    expect(frozen.pcbas.map((p) => p.id)).toEqual(['pair-terminal-board']);
     expect(frozen.connectors.length).toBeLessThan(db.connectors.length);
   });
 
@@ -57,11 +57,11 @@ describe('freezing', () => {
   it('an old version renders against its frozen definitions after a Library change', () => {
     const version = v0();
     const changed = structuredClone(db);
-    const de9 = changed.connectors.find((c) => c.id === 'de9-male-profibus');
+    const de9 = changed.connectors.find((c) => c.id === 'de9-male');
     if (de9 === undefined) throw new Error('fixture');
     de9.label = 'renamed later';
     const resolved = versionDb(version.definitions, changed);
-    expect(resolved.connectors.find((c) => c.id === 'de9-male-profibus')?.label).not.toBe('renamed later');
+    expect(resolved.connectors.find((c) => c.id === 'de9-male')?.label).not.toBe('renamed later');
     // something the version never referenced still comes from the live library
     expect(resolved.connectors.length).toBe(changed.connectors.length);
   });
@@ -130,7 +130,7 @@ describe('locking', () => {
 });
 
 describe('a re-pin in the diff', () => {
-  const hd15 = loadDesign('db9-null-modem');
+  const hd15 = loadDesign('de9-crossover');
   const purple = hd15.joints.findIndex((j) => j.a.terminal === 'pair-1.a' && j.b.instance === 'j2');
   const noted: CableDesign = {
     ...hd15,
@@ -150,7 +150,7 @@ describe('a re-pin in the diff', () => {
       'moved w1:pair-1.a@b from j2:2 to j2:9 (note was: "TX to RX, per the bench sheet")',
     );
     expect(describeJointMove(hd15, { index: purple, side: 'b', to: { instance: 'j2', terminal: '9' } })).toBe(
-      'moved w1:pair-1.a@b from j2:2 to j2:9 (note was: "crossed to RXD")',
+      'moved w1:pair-1.a@b from j2:2 to j2:9 (note was: "crossed to 2")',
     );
   });
 

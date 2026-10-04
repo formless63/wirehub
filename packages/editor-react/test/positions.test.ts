@@ -18,8 +18,8 @@ import { memoryLayoutStore } from '../src/layout-store.ts';
 import { editorReducer, initialEditorState, type EditorState } from '../src/store.ts';
 
 const db: Db = loadDb();
-const OPEN = 'rs485-de9-terminal-board';
-const OTHER = 'db9-null-modem';
+const OPEN = 'de9-terminal-board';
+const OTHER = 'de9-crossover';
 
 function stateFor(id: string): EditorState {
   return initialEditorState(loadDesign(id as never), db);
@@ -67,7 +67,7 @@ describe('a dragged part stays where it was put', () => {
     const edited = editorReducer(moved, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
       position: { x: 0, y: 0 },
     });
     expect(edited.positions['j1']).toEqual({ x: 4242, y: -1337 });
@@ -130,7 +130,7 @@ describe('a part added from the palette', () => {
     const added = editorReducer(moved, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
     });
     const spot = added.positions['j2'];
     expect(spot).toBeDefined();
@@ -145,7 +145,7 @@ describe('a part added from the palette', () => {
     const added = editorReducer(state, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
       position: { x: 12, y: 34 },
     });
     expect(added.positions['j2']).toEqual({ x: 12, y: 34 });

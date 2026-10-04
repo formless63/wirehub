@@ -1,91 +1,25 @@
 [
   {
-    "id": "de9-female-rs232",
-    "label": "DE-9 female, RS-232 DTE pinout",
+    "id": "de9-female",
+    "label": "DE-9 female, pins by number",
     "family": "d-sub",
     "gender": "female",
     "construction": "solder-cup",
     "body": "de9-female",
-    "interface": "rs232-dte",
-    "src": "TIA-574 pin assignment on a generic DE-9 female solder-cup connector",
-    "partNumber": "CON-00001"
+    "interface": "de9-numbered",
+    "src": "generic DE-9 female solder-cup connector, IEC 60807-3 contact numbering; synthetic example",
+    "partNumber": "CON-00012"
   },
   {
-    "id": "de9-male-profibus",
-    "label": "DE-9 male, RS-485 (PROFIBUS DP) pinout",
+    "id": "de9-male",
+    "label": "DE-9 male, pins by number",
     "family": "d-sub",
     "gender": "male",
     "construction": "solder-cup",
     "body": "de9-male",
-    "interface": "profibus-dp",
-    "src": "IEC 61158 PROFIBUS DP pin assignment on a generic DE-9 male solder-cup connector",
-    "partNumber": "CON-00002"
-  },
-  {
-    "id": "rj45-plug-t568b",
-    "label": "RJ45 plug, T568B",
-    "family": "rj45",
-    "gender": "male",
-    "construction": "crimp",
-    "body": "rj45-8p8c-plug",
-    "interface": "ethernet-mdi",
-    "src": "IEC 60603-7 modular plug terminated to TIA-568 T568B",
-    "partNumber": "CON-00004"
-  },
-  {
-    "id": "xlr3-female",
-    "label": "XLR 3-pin female (cable mount)",
-    "family": "xlr",
-    "gender": "female",
-    "construction": "solder-cup",
-    "body": "xlr3-female",
-    "interface": "xlr-balanced-audio",
-    "src": "IEC 61076-2-103 / AES14 cable-mount female",
-    "partNumber": "CON-00005"
-  },
-  {
-    "id": "xlr3-male",
-    "label": "XLR 3-pin male (cable mount)",
-    "family": "xlr",
-    "gender": "male",
-    "construction": "solder-cup",
-    "body": "xlr3-male",
-    "interface": "xlr-balanced-audio",
-    "src": "IEC 61076-2-103 / AES14 cable-mount male",
-    "partNumber": "CON-00006"
-  },
-  {
-    "id": "rca-male",
-    "label": "RCA male (phono plug)",
-    "family": "rca",
-    "gender": "male",
-    "construction": "solder-cup",
-    "body": "rca-male",
-    "interface": "rca-single",
-    "src": "IEC 60603-12 phono plug, solder type",
-    "partNumber": "CON-00007"
-  },
-  {
-    "id": "trs-3-5mm-male",
-    "label": "3.5 mm TRS male (stereo plug)",
-    "family": "trs-3-5mm",
-    "gender": "male",
-    "construction": "solder-cup",
-    "body": "trs-3-5mm-male",
-    "interface": "stereo-trs",
-    "src": "IEC 60603-11 3.5 mm stereo plug, solder type",
-    "partNumber": "CON-00008"
-  },
-  {
-    "id": "usb-a-plug",
-    "label": "USB Type-A plug",
-    "family": "usb-a",
-    "gender": "male",
-    "construction": "solder-cup",
-    "body": "usb-a-plug",
-    "interface": "usb2-power-data",
-    "src": "USB 2.0 Standard-A plug, solder type (USB-IF specification)",
-    "partNumber": "CON-00009"
+    "interface": "de9-numbered",
+    "src": "generic DE-9 male solder-cup connector, IEC 60807-3 contact numbering; synthetic example",
+    "partNumber": "CON-00013"
   },
   {
     "id": "jst-xh-2-dc",
@@ -107,22 +41,26 @@
     "pins": [
       {
         "id": "1",
-        "label": "1"
+        "label": "1",
+        "signal": "any"
       },
       {
         "id": "2",
-        "label": "2"
+        "label": "2",
+        "signal": "any"
       },
       {
         "id": "3",
-        "label": "3"
+        "label": "3",
+        "signal": "any"
       },
       {
         "id": "4",
-        "label": "4"
+        "label": "4",
+        "signal": "any"
       }
     ],
-    "src": "generic 5.08 mm PCB screw terminal block; synthetic example",
+    "src": "generic 5.08 mm PCB screw terminal block; each position carries whatever is wired to it (signal \"any\"); synthetic example",
     "partNumber": "CON-00011"
   }
 ]

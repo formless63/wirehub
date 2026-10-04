@@ -24,11 +24,11 @@ const entries = paletteEntries(db);
 
 describe('defTerminals', () => {
   it('lists a connector by pin id', () => {
-    expect(defTerminals('connector', 'rca-male', db).length).toBeGreaterThan(0);
+    expect(defTerminals('connector', 'jst-xh-2-dc', db).length).toBeGreaterThan(0);
   });
 
   it('lists a wire element at both ends', () => {
-    const terminals = defTerminals('segment', 'mic-2core-braid', db);
+    const terminals = defTerminals('segment', 'dc-2core-24awg', db);
     expect(terminals.length).toBeGreaterThan(0);
     expect(terminals.every((t) => t.end === 'a' || t.end === 'b')).toBe(true);
   });
@@ -38,10 +38,10 @@ describe('defTerminals', () => {
   });
 });
 
-describe("a board's cable-side data pad — u1:A on the RS-485 board design", () => {
+describe("a board's cable-side data pad — u1:A on the terminal-board design", () => {
   // a pad may take more than one wire, so the picker ranks against it
   // whether or not something is already on it
-  const design = loadDesign('rs485-de9-terminal-board');
+  const design = loadDesign('de9-terminal-board');
   const anchor: TerminalRef = { instance: 'u1', terminal: 'A' };
   const { fits, other } = rankDefinitions(design, db, anchor, entries);
 
@@ -52,9 +52,9 @@ describe("a board's cable-side data pad — u1:A on the RS-485 board design", ()
 });
 
 
-describe('a shield handle — w1:drain@b on the RS-485 board design', () => {
+describe('a shield handle — w1:drain@b on the terminal-board design', () => {
   // the drain is a screen: whatever it lands on must be at ground
-  const design = loadDesign('rs485-de9-terminal-board');
+  const design = loadDesign('de9-terminal-board');
   const anchor: TerminalRef = { instance: 'w1', terminal: 'drain', end: 'b' };
   const { fits, other } = rankDefinitions(design, db, anchor, entries);
 
@@ -74,14 +74,14 @@ describe('a shield handle — w1:drain@b on the RS-485 board design', () => {
   });
 
   it('many equally good ground pins — nothing is auto-wired', () => {
-    expect(autoWireTerminal(rankTerminals(design, db, anchor, 'connector', 'scart-male'))).toBeUndefined();
+    expect(autoWireTerminal(rankTerminals(design, db, anchor, 'connector', 'terminal-block-4'))).toBeUndefined();
     // …but a connector with exactly one ground terminal is unambiguous
-    expect(autoWireTerminal(rankTerminals(design, db, anchor, 'connector', 'rca-male'))).toEqual({ terminal: 'sleeve' });
+    expect(autoWireTerminal(rankTerminals(design, db, anchor, 'connector', 'jst-xh-2-dc'))).toEqual({ terminal: '2' });
   });
 });
 
 describe('fitsAnchor / compatibleTerminals agree with the ranking', () => {
-  const design = loadDesign('rs485-de9-terminal-board');
+  const design = loadDesign('de9-terminal-board');
   const anchor: TerminalRef = { instance: 'j1', terminal: '7' };
 
   it('fits iff at least one terminal is compatible', () => {

@@ -28,20 +28,20 @@ import {
 
 describe('nextInstanceId', () => {
   it('assigns the per-kind prefix, next free number', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     expect(nextInstanceId(design, 'connector', 'rca-male')).toMatch(/^j\d+$/);
     expect(nextInstanceId(design, 'segment', 'cat5e-utp')).toBe('w2');
     expect(nextInstanceId(design, 'pcba', 'anything')).toBe('u2');
   });
 
   it('names components after what they are: r-* is a resistor, cap* a capacitor', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     expect(nextInstanceId(design, 'component', 'r-150')).toBe('r1');
     expect(nextInstanceId(design, 'component', 'cap-100nf')).toBe('c1');
   });
 
   it('never returns an id already taken', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const taken = new Set([
       ...design.instances.connectors.map((i) => i.id),
       ...design.instances.segments.map((i) => i.id),
@@ -54,7 +54,7 @@ describe('nextInstanceId', () => {
 
 describe('addInstance', () => {
   it('appends the instance to its own list and leaves the rest untouched', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const next = addInstance(design, 'connector', 'rca-male', 'j99');
     expect(next.instances.connectors.at(-1)).toEqual({ id: 'j99', def: 'rca-male' });
     expect(next.instances.segments).toBe(design.instances.segments);
@@ -68,7 +68,7 @@ describe('addInstance', () => {
 
 describe('removeInstance', () => {
   it('removes the instance and every joint that lands on it', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const attached = design.joints.filter(
       (joint) => joint.a.instance === 'u1' || joint.b.instance === 'u1',
     ).length;
@@ -81,7 +81,7 @@ describe('removeInstance', () => {
   });
 
   it('cascades to pigtails that land only on the removed instance', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const w1Before = design.instances.segments.find((s) => s.id === 'w1');
     expect(w1Before?.pigtails?.some((p) => p.id === 'shield' && p.end === 'a')).toBe(true);
 
@@ -95,7 +95,7 @@ describe('removeInstance', () => {
   });
 
   it('is a no-op on the four instance lists it knows about when the id is not there', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const next = removeInstance(design, 'nope');
     expect(next.joints).toEqual(design.joints);
     expect(next.instances.connectors).toEqual(design.instances.connectors);
@@ -105,14 +105,14 @@ describe('removeInstance', () => {
   });
 
   it('keeps instance kinds it does not edit (e.g. `mechanical`)', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     expect(design.instances.mechanical?.length).toBeGreaterThan(0);
     const next = removeInstance(design, 'nope');
     expect(next.instances.mechanical).toEqual(design.instances.mechanical);
   });
 
   it('takes the mechanical parts attached to the removed instance with it, transitively', () => {
-    const design = loadDesign('db9-null-modem');
+    const design = loadDesign('de9-crossover');
     const next = removeInstance(design, 'j1');
     const ids = (next.instances.mechanical ?? []).map((m) => m.id);
     // m1 is attached to j1, m2 to m1: both go; j2's hood stays
@@ -120,7 +120,7 @@ describe('removeInstance', () => {
   });
 
   it('drops a breakout whose leg is removed, keeps it otherwise', () => {
-    const design = loadDesign('trs-to-2rca-y');
+    const design = loadDesign('dc-y-splitter');
     expect(design.instances.breakouts?.length).toBe(1);
     expect(removeInstance(design, 'nope').instances.breakouts).toEqual(design.instances.breakouts);
     expect(removeInstance(design, 'w2').instances.breakouts).toEqual([]);
@@ -129,7 +129,7 @@ describe('removeInstance', () => {
 
 describe('dropUnlandedPigtails', () => {
   it('drops a pigtail once no joint lands on it, and leaves the others', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const w1 = design.instances.segments.find((s) => s.id === 'w1')!;
     expect(w1.pigtails?.filter((p) => p.id === 'shield')).toHaveLength(2); // end a and end b
 
@@ -147,14 +147,14 @@ describe('dropUnlandedPigtails', () => {
   });
 
   it('is a pure no-op (same reference) when every pigtail is still landed', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     expect(dropUnlandedPigtails(design)).toBe(design);
   });
 });
 
 describe('addJoint / removeJoint / removeJoints', () => {
   it('addJoint appends the joint verbatim', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const a = { instance: 'j1', terminal: '1' };
     const b = { instance: 'u1', terminal: 'GND' };
     const next = addJoint(design, a, b);
@@ -164,7 +164,7 @@ describe('addJoint / removeJoint / removeJoints', () => {
   });
 
   it('removeJoint drops by index and also drops any pigtail that lands there', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const index = design.joints.findIndex(
       (j) => j.a.instance === 'w1' && j.a.terminal === 'pigtail:shield' && j.a.end === 'a',
     );
@@ -175,7 +175,7 @@ describe('addJoint / removeJoint / removeJoints', () => {
   });
 
   it('removeJoints drops several indices in one pass', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const before = design.joints.length;
     const next = removeJoints(design, [0, 2]);
     expect(next.joints).toHaveLength(before - 2);
@@ -185,7 +185,7 @@ describe('addJoint / removeJoint / removeJoints', () => {
 
 describe('updateInstance', () => {
   it('patches only the given fields, per instance kind, and clears a field set to undefined/empty', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const lengthened = updateInstance(design, 'w1', { lengthMm: 2500 });
     expect(lengthened.instances.segments.find((i) => i.id === 'w1')?.lengthMm).toBe(2500);
 
@@ -200,14 +200,14 @@ describe('updateInstance', () => {
   });
 
   it('leaves every other instance exactly as it was', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const next = updateInstance(design, 'w1', { role: 'x' });
     expect(next.instances.connectors).toEqual(design.instances.connectors);
     expect(next.instances.pcbas).toEqual(design.instances.pcbas);
   });
 
   it('is a no-op on the four instance lists for an id that is not there', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const next = updateInstance(design, 'ghost', { note: 'x' });
     expect(next.instances.connectors).toEqual(design.instances.connectors);
     expect(next.instances.segments).toEqual(design.instances.segments);
@@ -216,7 +216,7 @@ describe('updateInstance', () => {
   });
 
   it('keeps instance kinds it does not edit (e.g. `mechanical`)', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     expect(design.instances.mechanical?.length).toBeGreaterThan(0);
     const next = updateInstance(design, 'ghost', { note: 'x' });
     expect(next.instances.mechanical).toEqual(design.instances.mechanical);
@@ -225,7 +225,7 @@ describe('updateInstance', () => {
 
 describe('parseDesignJson', () => {
   it('parses a valid document', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const result = parseDesignJson(JSON.stringify(design));
     expect(result.ok).toBe(true);
     expect(result.ok && result.design.id).toBe(design.id);

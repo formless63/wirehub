@@ -1,17 +1,17 @@
 {
   "schemaVersion": 4,
-  "id": "db9-null-modem",
-  "label": "DE-9 RS-232 → DE-9 RS-232, null modem (3-wire, local handshake loopback)",
+  "id": "de9-crossover",
+  "label": "DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks",
   "instances": {
     "connectors": [
       {
         "id": "j1",
-        "def": "de9-female-rs232",
+        "def": "de9-female",
         "role": "end A"
       },
       {
         "id": "j2",
-        "def": "de9-female-rs232",
+        "def": "de9-female",
         "role": "end B"
       }
     ],
@@ -69,7 +69,7 @@
         "terminal": "pair-1.a",
         "end": "a"
       },
-      "note": "TXD"
+      "note": "3 out"
     },
     {
       "a": {
@@ -81,7 +81,7 @@
         "instance": "j2",
         "terminal": "2"
       },
-      "note": "crossed to RXD"
+      "note": "crossed to 2"
     },
     {
       "a": {
@@ -93,7 +93,7 @@
         "terminal": "pair-1.b",
         "end": "a"
       },
-      "note": "RXD"
+      "note": "2 in"
     },
     {
       "a": {
@@ -105,7 +105,7 @@
         "instance": "j2",
         "terminal": "3"
       },
-      "note": "crossed to TXD"
+      "note": "crossed to 3"
     },
     {
       "a": {
@@ -117,7 +117,7 @@
         "terminal": "pair-2.a",
         "end": "a"
       },
-      "note": "signal ground"
+      "note": "common"
     },
     {
       "a": {
@@ -140,7 +140,7 @@
         "instance": "j1",
         "terminal": "shell"
       },
-      "note": "drain to the shell at the source end only"
+      "note": "drain to the shell at end A only"
     },
     {
       "a": {
@@ -151,7 +151,7 @@
         "instance": "j1",
         "terminal": "8"
       },
-      "note": "local handshake loopback: RTS → CTS"
+      "note": "local loopback 7 → 8"
     },
     {
       "a": {
@@ -162,7 +162,7 @@
         "instance": "j1",
         "terminal": "6"
       },
-      "note": "local loopback: DTR → DSR"
+      "note": "local loopback 4 → 6"
     },
     {
       "a": {
@@ -173,7 +173,7 @@
         "instance": "j1",
         "terminal": "1"
       },
-      "note": "local loopback: DTR → DCD"
+      "note": "local loopback 4 → 1"
     },
     {
       "a": {
@@ -184,7 +184,7 @@
         "instance": "j2",
         "terminal": "8"
       },
-      "note": "local handshake loopback: RTS → CTS"
+      "note": "local loopback 7 → 8"
     },
     {
       "a": {
@@ -195,7 +195,7 @@
         "instance": "j2",
         "terminal": "6"
       },
-      "note": "local loopback: DTR → DSR"
+      "note": "local loopback 4 → 6"
     },
     {
       "a": {
@@ -206,12 +206,12 @@
         "instance": "j2",
         "terminal": "1"
       },
-      "note": "local loopback: DTR → DCD"
+      "note": "local loopback 4 → 1"
     }
   ],
   "notes": [
     "w1:drain@b is cut back at end B — the shield is grounded at end A only.",
     "w1:pair-2.b@a and w1:pair-2.b@b are a spare core, cut back and insulated at both ends."
   ],
-  "src": "synthetic example: the common 3-wire null-modem wiring (TXD/RXD crossed, signal ground straight, RTS/CTS and DTR/DSR/DCD looped back locally at each end) on TIA-574 DE-9 connectors"
+  "src": "synthetic example: two numbered DE-9 sockets on a shielded two-pair cable, pins 2 and 3 crossed end to end, 5 straight through, shield drained at end A, and loopback jumpers 7–8, 4–6 and 4–1 at each end"
 }

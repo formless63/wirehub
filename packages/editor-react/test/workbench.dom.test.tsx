@@ -53,7 +53,7 @@ const transforms = (container: HTMLElement): string[] =>
 describe('the arrangement', () => {
 
   it('is read from and written back to the host’s layout store', () => {
-    const design = loadDesignFromDisk('rs485-de9-terminal-board');
+    const design = loadDesignFromDisk('de9-terminal-board');
     const store = memoryLayoutStore();
     store.savePositions(design.id, { j1: { x: 900, y: 800 } });
     const { container } = render(<CableEditor design={design} db={db} layout={store} />);
@@ -61,7 +61,7 @@ describe('the arrangement', () => {
   });
 
   it('is laid out again, and only then, when the user asks', () => {
-    const design = loadDesignFromDisk('rs485-de9-terminal-board');
+    const design = loadDesignFromDisk('de9-terminal-board');
     const store = memoryLayoutStore();
     store.savePositions(design.id, { j1: { x: 900, y: 800 } });
     const { container } = render(<CableEditor design={design} db={db} layout={store} />);
@@ -78,7 +78,7 @@ describe('the arrangement', () => {
 
 describe('what the host is told to remember', () => {
   it('is nothing at all until the user moves something', async () => {
-    const design = loadDesignFromDisk('rs485-de9-terminal-board');
+    const design = loadDesignFromDisk('de9-terminal-board');
     const store = memoryLayoutStore();
     render(<CableEditor design={design} db={db} layout={store} />);
     await new Promise((resolve) => setTimeout(resolve, POSITION_SAVE_DEBOUNCE_MS + 100));
@@ -91,7 +91,7 @@ describe('what the host is told to remember', () => {
 
 describe('the panes', () => {
   it('opens with a splitter between each pair', () => {
-    const design = loadDesignFromDisk('rs485-de9-terminal-board');
+    const design = loadDesignFromDisk('de9-terminal-board');
     render(<CableEditor design={design} db={db} />);
     const bars = screen.getAllByRole('separator');
     expect(bars.map((bar) => bar.getAttribute('aria-label'))).toEqual([
@@ -103,7 +103,7 @@ describe('the panes', () => {
   });
 
   it('resizes from the keyboard, and resets on a double-click', () => {
-    const design = loadDesignFromDisk('rs485-de9-terminal-board');
+    const design = loadDesignFromDisk('de9-terminal-board');
     const { container } = render(<CableEditor design={design} db={db} />);
     const body = container.querySelector('.cs-body') as HTMLElement;
     const palette = screen.getAllByRole('separator')[0] as HTMLElement;
@@ -119,7 +119,7 @@ describe('the panes', () => {
   });
 
   it('opens at the sizes the host remembers', () => {
-    const design = loadDesignFromDisk('rs485-de9-terminal-board');
+    const design = loadDesignFromDisk('de9-terminal-board');
     const store = memoryLayoutStore();
     store.savePanes({ palette: 190, side: 400, dock: 520 });
     const { container } = render(<CableEditor design={design} db={db} layout={store} />);
@@ -132,7 +132,7 @@ describe('the panes', () => {
 
 describe('the canvas overview', () => {
   it('is drawn in the editor’s own colours, not React Flow’s white default', () => {
-    const design = loadDesignFromDisk('rs485-de9-terminal-board');
+    const design = loadDesignFromDisk('de9-terminal-board');
     const { container } = render(<CableEditor design={design} db={db} />);
     const minimap = container.querySelector('.react-flow__minimap');
     expect(minimap).not.toBeNull();

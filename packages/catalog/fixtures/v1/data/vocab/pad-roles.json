@@ -32,18 +32,6 @@
       "src": "synthetic example: base starter vocabulary"
     },
     {
-      "id": "audio-l",
-      "label": "Audio L",
-      "lane": "audio-l",
-      "src": "synthetic example: base starter vocabulary"
-    },
-    {
-      "id": "audio-r",
-      "label": "Audio R",
-      "lane": "audio-r",
-      "src": "synthetic example: base starter vocabulary"
-    },
-    {
       "id": "spare",
       "label": "Spare",
       "lane": "spare",

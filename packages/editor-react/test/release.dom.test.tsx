@@ -18,7 +18,7 @@ import type { DocumentKind } from '../src/documents.ts';
 import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();
-const design: CableDesign = loadDesignFromDisk('rs485-de9-terminal-board');
+const design: CableDesign = loadDesignFromDisk('de9-terminal-board');
 
 afterEach(() => {
   cleanup();

@@ -18,7 +18,7 @@ import type { EditorChromeState } from '../src/CableEditor.tsx';
 import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();
-const REAL = loadDesignFromDisk('rs485-de9-terminal-board');
+const REAL = loadDesignFromDisk('de9-terminal-board');
 
 afterEach(cleanup);
 
@@ -63,7 +63,7 @@ describe('the Parts drawer, host chrome', () => {
     );
 
     fireEvent.click(screen.getByLabelText('Parts'));
-    const item = screen.getByTitle('rca-male — drag onto the canvas');
+    const item = screen.getByTitle('jst-xh-2-dc — drag onto the canvas');
     const canvas = container.querySelector('.cs-canvas');
     if (canvas === null) throw new Error('canvas missing');
 
@@ -76,7 +76,7 @@ describe('the Parts drawer, host chrome', () => {
 
     await waitFor(() => expect(container.querySelectorAll('.cs-node')).toHaveLength(before + 1));
     await waitFor(() =>
-      expect(states[states.length - 1]?.undoLabel).toContain('add connector rca-male'),
+      expect(states[states.length - 1]?.undoLabel).toContain('add connector jst-xh-2-dc'),
     );
     expect(states[states.length - 1]?.dirty).toBe(true);
 

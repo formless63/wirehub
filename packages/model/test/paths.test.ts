@@ -29,10 +29,10 @@ describe('element paths', () => {
 
   it('answers undefined for a path the stock does not have', () => {
     expect(resolveElementPath(stock('cat5e-utp').structure, 'pair-5.a')).toBeUndefined();
-    expect(resolveElementPath(stock('mic-2core-braid').structure, 'drain')).toBeUndefined();
+    expect(resolveElementPath(stock('dc-2core-24awg').structure, 'drain')).toBeUndefined();
   });
 
   it('resolves the jacket, which carries no terminals', () => {
-    expect(resolveElementPath(stock('mic-2core-braid').structure, 'jacket')?.kind).toBe('insulation');
+    expect(resolveElementPath(stock('dc-2core-24awg').structure, 'jacket')?.kind).toBe('insulation');
   });
 });

@@ -28,14 +28,14 @@ describe('PN matching', () => {
 });
 
 describe('the starter cable list', () => {
-  it("finds the mic cable by its drawing's family PN and by a length's variation PN", () => {
-    expect(find('CBL-00010-XX')).toContain('xlr-mic-cable');
-    expect(find('CBL-00010-05')).toEqual(['xlr-mic-cable']);
+  it("finds the LED lead by its drawing's family PN and by a length's variation PN", () => {
+    expect(find('CBL-00010-XX')).toContain('dc-led-lead');
+    expect(find('CBL-00010-05')).toEqual(['dc-led-lead']);
   });
 
   it("finds cables by a part's PN", () => {
-    expect(find('WIR-00002').sort()).toEqual(['db9-null-modem', 'rs485-de9-terminal-board']);
-    expect(matchedPartNumber(rows.find((r) => r.id === 'xlr-mic-cable')!, 'WIR-00003')).toBe('WIR-00003');
+    expect(find('WIR-00002').sort()).toEqual(['dc-y-splitter', 'de9-crossover', 'de9-terminal-board']);
+    expect(matchedPartNumber(rows.find((r) => r.id === 'dc-led-lead')!, 'WIR-00005')).toBe('WIR-00005');
   });
 
   it('finds nothing for a number no cable carries', () => {

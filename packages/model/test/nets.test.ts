@@ -10,21 +10,27 @@ import { deriveNets, netForTerminal } from '../src/index.ts';
 
 const db = loadDb();
 
-describe('the RJ45 patch cord', () => {
-  const design = loadDesign('rj45-patch-t568b');
+describe('the DE-9 crossover lead', () => {
+  const design = loadDesign('de9-crossover');
   const nets = deriveNets(design, db);
+  const keysOf = (instance: string, terminal: string): string[] =>
+    (netForTerminal(nets, { instance, terminal })?.terminals ?? []).map((t) => t.key);
 
-  it('has one net per pin, each joining the same pin at both ends', () => {
-    for (let pin = 1; pin <= 8; pin += 1) {
-      const keys = (netForTerminal(nets, { instance: 'j1', terminal: String(pin) })?.terminals ?? []).map((t) => t.key);
-      expect(keys).toContain(`j2:${pin}`);
-      for (let other = 1; other <= 8; other += 1) if (other !== pin) expect(keys).not.toContain(`j2:${other}`);
-    }
+  it('crosses 2 and 3 end to end and runs 5 straight', () => {
+    expect(keysOf('j1', '3')).toContain('j2:2');
+    expect(keysOf('j1', '3')).not.toContain('j2:3');
+    expect(keysOf('j1', '2')).toContain('j2:3');
+    expect(keysOf('j1', '5')).toContain('j2:5');
+  });
+
+  it('joins the loopback jumpers at each end into one net, apart from the far end', () => {
+    expect(keysOf('j1', '4')).toEqual(expect.arrayContaining(['j1:1', 'j1:6']));
+    expect(keysOf('j1', '4')).not.toContain('j2:4');
   });
 });
 
-describe('the RS-485 adapter', () => {
-  const design = loadDesign('rs485-de9-terminal-board');
+describe('the terminal adapter board lead', () => {
+  const design = loadDesign('de9-terminal-board');
   const nets = deriveNets(design, db);
   const keysOf = (instance: string, terminal: string): string[] =>
     (netForTerminal(nets, { instance, terminal })?.terminals ?? []).map((t) => t.key);
@@ -40,10 +46,10 @@ describe('the RS-485 adapter', () => {
 });
 
 describe('the LED lead', () => {
-  const design = loadDesign('usb-a-led-lead');
+  const design = loadDesign('dc-led-lead');
   const nets = deriveNets(design, db);
 
-  it('components split nets: VBUS stops at the resistor', () => {
+  it('components split nets: the supply stops at the resistor', () => {
     const keys = (netForTerminal(nets, { instance: 'j1', terminal: '1' })?.terminals ?? []).map((t) => t.key);
     expect(keys).toContain('r1:a');
     expect(keys).not.toContain('r1:b');

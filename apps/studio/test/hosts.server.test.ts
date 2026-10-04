@@ -28,7 +28,7 @@ import { mountWorkbenchApi } from '../server/hono-adapter.ts';
 import { workbenchMiddleware } from '../server/plugin.ts';
 
 const CATALOG: Db = loadDb();
-const REAL: CableDesign = loadDesign('rs485-de9-terminal-board');
+const REAL: CableDesign = loadDesign('de9-terminal-board');
 
 function memoryDesignStore(seed: CableDesign[]): DesignStore {
   const files = new Map<string, string>(seed.map((d) => [d.id, formatDesignJson(d)]));

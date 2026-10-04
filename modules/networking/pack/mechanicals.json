@@ -1,0 +1,8 @@
+[
+  {
+    "id": "rj45-boot",
+    "label": "RJ45 strain-relief boot",
+    "kind": "shell",
+    "src": "generic snag-less RJ45 boot; synthetic example"
+  }
+]

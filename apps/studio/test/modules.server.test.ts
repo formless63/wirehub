@@ -62,7 +62,7 @@ async function call(deps: WorkbenchDeps, request: ApiRequest): Promise<{ status:
 }
 
 describe('module routes', () => {
-  const deps = depsWith(loadDesign('db9-null-modem'));
+  const deps = depsWith(loadDesign('de9-crossover'));
 
   it('answers an integration route under /api/modules/<module>/', async () => {
     expect(await call(deps, { method: 'GET', path: '/api/modules/example/status?q=hi' })).toMatchObject({ status: 200, body: { ok: true, q: 'hi' } });
@@ -78,7 +78,7 @@ describe('module routes', () => {
 
 describe('module validation rules', () => {
   it('refuse a save the rule rejects, with the module-prefixed code', async () => {
-    const design = loadDesign('db9-null-modem');
+    const design = loadDesign('de9-crossover');
     const bare = { ...structuredClone(design), notes: [] };
     const deps = depsWith(design);
     const etag = (await call(deps, { method: 'GET', path: `/api/designs/${design.id}` }) as { headers?: Record<string, string> }).headers?.['ETag'];

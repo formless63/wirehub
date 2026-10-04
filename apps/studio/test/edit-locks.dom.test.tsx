@@ -20,7 +20,7 @@ import { LockClientContext } from '../src/locks/lock-context.tsx';
 import { createLockClient, type LockClient, type LockTransport } from '../src/locks/lock-client.ts';
 import { LOCK_HEADER } from '../src/locks/records.ts';
 
-const RECORD = 'design:rs485-de9-terminal-board';
+const RECORD = 'design:de9-terminal-board';
 
 let store: LockStore;
 let now: number;
@@ -207,10 +207,10 @@ describe('edit locks in the browser', () => {
       }) as typeof fetch,
     };
     const uninstall = will.installFetch(target);
-    await target.fetch('/api/designs/rs485-de9-terminal-board', { method: 'PUT', headers: { 'if-match': '"x"' }, body: '{}' });
-    await target.fetch('/api/drawings/rs485-de9-terminal-board/photo', { method: 'PUT', body: '{}' });
+    await target.fetch('/api/designs/de9-terminal-board', { method: 'PUT', headers: { 'if-match': '"x"' }, body: '{}' });
+    await target.fetch('/api/drawings/de9-terminal-board/photo', { method: 'PUT', body: '{}' });
     await target.fetch('/api/designs/other', { method: 'PUT', body: '{}' });
-    await target.fetch('/api/designs/rs485-de9-terminal-board');
+    await target.fetch('/api/designs/de9-terminal-board');
     const token = seen[0]?.header;
     expect(token).toMatch(/.+/);
     expect(seen.map((s) => s.header)).toEqual([token, token, null, null]);

@@ -13,50 +13,6 @@
       "src": "IEC 60807-3 / DIN 41652"
     },
     {
-      "id": "rj45",
-      "label": "RJ45 (8P8C)",
-      "aliases": [
-        "8P8C",
-        "RJ45"
-      ],
-      "src": "IEC 60603-7"
-    },
-    {
-      "id": "xlr",
-      "label": "XLR",
-      "aliases": [
-        "XLR"
-      ],
-      "src": "IEC 61076-2-103"
-    },
-    {
-      "id": "rca",
-      "label": "RCA",
-      "aliases": [
-        "RCA",
-        "phono"
-      ],
-      "src": "IEC 60603-12"
-    },
-    {
-      "id": "trs-3-5mm",
-      "label": "3.5 mm TRS",
-      "aliases": [
-        "3.5mm",
-        "3.5 mm"
-      ],
-      "src": "IEC 60603-11"
-    },
-    {
-      "id": "usb-a",
-      "label": "USB Type-A",
-      "aliases": [
-        "USB-A",
-        "USB A"
-      ],
-      "src": "USB 2.0 Specification (USB-IF)"
-    },
-    {
       "id": "terminal-block",
       "label": "Terminal block",
       "aliases": [

@@ -55,14 +55,14 @@ function freeTerminal(state: EditorState, instanceId: string): TerminalRef {
 
 describe('initial state', () => {
   it('validates the loaded design and keeps issues in sync with it', () => {
-    const state = stateFor('rs485-de9-terminal-board');
+    const state = stateFor('de9-terminal-board');
     expect(state.issues).toEqual(validateDesign(state.design, db));
     expect(errors(state.issues)).toHaveLength(0);
     expect(state.rejection).toBeUndefined();
   });
 
   it('keeps coordinates out of the design document', () => {
-    const state = stateFor('rs485-de9-terminal-board');
+    const state = stateFor('de9-terminal-board');
     expect(Object.keys(state.positions).length).toBeGreaterThan(0);
     expect(JSON.stringify(state.design)).not.toContain('position');
   });
@@ -71,7 +71,7 @@ describe('initial state', () => {
 describe('joints', () => {
   let state: EditorState;
   beforeEach(() => {
-    state = stateFor('rs485-de9-terminal-board');
+    state = stateFor('de9-terminal-board');
   });
 
   it('accepts a joint between two real, unused terminals', () => {
@@ -180,19 +180,19 @@ describe('joints', () => {
 describe('instances', () => {
   let state: EditorState;
   beforeEach(() => {
-    state = stateFor('rs485-de9-terminal-board');
+    state = stateFor('de9-terminal-board');
   });
 
   it('adds a connector with the next free shop-style id and selects it', () => {
-    const id = nextInstanceId(state.design, 'connector', 'rca-male');
+    const id = nextInstanceId(state.design, 'connector', 'jst-xh-2-dc');
     const next = editorReducer(state, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
       position: { x: 10, y: 20 },
     });
     expect(next.design.instances.connectors.map((i) => i.id)).toContain(id);
-    expect(next.design.instances.connectors.at(-1)).toEqual({ id, def: 'rca-male' });
+    expect(next.design.instances.connectors.at(-1)).toEqual({ id, def: 'jst-xh-2-dc' });
     expect(errors(next.issues)).toHaveLength(0);
     expect(next.positions[id]).toEqual({ x: 10, y: 20 });
     expect(next.selection).toEqual({ kind: 'instance', id });
@@ -200,8 +200,8 @@ describe('instances', () => {
 
   describe('add-instance-near (the node picker, e5c.6)', () => {
     it('places without wiring when no anchor is given — same as a plain add-instance', () => {
-      const id = nextInstanceId(state.design, 'connector', 'rca-male');
-      const next = editorReducer(state, { type: 'add-instance-near', kind: 'connector', def: 'rca-male' });
+      const id = nextInstanceId(state.design, 'connector', 'jst-xh-2-dc');
+      const next = editorReducer(state, { type: 'add-instance-near', kind: 'connector', def: 'jst-xh-2-dc' });
       expect(next.design.instances.connectors.map((i) => i.id)).toContain(id);
       expect(next.design.joints).toHaveLength(state.design.joints.length);
       expect(next.selection).toEqual({ kind: 'instance', id });
@@ -210,17 +210,17 @@ describe('instances', () => {
 
     it('inserts and wires an anchor terminal in one commit — one undo step for both', () => {
       const anchor = freeTerminal(state, 'j1'); // j1:7 — a free pin (see picker.test.ts)
-      const id = nextInstanceId(state.design, 'connector', 'rca-male');
+      const id = nextInstanceId(state.design, 'connector', 'jst-xh-2-dc');
       const next = editorReducer(state, {
         type: 'add-instance-near',
         kind: 'connector',
-        def: 'rca-male',
+        def: 'jst-xh-2-dc',
         anchor,
-        wireTerminal: { terminal: 'tip' },
+        wireTerminal: { terminal: '1' },
       });
       expect(next.design.instances.connectors.map((i) => i.id)).toContain(id);
       expect(next.design.joints).toHaveLength(state.design.joints.length + 1);
-      expect(jointIndexFor(next.design, anchor, { instance: id, terminal: 'tip' })).toBeGreaterThanOrEqual(0);
+      expect(jointIndexFor(next.design, anchor, { instance: id, terminal: '1' })).toBeGreaterThanOrEqual(0);
       expect(errors(next.issues)).toHaveLength(0);
       // one commit, one undo step — undoing restores both the instance and the joint
       expect(next.past.at(-1)?.description).toContain('wired to');
@@ -237,9 +237,9 @@ describe('instances', () => {
       const next = editorReducer(state, {
         type: 'add-instance-near',
         kind: 'connector',
-        def: 'rca-male',
+        def: 'jst-xh-2-dc',
         anchor: bogus,
-        wireTerminal: { terminal: 'tip' },
+        wireTerminal: { terminal: '1' },
       });
       expect(next.design).toBe(state.design);
       expect(next.rejection).toContain('unknown instance');
@@ -280,7 +280,7 @@ describe('instances', () => {
 
   describe('delete-instances (docked boards)', () => {
     it('a batch with no docked pair just deletes every id, still one commit', () => {
-      const before = stateFor('rs485-de9-terminal-board');
+      const before = stateFor('de9-terminal-board');
       // w1 and u2 are unrelated — neither mounts on the other
       const ids = ['w1', 'u1'];
       const next = editorReducer(before, { type: 'delete-instances', ids });
@@ -304,7 +304,7 @@ describe('instances', () => {
 
 describe('presentation state', () => {
   it('moving a node changes coordinates and nothing else', () => {
-    const state = stateFor('rs485-de9-terminal-board');
+    const state = stateFor('de9-terminal-board');
     const next = editorReducer(state, {
       type: 'move-node',
       id: 'j1',
@@ -316,7 +316,7 @@ describe('presentation state', () => {
   });
 
   it('a drag gesture is one undo step that puts the parts back, the design untouched (udy.10)', () => {
-    const state = stateFor('rs485-de9-terminal-board');
+    const state = stateFor('de9-terminal-board');
     const before = state.positions['j1'];
     let next = editorReducer(state, { type: 'begin-move' });
     for (const x of [1, 2, 3]) next = editorReducer(next, { type: 'move-node', id: 'j1', position: { x, y: x } });
@@ -335,13 +335,13 @@ describe('presentation state', () => {
   });
 
   it('a click (a gesture that moves nothing) leaves no undo step', () => {
-    const state = stateFor('rs485-de9-terminal-board');
+    const state = stateFor('de9-terminal-board');
     const next = editorReducer(editorReducer(state, { type: 'begin-move' }), { type: 'end-move' });
     expect(next.past).toHaveLength(0);
   });
 
   it('moves and edits interleave on one stack; undoing an edit leaves the arrangement alone', () => {
-    const state = stateFor('rs485-de9-terminal-board');
+    const state = stateFor('de9-terminal-board');
     let next = editorReducer(state, { type: 'begin-move' });
     next = editorReducer(next, { type: 'move-node', id: 'j1', position: { x: 9, y: 9 } });
     next = editorReducer(next, { type: 'end-move' });
@@ -355,14 +355,14 @@ describe('presentation state', () => {
   });
 
   it('auto-arrange is undoable', () => {
-    const state = editorReducer(stateFor('rs485-de9-terminal-board'), { type: 'move-node', id: 'j1', position: { x: 4321, y: 1234 } });
+    const state = editorReducer(stateFor('de9-terminal-board'), { type: 'move-node', id: 'j1', position: { x: 4321, y: 1234 } });
     const arranged = editorReducer(state, { type: 'auto-arrange' });
     expect(arranged.past.at(-1)?.description).toBe('auto-arrange');
     expect(editorReducer(arranged, { type: 'undo' }).positions['j1']).toEqual({ x: 4321, y: 1234 });
   });
 
   it('selection never touches the design', () => {
-    const state = stateFor('rs485-de9-terminal-board');
+    const state = stateFor('de9-terminal-board');
     const next = editorReducer(state, {
       type: 'select',
       selection: { kind: 'terminal', ref: { instance: 'j1', terminal: '1' } },
@@ -373,14 +373,14 @@ describe('presentation state', () => {
 
 describe('commit', () => {
   it('is the only door into the design, and it is locked from the error side', () => {
-    const state = stateFor('rs485-de9-terminal-board');
+    const state = stateFor('de9-terminal-board');
     const broken: CableDesign = {
       ...state.design,
       instances: {
         ...state.design.instances,
         connectors: [
           ...state.design.instances.connectors,
-          { id: 'j1', def: 'rca-male' },
+          { id: 'j1', def: 'jst-xh-2-dc' },
         ],
       },
     };

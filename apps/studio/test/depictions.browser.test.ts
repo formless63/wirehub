@@ -254,7 +254,7 @@ describe('the bundled tree', () => {
  */
 describe('the preview, rendered the way the browser renders it', () => {
   const db = loadDbInBrowser();
-  const design = loadDesignInBrowser('db9-null-modem');
+  const design = loadDesignInBrowser('de9-crossover');
 
   it('still draws the abstract blocks when the host asks for none', () => {
     const result = renderPreview(design, db, false);

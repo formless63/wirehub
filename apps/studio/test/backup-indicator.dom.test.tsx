@@ -18,7 +18,7 @@ const OK: BackupStatus = {
   enabled: true,
   state: 'ok',
   message: '',
-  lastCommit: { sha: 'abcdef0123456789', at: '2026-09-26T11:57:00Z', author: 'Alex <alex@example.com>', subject: 'studio: update design xlr-mic-cable' },
+  lastCommit: { sha: 'abcdef0123456789', at: '2026-09-26T11:57:00Z', author: 'Alex <alex@example.com>', subject: 'studio: update design dc-led-lead' },
   lastPush: { sha: 'abcdef0123456789', at: '2026-09-26T11:58:00Z' },
   pendingCommits: 0,
   remote: 'origin',
@@ -79,7 +79,7 @@ describe('BackupIndicator', () => {
     const details = await screen.findByRole('dialog');
     expect(details.textContent).toContain('origin/master');
     expect(details.textContent).toContain('2 commits');
-    expect(details.textContent).toContain('update design xlr-mic-cable');
+    expect(details.textContent).toContain('update design dc-led-lead');
     expect(details.textContent).toContain('Alex <alex@example.com>');
     expect(screen.getByTestId('backup-message').textContent).toContain('data/a.json');
 

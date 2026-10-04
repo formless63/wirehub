@@ -1,0 +1,73 @@
+[
+  {
+    "id": "xlr-balanced-audio",
+    "label": "Balanced audio (XLR3)",
+    "short": "XLR",
+    "bodies": [
+      "xlr3-female",
+      "xlr3-male"
+    ],
+    "pins": {
+      "1": {
+        "signal": "gnd-chassis",
+        "label": "Shield / ground"
+      },
+      "2": {
+        "signal": "audio-hot",
+        "label": "Hot (+)"
+      },
+      "3": {
+        "signal": "audio-cold",
+        "label": "Cold (−)"
+      },
+      "shell": {
+        "signal": "nc",
+        "label": "Shell (not connected)"
+      }
+    },
+    "confidence": "documented",
+    "src": "AES14-1992 (r2004) / IEC 60268-12: pin 1 shield, pin 2 hot, pin 3 cold"
+  },
+  {
+    "id": "rca-single",
+    "label": "RCA, one signal + ground",
+    "short": "RCA",
+    "bodies": [
+      "rca-male"
+    ],
+    "pins": {
+      "tip": {
+        "signal": "any",
+        "label": "Signal"
+      },
+      "sleeve": {
+        "signal": "gnd",
+        "label": "Ground / shield"
+      }
+    },
+    "src": "IEC 60603-12: centre pin signal, shell ground"
+  },
+  {
+    "id": "stereo-trs",
+    "label": "Stereo TRS (tip L, ring R)",
+    "short": "3.5 mm",
+    "bodies": [
+      "trs-3-5mm-male"
+    ],
+    "pins": {
+      "tip": {
+        "signal": "audio-l",
+        "label": "Left"
+      },
+      "ring": {
+        "signal": "audio-r",
+        "label": "Right"
+      },
+      "sleeve": {
+        "signal": "gnd-audio",
+        "label": "Ground"
+      }
+    },
+    "src": "IEC 60603-11 / common stereo convention: tip left, ring right, sleeve ground"
+  }
+]

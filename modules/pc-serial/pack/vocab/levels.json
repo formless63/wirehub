@@ -1,0 +1,17 @@
+{
+  "id": "levels",
+  "label": "Signal levels",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "rs232",
+      "label": "RS-232 (±3…15 V)",
+      "src": "TIA-232-F"
+    },
+    {
+      "id": "rs485",
+      "label": "RS-485 differential",
+      "src": "TIA-485-A"
+    }
+  ]
+}

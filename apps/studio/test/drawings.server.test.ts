@@ -16,7 +16,7 @@ import { withLoadedVersion } from './loaded-version.ts';
 
 const DRAWINGS = join(process.cwd(), '..', '..', 'packages', 'catalog', 'data', 'drawings');
 const db = loadDb();
-const REAL = loadDesign('rj45-patch-t568b');
+const REAL = loadDesign('de9-crossover');
 
 function designs(): DesignStore {
   const files = new Map([[REAL.id, formatDesignJson(REAL)]]);
@@ -92,9 +92,9 @@ describe('/api/drawings/:id', () => {
 
   it('follows the design through a rename and goes with it on delete', async () => {
     await call('PUT', `/api/drawings/${REAL.id}`, META);
-    expect((await call('POST', `/api/designs/${REAL.id}/rename`, { newId: 'xlr-renamed', newLabel: 'XLR' })).status).toBe(200);
-    expect((await call('GET', '/api/drawings/xlr-renamed')).body.meta).toEqual(META);
-    expect((await call('DELETE', '/api/designs/xlr-renamed', { confirm: 'xlr-renamed' })).status).toBe(200);
+    expect((await call('POST', `/api/designs/${REAL.id}/rename`, { newId: 'de9-renamed', newLabel: 'DE-9' })).status).toBe(200);
+    expect((await call('GET', '/api/drawings/de9-renamed')).body.meta).toEqual(META);
+    expect((await call('DELETE', '/api/designs/de9-renamed', { confirm: 'de9-renamed' })).status).toBe(200);
     expect(drawings.files.size).toBe(0);
   });
 

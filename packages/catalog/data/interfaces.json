@@ -1,239 +1,56 @@
 [
   {
-    "id": "rs232-dte",
-    "label": "RS-232 DTE (DE-9)",
-    "short": "RS-232",
+    "id": "de9-numbered",
+    "label": "DE-9, pins by number (no signals assigned)",
+    "short": "DE-9",
     "bodies": [
       "de9-female",
       "de9-male"
     ],
     "pins": {
       "1": {
-        "signal": "rs232-dcd",
-        "label": "DCD",
-        "dir": "in"
-      },
-      "2": {
-        "signal": "rs232-rxd",
-        "label": "RXD",
-        "dir": "in"
-      },
-      "3": {
-        "signal": "rs232-txd",
-        "label": "TXD",
-        "dir": "out"
-      },
-      "4": {
-        "signal": "rs232-dtr",
-        "label": "DTR",
-        "dir": "out"
-      },
-      "5": {
-        "signal": "gnd-signal",
-        "label": "GND"
-      },
-      "6": {
-        "signal": "rs232-dsr",
-        "label": "DSR",
-        "dir": "in"
-      },
-      "7": {
-        "signal": "rs232-rts",
-        "label": "RTS",
-        "dir": "out"
-      },
-      "8": {
-        "signal": "rs232-cts",
-        "label": "CTS",
-        "dir": "in"
-      },
-      "9": {
-        "signal": "rs232-ri",
-        "label": "RI",
-        "dir": "in"
-      },
-      "shell": {
-        "signal": "gnd-chassis",
-        "label": "Shell"
-      }
-    },
-    "confidence": "documented",
-    "src": "TIA-574 (EIA/TIA-574) 9-position non-synchronous DTE/DCE interface — public standard pin assignment as seen from the DTE"
-  },
-  {
-    "id": "profibus-dp",
-    "label": "RS-485 (PROFIBUS DP, DE-9)",
-    "short": "RS-485",
-    "bodies": [
-      "de9-female",
-      "de9-male"
-    ],
-    "pins": {
-      "1": {
-        "signal": "nc",
-        "label": "Shield (optional)"
-      },
-      "2": {
-        "signal": "nc",
-        "label": "n/c"
-      },
-      "3": {
-        "signal": "rs485-b",
-        "label": "B (RxD/TxD-P)",
-        "dir": "bidir"
-      },
-      "4": {
-        "signal": "nc",
-        "label": "CNTR-P (optional)"
-      },
-      "5": {
-        "signal": "gnd-signal",
-        "label": "DGND"
-      },
-      "6": {
-        "signal": "pwr-5v",
-        "label": "VP (+5 V, termination supply)",
-        "dir": "out"
-      },
-      "7": {
-        "signal": "nc",
-        "label": "n/c"
-      },
-      "8": {
-        "signal": "rs485-a",
-        "label": "A (RxD/TxD-N)",
-        "dir": "bidir"
-      },
-      "9": {
-        "signal": "nc",
-        "label": "n/c"
-      },
-      "shell": {
-        "signal": "gnd-chassis",
-        "label": "Shell"
-      }
-    },
-    "confidence": "documented",
-    "src": "IEC 61158 / IEC 61784 PROFIBUS DP 9-pin D-sub assignment (pins 3 = B, 8 = A, 5 = DGND, 6 = VP) — public"
-  },
-  {
-    "id": "ethernet-mdi",
-    "label": "Ethernet MDI (T568B wiring)",
-    "short": "RJ45",
-    "bodies": [
-      "rj45-8p8c-plug"
-    ],
-    "pins": {
-      "1": {
-        "signal": "eth-da-p",
-        "label": "BI_DA+"
-      },
-      "2": {
-        "signal": "eth-da-n",
-        "label": "BI_DA−"
-      },
-      "3": {
-        "signal": "eth-db-p",
-        "label": "BI_DB+"
-      },
-      "4": {
-        "signal": "eth-dc-p",
-        "label": "BI_DC+"
-      },
-      "5": {
-        "signal": "eth-dc-n",
-        "label": "BI_DC−"
-      },
-      "6": {
-        "signal": "eth-db-n",
-        "label": "BI_DB−"
-      },
-      "7": {
-        "signal": "eth-dd-p",
-        "label": "BI_DD+"
-      },
-      "8": {
-        "signal": "eth-dd-n",
-        "label": "BI_DD−"
-      },
-      "shell": {
-        "signal": "gnd-chassis",
-        "label": "Shield (STP only)"
-      }
-    },
-    "confidence": "documented",
-    "src": "IEEE 802.3 clause 40 (1000BASE-T) MDI pair assignment; TIA-568 T568B pair-to-pin colours"
-  },
-  {
-    "id": "xlr-balanced-audio",
-    "label": "Balanced audio (XLR3)",
-    "short": "XLR",
-    "bodies": [
-      "xlr3-female",
-      "xlr3-male"
-    ],
-    "pins": {
-      "1": {
-        "signal": "gnd-chassis",
-        "label": "Shield / ground"
-      },
-      "2": {
-        "signal": "audio-hot",
-        "label": "Hot (+)"
-      },
-      "3": {
-        "signal": "audio-cold",
-        "label": "Cold (−)"
-      },
-      "shell": {
-        "signal": "nc",
-        "label": "Shell (not connected)"
-      }
-    },
-    "confidence": "documented",
-    "src": "AES14-1992 (r2004) / IEC 60268-12: pin 1 shield, pin 2 hot, pin 3 cold"
-  },
-  {
-    "id": "rca-single",
-    "label": "RCA, one signal + ground",
-    "short": "RCA",
-    "bodies": [
-      "rca-male"
-    ],
-    "pins": {
-      "tip": {
         "signal": "any",
-        "label": "Signal"
+        "label": "1"
       },
-      "sleeve": {
-        "signal": "gnd",
-        "label": "Ground / shield"
+      "2": {
+        "signal": "any",
+        "label": "2"
+      },
+      "3": {
+        "signal": "any",
+        "label": "3"
+      },
+      "4": {
+        "signal": "any",
+        "label": "4"
+      },
+      "5": {
+        "signal": "any",
+        "label": "5"
+      },
+      "6": {
+        "signal": "any",
+        "label": "6"
+      },
+      "7": {
+        "signal": "any",
+        "label": "7"
+      },
+      "8": {
+        "signal": "any",
+        "label": "8"
+      },
+      "9": {
+        "signal": "any",
+        "label": "9"
+      },
+      "shell": {
+        "signal": "gnd-chassis",
+        "label": "Shell"
       }
     },
-    "src": "IEC 60603-12: centre pin signal, shell ground"
-  },
-  {
-    "id": "stereo-trs",
-    "label": "Stereo TRS (tip L, ring R)",
-    "short": "3.5 mm",
-    "bodies": [
-      "trs-3-5mm-male"
-    ],
-    "pins": {
-      "tip": {
-        "signal": "audio-l",
-        "label": "Left"
-      },
-      "ring": {
-        "signal": "audio-r",
-        "label": "Right"
-      },
-      "sleeve": {
-        "signal": "gnd-audio",
-        "label": "Ground"
-      }
-    },
-    "src": "IEC 60603-11 / common stereo convention: tip left, ring right, sleeve ground"
+    "confidence": "documented",
+    "src": "IEC 60807-3 DE-9 contact numbering; no signal assigned (synthetic example: a generic D-sub before a domain pinout is chosen)"
   },
   {
     "id": "dc-2pin",
@@ -254,39 +71,5 @@
       }
     },
     "src": "synthetic example: a common 2-pin DC convention (pin 1 positive)"
-  },
-  {
-    "id": "usb2-power-data",
-    "label": "USB 2.0 (Type-A)",
-    "short": "USB-A",
-    "bodies": [
-      "usb-a-plug"
-    ],
-    "pins": {
-      "1": {
-        "signal": "pwr-5v",
-        "label": "VBUS",
-        "dir": "in"
-      },
-      "2": {
-        "signal": "usb-dn",
-        "label": "D−",
-        "dir": "bidir"
-      },
-      "3": {
-        "signal": "usb-dp",
-        "label": "D+",
-        "dir": "bidir"
-      },
-      "4": {
-        "signal": "gnd",
-        "label": "GND"
-      },
-      "shell": {
-        "signal": "gnd-chassis",
-        "label": "Shield"
-      }
-    },
-    "src": "USB 2.0 Specification table 6-1 (USB-IF): 1 VBUS, 2 D−, 3 D+, 4 GND"
   }
 ]

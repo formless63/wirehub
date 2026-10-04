@@ -15,7 +15,7 @@ const db: Db = loadDb();
 
 describe('renderPreview', () => {
   it('renders the committed design as a self-contained SVG', () => {
-    const state = initialEditorState(loadDesign('rs485-de9-terminal-board'), db);
+    const state = initialEditorState(loadDesign('de9-terminal-board'), db);
     const result = renderPreview(state.design, db, false);
     expect('svg' in result).toBe(true);
     if (!('svg' in result)) return;
@@ -24,7 +24,7 @@ describe('renderPreview', () => {
   });
 
   it('follows an edit', () => {
-    const state = initialEditorState(loadDesign('rs485-de9-terminal-board'), db);
+    const state = initialEditorState(loadDesign('de9-terminal-board'), db);
     const before = renderPreview(state.design, db, false);
     const edited = editorReducer(state, {
       type: 'delete-joint',
@@ -37,11 +37,11 @@ describe('renderPreview', () => {
   });
 
   it('survives a design carrying a part nothing is soldered to yet', () => {
-    const state = initialEditorState(loadDesign('rs485-de9-terminal-board'), db);
+    const state = initialEditorState(loadDesign('de9-terminal-board'), db);
     const added = editorReducer(state, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
     });
     expect(added.rejection).toBeUndefined();
     const result = renderPreview(added.design, db, false);

@@ -30,7 +30,7 @@ import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 import { memoryPersistence } from './memory-persistence.ts';
 
 const db: Db = loadDbFromDisk();
-const REAL: CableDesign = loadDesignFromDisk('rs485-de9-terminal-board');
+const REAL: CableDesign = loadDesignFromDisk('de9-terminal-board');
 
 function host(): ReturnType<typeof memoryPersistence> {
   return memoryPersistence(db, [REAL, blankDesign('scratch-one', 'Scratch one', 'test fixture')]);
@@ -42,7 +42,7 @@ function host(): ReturnType<typeof memoryPersistence> {
 
 describe('ids and names', () => {
   it('accepts kebab-case and nothing else', () => {
-    for (const good of ['a', 'rs485-de9-terminal-board', 'cable2', 'pca-00110-rev4']) {
+    for (const good of ['a', 'de9-terminal-board', 'cable2', 'pca-00110-rev4']) {
       expect(isDesignId(good), good).toBe(true);
     }
     for (const bad of ['', 'A', 'a b', 'a_b', 'a.json', '../x', 'a--b', '-a', 'a-', 'a/b', 42]) {

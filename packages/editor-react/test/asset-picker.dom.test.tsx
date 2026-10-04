@@ -88,7 +88,7 @@ describe('<AssetPicker>', () => {
 
 describe('the drawing sheet photo field, with a shared asset library', () => {
   const db: Db = loadDbFromDisk();
-  const design: CableDesign = loadDesignFromDisk('rs485-de9-terminal-board');
+  const design: CableDesign = loadDesignFromDisk('de9-terminal-board');
 
   it('offers "Choose from library…", and picking an asset drives the same preview an upload would', async () => {
     const adapter = stubAssets([SCART]);

@@ -1,13 +1,13 @@
 {
   "schemaVersion": 4,
-  "id": "usb-a-led-lead",
-  "label": "USB-A → JST XH 2-pin, LED supply lead with series resistor",
+  "id": "dc-led-lead",
+  "label": "Terminal block → JST XH 2-pin, LED supply lead with series resistor",
   "instances": {
     "connectors": [
       {
         "id": "j1",
-        "def": "usb-a-plug",
-        "role": "USB plug"
+        "def": "terminal-block-4",
+        "role": "supply terminal block"
       },
       {
         "id": "j2",
@@ -35,7 +35,7 @@
         "id": "m1",
         "def": "heatshrink-6mm",
         "qty": 1,
-        "note": "over r1 in the hood"
+        "note": "over r1 at the supply end"
       }
     ]
   },
@@ -49,7 +49,7 @@
         "instance": "r1",
         "terminal": "a"
       },
-      "note": "VBUS into the series resistor in the hood"
+      "note": "+5 V into the series resistor"
     },
     {
       "a": {
@@ -70,9 +70,9 @@
       },
       "b": {
         "instance": "j1",
-        "terminal": "4"
+        "terminal": "2"
       },
-      "note": "GND"
+      "note": "0 V"
     },
     {
       "a": {
@@ -97,5 +97,5 @@
       }
     }
   ],
-  "src": "synthetic example: a USB Type-A plug feeding an LED module through a 150 Ω series resistor fitted in the plug hood, on a red/black pair to a JST XH 2-pin housing; D+/D− unused"
+  "src": "synthetic example: a 5 V supply from terminal block positions 1 (+) and 2 (0 V) through a 150 Ω series resistor, under heat-shrink, to a 2-pin JST XH LED module connector"
 }

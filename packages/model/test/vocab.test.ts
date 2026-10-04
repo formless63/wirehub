@@ -47,13 +47,13 @@ describe('the committed lists', () => {
     }
   });
 
-  it('carry the starter signals across the domains the examples use, and no video', () => {
-    for (const id of ['audio-l', 'audio-hot', 'rs232-txd', 'rs485-a', 'eth-da-p', 'usb-dp', 'pwr-5v', 'gnd', 'gnd-chassis', 'nc']) {
-      expect(ids('signals'), id).toContain(id);
+  it('carry only generic signals: power, ground and the none kinds — no domain', () => {
+    for (const id of ['pwr-5v', 'pwr-v', 'gnd', 'gnd-signal', 'gnd-chassis', 'any', 'nc']) expect(ids('signals'), id).toContain(id);
+    // every field's signals belong to its domain module's pack
+    for (const id of ['video-r', 'hsync', 'cvbs', 'audio-l', 'audio-hot', 'rs232-txd', 'rs485-a', 'eth-da-p', 'usb-dp', 'can-h']) {
+      expect(ids('signals'), id).not.toContain(id);
     }
-    // video belongs to the av-video module's pack
-    for (const id of ['video-r', 'hsync', 'csync', 'cvbs']) expect(ids('signals'), id).not.toContain(id);
-    expect(ids('lanes')).toEqual(expect.arrayContaining(['audio-l', 'audio-r', 'power', 'ground', 'spare']));
+    expect(ids('lanes')).toEqual(['data-tx', 'data-rx', 'power', 'ground', 'spare']);
   });
 
   it('cover every value the model types already fix', () => {
@@ -68,9 +68,9 @@ describe('the committed lists', () => {
     }
   });
 
-  it('map the RCA audio colour code: white left, red right', () => {
-    const rca = vocabEntry<{ id: string; label: string; src: string; lanes: Record<string, string> }>(vocab, 'colour-codes', 'rca-audio');
-    expect(rca?.lanes).toEqual({ white: 'audio-l', red: 'audio-r' });
+  it('map the DC colour code: red power, black ground', () => {
+    const dc = vocabEntry<{ id: string; label: string; src: string; lanes: Record<string, string> }>(vocab, 'colour-codes', 'dc-red-black');
+    expect(dc?.lanes).toEqual({ red: 'power', black: 'ground' });
   });
 
   it('class every return as ground', () => {

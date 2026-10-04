@@ -1,0 +1,12 @@
+{
+  "id": "levels",
+  "label": "Signal levels",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "line",
+      "label": "Line level",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

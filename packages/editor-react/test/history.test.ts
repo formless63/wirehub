@@ -23,7 +23,7 @@ import {
 } from '../src/store.ts';
 
 const db: Db = loadDb();
-const DESIGN = 'rs485-de9-terminal-board';
+const DESIGN = 'de9-terminal-board';
 
 function stateFor(id: string = DESIGN): EditorState {
   return initialEditorState(loadDesign(id as never), db);
@@ -64,13 +64,13 @@ describe('history over committed designs', () => {
     const after = editorReducer(before, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
     });
 
     expect(after.rejection).toBeUndefined();
     expect(after.past).toHaveLength(1);
     expect(after.past[0]?.design).toBe(before.design);
-    expect(undoDescription(after)).toBe('add connector rca-male as j2');
+    expect(undoDescription(after)).toBe('add connector jst-xh-2-dc as j2');
     expect(after.future).toEqual([]);
   });
 
@@ -79,21 +79,21 @@ describe('history over committed designs', () => {
     const added = editorReducer(start, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
     });
     const undone = editorReducer(added, { type: 'undo' });
 
     expect(undone.design).toBe(start.design);
     expect(exportDesignJson(undone.design)).toBe(exportDesignJson(start.design));
     expect(undone.past).toEqual([]);
-    expect(redoDescription(undone)).toBe('add connector rca-male as j2');
-    expect(undone.lastAccepted).toBe('undo add connector rca-male as j2');
+    expect(redoDescription(undone)).toBe('add connector jst-xh-2-dc as j2');
+    expect(undone.lastAccepted).toBe('undo add connector jst-xh-2-dc as j2');
 
     const redone = editorReducer(undone, { type: 'redo' });
     expect(redone.design).toBe(added.design);
-    expect(undoDescription(redone)).toBe('add connector rca-male as j2');
+    expect(undoDescription(redone)).toBe('add connector jst-xh-2-dc as j2');
     expect(redone.future).toEqual([]);
-    expect(redone.lastAccepted).toBe('redo add connector rca-male as j2');
+    expect(redone.lastAccepted).toBe('redo add connector jst-xh-2-dc as j2');
   });
 
   it('keeps `issues` describing the design it restores', () => {
@@ -110,13 +110,13 @@ describe('history over committed designs', () => {
 
   it('walks back through several edits in order, newest first', () => {
     let state = stateFor();
-    for (const def of ['rca-male', 'rca-male', 'rca-male']) {
+    for (const def of ['jst-xh-2-dc', 'jst-xh-2-dc', 'jst-xh-2-dc']) {
       state = editorReducer(state, { type: 'add-instance', kind: 'connector', def });
     }
     expect(state.past.map((entry) => entry.description)).toEqual([
-      'add connector rca-male as j2',
-      'add connector rca-male as j3',
-      'add connector rca-male as j4',
+      'add connector jst-xh-2-dc as j2',
+      'add connector jst-xh-2-dc as j3',
+      'add connector jst-xh-2-dc as j4',
     ]);
 
     const ids = (): string[] => state.design.instances.connectors.map((item) => item.id);
@@ -141,7 +141,7 @@ describe('what history refuses to record', () => {
     const one = editorReducer(start, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
     });
 
     // every flavour of refusal: an unknown target, a self-joint, a duplicate
@@ -193,7 +193,7 @@ describe('what history refuses to record', () => {
   it('undo leaves positions where the user put them', () => {
     let state = stateFor();
     state = editorReducer(state, { type: 'move-node', id: 'j1', position: { x: 9, y: 9 } });
-    state = editorReducer(state, { type: 'add-instance', kind: 'connector', def: 'rca-male' });
+    state = editorReducer(state, { type: 'add-instance', kind: 'connector', def: 'jst-xh-2-dc' });
     const undone = editorReducer(state, { type: 'undo' });
     expect(undone.positions['j1']).toEqual({ x: 9, y: 9 });
   });
@@ -268,13 +268,13 @@ describe('history belongs to one document', () => {
     const edited = editorReducer(start, {
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
     });
     expect(edited.past).toHaveLength(1);
 
     const other = editorReducer(edited, {
       type: 'load-design',
-      design: loadDesign('db9-null-modem'),
+      design: loadDesign('de9-crossover'),
     });
     expect(other.past).toEqual([]);
     expect(other.future).toEqual([]);
@@ -288,7 +288,7 @@ describe('history belongs to one document', () => {
 
   it('an import is one undoable step, not a new document', () => {
     const start = stateFor();
-    const other = loadDesign('db9-null-modem');
+    const other = loadDesign('de9-crossover');
     const imported = editorReducer(start, {
       type: 'import-json',
       json: exportDesignJson(other),

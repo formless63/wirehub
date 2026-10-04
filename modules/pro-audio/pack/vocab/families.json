@@ -1,0 +1,33 @@
+{
+  "id": "families",
+  "label": "Connector families",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "xlr",
+      "label": "XLR",
+      "aliases": [
+        "XLR"
+      ],
+      "src": "IEC 61076-2-103"
+    },
+    {
+      "id": "rca",
+      "label": "RCA",
+      "aliases": [
+        "RCA",
+        "phono"
+      ],
+      "src": "IEC 60603-12"
+    },
+    {
+      "id": "trs-3-5mm",
+      "label": "3.5 mm TRS",
+      "aliases": [
+        "3.5mm",
+        "3.5 mm"
+      ],
+      "src": "IEC 60603-11"
+    }
+  ]
+}

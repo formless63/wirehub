@@ -18,7 +18,7 @@ import { formatDesignJson, type DesignStore } from '../server/designs.ts';
 import { memoryWireLibraryStore } from '../server/wire-library.ts';
 
 const CATALOG: Db = loadDb();
-const REAL: CableDesign = loadDesign('trs-to-2rca-y');
+const REAL: CableDesign = loadDesign('dc-y-splitter');
 
 function memoryDesigns(seed: CableDesign[]): DesignStore {
   const files = new Map<string, string>(seed.map((d) => [d.id, formatDesignJson(d)]));

@@ -39,8 +39,8 @@ describe('the drawing sidecar adapter\'s remembered ETag', () => {
     );
     const drawings = workbenchDrawings();
 
-    await drawings.load('db9-null-modem');
-    await drawings.save('db9-null-modem', { partNumber: 'CBL-2' });
+    await drawings.load('de9-crossover');
+    await drawings.save('de9-crossover', { partNumber: 'CBL-2' });
 
     const saveCall = calls[1];
     expect(saveCall).toBeDefined();
@@ -61,8 +61,8 @@ describe('the drawing sidecar adapter\'s remembered ETag', () => {
     // this form never loaded or saved the drawing itself — a version save
     // rewrote it and handed this adapter the fresh tag directly (`server/
     // versions.ts`'s `drawingTag`, applied in `VersionsPanel.onSave`)
-    drawings.noteTag('db9-null-modem', '"v2"');
-    await drawings.save('db9-null-modem', { partNumber: 'CBL-2' });
+    drawings.noteTag('de9-crossover', '"v2"');
+    await drawings.save('de9-crossover', { partNumber: 'CBL-2' });
 
     expect((calls[0]!.init?.headers as Record<string, string>)['if-match']).toBe('"v2"');
   });
@@ -78,9 +78,9 @@ describe('the drawing sidecar adapter\'s remembered ETag', () => {
     );
     const drawings = workbenchDrawings();
 
-    await drawings.load('db9-null-modem'); // remembers "stale-would-be"
-    drawings.noteTag('db9-null-modem', '"fresh"'); // a version save moved it on
-    await drawings.save('db9-null-modem', { partNumber: 'CBL-2' });
+    await drawings.load('de9-crossover'); // remembers "stale-would-be"
+    drawings.noteTag('de9-crossover', '"fresh"'); // a version save moved it on
+    await drawings.save('de9-crossover', { partNumber: 'CBL-2' });
 
     expect((calls[1]!.init?.headers as Record<string, string>)['if-match']).toBe('"fresh"');
   });

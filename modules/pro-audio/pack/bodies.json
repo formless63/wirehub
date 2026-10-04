@@ -1,0 +1,84 @@
+[
+  {
+    "id": "xlr3-female",
+    "label": "XLR 3-pin female (cable)",
+    "family": "xlr",
+    "gender": "female",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "mates": "xlr3-male",
+    "construction": "solder-cup",
+    "src": "IEC 61076-2-103 circular 3-pole connector; contact numbers moulded on the insert"
+  },
+  {
+    "id": "xlr3-male",
+    "label": "XLR 3-pin male (cable)",
+    "family": "xlr",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "mates": "xlr3-female",
+    "construction": "solder-cup",
+    "src": "IEC 61076-2-103 circular 3-pole connector; contact numbers moulded on the insert"
+  },
+  {
+    "id": "rca-male",
+    "label": "RCA plug (male)",
+    "family": "rca",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "tip"
+      },
+      {
+        "id": "sleeve"
+      }
+    ],
+    "src": "IEC 60603-12 phono plug: centre pin (tip) and shell (sleeve)"
+  },
+  {
+    "id": "trs-3-5mm-male",
+    "label": "3.5 mm TRS plug (male)",
+    "family": "trs-3-5mm",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "tip"
+      },
+      {
+        "id": "ring"
+      },
+      {
+        "id": "sleeve"
+      }
+    ],
+    "construction": "solder-cup",
+    "src": "IEC 60603-11 3.5 mm three-pole plug: tip, ring, sleeve"
+  }
+]

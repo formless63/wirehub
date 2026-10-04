@@ -36,8 +36,12 @@ docker compose up -d            # open http://localhost:5183
 ```
 
 A fresh hub opens on **first-run setup**: pick the domain modules whose signals,
-connectors and examples you need — AV / video and Automotive are bundled; nothing is
-required, and more can be added later. The base itself stays generic.
+connectors and example cables you need. Five are bundled — **PC & serial** (RS-232,
+RS-485, USB), **Networking** (RJ45, T568A/B) and **Pro audio** (XLR, TRS, RCA), which
+come pre-ticked, plus **AV / video** and **Automotive**. Nothing is required, and more
+can be enabled later from the command palette. The base itself stays generic: its
+starter catalog holds wire stocks, generic connectors (DE-9 by pin number, JST XH,
+terminal blocks), parts and a few neutral example cables.
 
 The stack is the app, [Garage](https://garagehq.deuxfleurs.fr/) (S3-compatible storage
 for uploaded files) and PostgreSQL 18. **PostgreSQL is provisioned for the upcoming
@@ -53,9 +57,11 @@ pnpm install
 pnpm --filter studio dev        # open the printed URL
 ```
 
-The hub opens on the starter catalog: example cables built from a small library of
-generic parts, every value cited to a public standard or marked as a synthetic example.
-The catalog is plain JSON under `packages/catalog/data`, and saves go straight back to it.
+The hub opens on the generic starter catalog: a few example cables built from a small
+library of generic parts, every value cited to a public standard or marked as a
+synthetic example. The catalog is plain JSON under `packages/catalog/data`, and saves go
+straight back to it — so in a checkout, enabling a domain module (command palette →
+setup) installs its pack there too; keep those files out of commits to the base.
 
 ## Develop
 
@@ -79,7 +85,7 @@ emails out of commits (`CONTRIBUTING.md`).
 | `@wirehub/docs` | build sheet, BOM, continuity spec, drawing, wire spec |
 | `@wirehub/editor-react` | the editor |
 | `apps/studio` | the app: Vite SPA and Hono server |
-| `modules/*` | bundled, optional domain modules |
+| `modules/*` | bundled, optional domain modules: `pc-serial`, `networking`, `pro-audio`, `av-video`, `automotive` |
 
 ## Read next
 

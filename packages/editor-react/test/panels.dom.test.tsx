@@ -42,7 +42,7 @@ function harness(state: EditorState, children: ReactNode): {
 
 describe('derived panels', () => {
   it('lists the nets core derived', () => {
-    const state = initialEditorState(loadDesignFromDisk('rs485-de9-terminal-board'), db);
+    const state = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const { ui } = harness(state, <NetsPanel state={state} />);
     render(ui);
     expect(screen.getByText('net-1')).toBeDefined();
@@ -50,7 +50,7 @@ describe('derived panels', () => {
   });
 
   it('reports a clean design as clean and a broken one in the validator words', () => {
-    const clean = initialEditorState(loadDesignFromDisk('rs485-de9-terminal-board'), db);
+    const clean = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     render(harness(clean, <IssuesPanel state={clean} />).ui);
     expect(screen.getByText('clean')).toBeDefined();
     // no compatibility warnings either — nothing to group
@@ -69,7 +69,7 @@ describe('derived panels', () => {
   });
 
   it('offers a design note as the fix for a floating end, naming the terminal (udy.5)', () => {
-    const base = initialEditorState(loadDesignFromDisk('rs485-de9-terminal-board'), db);
+    const base = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const state: EditorState = {
       ...base,
       issues: [
@@ -91,7 +91,7 @@ describe('derived panels', () => {
   });
 
   it('edits design notes: add, change, remove (udy.5)', () => {
-    const state = initialEditorState(loadDesignFromDisk('rs485-de9-terminal-board'), db);
+    const state = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const notes = state.design.notes ?? [];
     const { dispatch, ui } = harness(state, <NotesPanel state={state} />);
     render(ui);
@@ -110,7 +110,7 @@ describe('derived panels', () => {
   });
 
   it('traces from the selected terminal', () => {
-    const base = initialEditorState(loadDesignFromDisk('rs485-de9-terminal-board'), db);
+    const base = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const state: EditorState = {
       ...base,
       selection: { kind: 'terminal', ref: { instance: 'j1', terminal: '1' } },
@@ -124,20 +124,20 @@ describe('derived panels', () => {
 
 describe('Palette', () => {
   it('filters the library and adds the part the user picked', () => {
-    const state = initialEditorState(loadDesignFromDisk('rs485-de9-terminal-board'), db);
+    const state = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const { dispatch, ui } = harness(state, <Palette db={db} />);
     render(ui);
 
     fireEvent.change(screen.getByPlaceholderText('filter definitions…'), {
-      target: { value: 'rca-male' },
+      target: { value: 'jst-xh-2-dc' },
     });
-    const add = screen.getAllByTitle('add rca-male');
+    const add = screen.getAllByTitle('add jst-xh-2-dc');
     expect(add).toHaveLength(1);
     fireEvent.click(add[0] as HTMLElement);
     expect(dispatch).toHaveBeenCalledWith({
       type: 'add-instance',
       kind: 'connector',
-      def: 'rca-male',
+      def: 'jst-xh-2-dc',
     });
   });
 });

@@ -36,7 +36,7 @@ describe('JSON round trip', () => {
   });
 
   it('round-trips an edited design too', () => {
-    const state = initialEditorState(loadDesign('rs485-de9-terminal-board'), db);
+    const state = initialEditorState(loadDesign('de9-terminal-board'), db);
     const edited = editorReducer(state, {
       type: 'update-instance',
       id: 'w1',
@@ -49,7 +49,7 @@ describe('JSON round trip', () => {
 });
 
 describe('import guards', () => {
-  const state = initialEditorState(loadDesign('rs485-de9-terminal-board'), db);
+  const state = initialEditorState(loadDesign('de9-terminal-board'), db);
 
   it('refuses text that is not JSON', () => {
     const next = editorReducer(state, { type: 'import-json', json: 'not json {' });
@@ -65,9 +65,9 @@ describe('import guards', () => {
 
   it('refuses a design document the definition library cannot resolve', () => {
     const broken = {
-      ...loadDesign('rs485-de9-terminal-board'),
+      ...loadDesign('de9-terminal-board'),
       instances: {
-        ...loadDesign('rs485-de9-terminal-board').instances,
+        ...loadDesign('de9-terminal-board').instances,
         connectors: [{ id: 'jX', def: 'invented-connector' }],
       },
     };

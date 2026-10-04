@@ -1,0 +1,120 @@
+[
+  {
+    "id": "mic-2core-braid",
+    "label": "Microphone cable, 2 × 0.22 mm², braid shield",
+    "odMm": 6,
+    "colourCode": "balanced-mic",
+    "layOrder": {
+      "arrangement": "pair",
+      "direction": "cw",
+      "ring": [
+        "hot",
+        "cold"
+      ],
+      "src": "synthetic example: two cores side by side under one braid"
+    },
+    "structure": {
+      "kind": "group",
+      "id": "mic-2core-braid",
+      "label": "Mic cable",
+      "role": "cable",
+      "children": [
+        {
+          "kind": "conductor",
+          "id": "hot",
+          "color": "red",
+          "material": "tinned-copper",
+          "areaMm2": 0.22,
+          "label": "Hot",
+          "insulatedOdMm": 1.6
+        },
+        {
+          "kind": "conductor",
+          "id": "cold",
+          "color": "white",
+          "material": "tinned-copper",
+          "areaMm2": 0.22,
+          "label": "Cold",
+          "insulatedOdMm": 1.6
+        },
+        {
+          "kind": "shield",
+          "id": "shield",
+          "label": "Braid",
+          "construction": "braid",
+          "material": "bare-copper",
+          "coveragePct": "95",
+          "odMm": 4.6
+        },
+        {
+          "kind": "insulation",
+          "id": "jacket",
+          "label": "Jacket",
+          "material": "pvc",
+          "odMm": 6,
+          "color": "black"
+        }
+      ]
+    },
+    "src": "generic balanced microphone cable (2 × 0.22 mm² + braid ≥ 90 %), as described by AES and common vendor datasheets; synthetic example"
+  },
+  {
+    "id": "audio-stereo-2core",
+    "label": "Stereo audio lead, 2 cores, overall spiral shield",
+    "odMm": 3,
+    "colourCode": "rca-audio",
+    "layOrder": {
+      "arrangement": "pair",
+      "direction": "cw",
+      "ring": [
+        "left",
+        "right"
+      ],
+      "src": "synthetic example"
+    },
+    "structure": {
+      "kind": "group",
+      "id": "audio-stereo-2core",
+      "label": "Stereo lead",
+      "role": "cable",
+      "children": [
+        {
+          "kind": "conductor",
+          "id": "left",
+          "color": "white",
+          "material": "tinned-copper",
+          "areaMm2": 0.08,
+          "label": "Left",
+          "insulatedOdMm": 0.9
+        },
+        {
+          "kind": "conductor",
+          "id": "right",
+          "color": "red",
+          "material": "tinned-copper",
+          "areaMm2": 0.08,
+          "label": "Right",
+          "insulatedOdMm": 0.9
+        },
+        {
+          "kind": "shield",
+          "id": "shield",
+          "label": "Spiral shield",
+          "construction": "spiral",
+          "material": "bare-copper",
+          "coveragePct": "90",
+          "odMm": 2.4
+        },
+        {
+          "kind": "insulation",
+          "id": "jacket",
+          "label": "Jacket",
+          "material": "pvc",
+          "odMm": 3,
+          "color": "black"
+        }
+      ]
+    },
+    "src": "commodity 3.5 mm stereo lead construction: two insulated cores under one overall spiral shield (sleeve return); synthetic example"
+  }
+]

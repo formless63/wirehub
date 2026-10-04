@@ -12,6 +12,8 @@ import { createCatalog, dataPath, fsCatalogSource } from '@wirehub/catalog';
 import { automotive } from '@wirehub/module-automotive';
 import { avVideo } from '@wirehub/module-av-video';
 import { createRegistry } from '@wirehub/modules';
+
+import { modules as manifest } from '../modules.config.ts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -45,7 +47,26 @@ describe('first-run setup', () => {
     expect(response.body.needed).toBe(true);
     expect(response.body.domains.map((d: { id: string }) => d.id)).toEqual(['av-video', 'automotive']);
     expect(response.body.domains.every((d: { enabled: boolean }) => !d.enabled)).toBe(true);
-    expect(response.body.suggestions.map((s: { label: string }) => s.label)).toContain('Pro audio');
+    // only domains with no module yet are suggestions
+    expect(response.body.suggestions.map((s: { label: string }) => s.label)).toEqual(['Fieldbus']);
+  });
+
+  it('the deployment offers the serial, networking and audio packs as real modules, pre-ticked', async () => {
+    deps = { ...deps, modules: createRegistry(manifest) };
+    const domains = (await call('GET')).body.domains as { id: string; suggested: boolean; packs: { license: string }[] }[];
+    expect(domains.map((d) => d.id)).toEqual(['pc-serial', 'networking', 'pro-audio', 'av-video', 'automotive']);
+    expect(domains.filter((d) => d.suggested).map((d) => d.id)).toEqual(['pc-serial', 'networking', 'pro-audio']);
+    expect(domains.every((d) => d.packs.every((p) => p.license === 'CC0-1.0'))).toBe(true);
+  });
+
+  it('installs every bundled module together, without one clash', async () => {
+    deps = { ...deps, modules: createRegistry(manifest) };
+    const response = await call('POST', { modules: ['pc-serial', 'networking', 'pro-audio', 'av-video', 'automotive'] });
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    const catalog = createCatalog(fsCatalogSource(dir));
+    for (const id of ['db9-null-modem', 'rs485-de9-terminal-board', 'usb-a-led-lead', 'rj45-patch-t568b', 'rj45-crossover-t568a-b', 'xlr-mic-cable', 'trs-to-2rca-y', 'vga-monitor-cable']) {
+      expect(catalog.listDesignIds(), id).toContain(id);
+    }
   });
 
   it('installs the chosen modules\' packs and stores the selection', async () => {

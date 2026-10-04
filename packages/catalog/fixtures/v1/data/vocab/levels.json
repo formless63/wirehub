@@ -9,21 +9,6 @@
       "src": "synthetic example: base starter vocabulary"
     },
     {
-      "id": "line",
-      "label": "Line level",
-      "src": "synthetic example: base starter vocabulary"
-    },
-    {
-      "id": "rs232",
-      "label": "RS-232 (±3…15 V)",
-      "src": "TIA-232-F"
-    },
-    {
-      "id": "rs485",
-      "label": "RS-485 differential",
-      "src": "TIA-485-A"
-    },
-    {
       "id": "dc-5v",
       "label": "5 V DC",
       "src": "synthetic example: base starter vocabulary"

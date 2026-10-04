@@ -1,0 +1,40 @@
+[
+  {
+    "id": "rj45-8p8c-plug",
+    "label": "RJ45 (8P8C) modular plug",
+    "family": "rj45",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "5"
+      },
+      {
+        "id": "6"
+      },
+      {
+        "id": "7"
+      },
+      {
+        "id": "8"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "construction": "crimp",
+    "src": "IEC 60603-7 8-position modular plug; contact numbering 1–8 left to right, clip down, contacts facing the viewer"
+  }
+]

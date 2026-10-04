@@ -67,7 +67,7 @@ const BLANK: CableDesign = {
 };
 
 /** A real catalog design, so the validator has something substantial to chew. */
-const REAL = loadDesign('db9-null-modem');
+const REAL = loadDesign('de9-crossover');
 
 let store: ReturnType<typeof memoryStore>;
 let deps: WorkbenchDeps;
@@ -308,11 +308,11 @@ describe('POST /api/designs/:id/duplicate', () => {
   it('copies the design under a new id and records where the copy came from', async () => {
     const response = await call('POST', `/api/designs/${REAL.id}/duplicate`, {
       newId: 'rs485-experiment',
-      newLabel: 'RS-485 experiment',
+      newLabel: 'Terminal board experiment',
     });
     expect(response.status).toBe(201);
     const copy = await store.read('rs485-experiment');
-    expect(copy?.label).toBe('RS-485 experiment');
+    expect(copy?.label).toBe('Terminal board experiment');
     expect(copy?.joints).toEqual(REAL.joints);
     expect(copy?.src).toContain(`duplicated from design '${REAL.id}'`);
     // the original is untouched

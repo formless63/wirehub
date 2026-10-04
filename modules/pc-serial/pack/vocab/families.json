@@ -1,0 +1,16 @@
+{
+  "id": "families",
+  "label": "Connector families",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "usb-a",
+      "label": "USB Type-A",
+      "aliases": [
+        "USB-A",
+        "USB A"
+      ],
+      "src": "USB 2.0 Specification (USB-IF)"
+    }
+  ]
+}

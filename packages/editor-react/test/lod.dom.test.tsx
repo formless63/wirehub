@@ -20,7 +20,7 @@ const db: Db = loadDbFromDisk();
 afterEach(cleanup);
 
 describe('the minimap', () => {
-  it.each(['rs485-de9-terminal-board', 'trs-to-2rca-y'])('draws one shape per node of %s', (id) => {
+  it.each(['de9-terminal-board', 'dc-y-splitter'])('draws one shape per node of %s', (id) => {
     const design = loadDesignFromDisk(id);
     const { container } = render(<CableEditor design={design} db={db} depictionSource={diskDepictions()} />);
     const nodes = container.querySelectorAll('.react-flow__node');

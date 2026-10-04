@@ -9,11 +9,14 @@
  * have their catalog packs installed. A private module is added the same way:
  *
  *   import { erpLink } from '@acme/wirehub-erp-link';
- *   export const modules = [avVideo, automotive, erpLink];
+ *   export const modules = [pcSerial, networking, proAudio, avVideo, automotive, erpLink];
  */
 
 import { automotive } from '@wirehub/module-automotive';
 import { avVideo } from '@wirehub/module-av-video';
+import { networking } from '@wirehub/module-networking';
+import { pcSerial } from '@wirehub/module-pc-serial';
+import { proAudio } from '@wirehub/module-pro-audio';
 import type { WireHubModule } from '@wirehub/modules';
 
-export const modules: readonly WireHubModule[] = [avVideo, automotive];
+export const modules: readonly WireHubModule[] = [pcSerial, networking, proAudio, avVideo, automotive];

@@ -58,12 +58,10 @@ export interface DomainSuggestion {
 
 /**
  * Domains shown beside the bundled modules, so a person sees where WireHub
- * is going and what the starter catalog already covers. Not installable.
+ * is going. Not installable: a domain moves from here to a real module once
+ * one exists.
  */
 export const DOMAIN_SUGGESTIONS: readonly DomainSuggestion[] = [
-  { label: 'PC & serial', description: 'RS-232, RS-485 and USB: examples ship in the starter catalog today; a separate pack is planned.' },
-  { label: 'Networking', description: 'Ethernet (T568A/B, PoE pairs): an example ships in the starter catalog today; a separate pack is planned.' },
-  { label: 'Pro audio', description: 'XLR, TRS and RCA: examples ship in the starter catalog today; a separate pack is planned.' },
   { label: 'Fieldbus', description: 'PROFIBUS, CAN, Modbus, M8/M12 codings: planned (docs/catalog-store.md).' },
 ];
 

@@ -6,7 +6,7 @@ the pack manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over 
 setup for the bundled domain modules — `docs/modules.md`). Signing, the store index,
 updates with diffs and per-record provenance fields are still design. Tracked in beads.
 
-A fresh WireHub has the starter catalog: a few dozen generic records. Real work needs
+A fresh WireHub has the starter catalog: a few dozen generic records (CC0-1.0). Real work needs
 the connectors, stocks and parts of a domain — XLR and speakON for live audio, M12 and
 PROFIBUS for a factory floor, the OBD-II connector for a vehicle harness. Every shop
 re-entering the same public facts is wasted effort, and every shop re-entering them by hand
@@ -26,9 +26,10 @@ Packs are organised by domain, small enough to review, and may depend on one ano
 | Pack (id) | Contents | Main public sources |
 | --- | --- | --- |
 | `core-bodies` | connector bodies everyone uses: D-sub (DE-9 … DC-37, HD15), DIN / mini-DIN, RJ45/RJ11/RJ12, USB A/B/C/micro, barrel jacks, JST/Molex wire-to-board families, terminal blocks | IEC 60807, IEC 60130-9, IEC 60603-7, USB-IF connector specs, manufacturer drawings |
-| `pro-audio` | XLR 3/4/5, TRS 6.35/3.5, TS, RCA, speakON, powerCON, EtherCON, AES/EBU and DMX512 pinouts, mic / instrument / multicore stocks | AES14, AES3, ANSI E1.11 (DMX512-A), IEC 61076-2-103, vendor datasheets |
+| `pro-audio` | XLR 3/4/5, TRS 6.35/3.5, TS, RCA, speakON, powerCON, EtherCON, AES/EBU and DMX512 pinouts, mic / instrument / multicore stocks — **bundled today** (`modules/pro-audio`: audio signals, XLR3, RCA and 3.5 mm TRS, mic and stereo stocks, two example cables) | AES14, AES3, ANSI E1.11 (DMX512-A), IEC 61076-2-103, vendor datasheets |
+| `pc-serial` | RS-232 (DE-9 DTE/DCE), RS-485 on DE-9, USB 2.0 on Type-A, PC serial and USB example leads — **bundled today** (`modules/pc-serial`: serial and USB signals and pinouts, three example cables) | TIA-574, TIA-232, TIA-485-A, USB 2.0 Specification |
 | `fieldbus` | RS-232, RS-422/485, PROFIBUS DP, CAN/CANopen (DE-9, M12), DeviceNet, Modbus RTU, M8/M12 A/B/D/X codings, matching shielded stocks and terminators | TIA-232, TIA-485, IEC 61158/61784, CiA 303-1, IEC 61076-2-101/-104 |
-| `networking` | Ethernet MDI/MDI-X (T568A/B), PoE pairs, Cat 5e/6/6A U/UTP, F/UTP, S/FTP stocks, M12 X-coded | IEEE 802.3, TIA-568, ISO/IEC 11801 |
+| `networking` | Ethernet MDI/MDI-X (T568A/B), PoE pairs, Cat 5e/6/6A U/UTP, F/UTP, S/FTP stocks, M12 X-coded — **bundled today** (`modules/networking`: MDI signals, RJ45 plugs wired T568A/T568B, a patch cable and a crossover) | IEEE 802.3, TIA-568, ISO/IEC 11801 |
 | `av-video` | VGA, DVI, HDMI, DisplayPort, SCART, BNC/RGBHV, S-Video, component video, mini-coax stocks — **bundled today** (`modules/av-video`: video signals, VGA and SCART, a VGA cable) | VESA (DDC, DisplayPort), EN 50049 / IEC 60933 (SCART), published pinouts |
 | `usb` | USB 2.0 / 3.x / Type-C cable assemblies and their stocks | USB-IF specifications |
 | `automotive` | OBD-II (J1962) connector and pinout, common sealed connector families, automotive wire (FLRY, TXL/GXL) — **bundled today** (`modules/automotive`: bus signals and the OBD-II plug) | SAE J1962 / ISO 15031-3, ISO 6722, SAE J1128 |

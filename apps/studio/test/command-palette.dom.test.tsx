@@ -50,8 +50,8 @@ function loadDbFromDisk(): Db {
 const loadDesign = (id: string): CableDesign => read<CableDesign>('designs', `${id}.json`);
 
 /** two designs with distinct ids and labels, nothing in common to search on */
-const A = 'rs485-de9-terminal-board';
-const B = 'xlr-mic-cable';
+const A = 'de9-terminal-board';
+const B = 'dc-led-lead';
 const IDS = [A, B];
 
 const db: Db = loadDbFromDisk();
@@ -136,9 +136,9 @@ describe('finding a design by part number', () => {
     await readyOnCables();
     const dialog = await openPalette();
     fireEvent.change(within(dialog).getByPlaceholderText('Search…'), { target: { value: 'PCA-00001' } });
-    await waitFor(() => expect(within(dialog).getByText('DE-9 RS-485 → terminal adapter board, terminated')).toBeDefined());
+    await waitFor(() => expect(within(dialog).getByText('DE-9 → terminal adapter board, terminated pair')).toBeDefined());
     expect(within(dialog).getByText(`PCA-00001 · ${A}`)).toBeDefined();
-    expect(within(dialog).queryByText('XLR female → XLR male, balanced microphone cable, 5 m')).toBeNull();
+    expect(within(dialog).queryByText('Terminal block → JST XH 2-pin, LED supply lead with series resistor')).toBeNull();
   });
 });
 
@@ -150,8 +150,8 @@ describe("the '>' prefix", () => {
     fireEvent.change(within(dialog).getByPlaceholderText('Search…'), { target: { value: '>library' } });
 
     await waitFor(() => expect(within(dialog).getByText('Go to Library')).toBeDefined());
-    expect(within(dialog).queryByText(/RS-485 → terminal adapter/)).toBeNull();
-    expect(within(dialog).queryByText(/balanced microphone cable/)).toBeNull();
+    expect(within(dialog).queryByText(/DE-9 → terminal adapter/)).toBeNull();
+    expect(within(dialog).queryByText(/LED supply lead/)).toBeNull();
   });
 });
 

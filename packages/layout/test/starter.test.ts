@@ -30,7 +30,7 @@ describe('schematic layout', () => {
   }
 
   it('the breakout cable keeps its mould', () => {
-    expect(layoutSchematic(loadDesign('trs-to-2rca-y'), db, { depictions: false }).breakouts?.[0]?.id).toBe('bk1');
+    expect(layoutSchematic(loadDesign('dc-y-splitter'), db, { depictions: false }).breakouts?.[0]?.id).toBe('bk1');
   });
 });
 
@@ -58,8 +58,8 @@ describe('wire stock geometry', () => {
 });
 
 describe('connector art', () => {
-  it('draws the D-sub family and the RCA plug', () => {
-    for (const id of ['de9-female-rs232', 'rca-male']) {
+  it('draws the D-sub family', () => {
+    for (const id of ['de9-female', 'de9-male']) {
       const def = db.connectors.find((c) => c.id === id)!;
       expect(connectorArt({ def, facing: 'right' }), id).toBeDefined();
     }

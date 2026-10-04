@@ -166,7 +166,7 @@ describe('a part added from the palette', () => {
         ...design,
         instances: {
           ...design.instances,
-          connectors: [...design.instances.connectors, { id: 'jNEW', def: 'rca-male' }],
+          connectors: [...design.instances.connectors, { id: 'jNEW', def: 'jst-xh-2-dc' }],
         },
       };
       const spot = vacantPosition(grown, db, 'jNEW', positions);

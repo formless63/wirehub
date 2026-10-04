@@ -24,7 +24,7 @@ import { connectorDraftOf, connectorOf, wireDefinitionOf, wireFormOf } from '../
 import { memoryDefinitions } from './memory-definitions.ts';
 
 const db: Db = loadDb();
-const DESIGNS = [loadDesign('db9-null-modem'), loadDesign('rs485-de9-terminal-board')];
+const DESIGNS = [loadDesign('de9-crossover'), loadDesign('de9-terminal-board')];
 
 const host = (): ReturnType<typeof memoryDefinitions> => memoryDefinitions(db, DESIGNS);
 
@@ -91,14 +91,14 @@ describe('saveDefinition', () => {
 
   it('carries a form round trip through unchanged', async () => {
     const adapter = host();
-    const source = connector('rca-male');
+    const source = connector('jst-xh-2-dc');
     const result = await saveDefinition(
       adapter,
       'connectors',
       connectorOf(connectorDraftOf(source)),
     );
     expect(result.ok).toBe(true);
-    expect(adapter.db().connectors.find((c) => c.id === 'rca-male')).toEqual(source);
+    expect(adapter.db().connectors.find((c) => c.id === 'jst-xh-2-dc')).toEqual(source);
   });
 });
 

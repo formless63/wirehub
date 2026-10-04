@@ -6,25 +6,26 @@ import { loadDb, loadDesign } from '@wirehub/catalog';
 import { breakoutFates, breakoutIssues, removeBreakout, type CableDesign } from '../src/index.ts';
 
 const db = loadDb();
-const y = (): CableDesign => structuredClone(loadDesign('trs-to-2rca-y'));
+const y = (): CableDesign => structuredClone(loadDesign('dc-y-splitter'));
 
 describe('the Y breakout', () => {
   it('accounts for every conductor and screen of the stem and both legs', () => {
     expect(breakoutIssues(y(), db)).toEqual([]);
     const fates = breakoutFates(y(), db);
-    expect(fates.get('w2:right@a')?.fate).toBe('nc');
-    expect(fates.get('w1:left@b')?.fate).toBe('terminated');
+    expect(fates.get('w1:foil@b')?.fate).toBe('nc');
+    expect(fates.get('w1:pair-1.a@b')?.fate).toBe('terminated');
+    expect(fates.get('w2:red@a')?.fate).toBe('terminated');
   });
 
   it('names a conductor left out', () => {
     const d = y();
-    d.instances.breakouts![0]!.conductors = d.instances.breakouts![0]!.conductors.filter((c) => !(c.segment === 'w3' && c.path === 'left'));
+    d.instances.breakouts![0]!.conductors = d.instances.breakouts![0]!.conductors.filter((c) => !(c.segment === 'w3' && c.path === 'black'));
     expect(breakoutIssues(d, db).map((i) => i.code)).toContain('breakout-conductor-missing');
   });
 
   it('names a conductor accounted for twice', () => {
     const d = y();
-    d.instances.breakouts![0]!.conductors.push({ segment: 'w1', path: 'left', fate: 'terminated' });
+    d.instances.breakouts![0]!.conductors.push({ segment: 'w1', path: 'pair-1.a', fate: 'terminated' });
     expect(breakoutIssues(d, db).map((i) => i.code)).toContain('breakout-conductor-twice');
   });
 

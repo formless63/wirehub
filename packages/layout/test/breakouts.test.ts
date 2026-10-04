@@ -9,11 +9,11 @@ import { layoutSchematic } from '../src/index.ts';
 const db = loadDb();
 
 describe('breakout moulds', () => {
-  it('trs-to-2rca-y: the legs run on out of the mould, their spare core marked NC', () => {
-    const diagram = layoutSchematic(loadDesign('trs-to-2rca-y'), db, { depictions: false });
+  it('dc-y-splitter: the legs run on out of the mould, the stem’s screen marked NC', () => {
+    const diagram = layoutSchematic(loadDesign('dc-y-splitter'), db, { depictions: false });
     const mould = diagram.breakouts?.[0];
     expect(mould).toBeDefined();
-    expect(mould!.rows.filter((row) => row.fate === 'nc').map((row) => row.key).sort()).toEqual(['w2:right@a', 'w3:left@a']);
+    expect(mould!.rows.filter((row) => row.fate === 'nc').map((row) => row.key).sort()).toEqual(['w1:drain@b']);
     const trunk = diagram.bands.find((band) => band.segment === 'w1')!;
     for (const leg of diagram.bands.filter((band) => band.segment !== 'w1')) {
       expect(leg.rect.x).toBeGreaterThan(trunk.rect.x + trunk.rect.w);
@@ -22,6 +22,6 @@ describe('breakout moulds', () => {
   });
 
   it('a design without breakouts has none on its diagram', () => {
-    expect(layoutSchematic(loadDesign('xlr-mic-cable'), db, { depictions: false }).breakouts).toBeUndefined();
+    expect(layoutSchematic(loadDesign('dc-led-lead'), db, { depictions: false }).breakouts).toBeUndefined();
   });
 });

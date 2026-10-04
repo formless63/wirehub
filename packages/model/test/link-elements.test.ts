@@ -98,7 +98,7 @@ describe('the catalog and the trace', () => {
   });
 
   it('hands the trace the structure, not only the prose', () => {
-    const design = loadDesign('rs485-de9-terminal-board');
+    const design = loadDesign('de9-terminal-board');
     const result = trace(design, db, { instance: 'j1', terminal: '8' });
     const step = result.reached.find((s) => s.terminal.key === 'j1:3');
     const board = step?.passages.find((p) => p.kind === 'pcba-link' && p.description.includes('120'));

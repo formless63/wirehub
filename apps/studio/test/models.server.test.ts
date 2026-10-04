@@ -173,7 +173,7 @@ describe('convertModel', () => {
 });
 
 const db = loadDb();
-const BOARD = 'rs485-terminal-board';
+const BOARD = 'pair-terminal-board';
 
 describe('/api/models', () => {
   let deps: WorkbenchDeps;

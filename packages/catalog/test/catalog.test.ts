@@ -30,16 +30,13 @@ import { buildTags, type TagReview } from '../src/tags/build.ts';
 
 describe('the starter catalog', () => {
   it('ships the example designs, each valid against the definitions', () => {
-    expect(listDesignIds()).toEqual([
-      'db9-null-modem',
-      'rj45-patch-t568b',
-      'rs485-de9-terminal-board',
-      'trs-to-2rca-y',
-      'usb-a-led-lead',
-      'xlr-mic-cable',
-    ]);
+    expect(listDesignIds()).toEqual(['dc-led-lead', 'dc-y-splitter', 'de9-crossover', 'de9-terminal-board']);
     const db = loadDb();
     for (const design of loadDesigns()) expect(errors(validateDesign(design, db)), design.id).toEqual([]);
+  });
+
+  it('is CC0-1.0 data, said in a LICENSE file beside it', () => {
+    expect(readFileSync(dataPath('LICENSE'), 'utf8')).toMatch(/SPDX: CC0-1\.0[\s\S]*CC0 1\.0 Universal/);
   });
 
   it('cites "synthetic example" on every design', () => {
@@ -47,9 +44,9 @@ describe('the starter catalog', () => {
   });
 
   it('returns fresh objects on every load', () => {
-    const a = loadDesign('xlr-mic-cable');
+    const a = loadDesign('dc-led-lead');
     a.joints.length = 0;
-    expect(loadDesign('xlr-mic-cable').joints.length).toBeGreaterThan(0);
+    expect(loadDesign('dc-led-lead').joints.length).toBeGreaterThan(0);
   });
 
   it('keeps kits as their own records', () => {
@@ -103,10 +100,10 @@ describe('an almost empty catalog', () => {
 
 describe('design ids', () => {
   it('are kebab-case slugs and never paths', () => {
-    expect(isDesignId('rj45-patch-t568b')).toBe(true);
+    expect(isDesignId('de9-crossover')).toBe(true);
     expect(isDesignId('../etc/passwd')).toBe(false);
     expect(isDesignId('Has Spaces')).toBe(false);
-    expect(designVersionsDir('xlr-mic-cable')).toBe('designs/_versions/xlr-mic-cable');
+    expect(designVersionsDir('dc-led-lead')).toBe('designs/_versions/dc-led-lead');
     expect(() => designVersionsDir('../x')).toThrow();
   });
 });
@@ -122,9 +119,9 @@ describe('the fixture catalog', () => {
 describe('artwork import', () => {
   it('normalises an SVG and refuses a format it cannot read', () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="10mm" height="5mm" viewBox="0 0 10 5"><script>alert(1)</script><rect x="0" y="0" width="10" height="5" stroke="red"/></svg>';
-    const ok = prepareDepictionImport({ fileName: 'face.svg', bytes: new TextEncoder().encode(svg), defId: 'de9-male-profibus', view: 'face' });
+    const ok = prepareDepictionImport({ fileName: 'face.svg', bytes: new TextEncoder().encode(svg), defId: 'de9-male', view: 'face' });
     expect(JSON.stringify(ok)).not.toContain('<script');
-    const refused = prepareDepictionImport({ fileName: 'part.step', bytes: new Uint8Array([1, 2, 3]), defId: 'de9-male-profibus', view: 'face' });
+    const refused = prepareDepictionImport({ fileName: 'part.step', bytes: new Uint8Array([1, 2, 3]), defId: 'de9-male', view: 'face' });
     expect(refused).toMatchObject({ ok: false, reason: 'unsupported-format' });
   });
 });

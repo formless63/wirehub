@@ -17,7 +17,7 @@ import { SchematicPane } from '../src/panels/Schematic.tsx';
 import { diskDepictions, loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();
-const design = loadDesignFromDisk('rs485-de9-terminal-board');
+const design = loadDesignFromDisk('de9-terminal-board');
 
 afterEach(() => {
   cleanup();

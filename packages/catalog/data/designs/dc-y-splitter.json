@@ -1,43 +1,43 @@
 {
   "schemaVersion": 4,
-  "id": "trs-to-2rca-y",
-  "label": "3.5 mm TRS → moulded Y → 2× RCA, stereo splitter",
+  "id": "dc-y-splitter",
+  "label": "Terminal block → moulded Y → 2× JST XH, two-channel DC splitter",
   "instances": {
     "connectors": [
       {
         "id": "j1",
-        "def": "trs-3-5mm-male",
-        "role": "source plug"
+        "def": "terminal-block-4",
+        "role": "supply terminal block"
       },
       {
         "id": "j2",
-        "def": "rca-male",
-        "role": "left plug"
+        "def": "jst-xh-2-dc",
+        "role": "channel 1 plug"
       },
       {
         "id": "j3",
-        "def": "rca-male",
-        "role": "right plug"
+        "def": "jst-xh-2-dc",
+        "role": "channel 2 plug"
       }
     ],
     "segments": [
       {
         "id": "w1",
-        "def": "audio-stereo-2core",
+        "def": "shielded-2pair-24awg",
         "lengthMm": 1500,
         "role": "stem"
       },
       {
         "id": "w2",
-        "def": "audio-stereo-2core",
+        "def": "dc-2core-24awg",
         "lengthMm": 300,
-        "role": "left leg"
+        "role": "channel 1 leg"
       },
       {
         "id": "w3",
-        "def": "audio-stereo-2core",
+        "def": "dc-2core-24awg",
         "lengthMm": 300,
-        "role": "right leg"
+        "role": "channel 2 leg"
       }
     ],
     "components": [],
@@ -45,7 +45,7 @@
     "mechanical": [
       {
         "id": "m1",
-        "def": "overmold-y-3-5mm",
+        "def": "overmold-y",
         "qty": 1,
         "note": "the moulded Y the stem splits in"
       }
@@ -72,49 +72,54 @@
         "conductors": [
           {
             "segment": "w1",
-            "path": "left",
+            "path": "pair-1.a",
             "fate": "terminated"
           },
           {
             "segment": "w1",
-            "path": "right",
+            "path": "pair-1.b",
             "fate": "terminated"
           },
           {
             "segment": "w1",
-            "path": "shield",
+            "path": "pair-2.a",
             "fate": "terminated"
           },
           {
-            "segment": "w2",
-            "path": "left",
+            "segment": "w1",
+            "path": "pair-2.b",
             "fate": "terminated"
           },
           {
-            "segment": "w2",
-            "path": "right",
+            "segment": "w1",
+            "path": "foil",
             "fate": "nc",
-            "reason": "spare: the leg is the stem’s stock, one core unused"
+            "reason": "the stem’s screen ends in the mould; the legs are unscreened"
+          },
+          {
+            "segment": "w1",
+            "path": "drain",
+            "fate": "nc",
+            "reason": "cut back with the foil in the mould"
           },
           {
             "segment": "w2",
-            "path": "shield",
+            "path": "red",
+            "fate": "terminated"
+          },
+          {
+            "segment": "w2",
+            "path": "black",
             "fate": "terminated"
           },
           {
             "segment": "w3",
-            "path": "left",
-            "fate": "nc",
-            "reason": "spare: the leg is the stem’s stock; the right channel rides the red core"
-          },
-          {
-            "segment": "w3",
-            "path": "right",
+            "path": "red",
             "fate": "terminated"
           },
           {
             "segment": "w3",
-            "path": "shield",
+            "path": "black",
             "fate": "terminated"
           }
         ]
@@ -125,131 +130,148 @@
     {
       "a": {
         "instance": "j1",
-        "terminal": "tip"
+        "terminal": "1"
       },
       "b": {
         "instance": "w1",
-        "terminal": "left",
+        "terminal": "pair-1.a",
         "end": "a"
-      }
+      },
+      "note": "channel 1 +"
     },
     {
       "a": {
         "instance": "j1",
-        "terminal": "ring"
+        "terminal": "2"
       },
       "b": {
         "instance": "w1",
-        "terminal": "right",
+        "terminal": "pair-1.b",
         "end": "a"
-      }
+      },
+      "note": "channel 1 0 V"
     },
     {
       "a": {
         "instance": "j1",
-        "terminal": "sleeve"
+        "terminal": "3"
       },
       "b": {
         "instance": "w1",
-        "terminal": "shield",
+        "terminal": "pair-2.a",
+        "end": "a"
+      },
+      "note": "channel 2 +"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-2.b",
+        "end": "a"
+      },
+      "note": "channel 2 0 V"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-1.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "w2",
+        "terminal": "red",
+        "end": "a"
+      },
+      "note": "pair 1 spliced onto the channel 1 leg in the mould"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-1.b",
+        "end": "b"
+      },
+      "b": {
+        "instance": "w2",
+        "terminal": "black",
         "end": "a"
       }
     },
     {
       "a": {
         "instance": "w1",
-        "terminal": "left",
-        "end": "b"
-      },
-      "b": {
-        "instance": "w2",
-        "terminal": "left",
-        "end": "a"
-      },
-      "note": "left spliced onto the L leg in the mould"
-    },
-    {
-      "a": {
-        "instance": "w1",
-        "terminal": "right",
+        "terminal": "pair-2.a",
         "end": "b"
       },
       "b": {
         "instance": "w3",
-        "terminal": "right",
+        "terminal": "red",
         "end": "a"
       },
-      "note": "right spliced onto the R leg in the mould"
+      "note": "pair 2 spliced onto the channel 2 leg in the mould"
     },
     {
       "a": {
         "instance": "w1",
-        "terminal": "shield",
-        "end": "b"
-      },
-      "b": {
-        "instance": "w2",
-        "terminal": "shield",
-        "end": "a"
-      },
-      "note": "stem shield to each leg shield in the mould"
-    },
-    {
-      "a": {
-        "instance": "w1",
-        "terminal": "shield",
+        "terminal": "pair-2.b",
         "end": "b"
       },
       "b": {
         "instance": "w3",
-        "terminal": "shield",
+        "terminal": "black",
         "end": "a"
       }
     },
     {
       "a": {
         "instance": "w2",
-        "terminal": "left",
+        "terminal": "red",
         "end": "b"
       },
       "b": {
         "instance": "j2",
-        "terminal": "tip"
+        "terminal": "1"
       }
     },
     {
       "a": {
         "instance": "w2",
-        "terminal": "shield",
+        "terminal": "black",
         "end": "b"
       },
       "b": {
         "instance": "j2",
-        "terminal": "sleeve"
+        "terminal": "2"
       }
     },
     {
       "a": {
         "instance": "w3",
-        "terminal": "right",
+        "terminal": "red",
         "end": "b"
       },
       "b": {
         "instance": "j3",
-        "terminal": "tip"
+        "terminal": "1"
       }
     },
     {
       "a": {
         "instance": "w3",
-        "terminal": "shield",
+        "terminal": "black",
         "end": "b"
       },
       "b": {
         "instance": "j3",
-        "terminal": "sleeve"
+        "terminal": "2"
       }
     }
   ],
-  "src": "synthetic example: a stereo Y cable — one 3.5 mm TRS plug, a moulded breakout, and two RCA plugs, the same two-core stock on all three legs (the spare core of each leg is NC in the mould)"
+  "notes": [
+    "w1:foil@a and w1:drain@a are cut back at the terminal block — the screen is not used."
+  ],
+  "src": "synthetic example: two DC channels from a 4-way terminal block on a shielded two-pair stem, split in a moulded Y onto two red/black legs, each to a 2-pin JST XH plug; the screen ends in the mould"
 }

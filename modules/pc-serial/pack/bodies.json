@@ -1,0 +1,28 @@
+[
+  {
+    "id": "usb-a-plug",
+    "label": "USB Type-A plug",
+    "family": "usb-a",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "construction": "solder-cup",
+    "src": "USB 2.0 Specification §6.5.3 (USB-IF), Standard-A plug: contacts 1–4 and shell"
+  }
+]

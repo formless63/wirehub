@@ -4,24 +4,6 @@
   "src": "conductor colour → lane",
   "entries": [
     {
-      "id": "rca-audio",
-      "label": "RCA audio pair",
-      "lanes": {
-        "white": "audio-l",
-        "red": "audio-r"
-      },
-      "src": "RCA convention (white = left, red = right)"
-    },
-    {
-      "id": "balanced-mic",
-      "label": "Balanced microphone pair",
-      "lanes": {
-        "red": "audio-hot",
-        "white": "audio-cold"
-      },
-      "src": "common microphone-cable practice (red = hot, white = cold); synthetic example"
-    },
-    {
       "id": "dc-red-black",
       "label": "DC pair (red +, black −)",
       "lanes": {

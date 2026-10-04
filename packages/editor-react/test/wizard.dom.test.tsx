@@ -29,7 +29,7 @@ function setup(): { adapter: ReturnType<typeof memoryPersistence>; created: unkn
     <NewCableWizard
       db={db}
       persistence={adapter}
-      designs={[{ id: 'db9-null-modem', label: 'taken' }]}
+      designs={[{ id: 'de9-crossover', label: 'taken' }]}
       onCancel={() => undefined}
       onCatalogChange={(change) => created.push(change)}
     />,
@@ -73,7 +73,7 @@ describe('the first step', () => {
     setup();
     fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'x' } });
     fireEvent.change(screen.getByLabelText(/^Id/), {
-      target: { value: 'db9-null-modem' },
+      target: { value: 'de9-crossover' },
     });
     fireEvent.change(screen.getByLabelText(/^Source/), { target: { value: 'x' } });
     next();

@@ -25,7 +25,7 @@ import type { DrawingMeta } from '@wirehub/docs';
 import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();
-const design: CableDesign = loadDesignFromDisk('rs485-de9-terminal-board');
+const design: CableDesign = loadDesignFromDisk('de9-terminal-board');
 
 afterEach(() => {
   cleanup();
@@ -283,7 +283,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
       // the first save lands on the pre-version-save copy this form loaded —
       // refused, exactly like `server/etag.ts`'s stale-write guard
       if (saveCalls === 1) {
-        return { ok: false as const, message: "'rs485-de9-terminal-board' changed on disk since you opened it.", status: 409, issues: [staleWrite] };
+        return { ok: false as const, message: "'de9-terminal-board' changed on disk since you opened it.", status: 409, issues: [staleWrite] };
       }
       return { ok: true as const, value: meta };
     });

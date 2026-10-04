@@ -41,8 +41,8 @@ describe('catalog reads', () => {
     const out = await get('/api/drawings');
     expect(out.status).toBe(200);
     // the length family: a family PN with per-length suffixes
-    expect(out.body.drawings['xlr-mic-cable'].partNumber).toBe('CBL-00010-XX');
-    expect(out.body.drawings['xlr-mic-cable'].lengths.length).toBe(3);
+    expect(out.body.drawings['dc-led-lead'].partNumber).toBe('CBL-00010-XX');
+    expect(out.body.drawings['dc-led-lead'].lengths.length).toBe(3);
     for (const id of Object.keys(out.body.drawings)) expect(fixture.designExists(id), id).toBe(true);
   });
 
@@ -51,7 +51,7 @@ describe('catalog reads', () => {
     expect(out.status).toBe(200);
     expect(out.body.scheme).toBeUndefined();
     expect(out.body.designs.length).toBe(fixture.listDesignIds().length);
-    expect(out.body.drawings['xlr-mic-cable'].partNumber).toBe('CBL-00010-XX');
+    expect(out.body.drawings['dc-led-lead'].partNumber).toBe('CBL-00010-XX');
   });
 
   it('says so in words when the host keeps none of it, and refuses writes', async () => {
@@ -70,7 +70,7 @@ describe('catalog reads', () => {
   });
 
   it('keeps per-design drawing reads working beside the index', async () => {
-    const design = fixture.loadDesign('xlr-mic-cable') as CableDesign;
+    const design = fixture.loadDesign('dc-led-lead') as CableDesign;
     const out = await get(`/api/drawings/${design.id}`);
     expect(out.status).toBe(200);
   });

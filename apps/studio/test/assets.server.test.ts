@@ -14,8 +14,8 @@ import { memoryDrawingStore } from '../server/drawings.ts';
 import { withLoadedVersion } from './loaded-version.ts';
 
 const db = loadDb();
-const A = loadDesign('rj45-patch-t568b');
-const B = loadDesign('db9-null-modem');
+const A = loadDesign('de9-terminal-board');
+const B = loadDesign('de9-crossover');
 
 function designs(): DesignStore {
   const files = new Map([

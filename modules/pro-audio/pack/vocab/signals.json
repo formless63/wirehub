@@ -1,0 +1,62 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "src": "generic signal names; public interface standards cited per entry",
+  "entries": [
+    {
+      "id": "audio-l",
+      "label": "Audio L",
+      "kind": "audio",
+      "aliases": [
+        "Left"
+      ],
+      "src": "IEC 60603-11 stereo plug convention",
+      "standIn": "audio-mono"
+    },
+    {
+      "id": "audio-r",
+      "label": "Audio R",
+      "kind": "audio",
+      "aliases": [
+        "Right"
+      ],
+      "src": "IEC 60603-11 stereo plug convention",
+      "standIn": "audio-mono"
+    },
+    {
+      "id": "audio-mono",
+      "label": "Audio (mono)",
+      "kind": "audio",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-hot",
+      "label": "Audio + (hot)",
+      "kind": "audio",
+      "aliases": [
+        "Hot"
+      ],
+      "src": "AES14 / IEC 61076-2-103 balanced audio"
+    },
+    {
+      "id": "audio-cold",
+      "label": "Audio − (cold)",
+      "kind": "audio",
+      "aliases": [
+        "Cold"
+      ],
+      "src": "AES14 / IEC 61076-2-103 balanced audio"
+    },
+    {
+      "id": "gnd-audio",
+      "label": "Audio ground",
+      "kind": "ground",
+      "returnFor": [
+        "audio-l",
+        "audio-r",
+        "audio-mono"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

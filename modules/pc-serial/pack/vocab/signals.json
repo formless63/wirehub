@@ -1,0 +1,119 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "src": "generic signal names; public interface standards cited per entry",
+  "entries": [
+    {
+      "id": "rs232-txd",
+      "label": "Transmit data (TXD)",
+      "kind": "data",
+      "aliases": [
+        "TXD",
+        "TX"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-rxd",
+      "label": "Receive data (RXD)",
+      "kind": "data",
+      "aliases": [
+        "RXD",
+        "RX"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-rts",
+      "label": "Request to send (RTS)",
+      "kind": "control",
+      "aliases": [
+        "RTS"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-cts",
+      "label": "Clear to send (CTS)",
+      "kind": "control",
+      "aliases": [
+        "CTS"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-dtr",
+      "label": "Data terminal ready (DTR)",
+      "kind": "control",
+      "aliases": [
+        "DTR"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-dsr",
+      "label": "Data set ready (DSR)",
+      "kind": "control",
+      "aliases": [
+        "DSR"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-dcd",
+      "label": "Data carrier detect (DCD)",
+      "kind": "control",
+      "aliases": [
+        "DCD"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-ri",
+      "label": "Ring indicator (RI)",
+      "kind": "control",
+      "aliases": [
+        "RI"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs485-a",
+      "label": "RS-485 A (data −)",
+      "kind": "data",
+      "aliases": [
+        "A",
+        "Data-"
+      ],
+      "src": "TIA-485-A; PROFIBUS DP line N"
+    },
+    {
+      "id": "rs485-b",
+      "label": "RS-485 B (data +)",
+      "kind": "data",
+      "aliases": [
+        "B",
+        "Data+"
+      ],
+      "src": "TIA-485-A; PROFIBUS DP line P"
+    },
+    {
+      "id": "usb-dp",
+      "label": "USB D+",
+      "kind": "data",
+      "aliases": [
+        "D+"
+      ],
+      "src": "USB 2.0 Specification §6.5 (USB-IF)"
+    },
+    {
+      "id": "usb-dn",
+      "label": "USB D−",
+      "kind": "data",
+      "aliases": [
+        "D-"
+      ],
+      "src": "USB 2.0 Specification §6.5 (USB-IF)"
+    }
+  ]
+}

@@ -19,8 +19,8 @@ import { commitChangeSet, derivedFor, UnitOfWork } from '../server/storage/unit-
 
 const fixture = fixtureCatalog();
 const DB: Db = fixture.loadDb();
-const A = fixture.loadDesign('db9-null-modem');
-const B = fixture.loadDesign('xlr-mic-cable');
+const A = fixture.loadDesign('de9-crossover');
+const B = fixture.loadDesign('dc-led-lead');
 
 /** A design store over a Map of file texts, counting the writes that reach it. */
 function memoryDesigns(seed: CableDesign[]): DesignStore & { files: Map<string, string>; writes: string[]; slow?: number } {

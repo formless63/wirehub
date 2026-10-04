@@ -21,7 +21,7 @@ import { cableListEntry } from '../src/cable-list.ts';
 import { workbenchPersistence } from '../src/persistence.browser.ts';
 
 const db: Db = loadDb();
-const REAL: CableDesign = loadDesign('rs485-de9-terminal-board');
+const REAL: CableDesign = loadDesign('de9-terminal-board');
 
 let files: Map<string, string>;
 const realFetch = globalThis.fetch;

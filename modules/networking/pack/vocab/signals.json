@@ -1,0 +1,83 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "src": "generic signal names; public interface standards cited per entry",
+  "entries": [
+    {
+      "id": "eth-da-p",
+      "label": "Ethernet pair A +",
+      "kind": "data",
+      "aliases": [
+        "BI_DA+",
+        "TX+"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DA+)"
+    },
+    {
+      "id": "eth-da-n",
+      "label": "Ethernet pair A −",
+      "kind": "data",
+      "aliases": [
+        "BI_DA-",
+        "TX-"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DA−)"
+    },
+    {
+      "id": "eth-db-p",
+      "label": "Ethernet pair B +",
+      "kind": "data",
+      "aliases": [
+        "BI_DB+",
+        "RX+"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DB+)"
+    },
+    {
+      "id": "eth-db-n",
+      "label": "Ethernet pair B −",
+      "kind": "data",
+      "aliases": [
+        "BI_DB-",
+        "RX-"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DB−)"
+    },
+    {
+      "id": "eth-dc-p",
+      "label": "Ethernet pair C +",
+      "kind": "data",
+      "aliases": [
+        "BI_DC+"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DC+)"
+    },
+    {
+      "id": "eth-dc-n",
+      "label": "Ethernet pair C −",
+      "kind": "data",
+      "aliases": [
+        "BI_DC-"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DC−)"
+    },
+    {
+      "id": "eth-dd-p",
+      "label": "Ethernet pair D +",
+      "kind": "data",
+      "aliases": [
+        "BI_DD+"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DD+)"
+    },
+    {
+      "id": "eth-dd-n",
+      "label": "Ethernet pair D −",
+      "kind": "data",
+      "aliases": [
+        "BI_DD-"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DD−)"
+    }
+  ]
+}

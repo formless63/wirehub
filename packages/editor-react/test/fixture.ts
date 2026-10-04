@@ -30,12 +30,11 @@ export function loadDesignFromDisk(id: string): CableDesign {
 }
 
 /**
- * A design whose `w2` is a faceless stock — the row-node fallback example:
- * the Y cable's left leg swapped onto a plain DC pair, its joints moved to
- * the pair's conductors so every joint stays valid.
+ * A design whose `w2` is a plain two-core stock — the row-node fallback
+ * example: the DC Y splitter, whose legs are a red/black DC pair.
  */
 export function designWithFacelessWhip(): CableDesign {
-  const design = loadDesignFromDisk('trs-to-2rca-y');
+  const design = loadDesignFromDisk('dc-y-splitter');
   return design;
 }
 
@@ -100,8 +99,8 @@ export function multicoreDesign(): CableDesign {
     label: 'DE-9 → DE-9, multicore test lead',
     instances: {
       connectors: [
-        { id: 'j1', def: 'de9-female-rs232' },
-        { id: 'j2', def: 'de9-female-rs232' },
+        { id: 'j1', def: 'de9-female' },
+        { id: 'j2', def: 'de9-female' },
       ],
       segments: [
         {

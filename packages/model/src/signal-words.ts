@@ -153,6 +153,11 @@ export function readSignalWords(vocab: Vocab | undefined, raw: string | undefine
     const exact = own.find((e) => phrasesOf(e).includes(text));
     return exact?.id ?? groundSignalFor(vocab, text);
   }
+  // "0 V" is the return, never a rail
+  if (voltageOf(text) === '+0') {
+    const own = liveSignals(vocab).find((e) => e.kind === 'ground' && phrasesOf(e).includes(text));
+    return own?.id ?? (has(vocab, GROUND_SIGNAL) ? GROUND_SIGNAL : undefined);
+  }
   const signals = liveSignals(vocab).filter((e) => e.kind !== 'ground' && e.kind !== 'none');
   const exact = signals.find((e) => phrasesOf(e).includes(text));
   if (exact !== undefined) return exact.id;

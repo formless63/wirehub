@@ -22,7 +22,7 @@ import { initialEditorState } from '../src/store.ts';
 import type { DepictionSource } from '../src/index.ts';
 
 const db: Db = loadDb();
-const DESIGN = 'db9-null-modem';
+const DESIGN = 'de9-crossover';
 /** the console-side board of that design, drawn as `u1` */
 const DEPICTED = 'PCA-00110-rev5';
 
