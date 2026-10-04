@@ -1,0 +1,15 @@
+{
+  "name": "site",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "description": "The WireHub config generator: a static, client-side page published to GitHub Pages.",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "4.1.11"
+  }
+}

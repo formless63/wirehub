@@ -1,0 +1,46 @@
+name: Release
+
+# release-please keeps a release pull request open from the conventional
+# commits on main (release-please-config.json): the next version, the
+# CHANGELOG and the image tag pinned in compose.yaml and .env.example.
+# Merging it tags vX.Y.Z and publishes a GitHub Release with the notes; the
+# image job below then publishes that version's image.
+#
+# A release made with the workflow's GITHUB_TOKEN does not start other
+# workflows, so the image is built from here (workflow_call). A release a
+# person publishes by hand starts image.yml through its own `release` trigger.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  image:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag }}

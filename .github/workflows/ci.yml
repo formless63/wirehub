@@ -50,15 +50,21 @@ jobs:
           pnpm test
 
   compose:
-    name: Compose files and image
+    name: Compose stack and image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate compose files
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate compose.yaml (no .env), every profile, and the generator's variants
         run: |
-          bash scripts/setup-env.sh
-          docker compose -f compose.yaml config --quiet
-          docker compose -f compose.yaml -f compose.backup.yaml config --quiet
+          docker compose config --quiet
+          for profile in $(docker compose config --profiles); do
+            COMPOSE_PROFILES="$profile" docker compose config --quiet
+          done
+          COMPOSE_PROFILES="$(docker compose config --profiles | paste -sd, -)" docker compose config --quiet
+          node site/check-variants.mjs
       - uses: docker/setup-buildx-action@v3
       - name: Build the image (not pushed)
         uses: docker/build-push-action@v6
@@ -66,6 +72,10 @@ jobs:
           context: .
           file: docker/app.Dockerfile
           push: false
-          tags: wirehub:ci
+          load: true
+          tags: wirehub:smoke
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # an empty directory, compose.yaml only, no .env — as a Docker UI deploys it
+      - name: Deploy test (default stack, then the backup profile)
+        run: bash scripts/stack-smoke.sh --backup wirehub:smoke
