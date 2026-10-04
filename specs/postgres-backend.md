@@ -1,11 +1,33 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.1 (rev 6 was the first revision in the open base). Nothing here is
-implemented yet; the storage seam it plugs into is (`storage-seam.md`). The execution
+Status: **plan**, rev 6.2 (rev 6 was the first revision in the open base). **Phase A
+(schema and read path) is built** on branch `pg/A-read-path` (§11); everything after it is
+plan. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.2** — Phase A built; the plan follows what the build found. Schema (§3, the DDL
+  blocks are the migration files verbatim, a test holds them equal): saved artwork is
+  `design_artwork` keyed by design (the file store keeps one content-addressed artwork store
+  per design, shared by its revisions — there was no revision to key it by);
+  `drawing_photo` and `depiction_file` hang off the entity, not a record (the file store
+  keeps a photo without a title block, artwork without a `meta.json`); new
+  `catalog_file` for any other binary file (a legacy `drawings/<id>.photo.<ext>`, a
+  module's binary); `catalog_doc` takes `text/plain` (`data/LICENSE`);
+  `studio.sole_org_id()` (the org of a one-org deployment) and `studio.head_version(org)`
+  (`catalogVersion()` in one round trip, S3) with an owner read policy on
+  `catalog_head` (FORCE subjects the definer to RLS too); `studio_ro` is `BYPASSRLS`
+  (`pg_dump` refuses tables RLS would filter); the migrator's table lives in schema
+  `wirehub_migrations`, readable by the app. Reads (§4.1): every store answers from the
+  version-checked snapshot, not per-method SQL. Order is code-point everywhere, decided in
+  JS, so the builtin C locale (§3.1) is a nicety, not a requirement — the compose
+  database created by `POSTGRES_DB` works as it is. Commands and variables (§6, §7.2,
+  §8.2): `db:bootstrap` (roles + database, idempotent, `DATABASE_ADMIN_URL`, also on a
+  volume initialised before this plan), `db:migrate`, `pg:import`, `pg:export`, `pg:gate`;
+  `WIREHUB_ORG`, `WIREHUB_OWNER_PASSWORD`. `GET /api/export` exists on both backends.
+  Tests (§10): `apps/studio/test/pg/` (harness, `compose.test.yaml`) and
+  `test/storage-contract/`.
 - **rev 6.1** — the default self-hosted stack exists now (`compose.yaml`: the app,
   Garage as the S3-compatible blob store, PostgreSQL 18 provisioned ahead of this plan)
   and the backup add-on (`compose.backup.yaml`: pg_dump + bucket mirror + restic through
@@ -209,9 +231,10 @@ Every file under `packages/catalog/data/` and `depictions/` (the codec coverage 
 | `designs/<id>.json` | truth | `entity(design)` + `record('')` |
 | `designs/_versions/<id>/<rev>.json` | truth (frozen once locked) | `design_revision` |
 | `designs/_versions/<id>/working.json`, `drafts/<n>.json` | truth | `design_working`, `design_draft` |
-| `designs/_versions/<id>/artwork/<sha>.<ext>` | truth (bytes) | `design_artwork` → `blob` |
+| `designs/_versions/<id>/artwork/<sha>.<ext>` | truth (bytes; one store per design, shared by its revisions) | `design_artwork` → `blob` |
 | `drawings/<id>.json` | truth | `record('drawing')` of the design |
 | `drawings/<id>.photo-ref.json` | truth | `drawing_photo` → `asset` |
+| `drawings/<id>.photo.<png\|jpg>` (legacy, before the asset store) | truth (bytes) | `catalog_file` → `blob` |
 | `assets/index.json` + `assets/<sha>.<ext>` | truth (uploads, including GLB/STL models) | `asset` + `blob(class 'record')` |
 | `connectors.json`, `bodies.json`, `interfaces.json`, `components.json`, `mechanicals.json`, `kits.json`, `wires.json`, `pcbas.json` | truth | `entity` + `record`, ordered |
 | `wire-parts.json`, `wire-recipes.json`, `strip-practice.json` | truth | `entity(wire-part / wire-recipe)`, ordered; `catalog_doc` |
@@ -225,7 +248,15 @@ Every file under `packages/catalog/data/` and `depictions/` (the codec coverage 
 | `depictions/<def>/<view>.svg` | truth / imported (bytes) | `depiction_file` → `blob` |
 | `data/.model-cache/<key>.glb` (gitignored) | derived cache | `derived_blob(cache 'model')` |
 | `data/auth/*` (gitignored) | login state | `auth` schema (§3.15) |
-| any other `data/**/*.json` or `*.md` (a module's files) | as the module declares | `catalog_doc` |
+| any other `data/**/*.json` or `*.md` (`pcba-status.json`, `pcba-pads.json`, `board-parts.json`, `packs.json`, `setup.json`, `kicad-maps/`, a module's files) | as the module declares | `catalog_doc` |
+| `data/LICENSE`, `*.txt` | truth | `catalog_doc` (`text/plain`, exact text) |
+| any other file under `data/` (a module's binary) | truth (bytes) | `catalog_file` → `blob` |
+| dot-files and dot-directories (`.model-cache/`, `.kicad-3d-cache/`, `.*.tmp`), `*.import-tmp`, `*.pack-tmp` | skipped by name (the codec's `SKIP_RULES`, held against `.gitignore` by a test) | — |
+
+The codec is `packages/catalog/src/codec/` (`FILE_MAP`, `explode`, `render`). It is strict:
+a typed file that is not in its store's shape (a list item without a unique id, an asset
+index entry out of order, a non-canonical file) refuses the import, naming the file,
+rather than falling back to a document.
 
 ### 3.3 Every `RecordKind` and the table it writes
 
@@ -1126,14 +1157,24 @@ GRANT SELECT, INSERT, UPDATE ON auth.api_token TO studio_app;   -- no DELETE: a 
 
 ## 4. PgStore
 
+As built in Phase A, `apps/studio/server/pg/` holds `config.ts`, `db.ts` (a `pg` Pool in
+Kysely; `inOrg(db, org, fn)`), `bootstrap.ts`, `migrate.ts`, `rows.ts` (codec rows ↔
+tables), `refs.ts`, `import.ts`, `snapshot.ts`, `stores.ts` (the read half),
+`deps.ts` (`pgWorkbenchDeps`, `openPgBackend`), `export.ts`, `gate.ts` and `cli.ts`.
+The plan's further layout:
 `apps/studio/server/pg/` holds `db.ts` (Kysely + a `pg` Pool; `withOrg(trx)`),
 `stores/*.ts` (one per interface), and `commit.ts`, `snapshot.ts`, `locks.ts`, `blobs.ts`,
 `derived-cache.ts`. `pgWorkbenchDeps(db, blobs, org)` mirrors `defaultWorkbenchDeps()`.
 
 ### 4.1 Store methods → SQL
 
-Reads outside a commit run in a short transaction after `set_config('studio.org_id', …,
-true)` (`inOrg(fn)`). Reads inside a commit use the commit's transaction.
+**Reads are answered from the snapshot** (§2), not by per-method SQL: one
+`studio.head_version()` round trip per request (shared across a request's store calls for
+50 ms), and on a new version one REPEATABLE READ load of every row, rendered through the
+codec. Each read store is the file store's read path over the same text, so every answer
+and every ETag is the file backend's by construction (the gate's parity run checks it).
+The SQL column below says where the snapshot's rows come from, and is what the write half
+(Phase B) writes. Reads inside a commit (preconditions) use the commit's transaction.
 
 | Interface | Method | SQL / source |
 | --- | --- | --- |
@@ -1413,7 +1454,7 @@ The re-read costs one extra GET per upload; uploads are rare, so it stays on.
 ### 5.4 GC
 
 - Daily, after the backup. The live set of **record** blobs is every sha referenced by
-  `asset`, `drawing_photo`, `depiction_file`, `design_artwork`, `job_file` (jobs < 7
+  `asset`, `drawing_photo`, `depiction_file`, `design_artwork`, `catalog_file`, `job_file` (jobs < 7
   days) and `qa_test_run.raw_blob`. Assets are roots.
 - A record blob not in the live set becomes an orphan. After 30 days its object and its
   row are deleted — and only if a backup completed **after** it became an orphan (its
@@ -1446,9 +1487,14 @@ The re-read costs one extra GET per upload; uploads are rare, so it stays on.
 
 ## 6. Migrations
 
-- **Tooling:** the Kysely `Migrator`; `apps/studio/server/pg/migrations/NNNN_name.ts`;
-  forward-only (`down()` throws); run as `studio_owner` by the `migrate` one-shot service
-  or `pnpm --filter studio db:migrate`. Module migrations run after the base's (§3.13).
+- **Tooling:** the Kysely `Migrator` over SQL files, `apps/studio/server/pg/migrations/NNNN_name.sql`
+  (each is its §3 DDL block, verbatim); forward-only (`down()` throws); all pending ones in
+  one transaction; bookkeeping in schema `wirehub_migrations`; run as `studio_owner` by the
+  `migrate` one-shot service or `pnpm --filter studio db:migrate` (`DATABASE_OWNER_URL`).
+  Before it, `pnpm --filter studio db:bootstrap` (`DATABASE_ADMIN_URL`, a superuser)
+  creates or updates the three roles and creates the database when missing — idempotent,
+  so it also serves a volume initialised before this plan, where the image's init scripts
+  never run again. The studio refuses to start while a migration is pending. Module migrations run after the base's (§3.13).
 - **Conventions:** SQL migrations, never edited after release (`migrations/CHECKSUMS`
   test); expand → migrate → contract; every new org-scoped table gets RLS in the same
   migration (the RLS suite fails otherwise).
@@ -1485,13 +1531,17 @@ in-memory post-commit state for derive.
 
 ### 7.2 The importer and the gate
 
-`pnpm --filter studio pg:import --from packages/catalog --org <slug> [--dry-run]`:
+`pnpm --filter studio pg:import --from packages/catalog --org <slug> [--create-org] [--name <org name>] [--dry-run]`
+(into an **empty** org; `DATABASE_URL`, `WIREHUB_BLOBS`):
 
 1. Read the whole tree. `explode`. Fail on any uncovered file.
 2. Upload record blobs (idempotent). Then, in **one transaction**: every row, `ref_edge` /
    `ref_dangling`, one `change_set` (`source='import'`), and `catalog_head.version`.
 3. Derived caches are not imported; the worker builds them.
-4. Run the gate (`pnpm --filter studio pg:gate`):
+4. Run the gate (`pnpm --filter studio pg:gate --from <dir>`; as built it also compares the
+   database's generated `etag` columns with `contentETag`, the `ref_edge` usage with the
+   model's, and every GET route × id — against the real file stores when `<dir>` is the
+   live catalog):
    - `render(rows)` is byte-identical to the tree;
    - `validateDb` and every design's `validateDesign` give the same issues over the pg
      snapshot as over the files;
@@ -1599,6 +1649,9 @@ All in `.env` (`.env.example` documents every variable):
 | `WIREHUB_BACKEND` | `pg` in compose once Phase S lands | `files` / `pg` |
 | `DATABASE_URL` | the compose's postgres, as `studio_app` | the app's connection |
 | `DATABASE_OWNER_URL` | as `studio_owner` | `migrate` only |
+| `DATABASE_ADMIN_URL` | the compose's postgres superuser (`POSTGRES_USER`) | `db:bootstrap` only |
+| `WIREHUB_ORG` | the deployment's only org | the org slug the studio acts for |
+| `WIREHUB_OWNER_PASSWORD` | generated by `scripts/setup-env.sh` | `studio_owner`'s password (`db:bootstrap`) |
 | `POSTGRES_PASSWORD`, `WIREHUB_APP_PASSWORD`, `WIREHUB_RO_PASSWORD` | generated by `scripts/setup-env.sh` (§9.1) | (`POSTGRES_PASSWORD` exists today; the role passwords arrive with S2) |
 | `WIREHUB_BLOBS` | `s3` | or `fs:<dir>` (fallback) |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | the bundled Garage; keys generated | path-style always |
@@ -1803,8 +1856,12 @@ runs the file backend, with the catalog in a volume.
   module schemas has RLS enabled and forced, with cross-org isolation), **migration
   test**, **trigger tests** (revision guard, audit, touch, deferred FKs), **gate in CI**
   (on `fixtures/v1` and the starter catalog).
-- **Postgres in tests:** `docker-compose.test.yml` `pg-test` (tmpfs, `fsync=off`, 256 MiB);
-  a template database; one database per file; a single fork. Blobs use `fsBlobStore`.
+- **Postgres in tests:** `apps/studio/test/pg/compose.test.yaml` `pg-test` (tmpfs,
+  `fsync=off`, 256 MiB, a random localhost port), or any throwaway `postgres:18`; the
+  suites read `WIREHUB_TEST_PG_URL` (a superuser URL) and skip with one line without it.
+  `test/pg/harness.ts` bootstraps the roles and a migrated template database once per
+  migration set (under an advisory lock) and gives each test file a database of its own,
+  so files may run in parallel. Blobs use `fsBlobStore`.
   S3 cases run only with `WIREHUB_TEST_S3_URL` (a throwaway Garage container; the client's
   signer is also checked against the AWS documentation's worked example).
 - **RAM discipline:** only the suites a change touches; the full run one workspace at a
@@ -1817,7 +1874,15 @@ runs the file backend, with the catalog in a volume.
 Sizes are in person-days (d) for an agent-plus-review loop, tests included. Total A–D +
 S ≈ 75 d; E optional, 7 d.
 
-### Phase A — schema and read path (≈ 21 d)
+### Phase A — schema and read path (≈ 21 d) — built (rev 6.2)
+
+As built: A1's dev compose is `test/pg/compose.test.yaml` plus `db:bootstrap` (roles in
+TypeScript, not `bootstrap.sh`; the stack's compose wiring is Phase S). A5 renders rows
+through the codec into a `memoryCatalogSource` instead of a separate `PgCatalogSource`.
+A8's contract suite has its read cases on files, the in-memory codec snapshot and pg.
+Gate results on the starter, the fixture catalog, the starter with every bundled pack, and
+a synthetic catalog of 100 designs / 1,000 definitions: 0 diffs; S4 and S3 are measured by
+`test/pg/gate.server.test.ts` and `latency.server.test.ts`.
 
 | # | Task | Size | Depends on |
 | --- | --- | --- | --- |
