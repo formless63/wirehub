@@ -210,7 +210,7 @@ were dropped. Dropped whole files:
 | render-svg | `cross-section`, `depictions`, `entry-guides`, `part-pads`, `proposal`, `structure` (goldens regenerated) |
 | docs | the three ERP test files (contract, export, transport), `bom-sheet`, `bom`, `breakouts`, `build-sheet`, `drawing-faces`, `drawing`, `library-pn`, `lineup-export`, `part-numbers`, `products`, `standalone`; new `documents.test.ts`; `test-spec` and `wire-spec` cut to their generic cases plus new starter cases |
 | editor-react | the ERP export test, `artwork`, `bare-scart`, `board-art`, `board-diff`, `board-journey`, `board-node`, `board-to-board`, `breakout`, `cable-journey` (×2), `canvas-ergonomics`, `carrier-dock`, `carrier-through`, `compare-diff`, `compare-view`, `connection-rows`, `connector-leads`, `derive`, `edit-session`, `entry-guides`, `ground-bus`, `library-table`, `moulds`, `mount`, `part-numbers`, `pigtail-edit`, `pigtail-hand-edits` (×2), `recipe-overrides`, `record-page-order`, `repin`, `signal-tags`, `stock-swap`, `trace-highlight`, `wire-builder`, `wire-model3d`, `wire-scene` |
-| studio | the two ERP link tests, `board-import`, `board-texture`, `builds`, `cable-list-sync`, `cables-list`, `compare-route`, `derived`, `entry-guides`, `kicad-models`, `lineup-push`, `lineup`, `pn-agreement`, `products` (×2), `proposals`, `revisions` |
+| studio (new: `modules.server.test.ts`) | the two ERP link tests, `board-import`, `board-texture`, `builds`, `cable-list-sync`, `cables-list`, `compare-route`, `derived`, `entry-guides`, `kicad-models`, `lineup-push`, `lineup`, `pn-agreement`, `products` (×2), `proposals`, `revisions` |
 
 In the files that were kept, individual cases asserting private designs were
 removed (editor 170 cases across 29 files, studio 70 across 14, docs 32 across
@@ -237,7 +237,9 @@ removed (editor 170 cases across 29 files, studio 70 across 14, docs 32 across
 - `pnpm install`, `pnpm -r build` (tsc --noEmit, strict): green.
 - `pnpm test` (one workspace at a time, `--maxWorkers=2`): model 209,
   catalog 12, modules 4, layout 77, render-svg 197, docs 88, editor-react
-  452, studio 392 — 1431 tests, all green.
+  452, studio 395 — 1434 tests, all green.
+- Not yet verified: `docker build` of `docker/app.Dockerfile` (the bundle
+  and the standalone server were smoke-tested; bead filed).
 
 ## 9. Leak scan
 
