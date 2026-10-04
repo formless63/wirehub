@@ -53,6 +53,13 @@ export interface ModelDeps {
   who?: string;
   /** today, YYYY-MM-DD */
   today?: () => string;
+  /**
+   * Run a write in one unit of work (`api.ts`): the link and any uploaded
+   * bytes are staged, then committed as one change set (the file backend's
+   * files, or one database transaction). Absent: the write goes straight to
+   * the stores under the write lock (tests, read-only hosts).
+   */
+  transact?: (write: (deps: ModelDeps) => Promise<ApiResponse>) => Promise<ApiResponse>;
 }
 
 export interface ModelRequest {
@@ -165,13 +172,16 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
   const db = await deps.loadDb();
   if (!recordExists(db, kind, id)) return fail(404, `There is no ${kind} record '${id}'.`, 'Reload the Library; it may have been renamed or deleted.');
 
-  const guarded = async (write: (current: ModelLink | undefined) => Promise<ApiResponse>): Promise<ApiResponse> =>
-    withWriteLock(async () => {
-      const current = await links.get(record);
+  const guarded = async (write: (current: ModelLink | undefined, stores: { links: ModelLinkStore; assets: AssetStore }) => Promise<ApiResponse>): Promise<ApiResponse> => {
+    const run = async (d: ModelDeps): Promise<ApiResponse> => {
+      const stores = { links: d.links ?? links, assets: d.assets ?? assets };
+      const current = await stores.links.get(record);
       const refused = checkIfMatch(request.ifMatch, linkETag(current), '3D model link', record);
       if (refused !== undefined) return refused;
-      return write(current);
-    });
+      return write(current, stores);
+    };
+    return deps.transact !== undefined ? deps.transact(run) : withWriteLock(() => run(deps));
+  };
 
   const body = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as Record<string, unknown>;
   const sourceKind = (fallback: ModelSourceKind): ModelSourceKind | ApiResponse => {
@@ -182,9 +192,9 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
   const today = (deps.today ?? (() => new Date().toISOString().slice(0, 10)))();
 
   if (method === 'DELETE' && action === undefined) {
-    return guarded(async (current) => {
+    return guarded(async (current, stores) => {
       if (current === undefined) return fail(404, `${record} has no 3D model to detach.`);
-      await links.remove(record);
+      await stores.links.remove(record);
       return ok({ detached: current }, 200, { ETag: linkETag(undefined) });
     });
   }
@@ -200,7 +210,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
     const stored = found !== undefined && isModelAsset(found.record);
     // an imported model is known by its link (its bytes may not be built on this box yet)
     if (!stored && cited?.files === undefined) return fail(404, `No stored 3D model ${asset}.`, 'Pick one from the imported models, or upload the file.');
-    return guarded(async () => {
+    return guarded(async (_current, stores) => {
       const src =
         typeof body['src'] === 'string' && body['src'].trim() !== ''
           ? body['src'].trim()
@@ -217,7 +227,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
         ...(cited?.revision === undefined ? {} : { revision: cited.revision }),
         ...(cited?.triangles === undefined ? {} : { triangles: cited.triangles }),
       };
-      await links.put(link);
+      await stores.links.put(link);
       return ok({ link }, 200, { ETag: linkETag(link) });
     });
   }
@@ -243,10 +253,10 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
       if (error instanceof ModelRefusal) return fail(422, error.message, `Nothing was saved. ${error.hint}`);
       throw error;
     }
-    return guarded(async () => {
+    return guarded(async (_current, stores) => {
       const who = deps.who ?? 'the Library';
       const src = `${name.trim()} (${converted.format.toUpperCase()}${converted.format === 'glb' ? '' : ', converted to GLB'}), uploaded by ${who} on ${today}`;
-      const stored = await assets.put(Buffer.from(converted.glb), 'model/gltf-binary', name.trim(), src);
+      const stored = await stores.assets.put(Buffer.from(converted.glb), 'model/gltf-binary', name.trim(), src);
       const link: ModelLink = {
         record,
         asset: stored.id,
@@ -254,7 +264,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
         src,
         ...(converted.stats.triangles > 0 ? { triangles: converted.stats.triangles } : {}),
       };
-      await links.put(link);
+      await stores.links.put(link);
       return ok({ link, stats: converted.stats }, 200, { ETag: linkETag(link) });
     });
   }

@@ -37,6 +37,7 @@ import type { DraftFile, DraftSummary, VersionStore, WorkingState } from '../ver
 import type { TagStore, VocabStore } from '../vocab-store.ts';
 import type { TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import type { WireLibraryStore } from '../wire-library.ts';
+import { sortLinks, type ModelLink, type ModelLinkStore } from '../models/links.ts';
 import { StaleRecordError, type ChangeSet, type CommitResult, type DerivedKind, type RecordChange, type RecordKind } from './change-set.ts';
 
 const ref = (kind: RecordKind, key: string): string => `${kind}\u0000${key}`;
@@ -88,6 +89,7 @@ export class UnitOfWork {
     if (base.wireLibrary !== undefined) staged.wireLibrary = this.wireLibrary(base.wireLibrary);
     if (base.builds !== undefined) staged.builds = this.builds(base.builds);
     if (base.versions !== undefined) staged.versions = this.versions(base.versions);
+    if (base.modelLinks !== undefined) staged.modelLinks = this.modelLinks(base.modelLinks);
     this.deps = staged;
   }
 
@@ -257,6 +259,37 @@ export class UnitOfWork {
       },
       remove: async (id) => {
         this.stage({ kind: 'drawing', key: id, op: 'delete' });
+      },
+    };
+  }
+
+  private modelLinks(base: ModelLinkStore): ModelLinkStore {
+    const get = async (record: string): Promise<ModelLink | undefined> => {
+      const s = this.staged<ModelLink>('model-link', record);
+      if (s.found) return s.value;
+      const value = await base.get(record);
+      this.observe('model-link', record, value);
+      return value === undefined ? undefined : clone(value);
+    };
+    return {
+      list: async () => {
+        const rows = new Map((await base.list()).map((l) => [l.record, l] as const));
+        for (const [record, c] of this.stagedKeys('model-link')) {
+          if (c.op === 'put') rows.set(record, clone(c.value as ModelLink));
+          else rows.delete(record);
+        }
+        return sortLinks([...rows.values()]);
+      },
+      get,
+      put: async (link) => {
+        await get(link.record);
+        this.stage({ kind: 'model-link', key: link.record, op: 'put', value: clone(link) });
+      },
+      remove: async (record) => {
+        const current = await get(record);
+        if (current === undefined) return false;
+        this.stage({ kind: 'model-link', key: record, op: 'delete' });
+        return true;
       },
     };
   }
@@ -502,6 +535,8 @@ async function currentVersion(base: WorkbenchDeps, change: RecordChange): Promis
       return base.versions === undefined ? 'unknown' : versionOf(await base.versions.working(key));
     case 'version-draft':
       return base.versions === undefined ? 'unknown' : versionOf(await base.versions.readDraft(head, tail));
+    case 'model-link':
+      return base.modelLinks === undefined ? 'unknown' : versionOf(await base.modelLinks.get(key));
     default:
       return 'unknown';
   }
@@ -578,6 +613,10 @@ async function apply(base: WorkbenchDeps, change: RecordChange): Promise<void> {
       return;
     case 'design-versions':
       await need(base.versions).move(key, change.to as string);
+      return;
+    case 'model-link':
+      if (op === 'put') await need(base.modelLinks).put(change.value as ModelLink);
+      else await need(base.modelLinks).remove(key);
       return;
   }
 }

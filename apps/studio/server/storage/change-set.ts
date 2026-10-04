@@ -47,7 +47,15 @@ export type RecordKind =
   /** key = design id — every versions record of a design (op `move` on rename) */
   | 'design-versions'
   /** key = asset id (sha256 of the bytes); value = `{ mime, originalName, src }` + `bytes` */
-  | 'asset';
+  | 'asset'
+  /** key = the Library record, `<kind>/<id>`; value = `ModelLink`; delete = detach (B0) */
+  | 'model-link'
+  /** key = definition id; value = the depiction's `meta.json` record (B7) */
+  | 'depiction-meta'
+  /** key = `<definition id>/<file>`; `bytes` = the artwork file (B7) */
+  | 'depiction-asset'
+  /** key = a catalog path (`data/…`); value = the document: JSON, or text for `.md`/`.txt`; delete removes it */
+  | 'doc';
 
 /** Records recomputed from the others at commit — never staged by a handler. */
 /** `module`: whatever derived records a module's `DerivedStore` keeps (`derived.ts`) */

@@ -79,8 +79,9 @@ function modelsPath(): string {
   return dataPath('models.json');
 }
 
-function sortLinks(links: readonly ModelLink[]): ModelLink[] {
-  return [...links].sort((a, b) => a.record.localeCompare(b.record));
+/** Code-point order of the record key — never `localeCompare`, whose answer depends on the machine's ICU data (B0). */
+export function sortLinks(links: readonly ModelLink[]): ModelLink[] {
+  return [...links].sort((a, b) => (a.record < b.record ? -1 : a.record > b.record ? 1 : 0));
 }
 
 export function readModelsFile(path = modelsPath()): ModelsFile {

@@ -870,23 +870,39 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
     const ifMatch = request.headers?.['if-match'];
     return handleModelRequest(
       { method: request.method, path: request.path, ...(request.body === undefined ? {} : { body: request.body }), ...(ifMatch === undefined ? {} : { ifMatch }) },
-      modelDepsOf(deps, request.user),
+      {
+        ...modelDepsOf(deps, request.user),
+        // the link (and an upload's bytes) commit as one change set (B0)
+        transact: (write) =>
+          withWriteLock(async () => {
+            const uow = new UnitOfWork(deps);
+            return commitUnit(uow, request, await write(modelDepsOf(uow.deps, request.user)));
+          }),
+      },
     );
   }
   const run = async (): Promise<ApiResponse> => {
     const uow = new UnitOfWork(deps);
-    const response = await routeWorkbenchRequest(request, uow.deps);
-    if (response.status >= 400) return response;
-    try {
-      await uow.commit({ method: request.method.toUpperCase(), path: request.path, ...(request.user === undefined ? {} : { user: request.user }) });
-    } catch (error) {
-      if (error instanceof StaleRecordError) return staleWriteResponse(error.kind, error.key);
-      if (error instanceof ReadOnlyBackendError) return fail(503, error.message, 'Nothing was written. This studio serves its catalog read-only for now.');
-      throw error;
-    }
-    return response;
+    return commitUnit(uow, request, await routeWorkbenchRequest(request, uow.deps));
   };
   return isWriteMethod(request.method) ? withWriteLock(run) : run();
+}
+
+/**
+ * Commit what a unit of work staged when the handler answered < 400, mapping
+ * a stale precondition to the 409 and a read-only backend to 503 — nothing
+ * is written in either case.
+ */
+export async function commitUnit(uow: UnitOfWork, request: Pick<ApiRequest, 'method' | 'path' | 'user'>, response: ApiResponse): Promise<ApiResponse> {
+  if (response.status >= 400) return response;
+  try {
+    await uow.commit({ method: request.method.toUpperCase(), path: request.path, ...(request.user === undefined ? {} : { user: request.user }) });
+  } catch (error) {
+    if (error instanceof StaleRecordError) return staleWriteResponse(error.kind, error.key);
+    if (error instanceof ReadOnlyBackendError) return fail(503, error.message, 'Nothing was written. This studio serves its catalog read-only for now.');
+    throw error;
+  }
+  return response;
 }
 
 /**
