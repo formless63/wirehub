@@ -35,6 +35,10 @@ bash scripts/setup-env.sh       # once: .env with generated secrets
 docker compose up -d            # open http://localhost:5183
 ```
 
+A fresh hub opens on **first-run setup**: pick the domain modules whose signals,
+connectors and examples you need — AV / video and Automotive are bundled; nothing is
+required, and more can be added later. The base itself stays generic.
+
 The stack is the app, [Garage](https://garagehq.deuxfleurs.fr/) (S3-compatible storage
 for uploaded files) and PostgreSQL 18. **PostgreSQL is provisioned for the upcoming
 database backend and not used yet** — today the catalog and designs are JSON files in a

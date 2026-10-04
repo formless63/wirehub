@@ -22,7 +22,7 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
 ## Commands
 
 - `pnpm install` · `pnpm test` (each workspace in turn, vitest) · `pnpm build`
-  (`tsc --noEmit` per package, strict).
+  (`tsc --noEmit` per package, strict). Workspaces: `packages/*`, `modules/*`, `apps/*`.
 - Single test file: `pnpm --filter @wirehub/model test -- test/trace.test.ts`.
 - On a shared machine run vitest with `--maxWorkers=2`.
 - `bash scripts/privacy-check.sh --tree` — must stay clean (`CONTRIBUTING.md`, `docs/boundaries.md` §9).
@@ -51,6 +51,13 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
 - Nothing shop-specific in the base: no customer, supplier or person names, no
   hosts, addresses or private paths. A feature that only makes sense for one shop
   is a module.
+- Nothing domain-specific in the base either: the signals, connectors and examples of
+  one field (video, automotive, fieldbus …) live in a **domain module**'s catalog pack
+  under `modules/` (`docs/modules.md`). Base code reads signals through the vocabulary
+  (`packages/model/src/signal-words.ts`) — never a hard-coded signal name.
+- Licensing: the repository is AGPL-3.0-only with the module exception
+  (`LICENSE-EXCEPTION.md`); `packages/modules` is MIT; bundled modules are MIT with
+  CC0-1.0 pack data. No per-file licence headers.
 
 ## Git
 

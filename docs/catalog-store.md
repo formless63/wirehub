@@ -1,7 +1,10 @@
 # Catalog store
 
-Status: **design** — nothing here is implemented yet beyond the catalog-pack contribution
-type in `@wirehub/modules`. Tracked in beads.
+Status: **design**, with the file-backend pieces of phases 1–2 implemented:
+the pack manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over a catalog
+(`layeredCatalogSource`), and install from a directory (`installPack`, used by first-run
+setup for the bundled domain modules — `docs/modules.md`). Signing, the store index,
+updates with diffs and per-record provenance fields are still design. Tracked in beads.
 
 A fresh WireHub has the starter catalog: a few dozen generic records. Real work needs
 the connectors, stocks and parts of a domain — XLR and speakON for live audio, M12 and
@@ -26,9 +29,9 @@ Packs are organised by domain, small enough to review, and may depend on one ano
 | `pro-audio` | XLR 3/4/5, TRS 6.35/3.5, TS, RCA, speakON, powerCON, EtherCON, AES/EBU and DMX512 pinouts, mic / instrument / multicore stocks | AES14, AES3, ANSI E1.11 (DMX512-A), IEC 61076-2-103, vendor datasheets |
 | `fieldbus` | RS-232, RS-422/485, PROFIBUS DP, CAN/CANopen (DE-9, M12), DeviceNet, Modbus RTU, M8/M12 A/B/D/X codings, matching shielded stocks and terminators | TIA-232, TIA-485, IEC 61158/61784, CiA 303-1, IEC 61076-2-101/-104 |
 | `networking` | Ethernet MDI/MDI-X (T568A/B), PoE pairs, Cat 5e/6/6A U/UTP, F/UTP, S/FTP stocks, M12 X-coded | IEEE 802.3, TIA-568, ISO/IEC 11801 |
-| `av-video` | VGA, DVI, HDMI, DisplayPort, SCART, BNC/RGBHV, S-Video, component video, mini-coax stocks | VESA (DDC, DisplayPort), EN 50049 / IEC 60933 (SCART), published pinouts |
+| `av-video` | VGA, DVI, HDMI, DisplayPort, SCART, BNC/RGBHV, S-Video, component video, mini-coax stocks — **bundled today** (`modules/av-video`: video signals, VGA and SCART, a VGA cable) | VESA (DDC, DisplayPort), EN 50049 / IEC 60933 (SCART), published pinouts |
 | `usb` | USB 2.0 / 3.x / Type-C cable assemblies and their stocks | USB-IF specifications |
-| `automotive` | OBD-II (J1962) connector and pinout, common sealed connector families, automotive wire (FLRY, TXL/GXL) | SAE J1962 / ISO 15031-3, ISO 6722, SAE J1128 |
+| `automotive` | OBD-II (J1962) connector and pinout, common sealed connector families, automotive wire (FLRY, TXL/GXL) — **bundled today** (`modules/automotive`: bus signals and the OBD-II plug) | SAE J1962 / ISO 15031-3, ISO 6722, SAE J1128 |
 | `power-dc` | barrel jacks (5.5 × 2.1 / 2.5), IEC 60320 C13/C14/C5/C7, Anderson Powerpole, XT60, DC stocks by gauge | IEC 60320, manufacturer datasheets, AWG tables (ASTM B258) |
 | `test-measurement` | BNC/SMA/N-type RF connectors, banana plugs, coax stocks (RG-58, RG-174, RG-316) | MIL-STD-348, MIL-DTL-17, vendor datasheets |
 | `kicad-3d` | links from catalog bodies to KiCad 3D models (no model files in the pack) | KiCad 3D library (see §5) |
@@ -121,6 +124,16 @@ change to a pack record **forks** it: the editor makes a local copy with a new i
 `derivedFrom: { pack, id, version }`, and designs move to the copy only when someone
 chooses to.
 
+**Implemented today (file backend).** `installPack(catalogDir, packDir)`
+(`packages/catalog/src/packs.ts`) appends every record whose id is new — record files by
+record id, vocabulary lists by entry id, designs as files — skips a record the catalog
+already has identically, and refuses (writing nothing) when the catalog has a *different*
+record under the same id. The install is recorded in `packs.json` (pack, version, licence,
+the ids it added); installing the same version again is a no-op. After install the records
+are ordinary catalog data (read-only marking and forking come with the database backend).
+`layeredCatalogSource([local, pack…])` reads a catalog with packs over it, without writing —
+what a module's tests and a future `pack verify` use.
+
 **Install** (Library → Packs → Browse):
 
 1. The studio fetches the store index (§4), verifies its signature, and lists packs with
@@ -145,7 +158,13 @@ Install from file) with the same verification; a deployment may run its own mirr
 index.
 
 Packs a **module** ships (`CatalogPackContribution`) use the same format and the same
-install path; they are installed when the deployment is built rather than from the UI.
+install path; a domain module's packs are installed at first-run setup when a person
+picks the module (`docs/modules.md`).
+
+**Licences are per pack and per record.** Packs are data, not code: the AGPL of WireHub
+does not reach them (`LICENSE-EXCEPTION.md` §3). A pack names its licence in its manifest
+(SPDX), a record may name its own, and the install plan shows every licence a deployment
+is accepting. The bundled packs are CC0-1.0.
 
 ## 4. The store, trust and signing
 

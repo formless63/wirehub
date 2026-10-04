@@ -260,3 +260,15 @@ into `scripts/privacy-check.sh` (`CONTRIBUTING.md`):
 every commit's tree, message and paths; the commits made before the rename
 still carry the old leak-scan script and agent trailers, which a history
 rewrite before publishing removes.
+
+## 10. After the split: WireHub and its domain modules
+
+On the rename to WireHub the base went one step further than the split: it no longer
+carries any one *domain* either. The video vocabulary (RGB, sync types, composite,
+S-Video, component, DDC and their returns), the VGA example and the HD15 family moved to
+the bundled, optional `modules/av-video` pack; label reading in compat, the wizard, the
+tag proposals and the continuity spec now goes through the vocabulary instead of
+hard-coded video words; the wizard's bare-SCART option (a transform of one shop's board)
+and the fleet colour code were dropped, not moved. A second domain module,
+`modules/automotive`, shows the pattern with public OBD-II facts. Both are offered at
+first-run setup (`docs/modules.md`).

@@ -6,9 +6,19 @@ scheme, its importers for its own file layout, extra design rules, branding — 
 build time in the deployment's manifest.
 
 The skeleton exists today: `@wirehub/modules` (`packages/modules/src/index.ts`) defines
-the module shape and the registry; `apps/studio/modules.config.ts` is the manifest (empty in
-the base); the server and browser each build the registry from it. Not every extension point
+the module shape and the registry; `apps/studio/modules.config.ts` is the manifest; the
+server and browser each build the registry from it. The base bundles two optional **domain
+modules** there (`modules/av-video`, `modules/automotive`, below). Not every extension point
 is mounted in the app yet — the table below says which.
+
+**Licensing.** `@wirehub/modules` is **MIT**, so a module can depend on it whatever its own
+licence. WireHub itself is AGPL-3.0-only with the **WireHub Module Exception**
+(`LICENSE-EXCEPTION.md`): a module that talks to WireHub only through the module API — this
+package, plus the public exports of `@wirehub/model` and `@wirehub/catalog` — and the
+catalog-pack formats may be licensed on any terms, open or closed, and a WireHub image that
+includes it can be distributed without the module becoming AGPL. Changes to WireHub itself
+stay AGPL. The bundled domain modules are MIT (code) and CC0-1.0 (pack data), so they can
+be copied as templates.
 
 ## Principles
 
@@ -31,6 +41,49 @@ is mounted in the app yet — the table below says which.
    `<module>/`; a module's server routes live under `/api/modules/<module>/…`; its UI routes
    under `/m/<module>/…`; its design data under `extensions.<module>`.
 
+## Domain modules
+
+The base is generic: it knows wires, connectors, boards, ground and power, and nothing about
+any one field. A **domain** — video, automotive, fieldbus, pro audio — is a module whose
+main contribution is a catalog pack: the signals of that field with the words that name them
+(labels, short names, aliases), their returns (`returnFor`), lanes, levels, connector
+families, and the connectors and example cables built from them. Every reader in the base —
+the new-cable wizard, the joint compatibility rules, the continuity spec, the tag proposals
+— reads signals through the vocabulary (`packages/model/src/signal-words.ts`), so a pack
+teaches all of them its field without code.
+
+A domain module marks itself optional with `setup`:
+
+```ts
+export const avVideo = defineModule({
+  id: 'av-video',
+  label: 'AV / video',
+  version: '0.1.0',
+  license: 'MIT',
+  setup: { kind: 'domain', description: 'Video signals, VGA and SCART connectors …', suggested: false },
+  catalogPacks: [{ id: 'av-video', label: 'AV / video', version: '0.1.0', root: AV_VIDEO_PACK, license: 'CC0-1.0' }],
+});
+```
+
+**First-run setup** (`/setup`, `apps/studio/server/setup.ts`) lists `registry.domains()`,
+pre-ticks the `suggested` ones, forces nothing, and installs the chosen modules' packs into
+the catalog (`installPack`, `docs/catalog-store.md` §3); the selection is stored in
+`setup.json` in the catalog directory. A hub opens on `/setup` while no selection is stored
+when the host sets `WIREHUB_SETUP_PROMPT=1` (the container image does); the command palette
+reaches it any time, to enable more. Enabling is additive.
+
+| Bundled module | Adds |
+| --- | --- |
+| `modules/av-video` (`@wirehub/module-av-video`) | video R/G/B, H/V and composite sync, composite, S-Video, component, DDC, SCART switching signals and their returns; lanes and levels; HD15, SCART and BNC families; the VGA and SCART connectors; a VGA monitor cable |
+| `modules/automotive` (`@wirehub/module-automotive`) | CAN, K/L-line, J1850 and battery-positive signals; the OBD-II (SAE J1962) plug with its mandated pins |
+
+The starter catalog still carries the serial, networking and audio examples the tests are
+built on; splitting them into `pc-serial`, `networking` and `pro-audio` packs is tracked in
+beads. Connector face drawings (`packages/layout/src/connector-art.ts`) and body layouts
+(`packages/editor-react/src/body-templates.ts`) remain a base library of physical shapes —
+they appear only for a family a catalog actually has; letting a pack contribute its own is
+a follow-up.
+
 ## The module object
 
 ```ts
@@ -41,6 +94,7 @@ export const acme = defineModule({
   label: 'ACME workshop',
   version: '1.2.0',              // semver
   license: 'LicenseRef-ACME-Proprietary',
+  setup,                         // optional: offered at first-run setup (a domain module)
   partNumberScheme,              // optional, singleton
   validationRules: [...],
   importers: [...],
@@ -58,7 +112,8 @@ export const acme = defineModule({
 
 | Point | Shape (in `@wirehub/modules`) | Where it runs | Mounted today |
 | --- | --- | --- | --- |
-| **Catalog packs** | `CatalogPackContribution { id, label, version, root?, license? }` — a data directory laid out like `packages/catalog/data` | server, at install | registry only; install flow in `docs/catalog-store.md` |
+| **Catalog packs** | `CatalogPackContribution { id, label, version, root?, license? }` — a data directory laid out like `packages/catalog/data` plus `wirehub-pack.json`; `root` a path or `file:` URL | server, at install | **yes** — installed by first-run setup for domain modules (`/setup`); `layeredCatalogSource` reads one without installing |
+| **Setup (domain)** | `SetupContribution { kind: 'domain', description, suggested? }` | server + browser | **yes** — `/setup` lists `registry.domains()` |
 | **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import(input, db) → { definitions?, designs?, notes } }` — proposes records, never writes | server (may run in the browser if pure) | registry + `importersFor(fileName)`; UI not yet |
 | **Exporters / document types** | `ExporterContribution { id, label, description?, render(design, db, options) → { mimeType, fileName, body } }` | browser and server | registry only; Documents view not yet |
 | **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@wirehub/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
@@ -98,6 +153,7 @@ A private module never lives in this repository. It is its own package, in its o
 acme-wirehub-module/          (private repo)
   package.json                     name: @acme/wirehub-module
                                    peerDependencies: @wirehub/model, @wirehub/modules
+                                   license: any (see LICENSE-EXCEPTION.md)
   src/index.ts                     export const acme = defineModule({...})
   src/panels/*.tsx                 (peer: react)
   data/                            a catalog pack, if it ships one
@@ -156,4 +212,6 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 Tracked in beads: mount panels and UI routes in the app; mount importers and exporters in
 the Library and Documents views; wire the commit hook from the registry into the editor;
-an `examples/hello-module` package exercising every point in tests.
+an `examples/hello-module` package exercising every point in tests; split the starter
+catalog's serial, networking and audio examples into domain packs; let a pack contribute
+connector drawings and body layouts.
