@@ -140,7 +140,10 @@ export interface AuthProviderContribution {
  * How first-run setup (`/setup`) offers a module. A **domain** module —
  * the vocabulary and catalog packs of one field (video, automotive,
  * fieldbus …) — is optional: a person picks it, and its packs are installed
- * into the catalog then. `suggested` pre-ticks it; nothing is forced.
+ * as layers under the catalog then. Every domain module starts unticked: a
+ * deployment pre-ticks some with `WIREHUB_SUGGESTED_MODULES`. `suggested`
+ * pre-ticks this one only where that variable is unset (a private build's own
+ * default); nothing is forced either way. The bundled modules leave it unset.
  */
 export interface SetupContribution {
   kind: 'domain';

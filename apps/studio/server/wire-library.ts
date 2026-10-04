@@ -38,6 +38,7 @@ import { readAllDesigns, type DesignStore } from './designs.ts';
 import { checkIfMatch, contentETag } from './etag.ts';
 import { isDefinitionId, libraryIssues } from './definitions.ts';
 import { writeFileAtomic } from './atomic-write.ts';
+import { localValueFor, readCatalogJson } from './catalog-files.ts';
 import { patchJsonText } from './json-text.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
@@ -72,14 +73,18 @@ export function fileWireLibraryStore(): WireLibraryStore {
     read: () => ({ parts: read<WirePart>('wire-parts.json'), recipes: read<WireRecipe>('wire-recipes.json') }),
     writeParts: (parts) => writeFileAtomic(dataPath('wire-parts.json'), json(parts), 'utf8'),
     writeRecipes: (recipes) => writeFileAtomic(dataPath('wire-recipes.json'), json(recipes), 'utf8'),
-    wires: () => read<WireDefinition>('wires.json'),
+    // stocks: the catalog's own with the installed packs' under them
+    wires: () => readCatalogJson<WireDefinition[]>('wires.json') ?? [],
     practice: () => read<StripPractice>('strip-practice.json'),
     putWire: (wire) => {
       const path = dataPath('wires.json');
-      const text = readFileSync(path, 'utf8');
-      const stocks = JSON.parse(text) as WireDefinition[];
+      const text = existsSync(path) ? readFileSync(path, 'utf8') : '[]\n';
+      const stocks = readCatalogJson<WireDefinition[]>('wires.json') ?? [];
       const at = stocks.findIndex((stock) => stock.id === wire.id);
-      const next = at === -1 ? [...stocks, wire] : stocks.map((stock, i) => (i === at ? wire : stock));
+      const merged = at === -1 ? [...stocks, wire] : stocks.map((stock, i) => (i === at ? wire : stock));
+      // a pack's stocks stay in the pack; only local and edited ones are stored here
+      const next = localValueFor('wires.json', merged);
+      if (next === undefined) return;
       // parse → edit → serialize; untouched stocks keep their bytes (json-text.ts)
       writeFileAtomic(path, patchJsonText(text, next), 'utf8');
     },

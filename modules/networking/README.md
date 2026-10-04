@@ -10,6 +10,6 @@ Ethernet for WireHub, as a catalog pack (`pack/`):
 - a strain-relief boot, a T568B straight-through patch cable and a
   T568A-to-T568B crossover, both on the base's Cat 5e stock.
 
-Enable it at first-run setup (`/setup`, where it is suggested), or list it in
+Enable it at first-run setup (`/setup`), or list it in
 `apps/studio/modules.config.ts` and install its pack. Code: MIT; data:
 CC0-1.0; every record cites its source in `src`.

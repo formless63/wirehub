@@ -29,6 +29,8 @@ export interface SetupDomain {
 export interface SetupView {
   needed: boolean;
   completed: boolean;
+  /** the server asks for the one-time setup code it printed to its log */
+  codeRequired?: boolean;
   domains: SetupDomain[];
   suggestions: { label: string; description: string }[];
 }
@@ -37,8 +39,8 @@ export async function loadSetup(base = '/api'): Promise<Outcome<SetupView>> {
   return request<SetupView>(`${base}/setup`);
 }
 
-export async function saveSetup(modules: readonly string[], base = '/api'): Promise<Outcome<SetupView>> {
-  return request<SetupView>(`${base}/setup`, { method: 'POST', body: { modules } });
+export async function saveSetup(modules: readonly string[], base = '/api', code?: string): Promise<Outcome<SetupView>> {
+  return request<SetupView>(`${base}/setup`, { method: 'POST', body: { modules, ...(code === undefined ? {} : { code }) } });
 }
 
 /** Whether the hub should open on /setup: only when the server says so; any failure means no. */

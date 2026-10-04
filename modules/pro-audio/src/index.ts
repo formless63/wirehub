@@ -28,7 +28,6 @@ export const proAudio = defineModule({
   setup: {
     kind: 'domain',
     description: 'Balanced and unbalanced audio: XLR3, RCA and 3.5 mm TRS connectors, microphone and stereo stocks, an XLR microphone cable and a TRS-to-2×RCA Y lead.',
-    suggested: true,
   },
   catalogPacks: [{ id: 'pro-audio', label: 'Pro audio', version: '0.1.0', root: PRO_AUDIO_PACK, license: 'CC0-1.0' }],
 });

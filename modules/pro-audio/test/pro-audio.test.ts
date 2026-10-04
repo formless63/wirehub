@@ -49,9 +49,9 @@ const jointKey = (joint: Joint): string => {
 };
 
 describe('the module', () => {
-  it('is a suggested domain module with one CC0 pack', () => {
+  it('is an optional domain module, unticked at setup, with one CC0 pack', () => {
     expect(createRegistry([proAudio]).domains().map((m) => m.id)).toEqual(['pro-audio']);
-    expect(proAudio.setup?.suggested).toBe(true);
+    expect(proAudio.setup).not.toHaveProperty('suggested');
     expect(readPackManifest(packDir)).toMatchObject({ id: 'pro-audio', version: '0.1.0', license: 'CC0-1.0' });
   });
 

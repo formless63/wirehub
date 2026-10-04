@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-import { dataPath, loadDb } from '@wirehub/catalog';
+import { dataPath, derivedDir, livePacksDir, loadDb } from '@wirehub/catalog';
 
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';
@@ -33,6 +33,8 @@ import { localStudioUser } from './me.ts';
 import { memoryLockStore } from './locks/lock-store.ts';
 import { fileCatalogVersion } from './storage/catalog-version.ts';
 import { registry } from './modules.ts';
+import { checkoutPacksDir } from './env.ts';
+import { parseSuggestedModules } from './setup.ts';
 
 /** A catalog data file, parsed; `undefined` when it is not there. */
 function rawJson(relative: string): unknown {
@@ -40,11 +42,21 @@ function rawJson(relative: string): unknown {
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as unknown) : undefined;
 }
 
-export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): WorkbenchDeps {
+export interface DefaultDepsOptions {
+  blobs?: BlobStore;
+  /** the first-run setup code (`WIREHUB_SETUP_CODE`, or one `serve.ts` made up); absent: none asked */
+  setupCode?: string;
+}
+
+export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): WorkbenchDeps {
   // one asset store, shared: `drawings` dedups every photo it is handed
   // against exactly this store, and `assets` is what the picker lists; its
   // bytes go to the blob store when the host configured one (WIREHUB_BLOBS)
   const assets = fileAssetStore(options.blobs);
+  // installed packs: WIREHUB_PACKS_DIR (the hosts default it, `env.ts`), never the starter catalog
+  const packsDir = livePacksDir() ?? checkoutPacksDir();
+  const tags = fileTagStore();
+  const suggested = parseSuggestedModules(process.env.WIREHUB_SUGGESTED_MODULES);
   return {
     designs: fileDesignStore(),
     definitions: fileDefinitionStore(),
@@ -55,13 +67,14 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     // converted models (gitignored cache)
     modelCache: fileModelCache(),
     vocab: fileVocabStore(),
-    tags: fileTagStore(),
+    tags,
     wireLibrary: fileWireLibraryStore(),
     builds: fileBuildsStore(),
     versions: fileVersionStore(),
     loadDb,
     // the unit of work reuses the loaded db until one of its files changes (50a.49)
-    catalogVersion: () => fileCatalogVersion(dataPath('')),
+    // …and the packs directory: an install (packs.json) or regenerated derived tags change it too
+    catalogVersion: () => `${fileCatalogVersion(dataPath(''))}:${fileCatalogVersion(packsDir)}:${fileCatalogVersion(derivedDir(packsDir))}`,
     // the catalog's part-number configuration, as stored (absent: the scheme's defaults)
     loadPartNumberFiles: () => ({ scheme: rawJson('part-numbers.json') }),
     // who a studio without a login names (read once: env, else git config)
@@ -71,12 +84,18 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     locks: memoryLockStore(),
     // the deployment's modules (modules.config.ts)
     modules: registry,
-    // first-run setup: domain modules' packs go into the live catalog; the
-    // container image sets WIREHUB_SETUP_PROMPT=1 so a fresh hub opens on /setup
+    // first-run setup: domain modules' packs go into the packs directory, layered
+    // under the catalog; the container image sets WIREHUB_SETUP_PROMPT=1 so a
+    // fresh hub opens on /setup
     setup: {
       dataDir: dataPath(''),
+      packsDir,
       prompt: process.env.WIREHUB_SETUP_PROMPT === '1',
       now: () => new Date().toISOString(),
+      ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
+      ...(suggested === undefined ? {} : { suggested }),
+      // the tag tables cover every record: rebuild them over the new packs
+      afterInstall: () => tags.regenerate(),
     },
   };
 }

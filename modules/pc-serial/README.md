@@ -13,6 +13,6 @@ RS-232, RS-485 and USB for WireHub, as a catalog pack (`pack/`):
 
 The pack is laid over the starter catalog: it uses the base's DE-9 bodies,
 stocks, components, backshell and board. Enable it at first-run setup
-(`/setup`, where it is suggested), or list it in
+(`/setup`), or list it in
 `apps/studio/modules.config.ts` and install its pack. Code: MIT; data:
 CC0-1.0; every record cites its source in `src`.

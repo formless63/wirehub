@@ -18,6 +18,9 @@
  * with one line rather than serving a blank page.
  */
 
+// first: `*_FILE` variables resolved before any other module reads the environment
+import './boot-env.ts';
+
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +34,8 @@ import { createStandaloneApp } from './standalone-app.ts';
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
 import { defaultWorkbenchDeps } from './default-deps.ts';
 import { envVar, legacyEnvWarning } from './env.ts';
+import { registry } from './modules.ts';
+import { generateSetupCode, parseSuggestedModules, setupBanner, setupNeeded } from './setup.ts';
 
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 
@@ -99,7 +104,18 @@ if (blobs !== undefined && 'ensureBucket' in blobs && typeof blobs.ensureBucket 
   }
 }
 
-const app = createStandaloneApp({ distDir, deps: defaultWorkbenchDeps(blobs === undefined ? {} : { blobs }), ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
+// first-run setup asks for a one-time code: the stack's generated one
+// (WIREHUB_SETUP_CODE / _FILE), else one made up now; printed below
+const configuredCode = process.env.WIREHUB_SETUP_CODE?.trim();
+const setupCode = configuredCode !== undefined && configuredCode !== '' ? configuredCode : process.env.WIREHUB_SETUP_PROMPT === '1' ? generateSetupCode() : undefined;
+const deps = defaultWorkbenchDeps({ ...(blobs === undefined ? {} : { blobs }), ...(setupCode === undefined ? {} : { setupCode }) });
+const suggested = parseSuggestedModules(process.env.WIREHUB_SUGGESTED_MODULES) ?? [];
+const unknownSuggested = suggested.filter((id) => !registry.domains().some((m) => m.id === id));
+if (unknownSuggested.length > 0) {
+  console.warn(`[setup] WIREHUB_SUGGESTED_MODULES names no domain module of this build: ${unknownSuggested.join(', ')} (offered: ${registry.domains().map((m) => m.id).join(', ')}).`);
+}
+
+const app = createStandaloneApp({ distDir, deps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 
 serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`WireHub serving ${distDir}`);
@@ -111,5 +127,9 @@ serve({ fetch: app.fetch, hostname: host, port }, (info) => {
       .filter((m) => m !== '')
       .join(' + ');
     console.log(`  auth ON (${methods}) — sign in at ${auth.config.baseURL}/sign-in; ${auth.config.allowedEmails.size} allowed email(s)`);
+  }
+  if (setupCode !== undefined && deps.setup !== undefined && setupNeeded(deps.setup)) {
+    const url = (process.env.BETTER_AUTH_URL ?? '').replace(/\/+$/, '') || `http://localhost:${info.port}`;
+    console.log(`\n${setupBanner(url, setupCode)}\n`);
   }
 });

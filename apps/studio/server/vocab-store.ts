@@ -17,7 +17,8 @@
  * pin or a changed label changes what the generator proposes.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import {
   dataPath,
@@ -33,6 +34,7 @@ import {
 import { buildTags, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import type { SignalTags, VocabList } from '@wirehub/model';
 import { writeFileAtomic } from './atomic-write.ts';
+import { derivedPath, localValueFor } from './catalog-files.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
 const LIST_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -65,11 +67,17 @@ export function formatJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-function writeIfChanged(relative: string, text: string): boolean {
-  const path = dataPath(relative);
+function writeIfChanged(relative: string, text: string, path = dataPath(relative)): boolean {
   if (existsSync(path) && readFileSync(path, 'utf8') === text) return false;
   writeFileAtomic(path, text, 'utf8');
   return true;
+}
+
+/** A derived file: beside the packs once one is installed (`catalog-files.ts`), else in the catalog. */
+function writeDerivedIfChanged(relative: string, text: string): boolean {
+  const path = derivedPath(relative);
+  mkdirSync(dirname(path), { recursive: true });
+  return writeIfChanged(relative, text, path);
 }
 
 export function fileVocabStore(): VocabStore {
@@ -84,7 +92,9 @@ export function fileVocabStore(): VocabStore {
       if (!LIST_ID.test(list.id) || !listVocabIds().includes(list.id)) {
         throw new Error(`'${list.id}' is not a vocab list`);
       }
-      writeIfChanged(`vocab/${list.id}.json`, formatJson(list));
+      // entries a pack supplies unchanged stay in the pack, not in the catalog's list
+      const local = localValueFor(`vocab/${list.id}.json`, list);
+      if (local !== undefined) writeIfChanged(`vocab/${list.id}.json`, formatJson(local));
     },
   };
 }
@@ -111,9 +121,9 @@ export function fileTagStore(): TagStore {
     regenerate() {
       const review = JSON.parse(readFileSync(dataPath('tags/review.json'), 'utf8')) as TagReview;
       const out = build(review);
-      const a = writeIfChanged('tags/signal-tags.json', formatJson(out.tags));
-      const b = writeIfChanged('tags/instance-slots.json', formatJson(out.slots));
-      const c = writeIfChanged('tags/report.md', out.report);
+      const a = writeDerivedIfChanged('tags/signal-tags.json', formatJson(out.tags));
+      const b = writeDerivedIfChanged('tags/instance-slots.json', formatJson(out.slots));
+      const c = writeDerivedIfChanged('tags/report.md', out.report);
       return a || b || c;
     },
   };
