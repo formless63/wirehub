@@ -30,7 +30,8 @@ import { collectWrites, recordWrite } from '../server/write-journal.ts';
  * Fixtures
  * ------------------------------------------------------------------ */
 
-const ISOLATED = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+// user.useConfigOnly: like a fresh CI runner or server, git may not guess an identity from the hostname
+const ISOLATED = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'user.useConfigOnly', GIT_CONFIG_VALUE_0: 'true' };
 const SETUP_ID = {
   ...ISOLATED,
   GIT_AUTHOR_NAME: 'Setup',

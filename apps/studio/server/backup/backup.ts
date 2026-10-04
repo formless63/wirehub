@@ -201,7 +201,11 @@ export function createStudioBackup(options: BackupOptions): StudioBackup {
     }
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      const pull = await run(['pull', '--rebase', '--no-autostash', remote, branch]);
+      // a rebase rewrites our commits, so git needs a committer identity even on a host with no git config
+      const pull = await run(['pull', '--rebase', '--no-autostash', remote, branch], {
+        GIT_COMMITTER_NAME: STUDIO_COMMITTER.name,
+        GIT_COMMITTER_EMAIL: STUDIO_COMMITTER.email,
+      });
       if (pull.code !== 0) {
         if (await rebaseInProgress()) {
           const conflicted = await run(['diff', '--name-only', '--diff-filter=U']);
