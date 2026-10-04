@@ -470,6 +470,10 @@ export function normalizeSvg(
   options: NormalizeSvgOptions,
 ): NormalizeSvgResult {
   const warnings: string[] = [];
+  // entity declarations are refused outright, never stripped: they expand before any sanitising could see them
+  if (/<!ENTITY/i.test(source)) {
+    return { warnings, error: 'the SVG declares XML entities (<!ENTITY …>), which are refused — export it again without a DOCTYPE' };
+  }
   const attributes = rootAttributes(source);
   if (attributes === undefined) {
     return { warnings, error: 'no <svg> element found — is this really an SVG file?' };

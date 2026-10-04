@@ -721,3 +721,13 @@ describe('artwork writes commit as one change set', () => {
     expect(store.assets.has(`${BOARD}/illustration.svg`)).toBe(false);
   });
 });
+
+describe('SVG with entity declarations', () => {
+  it('is refused, not sanitised (plan §5.3)', async () => {
+    const evil = '<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY x "boom">]><svg xmlns="http://www.w3.org/2000/svg" width="10mm" height="5mm" viewBox="0 0 10 5"><text>&x;</text></svg>';
+    const response = await upload(BOARD, 'board-top', 'evil.svg', evil);
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(body(response))).toMatch(/ENTITY/);
+    expect(store.assets.size).toBe(0);
+  });
+});

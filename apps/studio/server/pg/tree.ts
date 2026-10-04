@@ -16,7 +16,7 @@
  */
 
 import { createCatalog, type Catalog, type CatalogSource } from '@wirehub/catalog';
-import { ASSET_MIME_EXT, canonicalJson, codePointCompare, isBlobRef, render, sha256Hex, type BlobRef, type FileContent } from '@wirehub/catalog/src/codec/index.ts';
+import { ASSET_MIME_EXT, canonicalJson, codePointCompare, isBlobRef, mediaTypeOf, render, sha256Hex, type BlobRef, type FileContent } from '@wirehub/catalog/src/codec/index.ts';
 import { buildTags, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import { decomposeConnector, formatVersionJson, type CableDesign, type ConnectorDefinition, type DesignVersionFile, type WireDefinition } from '@wirehub/model';
 
@@ -391,6 +391,12 @@ export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; b
     },
     depictions,
     docs,
+    blob: async (sha) => {
+      const path = [...tree.files.entries()].find(([, c]) => isBlobRef(c) && c.blob === sha)?.[0];
+      if (path === undefined) return undefined;
+      const bytes = await context.blobs?.get(blobObjectKey(options.orgId, sha));
+      return bytes === undefined ? undefined : { bytes: new Uint8Array(bytes), mediaType: mediaTypeOf(path) };
+    },
     loadDb: () => tree.catalog.loadDb(),
   };
 }

@@ -147,6 +147,7 @@ export function gateRoutes(catalog: Catalog, rows: CatalogRows): string[] {
     const kind = plural[r.kind];
     if (kind !== undefined) out.push(`/api/definitions/${kind}/${enc(r.slug)}`, `/api/definitions/${kind}/${enc(r.slug)}/usage`, `/api/models/${kind}/${enc(r.slug)}`);
   }
+  for (const b of rows.blobs) out.push(`/api/blobs/${b.sha256}`);
   for (const l of rows.modelLinks) out.push(`/api/models/${l.recordKey.split('/').map(enc).join('/')}`);
   for (const id of catalog.listVocabIds()) out.push(`/api/vocab/${enc(id)}`);
   for (const r of rows.records) if (r.kind === 'build') out.push(`/api/builds/${enc(r.slug)}`);

@@ -24,6 +24,7 @@ import { inOrg, openPg, resolveOrgId, type Db, type PgHandle } from './db.ts';
 import { migrationFiles, MIGRATION_SCHEMA } from './migrate.ts';
 import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
+import { blobObjectKey } from './keys.ts';
 import { SnapshotCache, type Snapshot } from './snapshot.ts';
 import {
   pgAssetStore,
@@ -87,6 +88,12 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
         ? pgCommit({ db: options.db, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), verify: process.env.WIREHUB_BLOB_VERIFY !== 'off' })
         : pgCommitReadOnly,
     exportCatalog: async () => exportSnapshot(await cache.get()),
+    blob: async (sha) => {
+      const row = (await cache.get()).rows?.blobs.find((b) => b.sha256 === sha);
+      if (row === undefined || options.blobs === undefined) return undefined;
+      const bytes = await options.blobs.get(blobObjectKey(cache.orgId, sha));
+      return bytes === undefined ? undefined : { bytes: new Uint8Array(bytes), mediaType: row.mediaType };
+    },
     localUser: localStudioUser(process.env),
     locks: memoryLockStore(),
     modules: registry,

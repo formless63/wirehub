@@ -70,6 +70,11 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     loadDb,
     // the unit of work reuses the loaded db until one of its files changes (50a.49)
     catalogVersion: () => fileCatalogVersion(dataPath('')),
+    // GET /api/blobs/:sha: the file backend's content-addressed files are its uploads
+    blob: async (sha) => {
+      const found = await assets.get(sha);
+      return found === undefined ? undefined : { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime };
+    },
     // GET /api/export: the catalog's text files, the same shape the database backend answers
     exportCatalog: async () => exportTree(readCatalogTree(dataPath('..')), fileCatalogVersion(dataPath(''))),
     // the catalog's part-number configuration, as stored (absent: the scheme's defaults)

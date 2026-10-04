@@ -221,6 +221,8 @@ async function handleJson(
           'content-type': response.contentType ?? 'application/octet-stream',
           'cache-control': 'no-store',
           'x-content-type-options': 'nosniff',
+          // a route may say more (a content-addressed blob is immutable; an SVG is sandboxed)
+          ...(response.headers ?? {}),
         },
       });
     }

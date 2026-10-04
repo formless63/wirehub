@@ -115,6 +115,11 @@ export interface WorkbenchDeps {
    */
   catalogVersion?: () => Awaitable<string | undefined>;
   /**
+   * Bytes by content address (`GET /api/blobs/:sha`, plan §5.3): any blob the
+   * catalog names — uploads, saved artwork, depiction files. Absent → 501.
+   */
+  blob?: (sha256: string) => Promise<{ bytes: Uint8Array; mediaType: string } | undefined>;
+  /**
    * The on-demand export (`GET /api/export`): the catalog as file text, the
    * same on every backend (`pg/export.ts`). Absent → 501.
    */
@@ -778,6 +783,7 @@ const ROUTES = [
   'DELETE /api/designs/:id',
   'GET    /api/db',
   'GET    /api/export',
+  'GET    /api/blobs/:sha',
   'GET    /api/part-numbers',
   'GET    /api/drawings',
   'GET    /api/drawings/:id',
@@ -975,6 +981,25 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
       deps.backup?.retry();
       return ok(deps.backup?.status() ?? BACKUP_DISABLED);
     }
+  }
+
+  if (head === 'blobs' && id !== undefined && action === undefined) {
+    if (method !== 'GET') return methodNotAllowed(method, ['GET']);
+    if (!/^[0-9a-f]{64}$/.test(id)) return fail(400, `${JSON.stringify(id)} is not a content address.`, 'A blob is named by the sha256 of its bytes: 64 lowercase hex digits.');
+    if (deps.blob === undefined) return fail(501, 'This studio does not serve blobs by content address.', 'Use /api/assets/:id for uploaded files.');
+    const found = await deps.blob(id);
+    if (found === undefined) return fail(404, `There is no blob ${id}.`, 'It may never have been uploaded, or it was removed after nothing used it.');
+    return {
+      status: 200,
+      body: null,
+      bytes: found.bytes,
+      contentType: found.mediaType,
+      headers: {
+        ETag: `"${id}"`,
+        'cache-control': 'private, max-age=31536000, immutable',
+        ...(found.mediaType === 'image/svg+xml' ? { 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" } : {}),
+      },
+    };
   }
 
   if (head === 'export' && id === undefined) {
