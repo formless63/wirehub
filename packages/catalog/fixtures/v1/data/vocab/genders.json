@@ -1,0 +1,17 @@
+{
+  "id": "genders",
+  "label": "Genders",
+  "src": "model.ts ConnectorDefinition.gender",
+  "entries": [
+    {
+      "id": "male",
+      "label": "Male",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "female",
+      "label": "Female",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

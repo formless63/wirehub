@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 4,
+  "id": "rs485-de9-terminal-board",
+  "label": "DE-9 RS-485 → terminal adapter board, terminated",
+  "instances": {
+    "connectors": [
+      {
+        "id": "j1",
+        "def": "de9-male-profibus",
+        "role": "bus connector"
+      }
+    ],
+    "segments": [
+      {
+        "id": "w1",
+        "def": "shielded-2pair-24awg",
+        "lengthMm": 1000,
+        "pigtails": [
+          {
+            "id": "shield",
+            "end": "a",
+            "note": "foil and drain twisted together"
+          },
+          {
+            "id": "shield",
+            "end": "b",
+            "note": "foil and drain twisted together"
+          }
+        ]
+      }
+    ],
+    "components": [],
+    "pcbas": [
+      {
+        "id": "u1",
+        "def": "rs485-terminal-board",
+        "note": "JP1 fitted: the board terminates the bus"
+      }
+    ],
+    "mechanical": [
+      {
+        "id": "m1",
+        "def": "de9-backshell",
+        "qty": 1,
+        "attachedTo": "j1"
+      }
+    ]
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "3"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-1.a",
+        "end": "a"
+      },
+      "note": "B (data +)"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-1.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "u1",
+        "terminal": "B"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "8"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-1.b",
+        "end": "a"
+      },
+      "note": "A (data −)"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-1.b",
+        "end": "b"
+      },
+      "b": {
+        "instance": "u1",
+        "terminal": "A"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "5"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-2.a",
+        "end": "a"
+      },
+      "note": "signal ground"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-2.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "u1",
+        "terminal": "GND"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pigtail:shield",
+        "end": "a"
+      },
+      "b": {
+        "instance": "j1",
+        "terminal": "shell"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pigtail:shield",
+        "end": "b"
+      },
+      "b": {
+        "instance": "u1",
+        "terminal": "SHLD"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "6"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-2.b",
+        "end": "a"
+      },
+      "note": "VP (+5 V) carried for a remote terminator"
+    }
+  ],
+  "notes": [
+    "w1:pair-2.b@b is cut back and insulated at the board — the +5 V termination supply is not used when JP1 terminates on the board."
+  ],
+  "src": "synthetic example: a PROFIBUS-DP-style DE-9 (3 = B, 8 = A, 5 = DGND) to a small terminal-block board carrying a jumper-selected 120 Ω termination; shield drained at both ends"
+}

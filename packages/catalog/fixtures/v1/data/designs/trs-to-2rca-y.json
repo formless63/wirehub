@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 4,
+  "id": "trs-to-2rca-y",
+  "label": "3.5 mm TRS → moulded Y → 2× RCA, stereo splitter",
+  "instances": {
+    "connectors": [
+      {
+        "id": "j1",
+        "def": "trs-3-5mm-male",
+        "role": "source plug"
+      },
+      {
+        "id": "j2",
+        "def": "rca-male",
+        "role": "left plug"
+      },
+      {
+        "id": "j3",
+        "def": "rca-male",
+        "role": "right plug"
+      }
+    ],
+    "segments": [
+      {
+        "id": "w1",
+        "def": "audio-stereo-2core",
+        "lengthMm": 1500,
+        "role": "stem"
+      },
+      {
+        "id": "w2",
+        "def": "audio-stereo-2core",
+        "lengthMm": 300,
+        "role": "left leg"
+      },
+      {
+        "id": "w3",
+        "def": "audio-stereo-2core",
+        "lengthMm": 300,
+        "role": "right leg"
+      }
+    ],
+    "components": [],
+    "pcbas": [],
+    "mechanical": [
+      {
+        "id": "m1",
+        "def": "overmold-y-3-5mm",
+        "qty": 1,
+        "note": "the moulded Y the stem splits in"
+      }
+    ],
+    "breakouts": [
+      {
+        "id": "bk1",
+        "mould": "m1",
+        "role": "Y split",
+        "trunk": {
+          "segment": "w1",
+          "end": "b"
+        },
+        "legs": [
+          {
+            "segment": "w2",
+            "end": "a"
+          },
+          {
+            "segment": "w3",
+            "end": "a"
+          }
+        ],
+        "conductors": [
+          {
+            "segment": "w1",
+            "path": "left",
+            "fate": "terminated"
+          },
+          {
+            "segment": "w1",
+            "path": "right",
+            "fate": "terminated"
+          },
+          {
+            "segment": "w1",
+            "path": "shield",
+            "fate": "terminated"
+          },
+          {
+            "segment": "w2",
+            "path": "left",
+            "fate": "terminated"
+          },
+          {
+            "segment": "w2",
+            "path": "right",
+            "fate": "nc",
+            "reason": "spare: the leg is the stem’s stock, one core unused"
+          },
+          {
+            "segment": "w2",
+            "path": "shield",
+            "fate": "terminated"
+          },
+          {
+            "segment": "w3",
+            "path": "left",
+            "fate": "nc",
+            "reason": "spare: the leg is the stem’s stock; the right channel rides the red core"
+          },
+          {
+            "segment": "w3",
+            "path": "right",
+            "fate": "terminated"
+          },
+          {
+            "segment": "w3",
+            "path": "shield",
+            "fate": "terminated"
+          }
+        ]
+      }
+    ]
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "tip"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "left",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "ring"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "right",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "sleeve"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "shield",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "left",
+        "end": "b"
+      },
+      "b": {
+        "instance": "w2",
+        "terminal": "left",
+        "end": "a"
+      },
+      "note": "left spliced onto the L leg in the mould"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "right",
+        "end": "b"
+      },
+      "b": {
+        "instance": "w3",
+        "terminal": "right",
+        "end": "a"
+      },
+      "note": "right spliced onto the R leg in the mould"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "shield",
+        "end": "b"
+      },
+      "b": {
+        "instance": "w2",
+        "terminal": "shield",
+        "end": "a"
+      },
+      "note": "stem shield to each leg shield in the mould"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "shield",
+        "end": "b"
+      },
+      "b": {
+        "instance": "w3",
+        "terminal": "shield",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w2",
+        "terminal": "left",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "tip"
+      }
+    },
+    {
+      "a": {
+        "instance": "w2",
+        "terminal": "shield",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "sleeve"
+      }
+    },
+    {
+      "a": {
+        "instance": "w3",
+        "terminal": "right",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j3",
+        "terminal": "tip"
+      }
+    },
+    {
+      "a": {
+        "instance": "w3",
+        "terminal": "shield",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j3",
+        "terminal": "sleeve"
+      }
+    }
+  ],
+  "src": "synthetic example: a stereo Y cable — one 3.5 mm TRS plug, a moulded breakout, and two RCA plugs, the same two-core stock on all three legs (the spare core of each leg is NC in the mould)"
+}

@@ -1,0 +1,11 @@
+{
+  "title": "XLR microphone cable",
+  "partNumber": "CBL-00010-XX",
+  "revision": "A",
+  "lengths": [
+    { "suffix": "-03", "mm": 3000 },
+    { "suffix": "-05", "mm": 5000 },
+    { "suffix": "-10", "mm": 10000 }
+  ],
+  "remarks": ["Synthetic example: a length family — each length is its own part number."]
+}

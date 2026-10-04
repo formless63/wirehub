@@ -1,0 +1,180 @@
+(kicad_pcb
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(general
+		(thickness 1.2)
+		(legacy_teardrops no)
+	)
+	(paper "A4")
+	(footprint "Resistor_SMD:R_0805_2012Metric"
+		(layer "F.Cu")
+		(uuid "00000000-0000-0000-0000-000000000001")
+		(at 110 105 90)
+		(property "Reference" "R1"
+			(at 0 -1.65 90)
+			(layer "F.SilkS")
+		)
+		(property "Value" "180R \"blanking\""
+			(at 0 1.65 90)
+			(layer "F.Fab")
+		)
+		(model "${KICAD9_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0805_2012Metric.wrl"
+			(offset
+				(xyz 1 0 0.5)
+			)
+			(scale
+				(xyz 1 1 2)
+			)
+			(rotate
+				(xyz 0 0 -90)
+			)
+		)
+		(model "${KICAD10_3DMODEL_DIR}/Resistor_SMD.3dshapes/R_0805_2012Metric.step"
+			(hide yes)
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(footprint "Custom_Connectors:Jack_Fixture"
+		(layer "B.Cu")
+		(uuid "00000000-0000-0000-0000-000000000002")
+		(at 120 110 180)
+		(property "Reference" "J1"
+			(at 0 0 0)
+			(layer "B.SilkS")
+		)
+		(fp_line
+			(start -2 -1)
+			(end 2 -1)
+			(stroke
+				(width 0.05)
+				(type solid)
+			)
+			(layer "B.SilkS")
+		)
+		(model "kicad-embed://Jack Fixture.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 90 0 0)
+			)
+		)
+		(model "//fileserver/Engineering/Vault/Jack Fixture.stp"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(footprint "Legacy:Old_Format"
+		(layer "F.Cu")
+		(at 105 115)
+		(fp_text reference "U1"
+			(at 0 0)
+			(layer "F.SilkS")
+		)
+		(model ${KISYS3DMOD}/Package_SO.3dshapes/SOIC-8_3.9x4.9mm_P1.27mm.wrl
+			(at
+				(xyz 0.1 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(gr_line
+		(start 100 100)
+		(end 130 100)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+	)
+	(gr_line
+		(start 130 120)
+		(end 130 100)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+	)
+	(gr_arc
+		(start 130 120)
+		(mid 128.535534 123.535534)
+		(end 125 125)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+	)
+	(gr_line
+		(start 125 125)
+		(end 100 125)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+	)
+	(gr_line
+		(start 100 125)
+		(end 100 100)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+	)
+	(gr_circle
+		(center 105 105)
+		(end 106 105)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "Edge.Cuts")
+	)
+	(gr_line
+		(start 0 0)
+		(end 10 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(embedded_fonts no)
+	(embedded_files
+		(file
+			(name "Jack Fixture.step")
+			(type model)
+			(data |KLUv/SBH/QEAVANJU08tMTAzMDMtMjE7CkhFQURFUjsKLyogZW1iZWRkZWQgZml4dHVyZSAqLwpFTkRTRUM7LQIAXImgsQUK|
+			)
+			(checksum "00000000000000000000000000000000")
+		)
+	)
+)

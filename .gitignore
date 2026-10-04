@@ -1,0 +1,30 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env*
+!.env.example
+.DS_Store
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+
+# studio login state (apps/studio/server/auth): SQLite sessions + save audit
+# log. Never committed; the directory itself is kept so a bind mount lands on
+# a host-user-owned folder.
+data/auth/*
+!data/auth/.gitkeep
+
+# what the running studio writes that is not catalog truth: writeFileAtomic's
+# in-flight temp files
+.*.tmp
+*.import-tmp
+
+# the generated 3D model cache: GLBs built by an importer; data/models.json is
+# the committed truth
+packages/catalog/data/.model-cache/
+
+# KiCad's standard 3D library, only the files a link needs, fetched at a pinned
+# tag; data/models.json records each file's URL and sha256
+packages/catalog/data/.kicad-3d-cache/

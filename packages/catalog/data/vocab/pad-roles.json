@@ -1,0 +1,53 @@
+{
+  "id": "pad-roles",
+  "label": "Pad roles",
+  "src": "what a board pad is for, and the lane that lands on it",
+  "entries": [
+    {
+      "id": "data-a",
+      "label": "Data A",
+      "lane": "data-tx",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "data-b",
+      "label": "Data B",
+      "lane": "data-rx",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "power",
+      "label": "Power",
+      "lane": "power",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "gnd",
+      "label": "Ground",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "shield",
+      "label": "Shield",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-l",
+      "label": "Audio L",
+      "lane": "audio-l",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-r",
+      "label": "Audio R",
+      "lane": "audio-r",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "spare",
+      "label": "Spare",
+      "lane": "spare",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

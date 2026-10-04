@@ -1,0 +1,32 @@
+{
+  "id": "component-kinds",
+  "label": "Component kinds",
+  "src": "model.ts ComponentKind",
+  "entries": [
+    {
+      "id": "resistor",
+      "label": "Resistor",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "capacitor",
+      "label": "Capacitor",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "ic",
+      "label": "IC",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "switch",
+      "label": "Switch",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "other",
+      "label": "Other",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

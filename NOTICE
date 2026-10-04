@@ -1,0 +1,38 @@
+Cable Studio — third-party material
+===================================
+
+Fonts embedded in generated documents (packages/docs/fonts/, and as data in
+packages/docs/src/drawing/fonts.generated.ts)
+-------------------------------------------------------------------------
+
+  Liberation Sans (Regular, Bold)
+    SIL Open Font License 1.1 — packages/docs/fonts/LICENSE-LiberationSans.txt
+  TeX Gyre Adventor (Regular)
+    GUST Font License — packages/docs/fonts/LICENSE-TeXGyreAdventor.txt
+
+In the generated drawing sheet they are embedded under the family names
+"CS Sans" and "CS Gothic".
+
+App fonts
+---------
+
+  IBM Plex Sans and IBM Plex Mono, via @fontsource (SIL Open Font License 1.1).
+
+KiCad 3D model library (optional)
+---------------------------------
+
+The Library can show 3D models converted from files of the KiCad 3D model
+library (https://gitlab.com/kicad/libraries/kicad-packages3D), licensed
+CC BY-SA 4.0 with the KiCad libraries exception. No library file is committed
+to this repository; files are fetched into the gitignored
+packages/catalog/data/.kicad-3d-cache/ and converted (tessellated and
+simplified, i.e. modified) into the gitignored .model-cache/ only when a
+deployment links them. A deployment that does must carry the attribution.
+
+Libraries used unmodified
+-------------------------
+
+  occt-import-js (LGPL-2.1) reads STEP and IGES files.
+  three.js (MIT) renders 3D views.
+
+Every other dependency is listed in pnpm-lock.yaml with its own licence.

@@ -1,0 +1,6371 @@
+/*
+ * The editor's only stylesheet. Every rule is scoped under `.cs-editor`, so the
+ * component can drop into a host app (the ERP) without touching its styles.
+ * The host must also load `@xyflow/react/dist/style.css`.
+ *
+ * Tailwind v4, scoped. This imports Tailwind's theme and utilities layers —
+ * deliberately *not* `preflight` (Tailwind's reset), since preflight targets
+ * bare `*`/`html`/`body` selectors and would leak into the host app — with
+ * `prefix(cs)`, so any Tailwind utility this package uses compiles to
+ * `cs:bg-panel`, `cs:text-ink`, … and can never collide with a host's own
+ * unprefixed Tailwind classes.
+ *
+ * Compilation: this package ships TS/CSS source, not a build (see
+ * package.json `exports`), so there is no bundling step of its own. Whichever
+ * Vite instance actually bundles this file compiles it — in this repo that's
+ * apps/studio's `@tailwindcss/vite` plugin, which sees the `@import
+ * "tailwindcss/…"` below the moment this file enters the module graph
+ * (imported once, by `main.tsx`) and compiles it as its own independent
+ * Tailwind root, auto-scanning this package's `src/` for `cs:*` candidates.
+ * A future non-Vite host would need an equivalent Tailwind-on-this-file step;
+ * document that choice there rather than assuming this file arrives compiled.
+ *
+ * `tokens.css` is the semantic palette (light/dark, `data-theme` on `<html>`)
+ * — the single source of truth this package owns for both here and
+ * apps/studio, which imports the identical file. `@theme inline` below binds
+ * those custom properties into Tailwind (so `cs:bg-panel` etc. exist); every
+ * hand-written rule in this file reads the same properties directly
+ * (`var(--panel)`, …), so the prefixed utilities and the hand-authored `.cs-*`
+ * classes always agree.
+ */
+
+@import 'tailwindcss/theme.css' layer(theme) prefix(cs);
+@import 'tailwindcss/utilities.css' layer(utilities) prefix(cs);
+@import './tokens.css';
+@import './wire-builder.css';
+@import './board-journey.css';
+@import './board-components.css';
+@import './library-table.css';
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-rail: var(--rail);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-ink: var(--ink);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+  --color-canvas: var(--canvas);
+  --color-dot: var(--dot);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-board: var(--board);
+  --color-jacket: var(--jacket);
+  --color-jacket-line: var(--jacket-line);
+  --color-diel: var(--diel);
+  --color-foil: var(--foil);
+  --color-copper: var(--copper);
+  --color-scrim: var(--scrim);
+  --color-conn-kind: var(--conn-kind);
+  --color-wire-kind: var(--wire-kind);
+  --color-comp-kind: var(--comp-kind);
+
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.cs-editor {
+  --cs-bg: var(--bg);
+  --cs-panel: var(--panel);
+  --cs-line: var(--line);
+  --cs-ink: var(--ink);
+  --cs-dim: var(--dim);
+  --cs-accent: var(--accent);
+  --cs-error: var(--err);
+  --cs-warn: var(--warn);
+  --cs-ok: var(--ok);
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--cs-bg);
+  color: var(--cs-ink);
+  font: 13px/1.45 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.cs-editor * {
+  box-sizing: border-box;
+}
+
+/* ---------- chrome ---------- */
+
+.cs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--cs-line);
+  background: var(--cs-panel);
+}
+
+/* shared utility: ids, pin/terminal numbers and lengths read in tabular mono
+   wherever they appear on a definition editor or the wizard */
+.cs-mono {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-doc-id {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--cs-accent);
+}
+
+.cs-doc-label {
+  color: var(--cs-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-spacer {
+  flex: 1;
+}
+
+/* undo/redo: the label carries the edit's own description, ellipsised so a long
+   one cannot push the status chips off the bar */
+.cs-editor .cs-history {
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-editor .cs-history:disabled {
+  color: var(--cs-dim);
+  border-color: var(--cs-line);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cs-editor .cs-history:disabled:hover {
+  border-color: var(--cs-line);
+}
+
+.cs-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--cs-dim);
+  white-space: nowrap;
+}
+
+.cs-chip.is-error {
+  color: var(--cs-error);
+  border-color: var(--cs-error);
+}
+
+.cs-rejection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: color-mix(in oklab, var(--err) 20%, var(--bg));
+  border-bottom: 1px solid var(--cs-error);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.cs-rejection strong {
+  color: var(--cs-error);
+  white-space: nowrap;
+}
+
+.cs-rejection span {
+  flex: 1;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* palette | splitter | canvas | splitter | inspector. The columns are restated
+   inline from `usePanes` — these are the sizes a workbench opens at, and what
+   it falls back to if the component's own state never arrives. */
+.cs-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 248px 6px minmax(0, 1fr) 6px 340px;
+}
+
+/* portrait phone widths: the canvas gets the whole
+   width — `.cs-side` (and, in full chrome, `.cs-palette`) leave the grid
+   entirely once they are `position: fixed` (see their own mobile rules
+   below), but the *track* sizes here are still literal pixels set inline
+   by `usePanes`/`CableEditor`, so they have to be zeroed explicitly too.
+   `!important` because the host chrome variant sets these same tracks
+   inline (`gridTemplateColumns`), which otherwise wins over a plain rule. */
+@media (max-width: 639px) {
+  .cs-body.cs-body-host {
+    grid-template-columns: minmax(0, 1fr) 0 0 !important;
+  }
+  .cs-body:not(.cs-body-host) {
+    grid-template-columns: 0 0 minmax(0, 1fr) 0 0 !important;
+  }
+  /* a 0-width track still lets its item overflow into the canvas unless it
+     is allowed to actually shrink — `.cs-side` sidesteps this by leaving
+     the grid entirely (`position: fixed`, below); full chrome's palette has
+     no such escape hatch, so it gets the usual grid-item fix instead */
+  .cs-body:not(.cs-body-host) .cs-palette {
+    min-width: 0;
+    overflow: hidden;
+  }
+}
+
+.cs-centre {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cs-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+/* focusable so Tab (with a node/handle selected, or nothing) opens the node
+   picker — no visible ring, React Flow's own node/handle
+   selection styling already says where the keyboard is */
+.cs-canvas:focus,
+.cs-canvas:focus-visible {
+  outline: none;
+}
+
+/* the height is restated inline from `usePanes`; this is where it opens */
+.cs-dock {
+  flex: 0 0 300px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--cs-line);
+  background: var(--cs-panel);
+}
+
+.cs-side {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--cs-line);
+  background: var(--cs-panel);
+}
+
+/* the inspector's close button, and the canvas's own reopen button — both
+   portrait-phone-only, see the `.cs-side` drawer rule
+   further down */
+.cs-side-close {
+  display: none;
+}
+
+.cs-side-toggle {
+  display: none;
+  position: absolute;
+  /* top-right, not bottom-right — React Flow's own MiniMap already lives
+     there (`cs-minimap`, bottom-right) and Controls sits bottom-left */
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--cs-line);
+  border-radius: 999px;
+  background: var(--cs-panel);
+  color: var(--cs-dim);
+  box-shadow: var(--shadow);
+}
+
+.cs-side-toggle[aria-pressed='true'] {
+  color: var(--cs-accent);
+  border-color: var(--cs-accent);
+}
+
+.cs-palette {
+  border-right: 1px solid var(--cs-line);
+  background: var(--cs-panel);
+}
+
+/* ---------- panels ---------- */
+
+.cs-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.cs-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cs-dim);
+  border-bottom: 1px solid var(--cs-line);
+}
+
+.cs-panel h3 {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cs-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cs-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px;
+}
+
+.cs-count {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--raised);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--cs-dim);
+  letter-spacing: 0;
+}
+
+.cs-count.is-error {
+  background: color-mix(in oklab, var(--err) 24%, var(--panel));
+  color: var(--cs-error);
+}
+
+.cs-empty {
+  color: var(--cs-dim);
+  font-style: italic;
+  margin: 6px 0;
+}
+
+.cs-error {
+  color: var(--cs-error);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.cs-editor button {
+  font: inherit;
+  font-size: 12px;
+  color: var(--cs-ink);
+  background: var(--raised);
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.cs-editor button:hover {
+  border-color: var(--cs-accent);
+}
+
+.cs-editor .cs-danger {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--err) 20%, var(--panel));
+  border-color: color-mix(in oklab, var(--err) 45%, var(--panel));
+  margin-top: 10px;
+  width: 100%;
+}
+
+.cs-editor .cs-small {
+  margin: 0 0 0 6px;
+  width: auto;
+}
+
+.cs-editor .cs-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--cs-accent);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.cs-input,
+.cs-textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 12px;
+  color: var(--cs-ink);
+  background: var(--bg);
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.cs-palette .cs-input {
+  margin: 8px 10px;
+  width: calc(100% - 20px);
+}
+
+.cs-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--cs-line);
+  border-top: 1px solid var(--cs-line);
+}
+
+.cs-tabs button.is-active {
+  background: var(--cs-accent);
+  border-color: var(--cs-accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* ---------- palette ---------- */
+
+.cs-part-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'label add' 'detail add';
+  align-items: center;
+  gap: 0 6px;
+  padding: 4px 6px;
+  margin-bottom: 3px;
+  border: 1px solid var(--cs-line);
+  border-left: 3px solid var(--cs-dim);
+  border-radius: 4px;
+  cursor: grab;
+  background: var(--bg);
+}
+
+.cs-part-item:hover {
+  border-color: var(--cs-accent);
+}
+
+.cs-part-connector { border-left-color: var(--conn-kind); }
+.cs-part-segment { border-left-color: var(--wire-kind); }
+.cs-part-component { border-left-color: var(--comp-kind); }
+.cs-part-pcba { border-left-color: var(--board); }
+
+.cs-part-label {
+  grid-area: label;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-part-detail {
+  grid-area: detail;
+  font-size: 10px;
+  color: var(--cs-dim);
+}
+
+.cs-add {
+  grid-area: add;
+}
+
+/* ---------- inspector ---------- */
+
+.cs-facts {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 2px 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+
+.cs-facts dt {
+  color: var(--cs-dim);
+}
+
+.cs-facts dd {
+  margin: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+
+.cs-field {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.cs-field span {
+  display: block;
+  font-size: 12px;
+  color: var(--cs-dim);
+  margin-bottom: 2px;
+}
+
+.cs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cs-list li {
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.cs-inspector {
+  flex: 0 1 auto;
+  max-height: 46%;
+}
+
+/* ---------- derived panels ---------- */
+
+.cs-net {
+  padding: 4px 6px;
+  border-left: 2px solid var(--cs-line);
+  margin-bottom: 4px;
+}
+
+.cs-net.is-selected {
+  border-left-color: var(--cs-accent);
+  background: var(--accent-soft);
+}
+
+.cs-net h3 {
+  margin: 0 0 2px;
+}
+
+.cs-net-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.cs-term {
+  font-size: 12px;
+}
+
+.cs-issue {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 6px;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  border-left: 2px solid var(--cs-warn);
+  background: var(--raised);
+  font-size: 12px;
+}
+
+.cs-issue.is-error {
+  border-left-color: var(--cs-error);
+}
+
+.cs-issue-code {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--cs-warn);
+}
+
+.cs-issue.is-error .cs-issue-code {
+  color: var(--cs-error);
+}
+
+.cs-issue-where {
+  grid-column: 2;
+  color: var(--cs-dim);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-issues-compat h3 {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--cs-dim);
+}
+
+.cs-issue-compat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  width: 100%;
+  border: none;
+  border-left: 2px solid var(--cs-warn);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cs-issue-compat:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.cs-issue-compat:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.cs-issue-terms {
+  font-size: 12px;
+  color: var(--cs-ink);
+}
+
+/* one-click fix on a note-silenceable warning (udy.5): a quiet icon at the row's right */
+.cs-issue.has-fix {
+  grid-template-columns: 1fr auto;
+}
+
+.cs-issue.has-fix .cs-issue-code {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+}
+
+.cs-issue.has-fix .cs-issue-message,
+.cs-issue.has-fix .cs-issue-where {
+  grid-column: 1 / span 2;
+}
+
+.cs-editor .cs-issue-fix {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--cs-dim);
+}
+
+.cs-editor .cs-issue-fix:hover {
+  color: var(--cs-accent);
+}
+
+/* depiction diagnostics (udy.8) */
+.cs-issues-artwork h3 {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--cs-dim);
+}
+
+.cs-issue-plain {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--cs-dim);
+}
+
+/* design notes (udy.5) */
+.cs-notes h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cs-editor .cs-notes-add {
+  margin-left: auto;
+}
+
+.cs-notes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-note-row {
+  display: grid;
+  grid-template-columns: 18px 1fr 22px;
+  align-items: start;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.cs-note-n {
+  padding-top: 5px;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--cs-dim);
+  text-align: right;
+}
+
+.cs-editor .cs-note-input {
+  width: 100%;
+  min-height: 28px;
+  resize: vertical;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cs-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.cs-step-label {
+  color: var(--cs-dim);
+}
+
+.cs-passage {
+  color: var(--cs-warn);
+}
+
+.cs-passage.cs-copper {
+  color: var(--cs-ok);
+}
+
+.cs-from {
+  margin: 0 0 6px;
+  color: var(--cs-dim);
+}
+
+/* ---------- dock ---------- */
+
+/* white paper, dark chrome: this wraps the rendered schematic SVG, whose own
+   strokes assume a white page regardless of the app's theme */
+.cs-preview-body {
+  background: #fdfdfd;
+}
+
+.cs-svg svg {
+  width: 100%;
+  height: auto;
+}
+
+.cs-json-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.cs-upload {
+  font-size: 12px;
+  color: var(--cs-ink);
+  background: var(--raised);
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.cs-upload input {
+  display: none;
+}
+
+.cs-json .cs-textarea {
+  flex: 1;
+  min-height: 0;
+  margin: 0 10px 10px;
+  width: calc(100% - 20px);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  resize: none;
+}
+
+/* ---------- documents ---------- */
+
+/* the view switch sits on its own row so the toolbar above it stays the
+   toolbar; Canvas and Documents each own the whole content area in turn */
+.cs-viewtabs {
+  border-top: 0;
+}
+
+.cs-documents {
+  min-height: 0;
+}
+
+.cs-documents h2 .cs-chip.is-draft {
+  color: var(--cs-warn);
+  border-color: var(--cs-warn);
+}
+
+.cs-updating {
+  font-style: italic;
+}
+
+.cs-doc-tabs {
+  align-items: center;
+  /* narrow phone widths: five tabs plus Print do not
+     fit one row at ~360-430px — wrapping keeps every tab reachable instead
+     of clipping or forcing horizontal scroll. No effect once there is room. */
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+/* Copy (markdown) and Print: a tabler icon beside the word */
+.cs-doc-tabs .cs-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* which revision prints (50a.42): a compact select; the working copy reads as a warning */
+.cs-doc-tabs .cs-doc-target,
+.cs-doc-tabs .cs-doc-variation {
+  width: auto;
+  flex: 0 0 auto;
+  height: 24px;
+  font-size: 11.5px;
+  padding: 0 4px;
+  margin-right: 6px;
+}
+
+.cs-doc-tabs .cs-doc-target.is-unreleased {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+/* the printed sheets' options row (50a.9): one compact line, wraps on phones */
+.cs-sheet-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cs-line);
+  font-size: 12px;
+}
+
+.cs-sheet-options .cs-input {
+  height: 26px;
+  min-width: 0;
+}
+
+.cs-sheet-options .cs-sheet-number {
+  width: 150px;
+  font-family: var(--font-mono);
+}
+
+.cs-sheet-options .cs-sheet-short {
+  width: 52px;
+}
+
+.cs-sheet-options .cs-sheet-paper {
+  width: 80px;
+}
+
+.cs-sheet-options .cs-sheet-status {
+  width: 110px;
+}
+
+.cs-sheet-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cs-dim);
+}
+
+.cs-doc-note {
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--cs-dim);
+  font-size: 12px;
+}
+
+.cs-doc-warning {
+  margin: 0 10px 8px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--cs-warn);
+  background: color-mix(in oklab, var(--warn) 18%, var(--bg));
+  color: var(--warn);
+  font-size: 12px;
+}
+
+.cs-doc-warning strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cs-warn);
+}
+
+/* the drawing sidecar's stale-write banner: a save
+   another action rewrote behind this form's back, or a genuine field
+   conflict a person has to pick — loud on purpose, not the small print */
+.cs-drawing-conflict {
+  margin: 0 10px 8px;
+  padding: 8px;
+  border: 1px solid var(--cs-error);
+  border-left: 3px solid var(--cs-error);
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--err) 14%, var(--bg));
+  color: var(--cs-error);
+  font-size: 12px;
+}
+
+.cs-drawing-conflict strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--cs-error);
+  font-weight: 600;
+}
+
+.cs-drawing-conflict .cs-list li {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--cs-ink);
+}
+
+.cs-drawing-conflict .cs-conflict-name {
+  font-weight: 600;
+  color: var(--cs-error);
+}
+
+.cs-drawing-conflict > button {
+  margin-top: 6px;
+}
+
+.cs-doc-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: 0 10px 10px;
+}
+
+.cs-doc-failed,
+.cs-doc-body > .cs-empty {
+  padding: 10px 0;
+}
+
+/* white paper, dark chrome: the frame is the document's own world */
+.cs-doc-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  /* an iframe is a replaced element with an intrinsic 300×150 box, so it does
+     not reliably stretch to a flex line — say the height out loud */
+  height: 100%;
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+/* the drawing sheet's title-block form: above the sheet, collapsible, so a
+   printed drawing is one Save and one Print away from the canvas */
+.cs-drawing-form {
+  margin: 0 10px 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cs-drawing-form > summary {
+  cursor: pointer;
+  color: var(--cs-dim);
+}
+
+.cs-drawing-form > summary .cs-chip {
+  margin-left: 8px;
+}
+
+.cs-drawing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 6px 12px;
+  margin-top: 6px;
+}
+
+.cs-drawing-grid .cs-field.is-wide {
+  grid-column: span 2;
+}
+
+.cs-drawing-grid textarea {
+  font: inherit;
+  resize: vertical;
+}
+
+.cs-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cs-inline input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cs-drawing-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.cs-drawing-status {
+  color: var(--cs-dim);
+}
+
+/* ---------- nodes ---------- */
+
+.cs-editor .react-flow__node {
+  font-size: 10px;
+}
+
+.cs-node {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.cs-node.is-selected {
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 2px var(--cs-accent);
+}
+
+.cs-node.is-broken {
+  border-color: var(--cs-error);
+  background: color-mix(in oklab, var(--err) 12%, var(--panel));
+}
+
+.cs-node-head {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  grid-template-areas: 'badge instance title' 'subtitle subtitle subtitle' 'meta meta meta';
+  gap: 1px 5px;
+  align-items: center;
+  padding: 4px 7px;
+  background: var(--raised);
+  border-bottom: 1px solid var(--line);
+}
+
+.cs-badge {
+  grid-area: badge;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--conn-kind);
+  color: var(--accent-ink);
+}
+
+.cs-node-segment .cs-badge { background: var(--wire-kind); }
+.cs-node-component .cs-badge { background: var(--comp-kind); }
+.cs-node-pcba .cs-badge { background: var(--board); }
+
+.cs-instance {
+  grid-area: instance;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.cs-title {
+  grid-area: title;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-subtitle {
+  grid-area: subtitle;
+  color: var(--dim);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-meta {
+  grid-area: meta;
+  color: var(--faint);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-node-body {
+  padding: 5px 0;
+}
+
+.cs-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 19px;
+  padding: 0 9px;
+  cursor: pointer;
+}
+
+.cs-row-right {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.cs-row:hover {
+  background: var(--hover);
+}
+
+.cs-row.is-on-net {
+  background: color-mix(in oklab, var(--warn) 30%, var(--panel));
+}
+
+.cs-row.is-selected {
+  background: var(--accent-soft);
+}
+
+.cs-pin {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 18px;
+  color: var(--dim);
+}
+
+.cs-row.is-used .cs-pin {
+  color: var(--ink);
+}
+
+.cs-end {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+.cs-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.cs-side-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  padding: 0 9px 2px;
+}
+
+.cs-board-side:last-child .cs-side-label {
+  text-align: right;
+}
+
+.cs-element {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 19px;
+  padding: 0 9px;
+}
+
+.cs-element:hover {
+  background: var(--hover);
+}
+
+.cs-element.is-on-net {
+  background: color-mix(in oklab, var(--warn) 30%, var(--panel));
+}
+
+.cs-element.is-selected {
+  background: var(--accent-soft);
+}
+
+.cs-endpoint {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.cs-endpoint.is-used {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.cs-conductor {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.cs-element-shield .cs-conductor,
+.cs-element-drain .cs-conductor {
+  height: 2px;
+  opacity: 0.8;
+}
+
+.cs-element-name {
+  flex: 1;
+  min-width: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-part {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cs-part .cs-row {
+  padding: 0 6px;
+}
+
+/* ---------- handles ---------- */
+
+.cs-editor .react-flow__handle.cs-handle {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--line2);
+  background: var(--foil);
+  border-radius: 50%;
+}
+
+.cs-editor .react-flow__handle.cs-handle-shield,
+.cs-editor .react-flow__handle.cs-handle-drain {
+  border-radius: 2px;
+}
+
+.cs-editor .react-flow__handle.cs-handle:hover {
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.cs-row.is-used .cs-handle {
+  border-color: var(--ink);
+}
+
+/* ---------- board node: the real board (board-art.ts, nodes/BoardNode.tsx) ---------- */
+
+/* every number here is one `BOARD_LAYOUT` / `BOARD_HEAD` in code — the node is
+   given its exact size, so change both together */
+.cs-board-node,
+.cs-wire-node {
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.cs-editor .react-flow__node.selected .cs-board-node,
+.cs-board-node.is-selected,
+.cs-editor .react-flow__node.selected .cs-wire-node,
+.cs-wire-node.is-selected {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+
+.cs-node-head.cs-board-head,
+.cs-node-head.cs-art-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 9px 0 8px;
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+}
+
+.cs-board-chip,
+.cs-art-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--board);
+  background: color-mix(in oklab, var(--board) 16%, transparent);
+}
+
+.cs-board-head .cs-instance,
+.cs-art-head .cs-instance {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.cs-board-head .cs-title,
+.cs-art-head .cs-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cs-board-head .cs-meta,
+.cs-art-head .cs-meta {
+  flex: none;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.cs-board-art {
+  position: relative;
+  margin: 0 auto;
+}
+
+.cs-board-caption {
+  position: absolute;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  line-height: 12px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  pointer-events: none;
+}
+
+/* the board keeps its fabrication colours in both themes */
+.cs-board-face {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* The build's mounted parts over a face (y1u.17/y1u.18): a real top-down
+   body per part where the importer recognised its package; the fallback for
+   one it did not (an unrecognised package, a connector already drawn by the
+   gerber art, or an unset solder jumper) is a translucent body in the
+   component tone, so copper, pads and handles still read through it — never
+   nothing. */
+.cs-board-part {
+  /* the face ignores the pointer; a part answers it, for its hover title */
+  pointer-events: visiblePainted;
+}
+
+.cs-board-part-box {
+  fill: var(--comp-kind);
+  fill-opacity: 0.35;
+  stroke: var(--comp-kind);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
+.cs-board-part.is-unset .cs-board-part-box {
+  fill: none;
+  stroke-dasharray: 1 1.5;
+  stroke-opacity: 0.7;
+}
+
+.cs-board-part-pin1 {
+  fill: #e7e7ea;
+  stroke: #8a8f96;
+  stroke-width: 0.5;
+}
+
+/* Package art (y1u.18): the real top-down colours of the part itself — a
+   black chip resistor prints the same whether the canvas around it is light
+   or dark, so these never key off theme. */
+.cs-pt-chip-body { fill: #1c1c1c; stroke: #050505; stroke-width: 0.4; }
+.cs-pt-chip-end { fill: #c7ccd2; stroke: #9aa0a8; stroke-width: 0.3; }
+.cs-pt-mlcc-body { fill: #b9905a; stroke: #8a6a3e; stroke-width: 0.4; }
+.cs-pt-mlcc-end { fill: #c7ccd2; stroke: #9aa0a8; stroke-width: 0.3; }
+.cs-pt-tant-body { fill: #e2a13a; stroke: #a8741f; stroke-width: 0.4; }
+.cs-pt-tant-band { fill: #241d15; }
+.cs-pt-elec-body { fill: #46484c; stroke: #202224; stroke-width: 0.5; }
+.cs-pt-elec-stripe { fill: #d8dadd; }
+.cs-pt-ic-body { fill: #1c1c1c; stroke: #050505; stroke-width: 0.4; }
+.cs-pt-ic-lead { fill: #c7ccd2; stroke: #9aa0a8; stroke-width: 0.3; }
+.cs-pt-diode-body { fill: #17181a; stroke: #050505; stroke-width: 0.4; }
+.cs-pt-diode-band { fill: #e6e8ea; }
+.cs-pt-led-body { fill: #17181a; stroke: #050505; stroke-width: 0.4; }
+.cs-pt-led-dome { fill: #e2894a; fill-opacity: 0.55; }
+.cs-pt-jumper-blob { fill: #d7dade; stroke: #9aa0a8; stroke-width: 0.4; }
+.cs-pt-jumper-pad { fill: #c3a765; stroke: #8a763f; stroke-width: 0.4; }
+.cs-pt-marking {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 5px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: #f2f2f2;
+}
+
+.cs-board-part-label {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: var(--ink);
+  stroke: var(--bg);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.cs-board-part-label.is-open,
+.cs-board-part-label.is-unset {
+  fill: var(--dim);
+}
+
+/* A pad handle. The element itself is 2px so React Flow's edge endpoint is
+   the pad centre (it anchors at the handle box's edge); ::before is the
+   14px hit area, ::after the visible dot. */
+.cs-editor .react-flow__handle.cs-pad-handle {
+  width: 2px;
+  height: 2px;
+  min-width: 0;
+  min-height: 0;
+  right: auto;
+  bottom: auto;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.cs-editor .react-flow__handle.cs-pad-handle::before,
+.cs-editor .react-flow__handle.cs-pad-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+}
+
+.cs-editor .react-flow__handle.cs-pad-handle::before {
+  width: 14px;
+  height: 14px;
+}
+
+.cs-editor .react-flow__handle.cs-pad-handle::after {
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid #f2f1ed;
+  background: rgba(20, 20, 22, 0.35);
+}
+
+.cs-editor .react-flow__handle.cs-pad-handle.is-used::after {
+  border-color: #1b1a18;
+  background: #f2f1ed;
+}
+
+/* landed through a carrier hole (e5c.37): no edge comes to it, so the pad
+   itself reads landed — a filled dot in its net's paint */
+.cs-editor .react-flow__handle.cs-pad-handle.is-through::after {
+  width: 9px;
+  height: 9px;
+  border: 2px solid #1b1a18;
+  background: var(--pad-through, #f2f1ed);
+}
+
+.cs-editor .react-flow__handle.cs-pad-handle.is-on-net::after {
+  background: var(--warn);
+}
+
+.cs-editor .react-flow__handle.cs-pad-handle.is-selected::after,
+.cs-editor .react-flow__handle.cs-pad-handle:hover::after {
+  width: 9px;
+  height: 9px;
+  border-color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.cs-editor .react-flow__handle.cs-pad-handle:hover::before {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+.cs-wire-chip {
+  color: var(--wire-kind);
+  background: color-mix(in oklab, var(--wire-kind) 16%, transparent);
+}
+
+/* ---------- connector node: the part itself (connector-art.ts, nodes/ConnectorNode.tsx) ---------- */
+
+/* every number here is one `CONNECTOR_LAYOUT` in code — the node is given its
+   exact size, so change both together */
+.cs-conn-node {
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.cs-editor .react-flow__node.selected .cs-conn-node,
+.cs-conn-node.is-selected {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+}
+
+.cs-conn-chip {
+  color: var(--conn-kind);
+  background: color-mix(in oklab, var(--conn-kind) 16%, transparent);
+}
+
+.cs-conn-art,
+.cs-board-dock {
+  position: relative;
+}
+
+.cs-board-dock {
+  position: absolute;
+  pointer-events: none;
+}
+
+.cs-conn-svg {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* docked: no card of its own — it is part of the board it sits in */
+.cs-node.cs-conn-docked {
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  box-shadow: none;
+  overflow: visible;
+  cursor: pointer;
+}
+
+.cs-editor .react-flow__node.selected .cs-conn-docked,
+.cs-node.cs-conn-docked.is-selected {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+.cs-dock-caption {
+  position: absolute;
+  left: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--dim);
+  pointer-events: none;
+}
+
+/* the dock mark: the connector's edge against the board */
+.cs-dock-mark {
+  position: absolute;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.cs-dock-mark.is-right {
+  right: -3px;
+}
+
+.cs-dock-mark.is-left {
+  left: -3px;
+}
+
+/* the drawing's paint roles, in tokens */
+.cs-art-t-flange {
+  fill: var(--raised);
+  stroke: var(--jacket-line);
+  stroke-width: 1;
+}
+
+.cs-art-t-shell {
+  fill: color-mix(in oklab, var(--foil) 26%, var(--raised));
+  stroke: var(--foil);
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+}
+
+.cs-art-t-insert {
+  fill: var(--jacket);
+  stroke: var(--jacket-line);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+
+.cs-art-t-hole {
+  fill: var(--canvas);
+  stroke: var(--jacket-line);
+  stroke-width: 0.8;
+}
+
+.cs-art-t-metal {
+  fill: color-mix(in oklab, var(--foil) 42%, var(--raised));
+  stroke: var(--foil);
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+}
+
+.cs-art-t-boot {
+  fill: var(--jacket);
+  stroke: var(--jacket-line);
+  stroke-width: 1;
+}
+
+.cs-art-t-grip {
+  fill: var(--raised);
+  stroke: var(--jacket-line);
+  stroke-width: 1;
+}
+
+.cs-art-t-knurl {
+  fill: none;
+  stroke: var(--jacket-line);
+  stroke-width: 0.8;
+}
+
+.cs-art-t-band {
+  fill: var(--jacket-line);
+  stroke: var(--dim);
+  stroke-width: 0.8;
+}
+
+.cs-art-t-copper {
+  fill: var(--copper);
+}
+
+rect.cs-art-t-dark {
+  fill: var(--canvas);
+}
+
+path.cs-art-t-dark {
+  fill: none;
+  stroke: var(--jacket-line);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.cs-art-t-key {
+  fill: var(--jacket-line);
+}
+
+/* pins: bare when nothing is soldered to them, their signal's colour when
+   something is */
+.cs-art-pin {
+  stroke: var(--jacket-line);
+  stroke-width: 0.9;
+}
+
+.cs-art-pin.is-pin {
+  fill: var(--bg);
+  stroke: var(--foil);
+}
+
+.cs-art-pin.is-blade,
+.cs-art-pin.is-finger {
+  fill: color-mix(in oklab, var(--copper) 45%, var(--jacket));
+  stroke: none;
+}
+
+.cs-art-pin.is-pin.is-used,
+.cs-art-pin.is-blade.is-used,
+.cs-art-pin.is-finger.is-used {
+  stroke: var(--jacket-line);
+}
+
+.cs-art-pin.is-socket {
+  fill: var(--canvas);
+  stroke: var(--foil);
+  stroke-width: 1;
+}
+
+.cs-art-pin.is-socket.is-used {
+  stroke-width: 1.8;
+}
+
+.cs-art-pin.is-lug {
+  fill: var(--panel);
+  stroke: var(--copper);
+  stroke-width: 1.4;
+}
+
+/* a soldered lug is its conductor's colour, ringed so white and black read */
+.cs-art-pin.is-lug.is-used {
+  stroke: var(--dim);
+  stroke-width: 1.2;
+}
+
+.cs-art-pin.is-shell {
+  stroke: var(--jacket-line);
+}
+
+/* ---------- same-part bridges: the quiet ground bus ----------
+   Drawn by the part, under its pins, leads and labels; never a pointer
+   target — a click there is a click on the part. Faint until the part is
+   hovered or selected; a bridge picked in the Inspector draws in the accent. */
+.cs-bridge-bus-layer {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cs-bridge-bus {
+  pointer-events: none;
+}
+
+.cs-bus-line {
+  fill: none;
+  stroke: var(--cond-gnd);
+  stroke-width: 1.3;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  opacity: 0.5;
+  transition: opacity 120ms ease, stroke-width 120ms ease;
+}
+
+.react-flow__node:hover .cs-bus-line,
+.cs-node.is-selected .cs-bus-line {
+  opacity: 0.95;
+  stroke-width: 1.8;
+}
+
+.cs-bus-line.is-selected {
+  stroke: var(--accent);
+  opacity: 1;
+  stroke-width: 2.2;
+}
+
+.cs-art-num {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 7.5px;
+  fill: var(--faint);
+}
+
+/* A pin handle: like a pad handle, 2px so the edge ends at the pin's centre;
+   ::before the hit area, ::after a ring that shows state (the pin's own paint
+   is the dot). */
+.cs-editor .react-flow__handle.cs-pin-handle {
+  width: 2px;
+  height: 2px;
+  min-width: 0;
+  min-height: 0;
+  right: auto;
+  bottom: auto;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.cs-editor .react-flow__handle.cs-pin-handle::before,
+.cs-editor .react-flow__handle.cs-pin-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+}
+
+.cs-editor .react-flow__handle.cs-pin-handle::before {
+  width: 9px;
+  height: 9px;
+}
+
+.cs-editor .react-flow__handle.cs-pin-handle.is-shell::before {
+  width: 12px;
+  height: 12px;
+}
+
+.cs-editor .react-flow__handle.cs-pin-handle::after {
+  width: 0;
+  height: 0;
+}
+
+.cs-editor .react-flow__handle.cs-pin-handle.is-on-net::after {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--warn);
+}
+
+.cs-editor .react-flow__handle.cs-pin-handle.is-selected::after,
+.cs-editor .react-flow__handle.cs-pin-handle:hover::after {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--accent);
+}
+
+/* ---------- wire node: both cut ends (wire-art.ts, nodes/WireNode.tsx) ---------- */
+
+/* every number here is one `WIRE_LAYOUT` in code — the node is given its
+   exact size, so change both together */
+.cs-wire-art {
+  position: relative;
+}
+
+.cs-wire-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cs-wire-run rect {
+  fill: var(--jacket);
+  stroke: var(--jacket-line);
+  stroke-width: 1;
+}
+
+.cs-wire-run path {
+  fill: none;
+  stroke: var(--jacket-line);
+  stroke-width: 0.8;
+}
+
+.cs-face-caption,
+.cs-wire-label {
+  text-anchor: middle;
+}
+
+.cs-face-caption {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 9.5px;
+  fill: var(--faint);
+}
+
+.cs-wire-label {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  fill: var(--dim);
+}
+
+.cs-face-jacket {
+  fill: var(--jacket);
+  stroke: var(--jacket-line);
+  stroke-width: 1.2;
+}
+
+.cs-face-overall {
+  fill: none;
+  stroke: var(--foil);
+}
+
+.cs-face-insulation {
+  fill-opacity: 0.9;
+  stroke: var(--jacket);
+  stroke-width: 0.6;
+}
+
+.cs-face-insulation.is-outlined {
+  stroke: var(--dim);
+  stroke-width: 0.8;
+}
+
+.cs-face-insulation.is-dielectric {
+  fill: var(--diel);
+  fill-opacity: 1;
+}
+
+.cs-face-shield {
+  fill: none;
+  stroke: var(--foil);
+}
+
+.cs-face-conductor {
+  stroke: var(--jacket);
+  stroke-width: 0.8;
+}
+
+/* white and black are the two conductor colours that vanish into a jacket or
+   a dielectric in one theme or the other */
+.cs-face-conductor.is-outlined {
+  stroke: var(--dim);
+  stroke-width: 1;
+}
+
+.cs-face-drain {
+  fill: var(--copper);
+}
+
+/* no joint at this end: a spare, dimmed; a drain left unconnected is cut */
+.cs-face-core.is-spare {
+  opacity: 0.35;
+}
+
+.cs-face-shield.is-unused,
+.cs-face-overall.is-unused,
+.cs-face-conductor.is-unused {
+  opacity: 0.4;
+}
+
+.cs-face-drain.is-unused {
+  opacity: 0.35;
+}
+
+.cs-face-cut {
+  fill: none;
+  stroke: var(--err);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+/* An element handle. Like a pad handle, the element itself is 2px so the edge
+   endpoint is the element's centre; ::before is the hit area (small: the
+   elements of a face sit close), ::after the ring that shows state — the
+   element's own paint is the dot. */
+.cs-editor .react-flow__handle.cs-wire-handle {
+  width: 2px;
+  height: 2px;
+  min-width: 0;
+  min-height: 0;
+  right: auto;
+  bottom: auto;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.cs-editor .react-flow__handle.cs-wire-handle::before,
+.cs-editor .react-flow__handle.cs-wire-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+}
+
+.cs-editor .react-flow__handle.cs-wire-handle::before {
+  width: 10px;
+  height: 10px;
+}
+
+.cs-editor .react-flow__handle.cs-wire-handle::after {
+  width: 0;
+  height: 0;
+}
+
+.cs-editor .react-flow__handle.cs-wire-handle.is-shield::after,
+.cs-editor .react-flow__handle.cs-wire-handle.is-drain::after {
+  width: 4px;
+  height: 4px;
+  border: 1px solid var(--foil);
+  background: var(--panel);
+}
+
+.cs-editor .react-flow__handle.cs-wire-handle.is-on-net::after {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--warn);
+  background: transparent;
+}
+
+.cs-editor .react-flow__handle.cs-wire-handle.is-selected::after,
+.cs-editor .react-flow__handle.cs-wire-handle:hover::after {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--accent);
+  background: transparent;
+}
+
+/* ---------- leads: an edge's last stretch over its part (e5c.30) ----------
+   thin, in the conductor's colour, above the art but under pins and labels:
+   into the pin of a connector face, from the jacket into the core of a wire */
+.cs-lead path {
+  fill: none;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.cs-lead-line {
+  stroke: var(--copper);
+  stroke-width: 1.3;
+}
+
+.cs-lead-outline {
+  stroke: var(--jacket-line);
+  stroke-width: 2.6;
+  opacity: 0.55;
+}
+
+/* a pin lead's outline only separates it from the face; a wire lead's only for white/black */
+.cs-lead.is-pin .cs-lead-outline {
+  stroke: var(--panel);
+  opacity: 0.9;
+}
+
+.cs-lead.is-ground .cs-lead-line {
+  stroke: var(--cond-gnd);
+  stroke-width: 1;
+  stroke-dasharray: 2.5 1.8;
+}
+
+/* a pin on no conductor's net: the plain grey of the edge leaving it (e5c.35) */
+.cs-lead.is-plain .cs-lead-line {
+  stroke: var(--faint);
+}
+
+.cs-lead.is-braid .cs-lead-line {
+  stroke: color-mix(in srgb, var(--copper) 50%, var(--cond-gnd));
+  stroke-width: 1.4;
+  stroke-dasharray: 1 1.2;
+  stroke-linecap: butt;
+}
+
+.cs-lead.is-selected .cs-lead-line,
+.cs-lead.is-on-net .cs-lead-line {
+  stroke-width: 2.2;
+}
+
+.cs-lead.is-ground.is-selected .cs-lead-line,
+.cs-lead.is-braid.is-selected .cs-lead-line {
+  stroke: var(--accent);
+}
+
+/* ---------- breakouts: stubs, ports, edges (breakout.ts, edges.tsx) ---------- */
+
+/* a stub runs from its element to its port, beneath the faces */
+.cs-stub path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.cs-stub.is-conductor .cs-stub-line {
+  stroke-width: 2.2;
+}
+
+.cs-stub-outline {
+  stroke: var(--jacket-line);
+  stroke-width: 3.8;
+}
+
+.cs-stub.is-ground .cs-stub-line {
+  stroke: var(--cond-gnd);
+  stroke-width: 1.1;
+  stroke-dasharray: 3 2.2;
+}
+
+.cs-stub.is-selected .cs-stub-line {
+  stroke-width: 3;
+}
+
+.cs-stub.is-ground.is-selected .cs-stub-line {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+
+/* a ground pigtail: the bonded members leave the jacket as one braid line
+   from a junction on its edge (breakout.ts, pigtails) */
+.cs-pigtail path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* the braid: a grey tube with copper-grey weave ticks across it */
+.cs-pigtail-core {
+  stroke: var(--cond-gnd);
+  stroke-width: 3.6;
+  opacity: 0.4;
+}
+
+.cs-pigtail-braid {
+  stroke: color-mix(in srgb, var(--copper) 50%, var(--cond-gnd));
+  stroke-width: 3.6;
+  stroke-linecap: butt !important;
+  stroke-dasharray: 1 1.6;
+}
+
+.cs-pigtail-bond {
+  stroke: color-mix(in srgb, var(--copper) 45%, var(--cond-gnd));
+  stroke-width: 0.9;
+  stroke-dasharray: 2 1.6;
+  opacity: 0.75;
+}
+
+/* a braid stub: one member of a pigtail from its element to its port */
+.cs-stubs .cs-pigtail-core,
+.cs-stubs .cs-pigtail-braid {
+  stroke-width: 2.4;
+}
+
+.cs-pigtail-junction {
+  fill: var(--panel);
+  stroke: color-mix(in srgb, var(--copper) 55%, var(--cond-gnd));
+  stroke-width: 1.4;
+}
+
+.cs-pigtail-hit {
+  stroke: transparent;
+  stroke-width: 10;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.cs-pigtail.is-lit .cs-pigtail-bond,
+.cs-pigtail.is-selected .cs-pigtail-bond {
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  opacity: 1;
+}
+
+.cs-pigtail.is-lit .cs-pigtail-braid,
+.cs-pigtail.is-selected .cs-pigtail-braid {
+  stroke: var(--accent);
+}
+
+.cs-pigtail.is-lit .cs-pigtail-junction,
+.cs-pigtail.is-selected .cs-pigtail-junction {
+  stroke: var(--accent);
+}
+
+/* a pigtail's members on the face: tinted as one bonded mass, ringed on hover */
+.cs-face-shield.is-bonded,
+.cs-face-overall.is-bonded {
+  stroke: color-mix(in srgb, var(--copper) 40%, var(--foil));
+}
+
+.cs-face-drain.is-bonded {
+  fill: color-mix(in srgb, var(--copper) 70%, var(--foil));
+}
+
+.cs-face-shield.is-lit,
+.cs-face-overall.is-lit {
+  stroke: var(--accent);
+  opacity: 1;
+}
+
+.cs-face-drain.is-lit {
+  fill: var(--accent);
+  opacity: 1;
+}
+
+.cs-pigtail-tip {
+  padding: 4px 7px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--ink);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cs-pigtail-tip-head {
+  color: var(--dim);
+}
+
+.cs-pigtail-tip ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-edge.is-ground.is-lit .react-flow__edge-path {
+  stroke: var(--accent);
+}
+
+.cs-edge.is-lit .cs-edge-badge rect {
+  stroke: var(--accent);
+}
+
+/* a port: where a stub meets its edge, at the edge of the wire node */
+.cs-editor .react-flow__handle.cs-port-handle {
+  width: 2px;
+  height: 2px;
+  min-width: 0;
+  min-height: 0;
+  right: auto;
+  bottom: auto;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.cs-editor .react-flow__handle.cs-port-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid var(--dim);
+  background: var(--panel);
+  transform: translate(-50%, -50%);
+}
+
+.cs-editor .react-flow__handle.cs-port-handle.is-selected::after {
+  border-color: var(--accent);
+}
+
+/* edges: a conductor its colour (paint inline), a ground dashed */
+.cs-edge .react-flow__edge-path {
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.cs-edge.is-conductor .react-flow__edge-path {
+  stroke-width: 1.8;
+}
+
+.cs-edge-outline {
+  fill: none;
+  stroke: var(--jacket-line);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+}
+
+.cs-edge.is-ground .react-flow__edge-path {
+  stroke: var(--cond-gnd);
+  stroke-width: 1.7;
+  stroke-dasharray: 4 2.5;
+}
+
+.cs-edge.is-emphasis .react-flow__edge-path {
+  stroke-width: 3;
+}
+
+/* a joint between two parts, in the paint of the net it carries (e5c.35):
+   its conductor's colour (inline), or ground's dashed style */
+.cs-edge.is-net-conductor .react-flow__edge-path {
+  stroke-width: 1.8;
+}
+
+.cs-edge.is-net-ground .react-flow__edge-path {
+  stroke: var(--cond-gnd);
+  stroke-width: 1.7;
+  stroke-dasharray: 4 2.5;
+}
+
+/* re-pin grips: on the selected wire's movable ends.
+   The grip is drawn; React Flow's own transparent circle on the same spot
+   takes the pointer — grab it to move the end, not to start a new wire. */
+.cs-edge-grip {
+  pointer-events: none;
+}
+
+.cs-edge-grip line {
+  stroke: var(--cs-accent);
+  stroke-width: 1.5;
+}
+
+.cs-edge-grip circle {
+  fill: var(--cs-panel);
+  stroke: var(--cs-accent);
+  stroke-width: 2;
+}
+
+.cs-editor .react-flow__edgeupdater {
+  cursor: grab;
+}
+
+.cs-editor .react-flow__edgeupdater:hover {
+  fill: color-mix(in srgb, var(--cs-accent) 25%, transparent);
+}
+
+.cs-editor .react-flow.cs-repinning,
+.cs-editor .react-flow.cs-repinning * {
+  cursor: grabbing;
+}
+
+.cs-edge.is-emphasis .cs-edge-outline {
+  stroke-width: 4.8;
+}
+
+/* one braid of a pigtail, on its own from its port to the pad (e5c.25):
+   drawn like the braid stub it continues, not as a dashed ground bundle */
+.cs-edge.is-ground.is-braid .react-flow__edge-path {
+  stroke: color-mix(in srgb, var(--copper) 50%, var(--cond-gnd));
+  stroke-width: 1.8;
+  stroke-dasharray: 1 1.4;
+}
+
+.cs-edge.is-ground.is-braid.is-lit .react-flow__edge-path {
+  stroke: var(--accent);
+}
+
+.cs-edge.is-ground.is-emphasis .react-flow__edge-path,
+.cs-edge.is-plain.is-emphasis .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2.4;
+}
+
+.cs-edge-badge rect {
+  fill: var(--panel);
+  stroke: var(--cond-gnd);
+  stroke-width: 0.8;
+}
+
+.cs-edge-badge text {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  text-anchor: middle;
+  fill: var(--dim);
+  pointer-events: none;
+}
+
+.cs-edge.is-emphasis .cs-edge-badge rect {
+  stroke: var(--accent);
+}
+
+.cs-editor .react-flow__attribution {
+  font-size: 10px;
+}
+
+/* ---------- design lifecycle (Save / New / Duplicate / Rename / Delete) ---------- */
+
+/* the lifecycle dialogs are absolutely positioned inside the editor, so they
+   cover it and nothing else — a host page's own chrome stays usable */
+.cs-editor {
+  position: relative;
+}
+
+.cs-lifecycle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  margin-left: 4px;
+  border-left: 1px solid var(--cs-line);
+}
+
+.cs-editor .cs-primary {
+  color: var(--accent-ink);
+  background: var(--cs-accent);
+  border-color: var(--cs-accent);
+  font-weight: 600;
+}
+
+.cs-editor .cs-primary:disabled,
+.cs-editor .cs-lifecycle button:disabled {
+  color: var(--cs-dim);
+  background: var(--raised);
+  border-color: var(--cs-line);
+  cursor: default;
+}
+
+.cs-editor .cs-danger-quiet {
+  color: var(--err);
+}
+
+.cs-editor .cs-destructive {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--err) 20%, var(--panel));
+  border-color: color-mix(in oklab, var(--err) 45%, var(--panel));
+}
+
+.cs-chip.is-dirty {
+  color: var(--cs-warn);
+  border-color: var(--cs-warn);
+}
+
+/* a failure never disappears on its own and never shows a payload: one
+   sentence, what to do next, then one line per blocking issue */
+.cs-problem {
+  padding: 8px 10px;
+  margin: 8px 0 0;
+  background: color-mix(in oklab, var(--err) 20%, var(--bg));
+  border: 1px solid var(--cs-error);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.cs-toolbar + .cs-problem {
+  margin: 0;
+  border-radius: 0;
+  border-width: 0 0 1px;
+}
+
+.cs-problem strong {
+  color: var(--cs-error);
+}
+
+.cs-problem-hint {
+  margin: 4px 0 0;
+  color: var(--ink);
+}
+
+.cs-problem-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.cs-problem-list li {
+  margin: 2px 0;
+}
+
+/* ---------- lifecycle dialogs ---------- */
+
+.cs-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8vh;
+  background: var(--scrim);
+}
+
+.cs-modal-card {
+  width: min(560px, 92vw);
+  max-height: 84vh;
+  overflow: auto;
+  padding: 16px 18px;
+  background: var(--cs-panel);
+  border: 1px solid var(--cs-line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.cs-modal-card h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.cs-modal-say {
+  margin: 0 0 10px;
+  color: var(--cs-dim);
+  font-size: 12px;
+}
+
+.cs-modal-warn {
+  margin: 0 0 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--cs-warn);
+  border-radius: 4px;
+  color: var(--warn);
+  font-size: 12px;
+}
+
+.cs-field {
+  display: block;
+  margin: 0 0 12px;
+}
+
+.cs-field > span {
+  display: block;
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+
+.cs-field input {
+  width: 100%;
+  font: inherit;
+  color: var(--cs-ink);
+  background: var(--bg);
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+
+.cs-field input:focus {
+  outline: none;
+  border-color: var(--cs-accent);
+}
+
+/* every field says what it is for, in one line */
+.cs-field small {
+  display: block;
+  margin-top: 3px;
+  color: var(--cs-dim);
+  font-size: 12px;
+}
+
+.cs-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.cs-editor .cs-modal-actions button {
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+/* ---------- the shared asset picker ---------- */
+
+.cs-asset-picker {
+  width: min(640px, 92vw);
+}
+
+.cs-asset-picker > .cs-input {
+  width: 100%;
+  margin: 8px 0 12px;
+}
+
+.cs-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  max-height: 50vh;
+  overflow: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cs-asset-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: var(--bg);
+  text-align: left;
+}
+
+.cs-asset-item:hover {
+  border-color: var(--cs-accent);
+}
+
+.cs-asset-item img {
+  width: 100%;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--raised);
+}
+
+.cs-asset-name {
+  font-size: 11px;
+  color: var(--cs-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-asset-meta {
+  font-size: 10px;
+  color: var(--cs-dim);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ---------- artwork: upload + click-to-place pin anchors ---------- */
+
+/* the view takes the whole content area, like documents: a part picker on the
+   left, the part's artwork and its pin checklist on the right */
+.cs-artwork {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.cs-artwork-picker {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--cs-line);
+  background: var(--cs-panel);
+}
+
+.cs-artwork-picker > .cs-input {
+  margin: 8px;
+  width: calc(100% - 16px);
+}
+
+.cs-artwork-picker ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 6px 8px;
+}
+
+.cs-editor .cs-artwork-pick {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 3px;
+  padding: 5px 7px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.cs-editor .cs-artwork-pick:hover {
+  background: var(--hover);
+}
+
+.cs-editor .cs-artwork-pick.is-active {
+  background: var(--accent-soft);
+  border-color: var(--cs-accent);
+}
+
+.cs-artwork-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  gap: 12px;
+}
+
+.cs-artwork-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cs-chip.is-done {
+  background: color-mix(in oklab, var(--ok) 22%, var(--panel));
+  color: var(--cs-ok);
+}
+
+.cs-artwork-blurb {
+  margin: 2px 0 6px;
+  color: var(--cs-dim);
+  font-size: 12px;
+}
+
+/* ---- upload ---- */
+
+.cs-artwork-uploads {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.cs-artwork-upload {
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--cs-panel);
+}
+
+.cs-artwork-upload-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cs-artwork-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 64px;
+  padding: 10px;
+  border: 1px dashed var(--cs-line);
+  border-radius: 6px;
+  color: var(--cs-dim);
+  text-align: center;
+}
+
+.cs-artwork-drop.is-over {
+  border-color: var(--cs-accent);
+  background: var(--accent-soft);
+  color: var(--cs-ink);
+}
+
+.cs-artwork-drop.is-busy {
+  opacity: 0.6;
+}
+
+.cs-artwork-drop input[type='file'] {
+  display: none;
+}
+
+/* the ladder's refusal is printed exactly as the importer wrote it — the
+   command it names is the whole value of the message */
+.cs-artwork-guidance {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cs-ink);
+}
+
+.cs-artwork-report {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--cs-ok);
+  background: color-mix(in oklab, var(--ok) 15%, var(--bg));
+  font-size: 12px;
+}
+
+.cs-artwork-report ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  color: var(--cs-dim);
+}
+
+.cs-artwork-derived-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 6px 8px;
+  border-left: 3px solid var(--cs-warn);
+  background: color-mix(in oklab, var(--warn) 15%, var(--bg));
+  color: var(--cs-dim);
+  font-size: 12px;
+}
+
+/* ---- the builder's own drawing of a connector (50a.38) ---- */
+
+.cs-chip.is-warn {
+  color: var(--cs-warn);
+  border-color: color-mix(in oklab, var(--warn) 55%, var(--cs-line));
+}
+
+.cs-builtin {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-builtin-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.cs-builtin-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cs-builtin-figures.is-profile {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cs-builtin-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: var(--cs-panel);
+}
+
+.cs-builtin-svg {
+  width: 100%;
+  height: clamp(200px, 46vh, 480px);
+  overflow: visible;
+}
+
+.cs-builtin-figure figcaption {
+  font-size: 12px;
+  color: var(--cs-dim);
+}
+
+.cs-builtin-num {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  dominant-baseline: central;
+  fill: var(--cs-ink);
+  stroke: var(--cs-panel);
+  stroke-width: 0.6px;
+  paint-order: stroke;
+  pointer-events: none;
+}
+
+.cs-builtin-num.is-outside {
+  font-weight: 500;
+  fill: var(--cs-dim);
+  stroke: none;
+}
+
+/* invisible hover targets carrying each pin's title */
+.cs-builtin-hit {
+  fill: transparent;
+  stroke: none;
+}
+
+.cs-builtin-hit:hover {
+  stroke: var(--cs-accent);
+  stroke-width: 0.8;
+}
+
+.cs-artwork-extra > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.cs-artwork-extra[open] > summary {
+  margin-bottom: 8px;
+}
+
+.cs-artwork-extra > .cs-artwork-anchoring {
+  margin-top: 10px;
+}
+
+/* the board's mounted parts over its gerber face, panning with it */
+.cs-artwork-overlay {
+  pointer-events: none;
+  overflow: visible;
+}
+
+.cs-artwork-overlay .cs-board-part-label {
+  pointer-events: none;
+}
+
+/* entry guides over a gerber board */
+.cs-guide-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 6px;
+}
+
+.cs-guide-line {
+  stroke: var(--cs-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+  pointer-events: stroke;
+}
+
+.cs-guide-slot line {
+  stroke: var(--cs-accent);
+  stroke-width: 1;
+  opacity: 0.75;
+}
+
+.cs-guide-slot circle {
+  fill: var(--cs-accent);
+  pointer-events: all;
+}
+
+.cs-guide-slot.is-blocked line,
+.cs-guide-slot.is-blocked circle {
+  stroke: var(--cs-error);
+  fill: var(--cs-error);
+}
+
+.cs-guide-handle {
+  fill: var(--cs-panel);
+  stroke: var(--cs-accent);
+  stroke-width: 1.5;
+  cursor: grab;
+  pointer-events: all;
+  touch-action: none;
+}
+
+.cs-guide-handle.is-offset {
+  fill: var(--cs-accent);
+  cursor: move;
+}
+
+.cs-guide-handle:active {
+  cursor: grabbing;
+}
+
+@media (max-width: 639px) {
+  .cs-builtin-figures,
+  .cs-artwork-detail .cs-artwork-stages {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cs-builtin-svg {
+    height: 200px;
+  }
+}
+
+/* ---- gerber boards: read-only, both faces side by side (3pn.4) ---- */
+
+.cs-artwork-gerber {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 380px;
+}
+
+.cs-artwork-gerber .cs-artwork-stages {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- anchoring ---- */
+
+.cs-artwork-anchoring {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 12px;
+  min-height: 380px;
+}
+
+.cs-artwork-checklist {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: var(--cs-panel);
+  padding: 8px 10px;
+}
+
+.cs-artwork-checklist-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-artwork-terminals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+}
+
+.cs-artwork-terminals li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cs-editor .cs-artwork-terminal {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+  text-align: left;
+  margin: 0 0 2px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.cs-editor .cs-artwork-terminal:hover {
+  background: var(--hover);
+}
+
+/* unplaced but no cable solders here (50a.25): quieter than one a cable needs */
+.cs-editor .cs-artwork-terminal[data-used='false']:not(.is-done) {
+  color: var(--cs-dim);
+}
+
+/* armed = "the next click on the picture places this one" */
+.cs-editor .cs-artwork-terminal.is-armed {
+  background: var(--accent-soft);
+  border-color: var(--cs-accent);
+}
+
+.cs-artwork-tick {
+  width: 10px;
+  color: var(--cs-dim);
+}
+
+.cs-artwork-terminal.is-done .cs-artwork-tick {
+  color: var(--cs-ok);
+}
+
+.cs-artwork-tid {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-artwork-tlabel {
+  color: var(--cs-dim);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-editor .cs-artwork-clear {
+  padding: 1px 5px;
+  color: var(--cs-dim);
+  background: transparent;
+  border-color: transparent;
+}
+
+.cs-artwork-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cs-artwork-notice {
+  margin: 8px 0 0;
+  color: var(--cs-ok);
+  font-size: 12px;
+}
+
+.cs-artwork-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 160px;
+}
+
+/* ---- the stage ---- */
+
+.cs-artwork-stages {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  min-height: 0;
+}
+
+.cs-artwork-stage-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cs-artwork-stage-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 12px;
+  color: var(--cs-dim);
+  border: 1px solid var(--cs-line);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--cs-panel);
+}
+
+.cs-artwork-stage {
+  position: relative;
+  flex: 1;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--cs-line);
+  border-radius: 0 0 6px 6px;
+  /* white paper: the artwork is monochrome line art on currentColor, and it
+     has to read the way it will print */
+  background: #f6f7f8;
+  color: #16191d;
+  touch-action: none;
+  cursor: grab;
+}
+
+.cs-artwork-stage.is-placing {
+  cursor: crosshair;
+}
+
+.cs-artwork-img {
+  pointer-events: none;
+  user-select: none;
+}
+
+.cs-anchor-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cs-anchor-dot b {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cs-accent);
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  cursor: move;
+}
+
+.cs-anchor-dot.is-armed b {
+  background: var(--cs-warn);
+}
+
+.cs-anchor-dot i {
+  font-style: normal;
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  color: #1b2129;
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.cs-artwork-mirror {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* the derived side is deliberately quieter: it is something the tool worked
+   out, not something the user is being asked to check pin by pin */
+.cs-artwork-mirror .cs-artwork-stage {
+  background: #eceff2;
+}
+
+.cs-artwork-mirror .cs-anchor-dot b {
+  background: var(--cs-dim);
+  cursor: default;
+}
+
+/* ---------- library (definition editors) ---------- */
+
+/* list on the left, one record on the right — the shape of every catalog
+   screen anyone has used, so nothing has to be learned */
+.cs-library {
+  flex: 1;
+  display: grid;
+  /* list · drag strip · detail — the list's width is the viewer's own
+     (`--cs-library-list`, remembered by `library-pane.ts`, 50a.38) */
+  grid-template-columns: var(--cs-library-list, 320px) 6px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* folded away: a slim rail with the way back, and the detail takes the rest */
+.cs-library.is-list-collapsed {
+  grid-template-columns: 34px 1px minmax(0, 1fr);
+}
+
+.cs-library-list[hidden] {
+  display: none;
+}
+
+.cs-library-split {
+  display: flex;
+  min-height: 0;
+}
+
+.cs-library-split > .cs-splitter {
+  flex: 1;
+  /* a hairline at rest, the full strip once it is grabbed */
+  background: linear-gradient(to right, var(--cs-panel) 0 2.5px, var(--cs-line) 2.5px 3.5px, var(--bg) 3.5px);
+}
+
+.cs-library-split > .cs-splitter:hover,
+.cs-library-split > .cs-splitter:focus-visible,
+.cs-library-split > .cs-splitter.is-dragging {
+  background: var(--cs-accent);
+}
+
+.cs-library.is-list-collapsed .cs-library-split {
+  background: var(--cs-line);
+}
+
+.cs-library-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  background: var(--cs-panel);
+  min-height: 0;
+}
+
+.cs-library-rail-kind {
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--cs-dim);
+}
+
+.cs-editor .cs-library-fold {
+  margin-left: auto;
+}
+
+/* portrait phone widths: list and detail can't sit
+   side by side at ~360-430px — one pane at a time, full width. `.has-detail`
+   (set by `Library.tsx` while a record is open or being created) picks
+   which; the existing "Close"/"Cancel"/"Back to the list" buttons already
+   in the detail pane are what returns to the list, no new control needed. */
+@media (max-width: 639px) {
+  .cs-library,
+  .cs-library.is-list-collapsed {
+    grid-template-columns: 1fr;
+  }
+  .cs-library.has-detail .cs-library-list {
+    display: none;
+  }
+  .cs-library:not(.has-detail) .cs-library-editor {
+    display: none;
+  }
+  /* resizing and folding are desktop affordances: one pane at a time here */
+  .cs-library-split,
+  .cs-library-rail,
+  .cs-editor .cs-library-fold {
+    display: none;
+  }
+  .cs-library:not(.has-detail) .cs-library-list[hidden] {
+    display: flex;
+  }
+}
+
+.cs-library-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px;
+  gap: 8px;
+  background: var(--cs-panel);
+}
+
+.cs-library-tabs {
+  flex-wrap: wrap;
+}
+
+.cs-library-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.cs-library-actions .cs-count {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-def-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.cs-def-list li {
+  margin-bottom: 4px;
+}
+
+/* each row is its own flex column so the label, the meta line and the id
+   never run together into one paragraph of text (3pn.1) */
+.cs-editor .cs-def-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid var(--cs-line);
+  border-left: 3px solid var(--cs-accent);
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.cs-editor .cs-def-item.is-active {
+  border-color: var(--cs-accent);
+  background: var(--accent-soft);
+}
+
+.cs-editor .cs-def-item.is-readonly {
+  border-left-color: var(--cs-dim);
+  opacity: 0.82;
+}
+
+/* the meta row under a list row's label: detail text, mono id, chips — with
+   real spacing between them, not text run together */
+.cs-def-item-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.cs-def-id {
+  display: block;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--cs-dim);
+}
+
+.cs-library-editor {
+  min-height: 0;
+  padding: 12px 16px 32px;
+}
+
+.cs-def-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+/* label, kind chip, mono id, part number — one row, real gaps, not run
+   together (3pn.1 acceptance) */
+.cs-def-head-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0 0 6px;
+}
+
+/* Definition | Artwork, inside the detail header rather than the editor's
+   own view-level tab row */
+.cs-def-tabs {
+  margin: 6px 0 0;
+  padding: 0;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+/* the chip that says a definition is shared before anything is typed into it
+   (3pn.2 — replaces a full-width sentence banner); the list of what uses it
+   is a popover click away */
+.cs-usage-chip {
+  border-color: var(--cs-warn);
+  color: var(--warn);
+  cursor: pointer;
+}
+
+.cs-usage-chip:hover {
+  background: color-mix(in oklab, var(--warn) 12%, var(--panel));
+}
+
+.cs-popover {
+  z-index: 40;
+  min-width: 200px;
+  max-width: 320px;
+  padding: 8px 10px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: var(--cs-panel);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+
+.cs-popover-label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cs-dim);
+}
+
+.cs-usage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.cs-usage-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cs-usage-list button.cs-link {
+  font-family: inherit;
+  font-variant-numeric: normal;
+}
+
+.cs-editor fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.cs-editor fieldset:disabled {
+  opacity: 0.6;
+}
+
+/*
+ * Edit locks (50a.51): a wrapper that disables every control under it while
+ * someone else edits the record, without adding a box of its own — the
+ * layout is exactly the unlocked one, controls greyed, not hidden.
+ */
+fieldset.cs-lock-fence {
+  display: contents;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.cs-editor fieldset.cs-lock-fence:disabled :is(button, input, select, textarea) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cs-form-section {
+  margin: 0 0 20px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--cs-line);
+}
+
+.cs-form-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cs-dim);
+}
+
+.cs-form-section h4 {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  color: var(--cs-dim);
+}
+
+.cs-section-right {
+  margin-left: auto;
+}
+
+.cs-form-say {
+  margin: 0 0 10px;
+  color: var(--cs-dim);
+  font-size: 12px;
+  max-width: 78ch;
+}
+
+.cs-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0 14px;
+}
+
+.cs-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+.cs-field select,
+.cs-field textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--cs-ink);
+  background: var(--bg);
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+
+.cs-field.is-bad input,
+.cs-field.is-bad select {
+  border-color: var(--cs-error);
+}
+
+.cs-field-bad {
+  color: var(--cs-error);
+}
+
+/* ---- part number + Suggest ---- */
+
+.cs-pn.is-wide {
+  grid-column: 1 / -1;
+}
+
+.cs-pn-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.cs-pn-row > .cs-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.cs-pn-suggest {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cs-pn-warn {
+  margin: -8px 0 10px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--cs-warn);
+}
+
+.cs-pn-panel {
+  margin: -6px 0 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cs-pn-suggestion + .cs-pn-suggestion {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--cs-line);
+}
+
+.cs-pn-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cs-pn-head code {
+  font-weight: 600;
+}
+
+.cs-pn-for,
+.cs-pn-rule,
+.cs-pn-candidates {
+  color: var(--cs-dim);
+}
+
+.cs-pn-rule {
+  margin: 2px 0 0;
+}
+
+.cs-pn-candidates {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---------- row builders ---------- */
+
+.cs-rows {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.cs-rows th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--cs-dim);
+  font-size: 12px;
+  padding: 0 6px 4px 0;
+}
+
+.cs-rows td {
+  padding: 0 6px 4px 0;
+  vertical-align: top;
+}
+
+.cs-rows input,
+.cs-rows select {
+  width: 100%;
+  font: inherit;
+  color: var(--cs-ink);
+  background: var(--bg);
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.cs-rows tr.is-bad input {
+  border-color: var(--cs-error);
+}
+
+.cs-rows small {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+.cs-row-tools {
+  display: inline-flex;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+/* icon-only row tools (move up/down, remove) — square, centred, Tabler icons */
+.cs-editor .cs-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+}
+
+.cs-editor .cs-icon-btn svg {
+  display: block;
+}
+
+.cs-add-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cs-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- a board's copper paths, read as pad → pin (50a.38) ---------- */
+
+.cs-paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  align-items: start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cs-path-group {
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: var(--cs-panel);
+}
+
+.cs-path-signal {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+}
+
+.cs-path-signal .cs-mono {
+  color: var(--cs-dim);
+  font-size: 11px;
+}
+
+.cs-path-signal .cs-count {
+  margin-left: auto;
+}
+
+.cs-path-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cs-path-group li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  padding: 1px 0;
+  font-size: 12px;
+}
+
+.cs-path-group li .cs-mono {
+  font-size: 11.5px;
+}
+
+.cs-path-note {
+  align-self: center;
+}
+
+.cs-path-arrow,
+.cs-path-copper,
+.cs-path-note {
+  color: var(--faint);
+}
+
+.cs-path-pin {
+  color: var(--cs-dim);
+}
+
+.cs-path-copper {
+  font-size: 11px;
+}
+
+.cs-chip.cs-path-via {
+  font-size: 11px;
+  padding: 0 6px;
+  color: var(--cs-ink);
+  border-color: color-mix(in oklab, var(--comp-kind) 50%, var(--cs-line));
+}
+
+.cs-paths-edit > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--cs-dim);
+  margin: 4px 0;
+}
+
+/* ---------- the wire editor and its cutaway ---------- */
+
+.cs-wire-editor {
+  display: grid;
+  /* the cutaway gets real room (50a.38): it is the thing being checked */
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 42%);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1099px) {
+  .cs-wire-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cs-wire-preview {
+    position: static;
+    order: -1;
+  }
+}
+
+.cs-wire-form {
+  min-width: 0;
+}
+
+/* the drawing follows you down the form: it is the thing you are checking
+   against, and scrolling away from it defeats the point */
+.cs-wire-preview {
+  position: sticky;
+  top: 0;
+}
+
+.cs-cutaway {
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+}
+
+.cs-cutaway h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cs-editor .cs-cutaway-zoom {
+  margin-left: auto;
+}
+
+/* white paper, dark chrome: the cutaway is a rendered SVG whose strokes
+   assume a white page regardless of the app's theme */
+.cs-cutaway .cs-svg svg,
+.cs-cutaway-large .cs-svg svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.cs-cutaway-draw {
+  cursor: zoom-in;
+}
+
+.cs-cutaway-draw.is-cropped svg {
+  max-height: 46vh;
+}
+
+/* cropped to the cable: the printed panel, title and tiny key are replaced
+   by the legend beside it */
+.cs-cutaway-draw.is-cropped .xs-key-list,
+.cs-cutaway-draw.is-cropped .xs-title,
+.cs-cutaway-draw.is-cropped .xs-sub,
+.cs-cutaway-draw.is-cropped .xs-panel {
+  display: none;
+}
+
+.cs-cutaway-draw .xs-core,
+.cs-cutaway-draw .xs-callout {
+  transition: opacity 120ms ease;
+}
+
+.cs-cutaway-legend {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.cs-cutaway-legend li {
+  display: grid;
+  grid-template-columns: 14px 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1.35;
+}
+
+.cs-cutaway-legend li.is-focus {
+  background: var(--accent-soft);
+}
+
+.cs-cutaway-chip {
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--cs-ink) 35%, transparent);
+}
+
+.cs-cutaway-chip.is-shield {
+  border-radius: 3px;
+}
+
+.cs-cutaway-tag {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  color: var(--cs-ink);
+  text-align: center;
+}
+
+.cs-cutaway-text {
+  color: var(--cs-dim);
+  overflow-wrap: anywhere;
+}
+
+/* over the whole window, not just the narrow preview column it lives in */
+.cs-modal.cs-cutaway-modal {
+  position: fixed;
+  z-index: 60;
+  padding-top: 4vh;
+}
+
+.cs-modal-card.cs-cutaway-card {
+  width: min(1100px, 94vw);
+  max-height: 92vh;
+}
+
+.cs-cutaway-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cs-cutaway-large {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(220px, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.cs-cutaway-large .cs-cutaway-draw {
+  cursor: default;
+}
+
+.cs-cutaway-large .cs-cutaway-draw svg {
+  max-height: 80vh;
+}
+
+.cs-cutaway-large .cs-cutaway-legend {
+  margin: 0;
+  font-size: 13px;
+}
+
+@media (max-width: 639px) {
+  .cs-cutaway-large {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cs-core {
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  background: var(--bg);
+}
+
+.cs-core.is-bad {
+  border-color: var(--cs-error);
+}
+
+.cs-core > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.cs-core-name {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.cs-core-detail {
+  color: var(--cs-dim);
+  font-size: 12px;
+}
+
+.cs-core > summary .cs-row-tools {
+  margin-left: auto;
+}
+
+.cs-toggle {
+  border-left: 2px solid var(--cs-line);
+  padding-left: 10px;
+  margin-bottom: 14px;
+}
+
+.cs-toggle.is-on {
+  border-left-color: var(--cs-accent);
+}
+
+.cs-toggle-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.cs-lay-ring {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0 10px;
+  margin-bottom: 10px;
+}
+
+/* ---------- actions and the advanced escape hatch ---------- */
+
+.cs-def-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px;
+}
+
+.cs-chip.is-dirty {
+  border-color: var(--cs-warn);
+  color: var(--warn);
+}
+
+/* JSON is available, never in the way — closed by default, always */
+.cs-advanced {
+  border-top: 1px solid var(--cs-line);
+  padding-top: 10px;
+}
+
+.cs-advanced > summary {
+  cursor: pointer;
+  color: var(--cs-dim);
+  font-size: 12px;
+}
+
+.cs-json-view {
+  max-height: 40vh;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  background: var(--canvas);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--cs-dim);
+}
+
+/* ---------- splitters: the panes belong to the person, not the stylesheet ---------- */
+
+.cs-splitter {
+  position: relative;
+  background: var(--cs-line);
+  /* a touch drag must resize, not scroll the page under it */
+  touch-action: none;
+  user-select: none;
+  transition: background 120ms ease;
+}
+
+/* the vertical bars are grid columns and are already 6px wide; the horizontal
+   one is a flex item and has to say its own height out loud */
+.cs-splitter-x {
+  cursor: col-resize;
+}
+
+.cs-splitter-y {
+  flex: 0 0 6px;
+  height: 6px;
+  cursor: row-resize;
+}
+
+.cs-splitter:hover,
+.cs-splitter:focus-visible,
+.cs-splitter.is-dragging {
+  background: var(--cs-accent);
+  outline: none;
+}
+
+/* 6px is a thin thing to hit: the grab area reaches past the strip itself,
+   without the strip taking any more room from the panes */
+.cs-splitter::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+}
+
+/* ---------- the canvas overview ---------- */
+
+.cs-editor .react-flow__minimap.cs-minimap {
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ---------- moving a part ---------- */
+
+/* the header is the node's drag handle (`NODE_DRAG_HANDLE`): every row below it
+   belongs to a pin. Say so with the cursor, and keep a drag from selecting the
+   title text instead of moving the part. */
+.cs-node-head {
+  cursor: grab;
+  user-select: none;
+}
+
+.cs-node-head:active {
+  cursor: grabbing;
+}
+
+.cs-editor .cs-arrange {
+  white-space: nowrap;
+}
+
+/* ---------- the canvas toolbar (top-centre, per the mockup) ---------- */
+
+/* select / pan, auto-arrange, fit view. Zoom stays on React Flow's own
+   bottom-left `<Controls>`; a Parts/Pins level-of-detail toggle is e5c.7's. */
+/* find a pin (udy.6): a floating box under the canvas toolbar */
+.cs-pin-search {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: min(340px, calc(100% - 32px));
+  padding: 6px;
+  background: var(--cs-panel);
+  border: 1px solid var(--cs-line);
+  border-radius: 7px;
+  box-shadow: var(--shadow);
+}
+
+.cs-pin-search-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cs-dim);
+}
+
+.cs-pin-search-field .cs-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+}
+
+.cs-pin-search .cs-empty {
+  margin: 6px 4px 2px;
+}
+
+.cs-pin-search-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.cs-editor .cs-pin-search-hit {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  height: 26px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cs-ink);
+  font-size: 12px;
+  text-align: left;
+  box-shadow: none;
+}
+
+.cs-editor .cs-pin-search-hit.is-active {
+  background: var(--accent-soft);
+}
+
+.cs-pin-search-label {
+  overflow: hidden;
+  color: var(--cs-dim);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cs-canvas-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--cs-panel);
+  border: 1px solid var(--cs-line);
+  border-radius: 7px;
+  box-shadow: var(--shadow);
+}
+
+.cs-editor .cs-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--cs-dim);
+}
+
+.cs-editor .cs-tool-btn:hover {
+  background: var(--hover);
+  color: var(--cs-ink);
+}
+
+.cs-editor .cs-tool-btn.is-active {
+  background: var(--accent-soft);
+  border-color: var(--cs-accent);
+  color: var(--cs-accent);
+}
+
+.cs-tool-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--cs-line);
+}
+
+/* the Parts drawer: host chrome's toggleable stand-in
+   for the palette `chrome="full"` keeps pinned open beside the canvas — same
+   `Palette`, floated over the canvas's own left edge so a drag lands on the
+   canvas underneath it. */
+.cs-parts-drawer {
+  position: absolute;
+  top: 52px;
+  left: 10px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  max-height: calc(100% - 64px);
+  background: var(--cs-panel);
+  border: 1px solid var(--cs-line);
+  border-radius: 7px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.cs-parts-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 6px 6px 6px 10px;
+  border-bottom: 1px solid var(--cs-line);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cs-dim);
+}
+
+.cs-parts-drawer-head button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cs-dim);
+}
+
+.cs-parts-drawer-head button:hover {
+  color: var(--cs-ink);
+}
+
+/* the drawer supplies its own header; the palette's own `<h2>` would repeat it */
+.cs-parts-drawer .cs-palette {
+  min-height: 0;
+  border-right: 0;
+}
+
+.cs-parts-drawer .cs-palette h2 {
+  display: none;
+}
+
+/* ---------- the new-cable wizard ---------- */
+
+/* wider than the name dialogs on purpose: the review step has to show the
+   generated joints, what was left alone, and the drawing, without scrolling
+   three separate boxes */
+.cs-wizard-card {
+  display: flex;
+  flex-direction: column;
+  width: min(980px, 96vw);
+  max-height: 88vh;
+  padding: 16px 18px 12px;
+  background: var(--cs-panel);
+  border: 1px solid var(--cs-line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.cs-wizard-head h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.cs-wizard-body {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 16px;
+  min-height: 0;
+  flex: 1;
+}
+
+/* the six steps, always visible: how far in this is, and how much is left */
+.cs-wizard-rail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-right: 1px solid var(--cs-line);
+  padding-right: 12px;
+  overflow: auto;
+}
+
+.cs-wizard-rail li {
+  margin-bottom: 4px;
+}
+
+.cs-editor .cs-wizard-step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--cs-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.cs-editor .cs-wizard-step.is-reached {
+  color: var(--cs-ink);
+}
+
+.cs-editor .cs-wizard-step.is-active {
+  border-color: var(--cs-accent);
+  background: var(--accent-soft);
+  color: var(--cs-ink);
+}
+
+.cs-wizard-num {
+  flex: 0 0 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 50%;
+  background: var(--cs-line);
+  font-size: 10px;
+}
+
+.cs-wizard-step.is-active .cs-wizard-num {
+  background: var(--cs-accent);
+  color: var(--accent-ink);
+}
+
+.cs-wizard-pane {
+  min-width: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.cs-wizard-pane h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.cs-wizard-pane h4 {
+  margin: 14px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cs-dim);
+}
+
+.cs-wizard-picker .cs-def-list {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.cs-editor .cs-wizard-kind {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.cs-wizard-kind legend {
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.cs-wizard-radio {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cs-wizard-radio small {
+  display: block;
+  color: var(--cs-dim);
+}
+
+.cs-wizard-presets {
+  display: flex;
+  gap: 6px;
+  margin: -6px 0 12px;
+}
+
+/* a question the catalog could not answer at all — the options are near
+   misses, so it reads differently from a plain "pick one of these two" */
+.cs-field.is-weak > span::after {
+  content: ' — nothing matches exactly';
+  color: var(--cs-warn);
+  font-weight: 400;
+}
+
+.cs-wizard-review section {
+  margin-bottom: 4px;
+}
+
+.cs-wizard-review .cs-list {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.cs-wizard-preview .cs-preview-body {
+  max-height: 260px;
+}
+
+/* ================================================================== *
+ * Connection inspector (spec: ui-redesign, Canvas
+ * v2 item 6) — the right panel's Connection/Part tabs, `panels/Inspector.tsx`.
+ * Own section: add rules here, don't fold into the ones above.
+ * ================================================================== */
+
+/* the panel's own tab bar — underlined, with a badge, unlike the boxed
+   `.cs-tabs` the dock/view switches use elsewhere */
+.cs-conn-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  height: 34px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--cs-line);
+}
+
+.cs-conn-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cs-dim);
+  font-size: 12.5px;
+  box-shadow: none;
+}
+
+.cs-conn-tabs button.is-active {
+  color: var(--cs-ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--cs-accent);
+}
+
+/* portrait phone widths: the inspector becomes a
+   fixed drawer sliding in from the right instead of squeezing the canvas —
+   `.is-open` (`CableEditor.tsx`'s `sideOpen`) drives it; the reopen button
+   and the drawer's own close button only exist inside this media query. */
+@media (max-width: 639px) {
+  .cs-side {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(88vw, 340px);
+    z-index: 40;
+    transform: translateX(100%);
+    transition: transform 180ms ease;
+    box-shadow: var(--shadow);
+  }
+
+  .cs-side.is-open {
+    transform: translateX(0);
+  }
+
+  .cs-side-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--cs-dim);
+  }
+
+  .cs-side-toggle {
+    display: flex;
+  }
+}
+
+.cs-conn-tab-badge {
+  padding: 0 5px;
+  line-height: 16px;
+  border-radius: 8px;
+  background: var(--cs-warn);
+  color: var(--panel);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cs-conn-panel,
+.cs-part-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.cs-conn-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--cs-line);
+  flex-shrink: 0;
+}
+
+.cs-conn-header-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.cs-conn-chip {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--raised);
+  border: 1px solid var(--cs-line);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--cs-ink);
+}
+
+.cs-conn-chip-end {
+  color: var(--faint);
+  margin-left: 3px;
+}
+
+.cs-conn-arrow {
+  color: var(--faint);
+}
+
+.cs-conn-counts {
+  font-size: 11px;
+  color: var(--cs-dim);
+  white-space: nowrap;
+}
+
+.cs-conn-subtitle {
+  font-size: 11.5px;
+  color: var(--cs-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-conn-columns {
+  display: grid;
+  grid-template-columns: 58px 34px minmax(0, 1fr) 40px;
+  align-items: center;
+  height: 24px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--cs-line);
+  background: var(--raised);
+  color: var(--faint);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.cs-conn-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+.cs-conn-row {
+  display: grid;
+  grid-template-columns: 58px 34px minmax(0, 1fr) 40px;
+  align-items: center;
+  min-height: 27px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--cs-line);
+  cursor: pointer;
+}
+
+.cs-conn-row.is-selected {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--cs-accent);
+}
+
+.cs-conn-row.is-member {
+  padding-left: 22px;
+}
+
+.cs-conn-pad {
+  font-size: 11.5px;
+  color: var(--cs-ink);
+}
+
+.cs-conn-side {
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.cs-conn-conductor {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.cs-conn-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
+
+.cs-conn-swatch.is-ground {
+  background: transparent;
+  border: 1.5px dashed var(--cond-gnd);
+  box-shadow: none;
+}
+
+.cs-conn-swatch.is-none {
+  background: var(--faint);
+}
+
+.cs-conn-wire-id {
+  font-size: 11.5px;
+  color: var(--cs-ink);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cs-conn-note {
+  font-size: 11.5px;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  cursor: text;
+}
+
+.cs-conn-note-input {
+  min-width: 0;
+  flex: 1;
+  font-size: 11.5px;
+  padding: 2px 4px;
+}
+
+.cs-conn-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  color: var(--faint);
+  opacity: 0;
+}
+
+.cs-conn-row:hover .cs-conn-row-actions,
+.cs-conn-row.is-selected .cs-conn-row-actions {
+  opacity: 1;
+}
+
+/* `.cs-editor button` (above) sets a 1px solid border and 3px/8px padding on
+   every button in the editor; these icon/combo buttons need higher
+   specificity than that bare-element rule to actually get 0 padding and
+   their own border, so they are qualified with `.cs-editor` too. */
+.cs-editor .cs-conn-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+
+.cs-editor .cs-conn-icon-btn:hover {
+  background: var(--hover);
+  border-color: transparent;
+  color: var(--cs-accent);
+}
+
+.cs-conn-group .cs-conn-wire-id {
+  color: var(--cs-dim);
+}
+
+.cs-conn-add-row {
+  min-height: 30px;
+  color: var(--faint);
+  cursor: default;
+}
+
+.cs-conn-add-row:hover {
+  background: transparent;
+}
+
+.cs-editor .cs-conn-combo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px;
+  margin-right: 6px;
+  border: 1px dashed var(--line2);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cs-ink);
+  font-size: 11px;
+}
+
+.cs-editor .cs-conn-combo:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cs-conn-combo-placeholder {
+  color: var(--faint);
+}
+
+.cs-conn-combo-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cs-conn-combo-list {
+  max-height: 200px;
+}
+
+.cs-conn-combo-list button.cs-link {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+}
+
+.cs-conn-combo-label {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-variant-numeric: normal;
+  color: var(--cs-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-editor .cs-conn-add-btn {
+  color: var(--cs-accent);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+}
+
+.cs-editor .cs-conn-add-btn:disabled {
+  color: var(--faint);
+}
+
+.cs-conn-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--cs-line);
+  font-size: 11.5px;
+  color: var(--cs-dim);
+}
+
+.cs-conn-footer-ok {
+  color: var(--cs-ok);
+  flex-shrink: 0;
+}
+
+/* Part tab: the instance's own connections list */
+.cs-part-connections li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ---------- the node picker's `+` ---------- */
+
+/* A free handle's own affordance: present in the DOM on every free handle
+   (so `is-selected`, driven by real React state, is testable without a
+   pointer) but invisible and inert until its node is selected or hovered —
+   the canvas stays quiet with nothing picked. `.cs-row`/`.cs-endpoint`
+   already position it inline; the art nodes (board/connector/wire) give it
+   `left`/`top` themselves and this rule only sizes and places it relative to
+   that point. */
+.cs-editor .cs-handle-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin-left: 2px;
+  border: 1px dashed var(--line2);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s ease;
+}
+
+.cs-row:hover .cs-handle-add,
+.cs-endpoint:hover .cs-handle-add,
+.cs-node:hover .cs-handle-add,
+.cs-handle-add.is-node-selected {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cs-editor .cs-handle-add:hover {
+  border-color: var(--cs-accent);
+  border-style: solid;
+  color: var(--cs-accent);
+  background: var(--accent-soft);
+}
+
+/* the art nodes (board/connector/wire) position their `+` absolutely, at the
+   handle's own `left`/`top` — offset a few px clear of the handle itself,
+   toward the node's own edge */
+.cs-board-art .cs-handle-add,
+.cs-conn-art .cs-handle-add,
+.cs-wire-art .cs-handle-add {
+  position: absolute;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
+
+.cs-board-art .cs-handle-add.is-right,
+.cs-conn-art .cs-handle-add.is-right,
+.cs-wire-art .cs-handle-add.is-right {
+  transform: translate(6px, -50%);
+}
+
+.cs-board-art .cs-handle-add.is-left,
+.cs-conn-art .cs-handle-add.is-left,
+.cs-wire-art .cs-handle-add.is-left {
+  transform: translate(calc(-100% - 6px), -50%);
+}
+
+/* ---------- the node picker popover ---------- */
+
+.cs-picker-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  padding-top: 72px;
+  background: transparent;
+}
+
+.cs-picker {
+  width: 300px;
+  max-height: min(60vh, 480px);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.cs-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cs-picker-anchor {
+  flex-shrink: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--dim);
+  background: var(--raised);
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.cs-picker-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.cs-picker-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+}
+
+.cs-picker-group {
+  padding: 5px 8px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--faint);
+}
+
+.cs-picker-empty {
+  padding: 10px 8px;
+  color: var(--faint);
+  font-style: italic;
+}
+
+.cs-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: default;
+}
+
+.cs-picker-row.is-active {
+  background: var(--hover);
+}
+
+.cs-picker-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: var(--conn-kind);
+  color: var(--accent-ink);
+}
+
+.cs-picker-icon-segment { background: var(--wire-kind); }
+.cs-picker-icon-component { background: var(--comp-kind); }
+.cs-picker-icon-pcba { background: var(--board); }
+
+.cs-picker-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-picker-id {
+  flex-shrink: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+/* ---------- the Schematic view ---------- */
+
+.cs-schematic {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.cs-schematic-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cs-line);
+  background: var(--cs-panel);
+}
+
+.cs-editor .cs-schematic-btn {
+  padding: 3px 9px;
+}
+
+.cs-editor .cs-schematic-btn.is-active {
+  background: var(--accent-soft);
+  border-color: var(--cs-accent);
+  color: var(--cs-accent);
+}
+
+.cs-schematic-zoom {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.cs-schematic-view {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  background: var(--rail);
+  background-image: radial-gradient(var(--dot) 1px, transparent 0);
+  background-size: 22px 22px;
+  outline: none;
+  /* dragging the sheet must never highlight its text —
+     the "Copy text" toolbar button is how the sheet's labels get to the
+     clipboard instead */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cs-schematic-view:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--cs-accent);
+}
+
+.cs-schematic-view.is-dragging {
+  cursor: grabbing;
+}
+
+.cs-schematic-sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  /* a white sheet in both themes — this is what prints, so it reads as paper */
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cs-schematic-sheet svg {
+  display: block;
+}
+
+/* ---------- trace highlighting on the schematic (e5c.24) ---------- */
+
+.cs-trace-hint {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--faint);
+  cursor: help;
+}
+
+.cs-trace-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 60%;
+  height: 22px;
+  margin-left: 8px;
+  padding: 0 4px 0 8px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.cs-trace-ends {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.cs-trace-via,
+.cs-trace-count {
+  flex: none;
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.cs-trace-count {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-editor .cs-trace-clear {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--dim);
+}
+
+.cs-editor .cs-trace-clear:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.cs-schematic-sheet [data-net] {
+  cursor: pointer;
+}
+
+/* everything with a net that is not on the trace fades; the paper stays white */
+.cs-schematic-sheet svg.is-tracing [data-net]:not(.on-trace) {
+  opacity: 0.16;
+}
+
+.cs-schematic-sheet svg.is-tracing .board-face {
+  opacity: 0.55;
+}
+
+.cs-schematic-sheet svg.is-tracing .on-trace .edge,
+.cs-schematic-sheet svg.is-tracing .on-trace .track-line,
+.cs-schematic-sheet svg.is-tracing .on-trace .pigtail-line {
+  filter: drop-shadow(0 0 0.5px #c2602a) drop-shadow(0 0 0.5px #c2602a);
+}
+
+/* board links and parts are thin grey on the art: the trace draws them in copper */
+.cs-schematic-sheet svg.is-tracing .pcba-link.on-trace .internal-link {
+  stroke: #c2602a;
+  stroke-width: 0.7;
+}
+
+.cs-schematic-sheet svg.is-tracing .pcba-link.on-trace .link-ghost {
+  stroke: #c2602a;
+}
+
+.cs-schematic-sheet svg.is-tracing .board-part.on-trace polygon {
+  fill: #c2602a;
+  fill-opacity: 0.55;
+  stroke: #c2602a;
+}
+
+.cs-schematic-sheet svg.is-tracing .port.on-trace .pad-label,
+.cs-schematic-sheet svg.is-tracing .port.on-trace .callout,
+.cs-schematic-sheet svg.is-tracing .port.on-trace .pin-id {
+  fill: #c2602a;
+}
+
+.cs-schematic-sheet svg.is-tracing .joint-dot.on-trace {
+  fill: #c2602a;
+}
+
+/* ---------- level of detail: Parts | Pins (e5c.7) ---------- */
+
+.cs-lod {
+  display: flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 5px;
+  background: var(--raised);
+  border: 1px solid var(--cs-line);
+}
+
+.cs-editor .cs-lod-btn {
+  height: 22px;
+  padding: 0 9px;
+  font-size: 11px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dim);
+}
+
+.cs-editor .cs-lod-btn:hover {
+  color: var(--cs-ink);
+}
+
+.cs-editor .cs-lod-btn.is-active {
+  background: var(--cs-panel);
+  border-color: var(--cs-line);
+  color: var(--cs-ink);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.cs-editor .cs-lod-btn.is-auto {
+  border-style: dashed;
+}
+
+.cs-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  cursor: grab;
+}
+
+.cs-card.is-selected {
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 2px var(--cs-accent);
+}
+
+.cs-card.is-broken {
+  border-color: var(--cs-error);
+}
+
+.cs-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  background: var(--raised);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.cs-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--accent-ink);
+  background: var(--conn-kind);
+  flex: none;
+}
+
+.cs-card-segment .cs-card-icon { background: var(--wire-kind); }
+.cs-card-component .cs-card-icon { background: var(--comp-kind); }
+.cs-card-pcba .cs-card-icon { background: var(--board); }
+
+.cs-card-id {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.cs-card-title {
+  font-weight: 600;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-card-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 10.5px;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.cs-card-pn {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink);
+  flex: none;
+}
+
+.cs-card-extra {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-card-thumbs {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.cs-editor .react-flow__handle.cs-card-handle {
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.cs-editor .cs-bundle .react-flow__edge-path {
+  stroke: var(--dim);
+  stroke-linecap: round;
+}
+
+.cs-editor .cs-bundle.is-selected .react-flow__edge-path,
+.cs-editor .cs-bundle.is-emphasis .react-flow__edge-path {
+  stroke: var(--accent);
+}
+
+.cs-bundle-count rect {
+  fill: var(--panel);
+  stroke: var(--line2);
+  stroke-width: 1;
+}
+
+.cs-bundle.is-selected .cs-bundle-count rect {
+  stroke: var(--accent);
+}
+
+.cs-bundle-count text {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+/* --- pigtails (shield bonding) --- */
+
+.cs-conn-row.is-member:has(.cs-conn-move-select) {
+  grid-template-columns: 58px 34px minmax(0, 1fr) 84px;
+}
+
+.cs-conn-pad-select,
+.cs-conn-move-select,
+.cs-conn-merge-select {
+  height: 20px;
+  padding: 0 2px;
+  margin-left: 6px;
+  font-size: 11px;
+  max-width: 96px;
+}
+
+.cs-conn-text-btn {
+  height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cs-ink);
+  cursor: pointer;
+}
+
+.cs-conn-text-btn:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.cs-conn-pigtail-bar .cs-conn-note,
+.cs-conn-mass .cs-conn-note {
+  color: var(--cs-dim);
+}
+
+/* ---------- Pick: the controlled-list combobox (data model v2 §5) ---------- */
+
+.cs-editor .cs-pick,
+.cs-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cs-editor .cs-rows .cs-pick {
+  height: 26px;
+  padding: 0 6px;
+}
+
+.cs-editor .cs-pick:hover,
+.cs-editor .cs-pick:focus-visible,
+.cs-editor .cs-pick[aria-expanded='true'] {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.cs-editor .cs-pick:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.cs-pick > svg {
+  flex: none;
+  color: var(--dim);
+}
+
+.cs-pick-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-pick-value.is-empty {
+  color: var(--faint);
+}
+
+/* a value from before the list existed: shown, and marked so it gets picked */
+.cs-pick.is-unlisted .cs-pick-value {
+  text-decoration: underline dotted var(--warn);
+  text-underline-offset: 3px;
+}
+
+.cs-editor .cs-pick.is-bad {
+  border-color: var(--err);
+}
+
+.cs-pick-cell {
+  min-width: 128px;
+}
+
+.cs-pick-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* sizes to its content — never narrower than the trigger (or 240px), never
+     wider than ~640px or the viewport; a long option
+     (a board build's full name) wraps well before it would need to */
+  width: max-content;
+  min-width: max(var(--radix-popover-trigger-width), 240px);
+  max-width: min(640px, calc(100vw - 16px));
+  padding: 6px;
+  color: var(--ink);
+  background: var(--panel);
+  border-color: var(--line);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.cs-pick-filter,
+.cs-pick-add .cs-input {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.cs-pick-filter:focus,
+.cs-pick-add .cs-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cs-pick-list {
+  max-height: min(280px, 45vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+/* not uppercased: a heading can be a unit, and µF must not become MF */
+.cs-pick-group {
+  display: block;
+  padding: 6px 6px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+}
+
+/* phone: a row builder keeps its columns and scrolls inside its section */
+@media (max-width: 639px) {
+  .cs-form-section:has(> .cs-rows) {
+    overflow-x: auto;
+  }
+
+  .cs-form-section > .cs-rows {
+    min-width: 600px;
+  }
+}
+
+.cs-pick-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 26px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* the label (and, once it has one, a second muted line — a distinguishing
+   fact, not just "#1"/"#2"/"#3") wrap instead of
+   truncating: the popover already sizes to its content up to ~640px */
+.cs-pick-text {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 1px;
+}
+
+.cs-pick-option.is-active {
+  background: var(--accent-soft);
+}
+
+.cs-pick-option.is-add {
+  color: var(--accent);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 4px 4px;
+  margin-top: 2px;
+}
+
+.cs-pick-label {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.cs-pick-none {
+  color: var(--dim);
+  font-style: italic;
+}
+
+.cs-pick-hint {
+  min-width: 0;
+  font-size: 10px;
+  color: var(--faint);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.cs-pick-check {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.cs-pick-add {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.cs-pick-add label {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.cs-pick-add label > span {
+  color: var(--dim);
+}
+
+.cs-pick-add .cs-popover-label {
+  margin: 0;
+}
+
+.cs-pick-add small {
+  font-size: 12px;
+}
+
+.cs-pick-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.cs-pick-add-actions button {
+  height: 26px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cs-pick-add-actions button.cs-primary {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.cs-pick-add-actions button.cs-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+}
+
+/* ---------- connector journey: body → pinout → connector ---------- */
+
+.cs-def-list .cs-def-group {
+  margin: 6px 0 10px;
+}
+
+.cs-def-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 4px;
+  font-size: 11px;
+  color: var(--cs-dim);
+}
+
+.cs-def-group-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--cs-ink);
+}
+
+.cs-def-group > ul {
+  margin: 0;
+  padding: 0 0 0 8px;
+  list-style: none;
+  border-left: 1px solid var(--cs-line);
+}
+
+.cs-editor .cs-def-item.is-orphan {
+  border-style: dashed;
+  border-left-style: solid;
+  border-left-color: var(--cs-dim);
+  background: transparent;
+}
+
+.cs-journey {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  gap: 16px;
+  align-items: start;
+}
+
+.cs-journey-steps {
+  min-width: 0;
+}
+
+.cs-journey-art {
+  position: sticky;
+  top: 0;
+  padding: 10px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.cs-journey-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--cs-dim);
+}
+
+.cs-journey-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 8px;
+}
+
+.cs-journey-bar > .cs-field,
+.cs-journey-bar > label {
+  flex: 1 1 220px;
+  margin: 0;
+}
+
+.cs-journey-mode {
+  flex: 1 1 220px;
+  font-weight: 600;
+  padding-bottom: 5px;
+}
+
+.cs-journey-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.cs-journey-tools .cs-pick {
+  min-width: 130px;
+}
+
+.cs-journey-facts,
+.cs-journey-shared,
+.cs-in-kits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-bottom: 8px;
+}
+
+.cs-journey-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cs-dim);
+  margin-right: 2px;
+}
+
+.cs-journey-shared .cs-chip-button + .cs-journey-label,
+.cs-journey-shared .cs-empty + .cs-journey-label {
+  margin-left: 8px;
+}
+
+.cs-editor .cs-chip-button {
+  cursor: pointer;
+}
+
+.cs-editor .cs-chip-button.is-active {
+  border-color: var(--cs-accent);
+  background: var(--accent-soft);
+  color: var(--cs-ink);
+}
+
+.cs-journey-fields {
+  border: 0;
+  margin: 0 0 8px;
+  padding: 0;
+  min-width: 0;
+}
+
+.cs-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 18px;
+}
+
+.cs-check input {
+  width: auto;
+}
+
+.cs-journey-table {
+  overflow-x: auto;
+}
+
+.cs-pinout-rows td.cs-mono {
+  padding-top: 5px;
+  font-weight: 600;
+}
+
+.cs-pinout-rows tr.is-unassigned td.cs-mono {
+  color: var(--cs-dim);
+  font-weight: 400;
+}
+
+.cs-pinout-rows input:disabled,
+.cs-pinout-rows select:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: var(--cs-ink);
+  opacity: 1;
+}
+
+.cs-in-kits {
+  padding: 0 0 8px;
+}
+
+.cs-kit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cs-editor .cs-chip-x {
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  line-height: 1;
+  color: var(--cs-dim);
+  cursor: pointer;
+}
+
+.cs-kit-rows .cs-qty {
+  max-width: 56px;
+}
+
+.cs-kit-rows td.cs-center {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.cs-kit-rows input[type='checkbox'] {
+  width: auto;
+}
+
+@media (max-width: 1099px) {
+  .cs-journey {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-journey-art {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 639px) {
+  .cs-journey-table .cs-rows {
+    min-width: 560px;
+  }
+
+  .cs-kit-rows {
+    min-width: 600px;
+  }
+}
+
+/* the journey's art column: faces stacked, each a readable size */
+.cs-journey-art .cs-builtin-figures {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cs-journey-art .cs-builtin-svg {
+  height: 210px;
+}
+
+.cs-in-kits .cs-pick,
+.cs-journey-tools .cs-pick {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1099px) {
+  .cs-journey-art .cs-builtin-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cs-journey-art .cs-builtin-svg {
+    height: 150px;
+  }
+}
+
+.cs-kit-rows select {
+  min-width: 96px;
+}
+
+@media (max-width: 639px) {
+  .cs-form-section > .cs-rows.cs-kit-rows {
+    min-width: 820px;
+  }
+}
+
+.cs-kit-part {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.cs-kit-part > .cs-pick {
+  flex: 1 1 auto;
+}
+
+/* ------------------------------------------------------------------ *
+ * Breakout mould
+ * ------------------------------------------------------------------ */
+
+.cs-node-breakout {
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--dim) 10%, var(--panel));
+}
+.cs-node-breakout .cs-badge { background: var(--dim); }
+.cs-mould { padding: 5px 0; }
+.cs-mould-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 19px;
+  padding: 0 10px;
+  font-size: 9px;
+}
+/* the conductor's own run: across the whole mould when it passes through, to
+   its solder dot when it ends here, a short cut stub when it is NC */
+.cs-mould-run {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--run, var(--ink));
+  pointer-events: none;
+}
+.cs-mould-row.is-through .cs-mould-run { right: 0; }
+.cs-mould-row.is-terminated .cs-mould-run { width: 34%; }
+.cs-mould-row.is-nc .cs-mould-run { width: 8px; opacity: 0.6; }
+.cs-mould-shield .cs-mould-run,
+.cs-mould-drain .cs-mould-run { height: 0; background: none; border-top: 2px dashed var(--run); }
+.cs-mould-row.is-through.cs-mould-shield .cs-mould-run { right: 0; }
+.cs-mould-pigtail .cs-mould-run { left: 34%; right: 0; height: 0; background: none; border-top: 2px dashed var(--run); }
+.cs-mould-dot {
+  position: absolute;
+  left: 34%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.cs-mould-label,
+.cs-mould-fate {
+  position: relative;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--panel) 82%, transparent);
+  white-space: nowrap;
+}
+.cs-mould-row.is-terminated .cs-mould-label { margin-left: 38%; }
+.cs-mould-fate { margin-left: auto; color: var(--dim); overflow: hidden; text-overflow: ellipsis; }
+.cs-mould-row.is-nc .cs-mould-label { margin-left: 8px; color: var(--dim); }
+.cs-mould-row.is-nc .cs-mould-fate { color: var(--warn); font-weight: 700; }
+.cs-mould-note {
+  padding: 0 10px;
+  font-size: 8.5px;
+  line-height: 14px;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-mould-handle { width: 7px; height: 7px; background: var(--run, var(--ink)); }
+
+/* ------------------------------------------------------------------ *
+ * Breakout inspector
+ * ------------------------------------------------------------------ */
+
+.cs-breakout-section,
+.cs-breakout-panel { margin-top: 10px; display: grid; gap: 6px; }
+.cs-breakout-split,
+.cs-breakout-leg { display: flex; gap: 6px; align-items: center; }
+.cs-breakout-split .cs-input,
+.cs-breakout-leg .cs-input { width: 7.5em; flex: none; }
+.cs-breakout-leg .cs-select { flex: 1; min-width: 0; }
+.cs-editor .cs-btn,
+.cs-breakout-panel .cs-select,
+.cs-breakout-leg .cs-select {
+  font: inherit;
+  font-size: 12px;
+  color: var(--cs-ink);
+  background: var(--bg);
+  border: 1px solid var(--cs-line);
+  border-radius: 4px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.cs-editor .cs-btn:hover { border-color: var(--cs-accent); color: var(--cs-accent); }
+.cs-breakout-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.cs-breakout-table th { text-align: left; font-weight: 600; color: var(--dim); padding: 2px 4px; border-bottom: 1px solid var(--cs-line); }
+.cs-breakout-table td { padding: 1px 4px; border-bottom: 1px solid color-mix(in oklab, var(--cs-line) 50%, transparent); }
+.cs-breakout-table .cs-select { padding: 1px 4px; font-size: 11.5px; }
+.cs-breakout-table .cs-input { padding: 1px 4px; font-size: 11.5px; }
+.cs-breakout-table tr.is-through td:first-child { color: var(--cs-ink); }
+.cs-breakout-table tr.is-nc td:first-child { color: var(--dim); }
+.cs-breakout-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 11.5px; }
+.cs-breakout-rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 6px;
+  align-items: center;
+  padding: 1px 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--cs-line) 50%, transparent);
+}
+.cs-breakout-rows .cs-select { padding: 1px 4px; font-size: 11.5px; }
+.cs-breakout-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-breakout-to { color: var(--dim); }
+.cs-breakout-rows li.is-nc .cs-breakout-name { color: var(--dim); }
+.cs-breakout-why { grid-column: 1 / -1; padding: 1px 4px; font-size: 11px; }
+.cs-breakout-panel > .cs-select { width: 100%; }
+
+/* a pin list holds its ground bus overlay */
+.cs-pins {
+  position: relative;
+}
+
+/* Part tab: the part's own bridges */
+.cs-bridge-list li {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cs-bridge-list li.is-selected .cs-link {
+  color: var(--cs-accent, var(--accent));
+}
+
+.cs-bridge-remove {
+  border: 0;
+  background: none;
+  color: var(--cs-dim, var(--dim));
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.cs-bridge-remove:hover {
+  color: var(--cs-err, var(--err));
+}
+
+.cs-bridge-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 8px;
+  font-size: 12px;
+}
+
+.cs-bridge-add select {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.cs-confirm-delete h2 {
+  font-size: 14px;
+}
+
+.cs-editor .cs-confirm-delete .cs-modal-actions .cs-danger {
+  width: auto;
+  margin-top: 0;
+  padding: 4px 16px;
+  color: #fff;
+  background: var(--cs-err, var(--err));
+  border-color: var(--cs-err, var(--err));
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ *
+ * Views: 2D / 3D / Photo of a Library record
+ * ------------------------------------------------------------------ */
+
+.cs-model-panel {
+  margin: 8px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.cs-model-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.cs-model-panel.is-collapsed .cs-model-head {
+  border-bottom: 0;
+}
+
+.cs-editor .cs-model-fold {
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.cs-seg {
+  display: inline-flex;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cs-editor .cs-seg button {
+  border: 0;
+  border-radius: 0;
+  padding: 2px 10px;
+  background: transparent;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.cs-editor .cs-seg button + button {
+  border-left: 1px solid var(--line2);
+}
+
+.cs-editor .cs-seg button.is-active {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.cs-editor .cs-seg button:disabled {
+  color: var(--faint);
+}
+
+.cs-model-none {
+  color: var(--faint);
+}
+
+.cs-model-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.cs-editor .cs-model-actions button,
+.cs-editor .cs-model-tools button,
+.cs-editor .cs-model-attach button {
+  padding: 2px 9px;
+  font-size: 12px;
+}
+
+.cs-model-view {
+  position: relative;
+  background: var(--canvas);
+}
+
+.cs-model-canvas {
+  display: block;
+  width: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.cs-model-canvas:active {
+  cursor: grabbing;
+}
+
+.cs-model-tools {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.cs-model-tools > * {
+  pointer-events: auto;
+}
+
+.cs-editor .cs-model-tools button {
+  background: color-mix(in oklab, var(--panel) 85%, transparent);
+  border: 1px solid var(--line2);
+}
+
+.cs-editor .cs-model-tools button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.cs-model-info {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--panel) 80%, transparent);
+  color: var(--dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-model-problem,
+.cs-model-loading,
+.cs-model-message {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.cs-model-view .cs-model-problem {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.cs-model-message.is-error {
+  color: var(--err);
+}
+
+.cs-model-art {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  background: var(--canvas);
+  max-height: 360px;
+  overflow: auto;
+}
+
+.cs-model-art img {
+  max-width: 100%;
+  max-height: 340px;
+  object-fit: contain;
+}
+
+.cs-model-attach {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+  font-size: 12px;
+}
+
+.cs-model-attach fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cs-model-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.cs-model-attach label {
+  display: grid;
+  gap: 3px;
+  color: var(--dim);
+}
+
+.cs-model-attach select[size] {
+  min-width: min(360px, 100%);
+}
+
+.cs-model-hint {
+  color: var(--faint);
+}
+
+/* ------------------------------------------------------------------ *
+ * The parametric 3D wire
+ * ------------------------------------------------------------------ */
+
+.cs-w3-stage {
+  position: relative;
+}
+
+.cs-w3-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.cs-w3-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.cs-w3-field,
+.cs-w3-slider,
+.cs-w3-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.cs-w3-field select,
+.cs-w3-field input {
+  font-size: 12px;
+  padding: 1px 4px;
+}
+
+.cs-w3-field input[type='number'] {
+  width: 64px;
+}
+
+.cs-w3-slider input[type='range'] {
+  width: 96px;
+}
+
+.cs-w3-slider output {
+  min-width: 44px;
+  color: var(--ink);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-w3-unit {
+  color: var(--faint);
+}
+
+.cs-editor .cs-w3 .cs-seg button {
+  padding: 1px 8px;
+}
+
+.cs-wb-side .cs-w3 {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cs-wb-viewtoggle {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+/* the wire stock page's visuals: the 3D view open by
+   default, full-width, at the top of the page, the section drawing under it */
+.cs-wb-views {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cs-wb-views-3d {
+  display: block;
+  width: 100%;
+}
+
+.cs-wb-views-section {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.cs-seg3d {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.cs-seg3d > summary {
+  cursor: pointer;
+  padding: 5px 0;
+  color: var(--dim);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* a faint aside line in a dialog */
+.cs-cj-faint {
+  color: var(--faint);
+  margin: 6px 0;
+}

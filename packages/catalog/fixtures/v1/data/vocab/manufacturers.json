@@ -1,0 +1,12 @@
+{
+  "id": "manufacturers",
+  "label": "Manufacturers",
+  "src": "who makes a stock; the base ships only a generic entry",
+  "entries": [
+    {
+      "id": "generic",
+      "label": "Generic",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

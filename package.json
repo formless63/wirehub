@@ -1,0 +1,12 @@
+{
+  "name": "cable-studio",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "build": "pnpm -r build"
+  },
+  "packageManager": "pnpm@10.33.1"
+}

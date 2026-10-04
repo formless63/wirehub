@@ -1,0 +1,6 @@
+{
+  "src": "generated from connectors.json, the PCBA definitions and wires.json (labels, aliases, silkscreen ids, conductor colours) with the reviewed corrections in data/tags/review.json. Connector pin signals live in data/interfaces.json, so the connectors table only holds pins of a connector with no interface",
+  "connectors": {},
+  "pcbas": {},
+  "wires": {}
+}

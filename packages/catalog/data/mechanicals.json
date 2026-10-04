@@ -1,0 +1,37 @@
+[
+  {
+    "id": "de9-backshell",
+    "label": "DE-9 metal backshell with strain relief",
+    "partNumber": "SHL-00001",
+    "kind": "shell",
+    "src": "generic DE-9 die-cast backshell; synthetic example"
+  },
+  {
+    "id": "jackscrew-4-40",
+    "label": "Jackscrew 4-40 UNC (pair)",
+    "partNumber": "HW-00001",
+    "kind": "fastener",
+    "src": "4-40 UNC jackscrews per the D-sub convention (IEC 60807-3 shell hardware); synthetic example"
+  },
+  {
+    "id": "rj45-boot",
+    "label": "RJ45 strain-relief boot",
+    "partNumber": "SHL-00002",
+    "kind": "shell",
+    "src": "generic snag-less RJ45 boot; synthetic example"
+  },
+  {
+    "id": "overmold-y-3-5mm",
+    "label": "Moulded Y splitter body",
+    "partNumber": "MEC-00001",
+    "kind": "shell",
+    "src": "generic overmoulded Y breakout body; synthetic example"
+  },
+  {
+    "id": "heatshrink-6mm",
+    "label": "Heat-shrink sleeve 6 mm, 40 mm long",
+    "partNumber": "MEC-00002",
+    "kind": "other",
+    "src": "generic 2:1 polyolefin heat-shrink; synthetic example"
+  }
+]

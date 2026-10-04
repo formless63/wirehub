@@ -1,0 +1,27 @@
+{
+  "id": "constructions",
+  "label": "Shield constructions",
+  "src": "model.ts ShieldElement.construction",
+  "entries": [
+    {
+      "id": "braid",
+      "label": "Braid",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "spiral",
+      "label": "Spiral",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "foil",
+      "label": "Foil",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "tape",
+      "label": "Tape",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

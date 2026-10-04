@@ -1,0 +1,17 @@
+{
+  "id": "connector-mountings",
+  "label": "Connector mountings",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "direct-solder",
+      "label": "Direct solder",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "board-straddle",
+      "label": "Board straddle",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

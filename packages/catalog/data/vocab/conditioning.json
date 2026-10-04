@@ -1,0 +1,32 @@
+{
+  "id": "conditioning",
+  "label": "Signal conditioning",
+  "src": "what a board path does to a signal on the way through; synthetic example",
+  "entries": [
+    {
+      "id": "series-resistor",
+      "label": "Series resistor",
+      "src": "synthetic example"
+    },
+    {
+      "id": "termination",
+      "label": "Line termination",
+      "src": "TIA-485-A line termination"
+    },
+    {
+      "id": "ac-coupling",
+      "label": "AC coupling (series capacitor)",
+      "src": "synthetic example"
+    },
+    {
+      "id": "level-shift",
+      "label": "Level shift",
+      "src": "synthetic example"
+    },
+    {
+      "id": "buffer",
+      "label": "Buffer",
+      "src": "synthetic example"
+    }
+  ]
+}

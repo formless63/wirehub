@@ -1,0 +1,77 @@
+{
+  "id": "colours",
+  "label": "Conductor colours",
+  "src": "IEC 60757 colour names; TIA-568 pair colours",
+  "entries": [
+    {
+      "id": "red",
+      "label": "Red",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "green",
+      "label": "Green",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "blue",
+      "label": "Blue",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "yellow",
+      "label": "Yellow",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "white",
+      "label": "White",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "black",
+      "label": "Black",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "brown",
+      "label": "Brown",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "orange",
+      "label": "Orange",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "purple",
+      "label": "Purple",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "grey",
+      "label": "Grey",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "white-blue",
+      "label": "White/blue",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "white-orange",
+      "label": "White/orange",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "white-green",
+      "label": "White/green",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "white-brown",
+      "label": "White/brown",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

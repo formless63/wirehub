@@ -1,0 +1,460 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "src": "generic signal names; public interface standards cited per entry",
+  "entries": [
+    {
+      "id": "video-r",
+      "label": "Video R",
+      "kind": "video",
+      "aliases": [
+        "Red"
+      ],
+      "src": "VESA DDC / analog RGB video (public)"
+    },
+    {
+      "id": "video-g",
+      "label": "Video G",
+      "kind": "video",
+      "aliases": [
+        "Green"
+      ],
+      "src": "VESA DDC / analog RGB video (public)"
+    },
+    {
+      "id": "video-b",
+      "label": "Video B",
+      "kind": "video",
+      "aliases": [
+        "Blue"
+      ],
+      "src": "VESA DDC / analog RGB video (public)"
+    },
+    {
+      "id": "hsync",
+      "label": "H sync",
+      "kind": "sync",
+      "aliases": [
+        "HSync",
+        "Horizontal sync"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "vsync",
+      "label": "V sync",
+      "kind": "sync",
+      "aliases": [
+        "VSync",
+        "Vertical sync"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "csync",
+      "label": "Composite sync",
+      "kind": "sync",
+      "short": "CSync",
+      "aliases": [
+        "CSync"
+      ],
+      "src": "analog video practice (public)"
+    },
+    {
+      "id": "cvbs",
+      "label": "Composite video",
+      "kind": "video",
+      "short": "CVBS",
+      "aliases": [
+        "CVBS"
+      ],
+      "src": "analog video practice (public)"
+    },
+    {
+      "id": "audio-l",
+      "label": "Audio L",
+      "kind": "audio",
+      "aliases": [
+        "Left"
+      ],
+      "src": "IEC 60603-11 stereo plug convention"
+    },
+    {
+      "id": "audio-r",
+      "label": "Audio R",
+      "kind": "audio",
+      "aliases": [
+        "Right"
+      ],
+      "src": "IEC 60603-11 stereo plug convention"
+    },
+    {
+      "id": "audio-mono",
+      "label": "Audio (mono)",
+      "kind": "audio",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-hot",
+      "label": "Audio + (hot)",
+      "kind": "audio",
+      "aliases": [
+        "Hot"
+      ],
+      "src": "AES14 / IEC 61076-2-103 balanced audio"
+    },
+    {
+      "id": "audio-cold",
+      "label": "Audio − (cold)",
+      "kind": "audio",
+      "aliases": [
+        "Cold"
+      ],
+      "src": "AES14 / IEC 61076-2-103 balanced audio"
+    },
+    {
+      "id": "rs232-txd",
+      "label": "Transmit data (TXD)",
+      "kind": "data",
+      "aliases": [
+        "TXD",
+        "TX"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-rxd",
+      "label": "Receive data (RXD)",
+      "kind": "data",
+      "aliases": [
+        "RXD",
+        "RX"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-rts",
+      "label": "Request to send (RTS)",
+      "kind": "control",
+      "aliases": [
+        "RTS"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-cts",
+      "label": "Clear to send (CTS)",
+      "kind": "control",
+      "aliases": [
+        "CTS"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-dtr",
+      "label": "Data terminal ready (DTR)",
+      "kind": "control",
+      "aliases": [
+        "DTR"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-dsr",
+      "label": "Data set ready (DSR)",
+      "kind": "control",
+      "aliases": [
+        "DSR"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-dcd",
+      "label": "Data carrier detect (DCD)",
+      "kind": "control",
+      "aliases": [
+        "DCD"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs232-ri",
+      "label": "Ring indicator (RI)",
+      "kind": "control",
+      "aliases": [
+        "RI"
+      ],
+      "src": "TIA-574 / EIA-232"
+    },
+    {
+      "id": "rs485-a",
+      "label": "RS-485 A (data −)",
+      "kind": "data",
+      "aliases": [
+        "A",
+        "Data-"
+      ],
+      "src": "TIA-485-A; PROFIBUS DP line N"
+    },
+    {
+      "id": "rs485-b",
+      "label": "RS-485 B (data +)",
+      "kind": "data",
+      "aliases": [
+        "B",
+        "Data+"
+      ],
+      "src": "TIA-485-A; PROFIBUS DP line P"
+    },
+    {
+      "id": "eth-da-p",
+      "label": "Ethernet pair A +",
+      "kind": "data",
+      "aliases": [
+        "BI_DA+",
+        "TX+"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DA+)"
+    },
+    {
+      "id": "eth-da-n",
+      "label": "Ethernet pair A −",
+      "kind": "data",
+      "aliases": [
+        "BI_DA-",
+        "TX-"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DA−)"
+    },
+    {
+      "id": "eth-db-p",
+      "label": "Ethernet pair B +",
+      "kind": "data",
+      "aliases": [
+        "BI_DB+",
+        "RX+"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DB+)"
+    },
+    {
+      "id": "eth-db-n",
+      "label": "Ethernet pair B −",
+      "kind": "data",
+      "aliases": [
+        "BI_DB-",
+        "RX-"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DB−)"
+    },
+    {
+      "id": "eth-dc-p",
+      "label": "Ethernet pair C +",
+      "kind": "data",
+      "aliases": [
+        "BI_DC+"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DC+)"
+    },
+    {
+      "id": "eth-dc-n",
+      "label": "Ethernet pair C −",
+      "kind": "data",
+      "aliases": [
+        "BI_DC-"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DC−)"
+    },
+    {
+      "id": "eth-dd-p",
+      "label": "Ethernet pair D +",
+      "kind": "data",
+      "aliases": [
+        "BI_DD+"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DD+)"
+    },
+    {
+      "id": "eth-dd-n",
+      "label": "Ethernet pair D −",
+      "kind": "data",
+      "aliases": [
+        "BI_DD-"
+      ],
+      "src": "IEEE 802.3 clause 40 MDI (BI_DD−)"
+    },
+    {
+      "id": "usb-dp",
+      "label": "USB D+",
+      "kind": "data",
+      "aliases": [
+        "D+"
+      ],
+      "src": "USB 2.0 Specification §6.5 (USB-IF)"
+    },
+    {
+      "id": "usb-dn",
+      "label": "USB D−",
+      "kind": "data",
+      "aliases": [
+        "D-"
+      ],
+      "src": "USB 2.0 Specification §6.5 (USB-IF)"
+    },
+    {
+      "id": "data-ddc-sda",
+      "label": "DDC data (SDA)",
+      "kind": "data",
+      "aliases": [
+        "SDA"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "data-ddc-scl",
+      "label": "DDC clock (SCL)",
+      "kind": "data",
+      "aliases": [
+        "SCL"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "pwr-5v",
+      "label": "+5 V",
+      "kind": "power",
+      "aliases": [
+        "5V",
+        "+5V",
+        "VBUS"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "pwr-12v",
+      "label": "+12 V",
+      "kind": "power",
+      "aliases": [
+        "12V",
+        "+12V"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "pwr-v",
+      "label": "Supply (+V)",
+      "kind": "power",
+      "aliases": [
+        "VCC",
+        "V+"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "gnd",
+      "label": "Ground",
+      "kind": "ground",
+      "aliases": [
+        "GND",
+        "0V"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "gnd-signal",
+      "label": "Signal ground",
+      "kind": "ground",
+      "aliases": [
+        "SG",
+        "DGND"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "gnd-video-r",
+      "label": "Red return",
+      "kind": "ground",
+      "returnFor": [
+        "video-r"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "gnd-video-g",
+      "label": "Green return",
+      "kind": "ground",
+      "returnFor": [
+        "video-g"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "gnd-video-b",
+      "label": "Blue return",
+      "kind": "ground",
+      "returnFor": [
+        "video-b"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "gnd-sync",
+      "label": "Sync return",
+      "kind": "ground",
+      "returnFor": [
+        "hsync",
+        "vsync",
+        "csync"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "gnd-audio",
+      "label": "Audio ground",
+      "kind": "ground",
+      "returnFor": [
+        "audio-l",
+        "audio-r",
+        "audio-mono"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "gnd-chassis",
+      "label": "Chassis / shield",
+      "kind": "ground",
+      "aliases": [
+        "Shield",
+        "Shell"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "led-anode",
+      "label": "LED anode",
+      "kind": "power",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "any",
+      "label": "Any signal",
+      "kind": "none",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "nc",
+      "label": "Not connected",
+      "kind": "none",
+      "aliases": [
+        "NC",
+        "n/c"
+      ],
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "reserved",
+      "label": "Reserved",
+      "kind": "none",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

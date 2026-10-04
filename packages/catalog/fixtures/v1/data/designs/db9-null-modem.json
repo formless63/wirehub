@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 4,
+  "id": "db9-null-modem",
+  "label": "DE-9 RS-232 → DE-9 RS-232, null modem (3-wire, local handshake loopback)",
+  "instances": {
+    "connectors": [
+      {
+        "id": "j1",
+        "def": "de9-female-rs232",
+        "role": "end A"
+      },
+      {
+        "id": "j2",
+        "def": "de9-female-rs232",
+        "role": "end B"
+      }
+    ],
+    "segments": [
+      {
+        "id": "w1",
+        "def": "shielded-2pair-24awg",
+        "lengthMm": 1830,
+        "pigtails": [
+          {
+            "id": "shield",
+            "end": "a",
+            "note": "foil and drain twisted together"
+          }
+        ]
+      }
+    ],
+    "components": [],
+    "pcbas": [],
+    "mechanical": [
+      {
+        "id": "m1",
+        "def": "de9-backshell",
+        "qty": 1,
+        "attachedTo": "j1"
+      },
+      {
+        "id": "m2",
+        "def": "jackscrew-4-40",
+        "qty": 1,
+        "attachedTo": "m1"
+      },
+      {
+        "id": "m3",
+        "def": "de9-backshell",
+        "qty": 1,
+        "attachedTo": "j2"
+      },
+      {
+        "id": "m4",
+        "def": "jackscrew-4-40",
+        "qty": 1,
+        "attachedTo": "m3"
+      }
+    ]
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "3"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-1.a",
+        "end": "a"
+      },
+      "note": "TXD"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-1.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "2"
+      },
+      "note": "crossed to RXD"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-1.b",
+        "end": "a"
+      },
+      "note": "RXD"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-1.b",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "3"
+      },
+      "note": "crossed to TXD"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "5"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-2.a",
+        "end": "a"
+      },
+      "note": "signal ground"
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-2.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "5"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pigtail:shield",
+        "end": "a"
+      },
+      "b": {
+        "instance": "j1",
+        "terminal": "shell"
+      },
+      "note": "drain to the shell at the source end only"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "7"
+      },
+      "b": {
+        "instance": "j1",
+        "terminal": "8"
+      },
+      "note": "local handshake loopback: RTS → CTS"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "j1",
+        "terminal": "6"
+      },
+      "note": "local loopback: DTR → DSR"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "j1",
+        "terminal": "1"
+      },
+      "note": "local loopback: DTR → DCD"
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "7"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "8"
+      },
+      "note": "local handshake loopback: RTS → CTS"
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "6"
+      },
+      "note": "local loopback: DTR → DSR"
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "1"
+      },
+      "note": "local loopback: DTR → DCD"
+    }
+  ],
+  "notes": [
+    "w1:drain@b is cut back at end B — the shield is grounded at end A only.",
+    "w1:pair-2.b@a and w1:pair-2.b@b are a spare core, cut back and insulated at both ends."
+  ],
+  "src": "synthetic example: the common 3-wire null-modem wiring (TXD/RXD crossed, signal ground straight, RTS/CTS and DTR/DSR/DCD looped back locally at each end) on TIA-574 DE-9 connectors"
+}

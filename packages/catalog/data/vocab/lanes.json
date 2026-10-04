@@ -1,0 +1,72 @@
+{
+  "id": "lanes",
+  "label": "Lanes",
+  "src": "the role a conductor plays along the cable, from its colour code",
+  "entries": [
+    {
+      "id": "video-r",
+      "label": "Video R",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "video-g",
+      "label": "Video G",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "video-b",
+      "label": "Video B",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "sync",
+      "label": "Sync",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-l",
+      "label": "Audio L",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-r",
+      "label": "Audio R",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-hot",
+      "label": "Audio hot",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "audio-cold",
+      "label": "Audio cold",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "data-tx",
+      "label": "Data TX",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "data-rx",
+      "label": "Data RX",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "power",
+      "label": "Power",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "ground",
+      "label": "Ground",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "spare",
+      "label": "Spare",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

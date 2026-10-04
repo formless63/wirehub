@@ -1,0 +1,6 @@
+**/node_modules
+**/dist
+.git
+.beads
+data/auth/*
+!data/auth/.gitkeep

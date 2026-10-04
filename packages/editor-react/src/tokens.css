@@ -1,0 +1,136 @@
+/**
+ * Semantic design tokens as CSS custom properties — mirrors `tokens.ts` (see
+ * that file for provenance and the "keep both in sync by hand" note).
+ *
+ * Both `editor.css` (prefixed `cs:` utilities) and `apps/studio/src/studio.css`
+ * (unprefixed utilities) `@import` this file and register the same variables
+ * under Tailwind's `@theme inline`, so `bg-panel` / `cs:bg-panel`, `text-ink` /
+ * `cs:text-ink`, etc. exist in both worlds and repaint together when the
+ * `data-theme` attribute changes — there is exactly one copy of each colour.
+ *
+ * Theme selection: `data-theme="light"` or `data-theme="dark"` on `<html>`.
+ * The app (not the editor) owns the toggle and persists the choice — see
+ * `apps/studio/src/theme.ts`. Until that attribute is attached (e.g. the
+ * instant before the app's module runs), this file falls back to
+ * `prefers-color-scheme` so there is no flash of the wrong palette.
+ */
+
+:root {
+  /* dark is the default palette written directly onto :root; light overrides
+     it under `[data-theme='light']` and under the `prefers-color-scheme`
+     fallback below. */
+  --bg: #121315;
+  --rail: #0d0e10;
+  --panel: #18191c;
+  --raised: #1f2024;
+  --hover: #24252a;
+  --line: #27282d;
+  --line2: #34353b;
+  --ink: #ebe8e3;
+  --dim: #a19e96;
+  --faint: #6f6d67;
+  --canvas: #0f1012;
+  --dot: #232428;
+  --accent: #e28a50;
+  --accent-ink: #1c1008;
+  --accent-soft: rgba(226, 138, 80, 0.14);
+  --ok: #5fbf8a;
+  --warn: #d9a441;
+  --err: #ef6461;
+  --board: #5fbf8a;
+  --jacket: #26272b;
+  --jacket-line: #46474d;
+  --diel: #d8d3c6;
+  --foil: #9aa3ad;
+  --copper: #c98a5a;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --conn-kind: #7ea6db;
+  --wire-kind: #d2a85a;
+  --comp-kind: #b38be0;
+
+  /* conductor (domain) colours — identical across themes except white/black */
+  --cond-red: #e5484d;
+  --cond-green: #3fb56a;
+  --cond-blue: #3b82f6;
+  --cond-yellow: #e6c229;
+  --cond-brown: #9a5b34;
+  --cond-purple: #9b6ce0;
+  --cond-gnd: #8a8f96;
+  --cond-white: #e9e7e2;
+  --cond-black: #0a0a0b;
+}
+
+[data-theme='light'] {
+  --bg: #f7f6f3;
+  --rail: #efeee9;
+  --panel: #ffffff;
+  --raised: #f4f3ef;
+  --hover: #efeee9;
+  --line: #e4e2dc;
+  --line2: #d3d0c8;
+  --ink: #1b1a18;
+  --dim: #5f5c55;
+  --faint: #98948b;
+  --canvas: #f2f1ed;
+  --dot: #d7d4cc;
+  --accent: #c2602a;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(194, 96, 42, 0.1);
+  --ok: #2f8f5b;
+  --warn: #a8740f;
+  --err: #c9403c;
+  --board: #2f8f5b;
+  --jacket: #e6e4de;
+  --jacket-line: #c2beb4;
+  --diel: #fbfaf6;
+  --foil: #8a939d;
+  --copper: #b86f3c;
+  --scrim: rgba(40, 36, 30, 0.28);
+  --shadow: 0 12px 32px rgba(40, 36, 30, 0.18);
+  --conn-kind: #3f6fb0;
+  --wire-kind: #a97f2c;
+  --comp-kind: #8656c4;
+
+  --cond-white: #ffffff;
+  --cond-black: #232323;
+}
+
+/* the instant before `data-theme` is attached (no-JS, or before the app's
+   first paint) — mirrors `[data-theme='light']` above; kept in sync by hand */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #f7f6f3;
+    --rail: #efeee9;
+    --panel: #ffffff;
+    --raised: #f4f3ef;
+    --hover: #efeee9;
+    --line: #e4e2dc;
+    --line2: #d3d0c8;
+    --ink: #1b1a18;
+    --dim: #5f5c55;
+    --faint: #98948b;
+    --canvas: #f2f1ed;
+    --dot: #d7d4cc;
+    --accent: #c2602a;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(194, 96, 42, 0.1);
+    --ok: #2f8f5b;
+    --warn: #a8740f;
+    --err: #c9403c;
+    --board: #2f8f5b;
+    --jacket: #e6e4de;
+    --jacket-line: #c2beb4;
+    --diel: #fbfaf6;
+    --foil: #8a939d;
+    --copper: #b86f3c;
+    --scrim: rgba(40, 36, 30, 0.28);
+    --shadow: 0 12px 32px rgba(40, 36, 30, 0.18);
+    --conn-kind: #3f6fb0;
+    --wire-kind: #a97f2c;
+    --comp-kind: #8656c4;
+
+    --cond-white: #ffffff;
+    --cond-black: #232323;
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "connector-sourcing",
+  "label": "Connector sourcing",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "pre-made-lead",
+      "label": "Pre-made lead",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

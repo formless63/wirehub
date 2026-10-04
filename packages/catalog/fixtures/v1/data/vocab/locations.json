@@ -1,0 +1,22 @@
+{
+  "id": "locations",
+  "label": "Component locations",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "source-hood",
+      "label": "In the source hood",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "dest-head",
+      "label": "In the destination head",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "inline",
+      "label": "Inline (in heat-shrink along the cable)",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

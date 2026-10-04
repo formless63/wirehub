@@ -1,0 +1,81 @@
+[
+  {
+    "id": "r-150",
+    "label": "Resistor 150 Ω, 0.25 W",
+    "kind": "resistor",
+    "category": "resistor",
+    "value": "150 Ω",
+    "tolerance": "5%",
+    "package": "axial",
+    "partNumber": "CMP-00001",
+    "terminals": [
+      {
+        "id": "a"
+      },
+      {
+        "id": "b"
+      }
+    ],
+    "src": "synthetic example: LED series resistor for a 5 V supply ((5 V − 2 V) / 20 mA)"
+  },
+  {
+    "id": "r-120",
+    "label": "Resistor 120 Ω, 0.25 W",
+    "kind": "resistor",
+    "category": "resistor",
+    "value": "120 Ω",
+    "tolerance": "1%",
+    "package": "axial",
+    "partNumber": "CMP-00002",
+    "terminals": [
+      {
+        "id": "a"
+      },
+      {
+        "id": "b"
+      }
+    ],
+    "src": "TIA-485-A line termination equal to the cable characteristic impedance (≈120 Ω); synthetic example"
+  },
+  {
+    "id": "cap-100nf",
+    "label": "Capacitor 100 nF, ceramic",
+    "kind": "capacitor",
+    "category": "capacitor",
+    "value": "100 nF",
+    "tolerance": "10%",
+    "package": "radial 5 mm",
+    "partNumber": "CMP-00004",
+    "terminals": [
+      {
+        "id": "a"
+      },
+      {
+        "id": "b"
+      }
+    ],
+    "src": "generic decoupling / AC-coupling ceramic capacitor; synthetic example"
+  },
+  {
+    "id": "led-red-5mm",
+    "label": "LED, red, 5 mm",
+    "kind": "other",
+    "category": "diode",
+    "value": "red, Vf ≈ 2 V",
+    "package": "T-1 3/4 (5 mm)",
+    "partNumber": "CMP-00003",
+    "terminals": [
+      {
+        "id": "a",
+        "label": "anode",
+        "polarity": "+"
+      },
+      {
+        "id": "b",
+        "label": "cathode",
+        "polarity": "-"
+      }
+    ],
+    "src": "generic 5 mm red indicator LED; synthetic example"
+  }
+]

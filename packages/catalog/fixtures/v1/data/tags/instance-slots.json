@@ -1,0 +1,10 @@
+{
+  "src": "generated from each instance's free-text role; design files are never rewritten by the tagger",
+  "designs": {
+    "trs-to-2rca-y": {
+      "j1": "source-plug",
+      "w2": "leg",
+      "w3": "leg"
+    }
+  }
+}

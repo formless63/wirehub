@@ -1,0 +1,72 @@
+[
+  {
+    "id": "rs485-terminal-board",
+    "label": "RS-485 terminal adapter board (synthetic)",
+    "partNumber": "PCA-00001",
+    "revision": "Rev1",
+    "build": "terminated",
+    "terminals": [
+      {
+        "id": "A",
+        "label": "A (data −)",
+        "role": "data-a"
+      },
+      {
+        "id": "B",
+        "label": "B (data +)",
+        "role": "data-b"
+      },
+      {
+        "id": "GND",
+        "label": "Signal ground",
+        "role": "gnd"
+      },
+      {
+        "id": "SHLD",
+        "label": "Shield",
+        "role": "gnd",
+        "signal": "gnd-chassis"
+      }
+    ],
+    "integratedConnectors": [
+      {
+        "connectorDefId": "terminal-block-4",
+        "terminalPrefix": "tb"
+      }
+    ],
+    "internalLinks": [
+      {
+        "from": "A",
+        "to": "tb.1"
+      },
+      {
+        "from": "B",
+        "to": "tb.2"
+      },
+      {
+        "from": "GND",
+        "to": "tb.3"
+      },
+      {
+        "from": "SHLD",
+        "to": "tb.4"
+      },
+      {
+        "from": "A",
+        "to": "B",
+        "via": "R1 120 Ω",
+        "elements": [
+          {
+            "text": "R1 120 Ω",
+            "kind": "resistor",
+            "designator": "R1",
+            "value": "120 Ω",
+            "ohms": 120
+          }
+        ],
+        "note": "termination, fitted when JP1 is closed"
+      }
+    ],
+    "src": "synthetic example: a small board with cable pads, a 4-way terminal block and a jumper-selectable 120 Ω RS-485 termination"
+  }
+]

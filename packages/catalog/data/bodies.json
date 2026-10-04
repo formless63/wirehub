@@ -1,0 +1,332 @@
+[
+  {
+    "id": "de9-female",
+    "label": "D-sub 9 (DE-9) female",
+    "family": "d-sub",
+    "gender": "female",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "5"
+      },
+      {
+        "id": "6"
+      },
+      {
+        "id": "7"
+      },
+      {
+        "id": "8"
+      },
+      {
+        "id": "9"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "mates": "de9-male",
+    "construction": "solder-cup",
+    "drawing": "d-sub",
+    "src": "IEC 60807-3 / DIN 41652 DE-9 shell size E, 9 contacts; generic solder-cup part"
+  },
+  {
+    "id": "de9-male",
+    "label": "D-sub 9 (DE-9) male",
+    "family": "d-sub",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "5"
+      },
+      {
+        "id": "6"
+      },
+      {
+        "id": "7"
+      },
+      {
+        "id": "8"
+      },
+      {
+        "id": "9"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "mates": "de9-female",
+    "construction": "solder-cup",
+    "drawing": "d-sub",
+    "src": "IEC 60807-3 / DIN 41652 DE-9 shell size E, 9 contacts; generic solder-cup part"
+  },
+  {
+    "id": "hd15-male",
+    "label": "HD15 (DE-15) male",
+    "family": "hd15",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "5"
+      },
+      {
+        "id": "6"
+      },
+      {
+        "id": "7"
+      },
+      {
+        "id": "8"
+      },
+      {
+        "id": "9"
+      },
+      {
+        "id": "10"
+      },
+      {
+        "id": "11"
+      },
+      {
+        "id": "12"
+      },
+      {
+        "id": "13"
+      },
+      {
+        "id": "14"
+      },
+      {
+        "id": "15"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "construction": "solder-cup",
+    "drawing": "d-sub",
+    "src": "VESA DDC / Enhanced DDC VGA connector (DE-15, three rows); generic solder-cup part"
+  },
+  {
+    "id": "rj45-8p8c-plug",
+    "label": "RJ45 (8P8C) modular plug",
+    "family": "rj45",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "5"
+      },
+      {
+        "id": "6"
+      },
+      {
+        "id": "7"
+      },
+      {
+        "id": "8"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "construction": "crimp",
+    "src": "IEC 60603-7 8-position modular plug; contact numbering 1–8 left to right, clip down, contacts facing the viewer"
+  },
+  {
+    "id": "xlr3-female",
+    "label": "XLR 3-pin female (cable)",
+    "family": "xlr",
+    "gender": "female",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "mates": "xlr3-male",
+    "construction": "solder-cup",
+    "src": "IEC 61076-2-103 circular 3-pole connector; contact numbers moulded on the insert"
+  },
+  {
+    "id": "xlr3-male",
+    "label": "XLR 3-pin male (cable)",
+    "family": "xlr",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "mates": "xlr3-female",
+    "construction": "solder-cup",
+    "src": "IEC 61076-2-103 circular 3-pole connector; contact numbers moulded on the insert"
+  },
+  {
+    "id": "rca-male",
+    "label": "RCA plug (male)",
+    "family": "rca",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "tip"
+      },
+      {
+        "id": "sleeve"
+      }
+    ],
+    "src": "IEC 60603-12 phono plug: centre pin (tip) and shell (sleeve)"
+  },
+  {
+    "id": "trs-3-5mm-male",
+    "label": "3.5 mm TRS plug (male)",
+    "family": "trs-3-5mm",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "tip"
+      },
+      {
+        "id": "ring"
+      },
+      {
+        "id": "sleeve"
+      }
+    ],
+    "construction": "solder-cup",
+    "src": "IEC 60603-11 3.5 mm three-pole plug: tip, ring, sleeve"
+  },
+  {
+    "id": "usb-a-plug",
+    "label": "USB Type-A plug",
+    "family": "usb-a",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "construction": "solder-cup",
+    "src": "USB 2.0 Specification §6.5.3 (USB-IF), Standard-A plug: contacts 1–4 and shell"
+  },
+  {
+    "id": "jst-xh-2",
+    "label": "JST XH 2-position housing (2.5 mm)",
+    "family": "jst-xh",
+    "gender": "female",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      }
+    ],
+    "construction": "crimp",
+    "src": "JST XH series datasheet (2.5 mm pitch wire-to-board housing, XHP-2); public datasheet"
+  },
+  {
+    "id": "terminal-block-4",
+    "label": "Terminal block, 4 positions, 5.08 mm",
+    "family": "terminal-block",
+    "gender": "female",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      }
+    ],
+    "construction": "screw-terminal",
+    "src": "generic 5.08 mm pitch PCB screw terminal block, 4 positions; synthetic example"
+  }
+]

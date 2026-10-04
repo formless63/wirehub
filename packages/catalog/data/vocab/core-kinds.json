@@ -1,0 +1,27 @@
+{
+  "id": "core-kinds",
+  "label": "Core kinds",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "coax",
+      "label": "Coax",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "shielded-core",
+      "label": "Shielded core",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "plain",
+      "label": "Plain",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "pair",
+      "label": "Twisted pair",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

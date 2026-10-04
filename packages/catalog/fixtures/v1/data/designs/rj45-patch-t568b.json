@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 4,
+  "id": "rj45-patch-t568b",
+  "label": "RJ45 → RJ45, Cat 5e patch cable, T568B straight-through",
+  "instances": {
+    "connectors": [
+      {
+        "id": "j1",
+        "def": "rj45-plug-t568b",
+        "role": "end A"
+      },
+      {
+        "id": "j2",
+        "def": "rj45-plug-t568b",
+        "role": "end B"
+      }
+    ],
+    "segments": [
+      {
+        "id": "w1",
+        "def": "cat5e-utp",
+        "lengthMm": 2000
+      }
+    ],
+    "components": [],
+    "pcbas": [],
+    "mechanical": [
+      {
+        "id": "m1",
+        "def": "rj45-boot",
+        "qty": 1,
+        "attachedTo": "j1"
+      },
+      {
+        "id": "m2",
+        "def": "rj45-boot",
+        "qty": 1,
+        "attachedTo": "j2"
+      }
+    ]
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "1"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-2.b",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-2.b",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "1"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-2.a",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-2.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "2"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "3"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-3.b",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-3.b",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "3"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-1.a",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-1.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "4"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "5"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-1.b",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-1.b",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "5"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "6"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-3.a",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-3.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "6"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "7"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-4.b",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-4.b",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "7"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "8"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "pair-4.a",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "pair-4.a",
+        "end": "b"
+      },
+      "b": {
+        "instance": "j2",
+        "terminal": "8"
+      }
+    }
+  ],
+  "src": "synthetic example: a TIA-568 T568B straight-through patch cord (pin 1 white/orange, 2 orange, 3 white/green, 4 blue, 5 white/blue, 6 green, 7 white/brown, 8 brown at both ends)"
+}

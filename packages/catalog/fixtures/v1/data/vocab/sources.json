@@ -1,0 +1,22 @@
+{
+  "id": "sources",
+  "label": "Sources",
+  "src": "where catalog values come from",
+  "entries": [
+    {
+      "id": "synthetic",
+      "label": "Synthetic example",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "public-standard",
+      "label": "Public standard",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "datasheet",
+      "label": "Manufacturer datasheet",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

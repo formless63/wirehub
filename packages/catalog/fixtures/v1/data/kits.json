@@ -1,0 +1,26 @@
+[
+  {
+    "id": "kit-de9-hood",
+    "label": "DE-9 hood kit (backshell + jackscrews)",
+    "sku": "KIT-00001",
+    "contents": [
+      {
+        "part": {
+          "kind": "mechanical",
+          "def": "de9-backshell"
+        },
+        "qty": 1,
+        "src": "synthetic example"
+      },
+      {
+        "part": {
+          "kind": "mechanical",
+          "def": "jackscrew-4-40"
+        },
+        "qty": 1,
+        "src": "synthetic example"
+      }
+    ],
+    "src": "synthetic example"
+  }
+]

@@ -1,0 +1,36 @@
+name: cable-studio
+
+# Cable Studio as one container: the standalone Node server serving the built
+# bundle + /api/* on port 5183. The catalog (definitions, designs, drawings)
+# is plain JSON under packages/catalog/data — mounted from the checkout so
+# saves persist and stay under version control.
+#
+#   docker compose up --build        then open http://localhost:5183
+#
+# Optional settings go in ./.env (see .env.example): the login
+# (AUTH_ENABLED=true and friends) and the git export of saves
+# (STUDIO_GIT_AUTOCOMMIT=true). Everything is off by default.
+#
+# The Postgres-backed deployment (specs/postgres-backend.md) replaces the
+# file mount with a database and a blob store; its compose file lands with
+# that work.
+
+services:
+  studio:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    image: cable-studio:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      AUTH_DATA_DIR: /data/auth
+      STUDIO_GIT_AUTOCOMMIT: ${STUDIO_GIT_AUTOCOMMIT:-false}
+    ports:
+      - "${STUDIO_PORT:-5183}:5183"
+    volumes:
+      - ./packages/catalog/data:/app/packages/catalog/data
+      - ./data/auth:/data/auth
+    restart: unless-stopped

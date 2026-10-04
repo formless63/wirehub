@@ -1,0 +1,381 @@
+/**
+ * A Library record's pictures in one place: a
+ * 2D / 3D / Photo toggle over the record's drawn art, its 3D model and its
+ * photo — whichever of them it has — plus Attach / Replace / Detach for the
+ * model.
+ *
+ * The 3D view itself (three.js) is `ModelViewer3d`, loaded with
+ * `React.lazy` the first time a model is shown, so the main bundle does not
+ * carry it. A model's bytes come from the host's asset API through the
+ * adapter; nothing here knows a URL.
+ *
+ * Attaching is a Library edit: the controls are disabled while someone else
+ * holds the record's edit lock, opening the attach form counts as starting
+ * an edit (the host's lock scope takes the lease), and the host's adapter
+ * sends the link's version as If-Match.
+ */
+
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
+
+import type { ArtworkAdapter, ArtworkView } from '../artwork.ts';
+import { classes } from '../context.ts';
+import { isModelFileName, MODEL_ACCEPT, MODEL_SOURCE_LABEL, type ModelLinkView, type ModelsAdapter, type ModelSourceKind, type StoredModel } from '../models.ts';
+import { useEditLocked, useEditSession } from './edit-session.ts';
+
+const ModelViewer3d = lazy(() => import('./ModelViewer3d.tsx'));
+
+type ViewId = '2d' | '3d' | 'photo';
+
+export interface ModelPanelProps {
+  kind: string;
+  id: string;
+  label: string;
+  models: ModelsAdapter;
+  /** the record's depictions — its 2D art and any photo */
+  artwork?: ArtworkAdapter;
+  /** 2D art the builder draws itself (a connector's face), when the record has no uploaded 2D view */
+  builtIn2d?: ReactNode;
+  /** read-only host (no definitions adapter) */
+  readOnly?: boolean;
+}
+
+const OPEN_KEY = 'cs-model-panel-open';
+
+function readOpen(): boolean {
+  try {
+    return window.localStorage.getItem(OPEN_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function writeOpen(open: boolean): void {
+  try {
+    window.localStorage.setItem(OPEN_KEY, open ? 'true' : 'false');
+  } catch {
+    // a private window: the choice just is not remembered
+  }
+}
+
+/** A depiction as an `<img>` source — an SVG stays inert inside `<img>`. */
+function artSrc(art: { kind: 'vector' | 'raster'; source?: string; dataUri?: string }): string | undefined {
+  if (art.kind === 'raster') return art.dataUri;
+  return art.source === undefined ? undefined : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(art.source)}`;
+}
+
+/** The 2D view to show: board top / mating face / illustration, never a mirrored or photo one. */
+function pick2d(views: readonly ArtworkView[]): ArtworkView | undefined {
+  const drawn = views.filter((v) => !v.derived && v.sourceKind !== 'photo' && v.view !== 'schematic-symbol');
+  const order = ['board-top', 'mating-face', 'illustration'];
+  return [...drawn].sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view))[0];
+}
+
+function kb(bytes: number): string {
+  return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
+export function ModelPanel(props: ModelPanelProps): JSX.Element {
+  const { kind, id, models, artwork } = props;
+  const locked = useEditLocked();
+  const session = useEditSession();
+  const [open, setOpen] = useState(readOpen);
+  const [link, setLink] = useState<ModelLinkView | null | undefined>(undefined);
+  const [model, setModel] = useState<{ bytes: ArrayBuffer; mime: string } | undefined>(undefined);
+  const [modelError, setModelError] = useState<string | undefined>(undefined);
+  const [views, setViews] = useState<ArtworkView[]>([]);
+  const [art, setArt] = useState<{ view: string; src: string } | undefined>(undefined);
+  const [view, setView] = useState<ViewId | undefined>(undefined);
+  const [attaching, setAttaching] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | undefined>(undefined);
+
+  // the record's link and its art, afresh per record
+  useEffect(() => {
+    let live = true;
+    setLink(undefined);
+    setModel(undefined);
+    setModelError(undefined);
+    setViews([]);
+    setArt(undefined);
+    setView(undefined);
+    setAttaching(false);
+    setMessage(undefined);
+    void models.get(kind, id).then((outcome) => {
+      if (!live) return;
+      if (outcome.ok) setLink(outcome.value);
+      else setLink(null);
+    });
+    if (artwork !== undefined) {
+      void artwork.detail(id).then((outcome) => {
+        if (live && outcome.ok) setViews(outcome.value.views);
+      });
+    }
+    return () => {
+      live = false;
+    };
+  }, [kind, id, models, artwork]);
+
+  // the model's bytes, once there is a link and the 3D view is wanted
+  useEffect(() => {
+    if (link === undefined || link === null || !open) return;
+    let live = true;
+    setModel(undefined);
+    setModelError(undefined);
+    void models.fetchModel(link.asset).then((outcome) => {
+      if (!live) return;
+      if (outcome.ok) setModel(outcome.value);
+      else setModelError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
+    });
+    return () => {
+      live = false;
+    };
+  }, [link, models, open]);
+
+  const twoD = useMemo(() => pick2d(views), [views]);
+  const photo = useMemo(() => views.find((v) => v.sourceKind === 'photo' && !v.derived), [views]);
+  const available: ViewId[] = [
+    ...(twoD !== undefined || props.builtIn2d !== undefined ? (['2d'] as const) : []),
+    ...(link ? (['3d'] as const) : []),
+    ...(photo !== undefined ? (['photo'] as const) : []),
+  ];
+  // 3D first when there is a model — that is what the page is for
+  const shown: ViewId | undefined = view !== undefined && available.includes(view) ? view : link ? '3d' : available[0];
+
+  // the 2D/photo bytes, when that view is shown
+  const wantArt = shown === 'photo' ? photo : shown === '2d' ? twoD : undefined;
+  useEffect(() => {
+    if (artwork === undefined || wantArt === undefined || !open) return;
+    if (art?.view === wantArt.view) return;
+    let live = true;
+    void artwork.artwork(id, wantArt.view).then((outcome) => {
+      if (!live || !outcome.ok) return;
+      const src = artSrc(outcome.value);
+      if (src !== undefined) setArt({ view: wantArt.view, src });
+    });
+    return () => {
+      live = false;
+    };
+  }, [artwork, id, wantArt, open, art]);
+
+  const startAttach = useCallback((): void => {
+    setAttaching(true);
+    setMessage(undefined);
+    // opening the form is the start of an edit: the host's scope takes the lease
+    session.onDirtyChange?.(true);
+  }, [session]);
+  const endAttach = useCallback((): void => {
+    setAttaching(false);
+    session.onDirtyChange?.(false);
+  }, [session]);
+
+  const done = (next: ModelLinkView | null, text: string): void => {
+    setLink(next);
+    setView(next === null ? undefined : '3d');
+    setMessage({ tone: 'ok', text });
+    endAttach();
+  };
+
+  const detach = async (): Promise<void> => {
+    setBusy(true);
+    const outcome = await models.detach(kind, id);
+    setBusy(false);
+    if (outcome.ok) done(null, 'Detached. The stored model stays available to attach again.');
+    else setMessage({ tone: 'err', text: `${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}` });
+  };
+
+  const disabled = locked || props.readOnly === true || busy;
+  const toggleOpen = (): void => {
+    const next = !open;
+    setOpen(next);
+    writeOpen(next);
+  };
+
+  return (
+    <section className={classes('cs-model-panel', !open && 'is-collapsed')} aria-label="Pictures of this part">
+      <header className="cs-model-head">
+        <button type="button" className="cs-model-fold" aria-expanded={open} onClick={toggleOpen} title={open ? 'Hide the pictures' : 'Show the pictures'}>
+          {open ? '▾' : '▸'} Views
+        </button>
+        {available.length > 0 ? (
+          <div className="cs-seg" role="group" aria-label="view">
+            {(['2d', '3d', 'photo'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={classes(shown === v && 'is-active')}
+                aria-pressed={shown === v}
+                disabled={!available.includes(v)}
+                title={available.includes(v) ? undefined : v === '3d' ? 'No 3D model yet — attach one' : v === 'photo' ? 'No photo in its artwork' : 'No 2D art'}
+                onClick={() => {
+                  setView(v);
+                  if (!open) toggleOpen();
+                }}
+              >
+                {v === '2d' ? '2D' : v === '3d' ? '3D' : 'Photo'}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {link ? (
+          <span className="cs-chip cs-model-source" title={link.src}>
+            {MODEL_SOURCE_LABEL[link.sourceKind]}
+            {link.revision === undefined ? '' : ` · ${link.revision}`}
+            {link.built === false ? ' · not built yet' : ''}
+          </span>
+        ) : link === null ? (
+          <span className="cs-model-none">No 3D model</span>
+        ) : null}
+        <span className="cs-model-actions">
+          {link === undefined ? null : (
+            <button type="button" disabled={disabled} onClick={attaching ? endAttach : startAttach} title={locked ? 'Someone else is editing this part' : undefined}>
+              {attaching ? 'Cancel' : link ? 'Replace model' : 'Attach model'}
+            </button>
+          )}
+          {link ? (
+            <button type="button" disabled={disabled} onClick={() => void detach()} title="Unlink the model from this part (the stored file stays)">
+              Detach
+            </button>
+          ) : null}
+        </span>
+      </header>
+      {message === undefined ? null : (
+        <p className={classes('cs-model-message', message.tone === 'err' && 'is-error')} role="status">
+          {message.text}
+        </p>
+      )}
+      {attaching ? <AttachForm {...props} disabled={disabled} onBusy={setBusy} onDone={done} onError={(text) => setMessage({ tone: 'err', text })} /> : null}
+      {!open ? null : shown === '3d' ? (
+        modelError !== undefined ? (
+          <p className="cs-model-problem">{modelError}</p>
+        ) : model === undefined ? (
+          <p className="cs-model-loading">Loading the model…</p>
+        ) : (
+          <Suspense fallback={<p className="cs-model-loading">Loading the 3D view…</p>}>
+            <ModelViewer3d bytes={model.bytes} mime={model.mime} label={props.label} />
+          </Suspense>
+        )
+      ) : shown === '2d' && twoD === undefined ? (
+        <div className="cs-model-art">{props.builtIn2d}</div>
+      ) : shown === '2d' || shown === 'photo' ? (
+        art === undefined || art.view !== wantArt?.view ? (
+          <p className="cs-model-loading">Loading…</p>
+        ) : (
+          <div className="cs-model-art">
+            <img src={art.src} alt={`${shown === 'photo' ? 'Photo' : '2D art'} of ${props.label}`} />
+          </div>
+        )
+      ) : null}
+    </section>
+  );
+}
+
+function AttachForm(
+  props: ModelPanelProps & {
+    disabled: boolean;
+    onBusy: (busy: boolean) => void;
+    onDone: (link: ModelLinkView, text: string) => void;
+    onError: (text: string) => void;
+  },
+): JSX.Element {
+  const { kind, id, models } = props;
+  const [stored, setStored] = useState<StoredModel[] | undefined>(undefined);
+  const [pick, setPick] = useState('');
+  const [query, setQuery] = useState('');
+  const [sourceKind, setSourceKind] = useState<ModelSourceKind>('uploaded');
+  const [working, setWorking] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let live = true;
+    void models.list().then((outcome) => {
+      if (live) setStored(outcome.ok ? outcome.value.models : []);
+    });
+    return () => {
+      live = false;
+    };
+  }, [models]);
+
+  const shownModels = (stored ?? []).filter((m) => `${m.originalName} ${m.src}`.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const upload = async (file: File): Promise<void> => {
+    if (!isModelFileName(file.name)) {
+      props.onError(`${file.name} is not an STL, STEP or GLB file.`);
+      return;
+    }
+    setWorking(/\.(step|stp)$/i.test(file.name) ? `Converting ${file.name} — a STEP file can take up to a minute…` : `Uploading ${file.name}…`);
+    props.onBusy(true);
+    const outcome = await models.upload(kind, id, { name: file.name, bytes: await file.arrayBuffer() }, sourceKind);
+    props.onBusy(false);
+    setWorking(undefined);
+    if (outcome.ok) {
+      const stats = outcome.value.stats;
+      props.onDone(
+        outcome.value.link,
+        `Attached ${file.name}${stats === undefined || stats.triangles === 0 ? '' : ` — ${stats.triangles.toLocaleString()} triangles${stats.simplified ? ` (simplified from ${stats.sourceTriangles.toLocaleString()})` : ''}`}.`,
+      );
+    } else {
+      props.onError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
+    }
+  };
+
+  const attach = async (): Promise<void> => {
+    if (pick === '') return;
+    props.onBusy(true);
+    const outcome = await models.attach(kind, id, pick);
+    props.onBusy(false);
+    if (outcome.ok) props.onDone(outcome.value, 'Attached.');
+    else props.onError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
+  };
+
+  return (
+    <div className="cs-model-attach">
+      <fieldset disabled={props.disabled}>
+        <div className="cs-model-attach-row">
+          <label>
+            Upload a file
+            <input
+              type="file"
+              accept={MODEL_ACCEPT}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file !== undefined) void upload(file);
+                event.target.value = '';
+              }}
+            />
+          </label>
+          <label>
+            Source
+            <select value={sourceKind} onChange={(event) => setSourceKind(event.target.value as ModelSourceKind)}>
+              <option value="uploaded">Uploaded</option>
+              <option value="vendor">Vendor model</option>
+              <option value="resin-print">Resin print</option>
+              <option value="kicad-board">KiCad board</option>
+            </select>
+          </label>
+          <span className="cs-model-hint">STL, STEP or GLB, up to 24 MB. STEP is converted to GLB on the server.</span>
+        </div>
+        <div className="cs-model-attach-row">
+          <label>
+            Or pick an imported model
+            <input type="search" placeholder="Search by part number or file" value={query} onChange={(event) => setQuery(event.target.value)} />
+          </label>
+          <select aria-label="imported model" size={Math.min(6, Math.max(2, shownModels.length))} value={pick} onChange={(event) => setPick(event.target.value)}>
+            {stored === undefined ? <option disabled>Loading…</option> : null}
+            {shownModels.map((m) => (
+              <option key={m.id} value={m.id} title={m.src}>
+                {m.originalName} · {kb(m.bytes)}
+              </option>
+            ))}
+          </select>
+          <button type="button" disabled={pick === ''} onClick={() => void attach()}>
+            Attach
+          </button>
+        </div>
+      </fieldset>
+      {working === undefined ? null : (
+        <p className="cs-model-loading" role="status">
+          {working}
+        </p>
+      )}
+    </div>
+  );
+}

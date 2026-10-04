@@ -1,0 +1,991 @@
+/*
+ * The board journey (Library › Boards —): the step strip,
+ * pads on the gerber art, the connector footprint map and the build editor.
+ * Compact: 26–28px controls, 12px text, mono for ids; tokens only, so both
+ * themes follow; one column under 760px.
+ */
+
+/* ---- pads on the art ---- */
+
+.cs-padart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+  border-radius: 6px;
+  outline: none;
+}
+
+.cs-padart:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 1px var(--accent);
+}
+
+.cs-padart-face {
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cs-padart-face figcaption {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.cs-padart-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--canvas);
+}
+
+.cs-padart-blank {
+  fill: var(--board);
+  opacity: 0.35;
+}
+
+.cs-padart-pad {
+  cursor: pointer;
+  --pad: var(--accent);
+}
+
+.cs-padart-pad.is-ok {
+  --pad: var(--ok);
+}
+.cs-padart-pad.is-warn {
+  --pad: var(--warn);
+}
+.cs-padart-pad.is-err {
+  --pad: var(--err);
+}
+.cs-padart-pad.is-dim {
+  --pad: var(--faint);
+}
+.cs-padart-pad.is-accent {
+  --pad: var(--accent);
+}
+
+.cs-padart-hit {
+  fill: transparent;
+}
+
+.cs-padart-dot {
+  fill: color-mix(in srgb, var(--pad) 22%, transparent);
+  stroke: var(--pad);
+  stroke-width: 2;
+}
+
+.cs-padart-pad.is-warn .cs-padart-dot {
+  stroke-dasharray: 3 2;
+}
+
+.cs-padart-pad:hover .cs-padart-dot,
+.cs-padart-pad.is-group .cs-padart-dot {
+  fill: color-mix(in srgb, var(--pad) 45%, transparent);
+}
+
+.cs-padart-pad.is-picked .cs-padart-dot {
+  fill: var(--pad);
+  stroke: var(--ink);
+  stroke-width: 2.5;
+}
+
+.cs-padart-label {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--pad);
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+/* ---- the step strip ---- */
+
+.cs-bj-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+
+.cs-bj-strip ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-editor .cs-bj-strip ol button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 9px 0 5px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--dim);
+  border-radius: 6px;
+}
+
+.cs-editor .cs-bj-strip ol button:hover {
+  background: var(--hover);
+  border-color: transparent;
+}
+
+.cs-editor .cs-bj-strip ol button.is-on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.cs-bj-n {
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  background: var(--raised);
+  border: 1px solid var(--line2);
+  color: var(--dim);
+}
+
+.cs-bj-strip button.is-done .cs-bj-n {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.cs-bj-name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cs-bj-note {
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.cs-bj-strip button.is-warn .cs-bj-note,
+.cs-bj-strip button.is-todo .cs-bj-note {
+  color: var(--warn);
+}
+
+.cs-bj-st.is-done {
+  color: var(--ok);
+}
+.cs-bj-st.is-warn {
+  color: var(--warn);
+}
+.cs-bj-st.is-todo {
+  color: var(--warn);
+}
+.cs-bj-st.is-none {
+  color: var(--faint);
+}
+
+.cs-editor .cs-bj-deftab {
+  margin-left: auto;
+  height: 26px;
+  background: transparent;
+  color: var(--dim);
+}
+
+.cs-editor .cs-bj-deftab.is-on {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ---- a step ---- */
+
+.cs-bj-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0 24px;
+  min-width: 0;
+  font-size: 12.5px;
+}
+
+.cs-bj-toolbar,
+.cs-bj-savebar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.cs-bj-savebar {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.cs-editor .cs-bj-toolbar button,
+.cs-editor .cs-bj-savebar button,
+.cs-editor .cs-bj-card button.cs-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+}
+
+.cs-dim {
+  color: var(--faint);
+}
+
+.cs-bj-keys {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.cs-bj-keys kbd {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  padding: 0 3px;
+  border: 1px solid var(--line2);
+  border-radius: 3px;
+  background: var(--raised);
+  color: var(--dim);
+}
+
+.cs-bj-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.cs-bj-h {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.cs-bj-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.cs-bj-table th,
+.cs-bj-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.cs-bj-table thead th {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--faint);
+  background: var(--raised);
+}
+
+.cs-bj-table tbody th {
+  font-weight: 500;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.cs-bj-card .cs-bj-table td:last-child {
+  white-space: nowrap;
+}
+
+.cs-bj-table td > span + span {
+  margin-left: 8px;
+}
+
+.cs-bj-table tr.is-bad td,
+.cs-bj-table tr.is-bad th {
+  background: color-mix(in srgb, var(--err) 8%, transparent);
+}
+
+.cs-bj-path-cell {
+  word-break: break-all;
+  color: var(--dim);
+}
+
+.cs-bj-me {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.cs-bj-bad {
+  color: var(--err);
+  font-size: 12px;
+}
+
+p.cs-bj-bad {
+  margin: 2px 0 0;
+}
+
+.cs-bj-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--warn);
+}
+
+.cs-bj-hint.is-ok {
+  color: var(--faint);
+}
+
+.cs-bj-hint.is-bad {
+  color: var(--err);
+}
+
+/* pads: art left, the picked pad's card right */
+.cs-bj-padgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(220px, 4fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.cs-bj-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  min-width: 0;
+}
+
+.cs-bj-card > header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cs-bj-card > header strong {
+  font-size: 14px;
+}
+
+.cs-bj-padtable tbody tr {
+  cursor: pointer;
+}
+
+.cs-bj-padtable tbody tr:hover td {
+  background: var(--hover);
+}
+
+.cs-bj-padtable tr.is-warn td:first-child {
+  box-shadow: inset 2px 0 0 var(--warn);
+}
+
+.cs-bj-padtable tr.is-on td {
+  background: var(--accent-soft);
+}
+
+/* a labelled control, compact */
+.cs-bj-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cs-bj-text > span {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.cs-bj-text input,
+.cs-bj-text select,
+.cs-bj-text textarea {
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line2);
+  border-radius: 4px;
+  padding: 3px 6px;
+  min-height: 26px;
+  min-width: 0;
+}
+
+.cs-bj-text textarea {
+  resize: vertical;
+}
+
+.cs-bj-text input:focus,
+.cs-bj-text select:focus,
+.cs-bj-text textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cs-bj-text.is-bad input {
+  border-color: var(--err);
+}
+
+.cs-bj-row .cs-bj-text.is-wide {
+  flex: 1 1 220px;
+}
+
+.cs-bj-text .cs-pick {
+  width: 100%;
+}
+
+/* ---- builds ---- */
+
+.cs-bj-builds {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cs-bj-buildtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.cs-editor .cs-bj-buildtabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  background: var(--panel);
+}
+
+.cs-editor .cs-bj-buildtabs button.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.cs-editor .cs-bj-buildtabs .cs-bj-new {
+  background: transparent;
+  border-style: dashed;
+  color: var(--dim);
+}
+
+.cs-bj-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  color: var(--bg);
+  background: var(--warn);
+}
+
+.cs-bj-count.is-err {
+  background: var(--err);
+}
+
+.cs-bj-ok {
+  color: var(--ok);
+}
+
+.cs-bj-newpop {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+
+.cs-bj-buildgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(240px, 5fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.cs-bj-form {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-bj-side {
+  position: sticky;
+  top: 42px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cs-bj-side .cs-padart {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cs-bj-section {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 6px 10px 8px;
+  min-width: 0;
+}
+
+.cs-bj-section > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.cs-bj-section > header h4 {
+  margin: 0;
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cs-bj-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px 8px;
+  margin-bottom: 6px;
+}
+
+.cs-bj-row > .cs-bj-text:not(.is-wide) {
+  flex: 0 1 120px;
+}
+
+.cs-bj-seg {
+  display: inline-flex;
+  border: 1px solid var(--line2);
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.cs-editor .cs-bj-seg button {
+  border: 0;
+  border-radius: 0;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--bg);
+  color: var(--dim);
+  font-size: 11.5px;
+}
+
+.cs-editor .cs-bj-seg button + button {
+  border-left: 1px solid var(--line2);
+}
+
+.cs-editor .cs-bj-seg button.is-on {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.cs-editor .cs-bj-seg button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.cs-bj-seg.is-bad {
+  border-color: var(--err);
+  box-shadow: 0 0 0 1px var(--err);
+}
+
+.cs-editor .cs-bj-seg.is-bad button.is-on {
+  background: var(--err);
+  color: var(--bg);
+}
+
+.cs-bj-table tr.is-bad .cs-bj-seg {
+  border-color: var(--err);
+}
+
+.cs-bj-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cs-bj-rules .cs-chip {
+  font-size: 10.5px;
+  padding: 0 6px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+.cs-bj-rule {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cs-bj-rule.is-ok {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 9%, transparent);
+}
+
+.cs-bj-rule.is-bad {
+  color: var(--err);
+  background: color-mix(in srgb, var(--err) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--err) 45%, transparent);
+}
+
+.cs-bj-parts-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 12px;
+}
+
+.cs-bj-partrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.cs-bj-partrow.is-omitted > .cs-mono {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+
+.cs-editor .cs-bj-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 7px;
+  background: transparent;
+  border-style: dashed;
+  color: var(--dim);
+  font-size: 11.5px;
+}
+
+.cs-bj-paths {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cs-bj-path {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+}
+
+.cs-bj-path.is-picked {
+  border-color: var(--accent);
+}
+
+.cs-bj-path.is-bad {
+  border-color: var(--err);
+}
+
+.cs-bj-path-ends,
+.cs-bj-path-sig,
+.cs-bj-path-cond {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.cs-editor .cs-bj-path .cs-pick,
+.cs-editor .cs-bj-row .cs-pick,
+.cs-editor .cs-bj-feeds .cs-pick {
+  width: auto;
+  height: 24px;
+  min-width: 70px;
+  max-width: 200px;
+  flex: 0 1 auto;
+  padding: 0 6px;
+}
+
+.cs-editor .cs-bj-path-ends .cs-pick {
+  min-width: 84px;
+}
+
+.cs-editor .cs-bj-row .cs-bj-text .cs-pick {
+  width: 100%;
+  max-width: none;
+  height: 26px;
+}
+
+/* the import review's pickers sit in plain table cells */
+.cs-pick.is-bad {
+  border-color: var(--warn);
+}
+
+.cs-bj-walk {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.cs-bj-walk.is-bad {
+  color: var(--err);
+}
+
+.cs-bj-lbl {
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.cs-bj-path-cond .cs-chip,
+.cs-bj-row .cs-chip,
+.cs-bj-feeds .cs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  padding: 1px 4px 1px 7px;
+}
+
+.cs-editor .cs-bj-path-cond .cs-chip button,
+.cs-editor .cs-bj-row .cs-chip button,
+.cs-editor .cs-bj-feeds .cs-chip button {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+}
+
+.cs-bj-cond {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.cs-editor .cs-bj-suggest {
+  border-style: dashed;
+  border-radius: 999px;
+  color: var(--accent);
+  background: transparent;
+  font-size: 11px;
+  padding: 1px 7px;
+}
+
+.cs-bj-feeds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.cs-bj-board {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: var(--panel);
+}
+
+.cs-bj-board > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cs-bj-board[open] > summary {
+  margin-bottom: 6px;
+}
+
+.cs-bj-board .cs-bj-section {
+  background: var(--bg);
+  margin-top: 6px;
+}
+
+.cs-bj-legend {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.cs-bj-legend span::before {
+  content: '';
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  border: 1.5px solid var(--ok);
+  background: color-mix(in srgb, var(--ok) 30%, transparent);
+}
+
+.cs-bj-legend .is-bridged::before {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.cs-bj-legend .is-omitted::before {
+  border-color: var(--faint);
+  border-style: dashed;
+  background: transparent;
+}
+
+.cs-bj-part {
+  cursor: pointer;
+}
+
+.cs-bj-part polygon {
+  fill: color-mix(in srgb, var(--ok) 30%, transparent);
+  stroke: var(--ok);
+  stroke-width: 1.5;
+}
+
+.cs-bj-part.is-bridged polygon {
+  fill: color-mix(in srgb, var(--accent) 50%, transparent);
+  stroke: var(--accent);
+}
+
+.cs-bj-part.is-omitted polygon {
+  fill: transparent;
+  stroke: var(--faint);
+  stroke-dasharray: 3 2;
+}
+
+.cs-bj-part.is-set {
+  cursor: default;
+}
+
+.cs-bj-part:hover polygon {
+  stroke-width: 2.5;
+}
+
+.cs-bj-part text {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: var(--ink);
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+.cs-bj-part.is-omitted text {
+  fill: var(--faint);
+}
+
+.cs-bj-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.cs-bj-issues li {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.cs-bj-issues li.is-err {
+  color: var(--err);
+  background: color-mix(in srgb, var(--err) 9%, transparent);
+}
+
+.cs-bj-issues li.is-warn {
+  color: var(--warn);
+}
+
+.cs-bj-issues .cs-mono {
+  font-size: 10.5px;
+  opacity: 0.8;
+}
+
+/* the imported-board form: the record locked, the tags open */
+fieldset.cs-lockable {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .cs-bj-padgrid,
+  .cs-bj-buildgrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cs-bj-side {
+    position: static;
+    order: -1;
+  }
+  .cs-bj-note {
+    display: none;
+  }
+  .cs-editor .cs-bj-strip ol button {
+    padding: 0 6px 0 4px;
+  }
+  .cs-bj-keys {
+    display: none;
+  }
+  /* the per-order rules stay in the setting's tooltip */
+  .cs-bj-table td.cs-bj-rules {
+    display: none;
+  }
+  .cs-bj-parts-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

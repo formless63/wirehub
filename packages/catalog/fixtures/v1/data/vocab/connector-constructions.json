@@ -1,0 +1,42 @@
+{
+  "id": "connector-constructions",
+  "label": "Connector constructions",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "solder-cup",
+      "label": "Solder cup",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "pcb-mount-th",
+      "label": "PCB mount (through-hole)",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "pcb-mount-smd",
+      "label": "PCB mount (SMD)",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "crimp",
+      "label": "Crimp",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "idc",
+      "label": "IDC / insulation displacement",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "screw-terminal",
+      "label": "Screw terminal",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "moulded",
+      "label": "Moulded",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}

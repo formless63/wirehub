@@ -1,0 +1,57 @@
+{
+  "id": "materials",
+  "label": "Materials",
+  "src": "synthetic example: base starter vocabulary",
+  "entries": [
+    {
+      "id": "copper",
+      "label": "Copper",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "bare-copper",
+      "label": "Bare copper",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "tinned-copper",
+      "label": "Tinned copper",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "ofc",
+      "label": "Oxygen-free copper",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "pvc",
+      "label": "PVC",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "pe",
+      "label": "Polyethylene (PE)",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "fm-pe",
+      "label": "Foamed PE",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "lszh",
+      "label": "LSZH",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "aluminium",
+      "label": "Aluminium",
+      "src": "synthetic example: base starter vocabulary"
+    },
+    {
+      "id": "aluminium-foil",
+      "label": "Aluminium/polyester foil",
+      "src": "synthetic example: base starter vocabulary"
+    }
+  ]
+}
