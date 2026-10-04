@@ -1611,56 +1611,71 @@ until configured.
 
 ### 8.1 Compose services
 
-`compose.yaml` is the one compose file (`docs/self-hosting.md`). **Today** (before this
-plan) it runs the file-backed app with Garage for uploaded bytes and PostgreSQL
-provisioned but unused:
+`compose.yaml` is the one compose file (`docs/self-hosting.md`), written for people who
+download it and never clone the repository: it needs no `.env` and mounts no file from a
+source tree. Optional parts are **profiles** (`COMPOSE_PROFILES` in `.env`); the default
+stack (no profile) is the app, Postgres and Garage. **Today** it runs the file-backed app
+with Garage for uploaded bytes and Postgres bootstrapped and migrated:
 
 | Service | Image | Memory cap | Today | After Phase S |
 | --- | --- | --- | --- | --- |
-| `wirehub` | `ghcr.io/formless63/wirehub` (`docker/app.Dockerfile`) | 768 MiB | the app; volumes `catalog`, `auth`, `blobs`, `cache` | the app with `WIREHUB_BACKEND=pg`; the `catalog` volume only for import/export |
-| `garage` | `dxflrs/garage` (pinned) | 256 MiB | blob store, single node, internal network | the same |
-| `garage-init` | the app image, `docker/garage/init.mjs` | 128 MiB | one-shot: layout, app key + read-only backup key, bucket | the same |
-| `postgres` | `postgres:18.x-bookworm` (pinned minor) | 512 MiB | provisioned, unused; volume `pg_data` | `docker/postgres/bootstrap.sh` creates the roles and the database on first start |
-| `migrate` | the app image, `db:migrate` | 256 MiB | — | one-shot; `wirehub` and `worker` depend on its successful completion |
+| `bootstrap` | the app image, `stack/bootstrap.ts` | 128 MiB | one-shot, first: every secret into the `secrets` volume (§9.1), Garage's config | the same |
+| `wirehub` | `ghcr.io/formless63/wirehub` (`docker/app.Dockerfile`) | 768 MiB | the app (`WIREHUB_BACKEND=files`); volumes `catalog`, `auth`, `packs`, `blobs`, `cache` | `WIREHUB_BACKEND=pg`; the `catalog` volume only for import/export |
+| `postgres` | `postgres:18.x-bookworm` (pinned minor) | 512 MiB | `POSTGRES_PASSWORD_FILE` from the volume; volume `pg_data` | the same |
+| `migrate` | the app image, `server/pg/cli.ts bootstrap` + `migrate` | 256 MiB | one-shot: roles and database (idempotent, safe on an existing volume), then every migration; `wirehub` depends on it | `worker` too |
+| `garage` | `dxflrs/garage` (pinned) | 256 MiB | blob store, single node, internal network; config from the volume | the same |
+| `garage-init` | the app image, `stack/garage-init.ts` | 128 MiB | one-shot: layout, bucket, the app key and a read-only backup key — created by Garage, written to the volume | the same |
 | `worker` | the app image, `server/worker.ts` | 1.5 GiB | — | jobs (§2), model conversion |
 
-`WIREHUB_BLOBS=fs:/data/blobs` with `docker compose up -d --no-deps wirehub` is the
-documented fallback without object storage.
+Profile `backup` (§8.4): `backup-init`, `backup-dump`, `backup-mirror`, `backrest`.
 
-- **Networks:** one internal network for all services; only the studio's port is
-  published. Postgres and the blob store are never published.
-- **Volumes:** `catalog`, `auth`, `blobs`, `cache`, `garage_meta`, `garage_data`,
-  `pg_data`, and `backups` (with `compose.backup.yaml`). Only the Garage config is
-  bind-mounted from the source tree.
+The bundled `postgres` and `garage` services sit between `# >>> bundled-…` / `# <<< bundled-…`
+marker comments; a deployment with its own Postgres or S3 deletes those blocks (the config
+generator, `site/`, does) and sets `DATABASE_ADMIN_URL` or the `S3_*` variables.
+`WIREHUB_BLOBS=fs:/data/blobs` is the documented fallback without object storage.
+
+- **Networks:** an internal network for all services; only the studio's port (and
+  Backrest's, with the profile) is published. Postgres and the blob store are never
+  published.
+- **Volumes:** `secrets`, `catalog`, `auth`, `packs`, `blobs`, `cache`, `garage_meta`,
+  `garage_data`, `pg_data`; with the backup profile `backups`, `backrest_*`, `restic_repo`.
+  Nothing is bind-mounted.
 - **TLS:** terminate it in front of the studio with the reverse proxy of the deployer's
-  choice (Caddy, Traefik, nginx); set `BETTER_AUTH_URL` to the public origin. An example
-  Caddy service is in the compose file as a commented profile.
-- **Images:** `docker compose build` builds locally; the release workflow publishes
-  multi-arch images to `ghcr.io/formless63/wirehub` (`edge` from main, `X.Y.Z`/`X.Y`/`latest`
-  from `v*` tags, `sha-…` for both).
+  choice (Caddy, Traefik, nginx); set `WIREHUB_PUBLIC_URL` (→ `BETTER_AUTH_URL`) to the
+  public origin.
+- **Images:** built locally with `docker build -f docker/app.Dockerfile`; published only for
+  a release (release-please → `vX.Y.Z` → `X.Y.Z`, `X.Y`, `X`, `latest`, multi-arch); a manual
+  workflow run builds `edge` for testing. `compose.yaml` pins the release it ships with.
 
 ### 8.2 Configuration
 
-All in `.env` (`.env.example` documents every variable):
+Nothing is required; `.env` (or a Docker UI's environment box) overrides what it names, and
+`.env.example` documents every variable. Secrets are generated by `bootstrap` into the
+`secrets` volume unless set explicitly (§9.1); every service reads them as files
+(`NAME_FILE`, which the studio resolves for any variable at startup).
 
 | Variable | Default | |
 | --- | --- | --- |
 | `WIREHUB_ENV` | `prod` in compose | `dev` / `prod`; the environment guard (§8.7) |
-| `WIREHUB_BACKEND` | `pg` in compose once Phase S lands | `files` / `pg` |
-| `DATABASE_URL` | the compose's postgres, as `studio_app` | the app's connection |
-| `DATABASE_OWNER_URL` | as `studio_owner` | `migrate` only |
-| `DATABASE_ADMIN_URL` | the compose's postgres superuser (`POSTGRES_USER`) | `db:bootstrap` only |
+| `WIREHUB_BACKEND` | `files`; `pg` once Phase S lands | `files` / `pg` |
+| `DATABASE_ADMIN_URL` | derived: the bundled postgres's superuser | `db:bootstrap`; your own Postgres: set it, the role URLs are derived from it |
+| `DATABASE_OWNER_URL` | derived: as `studio_owner` | `migrate` only |
+| `DATABASE_URL` | derived: as `studio_app` | the app's connection |
 | `WIREHUB_ORG` | the deployment's only org | the org slug the studio acts for |
-| `WIREHUB_OWNER_PASSWORD` | generated by `scripts/setup-env.sh` | `studio_owner`'s password (`db:bootstrap`) |
-| `POSTGRES_PASSWORD`, `WIREHUB_APP_PASSWORD`, `WIREHUB_RO_PASSWORD` | generated by `scripts/setup-env.sh` (§9.1) | (`POSTGRES_PASSWORD` exists today; the role passwords arrive with S2) |
+| `POSTGRES_PASSWORD`, `WIREHUB_OWNER_PASSWORD`, `WIREHUB_APP_PASSWORD`, `WIREHUB_RO_PASSWORD` | generated by `bootstrap` | |
 | `WIREHUB_BLOBS` | `s3` | or `fs:<dir>` (fallback) |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | the bundled Garage; keys generated | path-style always |
-| `S3_BACKUP_ACCESS_KEY_ID`, `S3_BACKUP_SECRET_ACCESS_KEY` | generated | the read-only key the backup mirror uses |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET` | the bundled Garage | path-style always |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BACKUP_*` | created by Garage (`garage-init`) | explicit keys are imported and win |
 | `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `GARAGE_CAPACITY` | generated; `100G` | the bundled Garage |
-| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | secret generated by `scripts/setup-env.sh`; URL `http://localhost:5183` | |
+| `BETTER_AUTH_SECRET` | generated | |
+| `WIREHUB_PUBLIC_URL` | `http://localhost:<port>` | → `BETTER_AUTH_URL` |
+| `WIREHUB_SETUP_CODE` | generated | the first-run setup code (§9.2) |
+| `WIREHUB_SUGGESTED_MODULES` | — | modules pre-ticked at `/setup` |
 | `AUTH_LOCAL_ACCOUNTS` | `true` in pg mode | email + password sign-in |
 | `AUTH_OIDC_*`, `AUTH_SMTP_*` | — | optional sign-in methods (`apps/studio/README.md`) |
-| `BACKUP_DUMP_AT`, `BACKUP_KEEP_DUMPS`, `BACKUP_MIRROR_INTERVAL`, `BACKREST_PORT` | `02:30`; `7`; `3600`; `9898` | the backup add-on (§8.4) |
+| `COMPOSE_PROFILES` | — | `backup` |
+| `BACKUP_REPOSITORY`, `BACKUP_REPOSITORY_PASSWORD`, `BACKUP_SCHEDULE` | a local repository; generated; `0 3 * * *` | §8.4 |
+| `BACKUP_DUMP_AT`, `BACKUP_KEEP_DUMPS`, `BACKUP_MIRROR_INTERVAL`, `BACKREST_PORT` | `02:30`; `7`; `3600`; `9898` | §8.4 |
 | `WIREHUB_NOTIFY_URL` | — | optional webhook for alerts (§8.6) |
 
 ### 8.3 Health checks
@@ -1675,7 +1690,7 @@ All in `.env` (`.env.example` documents every variable):
 
 ### 8.4 Backups
 
-An add-on, `compose.backup.yaml` (exists today; `docs/self-hosting.md`), because a
+The `backup` profile of `compose.yaml` (exists today; `docs/self-hosting.md`), because a
 self-hosted tool nobody backs up loses data, and because restic already does the hard
 part better than a bundled job would:
 
@@ -1760,28 +1775,32 @@ working studio in minutes, without editing a file.
 ### 9.1 One command
 
 ```
-git clone https://github.com/formless63/wirehub && cd wirehub
-bash scripts/setup-env.sh
+curl -fsSLO https://raw.githubusercontent.com/formless63/wirehub/main/compose.yaml
 docker compose up -d
-# open http://localhost:5183
+docker compose logs wirehub      # the setup code
+# open http://localhost:5183/setup
 ```
 
-This much works today (on the file backend). `scripts/setup-env.sh` writes `.env` from
-`.env.example` with every secret generated (S3 keys, Garage secrets, database passwords,
-`BETTER_AUTH_SECRET`), readable only by the owner of the checkout; compose refuses to
-start without them, naming the script. With Phase S, on first start:
+— or paste `compose.yaml` into a Docker UI and deploy. No clone and no `.env`. On every start:
 
-- `docker/postgres/bootstrap.sh` creates the roles (`studio_owner`, `studio_app`,
-  `studio_ro`) and the database, with the passwords from `.env`.
-- `migrate` runs every migration; the database has **no org yet**.
-- The studio starts in **setup mode**: every route but `/setup`, `/healthz` and the static
-  bundle answers `503 {state: 'setup'}`, and the SPA shows the setup page.
+- `bootstrap` fills the `secrets` volume: the Postgres superuser and role passwords, the
+  admin/owner/app/read-only connection URLs (derived from them), `BETTER_AUTH_SECRET`,
+  Garage's RPC secret and admin token, the setup code, and Garage's config. A secret is
+  generated once and never regenerated; one set explicitly (the variable or its `_FILE`)
+  wins and is written to the volume. `scripts/setup-env.sh` is the terminal alternative
+  that writes the same secrets into `.env`.
+- `garage-init` has Garage create the S3 keys and writes them to the volume.
+- `migrate` creates the roles (`studio_owner`, `studio_app`, `studio_ro`) and the database
+  (`server/pg/bootstrap.ts`), then runs every migration; the database has **no org yet**.
+- The studio starts. With Phase S it starts in **setup mode**: every route but `/setup`,
+  `/healthz` and the static bundle answers `503 {state: 'setup'}`, and the SPA shows the
+  setup page.
 
 ### 9.2 First-run setup
 
 `/setup` (reachable only while no org exists; it requires the one-time **setup code** the
 studio prints to its log at boot, so a studio exposed by mistake cannot be claimed by a
-stranger):
+stranger — this much works today on the file backend, with the domain-module step below):
 
 1. **Organisation**: name and slug (`example-shop`).
 2. **Admin account**: name, email, password (local account). Optionally "I will sign in

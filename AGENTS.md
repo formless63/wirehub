@@ -22,13 +22,14 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
 ## Commands
 
 - `pnpm install` · `pnpm test` (each workspace in turn, vitest) · `pnpm build`
-  (`tsc --noEmit` per package, strict). Workspaces: `packages/*`, `modules/*`, `apps/*`.
+  (`tsc --noEmit` per package, strict). Workspaces: `packages/*`, `modules/*`, `apps/*`, `site` (the config generator).
 - Single test file: `pnpm --filter @wirehub/model test -- test/trace.test.ts`.
 - On a shared machine run vitest with `--maxWorkers=2`.
 - `bash scripts/privacy-check.sh --tree` — must stay clean (`CONTRIBUTING.md`, `docs/boundaries.md` §9).
   The git hooks in `.githooks/` (enabled by `pnpm install`) run it on every commit; a
   local, gitignored `.privacy-terms` file adds private words without publishing them.
-- The app: `pnpm --filter studio dev`, or the compose stack
+- The app: `pnpm --filter studio dev`, or the compose stack (deploy test:
+  `bash scripts/stack-smoke.sh --backup <image>`)
   (`docs/self-hosting.md`, `apps/studio/README.md`).
 
 ## Conventions
