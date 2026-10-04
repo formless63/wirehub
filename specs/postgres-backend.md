@@ -209,7 +209,7 @@ Every file under `packages/catalog/data/` and `depictions/` (the codec coverage 
 | `designs/<id>.json` | truth | `entity(design)` + `record('')` |
 | `designs/_versions/<id>/<rev>.json` | truth (frozen once locked) | `design_revision` |
 | `designs/_versions/<id>/working.json`, `drafts/<n>.json` | truth | `design_working`, `design_draft` |
-| `designs/_versions/<id>/artwork/<sha>.<ext>` | truth (bytes) | `revision_artwork` → `blob` |
+| `designs/_versions/<id>/artwork/<sha>.<ext>` | truth (bytes) | `design_artwork` → `blob` |
 | `drawings/<id>.json` | truth | `record('drawing')` of the design |
 | `drawings/<id>.photo-ref.json` | truth | `drawing_photo` → `asset` |
 | `assets/index.json` + `assets/<sha>.<ext>` | truth (uploads, including GLB/STL models) | `asset` + `blob(class 'record')` |
@@ -243,7 +243,7 @@ Every file under `packages/catalog/data/` and `depictions/` (the codec coverage 
 | `design-version` (`<id>/<rev>`) | `design_revision` | frozen by trigger |
 | `version-working` (design id) | `design_working` | |
 | `version-draft` (`<id>/<n>`) | `design_draft` | `n` allocated under the head lock |
-| `version-artwork` (`<id>/<blob>`) | `revision_artwork` → `blob` | |
+| `version-artwork` (`<id>/<blob>`) | `design_artwork` → `blob` | |
 | `design-versions` (design id; `move`) | `design_revision`, `design_working`, `design_draft` re-parented | the rename marker |
 | `asset` (sha256) | `asset` → `blob(class 'record')` | mime: png, jpeg, pdf, gltf-binary, stl |
 | derived `tags` | `derived_doc` `data/tags/…` | in the transaction |
@@ -315,6 +315,12 @@ CREATE FUNCTION studio.org_id_for(org_slug text) RETURNS uuid
   LANGUAGE sql STABLE SECURITY DEFINER SET search_path = studio, pg_temp
   AS $$ SELECT id FROM studio.org WHERE slug = org_slug $$;
 
+-- The one org of a single-org deployment (v1), or NULL when there is none or
+-- more than one: what the app acts for when WIREHUB_ORG is unset.
+CREATE FUNCTION studio.sole_org_id() RETURNS uuid
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = studio, pg_temp
+  AS $$ SELECT CASE WHEN count(*) = 1 THEN min(id::text)::uuid END FROM studio.org $$;
+
 -- One row per org: the catalog version (what `catalogVersion()` answers) and
 -- the writers' mutex — every commit takes this row FOR UPDATE first.
 CREATE TABLE studio.catalog_head (
@@ -323,6 +329,13 @@ CREATE TABLE studio.catalog_head (
   schema_version  integer NOT NULL,           -- model CURRENT_SCHEMA_VERSION the rows are at
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
+
+-- The catalog version of an org in one round trip, without a transaction:
+-- what `catalogVersion()` asks on every request (S3: ≤ 2 ms p95). Reveals one
+-- counter, and only for an org id the caller already knows.
+CREATE FUNCTION studio.head_version(org uuid) RETURNS bigint
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = studio, pg_temp
+  AS $$ SELECT version FROM studio.catalog_head WHERE org_id = org $$;
 
 CREATE TABLE studio.person (
   id            uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -485,8 +498,8 @@ CREATE TABLE studio.ref_dangling (
 CREATE TABLE studio.catalog_doc (
   org_id           uuid NOT NULL REFERENCES studio.org,
   path             text NOT NULL CHECK (path ~ '^(data|depictions)/[A-Za-z0-9._/-]+$' AND path !~ '\.\.'),
-  media_type       text NOT NULL CHECK (media_type IN ('application/json', 'text/markdown')),
-  body             text NOT NULL,             -- JSON: JSON.stringify(value); markdown: the exact bytes
+  media_type       text NOT NULL CHECK (media_type IN ('application/json', 'text/markdown', 'text/plain')),
+  body             text NOT NULL,             -- JSON: JSON.stringify(value); markdown and plain text: the exact text
   etag             text GENERATED ALWAYS AS (studio.content_etag(body)) STORED,
   list_kind        text,                      -- envelope: whose records fill it
   list_collection  text,
@@ -640,36 +653,59 @@ CREATE TABLE studio.asset (
 );
 CREATE INDEX asset_name_trgm ON studio.asset USING gin (original_name gin_trgm_ops);
 
--- A drawing sheet's product photo (data/drawings/<id>.photo-ref.json)
+-- A drawing sheet's product photo (data/drawings/<id>.photo-ref.json). Keyed by
+-- the design, not its drawing record: the file store keeps a photo without a
+-- title block.
 CREATE TABLE studio.drawing_photo (
   org_id        uuid NOT NULL,
-  drawing_id    uuid NOT NULL,                -- record (collection 'drawing')
+  design_id     uuid NOT NULL,                -- entity of kind 'design'
   asset_sha256  text NOT NULL,
-  PRIMARY KEY (drawing_id),
-  FOREIGN KEY (org_id, drawing_id) REFERENCES studio.record (org_id, id) ON DELETE CASCADE,
+  PRIMARY KEY (design_id),
+  FOREIGN KEY (org_id, design_id) REFERENCES studio.entity (org_id, id) ON DELETE CASCADE,
   FOREIGN KEY (org_id, asset_sha256) REFERENCES studio.asset (org_id, sha256) ON DELETE RESTRICT
 );
+CREATE TRIGGER drawing_photo_audit AFTER INSERT OR UPDATE OR DELETE ON studio.drawing_photo FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
 
 -- depictions/<defId>/<file> — the artwork next to a depiction's meta.json record
+-- (keyed by the depiction entity: a directory may hold files before its meta.json)
 CREATE TABLE studio.depiction_file (
   org_id        uuid NOT NULL,
-  depiction_id  uuid NOT NULL,                -- record of an entity of kind 'depiction'
+  depiction_id  uuid NOT NULL,                -- entity of kind 'depiction'
   name          text NOT NULL CHECK (name ~ '^[a-z0-9][a-z0-9._-]*\.(svg|png|jpg|jpeg|webp)$'),
   sha256        text NOT NULL,
   PRIMARY KEY (depiction_id, name),
-  FOREIGN KEY (org_id, depiction_id) REFERENCES studio.record (org_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (org_id, depiction_id) REFERENCES studio.entity (org_id, id) ON DELETE CASCADE,
   FOREIGN KEY (org_id, sha256) REFERENCES studio.blob (org_id, sha256) ON DELETE RESTRICT
 );
+CREATE TRIGGER depiction_file_audit AFTER INSERT OR UPDATE OR DELETE ON studio.depiction_file FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
 
--- _versions/<id>/artwork/<blob name> — artwork frozen into a revision
-CREATE TABLE studio.revision_artwork (
+-- _versions/<id>/artwork/<sha>.<ext> — the artwork a design's revisions froze. The
+-- file store keeps one content-addressed artwork store per design, shared by its
+-- revisions (each revision's body names the blobs it uses), so the rows hang off
+-- the design, not a revision. Content-addressed rows are immutable: never updated.
+CREATE TABLE studio.design_artwork (
   org_id       uuid NOT NULL,
-  revision_id  uuid NOT NULL REFERENCES studio.design_revision ON DELETE RESTRICT,
-  blob_name    text NOT NULL,
+  design_id    uuid NOT NULL,                 -- entity of kind 'design'
+  blob_name    text NOT NULL CHECK (blob_name ~ '^[0-9a-f]{64}\.[a-z0-9]{1,8}$'),
   sha256       text NOT NULL,
-  PRIMARY KEY (revision_id, blob_name),
+  PRIMARY KEY (design_id, blob_name),
+  CHECK (left(blob_name, 64) = sha256),
+  FOREIGN KEY (org_id, design_id) REFERENCES studio.entity (org_id, id) ON DELETE RESTRICT,
   FOREIGN KEY (org_id, sha256) REFERENCES studio.blob (org_id, sha256) ON DELETE RESTRICT
 );
+CREATE TRIGGER design_artwork_audit AFTER INSERT OR UPDATE OR DELETE ON studio.design_artwork FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
+
+-- Any other binary file under data/ or depictions/ the codec has no table for
+-- (a legacy drawings/<id>.photo.<ext>, a module's binary file): path → blob.
+CREATE TABLE studio.catalog_file (
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  path        text NOT NULL CHECK (path ~ '^(data|depictions)/[A-Za-z0-9._/-]+$' AND path !~ '\.\.'),
+  sha256      text NOT NULL,
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, path),
+  FOREIGN KEY (org_id, sha256) REFERENCES studio.blob (org_id, sha256) ON DELETE RESTRICT
+);
+CREATE TRIGGER catalog_file_audit AFTER INSERT OR UPDATE OR DELETE ON studio.catalog_file FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
 ```
 
 ### 3.9 Model links — `0006_models`
@@ -817,13 +853,16 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['catalog_head', 'person', 'change_set', 'entity', 'record', 'ref_edge', 'ref_dangling',
                            'catalog_doc', 'derived_doc', 'design_revision', 'design_working', 'design_draft',
-                           'blob', 'asset', 'drawing_photo', 'depiction_file', 'revision_artwork',
+                           'blob', 'asset', 'drawing_photo', 'depiction_file', 'design_artwork', 'catalog_file',
                            'model_link', 'edit_lock', 'edit_lock_displaced', 'derived_blob', 'job_run', 'parity_run'] LOOP
     EXECUTE format('ALTER TABLE studio.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE studio.%I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('CREATE POLICY org_isolation ON studio.%I USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org())', t);
   END LOOP;
 END $$;
+-- the SECURITY DEFINER lookups run as the owner, whom FORCE subjects to RLS too:
+-- studio.head_version() reads the head row of the org it is given
+CREATE POLICY definer_read ON studio.catalog_head FOR SELECT TO studio_owner USING (true);
 -- change / job_file inherit their parent's org through the FK
 ALTER TABLE studio.change ENABLE ROW LEVEL SECURITY;
 ALTER TABLE studio.change FORCE ROW LEVEL SECURITY;
@@ -852,6 +891,10 @@ REVOKE UPDATE, DELETE ON studio.change, studio.change_set FROM studio_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA studio TO studio_ro;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA studio TO studio_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA studio TO studio_app, studio_ro;
+-- the migrator's own table (schema wirehub_migrations, §6): the studio reads it
+-- at boot and refuses to serve while a migration is pending
+GRANT USAGE ON SCHEMA wirehub_migrations TO studio_app, studio_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA wirehub_migrations TO studio_app, studio_ro;
 ```
 
 ### 3.13 Module tables
@@ -1106,7 +1149,7 @@ true)` (`inOrg(fn)`). Reads inside a commit use the commit's transaction.
 | `TagStore` | `tags` / `review` / `writeReview` / `regenerate` / `preview` | `derived_doc` / `catalog_doc` / the commit's derived set / pure compute |
 | `WireLibraryStore` | `read` / `writeParts` / `writeRecipes` / `wires` / `putWire` | ordered kinds; list diff; strip practice from `catalog_doc` |
 | `BuildsStore` | `list` / `read` / `write` | `entity(build)` |
-| `VersionStore` | all | `design_revision` / `design_working` / `design_draft` / `revision_artwork` |
+| `VersionStore` | all | `design_revision` / `design_working` / `design_draft` / `design_artwork` |
 | `LockStore` | all | the `edit_lock` tables (below) |
 | `DepictionStore` | all | Phase B7: records + `depiction_file` |
 | deps | `loadDb`, `loadPartNumberFiles` | the snapshot's `catalog` |
@@ -1370,7 +1413,7 @@ The re-read costs one extra GET per upload; uploads are rare, so it stays on.
 ### 5.4 GC
 
 - Daily, after the backup. The live set of **record** blobs is every sha referenced by
-  `asset`, `drawing_photo`, `depiction_file`, `revision_artwork`, `job_file` (jobs < 7
+  `asset`, `drawing_photo`, `depiction_file`, `design_artwork`, `job_file` (jobs < 7
   days) and `qa_test_run.raw_blob`. Assets are roots.
 - A record blob not in the live set becomes an orphan. After 30 days its object and its
   row are deleted — and only if a backup completed **after** it became an orphan (its

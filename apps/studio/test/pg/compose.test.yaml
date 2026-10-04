@@ -1,0 +1,29 @@
+# A throwaway Postgres for the pg test suites (specs/postgres-backend.md §10).
+# Nothing persists (tmpfs), fsync is off, the port is random on 127.0.0.1.
+#
+#   docker compose -f apps/studio/test/pg/compose.test.yaml -p wirehub-pg-test up -d --wait
+#   port=$(docker compose -f apps/studio/test/pg/compose.test.yaml -p wirehub-pg-test port pg-test 5432 | cut -d: -f2)
+#   WIREHUB_TEST_PG_URL=postgres://postgres:test-only@127.0.0.1:$port/postgres \
+#     pnpm --filter studio test -- --maxWorkers=2 test/pg/
+#   docker compose -f apps/studio/test/pg/compose.test.yaml -p wirehub-pg-test down
+#
+# The password is for this disposable test server only. The suites bootstrap
+# the roles (studio_owner, studio_app, studio_ro) and a migrated template
+# database themselves (test/pg/harness.ts).
+
+services:
+  pg-test:
+    image: postgres:18.6-bookworm
+    environment:
+      POSTGRES_PASSWORD: test-only
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off", "-c", "max_connections=200"]
+    tmpfs:
+      - /var/lib/postgresql:size=512m
+    ports:
+      - "127.0.0.1::5432"
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
