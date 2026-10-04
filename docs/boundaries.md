@@ -243,10 +243,20 @@ removed (editor 170 cases across 29 files, studio 70 across 14, docs 32 across
 
 ## 9. Leak scan
 
-The scan script is `scripts/leak-scan.sh` (patterns split so the script does
-not match itself). It greps the working tree **and every commit's tree**.
+The scan script is `scripts/leak-scan.sh` (patterns written in split quotes
+so the script does not match itself). It covers the working tree (tracked and
+untracked, binary files included), every commit's tree, every commit message
+and every path, plus a pass that joins comment continuation lines so a name
+split over two lines is still found. The patterns: the private shop's and
+its people's names, the private ERP and its hosts, the machine names, LAN and
+tailnet addresses, the private remote, the home directory, the private
+part-number series, and the product (console) names its catalog was built
+around — case-insensitive, with digit-suffixed ids (`name2`) included.
+
+Run on the commit before the one that added this output (the scan is re-run
+on every commit; it must stay clean):
 
 ```
 $ bash scripts/leak-scan.sh
-LEAK-SCAN-RESULT-PLACEHOLDER
+leak scan clean: 612 files in the tree, 7 commits (trees, messages, paths)
 ```
