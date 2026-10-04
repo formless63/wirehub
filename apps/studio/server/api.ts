@@ -47,7 +47,7 @@ import type { TagStore, VocabStore } from './vocab-store.ts';
 import { LOCK_ROUTES } from './locks/lock-api.ts';
 import type { LockStore } from './locks/lock-store.ts';
 import type { DerivedStore } from './derived.ts';
-import { ReadOnlyBackendError, StaleRecordError, type Awaitable, type ChangeSet, type CommitResult, type DerivedKind } from './storage/change-set.ts';
+import { CommitRefusedError, ReadOnlyBackendError, StaleRecordError, type Awaitable, type ChangeSet, type CommitResult, type DerivedKind } from './storage/change-set.ts';
 import { UnitOfWork } from './storage/unit-of-work.ts';
 import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
@@ -926,12 +926,18 @@ export function transactingDepictionDeps(deps: DepictionDeps, workbench: Workben
  * a stale precondition to the 409 and a read-only backend to 503 — nothing
  * is written in either case.
  */
-export async function commitUnit(uow: UnitOfWork, request: Pick<ApiRequest, 'method' | 'path' | 'user'>, response: ApiResponse): Promise<ApiResponse> {
+export async function commitUnit(uow: UnitOfWork, request: Pick<ApiRequest, 'method' | 'path' | 'user' | 'body'>, response: ApiResponse): Promise<ApiResponse> {
   if (response.status >= 400) return response;
   try {
-    await uow.commit({ method: request.method.toUpperCase(), path: request.path, ...(request.user === undefined ? {} : { user: request.user }) });
+    await uow.commit({
+      method: request.method.toUpperCase(),
+      path: request.path,
+      ...(request.user === undefined ? {} : { user: request.user }),
+      ...(request.body === undefined ? {} : { body: request.body }),
+    });
   } catch (error) {
     if (error instanceof StaleRecordError) return staleWriteResponse(error.kind, error.key);
+    if (error instanceof CommitRefusedError) return fail(error.status, error.message, error.hint);
     if (error instanceof ReadOnlyBackendError) return fail(503, error.message, 'Nothing was written. This studio serves its catalog read-only for now.');
     throw error;
   }

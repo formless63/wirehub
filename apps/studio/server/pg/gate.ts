@@ -20,7 +20,7 @@
  */
 
 import { createCatalog, fsCatalogSource, type Catalog } from '@wirehub/catalog';
-import { codePointCompare, explode, render, sha256Hex, type CatalogFiles, type CatalogRows } from '@wirehub/catalog/src/codec/index.ts';
+import { codePointCompare, contentSha, explode, isBlobRef, render, sha256Hex, type CatalogFiles, type CatalogRows, type FileContent } from '@wirehub/catalog/src/codec/index.ts';
 import { bomToMarkdown, deriveBom, deriveTestSpec, renderBuildSheet, testSpecToMarkdown } from '@wirehub/docs';
 import { definitionUsage, validateDb, validateDesign, type UsageKind } from '@wirehub/model';
 import { renderSchematic } from '@wirehub/render-svg';
@@ -83,7 +83,7 @@ async function check(name: string, run: (diff: (line: string) => void) => Promis
   return { name, compared, diffs, ms: Math.round(performance.now() - started) };
 }
 
-const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean => sha256Hex(a) === sha256Hex(b);
+const bytesEqual = (a: FileContent, b: FileContent): boolean => contentSha(a) === contentSha(b);
 
 /** Compare two trees: text exactly, bytes by hash, and the path sets. */
 function compareTrees(expected: CatalogFiles, actual: ReadonlyMap<string, string | Uint8Array>, diff: (line: string) => void, options: { binaries: 'compare' | 'skip-missing' }): number {
@@ -105,7 +105,7 @@ function compareTrees(expected: CatalogFiles, actual: ReadonlyMap<string, string
 /** A blob store over the binary files of a tree (the file side's bytes), keyed like the pg store. */
 export function treeBlobStore(tree: CatalogFiles, orgId: string): BlobStore {
   const bySha = new Map<string, Uint8Array>();
-  for (const content of tree.values()) if (typeof content !== 'string') bySha.set(sha256Hex(content), content);
+  for (const content of tree.values()) if (typeof content !== 'string' && !isBlobRef(content)) bySha.set(sha256Hex(content), content);
   const shaOf = (key: string): string | undefined => (key.startsWith(`${orgId}/sha256/`) ? key.slice(key.lastIndexOf('/') + 1) : undefined);
   return {
     describe: 'the file catalog tree',
@@ -127,7 +127,7 @@ export function treeBlobStore(tree: CatalogFiles, orgId: string): BlobStore {
 export function directorySnapshot(root: string, rows: CatalogRows, tree: CatalogFiles): Snapshot {
   const source = fsCatalogSource(`${root}/data`, `the file catalog at ${root}`);
   const blobOf = new Map<string, string>();
-  for (const [path, content] of tree) if (typeof content !== 'string') blobOf.set(path, sha256Hex(content));
+  for (const [path, content] of tree) if (typeof content !== 'string') blobOf.set(path, contentSha(content));
   return { version: 'files', rows, files: tree, source, catalog: createCatalog(source), blobOf, loadMs: 0 };
 }
 

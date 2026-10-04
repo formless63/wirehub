@@ -33,7 +33,7 @@ import { localStudioUser } from './me.ts';
 import { memoryLockStore } from './locks/lock-store.ts';
 import { fileCatalogVersion } from './storage/catalog-version.ts';
 import { registry } from './modules.ts';
-import { fileDepictionStore } from './depictions.ts';
+import { defaultDepictionDeps, fileDepictionStore, type DepictionDeps } from './depictions.ts';
 import { fileDocStore } from './storage/doc-store.ts';
 import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
 import { exportTree } from './pg/export.ts';
@@ -99,11 +99,13 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
 export async function workbenchDepsFromEnv(
   env: Record<string, string | undefined>,
   options: { blobs?: BlobStore } = {},
-): Promise<{ backend: Backend; deps: WorkbenchDeps; describe: string; close: () => Promise<void> }> {
+): Promise<{ backend: Backend; deps: WorkbenchDeps; depictionDeps: DepictionDeps; describe: string; close: () => Promise<void> }> {
   const backend = backendFromEnv(env);
-  if (backend === 'files') return { backend, deps: defaultWorkbenchDeps(options), describe: 'files (packages/catalog/data)', close: async () => {} };
+  if (backend === 'files') {
+    return { backend, deps: defaultWorkbenchDeps(options), depictionDeps: defaultDepictionDeps(), describe: 'files (packages/catalog/data)', close: async () => {} };
+  }
   const { openPgBackend } = await import('./pg/deps.ts');
-  const pg = await openPgBackend(env, { ...options, depictionsDir: dataPath('../depictions') });
+  const pg = await openPgBackend(env, options);
   const snapshot = pg.cache.peek();
-  return { backend, deps: pg.deps, describe: `pg (org ${pg.cache.orgId}, catalog version ${snapshot?.version ?? '?'}; read-only until the write path lands)`, close: pg.close };
+  return { backend, deps: pg.deps, depictionDeps: pg.depictionDeps, describe: `pg (org ${pg.cache.orgId}, catalog version ${snapshot?.version ?? '?'})`, close: pg.close };
 }

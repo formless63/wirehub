@@ -14,6 +14,7 @@ import { CURRENT_SCHEMA_VERSION } from '@wirehub/model';
 
 import type { WorkbenchDeps } from '../api.ts';
 import type { BlobStore } from '../blobs.ts';
+import type { DepictionDeps, DepictionStore } from '../depictions.ts';
 import { memoryLockStore } from '../locks/lock-store.ts';
 import { localStudioUser } from '../me.ts';
 import { fileModelCache } from '../models/cache.ts';
@@ -22,12 +23,15 @@ import { PgConfigError, pgAppConfigFromEnv, redactUrl } from './config.ts';
 import { inOrg, openPg, resolveOrgId, type Db, type PgHandle } from './db.ts';
 import { migrationFiles, MIGRATION_SCHEMA } from './migrate.ts';
 import { exportSnapshot } from './export.ts';
+import { pgCommit } from './commit.ts';
 import { SnapshotCache, type Snapshot } from './snapshot.ts';
 import {
   pgAssetStore,
   pgBuildsStore,
   pgCommitReadOnly,
   pgDefinitionStore,
+  pgDepictionStore,
+  pgDocStore,
   pgDesignStore,
   pgDrawingStore,
   pgModelLinkStore,
@@ -47,6 +51,8 @@ export interface SnapshotSource {
 
 export interface PgDepsOptions {
   cache: SnapshotSource;
+  /** the database: given (with a SnapshotCache), the studio writes; absent, it is read-only */
+  db?: Db;
   blobs?: BlobStore;
   /** where today's depiction artwork lives (the file tree until B7); absent → versions copy none */
   depictionsDir?: string;
@@ -74,7 +80,12 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
       const text = (await cache.get()).source.read('part-numbers.json');
       return text === undefined ? {} : { scheme: JSON.parse(text) as unknown };
     },
-    commit: pgCommitReadOnly,
+    depictions: pgDepictionStore(context),
+    docs: pgDocStore(context),
+    commit:
+      options.db !== undefined && cache instanceof SnapshotCache
+        ? pgCommit({ db: options.db, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), verify: process.env.WIREHUB_BLOB_VERIFY !== 'off' })
+        : pgCommitReadOnly,
     exportCatalog: async () => exportSnapshot(await cache.get()),
     localUser: localStudioUser(process.env),
     locks: memoryLockStore(),
@@ -104,6 +115,8 @@ export interface PgBackend {
   handle: PgHandle;
   cache: SnapshotCache;
   deps: WorkbenchDeps;
+  /** the artwork routes' deps, over the same stores (B7) */
+  depictionDeps: DepictionDeps;
   close(): Promise<void>;
 }
 
@@ -127,11 +140,12 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       throw new PgConfigError(`The catalog holds ${snapshot.rows.blobs.length} binary file(s) in the blob store; set WIREHUB_BLOBS (s3 or fs:<dir>) to serve them.`);
     }
     if (options.listen !== false) await cache.listen(config.url).catch((error: unknown) => console.warn(`[pg] LISTEN unavailable: ${error instanceof Error ? error.message : String(error)}`));
-    const deps = pgWorkbenchDeps({ cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
+    const deps = pgWorkbenchDeps({ cache, db: handle.db, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
     return {
       handle,
       cache,
       deps,
+      depictionDeps: { store: deps.depictions as DepictionStore, loadDb: deps.loadDb, loadDesigns: async () => (await cache.get()).catalog.loadDesigns() },
       close: async () => {
         await cache.close();
         await handle.close();

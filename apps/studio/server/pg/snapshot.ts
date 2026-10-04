@@ -16,7 +16,7 @@
 import pg from 'pg';
 
 import { createCatalog, memoryCatalogSource, type Catalog, type CatalogSource } from '@wirehub/catalog';
-import { codePointCompare, dataFileMap, render, type CatalogRows } from '@wirehub/catalog/src/codec/index.ts';
+import { codePointCompare, dataFileMap, render, type CatalogRows, type FileContent } from '@wirehub/catalog/src/codec/index.ts';
 import { sql } from 'kysely';
 
 import { catalogHeadVersion, inOrg, type Db } from './db.ts';
@@ -27,7 +27,7 @@ export interface Snapshot {
   readonly version: string;
   readonly rows: CatalogRows;
   /** every text file of the catalog, `data/…` and `depictions/…`, as the file backend would hold it */
-  readonly files: ReadonlyMap<string, string | Uint8Array>;
+  readonly files: ReadonlyMap<string, FileContent>;
   /** `data/` as a catalog source (paths relative to `data/`) */
   readonly source: CatalogSource;
   /** the catalog loaders over `source` */
@@ -105,6 +105,12 @@ export class SnapshotCache {
   /** Forget the last version answer (after a commit in this process). */
   invalidate(): void {
     this.checked = undefined;
+  }
+
+  /** A commit in this process hands over the snapshot it produced: no reload for it. */
+  prime(snapshot: Snapshot): void {
+    if (this.current === undefined || BigInt(snapshot.version) >= BigInt(this.current.version)) this.current = snapshot;
+    this.checked = { at: performance.now(), version: Promise.resolve(snapshot.version) };
   }
 
   /** The snapshot at the current head version (reloaded when the head moved). */

@@ -84,7 +84,17 @@ export interface RecordChange {
 export interface ChangeSet {
   changes: RecordChange[];
   /** who made the change and how, for the backend's own log (the file backend's git commit is written by the host) */
-  context: { method: string; path: string; user?: StudioUser };
+  context: {
+    method: string;
+    path: string;
+    user?: StudioUser;
+    /** the request body, for the backend's log message (ids a route reads from the body) */
+    body?: unknown;
+    /** a database backend's `change_set.source` (default `studio`) */
+    source?: 'studio' | 'worker' | 'script' | 'migration';
+    /** the personal API token the request came with (`auth.api_token.id`), for audit only */
+    apiTokenId?: string;
+  };
 }
 
 export interface CommitResult {
@@ -114,6 +124,22 @@ export class ReadOnlyBackendError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ReadOnlyBackendError';
+  }
+}
+
+/**
+ * A backend refused a change set it could not commit as it stands (a
+ * reference the database still holds, a locked revision, a busy head row).
+ * Nothing was written; the request answers `status` with these words.
+ */
+export class CommitRefusedError extends Error {
+  readonly status: number;
+  readonly hint: string;
+  constructor(status: number, message: string, hint: string) {
+    super(message);
+    this.name = 'CommitRefusedError';
+    this.status = status;
+    this.hint = hint;
   }
 }
 

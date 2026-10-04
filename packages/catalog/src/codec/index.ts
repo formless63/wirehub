@@ -189,8 +189,22 @@ export function emptyRows(): CatalogRows {
   };
 }
 
-/** A catalog tree: path (`data/…`, `depictions/…`) → text (JSON, markdown, plain text) or bytes. */
-export type CatalogFiles = ReadonlyMap<string, string | Uint8Array>;
+/**
+ * A binary file known by its content address rather than held as bytes (a
+ * tree rebuilt from rows, whose blobs live in a blob store).
+ */
+export interface BlobRef {
+  blob: string;
+  size: number;
+}
+
+export type FileContent = string | Uint8Array | BlobRef;
+
+export const isBlobRef = (content: unknown): content is BlobRef =>
+  typeof content === 'object' && content !== null && !(content instanceof Uint8Array) && typeof (content as BlobRef).blob === 'string';
+
+/** A catalog tree: path (`data/…`, `depictions/…`) → text (JSON, markdown, plain text), bytes, or a blob reference. */
+export type CatalogFiles = ReadonlyMap<string, FileContent>;
 
 /* ------------------------------------------------------------------ *
  * Shared rules
@@ -247,6 +261,11 @@ export function mediaTypeOf(name: string): string {
 
 export function sha256Hex(bytes: Uint8Array | string): string {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+/** The sha256 of a file's content: a blob reference's own, else the hash of the text or bytes. */
+export function contentSha(content: FileContent): string {
+  return isBlobRef(content) ? content.blob : sha256Hex(content);
 }
 
 /** Code-point order — never `localeCompare`, whose answer depends on the machine's ICU data. */
@@ -366,12 +385,17 @@ export function explode(files: CatalogFiles): ExplodeResult {
     const existing = blobs.get(sha256);
     if (existing !== undefined) {
       if (existing.bytes === undefined && bytes !== undefined) existing.bytes = bytes;
+      if (existing.size === 0 && size !== undefined) existing.size = size;
       return;
     }
     blobs.set(sha256, { sha256, size: bytes?.length ?? size ?? 0, mediaType: mediaTypeOf(name), ...(bytes === undefined ? {} : { bytes }) });
   };
-  const text = (path: string, content: string | Uint8Array): string | undefined => {
+  const text = (path: string, content: FileContent): string | undefined => {
     if (typeof content === 'string') return content;
+    if (isBlobRef(content)) {
+      errors.push(`${path}: a text file cannot be a blob reference`);
+      return undefined;
+    }
     try {
       return new TextDecoder('utf-8', { fatal: true }).decode(content);
     } catch {
@@ -379,9 +403,14 @@ export function explode(files: CatalogFiles): ExplodeResult {
       return undefined;
     }
   };
-  const bytesOf = (content: string | Uint8Array): Uint8Array => (typeof content === 'string' ? new TextEncoder().encode(content) : content);
+  /** the sha256, size and (when held) bytes of a binary file */
+  const binary = (content: FileContent): { sha: string; size: number; bytes: Uint8Array | undefined } => {
+    if (isBlobRef(content)) return { sha: content.blob, size: content.size, bytes: undefined };
+    const bytes = typeof content === 'string' ? new TextEncoder().encode(content) : content;
+    return { sha: sha256Hex(bytes), size: bytes.length, bytes };
+  };
   /** parse a JSON file, insisting it is canonical */
-  const json = (path: string, content: string | Uint8Array): { value: Json; body: string } | undefined => {
+  const json = (path: string, content: FileContent): { value: Json; body: string } | undefined => {
     const source = text(path, content);
     if (source === undefined) return undefined;
     let value: Json;
@@ -404,11 +433,11 @@ export function explode(files: CatalogFiles): ExplodeResult {
   };
 
   // asset bytes in the tree, by sha: the index decides which are assets
-  const assetFiles = new Map<string, { name: string; bytes: Uint8Array }>();
-  let assetIndex: { path: string; content: string | Uint8Array } | undefined;
+  const assetFiles = new Map<string, { name: string; bytes: Uint8Array | undefined; size: number }>();
+  let assetIndex: { path: string; content: FileContent } | undefined;
 
   for (const path of [...files.keys()].sort(codePointCompare)) {
-    const content = files.get(path) as string | Uint8Array;
+    const content = files.get(path) as FileContent;
     const entry = classifyPath(path);
     if (entry === undefined) {
       errors.push(`${path}: not covered by the codec's FILE_MAP (§3.2); map it before importing`);
@@ -461,14 +490,13 @@ export function explode(files: CatalogFiles): ExplodeResult {
         const design = parts[3] as string;
         const match = ARTWORK_NAME.exec(name);
         if (!slugOk(path, 'design id', design, DESIGN_ID)) break;
-        const bytes = bytesOf(content);
-        const sha = sha256Hex(bytes);
+        const { sha, size, bytes } = binary(content);
         if (match === null || match[1] !== sha) {
           errors.push(`${path}: an artwork blob is named <sha256 of its bytes>.<ext>`);
           break;
         }
         rows.artwork.push({ design, name, sha256: sha });
-        addBlob(sha, name, bytes);
+        addBlob(sha, name, bytes, size);
         break;
       }
       case 'data/drawings/<id>.photo-ref.json': {
@@ -495,13 +523,12 @@ export function explode(files: CatalogFiles): ExplodeResult {
         break;
       case 'data/assets/<sha>.<ext>': {
         const match = ASSET_FILE.exec(name);
-        const bytes = bytesOf(content);
-        const sha = sha256Hex(bytes);
+        const { sha, size, bytes } = binary(content);
         if (match === null || match[1] !== sha) {
           errors.push(`${path}: an asset is named <sha256 of its bytes>.<png|jpg|pdf|glb|stl>`);
           break;
         }
-        assetFiles.set(sha, { name, bytes });
+        assetFiles.set(sha, { name, bytes, size });
         break;
       }
       case 'data/{connectors,components,wires,pcbas,bodies,interfaces,mechanicals,kits,wire-parts,wire-recipes}.json': {
@@ -593,10 +620,9 @@ export function explode(files: CatalogFiles): ExplodeResult {
           errors.push(`${path}: a depiction file is <lowercase name>.(svg|png|jpg|jpeg|webp)`);
           break;
         }
-        const bytes = bytesOf(content);
-        const sha = sha256Hex(bytes);
+        const { sha, size, bytes } = binary(content);
         rows.depictionFiles.push({ def, name, sha256: sha });
-        addBlob(sha, name, bytes);
+        addBlob(sha, name, bytes, size);
         break;
       }
       default: {
@@ -609,10 +635,9 @@ export function explode(files: CatalogFiles): ExplodeResult {
             if (source !== undefined) rows.docs.push({ path, mediaType: name.endsWith('.md') ? 'text/markdown' : 'text/plain', body: source });
           }
         } else {
-          const bytes = bytesOf(content);
-          const sha = sha256Hex(bytes);
+          const { sha, size, bytes } = binary(content);
           rows.files.push({ path, sha256: sha });
-          addBlob(sha, name, bytes);
+          addBlob(sha, name, bytes, size);
         }
       }
     }
@@ -649,7 +674,7 @@ export function explode(files: CatalogFiles): ExplodeResult {
             if (file !== undefined && file.name !== `${e.id}.${ASSET_MIME_EXT[e.mime]}`) {
               errors.push(`data/assets/${file.name}: the index says this asset is ${e.mime}`);
             }
-            if (file !== undefined && file.bytes.length !== e.bytes) errors.push(`data/assets/${file.name}: the index says ${e.bytes} bytes`);
+            if (file !== undefined && file.size !== e.bytes) errors.push(`data/assets/${file.name}: the index says ${e.bytes} bytes`);
             addBlob(e.id, `${e.id}.${ASSET_MIME_EXT[e.mime]}`, file?.bytes, e.bytes);
             assetFiles.delete(e.id);
           }

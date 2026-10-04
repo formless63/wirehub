@@ -43,7 +43,7 @@ function expectIdentity(files: CatalogFiles): void {
   for (const [path, content] of files) {
     const again = back.get(path);
     if (typeof content === 'string') expect(again, path).toBe(content);
-    else expect(sha256Hex(again as Uint8Array), path).toBe(sha256Hex(content));
+    else expect(sha256Hex(again as Uint8Array), path).toBe(sha256Hex(content as Uint8Array));
   }
 }
 

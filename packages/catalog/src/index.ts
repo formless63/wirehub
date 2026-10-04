@@ -40,6 +40,9 @@ export type { InstalledPack, InstalledPacks, PackInstallPlan, PackManifest } fro
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */
 export function dataPath(relative: string): string {
+  // a catalog elsewhere (a copy for tests, a mounted volume): WIREHUB_CATALOG_DIR names its data/ directory
+  const elsewhere = typeof process === 'undefined' ? undefined : process.env?.WIREHUB_CATALOG_DIR;
+  if (elsewhere !== undefined && elsewhere !== '') return `${elsewhere.replace(/\/+$/, '')}/${relative}`;
   return fileURLToPath(new URL(`../data/${relative}`, import.meta.url));
 }
 

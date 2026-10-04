@@ -11,7 +11,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { ASSET_MIME_EXT, codePointCompare, render, sha256Hex, type CatalogFiles } from '@wirehub/catalog/src/codec/index.ts';
+import { ASSET_MIME_EXT, codePointCompare, contentSha, render, type CatalogFiles } from '@wirehub/catalog/src/codec/index.ts';
 
 import type { BlobStore } from '../blobs.ts';
 import { blobObjectKey } from './keys.ts';
@@ -45,7 +45,7 @@ export function exportTree(tree: CatalogFiles, version: string): CatalogExport {
   const blobs: Record<string, string> = {};
   for (const [path, content] of [...tree.entries()].sort(([a], [b]) => codePointCompare(a, b))) {
     if (typeof content === 'string') files[path] = content;
-    else blobs[path] = sha256Hex(content);
+    else blobs[path] = contentSha(content);
   }
   return { format: 'wirehub-catalog-export', format_version: 1, version, files, blobs };
 }

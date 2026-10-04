@@ -22,6 +22,9 @@ import type { DepictionIndex, DepictionMeta } from './model.ts';
 
 /** Absolute path of this package's `depictions/` directory. */
 export function depictionsRoot(): string {
+  // beside a catalog kept elsewhere (WIREHUB_CATALOG_DIR names its data/), like dataPath
+  const elsewhere = typeof process === 'undefined' ? undefined : process.env?.WIREHUB_CATALOG_DIR;
+  if (elsewhere !== undefined && elsewhere !== '') return join(elsewhere, '..', 'depictions');
   return fileURLToPath(new URL('../../depictions/', import.meta.url));
 }
 

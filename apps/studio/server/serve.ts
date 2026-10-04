@@ -118,7 +118,7 @@ try {
   process.exit(1);
 }
 
-const app = createStandaloneApp({ distDir, deps: workbench.deps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
+const app = createStandaloneApp({ distDir, deps: workbench.deps, depictionDeps: workbench.depictionDeps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 
 serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`WireHub serving ${distDir}`);

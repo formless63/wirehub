@@ -16,6 +16,8 @@
  * is written — a pg studio is a read-only studio.
  */
 
+import { createHash } from 'node:crypto';
+
 import { composeConnectors } from '@wirehub/model';
 import type { BoardBuilds, ConnectorRecord, DesignVersionFile, SignalTags, VocabList, WireDefinition, WirePart, WireRecipe, StripPractice } from '@wirehub/model';
 import { buildTags, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
@@ -27,6 +29,8 @@ import type { BuildsStore } from '../builds.ts';
 import { isDefinitionKind, type DefinitionKind, type DefinitionRecord, type DefinitionStore } from '../definition-store.ts';
 import type { DesignStore, DesignSummary } from '../designs.ts';
 import type { DrawingStore, StoredDrawing } from '../drawings.ts';
+import type { DepictionStore } from '../depictions.ts';
+import { isDocPath, parseDoc, type DocStore } from '../storage/doc-store.ts';
 import type { ModelLink, ModelLinkStore } from '../models/links.ts';
 import { ReadOnlyBackendError, type ChangeSet, type CommitResult } from '../storage/change-set.ts';
 import { snapshotDepictions, type DraftFile, type DraftSummary, type VersionStore, type WorkingState } from '../versions.ts';
@@ -252,7 +256,8 @@ export function pgVersionStore(context: PgReadContext, depictionsDir?: string): 
       checkRev(n);
       return parse<DraftFile>(await context.snapshot(), `${dir(id)}/drafts/${n}.json`);
     },
-    snapshotArtwork: (defIds) => snapshotDepictions(depictionsDir, defIds),
+    // today's artwork: the file tree when one is named, else the database's own depictions (B7)
+    snapshotArtwork: (defIds) => (depictionsDir !== undefined ? snapshotDepictions(depictionsDir, defIds) : artworkSnapshot(context, defIds)),
     async readArtworkBlob(id, blob) {
       if (!/^[0-9a-f]{64}\.[a-z0-9]{1,8}$/.test(blob)) return undefined;
       const sha = (await context.snapshot()).blobOf.get(`data/${dir(id)}/artwork/${blob}`);
@@ -272,4 +277,78 @@ export function pgVersionStore(context: PgReadContext, depictionsDir?: string): 
 export async function pgCommitReadOnly(set: ChangeSet): Promise<CommitResult> {
   const first = set.changes[0];
   throw new ReadOnlyBackendError(notWritten(first === undefined ? 'the change' : `${first.kind} '${first.key}'`));
+}
+
+/** Artwork (B7): `meta.json` records and their files, from the snapshot and the blob store. */
+export function pgDepictionStore(context: PgReadContext): DepictionStore {
+  const DEF = /^[a-z0-9][a-z0-9.-]*$/;
+  return {
+    async listDefIds() {
+      const { files } = await context.snapshot();
+      return [...new Set([...files.keys()].filter((p) => p.startsWith('depictions/') && p.endsWith('/meta.json')).map((p) => p.split('/')[1] as string))].sort();
+    },
+    async readMeta(defId) {
+      if (!DEF.test(defId)) return undefined;
+      const text = (await context.snapshot()).files.get(`depictions/${defId}/meta.json`);
+      if (typeof text !== 'string') return undefined;
+      const value: unknown = JSON.parse(text);
+      return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+    },
+    async readAsset(defId, file) {
+      if (!DEF.test(defId)) return undefined;
+      const snapshot = await context.snapshot();
+      const content = snapshot.files.get(`depictions/${defId}/${file}`);
+      if (typeof content === 'string') return new TextEncoder().encode(content);
+      const sha = snapshot.blobOf.get(`depictions/${defId}/${file}`);
+      const bytes = sha === undefined ? undefined : await blobBytes(context, sha);
+      return bytes === undefined ? undefined : new Uint8Array(bytes);
+    },
+    dirFor: () => undefined,
+    async readBoardMap(defId) {
+      const value = parse<unknown>(await context.snapshot(), `kicad-maps/${defId}.json`);
+      return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+    },
+    writeMeta: readOnly('the depiction manifest'),
+    writeAsset: readOnly('the artwork file'),
+    writeBoardMap: readOnly('the board map'),
+  };
+}
+
+/** Catalog documents by path (the `doc` kind), from the snapshot. */
+export function pgDocStore(context: PgReadContext): DocStore {
+  return {
+    async read(path) {
+      if (!isDocPath(path)) return undefined;
+      const text = (await context.snapshot()).source.read(path.slice('data/'.length));
+      return text === undefined ? undefined : parseDoc(path, text);
+    },
+    write: readOnly('the document'),
+    remove: readOnly('the document delete'),
+  };
+}
+
+/** Today's artwork of `defIds`, hashed per file, with the bytes — `snapshotDepictions` over the snapshot. */
+export async function artworkSnapshot(context: PgReadContext, defIds: string[]): Promise<{ files: Record<string, Record<string, string>>; blobs: Record<string, Uint8Array> }> {
+  const snapshot = await context.snapshot();
+  const store = pgDepictionStore(context);
+  const files: Record<string, Record<string, string>> = {};
+  const blobs: Record<string, Uint8Array> = {};
+  for (const id of [...new Set(defIds)].sort()) {
+    if (!/^[a-z0-9][a-z0-9.-]*$/.test(id)) continue;
+    const prefix = `depictions/${id}/`;
+    const entry: Record<string, string> = {};
+    for (const path of [...snapshot.files.keys()].filter((p) => p.startsWith(prefix)).sort()) {
+      const name = path.slice(prefix.length);
+      const bytes = await store.readAsset(id, name);
+      if (bytes === undefined) continue;
+      const hex = createHash('sha256').update(bytes).digest('hex');
+      const dot = name.lastIndexOf('.');
+      const ext = dot <= 0 ? '' : name.slice(dot + 1).toLowerCase();
+      if (!/^[a-z0-9]{1,8}$/.test(ext)) continue;
+      entry[name] = `sha256:${hex}`;
+      blobs[`${hex}.${ext}`] = bytes;
+    }
+    if (Object.keys(entry).length > 0) files[id] = entry;
+  }
+  return { files, blobs };
 }
