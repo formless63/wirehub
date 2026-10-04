@@ -1,6 +1,8 @@
 # WireHub — a self-contained image: the standalone Node server
-# (apps/studio/server/serve.ts) serving the built UI and /api/*. Built from
-# the repository root (compose.yaml, or the release workflow).
+# (apps/studio/server/serve.ts) serving the built UI and /api/*, plus the
+# compose stack's one-shots (apps/studio/stack/: bootstrap, garage-init,
+# backup-init). Built from the repository root by the release workflow, or
+# locally: docker build -f docker/app.Dockerfile -t wirehub:dev .
 FROM node:24-bookworm-slim AS build
 RUN corepack enable
 WORKDIR /app
@@ -21,13 +23,14 @@ LABEL org.opencontainers.image.title="WireHub" \
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
- && mkdir -p /data/auth /data/blobs /data/cache \
- && chown -R node:node /data
+ && mkdir -p /data/auth /data/blobs /data/cache /data/packs /run/wirehub \
+ && chown -R node:node /data /run/wirehub
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app
 USER node
-# a fresh hub opens on first-run setup (/setup) until domain modules are chosen
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=5183 WIREHUB_VERSION=${WIREHUB_VERSION} WIREHUB_SETUP_PROMPT=1
+# a fresh hub opens on first-run setup (/setup) until domain modules are chosen;
+# the packs it installs live in /data/packs, never in the starter catalog
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=5183 WIREHUB_VERSION=${WIREHUB_VERSION} WIREHUB_SETUP_PROMPT=1 WIREHUB_PACKS_DIR=/data/packs
 WORKDIR /app/apps/studio
 EXPOSE 5183
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD node -e "fetch('http://127.0.0.1:5183/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"

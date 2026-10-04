@@ -1,113 +1,138 @@
-# WireHub — the default self-hosted stack.
+# WireHub — the self-hosted stack, in one file.
 #
-#   bash scripts/setup-env.sh        # once: writes .env with generated secrets
-#   docker compose up -d             # then open http://localhost:5183
+#   docker compose up -d             # then open http://localhost:5183/setup
 #
-# Services:
-#   wirehub      the app (Node server + built UI), the only published port
-#   garage       S3-compatible object store for uploaded files (photos,
-#                datasheets, 3D models) — Garage, single node
-#   garage-init  one-shot: Garage layout, access keys and the bucket
-#   postgres     PostgreSQL 18 — PROVISIONED FOR THE UPCOMING DATABASE
-#                BACKEND (specs/postgres-backend.md, phases A–D). WireHub does
-#                not use it yet: today the catalog and designs are JSON files
-#                in the `catalog` volume. It runs now so an install made
-#                today has its database (and its backups) in place when the
-#                backend lands; skip it with `docker compose up -d wirehub`.
+# No .env is needed: the `bootstrap` service generates every secret on first
+# run into the `secrets` volume, and the app prints the first-run setup code
+# in its log (`docker compose logs wirehub`, or the wirehub container's logs
+# in your Docker UI). An optional .env (see .env.example, or the config
+# generator: https://formless63.github.io/wirehub/) sets the public URL,
+# ports, optional parts, your own S3 or Postgres, sign-in and backups.
 #
-# What holds your data today: the `catalog` volume (definitions, designs,
-# drawings, versions), the `auth` volume (sign-in sessions, save audit log) and
-# the Garage volumes (uploaded file bytes). compose.backup.yaml backs all of
-# them up, plus the Postgres dump.
+# Default services:
+#   bootstrap    one-shot: secrets, the setup code and Garage's config
+#   wirehub      the app (UI + API), the only published port
+#   postgres     PostgreSQL 18 (the first release runs on it; until the
+#                database backend lands the app keeps its catalog in the
+#                `catalog` volume)
+#   garage       S3-compatible store for uploaded files (photos, datasheets,
+#                3D models) — Garage, single node
+#   garage-init  one-shot: Garage's layout, its access keys and the bucket
 #
-# Fallback without object storage: set WIREHUB_BLOBS=fs:/data/blobs in .env
-# and start only the app: `docker compose up -d --no-deps wirehub`.
+# Optional parts are profiles, chosen with COMPOSE_PROFILES in .env:
+#   backup       restic backups through Backrest (web UI on port 9898):
+#                backup-init, backup-dump, backup-mirror, backrest
 #
-# Every setting is in .env (documented in .env.example). Nothing here is
-# published beyond the app's port, which binds to 127.0.0.1 unless
-# WIREHUB_BIND says otherwise; put a TLS-terminating reverse proxy in front
-# for anything but local use.
+# Using your own Postgres or S3: delete the block between ">>> bundled-…" and
+# "<<< bundled-…" and set DATABASE_URL or the S3_* variables (the config
+# generator does both for you).
+#
+# Nothing is published beyond the app's port (and Backrest's, with the backup
+# profile), which bind to 127.0.0.1 unless WIREHUB_BIND / BACKREST_BIND say
+# otherwise; put a TLS-terminating reverse proxy in front for anything but
+# local use.
 
 name: wirehub
 
-x-app-image: &app-image
-  image: ${WIREHUB_IMAGE:-ghcr.io/formless63/wirehub:edge}
-  build:
-    context: .
-    dockerfile: docker/app.Dockerfile
-
 services:
-  wirehub:
-    <<: *app-image
-    env_file:
-      - path: .env
-        required: false
+  bootstrap:
+    image: &wirehub-image ${WIREHUB_IMAGE:-ghcr.io/formless63/wirehub:0.1.0} # x-release-please-version
+    user: "0:0"
+    command: ["node", "--experimental-strip-types", "--no-warnings", "stack/bootstrap.ts"]
     environment:
+      # explicit values win over generated ones (unset = generate)
+      POSTGRES_PASSWORD:
+      DATABASE_URL:
+      BETTER_AUTH_SECRET:
+      GARAGE_RPC_SECRET:
+      GARAGE_ADMIN_TOKEN:
+      WIREHUB_SETUP_CODE:
+      S3_REGION: ${S3_REGION:-garage}
+    volumes:
+      - secrets:/run/wirehub
+    network_mode: none
+    mem_limit: 128m
+    restart: "no"
+
+  wirehub:
+    image: *wirehub-image
+    environment:
+      BETTER_AUTH_URL: ${WIREHUB_PUBLIC_URL:-http://localhost:${WIREHUB_PORT:-5183}}
+      WIREHUB_BACKEND: ${WIREHUB_BACKEND:-files}
+      WIREHUB_SUGGESTED_MODULES:
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       AUTH_DATA_DIR: /data/auth
       WIREHUB_MODEL_CACHE_DIR: /data/cache/models
-      # an .env written before the rename may still say STUDIO_BLOBS: honoured, deprecated
-      WIREHUB_BLOBS: ${WIREHUB_BLOBS:-${STUDIO_BLOBS:-s3}}
+      WIREHUB_PACKS_DIR: /data/packs
+      WIREHUB_BLOBS: ${WIREHUB_BLOBS:-s3}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
       S3_REGION: ${S3_REGION:-garage}
       S3_BUCKET: ${S3_BUCKET:-wirehub}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?run scripts/setup-env.sh first (see .env.example)}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?run scripts/setup-env.sh first}
+      # secrets: the generated files, unless set explicitly
+      DATABASE_URL:
+      DATABASE_URL_FILE: /run/wirehub/database_url
+      BETTER_AUTH_SECRET:
+      BETTER_AUTH_SECRET_FILE: /run/wirehub/better_auth_secret
+      WIREHUB_SETUP_CODE:
+      WIREHUB_SETUP_CODE_FILE: /run/wirehub/setup_code
+      S3_ACCESS_KEY_ID:
+      S3_ACCESS_KEY_ID_FILE: /run/wirehub/s3_access_key_id
+      S3_SECRET_ACCESS_KEY:
+      S3_SECRET_ACCESS_KEY_FILE: /run/wirehub/s3_secret_access_key
+      # optional sign-in (apps/studio/README.md, "Auth")
+      AUTH_ALLOWED_EMAILS:
+      AUTH_OIDC_ISSUER:
+      AUTH_OIDC_CLIENT_ID:
+      AUTH_OIDC_CLIENT_SECRET:
+      AUTH_OIDC_SCOPES:
+      AUTH_OIDC_EMAIL_CLAIM:
+      AUTH_OIDC_PROVIDER_ID:
+      AUTH_OIDC_NAME:
+      AUTH_SMTP_HOST:
+      AUTH_SMTP_PORT:
+      AUTH_SMTP_SECURE:
+      AUTH_SMTP_USER:
+      AUTH_SMTP_PASS:
+      AUTH_SMTP_FROM:
+      WIREHUB_LOCAL_USER:
+      TZ: ${TZ:-UTC}
     ports:
       - "${WIREHUB_BIND:-127.0.0.1}:${WIREHUB_PORT:-5183}:5183"
     volumes:
       - catalog:/app/packages/catalog/data
       - auth:/data/auth
+      - packs:/data/packs
       - blobs:/data/blobs
       - cache:/data/cache
+      - secrets:/run/wirehub:ro
     depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      # >>> bundled-postgres
+      postgres:
+        condition: service_healthy
+      # <<< bundled-postgres
+      # >>> bundled-s3
       garage-init:
         condition: service_completed_successfully
+      # <<< bundled-s3
     mem_limit: 768m
     restart: unless-stopped
     networks: [internal, public]
 
-  garage:
-    image: dxflrs/garage:v2.4.1
-    environment:
-      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?run scripts/setup-env.sh first}
-      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run scripts/setup-env.sh first}
-    volumes:
-      - ./docker/garage/garage.toml:/etc/garage.toml:ro
-      - garage_meta:/var/lib/garage/meta
-      - garage_data:/var/lib/garage/data
-    mem_limit: 256m
-    restart: unless-stopped
-    networks: [internal]
-
-  garage-init:
-    # the app image (built or pulled for `wirehub`): node runs the init script
-    image: ${WIREHUB_IMAGE:-ghcr.io/formless63/wirehub:edge}
-    pull_policy: missing
-    command: ["node", "/app/docker/garage/init.mjs"]
-    environment:
-      GARAGE_ADMIN_URL: http://garage:3903
-      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?run scripts/setup-env.sh first}
-      GARAGE_CAPACITY: ${GARAGE_CAPACITY:-100G}
-      S3_BUCKET: ${S3_BUCKET:-wirehub}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?run scripts/setup-env.sh first}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?run scripts/setup-env.sh first}
-      S3_BACKUP_ACCESS_KEY_ID: ${S3_BACKUP_ACCESS_KEY_ID:-}
-      S3_BACKUP_SECRET_ACCESS_KEY: ${S3_BACKUP_SECRET_ACCESS_KEY:-}
-    depends_on:
-      - garage
-    mem_limit: 128m
-    restart: "no"
-    networks: [internal]
-
+  # >>> bundled-postgres: the bundled PostgreSQL 18. Using your own? Delete down to "<<< bundled-postgres" and set DATABASE_URL.
   postgres:
     image: postgres:18.6-bookworm
     environment:
       POSTGRES_USER: wirehub
       POSTGRES_DB: wirehub
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run scripts/setup-env.sh first}
+      POSTGRES_PASSWORD_FILE: /run/wirehub/postgres_password
     volumes:
       - pg_data:/var/lib/postgresql
+      - secrets:/run/wirehub:ro
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wirehub -d wirehub"]
       interval: 10s
@@ -116,18 +141,179 @@ services:
     mem_limit: 512m
     restart: unless-stopped
     networks: [internal]
+  # <<< bundled-postgres
+
+  # >>> bundled-s3: Garage, the bundled S3 store. Using your own S3? Delete down to "<<< bundled-s3" and set the S3_* variables.
+  garage:
+    image: dxflrs/garage:v2.4.1
+    command: ["/garage", "-c", "/run/wirehub/garage.toml", "server"]
+    volumes:
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+      - secrets:/run/wirehub:ro
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    mem_limit: 256m
+    restart: unless-stopped
+    networks: [internal]
+
+  garage-init:
+    image: *wirehub-image
+    command: ["node", "--experimental-strip-types", "--no-warnings", "stack/garage-init.ts"]
+    environment:
+      GARAGE_ADMIN_URL: http://garage:3903
+      GARAGE_CAPACITY: ${GARAGE_CAPACITY:-100G}
+      S3_BUCKET: ${S3_BUCKET:-wirehub}
+      # explicit keys are imported and win; otherwise Garage creates them
+      S3_ACCESS_KEY_ID:
+      S3_SECRET_ACCESS_KEY:
+      S3_BACKUP_ACCESS_KEY_ID:
+      S3_BACKUP_SECRET_ACCESS_KEY:
+    volumes:
+      - secrets:/run/wirehub
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      garage:
+        condition: service_started
+    mem_limit: 128m
+    restart: "no"
+    networks: [internal]
+  # <<< bundled-s3
+
+  # --- profile `backup`: restic through Backrest ----------------------------
+  # backup-dump and backup-mirror stage the database dump and a mirror of the
+  # bucket into the `backups` volume; Backrest snapshots it with the catalog,
+  # auth and packs volumes to BACKUP_REPOSITORY (default: a local repository
+  # in the `restic_repo` volume — set a repository on another machine).
+  backup-init:
+    profiles: [backup]
+    image: *wirehub-image
+    user: "0:0"
+    command: ["node", "--experimental-strip-types", "--no-warnings", "stack/backup-init.ts"]
+    environment:
+      BACKREST_CONFIG: /config/config.json
+      BACKUP_REPOSITORY:
+      BACKUP_REPOSITORY_PASSWORD:
+      BACKUP_AWS_ACCESS_KEY_ID:
+      BACKUP_AWS_SECRET_ACCESS_KEY:
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 3 * * *}
+    volumes:
+      - secrets:/run/wirehub
+      - backrest_config:/config
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    network_mode: none
+    mem_limit: 128m
+    restart: "no"
+
+  backup-dump:
+    profiles: [backup]
+    image: postgres:18.6-bookworm
+    entrypoint: ["bash", "/run/wirehub/backup/pg-dump.sh"]
+    environment:
+      DATABASE_URL:
+      DATABASE_URL_FILE: /run/wirehub/database_url
+      BACKUP_DUMP_AT: ${BACKUP_DUMP_AT:-02:30}
+      BACKUP_KEEP_DUMPS: ${BACKUP_KEEP_DUMPS:-7}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - secrets:/run/wirehub:ro
+      - backups:/backups
+    depends_on:
+      backup-init:
+        condition: service_completed_successfully
+      # >>> bundled-postgres
+      postgres:
+        condition: service_healthy
+      # <<< bundled-postgres
+    mem_limit: 256m
+    restart: unless-stopped
+    networks: [internal, public]
+
+  backup-mirror:
+    profiles: [backup]
+    image: rclone/rclone:1.75.1
+    entrypoint: ["sh", "/run/wirehub/backup/blob-mirror.sh"]
+    environment:
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
+      S3_REGION: ${S3_REGION:-garage}
+      S3_BUCKET: ${S3_BUCKET:-wirehub}
+      BACKUP_MIRROR_INTERVAL: ${BACKUP_MIRROR_INTERVAL:-3600}
+      S3_BACKUP_ACCESS_KEY_ID:
+      S3_BACKUP_ACCESS_KEY_ID_FILE: /run/wirehub/s3_backup_access_key_id
+      S3_BACKUP_SECRET_ACCESS_KEY:
+      S3_BACKUP_SECRET_ACCESS_KEY_FILE: /run/wirehub/s3_backup_secret_access_key
+      S3_ACCESS_KEY_ID:
+      S3_ACCESS_KEY_ID_FILE: /run/wirehub/s3_access_key_id
+      S3_SECRET_ACCESS_KEY:
+      S3_SECRET_ACCESS_KEY_FILE: /run/wirehub/s3_secret_access_key
+    volumes:
+      - secrets:/run/wirehub:ro
+      - backups:/backups
+    depends_on:
+      backup-init:
+        condition: service_completed_successfully
+      # >>> bundled-s3
+      garage-init:
+        condition: service_completed_successfully
+      # <<< bundled-s3
+    mem_limit: 256m
+    restart: unless-stopped
+    networks: [internal, public]
+
+  backrest:
+    profiles: [backup]
+    image: garethgeorge/backrest:v1.14.1
+    environment:
+      BACKREST_DATA: /data
+      BACKREST_CONFIG: /config/config.json
+      XDG_CACHE_HOME: /cache
+      TMPDIR: /tmp
+      TZ: ${TZ:-UTC}
+    volumes:
+      - backrest_data:/data
+      - backrest_config:/config
+      - backrest_cache:/cache
+      - restic_repo:/repos
+      - backups:/sources/backups:ro
+      - catalog:/sources/catalog:ro
+      - auth:/sources/auth:ro
+      - packs:/sources/packs:ro
+    ports:
+      - "${BACKREST_BIND:-127.0.0.1}:${BACKREST_PORT:-9898}:9898"
+    depends_on:
+      backup-init:
+        condition: service_completed_successfully
+    mem_limit: 512m
+    restart: unless-stopped
+    # internal: the staging services; public: a repository on another machine
+    networks: [internal, public]
 
 networks:
-  # garage and postgres are reachable only from the stack, never published
+  # postgres and garage are reachable only from the stack, never published
   internal:
     internal: true
   public: {}
 
 volumes:
+  secrets:
   catalog:
   auth:
+  packs:
   blobs:
   cache:
+  # >>> bundled-postgres
+  pg_data:
+  # <<< bundled-postgres
+  # >>> bundled-s3
   garage_meta:
   garage_data:
-  pg_data:
+  # <<< bundled-s3
+  backups:
+  backrest_data:
+  backrest_config:
+  backrest_cache:
+  restic_repo:

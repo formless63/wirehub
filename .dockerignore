@@ -10,6 +10,8 @@
 !.env.example
 .privacy-terms
 data/auth/*
+data/packs
+site/dist
 brand/.preview-*.png
 packages/catalog/data/.model-cache
 packages/catalog/data/.kicad-3d-cache
