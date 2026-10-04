@@ -10,6 +10,8 @@ export interface SignInPageModel {
   oidc?: { providerId: string; name: string; emailClaim: string };
   /** the magic-link form, when SMTP is configured */
   magicLink: boolean;
+  /** the email + password form (database backend, plan §9.3) */
+  localAccounts?: boolean;
   /** where to go after signing in — already sanitised by the caller */
   next: string;
   /** an error code from the query string (`?error=`) */
@@ -59,8 +61,18 @@ export function renderSignInPage(model: SignInPageModel): string {
     if (model.oidc !== undefined) {
       parts.push(`<button class="btn primary" type="button" id="oidc" data-provider="${esc(model.oidc.providerId)}">Sign in with ${esc(model.oidc.name)}</button>`);
     }
-    if (model.magicLink) {
+    if (model.localAccounts === true) {
       if (model.oidc !== undefined) parts.push('<div class="or"><span>or</span></div>');
+      parts.push(`<form id="password" novalidate>
+<label for="pw-email">Email</label>
+<input id="pw-email" name="email" type="email" autocomplete="username" required placeholder="you@example.com">
+<label for="pw-password">Password</label>
+<input id="pw-password" name="password" type="password" autocomplete="current-password" required>
+<button class="btn primary" type="submit">Sign in</button>
+</form>`);
+    }
+    if (model.magicLink) {
+      if (model.oidc !== undefined || model.localAccounts === true) parts.push('<div class="or"><span>or</span></div>');
       parts.push(`<form id="magic" novalidate>
 <label for="email">Email</label>
 <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
@@ -124,6 +136,8 @@ var oidc=document.getElementById('oidc');
 if(oidc)oidc.addEventListener('click',function(){oidc.disabled=true;post('/sign-in/social',{provider:oidc.dataset.provider,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){location.href=r.body.url}else{oidc.disabled=false;say(r.body.message||'Could not reach the sign-in provider.','err')}},function(){oidc.disabled=false;say('Could not reach the studio.','err')})});
 var form=document.getElementById('magic');
 if(form)form.addEventListener('submit',function(e){e.preventDefault();var email=form.email.value.trim();if(!email){say('Enter your email.','err');return}var b=form.querySelector('button');b.disabled=true;post('/sign-in/magic-link',{email:email,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){b.disabled=false;if(r.ok){say('Link sent to '+email+'. It works once, for 10 minutes.','ok')}else{say(r.body.message||'Could not send the link.','err')}},function(){b.disabled=false;say('Could not reach the studio.','err')})});
+var pw=document.getElementById('password');
+if(pw)pw.addEventListener('submit',function(e){e.preventDefault();var b=pw.querySelector('button');b.disabled=true;post('/sign-in/email',{email:pw.email.value.trim(),password:pw.password.value,callbackURL:next}).then(function(r){if(r.ok){location.href=next}else{b.disabled=false;say(r.body.message||'That email and password do not match.','err')}},function(){b.disabled=false;say('Could not reach the studio.','err')})});
 var out=document.getElementById('sign-out');
 if(out)out.addEventListener('click',function(){post('/sign-out',{}).then(function(){location.href='/sign-in'})});
 })();
@@ -131,4 +145,27 @@ if(out)out.addEventListener('click',function(){post('/sign-out',{}).then(functio
 </body>
 </html>
 `;
+}
+
+/** The invitation page: choose a name and a password; the account is made and signed in. */
+export function renderInvitePage(model: { token: string; localAccounts: boolean }): string {
+  const form = model.localAccounts
+    ? `<form id="accept" novalidate>
+<label for="name">Your name</label>
+<input id="name" name="name" autocomplete="name" required>
+<label for="password">Choose a password (12 characters or more)</label>
+<input id="password" name="password" type="password" autocomplete="new-password" minlength="12" required>
+<button class="btn primary" type="submit">Join the hub</button>
+</form>`
+    : '<p class="msg">This hub signs in through its identity provider. <a href="/sign-in">Sign in</a> with the invited email.</p>';
+  return renderSignInPage({ magicLink: false, next: '/' })
+    .replace('<title>Sign in · WireHub</title>', '<title>Join · WireHub</title>')
+    .replace('<h1>WireHub <span>· sign in</span></h1>', '<h1>WireHub <span>· you are invited</span></h1>')
+    .replace(/<p class="msg" id="status"/, `${form}\n<p class="msg" id="status"`)
+    .replace(
+      'var out=document.getElementById',
+      `var acc=document.getElementById('accept');
+if(acc)acc.addEventListener('submit',function(e){e.preventDefault();var b=acc.querySelector('button');b.disabled=true;fetch('/api/invitations/accept',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify({token:${JSON.stringify(model.token).replace(/</g, '\\u003c')},name:acc.name.value,password:acc.password.value})}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(r.ok){location.href='/'}else{b.disabled=false;say(j.error||j.message||'Could not accept the invitation.','err')}})},function(){b.disabled=false;say('Could not reach the studio.','err')})});
+var out=document.getElementById`,
+    );
 }

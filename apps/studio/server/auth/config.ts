@@ -51,6 +51,17 @@ export interface AuthConfigEnabled {
   dataDir: string;
   oidc?: OidcConfig;
   smtp?: SmtpConfig;
+  /**
+   * Email + password accounts (`AUTH_LOCAL_ACCOUNTS`; on by default with the
+   * database backend, plan §9.3). New ones only through an invitation.
+   */
+  localAccounts: boolean;
+  /**
+   * The database backend keeps the people (`studio.person`) and the
+   * invitations: anyone with a person row may sign in, and
+   * `AUTH_ALLOWED_EMAILS` is an extra allow-list rather than the only one.
+   */
+  database: boolean;
 }
 
 export type AuthConfig = { enabled: false } | AuthConfigEnabled;
@@ -125,8 +136,11 @@ export function readAuthConfig(env: Env): AuthConfig {
   }
   const baseURL = url(env, 'BETTER_AUTH_URL', 'set it to the public address people sign in at, e.g. https://studio.example.com');
 
+  const database = (env.WIREHUB_BACKEND ?? '').trim() === 'pg';
+  const localAccounts = flag(env, 'AUTH_LOCAL_ACCOUNTS', database);
+  if (localAccounts && !database) throw new AuthConfigError('AUTH_LOCAL_ACCOUNTS=true needs the database backend (WIREHUB_BACKEND=pg), which keeps the accounts and invitations.');
   const allowedEmails = parseEmailList(env.AUTH_ALLOWED_EMAILS);
-  if (allowedEmails.size === 0) {
+  if (allowedEmails.size === 0 && !database) {
     throw new AuthConfigError('AUTH_ALLOWED_EMAILS is empty — nobody could sign in. List the allowed emails, comma-separated.');
   }
 
@@ -168,7 +182,7 @@ export function readAuthConfig(env: Env): AuthConfig {
     };
   }
 
-  if (oidc === undefined && smtp === undefined) {
+  if (oidc === undefined && smtp === undefined && !localAccounts) {
     throw new AuthConfigError('no sign-in method is configured — set AUTH_OIDC_ISSUER (+ client id/secret), AUTH_SMTP_HOST (+ credentials), or both.');
   }
 
@@ -180,5 +194,7 @@ export function readAuthConfig(env: Env): AuthConfig {
     dataDir: text(env, 'AUTH_DATA_DIR') ?? DEFAULT_AUTH_DATA_DIR,
     ...(oidc === undefined ? {} : { oidc }),
     ...(smtp === undefined ? {} : { smtp }),
+    localAccounts,
+    database,
   };
 }

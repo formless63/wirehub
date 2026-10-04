@@ -107,7 +107,7 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
 export async function workbenchDepsFromEnv(
   env: Record<string, string | undefined>,
   options: { blobs?: BlobStore } = {},
-): Promise<{ backend: Backend; deps: WorkbenchDeps; depictionDeps: DepictionDeps; describe: string; close: () => Promise<void> }> {
+): Promise<{ backend: Backend; deps: WorkbenchDeps; depictionDeps: DepictionDeps; describe: string; close: () => Promise<void>; pg?: { db: import('./pg/db.ts').Db; orgId: string; url: string } }> {
   const backend = backendFromEnv(env);
   if (backend === 'files') {
     return { backend, deps: defaultWorkbenchDeps(options), depictionDeps: defaultDepictionDeps(), describe: 'files (packages/catalog/data)', close: async () => {} };
@@ -115,5 +115,12 @@ export async function workbenchDepsFromEnv(
   const { openPgBackend } = await import('./pg/deps.ts');
   const pg = await openPgBackend(env, options);
   const snapshot = pg.cache.peek();
-  return { backend, deps: pg.deps, depictionDeps: pg.depictionDeps, describe: `pg (org ${pg.cache.orgId}, catalog version ${snapshot?.version ?? '?'})`, close: pg.close };
+  return {
+    backend,
+    deps: pg.deps,
+    depictionDeps: pg.depictionDeps,
+    describe: `pg (org ${pg.cache.orgId}, catalog version ${snapshot?.version ?? '?'})`,
+    close: pg.close,
+    pg: { db: pg.handle.db, orgId: pg.cache.orgId, url: (env.DATABASE_URL ?? '').trim() },
+  };
 }

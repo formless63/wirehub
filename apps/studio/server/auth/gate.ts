@@ -20,7 +20,8 @@
 import type { Context, Hono } from 'hono';
 
 import { sessionStudioUser, type StudioUser } from '../me.ts';
-import { renderSignInPage } from './sign-in-page.ts';
+import { renderInvitePage, renderSignInPage } from './sign-in-page.ts';
+import { ROLES, type PeopleStore, type Person, type Role } from './people.ts';
 import { AUTH_BASE_PATH, EMAIL_NOT_ALLOWED, SIGN_IN_PATH, type StudioAuth } from './studio-auth.ts';
 
 export const USER_HEADER = 'x-studio-user';
@@ -65,6 +66,33 @@ function signInRedirect(c: Context, extra?: Record<string, string>): Response {
   return new Response(null, { status: 302, headers: { location: `${SIGN_IN_PATH}?${params}`, 'cache-control': 'no-store' } });
 }
 
+export const INVITE_PATH = '/invite';
+export const INVITATIONS_PATH = '/api/invitations';
+
+/** `/api/invitations` — owners only, with a session (never a token, plan §4.5). */
+async function invitationsRoute(c: Context, people: PeopleStore, person: Person | undefined, baseURL: string): Promise<Response> {
+  if (person?.role !== 'owner') return json(403, { error: 'Only an owner can invite people.', hint: 'Ask an owner of this hub.' });
+  const id = c.req.path.slice(INVITATIONS_PATH.length + 1);
+  if (id === '') {
+    if (c.req.method === 'GET') return json(200, { invitations: await people.listInvitations() });
+    if (c.req.method === 'POST') {
+      const body = (await c.req.json().catch(() => ({}))) as { email?: unknown; role?: unknown };
+      const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+      if (!/^[^@\s]+@[^@\s]+$/.test(email)) return json(400, { error: 'Say whom to invite: an email address.' });
+      const role = (ROLES as readonly unknown[]).includes(body.role) ? (body.role as Role) : 'editor';
+      if ((await people.personByEmail(email)) !== undefined) return json(409, { error: `${email} is already in this hub.` });
+      const { invitation, token } = await people.createInvitation({ email, role, invitedBy: person.id });
+      // shown once: only its hash is stored
+      return json(201, { invitation, link: `${baseURL}${INVITE_PATH}?token=${encodeURIComponent(token)}` });
+    }
+    return json(405, { error: `${c.req.method} is not something this address accepts.`, hint: 'It answers GET and POST.' });
+  }
+  if (c.req.method === 'DELETE') {
+    return (await people.revokeInvitation(id)) ? json(200, { revoked: id }) : json(404, { error: 'No open invitation by that id.' });
+  }
+  return json(405, { error: `${c.req.method} is not something this address accepts.`, hint: 'It answers DELETE.' });
+}
+
 export function mountAuth(app: Hono, auth: StudioAuth): void {
   const { config } = auth;
 
@@ -79,16 +107,30 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
           ? {}
           : { oidc: { providerId: config.oidc.providerId, name: config.oidc.name, emailClaim: config.oidc.emailClaim } }),
         magicLink: config.smtp !== undefined,
+        localAccounts: config.localAccounts,
         next: safeNext(c.req.query('next')),
         ...(error === undefined || error === '' ? {} : { error }),
-        ...(user === null ? {} : { signedInAs: { email: user.email, allowed: auth.isAllowed(user.email) } }),
+        ...(user === null ? {} : { signedInAs: { email: user.email, allowed: await auth.isAllowed(user.email) } }),
       }),
     );
   });
 
+  // invitations (database backend, B8): an owner invites by email with a role; the link's page makes the account
+  const people = auth.people;
+  if (people !== undefined && auth.acceptInvitation !== undefined) {
+    const accept = auth.acceptInvitation;
+    app.get(INVITE_PATH, (c) => html(renderInvitePage({ token: c.req.query('token') ?? '', localAccounts: config.localAccounts })));
+    app.post(`${INVITATIONS_PATH}/accept`, async (c) => {
+      const body = (await c.req.json().catch(() => ({}))) as { token?: unknown; name?: unknown; password?: unknown };
+      if (typeof body.token !== 'string' || typeof body.password !== 'string') return json(400, { error: 'Send the invitation token and a password.' });
+      return accept(body.token, typeof body.name === 'string' ? body.name : '', body.password);
+    });
+  }
+
   app.use('*', async (c, next) => {
     const path = c.req.path;
     if (path === SIGN_IN_PATH || path === AUTH_BASE_PATH || path.startsWith(`${AUTH_BASE_PATH}/`)) return next();
+    if (people !== undefined && (path === INVITE_PATH || path === `${INVITATIONS_PATH}/accept`)) return next();
     const api = isApiPath(path);
     const user = await auth.sessionUser(c.req.raw.headers);
 
@@ -104,7 +146,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       return c.text('Sign in first.', 401);
     }
 
-    if (!auth.isAllowed(user.email)) {
+    if (!(await auth.isAllowed(user.email))) {
       if (api) {
         return json(403, {
           error: `${user.email} is not allowed to use the studio.`,
@@ -116,6 +158,16 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
     }
 
     signedIn.set(c.req.raw, sessionStudioUser(user));
+    if (people !== undefined && api) {
+      const person = await people.personByEmail(user.email);
+      // the account is committed by now: link it to its person once
+      if (person !== undefined && person.authUserId !== user.id) await people.linkAuthUser(user.email, user.id);
+      // a viewer reads; every write needs an editor or an owner (plan §4.5)
+      if (person?.role === 'viewer' && WRITE_METHODS.has(c.req.method) && !path.startsWith('/api/locks')) {
+        return json(403, { error: `${user.email} can view this hub but not change it.`, hint: 'Nothing was changed. Ask an owner for the editor role.' });
+      }
+      if (path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`)) return invitationsRoute(c, people, person, config.baseURL);
+    }
     await next();
 
     if (api && WRITE_METHODS.has(c.req.method)) {

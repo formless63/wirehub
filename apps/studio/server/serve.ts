@@ -26,6 +26,7 @@ import { serve } from '@hono/node-server';
 
 import { AuthConfigError } from './auth/config.ts';
 import { studioAuthFromEnv, type StudioAuth } from './auth/studio-auth.ts';
+import { pgPeople } from './auth/people.ts';
 import { studioBackupFromEnv } from './backup/backup.ts';
 import { createStandaloneApp } from './standalone-app.ts';
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
@@ -50,16 +51,6 @@ const host = process.env.HOST ?? '0.0.0.0';
 const port = Number(process.env.PORT ?? 5183);
 if (!Number.isInteger(port) || port <= 0) {
   console.error(`PORT must be a positive integer; got '${process.env.PORT}'.`);
-  process.exit(1);
-}
-
-// the studio's own login — off unless AUTH_ENABLED=true (see "Auth" in the README)
-let auth: StudioAuth | undefined;
-try {
-  auth = await studioAuthFromEnv(process.env);
-} catch (error) {
-  if (!(error instanceof AuthConfigError)) throw error;
-  console.error(error.message);
   process.exit(1);
 }
 
@@ -115,6 +106,17 @@ try {
   workbench = await workbenchDepsFromEnv(process.env, blobs === undefined ? {} : { blobs });
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+
+// the studio's own login — off unless AUTH_ENABLED=true (see "Auth" in the README);
+// on the database backend its accounts, people and invitations are in Postgres
+let auth: StudioAuth | undefined;
+try {
+  auth = await studioAuthFromEnv(process.env, workbench.pg === undefined ? {} : { pg: { url: workbench.pg.url, people: pgPeople(workbench.pg.db, workbench.pg.orgId) } });
+} catch (error) {
+  if (!(error instanceof AuthConfigError)) throw error;
+  console.error(error.message);
   process.exit(1);
 }
 

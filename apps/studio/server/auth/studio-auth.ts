@@ -35,7 +35,12 @@ import { getMigrations } from 'better-auth/db/migration';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { magicLink } from 'better-auth/plugins/magic-link';
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+import pg from 'pg';
+
 import { readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
+import type { PeopleStore, Role } from './people.ts';
 import { magicLinkMessage, smtpTransport, type MailTransport } from './mailer.ts';
 
 export const AUTH_BASE_PATH = '/api/auth';
@@ -64,7 +69,14 @@ export interface StudioAuth {
   handler(request: Request): Promise<Response>;
   /** the signed-in person for this request's cookies, or `null` */
   sessionUser(headers: Headers): Promise<SessionUser | null>;
-  isAllowed(email: string): boolean;
+  /** may this email hold a session: the allow-list, or (database backend) a person of the org */
+  isAllowed(email: string): boolean | Promise<boolean>;
+  /** the database backend's people and invitations (B8); absent on files */
+  people?: PeopleStore;
+  /** close what the store holds open (the database backend's pool) */
+  close?(): Promise<void>;
+  /** accept an invitation: make the local account and sign it in (the response carries the session cookie) */
+  acceptInvitation?(token: string, name: string, password: string): Promise<Response>;
   /** one line per successful write, appended to `<dataDir>/saves.jsonl` */
   recordSave(record: SaveRecord): void;
 }
@@ -76,6 +88,12 @@ export interface StudioAuthOverrides {
   database?: DatabaseSync;
   /** tests route the IdP's userinfo call through here; default global fetch */
   fetch?: typeof fetch;
+  /**
+   * The database backend (plan §3.15): Better Auth's tables are schema `auth`
+   * of the app's database (migration 0012, never migrated at boot), and the
+   * people and invitations decide who may sign in.
+   */
+  pg?: { url: string; people: PeopleStore };
 }
 
 function forbidden(email: string): APIError {
@@ -135,13 +153,27 @@ function oidcUserInfo(oidc: OidcConfig, fetchImpl: typeof fetch) {
   };
 }
 
-export async function createStudioAuth(config: AuthConfigEnabled, overrides: StudioAuthOverrides = {}): Promise<StudioAuth> {
-  let database = overrides.database;
-  if (database === undefined) {
-    mkdirSync(config.dataDir, { recursive: true });
-    database = new DatabaseSync(join(config.dataDir, 'auth.sqlite'));
+/** Better Auth's options for a config — exported so a test can ask `getMigrations` what it would change. */
+export function authDatabaseOf(overrides: StudioAuthOverrides, config: AuthConfigEnabled): BetterAuthOptions['database'] {
+  if (overrides.pg !== undefined) {
+    // the auth schema of the app's own database, as studio_app
+    const pool = new pg.Pool({ connectionString: overrides.pg.url, max: 4, options: '-c search_path=auth', application_name: 'wirehub-auth' });
+    pool.on('error', (error) => console.warn(`[auth] idle connection error: ${error.message}`));
+    return pool;
   }
-  const isAllowed = (email: string): boolean => config.allowedEmails.has(email.trim().toLowerCase());
+  if (overrides.database !== undefined) return overrides.database;
+  mkdirSync(config.dataDir, { recursive: true });
+  return new DatabaseSync(join(config.dataDir, 'auth.sqlite'));
+}
+
+/** Who an account being created was invited as (set around the invitation's sign-up). */
+const invited = new AsyncLocalStorage<{ email: string; role: Role }>();
+
+export async function createStudioAuth(config: AuthConfigEnabled, overrides: StudioAuthOverrides = {}): Promise<StudioAuth> {
+  const database = authDatabaseOf(overrides, config);
+  const people = overrides.pg?.people;
+  const listed = (email: string): boolean => config.allowedEmails.has(email.trim().toLowerCase());
+  const isAllowed = async (email: string): Promise<boolean> => listed(email) || (people !== undefined && (await people.personByEmail(email.trim())) !== undefined);
   const mail = overrides.mailTransport ?? (config.smtp === undefined ? undefined : smtpTransport(config.smtp));
   const fetchImpl = overrides.fetch ?? fetch;
 
@@ -172,7 +204,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
         expiresIn: MAGIC_LINK_MINUTES * 60,
         storeToken: 'hashed',
         sendMagicLink: async ({ email, url }) => {
-          if (!isAllowed(email)) throw forbidden(email);
+          if (!(await isAllowed(email))) throw forbidden(email);
           try {
             await mail.sendMail(magicLinkMessage(from, email, url, MAGIC_LINK_MINUTES));
           } catch (error) {
@@ -208,7 +240,15 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
       user: {
         create: {
           before: async (user) => {
-            if (!isAllowed(user.email)) throw forbidden(user.email);
+            const invite = invited.getStore();
+            if (invite !== undefined && invite.email === user.email.toLowerCase()) return;
+            if (!(await isAllowed(user.email))) throw forbidden(user.email);
+          },
+          // the account's person: who its changes are attributed to, and its role
+          after: async (user) => {
+            if (people === undefined) return;
+            const invite = invited.getStore();
+            await people.ensurePerson(user.email, user.name, invite?.email === user.email.toLowerCase() ? invite.role : undefined);
           },
         },
       },
@@ -216,16 +256,23 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
         create: {
           before: async (session, ctx) => {
             const user = await ctx?.context.internalAdapter.findUserById(session.userId);
-            if (user !== undefined && user !== null && !isAllowed(user.email)) throw forbidden(user.email);
+            const invite = invited.getStore();
+            const accepting = user !== undefined && user !== null && invite !== undefined && invite.email === user.email.toLowerCase();
+            if (user !== undefined && user !== null && !accepting && !(await isAllowed(user.email))) throw forbidden(user.email);
+            if (user !== undefined && user !== null && people !== undefined) await people.ensurePerson(user.email, user.name, accepting ? invite?.role : undefined);
           },
         },
       },
     },
     plugins,
+    ...(config.localAccounts ? { emailAndPassword: { enabled: true, minPasswordLength: 12, autoSignIn: true } } : {}),
   };
 
-  const { runMigrations } = await getMigrations(options);
-  await runMigrations();
+  // the database backend's tables are migration 0012; the SQLite store migrates itself
+  if (overrides.pg === undefined) {
+    const { runMigrations } = await getMigrations(options);
+    await runMigrations();
+  }
 
   const auth = betterAuth(options);
   const auditPath = join(config.dataDir, 'saves.jsonl');
@@ -239,8 +286,32 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
       return { id: session.user.id, email: session.user.email, name: session.user.name };
     },
     isAllowed,
+    close: async () => {
+      if (database instanceof pg.Pool) await database.end();
+    },
+    ...(people === undefined
+      ? {}
+      : {
+          people,
+          async acceptInvitation(token, name, password) {
+            const invitation = await people.invitationByToken(token);
+            if (invitation === undefined) {
+              return Response.json({ error: 'That invitation has expired, was already used, or never existed.', hint: 'Ask whoever invited you for a new link.' }, { status: 410 });
+            }
+            if (!config.localAccounts) {
+              return Response.json({ error: 'This hub signs in with its identity provider only.', hint: 'Use the sign-in page.' }, { status: 409 });
+            }
+            const response = await invited.run({ email: invitation.email, role: invitation.role }, () =>
+              auth.api.signUpEmail({ body: { email: invitation.email, password, name: name.trim() || invitation.email }, asResponse: true }),
+            );
+            if (response.ok) await people.markAccepted(invitation.id);
+            return response;
+          },
+        }),
     recordSave(record) {
       console.log(`[auth] ${record.method} ${record.path} → ${record.status} by ${record.email}`);
+      // on the database backend the change set is the record of every save (plan §2)
+      if (overrides.pg !== undefined) return;
       try {
         mkdirSync(config.dataDir, { recursive: true });
         appendFileSync(auditPath, `${JSON.stringify(record)}\n`);
@@ -252,8 +323,8 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
 }
 
 /** `serve.ts`'s entry: `undefined` when `AUTH_ENABLED` is not `true`. */
-export async function studioAuthFromEnv(env: Readonly<Record<string, string | undefined>>): Promise<StudioAuth | undefined> {
+export async function studioAuthFromEnv(env: Readonly<Record<string, string | undefined>>, overrides: StudioAuthOverrides = {}): Promise<StudioAuth | undefined> {
   const config = readAuthConfig(env);
   if (!config.enabled) return undefined;
-  return createStudioAuth(config);
+  return createStudioAuth(config, overrides);
 }
