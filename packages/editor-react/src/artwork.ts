@@ -158,7 +158,7 @@ export interface AnchorWrite {
 
 /**
  * How this host stores artwork. The studio implements it over the workbench
- * API; the ERP will implement it over its own store; the tests implement it
+ * API; a host app may implement it over its own store; the tests implement it
  * with an object literal. No URL appears in this package.
  */
 export interface ArtworkAdapter {

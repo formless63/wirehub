@@ -8,7 +8,7 @@
  * connector, a populated board, a shell, fasteners … Each part is picked from
  * the library, never typed, and a part may be in any number of kits. Kits are
  * **informational**: a cable BOM still lists individual parts, and nothing
- * here is exported to the ERP (BOM spec Q6; owner question Q11).
+ * here is exported anywhere by the base.
  *
  * Replaces `ConnectorDefinition.kitNumber`, which could name only one kit.
  *

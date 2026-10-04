@@ -3,7 +3,7 @@
  * Documents targeting a saved revision: the default is
  * the latest saved revision (loaded through the release adapter, its number
  * in the title block); the working copy prints marked UNRELEASED and the
- * the ERP export refuses it.
+ * an export refuses it.
  */
 
 import './reactflow-jsdom.ts';

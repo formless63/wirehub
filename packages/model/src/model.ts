@@ -526,7 +526,7 @@ export interface PcbaDefinition {
  * (screw/nut), or something else mechanical (a strain-relief clip, a
  * thread-forming screw). No terminals — these never appear in a `TerminalRef`,
  * a joint, or a net; they exist purely so the BOM can carry them
- * (the ERP Q6: the cable BOM covers shells and hardware
+ * (the cable BOM covers shells and hardware
  * alongside PCBs/PCBAs and connectors).
  */
 export interface MechanicalDefinition {

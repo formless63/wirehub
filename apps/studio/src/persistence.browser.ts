@@ -3,7 +3,7 @@
  *
  * This is the *only* file in the studio that knows a URL. `CableEditor` is
  * handed the adapter and never learns where anything is kept — which is what
- * lets the same editor sit inside the ERP later with a different adapter and
+ * lets the same editor sit inside a host app later with a different adapter and
  * no change at all.
  *
  * Nothing here throws. Every failure — a validator refusal, a name already in

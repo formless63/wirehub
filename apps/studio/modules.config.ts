@@ -4,8 +4,8 @@
  * each module is a workspace or git dependency imported here and bundled
  * with the app. The base ships with none.
  *
- *   import { the ERP } from '@acme/cable-studio-the ERP';
- *   export const modules = [the ERP];
+ *   import { erpLink } from '@acme/cable-studio-erp-link';
+ *   export const modules = [erpLink];
  */
 
 import type { CableStudioModule } from '@cable-studio/modules';

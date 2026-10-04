@@ -49,7 +49,7 @@ export function lengthFromMm(mm: number): Length {
 }
 
 /* ------------------------------------------------------------------ *
- * Feet for the ERP
+ * Feet for integrations
  * ------------------------------------------------------------------ */
 
 const MM_PER_FOOT = 304.8;
@@ -66,7 +66,7 @@ export function mmFromFeet(ft: number): number {
 }
 
 /**
- * mm → ft, as the ERP is sent it. When a rung of the 0.5 ft ladder sits within
+ * mm → ft, as an integration is sent it. When a rung of the 0.5 ft ladder sits within
  * ±5 mm, that rung exactly (`1830` → 6, `455` → 1.5, `300` → 1); otherwise
  * `mm / 304.8` to two decimals (`400` → 1.31, `500` → 1.64).
  */
@@ -82,7 +82,7 @@ export function feetFromMm(mm: number): number {
   return best ?? round(mm / MM_PER_FOOT, 2);
 }
 
-/** A feet quantity as the ERP' numeric-string columns take it: `6`, `1.5`, `2.62`. */
+/** A feet quantity as numeric-string columns take it: `6`, `1.5`, `2.62`. */
 export function feetText(ft: number): string {
   return String(round(ft, 2));
 }

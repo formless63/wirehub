@@ -1,6 +1,6 @@
 /*
  * The editor's only stylesheet. Every rule is scoped under `.cs-editor`, so the
- * component can drop into a host app (the ERP) without touching its styles.
+ * component can drop into a host app without touching its styles.
  * The host must also load `@xyflow/react/dist/style.css`.
  *
  * Tailwind v4, scoped. This imports Tailwind's theme and utilities layers —

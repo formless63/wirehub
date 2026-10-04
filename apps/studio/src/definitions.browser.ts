@@ -4,7 +4,7 @@
  *
  * The sibling of `persistence.browser.ts`, and for the same reason: the editor
  * is handed an adapter and never learns where the parts library is kept, so the
- * same Library view sits inside the ERP later with a different adapter and no
+ * same Library view sits inside a host app later with a different adapter and no
  * change at all.
  *
  * Nothing here throws. A validator refusal, a definition something else is

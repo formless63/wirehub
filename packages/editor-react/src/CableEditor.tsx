@@ -177,7 +177,7 @@ export interface CableEditorProps {
    *
    * The editor never learns *where* designs are kept: no URL, no `fetch`, no
    * file path appears in this package. The studio implements this over the
-   * workbench API, the ERP will implement it over its own store, and the tests
+   * workbench API, a host app may implement it over its own store, and the tests
    * implement it with a `Map`.
    */
   persistence?: PersistenceAdapter;

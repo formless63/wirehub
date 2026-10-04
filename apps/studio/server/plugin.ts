@@ -13,7 +13,7 @@
  * — same rules, same store interfaces, a different socket.
  *
  * Sidecar phase, deliberately: a dev server (this file) or the standalone
- * server (`server/serve.ts`) is the host today, and the ERP is the host
+ * server (`server/serve.ts`) is the host today, and another app could be the host
  * tomorrow. When that swap happens these adapters get replaced; `api.ts`,
  * `definitions.ts` and the store interfaces travel unchanged.
  */
