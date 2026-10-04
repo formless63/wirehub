@@ -55,6 +55,7 @@ import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
 import type { DocStore } from './storage/doc-store.ts';
+import type { EventHub } from './events.ts';
 
 /* ------------------------------------------------------------------ *
  * Transport-shaped, transport-free
@@ -213,6 +214,8 @@ export interface WorkbenchDeps {
   locks?: LockStore;
   /** now, epoch ms, for lease times (injected by tests) */
   lockClock?: () => number;
+  /** what changed, for `GET /api/events` (`events.ts`); absent → no stream */
+  events?: EventHub;
   /**
    * The deployment's modules (`modules.config.ts`, `docs/modules.md`): their
    * validation rules run with `validateDesign`, their integrations answer
@@ -892,14 +895,18 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
         transact: (write) =>
           withWriteLock(async () => {
             const uow = new UnitOfWork(deps);
-            return commitUnit(uow, request, await write(modelDepsOf(uow.deps, request.user)));
+            const response = await commitUnit(uow, request, await write(modelDepsOf(uow.deps, request.user)));
+            if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
+            return response;
           }),
       },
     );
   }
   const run = async (): Promise<ApiResponse> => {
     const uow = new UnitOfWork(deps);
-    return commitUnit(uow, request, await routeWorkbenchRequest(request, uow.deps));
+    const response = await commitUnit(uow, request, await routeWorkbenchRequest(request, uow.deps));
+    if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
+    return response;
   };
   return isWriteMethod(request.method) ? withWriteLock(run) : run();
 }
@@ -922,9 +929,16 @@ export function transactingDepictionDeps(deps: DepictionDeps, workbench: Workben
       const staged = uow.deps.depictions as DepictionStore;
       const response = await run({ ...deps, store: staged, loadDb: uow.deps.loadDb });
       const committed = await commitUnit(uow, { method: 'POST', path: '/api/depictions', ...(user === undefined ? {} : { user }) }, 'body' in response ? { status: response.status, body: response.body } : { status: response.status, body: null });
+      if (committed.status < 400 && uow.changes.length > 0) await publishCatalog(workbench);
       return committed.status === response.status ? response : { status: committed.status, body: committed.body };
     },
   };
+}
+
+/** Tell the event stream the catalog moved (a backend that hears its own NOTIFY drops this). */
+export async function publishCatalog(deps: WorkbenchDeps): Promise<void> {
+  if (deps.events === undefined) return;
+  deps.events.publish({ type: 'catalog', version: String((await deps.catalogVersion?.()) ?? '') });
 }
 
 /**

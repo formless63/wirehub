@@ -33,6 +33,7 @@ import { localStudioUser } from './me.ts';
 import { memoryLockStore } from './locks/lock-store.ts';
 import { fileCatalogVersion } from './storage/catalog-version.ts';
 import { registry } from './modules.ts';
+import { memoryEventHub } from './events.ts';
 import { defaultDepictionDeps, fileDepictionStore, type DepictionDeps } from './depictions.ts';
 import { fileDocStore } from './storage/doc-store.ts';
 import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
@@ -84,6 +85,8 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     // edit leases: in memory — one process, and a
     // restart just means every holder re-takes its lease on the next heartbeat
     locks: memoryLockStore(),
+    // what changed, for GET /api/events: this process is the only writer
+    events: memoryEventHub(),
     // the deployment's modules (modules.config.ts)
     modules: registry,
     // first-run setup: domain modules' packs go into the live catalog; the

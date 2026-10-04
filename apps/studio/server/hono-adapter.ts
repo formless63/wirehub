@@ -15,6 +15,8 @@ import { Hono, type Context } from 'hono';
 import { compress } from 'hono/compress';
 
 import { handleWorkbenchRequest, transactingDepictionDeps, type WorkbenchDeps } from './api.ts';
+import { streamSSE } from 'hono/streaming';
+import type { StudioEvent } from './events.ts';
 import { signedInUser } from './auth/gate.ts';
 import { saveCommitFor, type StudioBackup } from './backup/backup.ts';
 import type { StudioUser } from './me.ts';
@@ -104,7 +106,11 @@ async function handleDepiction(
   // edit locks: artwork belongs to the library record of its id
   const locked = await editLockLayer(
     { method, path, lockHeader: request.headers.get(LOCK_HEADER) ?? undefined, user: signedInUser(request) },
-    { ...(workbench?.locks === undefined ? {} : { locks: workbench.locks }), ...(workbench?.lockClock === undefined ? {} : { clock: workbench.lockClock }) },
+    {
+      ...(workbench?.locks === undefined ? {} : { locks: workbench.locks }),
+      ...(workbench?.lockClock === undefined ? {} : { clock: workbench.lockClock }),
+      ...(workbench?.events === undefined ? {} : { events: workbench.events }),
+    },
   );
   if (locked !== undefined) return jsonResponse(locked.status, locked.body);
   let raw: Uint8Array | undefined;
@@ -199,7 +205,11 @@ async function handleJson(
     // write to a record someone else holds — before the backup's save queue
     const locked = await editLockLayer(
       { method, path, ...(body === undefined ? {} : { body }), lockHeader: request.headers.get(LOCK_HEADER) ?? undefined, user },
-      { ...(deps.locks === undefined ? {} : { locks: deps.locks }), ...(deps.lockClock === undefined ? {} : { clock: deps.lockClock }) },
+      {
+        ...(deps.locks === undefined ? {} : { locks: deps.locks }),
+        ...(deps.lockClock === undefined ? {} : { clock: deps.lockClock }),
+        ...(deps.events === undefined ? {} : { events: deps.events }),
+      },
     );
     if (locked !== undefined) return jsonResponse(locked.status, locked.body, locked.headers);
     const response = await perform(backup, { method, path, body, user }, () =>
@@ -262,6 +272,39 @@ export function mountWorkbenchApi(
     // module routes take their options as a query string; nothing else reads one
     return handleJson(method, isModulePath(path) ? `${path}${new URL(c.req.url).search}` : path, c.req.raw, deps, backup);
   };
+  // what changed, as server-sent events (B6): ahead of compression, which would buffer the stream
+  app.get('/api/events', (c) => {
+    const events = deps.events;
+    if (events === undefined) return jsonResponse(501, { error: 'This studio does not stream events.', hint: 'Reload to see changes.' });
+    return streamSSE(c, async (stream) => {
+      const queue: StudioEvent[] = [];
+      let wake: (() => void) | undefined;
+      const unsubscribe = events.subscribe((event) => {
+        queue.push(event);
+        wake?.();
+      });
+      stream.onAbort(() => {
+        unsubscribe();
+        wake?.();
+      });
+      await stream.writeSSE({ event: 'hello', data: JSON.stringify({ version: String((await deps.catalogVersion?.()) ?? '') }) });
+      while (!stream.aborted) {
+        const next = queue.shift();
+        if (next !== undefined) {
+          await stream.writeSSE({ event: next.type, data: JSON.stringify(next) });
+          continue;
+        }
+        // a comment line every 25 s keeps proxies from closing an idle stream
+        await new Promise<void>((resolve) => {
+          wake = resolve;
+          setTimeout(resolve, 25_000);
+        });
+        wake = undefined;
+        if (queue.length === 0 && !stream.aborted) await stream.write(': keep-alive\n\n');
+      }
+      unsubscribe();
+    });
+  });
   // JSON answers (the catalog, the list, the library) are large and compress well
   app.use('/api/*', compress());
   // both the bare index (`GET /api`) and everything under it

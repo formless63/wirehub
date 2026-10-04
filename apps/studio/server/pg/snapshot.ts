@@ -21,6 +21,7 @@ import { sql } from 'kysely';
 
 import { catalogHeadVersion, inOrg, type Db } from './db.ts';
 import { readRows } from './rows.ts';
+import type { StudioEvent } from '../events.ts';
 
 export interface Snapshot {
   /** `catalog_head.version` the rows were read at */
@@ -142,7 +143,7 @@ export class SnapshotCache {
    * `LISTEN studio_catalog` on a dedicated connection: a commit's NOTIFY
    * starts the reload early. Optional — the version check alone is correct.
    */
-  async listen(url: string): Promise<void> {
+  async listen(url: string, events?: { deliver(event: StudioEvent): void }): Promise<void> {
     if (this.listener !== undefined) return;
     const client = new pg.Client({ connectionString: url, application_name: 'wirehub-listen' });
     client.on('error', (error) => {
@@ -150,16 +151,22 @@ export class SnapshotCache {
       this.listener = undefined;
     });
     client.on('notification', (message) => {
-      if (message.channel !== 'studio_catalog' || message.payload === undefined) return;
+      if (message.payload === undefined) return;
       try {
-        const payload = JSON.parse(message.payload) as { org?: string; version?: string };
-        if (payload.org === this.orgId && payload.version !== this.current?.version) void this.reload().catch(() => {});
+        const payload = JSON.parse(message.payload) as { org?: string; version?: string; record?: string };
+        if (payload.org !== this.orgId) return;
+        if (message.channel === 'studio_catalog') {
+          this.invalidate();
+          if (payload.version !== this.current?.version) void this.reload().catch(() => {});
+          if (payload.version !== undefined) events?.deliver({ type: 'catalog', version: payload.version });
+        } else if (message.channel === 'studio_locks' && payload.record !== undefined) events?.deliver({ type: 'locks', record: payload.record });
       } catch {
         // not ours
       }
     });
     await client.connect();
     await client.query('LISTEN studio_catalog');
+    await client.query('LISTEN studio_locks');
     this.listener = client;
   }
 

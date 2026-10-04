@@ -25,6 +25,8 @@ import { migrationFiles, MIGRATION_SCHEMA } from './migrate.ts';
 import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
 import { pgModelCache } from './model-cache.ts';
+import { pgLockStore } from './locks.ts';
+import { deliveredEventHub, type EventHub } from '../events.ts';
 import { blobObjectKey } from './keys.ts';
 import { SnapshotCache, type Snapshot } from './snapshot.ts';
 import {
@@ -55,6 +57,8 @@ export interface PgDepsOptions {
   cache: SnapshotSource;
   /** the database: given (with a SnapshotCache), the studio writes; absent, it is read-only */
   db?: Db;
+  /** the event stream, fed by LISTEN (`SnapshotCache.listen`) */
+  events?: EventHub;
   blobs?: BlobStore;
   /** where today's depiction artwork lives (the file tree until B7); absent → versions copy none */
   depictionsDir?: string;
@@ -97,7 +101,9 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
       return bytes === undefined ? undefined : { bytes: new Uint8Array(bytes), mediaType: row.mediaType };
     },
     localUser: localStudioUser(process.env),
-    locks: memoryLockStore(),
+    // one lease table for every process when there is a database (B6)
+    locks: options.db !== undefined ? pgLockStore(options.db, cache.orgId) : memoryLockStore(),
+    ...(options.events === undefined ? {} : { events: options.events }),
     modules: registry,
   };
 }
@@ -148,8 +154,9 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     if (options.blobs === undefined && snapshot.rows.blobs.length > 0) {
       throw new PgConfigError(`The catalog holds ${snapshot.rows.blobs.length} binary file(s) in the blob store; set WIREHUB_BLOBS (s3 or fs:<dir>) to serve them.`);
     }
-    if (options.listen !== false) await cache.listen(config.url).catch((error: unknown) => console.warn(`[pg] LISTEN unavailable: ${error instanceof Error ? error.message : String(error)}`));
-    const deps = pgWorkbenchDeps({ cache, db: handle.db, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
+    const events = deliveredEventHub();
+    if (options.listen !== false) await cache.listen(config.url, events).catch((error: unknown) => console.warn(`[pg] LISTEN unavailable: ${error instanceof Error ? error.message : String(error)}`));
+    const deps = pgWorkbenchDeps({ cache, db: handle.db, events, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
     return {
       handle,
       cache,

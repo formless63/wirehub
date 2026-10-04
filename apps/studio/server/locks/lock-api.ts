@@ -28,6 +28,7 @@ import type { Issue } from '@wirehub/model';
 
 import { isRecordKey, recordsOfWrite, tokensOf, LEASE_MS, type LockView } from '../../src/locks/records.ts';
 import type { ApiResponse } from '../api.ts';
+import type { EventHub } from '../events.ts';
 import type { StudioUser } from '../me.ts';
 import { holds, lockView, type EditLock, type LockHolder, type LockStore } from './lock-store.ts';
 
@@ -47,6 +48,8 @@ export interface EditLockDeps {
   locks?: LockStore;
   /** epoch ms (injected by tests) */
   clock?: () => number;
+  /** told of every lease change (`GET /api/events`) */
+  events?: EventHub;
 }
 
 export interface EditLockRequest {
@@ -213,5 +216,11 @@ export async function handleLockRequest(request: EditLockRequest, deps: EditLock
  * (carry on to the API).
  */
 export async function editLockLayer(request: EditLockRequest, deps: EditLockDeps): Promise<ApiResponse | undefined> {
-  return (await handleLockRequest(request, deps)) ?? (await editLockGate(request, deps));
+  const answer = await handleLockRequest(request, deps);
+  if (answer !== undefined) {
+    const record = (request.body as { record?: unknown } | undefined)?.record;
+    if (answer.status < 400 && request.method.toUpperCase() === 'POST' && typeof record === 'string') deps.events?.publish({ type: 'locks', record });
+    return answer;
+  }
+  return await editLockGate(request, deps);
 }
