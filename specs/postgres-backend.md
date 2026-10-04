@@ -1,0 +1,1859 @@
+# Spec — Postgres backend, blob store, and the self-hosted install
+
+Status: **plan**, rev 6 (the first revision in the open base). Nothing here is
+implemented yet; the storage seam it plugs into is (`storage-seam.md`). The execution
+rules for agents building it are `postgres-backend-EXECUTION.md`.
+
+## Changelog
+
+- **rev 6 (base)** — ported from the private studio's plan (revs 1–5.2) and generalised.
+  Kept: the schema, the write path, API tokens / batches / dry runs, the worker, blobs,
+  migrations, import and parity. Replaced: every host-, owner- and service-specific
+  section (the private deployment, its object store, its source vault, its backup host,
+  its reverse proxy and identity provider) by a generic **self-hosted deployment**
+  (§8: docker compose with Postgres, a local-filesystem or S3-compatible blob store,
+  built-in local accounts, optional OIDC) and a **clean install** (§9: one
+  `docker compose up`, a first-run setup that creates the admin and the org, an empty or
+  starter catalog). Dropped: tables and jobs of features that are modules in the base
+  (ERP push log, part-number register, board import, source vault); a module that needs
+  tables brings its own migrations (§3.13).
+
+---
+
+## 1. Goals, non-goals, success criteria
+
+### Goals
+
+1. **Postgres is the record.** Every catalog record, saved revision and binary lives in
+   Postgres (documents and relations) plus a blob store (bytes), written by one SQL
+   transaction per request.
+2. **Same app, same API.** `STUDIO_BACKEND=files|pg` picks the stores in
+   `default-deps.ts`. The handlers, the pure model and the browser do not change.
+3. **Parity, proven.** `export(import(catalog))` is byte-identical to the catalog.
+   Validation, schematics and every ETag are identical between backends.
+4. **Safer than files.** Atomic multi-record saves, cross-process writers, frozen
+   revisions enforced by the database, and an audit of every write.
+5. **The database is the history and the audit trail.** `change_set` / `change` rows
+   record who changed what; backups are database dumps plus the record blobs (§8.4). A
+   JSON export is available on demand.
+6. **One API for people, scripts and agents (§4.5).** A script or an agent changes data
+   through the same HTTP API as the GUI, with a personal API token of the person who runs
+   it. The change is that person's.
+7. **Easy to self-host (§8, §9).** One `docker compose up` brings up a working studio
+   with a database, a blob store and local accounts; a first-run page creates the admin
+   and the organisation.
+
+### Non-goals (v1)
+
+- Multi-tenancy **in use**. v1 runs one org per deployment; the schema stays org-ready and
+  RLS is defence in depth.
+- Splitting the pure model into SQL. The pipeline stays **per-org snapshot → pure model →
+  change set → one transaction**.
+- Relational normalisation of documents. Documents stay JSON; the relations are identity,
+  references, revisions, blobs, jobs and audit.
+- Presigned URLs to the browser (bytes go through the API).
+- Replacing the file backend for tests, local development and small single-user installs.
+- Runtime installation of code. Modules are build-time (`docs/modules.md`).
+
+### Success criteria
+
+| # | Criterion | Target |
+| --- | --- | --- |
+| S1 | Import gate on a catalog | `render(explode(files))` byte-identical for every file; export after import byte-identical; `validateDb` and `validateDesign` per design give identical issues; SVG schematic, build sheet, BOM and continuity spec of every design string-identical; every record's ETag identical; `/usage` of every definition identical; `GET /api/models` identical — on the starter catalog in CI and on any deployment's catalog before it switches |
+| S2 | Shadow parity (optional, for a deployment migrating from files) | 7 consecutive days of real saves, 0 diffs across every GET route × every id |
+| S3 | Read latency | p95 of each GET within max(+20 %, +10 ms) of the file backend; `catalogVersion()` ≤ 2 ms p95 |
+| S4 | Snapshot rebuild after a commit | ≤ 150 ms p95 for a catalog of 100 designs and 1,000 definitions |
+| S5 | Save latency | commit including derived records ≤ 800 ms p95 |
+| S6 | Memory | studio ≤ 400 MiB RSS; worker ≤ 1.5 GiB (a STEP conversion peaks at about 1.1 GB, one at a time); postgres ≤ 512 MiB for a small shop; the whole stack fits a 2 GB VM |
+| S7 | RPO / RTO | with the bundled backup job: database and record blobs ≤ 24 h; restore ≤ 30 min from the latest backup; derived blobs have no RPO (rebuilt) |
+| S8 | Clean install | on a machine with Docker, `docker compose up` to a signed-in admin with the starter catalog in ≤ 5 minutes, with no file edited (§9) |
+| SA1 | API clients | the storage contract suite's write cases pass when run **through the HTTP API with a token**, with the same statuses, ETags and lock answers as with a session; a batch of N writes is one change set or nothing; a dry run writes nothing; a revoked or expired token is refused on its next request; no token is stored or logged in plain text |
+
+---
+
+## 2. Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    UI[Studio SPA]
+  end
+  CL[API clients<br/>studio-api · scripts · agents<br/>Bearer personal token]
+  subgraph studio["studio process (Hono)"]
+    H[hono-adapter.ts<br/>size · cross-site · content type] --> A[auth gate<br/>session or token → person]
+    A --> L[lock layer<br/>PgLockStore → 423]
+    L --> U[UnitOfWork<br/>staged stores · read set]
+    U --> R[router + handlers<br/>pure model]
+    U -->|commit ChangeSet| C[PgCommit<br/>one transaction]
+    S[(snapshot cache<br/>org → version → Db, files)]
+    U -->|loadDb| S
+    E[SSE /api/events]
+  end
+  subgraph data["data plane"]
+    PG[(Postgres<br/>studio · auth · pgboss)]
+    FS[(blob store<br/>local FS or S3-compatible)]
+  end
+  subgraph worker["worker process (pg-boss)"]
+    J1[module import jobs]
+    J2[model-cache]
+    J3[derive repair · blob-gc]
+    J4[backup · restore-check]
+  end
+  UI -->|/api/*| H
+  CL -->|/api/* · /api/batch| H
+  C -->|BEGIN … head FOR UPDATE … COMMIT| PG
+  C -->|HEAD · PUT · re-read, before BEGIN| FS
+  S -->|SELECT version per request| PG
+  PG -- NOTIFY studio_catalog / studio_locks --> S & E
+  E --> UI
+  PG <-->|jobs| worker
+  worker -->|derived blobs| FS
+```
+
+### Request path
+
+1. **Hono adapter**: the guards are unchanged (`request-guard.ts`). Per-route body caps
+   stay: 24 MB in general, 34 MB for a model upload.
+2. **Auth**: Better Auth on the same Postgres (schema `auth`), **or** a personal API token
+   (`Authorization: Bearer cst_…`, §4.5). Either way the request maps to one
+   `studio.person`. `saves.jsonl` is replaced by `change_set` rows.
+3. **Lock layer**: `editLockLayer` is unchanged; `PgLockStore` (§4.1) answers.
+   `recordsOfWrite` (shared with the browser) decides which records a write touches.
+4. **UnitOfWork**: unchanged, plus a staged `modelLinks` store (B0).
+5. **Router + handlers**: the pure model, unchanged; module routes in front (§3.13).
+6. **Commit**: `deps.commit?.(set) ?? commitChangeSet(deps, set)`. The pg backend provides
+   `commit` (§4.2). The git export and the write journal are not used with pg (§7.6).
+
+### Snapshot cache and invalidation
+
+- Per process: `Map<orgId, { version, files: Map<path, text>, catalog }>`, where
+  `catalog = createCatalog(memoryCatalogSource(files))`. Every loader is the **same code**
+  as on the file backend, fed the same text.
+- `catalogVersion()` = `SELECT version FROM studio.catalog_head` (one row). A mismatch
+  reloads every row of the org in one `REPEATABLE READ READ ONLY` transaction and renders
+  the file map.
+- `LISTEN studio_catalog` pre-warms the cache and feeds SSE. The version query is the
+  correctness rule; NOTIFY is only an optimisation.
+- Model links are part of the snapshot (they are a file under `data/`), so
+  `GET /api/models` reads the same versioned state as everything else.
+
+### The worker process
+
+`apps/studio/server/worker.ts`: the same image and code, running pg-boss (schema `pgboss`)
+and nothing else.
+
+| Queue | Trigger | Does |
+| --- | --- | --- |
+| `import` | a module importer started from the UI (`POST /api/modules/<id>/…` that enqueues) | runs the importer over a snapshot; the plan goes into `job_file`; publish = one change set (§7.5) |
+| `model-cache` | after any commit that adds or changes a `model_link` that needs conversion; at boot when `CONVERTER_VERSION` has no rows | builds the missing or stale GLBs into `derived_blob` (§5.5) |
+| `derive` | only on repair (`derived_doc.inputs_version ≠ head`) | recomputes derived docs |
+| `blob-gc` | daily, after the backup | mark and sweep record blobs; expire derived blobs no live key names (§5.4) |
+| `backup` | daily at `STUDIO_BACKUP_AT` (default 03:00 local) when `STUDIO_BACKUP_DIR` is set | `pg_dump` + record-blob mirror (§8.4) |
+| `restore-check` | weekly when backups are on | restores the latest dump into a scratch database and compares counts and sampled hashes (§8.5) |
+| `parity` | only while migrating from files (§7.4) | compares every GET route between backends |
+
+Modules may register queues of their own through an integration (§3.13). There is no
+permanent export job: the export is on demand (§7.6).
+
+---
+
+## 3. Schema (v1 DDL)
+
+### 3.1 Conventions
+
+- One database (default name `cable_studio`), created with the builtin C locale, so that
+  `ORDER BY slug` is code-point order:
+  `CREATE DATABASE cable_studio LOCALE_PROVIDER builtin BUILTIN_LOCALE 'C.UTF-8' TEMPLATE template0;`
+- Schemas: `studio` (catalog), `auth` (Better Auth and the personal API tokens, §3.16),
+  `pgboss` (pg-boss), and one schema per module that brings tables (`mod_<id>`, §3.13).
+- Roles, created by `docker/postgres/bootstrap.sh` rather than by a migration:
+  `studio_owner` (owns the schemas, runs the migrations), `studio_app` (LOGIN,
+  NOBYPASSRLS), `studio_ro` (LOGIN, read-only: parity, ad-hoc reads, `pg_dump`).
+- Ids: `uuid DEFAULT uuidv7()` (Postgres 18). The slug stays the natural id.
+- Documents are stored as **`body json`** holding exactly `JSON.stringify(value)`, plus a
+  generated `doc jsonb` for queries. `jsonb` reorders keys, and key order decides the ETag
+  and the exported bytes.
+- `etag` is generated: `'"' || left(sha256(body) hex, 32) || '"'`, equal to
+  `contentETag(value)`.
+- `row_version` goes up on every UPDATE (`touch_row`), and PgStore never issues a no-op
+  UPDATE.
+- **Order is decided in JavaScript, never by SQL.** A list file's order is `record.ord`. A
+  file the store sorts itself is sorted by the store's own function in the codec's
+  `render` (for example `models.json` by `sortLinks`, in code-point order).
+- Every org-scoped table has `org_id`, `ENABLE` + `FORCE ROW LEVEL SECURITY` and the one
+  `org_isolation` policy — defence in depth, not a tenancy requirement.
+- Forward-only migrations, one file per block below (§6), numbered in the order they run.
+
+### 3.2 Every data file: its class and where it lives
+
+| Class | Meaning | Written by | In Postgres |
+| --- | --- | --- | --- |
+| **truth** | authored by a person (the GUI or a reviewed hand edit) | request change sets | `record` / `catalog_doc` / typed tables |
+| **imported** | generated by an importer from sources outside the catalog; committed; the record from then on | import jobs and API clients, as a change set | same tables as truth; the change set's `source` says `worker` or `script` |
+| **derived** | a pure function of other catalog records | the commit, **in the same transaction** | `derived_doc` |
+| **report** | generated markdown for humans | the importer that makes it | `catalog_doc` (markdown) |
+| **derived cache** | bytes rebuilt by a deterministic builder; never committed | worker jobs | `derived_blob` → blob store; not in the backup |
+
+Every file under `packages/catalog/data/` and `depictions/` (the codec coverage rule,
+§7.1, fails on anything not listed):
+
+| Path | Class | Table(s) |
+| --- | --- | --- |
+| `designs/<id>.json` | truth | `entity(design)` + `record('')` |
+| `designs/_versions/<id>/<rev>.json` | truth (frozen once locked) | `design_revision` |
+| `designs/_versions/<id>/working.json`, `drafts/<n>.json` | truth | `design_working`, `design_draft` |
+| `designs/_versions/<id>/artwork/<sha>.<ext>` | truth (bytes) | `revision_artwork` → `blob` |
+| `drawings/<id>.json` | truth | `record('drawing')` of the design |
+| `drawings/<id>.photo-ref.json` | truth | `drawing_photo` → `asset` |
+| `assets/index.json` + `assets/<sha>.<ext>` | truth (uploads, including GLB/STL models) | `asset` + `blob(class 'record')` |
+| `connectors.json`, `bodies.json`, `interfaces.json`, `components.json`, `mechanicals.json`, `kits.json`, `wires.json`, `pcbas.json` | truth | `entity` + `record`, ordered |
+| `wire-parts.json`, `wire-recipes.json`, `strip-practice.json` | truth | `entity(wire-part / wire-recipe)`, ordered; `catalog_doc` |
+| `part-numbers.json` | truth (the scheme configuration) | `catalog_doc` |
+| `models.json` | truth (Library attach / upload / detach) and imported | envelope `catalog_doc` (`src`) + `model_link` rows (§3.9) |
+| `vocab/<list>.json` | truth | `entity(vocab)` |
+| `builds/<name>.json` | truth | `entity(build)` |
+| `tags/review.json` | truth | `catalog_doc` |
+| `tags/{signal-tags.json, instance-slots.json, report.md}` | **derived** (`tags`) | `derived_doc` |
+| `depictions/<def>/meta.json` | truth / imported | `entity(depiction)` + `record` |
+| `depictions/<def>/<view>.svg` | truth / imported (bytes) | `depiction_file` → `blob` |
+| `data/.model-cache/<key>.glb` (gitignored) | derived cache | `derived_blob(cache 'model')` |
+| `data/auth/*` (gitignored) | login state | `auth` schema (§3.15) |
+| any other `data/**/*.json` or `*.md` (a module's files) | as the module declares | `catalog_doc` |
+
+### 3.3 Every `RecordKind` and the table it writes
+
+| RecordKind (key) | Table(s) | Notes |
+| --- | --- | --- |
+| `design` (design id) | `entity(design)` + `record('')` | rename keeps the uuid (§4.3); `extensions` is part of the body |
+| `drawing` (design id; `move`) | `record('drawing')` of the design's entity | a move re-parents it |
+| `drawing-photo` (design id) | `drawing_photo` → `asset` → `blob` | |
+| `definitions` (kind; value = the whole list) | one `entity` + `record` per item: `connector`, `component`, `wire`, `pcba`, `body`, `interface`, `mechanical`, `kit`; `record.ord` = position | a list diff by id |
+| `vocab` (list id) | `entity(vocab)` + `record` | |
+| `tag-review` (`review`) | `catalog_doc('data/tags/review.json')` | |
+| `wire-library` (`parts` / `recipes`) | `entity(wire-part / wire-recipe)`, ordered | list diff |
+| `wire` (stock id) | `entity(wire)` + `record` | the same rows as `definitions:wires` |
+| `builds` (file name) | `entity(build)` + `record` | the snapshot reload refreshes `Db.boardParts` |
+| `design-version` (`<id>/<rev>`) | `design_revision` | frozen by trigger |
+| `version-working` (design id) | `design_working` | |
+| `version-draft` (`<id>/<n>`) | `design_draft` | `n` allocated under the head lock |
+| `version-artwork` (`<id>/<blob>`) | `revision_artwork` → `blob` | |
+| `design-versions` (design id; `move`) | `design_revision`, `design_working`, `design_draft` re-parented | the rename marker |
+| `asset` (sha256) | `asset` → `blob(class 'record')` | mime: png, jpeg, pdf, gltf-binary, stl |
+| derived `tags` | `derived_doc` `data/tags/…` | in the transaction |
+| derived `module` | `derived_doc` at the paths the module's `DerivedStore` declares | in the transaction |
+
+The kinds this plan adds, each landing on the **file backend first** (`storage-seam.md`
+§6):
+
+| New kind (key) | File backend | Postgres | Task |
+| --- | --- | --- | --- |
+| `model-link` (`<kind>/<id>`; value = `ModelLink`, delete = detach) | `models.json`, rewritten sorted | `model_link` | B0 (file), B2 (pg) |
+| `depiction-meta` (def id) | `depictions/<def>/meta.json` | `entity(depiction)` + `record` | B7 |
+| `depiction-asset` (`<def>/<file>`; `bytes`) | `depictions/<def>/<file>` | `depiction_file` → `blob` | B7 |
+| `doc` (a `data/…` path; value = text or JSON) | that file | `catalog_doc`, or the list rows its envelope names, through the codec | C3 |
+
+**Not change-set kinds, by design:** derived-cache writes (`derived_blob`). A cache is not
+catalog state: writing one does not bump `catalog_version`, nor does it write a `change`
+row. It is recorded in `job_run`.
+
+### 3.4 Bootstrap and tenancy — `0000_bootstrap`, `0001_tenancy`
+
+```sql ddl
+-- 0000_bootstrap — extensions, schemas, helpers
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE SCHEMA IF NOT EXISTS studio;
+CREATE SCHEMA IF NOT EXISTS auth;
+
+-- The org a connection acts for. Set per transaction by PgStore:
+--   SELECT set_config('studio.org_id', $1, true)
+-- Unset → NULL → RLS lets nothing through (fail closed).
+CREATE FUNCTION studio.current_org() RETURNS uuid
+  LANGUAGE sql STABLE PARALLEL SAFE
+  AS $$ SELECT nullif(current_setting('studio.org_id', true), '')::uuid $$;
+
+-- The change set a transaction is writing (set by PgStore after it inserts the change_set row).
+CREATE FUNCTION studio.current_change_set() RETURNS bigint
+  LANGUAGE sql STABLE PARALLEL SAFE
+  AS $$ SELECT nullif(current_setting('studio.change_set_id', true), '')::bigint $$;
+
+-- A content ETag, byte-identical to apps/studio/server/etag.ts contentETag():
+-- '"' + sha256(JSON.stringify(value)).hex.slice(0, 32) + '"'.
+-- Valid only because `body` holds exactly JSON.stringify(value) (§3.1).
+CREATE FUNCTION studio.content_etag(body text) RETURNS text
+  LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+  AS $$ SELECT '"' || left(encode(sha256(convert_to(body, 'UTF8')), 'hex'), 32) || '"' $$;
+
+-- row_version + updated_at on every UPDATE of a versioned table
+CREATE FUNCTION studio.touch_row() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.row_version := OLD.row_version + 1;   -- PgStore never issues a no-op UPDATE (WHERE body IS DISTINCT FROM …)
+  NEW.updated_at := now();
+  RETURN NEW;
+END $$;
+```
+
+```sql ddl
+-- 0001_tenancy
+CREATE TABLE studio.org (
+  id          uuid PRIMARY KEY DEFAULT uuidv7(),
+  slug        text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9][a-z0-9-]{0,62}$'),
+  name        text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- The org id for a configured slug. `org` is itself under RLS, so the app
+-- resolves its org once at boot through this (never through an RLS'd query).
+CREATE FUNCTION studio.org_id_for(org_slug text) RETURNS uuid
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = studio, pg_temp
+  AS $$ SELECT id FROM studio.org WHERE slug = org_slug $$;
+
+-- One row per org: the catalog version (what `catalogVersion()` answers) and
+-- the writers' mutex — every commit takes this row FOR UPDATE first.
+CREATE TABLE studio.catalog_head (
+  org_id          uuid PRIMARY KEY REFERENCES studio.org,
+  version         bigint NOT NULL DEFAULT 0 CHECK (version >= 0),
+  schema_version  integer NOT NULL,           -- model CURRENT_SCHEMA_VERSION the rows are at
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE studio.person (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id        uuid NOT NULL REFERENCES studio.org,
+  email         text NOT NULL CHECK (email = lower(email) AND email LIKE '%@%'),
+  name          text NOT NULL,
+  auth_user_id  text,                         -- auth."user".id (Better Auth ids are text)
+  role          text NOT NULL DEFAULT 'editor' CHECK (role IN ('owner', 'editor', 'viewer', 'service')),
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (org_id, email),
+  UNIQUE (org_id, auth_user_id)
+);
+```
+
+### 3.5 Audit — `0002_audit`
+
+A `change_set` is one committed request, job step, import or migration, and `change` is
+its records. `audit_log` is the backstop, written by a trigger. **`change_set` + `change`
+are the permanent record of history.** A deployment migrating from the file backend may
+import its git history once as `source='git-history'` (§7.3).
+
+```sql ddl
+-- 0002_audit
+CREATE TABLE studio.change_set (
+  id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  org_id           uuid NOT NULL REFERENCES studio.org,
+  catalog_version  bigint NOT NULL,           -- the version this set produced
+  actor_id         uuid REFERENCES studio.person,
+  actor_label      text NOT NULL,             -- the person's name, or 'Cable Studio (local)'
+  source           text NOT NULL CHECK (source IN ('studio', 'worker', 'import', 'git-history', 'migration', 'script')),
+  api_token_id     uuid,                      -- the personal API token the request came with (auth.api_token.id), for audit and
+                                              -- revocation only; NULL for a session. The actor is the token's person.
+  method           text,
+  path             text,
+  message          text NOT NULL,             -- backup/commit-message.ts commitMessage(), unchanged
+  git_commit       text CHECK (git_commit ~ '^[0-9a-f]{40}$'),  -- git-history import and shadow sync only
+  job_id           uuid,                      -- worker sets: the job_run that published it
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (org_id, catalog_version)
+);
+
+CREATE TABLE studio.change (
+  change_set_id  bigint NOT NULL REFERENCES studio.change_set ON DELETE RESTRICT,
+  seq            integer NOT NULL CHECK (seq >= 0),
+  kind           text NOT NULL,               -- RecordKind (§3.3), or 'doc' / 'derived' / 'blob'
+  key            text NOT NULL,
+  op             text NOT NULL CHECK (op IN ('put', 'delete', 'move')),
+  to_key         text,
+  before_etag    text,
+  after_etag     text,
+  after_body     json,                        -- put: the document as written (NULL for blobs)
+  PRIMARY KEY (change_set_id, seq),
+  CHECK ((op = 'move') = (to_key IS NOT NULL))
+);
+
+-- Backstop: every row-level write to a catalog table lands here, with the
+-- change set the writer declared — or NULL, which a daily check treats as an
+-- alarm (§8.6): a write that bypassed PgStore.
+CREATE TABLE studio.audit_log (
+  id             bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  org_id         uuid,
+  table_name     text NOT NULL,
+  row_key        text NOT NULL,
+  op             text NOT NULL CHECK (op IN ('INSERT', 'UPDATE', 'DELETE')),
+  change_set_id  bigint,
+  db_user        text NOT NULL DEFAULT current_user,
+  txid           xid8 NOT NULL DEFAULT pg_current_xact_id(),
+  at             timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX audit_log_unattributed ON studio.audit_log (at) WHERE change_set_id IS NULL;
+
+CREATE FUNCTION studio.audit_row() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = studio, pg_temp AS $$
+DECLARE r jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN r := to_jsonb(OLD); ELSE r := to_jsonb(NEW); END IF;
+  INSERT INTO studio.audit_log (org_id, table_name, row_key, op, change_set_id)
+  VALUES ((r ->> 'org_id')::uuid, TG_TABLE_NAME,
+          coalesce(r ->> 'id', r ->> 'path', r ->> 'record_key', r ->> 'sha256', '?'),
+          TG_OP, studio.current_change_set());
+  RETURN NULL;
+END $$;
+```
+
+### 3.6 Identity, documents and references — `0003_records`
+
+`ref_edge` roles cover every reference the model names. A vendored
+`referencesOf(kind, value)` (task A4) walks the same edges as the model's
+`definitionUsage` (`usage.ts`) plus `kit-part` (kit contents), `body-mate`,
+`interface-body` and `model-record` (`model_link.record_key` → the entity). A test holds
+`referencesOf` and `definitionUsage` equal over the starter catalog.
+
+```sql ddl
+-- 0003_records
+-- The stable identity of a named thing (uuidv7), and its slug (the natural
+-- id the pure model and every URL use). A rename is an UPDATE of `slug`.
+CREATE TABLE studio.entity (
+  id          uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  kind        text NOT NULL CHECK (kind IN (
+                'design', 'connector', 'component', 'wire', 'pcba', 'body', 'interface',
+                'mechanical', 'kit', 'wire-part', 'wire-recipe', 'vocab', 'build', 'depiction')),
+  slug        text NOT NULL CHECK (slug ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,199}$'),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (org_id, kind, slug),
+  UNIQUE (org_id, id)
+);
+CREATE INDEX entity_slug_trgm ON studio.entity USING gin (slug gin_trgm_ops);
+
+-- A document of an entity. Most entities have one record (collection '');
+-- a design has its drawing sheet as collection 'drawing'.
+CREATE TABLE studio.record (
+  id           uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id       uuid NOT NULL,
+  entity_id    uuid NOT NULL,
+  collection   text NOT NULL DEFAULT '' CHECK (collection ~ '^[a-z0-9-]*$'),
+  ord          integer NOT NULL DEFAULT 0,     -- position in its list file (file order is data)
+  body         json NOT NULL,                  -- exactly JSON.stringify(value): key order preserved (§3.1)
+  doc          jsonb GENERATED ALWAYS AS (body::jsonb) STORED,
+  etag         text GENERATED ALWAYS AS (studio.content_etag(body::text)) STORED,
+  label        text GENERATED ALWAYS AS (body::jsonb ->> 'label') STORED,
+  row_version  bigint NOT NULL DEFAULT 1,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  created_by   uuid REFERENCES studio.person,
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  updated_by   uuid REFERENCES studio.person,
+  FOREIGN KEY (org_id, entity_id) REFERENCES studio.entity (org_id, id) ON DELETE CASCADE,
+  UNIQUE (entity_id, collection),
+  UNIQUE (org_id, id)
+);
+CREATE INDEX record_doc_gin ON studio.record USING gin (doc jsonb_path_ops);
+CREATE INDEX record_label_trgm ON studio.record USING gin (label gin_trgm_ops);
+CREATE INDEX record_list ON studio.record (org_id, collection, ord);
+CREATE TRIGGER record_touch BEFORE UPDATE ON studio.record FOR EACH ROW EXECUTE FUNCTION studio.touch_row();
+CREATE TRIGGER record_audit AFTER INSERT OR UPDATE OR DELETE ON studio.record FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
+
+-- Reference edges, rebuilt for a record whenever its body changes. Deleting an
+-- entity something still references fails at COMMIT (deferred) → 409 "still used by …".
+CREATE TABLE studio.ref_edge (
+  org_id      uuid NOT NULL,
+  from_record uuid NOT NULL,
+  to_entity   uuid NOT NULL,
+  role        text NOT NULL,                  -- 'connector' | 'pcba' | 'wire' | 'body' | 'interface' | 'kit-part' | …
+  PRIMARY KEY (from_record, to_entity, role),
+  FOREIGN KEY (org_id, from_record) REFERENCES studio.record (org_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (org_id, to_entity) REFERENCES studio.entity (org_id, id) ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED
+);
+CREATE INDEX ref_edge_to ON studio.ref_edge (to_entity);
+-- references the model names but the catalog does not have (a retired board a design still cites)
+CREATE TABLE studio.ref_dangling (
+  org_id      uuid NOT NULL,
+  from_record uuid NOT NULL,
+  to_kind     text NOT NULL,
+  to_slug     text NOT NULL,
+  role        text NOT NULL,
+  PRIMARY KEY (from_record, to_kind, to_slug, role),
+  FOREIGN KEY (org_id, from_record) REFERENCES studio.record (org_id, id) ON DELETE CASCADE
+);
+
+-- File-shaped documents the app reads whole (§3.2) and the envelopes of list files.
+CREATE TABLE studio.catalog_doc (
+  org_id           uuid NOT NULL REFERENCES studio.org,
+  path             text NOT NULL CHECK (path ~ '^(data|depictions)/[A-Za-z0-9._/-]+$' AND path !~ '\.\.'),
+  media_type       text NOT NULL CHECK (media_type IN ('application/json', 'text/markdown')),
+  body             text NOT NULL,             -- JSON: JSON.stringify(value); markdown: the exact bytes
+  etag             text GENERATED ALWAYS AS (studio.content_etag(body)) STORED,
+  list_kind        text,                      -- envelope: whose records fill it
+  list_collection  text,
+  list_member      text,                      -- '' = the file is the array itself
+  row_version      bigint NOT NULL DEFAULT 1,
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  updated_by       uuid REFERENCES studio.person,
+  PRIMARY KEY (org_id, path),
+  CHECK ((list_kind IS NULL) = (list_member IS NULL))
+);
+CREATE TRIGGER catalog_doc_touch BEFORE UPDATE ON studio.catalog_doc FOR EACH ROW EXECUTE FUNCTION studio.touch_row();
+CREATE TRIGGER catalog_doc_audit AFTER INSERT OR UPDATE OR DELETE ON studio.catalog_doc FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
+
+-- Derived documents (tags/*, and a module's derived files). Only the commit (or the derive job) writes them.
+CREATE TABLE studio.derived_doc (
+  org_id          uuid NOT NULL REFERENCES studio.org,
+  path            text NOT NULL,
+  derived_kind    text NOT NULL CHECK (derived_kind IN ('tags', 'module')),
+  module_id       text,                       -- derived_kind 'module': which module
+  media_type      text NOT NULL CHECK (media_type IN ('application/json', 'text/markdown')),
+  body            text NOT NULL,
+  inputs_version  bigint NOT NULL,
+  computed_at     timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, path),
+  CHECK ((derived_kind = 'module') = (module_id IS NOT NULL))
+);
+```
+
+### 3.7 Saved revisions — `0004_versions`
+
+```sql ddl
+-- 0004_versions
+CREATE TABLE studio.design_revision (
+  id           uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id       uuid NOT NULL,
+  design_id    uuid NOT NULL,                 -- entity of kind 'design'
+  rev          integer NOT NULL CHECK (rev >= 0),
+  body         json NOT NULL,                 -- DesignVersionFile, JSON.stringify
+  doc          jsonb GENERATED ALWAYS AS (body::jsonb) STORED,
+  etag         text GENERATED ALWAYS AS (studio.content_etag(body::text)) STORED,
+  locked       boolean GENERATED ALWAYS AS ((body::jsonb -> 'unlocked') IS NULL) STORED,
+  row_version  bigint NOT NULL DEFAULT 1,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  created_by   uuid REFERENCES studio.person,
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  updated_by   uuid REFERENCES studio.person,
+  FOREIGN KEY (org_id, design_id) REFERENCES studio.entity (org_id, id) ON DELETE RESTRICT,
+  UNIQUE (design_id, rev),
+  CHECK ((body::jsonb ->> 'rev')::int = rev)
+);
+
+-- A locked revision is frozen. Allowed on a locked row: (a) an unlock —
+-- adds `unlocked`, appends to `history`, nothing else; (b) a design rename —
+-- only `designId` / `design.id` (and `design_id`) change. Everything is
+-- allowed while unlocked (edit, relock). Locked rows are never deleted.
+CREATE FUNCTION studio.guard_revision() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  o jsonb := OLD.body::jsonb;
+  n jsonb;
+  kept jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.locked THEN RAISE EXCEPTION 'revision % of design % is locked and cannot be deleted', OLD.rev, OLD.design_id USING ERRCODE = 'integrity_constraint_violation'; END IF;
+    RETURN OLD;
+  END IF;
+  IF NOT OLD.locked THEN RETURN NEW; END IF;
+  n := NEW.body::jsonb;
+  IF NEW.rev <> OLD.rev OR NEW.org_id <> OLD.org_id THEN
+    RAISE EXCEPTION 'revision % is locked: rev and org are immutable', OLD.rev USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  -- (b) rename
+  IF (n #- '{designId}' #- '{design,id}') = (o #- '{designId}' #- '{design,id}') THEN RETURN NEW; END IF;
+  -- (a) unlock
+  SELECT coalesce(jsonb_agg(e ORDER BY i), '[]'::jsonb) INTO kept
+    FROM jsonb_array_elements(n -> 'history') WITH ORDINALITY AS t(e, i)
+   WHERE i <= jsonb_array_length(o -> 'history');
+  IF NEW.design_id = OLD.design_id
+     AND (n -> 'unlocked') IS NOT NULL
+     AND (n - 'unlocked' - 'history') = (o - 'history')
+     AND kept = (o -> 'history')
+     AND jsonb_array_length(n -> 'history') = jsonb_array_length(o -> 'history') + 1
+     AND (n -> 'history' -> -1 ->> 'action') = 'unlock' THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'revision % of design % is locked: unlock it first', OLD.rev, OLD.design_id USING ERRCODE = 'integrity_constraint_violation';
+END $$;
+CREATE TRIGGER design_revision_guard BEFORE UPDATE OR DELETE ON studio.design_revision FOR EACH ROW EXECUTE FUNCTION studio.guard_revision();
+CREATE TRIGGER design_revision_touch BEFORE UPDATE ON studio.design_revision FOR EACH ROW EXECUTE FUNCTION studio.touch_row();
+CREATE TRIGGER design_revision_audit AFTER INSERT OR UPDATE OR DELETE ON studio.design_revision FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
+
+CREATE TABLE studio.design_working (
+  org_id       uuid NOT NULL,
+  design_id    uuid NOT NULL,
+  body         json NOT NULL,                 -- WorkingState: {} or {basedOnRev}
+  etag         text GENERATED ALWAYS AS (studio.content_etag(body::text)) STORED,
+  row_version  bigint NOT NULL DEFAULT 1,
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (design_id),
+  FOREIGN KEY (org_id, design_id) REFERENCES studio.entity (org_id, id) ON DELETE CASCADE
+);
+CREATE TRIGGER design_working_touch BEFORE UPDATE ON studio.design_working FOR EACH ROW EXECUTE FUNCTION studio.touch_row();
+
+CREATE TABLE studio.design_draft (
+  org_id       uuid NOT NULL,
+  design_id    uuid NOT NULL,
+  n            integer NOT NULL CHECK (n >= 1),
+  body         json NOT NULL,                 -- DraftFile
+  etag         text GENERATED ALWAYS AS (studio.content_etag(body::text)) STORED,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (design_id, n),
+  FOREIGN KEY (org_id, design_id) REFERENCES studio.entity (org_id, id) ON DELETE CASCADE
+);
+```
+
+### 3.8 Blobs — `0005_blobs`
+
+`class` separates record blobs (backed up) from derived blobs (rebuilt, never backed up).
+
+```sql ddl
+-- 0005_blobs
+CREATE TABLE studio.blob (
+  org_id       uuid NOT NULL REFERENCES studio.org,
+  sha256       text NOT NULL CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+  size         bigint NOT NULL CHECK (size >= 0),
+  media_type   text NOT NULL CHECK (media_type IN ('image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'application/pdf',
+                                                   'application/zip', 'model/gltf-binary', 'model/stl', 'application/octet-stream')),
+  class        text NOT NULL DEFAULT 'record' CHECK (class IN ('record', 'derived')),  -- derived: rebuildable, skipped by the backup
+  object_key   text NOT NULL,                 -- '<org>/sha256/<aa>/<bb>/<hex>'
+  state        text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'stored', 'orphan')),
+  backed_up_at timestamptz,                   -- record blobs: last seen in a completed backup (§8.4)
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  orphaned_at  timestamptz,
+  PRIMARY KEY (org_id, sha256),
+  UNIQUE (object_key)
+);
+CREATE INDEX blob_gc ON studio.blob (orphaned_at) WHERE state = 'orphan';
+CREATE INDEX blob_not_backed_up ON studio.blob (created_at) WHERE backed_up_at IS NULL AND state = 'stored' AND class = 'record';
+CREATE TRIGGER blob_audit AFTER INSERT OR UPDATE OR DELETE ON studio.blob FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
+
+-- The shared asset library (data/assets/index.json): photos, PDFs, uploaded 3D models.
+CREATE TABLE studio.asset (
+  org_id         uuid NOT NULL,
+  sha256         text NOT NULL,
+  mime           text NOT NULL CHECK (mime IN ('image/png', 'image/jpeg', 'application/pdf', 'model/gltf-binary', 'model/stl')),
+  original_name  text NOT NULL,
+  src            text NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  created_by     uuid REFERENCES studio.person,
+  PRIMARY KEY (org_id, sha256),
+  FOREIGN KEY (org_id, sha256) REFERENCES studio.blob (org_id, sha256) ON DELETE RESTRICT
+);
+CREATE INDEX asset_name_trgm ON studio.asset USING gin (original_name gin_trgm_ops);
+
+-- A drawing sheet's product photo (data/drawings/<id>.photo-ref.json)
+CREATE TABLE studio.drawing_photo (
+  org_id        uuid NOT NULL,
+  drawing_id    uuid NOT NULL,                -- record (collection 'drawing')
+  asset_sha256  text NOT NULL,
+  PRIMARY KEY (drawing_id),
+  FOREIGN KEY (org_id, drawing_id) REFERENCES studio.record (org_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (org_id, asset_sha256) REFERENCES studio.asset (org_id, sha256) ON DELETE RESTRICT
+);
+
+-- depictions/<defId>/<file> — the artwork next to a depiction's meta.json record
+CREATE TABLE studio.depiction_file (
+  org_id        uuid NOT NULL,
+  depiction_id  uuid NOT NULL,                -- record of an entity of kind 'depiction'
+  name          text NOT NULL CHECK (name ~ '^[a-z0-9][a-z0-9._-]*\.(svg|png|jpg|jpeg|webp)$'),
+  sha256        text NOT NULL,
+  PRIMARY KEY (depiction_id, name),
+  FOREIGN KEY (org_id, depiction_id) REFERENCES studio.record (org_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (org_id, sha256) REFERENCES studio.blob (org_id, sha256) ON DELETE RESTRICT
+);
+
+-- _versions/<id>/artwork/<blob name> — artwork frozen into a revision
+CREATE TABLE studio.revision_artwork (
+  org_id       uuid NOT NULL,
+  revision_id  uuid NOT NULL REFERENCES studio.design_revision ON DELETE RESTRICT,
+  blob_name    text NOT NULL,
+  sha256       text NOT NULL,
+  PRIMARY KEY (revision_id, blob_name),
+  FOREIGN KEY (org_id, sha256) REFERENCES studio.blob (org_id, sha256) ON DELETE RESTRICT
+);
+```
+
+### 3.9 Model links — `0006_models`
+
+A model link is a side table on purpose (`server/models/links.ts`): the 3D model is a view
+of a part, not a fact the validator reads. The row stores the `ModelLink` exactly as
+written. `body.asset` is either an upload's sha256 (→ `asset`) or an imported model's
+source key (→ `derived_blob`).
+
+```sql ddl
+-- 0006_models — data/models.json
+CREATE TABLE studio.model_link (
+  org_id        uuid NOT NULL REFERENCES studio.org,
+  record_key    text NOT NULL CHECK (record_key ~ '^(connectors|components|wires|pcbas|bodies|interfaces|mechanicals|kits)/[a-z0-9][a-z0-9._-]*$'),
+  body          json NOT NULL,                  -- ModelLink, JSON.stringify
+  doc           jsonb GENERATED ALWAYS AS (body::jsonb) STORED,
+  etag          text GENERATED ALWAYS AS (studio.content_etag(body::text)) STORED,   -- = linkETag(link), the If-Match the Library holds
+  source_kind   text GENERATED ALWAYS AS (body::jsonb ->> 'sourceKind') STORED,
+  asset_key     text GENERATED ALWAYS AS (body::jsonb ->> 'asset') STORED,          -- sha256 (upload) or sourceKey (import)
+  imported      boolean GENERATED ALWAYS AS ((body::jsonb -> 'files') IS NOT NULL) STORED,
+  entity_id     uuid,                           -- the Library record; a ref edge by another name
+  row_version   bigint NOT NULL DEFAULT 1,
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  updated_by    uuid REFERENCES studio.person,
+  PRIMARY KEY (org_id, record_key),
+  CHECK (body::jsonb ->> 'record' = record_key),
+  FOREIGN KEY (org_id, entity_id) REFERENCES studio.entity (org_id, id) ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED
+);
+CREATE INDEX model_link_asset ON studio.model_link (asset_key);
+CREATE TRIGGER model_link_touch BEFORE UPDATE ON studio.model_link FOR EACH ROW EXECUTE FUNCTION studio.touch_row();
+CREATE TRIGGER model_link_audit AFTER INSERT OR UPDATE OR DELETE ON studio.model_link FOR EACH ROW EXECUTE FUNCTION studio.audit_row();
+```
+
+Deleting a Library record that still has a model link fails at COMMIT, the same as any
+other reference; the handler's own check (detach first) stays the user-facing rule.
+
+### 3.10 Edit locks — `0007_locks`
+
+The LockStore on Postgres is **a table, not advisory locks** (§4.1). It keeps the
+take-over memory `memoryLockStore` keeps as `displaced`: a token that was taken over is
+told `lost` on its next heartbeat until its lease would have lapsed anyway.
+
+```sql ddl
+-- 0007_locks
+CREATE TABLE studio.edit_lock (
+  org_id     uuid NOT NULL REFERENCES studio.org,
+  record     text NOT NULL CHECK (length(record) <= 200 AND record ~ '^(design|definition|build|vocab):'),
+  token      uuid NOT NULL,
+  holder     jsonb NOT NULL,                  -- LockHolder {name, clientId, tabId, email?}
+  since_ms   bigint NOT NULL,                 -- epoch ms, from the caller's clock (LockStore takes `now`)
+  seen_ms    bigint NOT NULL,
+  request    jsonb,                           -- {name, clientId, tabId, at}
+  declined   jsonb,                           -- {name, tabId, at}
+  PRIMARY KEY (org_id, record)
+);
+CREATE INDEX edit_lock_seen ON studio.edit_lock (seen_ms);
+
+-- tokens displaced by a take-over, until their lease would have lapsed
+CREATE TABLE studio.edit_lock_displaced (
+  org_id     uuid NOT NULL REFERENCES studio.org,
+  token      uuid NOT NULL,
+  record     text NOT NULL,
+  at_ms      bigint NOT NULL,
+  until_ms   bigint NOT NULL,
+  PRIMARY KEY (org_id, token)
+);
+CREATE INDEX edit_lock_displaced_until ON studio.edit_lock_displaced (until_ms);
+```
+
+### 3.11 Derived blobs — `0008_derived_blobs`
+
+One row per built object. The key is the builder's own cache key, unchanged from the
+file cache, so the gate can compare the two directly.
+
+```sql ddl
+-- 0008_derived_blobs — the converted-model cache, as blobs
+CREATE TABLE studio.derived_blob (
+  org_id           uuid NOT NULL REFERENCES studio.org,
+  cache            text NOT NULL CHECK (cache ~ '^[a-z0-9-]+$'),   -- 'model'; modules may add caches
+  key              text NOT NULL CHECK (key ~ '^[0-9a-f]{64}$'),
+  part             text NOT NULL DEFAULT '',
+  sha256           text NOT NULL,
+  builder_version  text NOT NULL,                                  -- CONVERTER_VERSION
+  inputs           jsonb NOT NULL,                                 -- what it was built from: [{kind, ref, sha256}]
+  triangles        integer,
+  job_id           uuid,
+  built_at         timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, cache, key, part),
+  FOREIGN KEY (org_id, sha256) REFERENCES studio.blob (org_id, sha256) ON DELETE RESTRICT
+);
+```
+
+### 3.12 Jobs, RLS, grants — `0009_jobs`, `0010_rls`, `0011_grants`
+
+```sql ddl
+-- 0009_jobs
+CREATE TABLE studio.job_run (
+  id           uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id       uuid NOT NULL REFERENCES studio.org,
+  kind         text NOT NULL CHECK (kind ~ '^[a-z0-9][a-z0-9:-]*$'),   -- 'import', 'model-cache', 'derive', 'blob-gc', 'backup',
+                                                                       -- 'restore-check', 'parity', or '<module>:<queue>'
+  boss_id      uuid,                          -- pg-boss job id
+  status       text NOT NULL CHECK (status IN ('queued', 'running', 'done', 'failed', 'cancelled')),
+  request      jsonb NOT NULL DEFAULT '{}',
+  steps        jsonb NOT NULL DEFAULT '[]',   -- step reports as the job streams them
+  result       jsonb,                         -- a plan summary; its files are job_file rows
+  error        text,
+  requested_by uuid REFERENCES studio.person,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  started_at   timestamptz,
+  finished_at  timestamptz,
+  change_set_id bigint REFERENCES studio.change_set  -- publish: the set it committed
+);
+CREATE INDEX job_run_recent ON studio.job_run (org_id, kind, created_at DESC);
+
+-- an import's plan: every file with its new text and what it replaces
+CREATE TABLE studio.job_file (
+  job_id       uuid NOT NULL REFERENCES studio.job_run ON DELETE CASCADE,
+  path         text NOT NULL,
+  status       text NOT NULL CHECK (status IN ('new', 'changed', 'unchanged')),
+  before_etag  text,
+  content      text,                          -- text files
+  sha256       text,                          -- binary files → blob
+  PRIMARY KEY (job_id, path),
+  CHECK ((content IS NULL) <> (sha256 IS NULL))
+);
+
+-- parity reports (migration from files only)
+CREATE TABLE studio.parity_run (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  file_rev    text NOT NULL,                  -- the file catalog compared (git HEAD or a digest)
+  pg_version  bigint NOT NULL,
+  endpoints   integer NOT NULL,
+  diffs       integer NOT NULL,
+  report      jsonb NOT NULL,
+  at          timestamptz NOT NULL DEFAULT now()
+);
+```
+
+```sql ddl
+-- 0010_rls
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['catalog_head', 'person', 'change_set', 'entity', 'record', 'ref_edge', 'ref_dangling',
+                           'catalog_doc', 'derived_doc', 'design_revision', 'design_working', 'design_draft',
+                           'blob', 'asset', 'drawing_photo', 'depiction_file', 'revision_artwork',
+                           'model_link', 'edit_lock', 'edit_lock_displaced', 'derived_blob', 'job_run', 'parity_run'] LOOP
+    EXECUTE format('ALTER TABLE studio.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('ALTER TABLE studio.%I FORCE ROW LEVEL SECURITY', t);
+    EXECUTE format('CREATE POLICY org_isolation ON studio.%I USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org())', t);
+  END LOOP;
+END $$;
+-- change / job_file inherit their parent's org through the FK
+ALTER TABLE studio.change ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.change FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.change
+  USING (EXISTS (SELECT 1 FROM studio.change_set s WHERE s.id = change_set_id))
+  WITH CHECK (EXISTS (SELECT 1 FROM studio.change_set s WHERE s.id = change_set_id));
+ALTER TABLE studio.job_file ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.job_file FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.job_file
+  USING (EXISTS (SELECT 1 FROM studio.job_run j WHERE j.id = job_id))
+  WITH CHECK (EXISTS (SELECT 1 FROM studio.job_run j WHERE j.id = job_id));
+-- org: a session sees its own org row only
+ALTER TABLE studio.org ENABLE ROW LEVEL SECURITY;
+CREATE POLICY org_self ON studio.org USING (id = studio.current_org());
+-- audit_log: written by the SECURITY DEFINER trigger; the app may read its org's rows, never write
+ALTER TABLE studio.audit_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY org_read ON studio.audit_log FOR SELECT USING (org_id = studio.current_org());
+```
+
+```sql ddl
+-- 0011_grants
+GRANT USAGE ON SCHEMA studio TO studio_app, studio_ro;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA studio TO studio_app;
+REVOKE INSERT, UPDATE, DELETE ON studio.audit_log FROM studio_app;
+REVOKE UPDATE, DELETE ON studio.change, studio.change_set FROM studio_app;
+GRANT SELECT ON ALL TABLES IN SCHEMA studio TO studio_ro;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA studio TO studio_app;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA studio TO studio_app, studio_ro;
+```
+
+### 3.13 Module tables
+
+A module that needs relational state of its own (an integration's push log, an import
+register) ships forward-only migrations in its package, run after the base's, in a schema
+of its own (`mod_<module id>`), named `NNNN_<module>_<name>`. Rules:
+
+- every org-scoped table has `org_id`, RLS forced and the `org_isolation` policy (the RLS
+  suite covers module schemas too);
+- a module table may reference `studio.entity`, `studio.design_revision` and
+  `studio.person`, never the other way round;
+- catalog state still goes through change sets — a module's own tables are for evidence
+  and indexes (e.g. "every push to the ERP, with its answer"), not for catalog truth;
+- removing a module leaves its schema in place; dropping it is an explicit admin action.
+
+### 3.14 Build and QA records (optional, v1.1 — Phase E)
+
+Every build points at a saved, frozen revision, and test runs are insert-only.
+
+```sql ddl
+-- 0100_build_qa — OPTIONAL, v1.1 (Phase E).
+CREATE TABLE studio.build_order (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id        uuid NOT NULL REFERENCES studio.org,
+  design_id     uuid NOT NULL,
+  revision_id   uuid NOT NULL REFERENCES studio.design_revision ON DELETE RESTRICT,  -- always a saved (frozen) revision
+  variation     text,
+  part_number   text,
+  qty           integer NOT NULL CHECK (qty > 0),
+  status        text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'building', 'done', 'cancelled')),
+  note          text,
+  created_by    uuid REFERENCES studio.person,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  row_version   bigint NOT NULL DEFAULT 1,
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  FOREIGN KEY (org_id, design_id) REFERENCES studio.entity (org_id, id) ON DELETE RESTRICT
+);
+CREATE TRIGGER build_order_touch BEFORE UPDATE ON studio.build_order FOR EACH ROW EXECUTE FUNCTION studio.touch_row();
+
+CREATE TABLE studio.build_unit (
+  id              uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id          uuid NOT NULL REFERENCES studio.org,
+  build_order_id  uuid NOT NULL REFERENCES studio.build_order ON DELETE RESTRICT,
+  serial          text NOT NULL CHECK (serial ~ '^[A-Z0-9-]{4,40}$'),
+  built_by        uuid REFERENCES studio.person,
+  built_at        timestamptz,
+  status          text NOT NULL DEFAULT 'built' CHECK (status IN ('built', 'passed', 'failed', 'reworked', 'scrapped', 'shipped')),
+  UNIQUE (org_id, serial)
+);
+
+CREATE TABLE studio.qa_test_run (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id        uuid NOT NULL REFERENCES studio.org,
+  build_unit_id uuid NOT NULL REFERENCES studio.build_unit ON DELETE RESTRICT,
+  spec_hash     text NOT NULL CHECK (spec_hash ~ '^sha256:[0-9a-f]{64}$'),
+  result        text NOT NULL CHECK (result IN ('pass', 'fail')),
+  tester        uuid REFERENCES studio.person,
+  instrument    text,
+  raw_blob      text,
+  at            timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE studio.qa_result (
+  run_id     uuid NOT NULL REFERENCES studio.qa_test_run ON DELETE RESTRICT,
+  check_key  text NOT NULL,
+  expected   jsonb NOT NULL,
+  measured   jsonb NOT NULL,
+  pass       boolean NOT NULL,
+  PRIMARY KEY (run_id, check_key)
+);
+CREATE TABLE studio.nonconformance (
+  id             uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id         uuid NOT NULL REFERENCES studio.org,
+  build_unit_id  uuid REFERENCES studio.build_unit,
+  qa_run_id      uuid REFERENCES studio.qa_test_run,
+  description    text NOT NULL,
+  disposition    text CHECK (disposition IN ('rework', 'scrap', 'use-as-is', 'return')),
+  opened_by      uuid REFERENCES studio.person,
+  opened_at      timestamptz NOT NULL DEFAULT now(),
+  closed_at      timestamptz
+);
+
+CREATE FUNCTION studio.insert_only() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION '% rows are insert-only', TG_TABLE_NAME USING ERRCODE = 'integrity_constraint_violation';
+END $$;
+CREATE TRIGGER qa_test_run_frozen BEFORE UPDATE OR DELETE ON studio.qa_test_run FOR EACH ROW EXECUTE FUNCTION studio.insert_only();
+CREATE TRIGGER qa_result_frozen BEFORE UPDATE OR DELETE ON studio.qa_result FOR EACH ROW EXECUTE FUNCTION studio.insert_only();
+
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['build_order', 'build_unit', 'qa_test_run', 'nonconformance'] LOOP
+    EXECUTE format('ALTER TABLE studio.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('ALTER TABLE studio.%I FORCE ROW LEVEL SECURITY', t);
+    EXECUTE format('CREATE POLICY org_isolation ON studio.%I USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org())', t);
+    EXECUTE format('CREATE TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON studio.%I FOR EACH ROW EXECUTE FUNCTION studio.audit_row()', t || '_audit', t);
+  END LOOP;
+END $$;
+ALTER TABLE studio.qa_result ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.qa_result FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.qa_result
+  USING (EXISTS (SELECT 1 FROM studio.qa_test_run r WHERE r.id = run_id))
+  WITH CHECK (EXISTS (SELECT 1 FROM studio.qa_test_run r WHERE r.id = run_id));
+GRANT SELECT, INSERT, UPDATE, DELETE ON studio.build_order, studio.build_unit, studio.nonconformance TO studio_app;
+GRANT SELECT, INSERT ON studio.qa_test_run, studio.qa_result TO studio_app;
+GRANT SELECT ON studio.build_order, studio.build_unit, studio.qa_test_run, studio.qa_result, studio.nonconformance TO studio_ro;
+```
+
+### 3.15 Better Auth on the same Postgres — `0012_auth`
+
+- Better Auth takes a `pg` `Pool` whose connections run with
+  `options=-c search_path=auth`, as `studio_app`.
+- The tables are this migration, not `getMigrations()` at boot. A test runs
+  `getMigrations(options)` against the migrated test database and fails if it plans
+  anything.
+- **Sign-in methods** (§9.3): built-in **local accounts** (email + password, Better Auth's
+  `emailAndPassword`, on by default in pg mode), magic link over SMTP (optional), and OIDC
+  against any provider (optional, by environment or by a module's auth provider).
+- On first sign-in a `person` row is created (or matched by email) with the role the
+  invitation named. With the login on, `AUTH_ALLOWED_EMAILS` still works as an extra
+  allow-list.
+- A deployment moving from the file backend copies the `user` and `account` rows from
+  `data/auth/auth.sqlite` once; sessions are dropped, so everyone signs in once more.
+
+```sql ddl
+-- 0012_auth — Better Auth core tables, in schema `auth`
+CREATE TABLE auth."user" (
+  id              text PRIMARY KEY,
+  name            text NOT NULL,
+  email           text NOT NULL UNIQUE,
+  "emailVerified" boolean NOT NULL,
+  image           text,
+  "createdAt"     timestamptz NOT NULL DEFAULT now(),
+  "updatedAt"     timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE auth.session (
+  id           text PRIMARY KEY,
+  "expiresAt"  timestamptz NOT NULL,
+  token        text NOT NULL UNIQUE,
+  "createdAt"  timestamptz NOT NULL DEFAULT now(),
+  "updatedAt"  timestamptz NOT NULL,
+  "ipAddress"  text,
+  "userAgent"  text,
+  "userId"     text NOT NULL REFERENCES auth."user" (id) ON DELETE CASCADE
+);
+CREATE INDEX session_user_idx ON auth.session ("userId");
+CREATE TABLE auth.account (
+  id                       text PRIMARY KEY,
+  "accountId"              text NOT NULL,
+  "providerId"             text NOT NULL,
+  "userId"                 text NOT NULL REFERENCES auth."user" (id) ON DELETE CASCADE,
+  "accessToken"            text,
+  "refreshToken"           text,
+  "idToken"                text,
+  "accessTokenExpiresAt"   timestamptz,
+  "refreshTokenExpiresAt"  timestamptz,
+  scope                    text,
+  password                 text,             -- local accounts: Better Auth's password hash
+  "createdAt"              timestamptz NOT NULL DEFAULT now(),
+  "updatedAt"              timestamptz NOT NULL
+);
+CREATE INDEX account_user_idx ON auth.account ("userId");
+CREATE TABLE auth.verification (
+  id           text PRIMARY KEY,
+  identifier   text NOT NULL,
+  value        text NOT NULL,
+  "expiresAt"  timestamptz NOT NULL,
+  "createdAt"  timestamptz NOT NULL DEFAULT now(),
+  "updatedAt"  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX verification_identifier_idx ON auth.verification (identifier);
+
+-- invitations: the admin invites people by email with a role (§9.2)
+CREATE TABLE auth.invitation (
+  id           uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id       uuid NOT NULL,
+  email        text NOT NULL CHECK (email = lower(email)),
+  role         text NOT NULL CHECK (role IN ('owner', 'editor', 'viewer')),
+  token_sha256 text NOT NULL UNIQUE,
+  invited_by   uuid NOT NULL,
+  expires_at   timestamptz NOT NULL,
+  accepted_at  timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE studio.person ADD FOREIGN KEY (auth_user_id) REFERENCES auth."user" (id) ON DELETE SET NULL;
+GRANT USAGE ON SCHEMA auth TO studio_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA auth TO studio_app;
+```
+
+### 3.16 Personal API tokens — `0013_api_tokens`
+
+Scripts and agents call the API with a token of the person who runs them, so the person
+running the tool is the one shown as making the change. The design is §4.5; the table is
+here.
+
+- The table is in schema **`auth`**, beside the sessions, because it is credential state.
+- The token is shown **once**, at creation: `cst_<env>_<id12>_<secret>`, where `<env>` is
+  `prod` or `dev`, `<id12>` is the first 12 hex of the row id (to look it up), and
+  `<secret>` is 32 random bytes in base32. Only `sha256(token)` is stored: the secret has
+  256 bits of entropy, so a slow hash adds nothing.
+- `person_id` names a `studio.person`, without an FK across schemas. The auth gate checks
+  at each use that the person exists and still has a role that allows the scope.
+
+```sql ddl
+-- 0013_api_tokens — personal API tokens (§4.5)
+CREATE TABLE auth.api_token (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  org_id        uuid NOT NULL,                  -- studio.org.id
+  person_id     uuid NOT NULL,                  -- studio.person.id: the token acts as this person, and only as this person
+  name          text NOT NULL CHECK (length(name) BETWEEN 1 AND 80),   -- the person's label: "laptop scripts"
+  env           text NOT NULL CHECK (env IN ('dev', 'prod')),          -- must equal STUDIO_ENV; also the token's prefix
+  token_sha256  text NOT NULL UNIQUE CHECK (token_sha256 ~ '^[0-9a-f]{64}$'),
+  scopes        text[] NOT NULL CHECK ('read' = ANY (scopes)),        -- 'read', 'catalog:write', 'imports', and '<module>:<scope>'
+  expires_at    timestamptz NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  created_by    uuid NOT NULL,                  -- = person_id; nobody creates a token for someone else
+  last_used_at  timestamptz,                    -- updated at most once a minute
+  revoked_at    timestamptz,
+  revoked_by    uuid,                           -- the person, or an owner
+  CHECK (expires_at > created_at AND expires_at <= created_at + interval '90 days')
+);
+CREATE INDEX api_token_person ON auth.api_token (person_id) WHERE revoked_at IS NULL;
+GRANT SELECT, INSERT, UPDATE ON auth.api_token TO studio_app;   -- no DELETE: a revoked token stays, for the audit
+```
+
+---
+
+## 4. PgStore
+
+`apps/studio/server/pg/` holds `db.ts` (Kysely + a `pg` Pool; `withOrg(trx)`),
+`stores/*.ts` (one per interface), and `commit.ts`, `snapshot.ts`, `locks.ts`, `blobs.ts`,
+`derived-cache.ts`. `pgWorkbenchDeps(db, blobs, org)` mirrors `defaultWorkbenchDeps()`.
+
+### 4.1 Store methods → SQL
+
+Reads outside a commit run in a short transaction after `set_config('studio.org_id', …,
+true)` (`inOrg(fn)`). Reads inside a commit use the commit's transaction.
+
+| Interface | Method | SQL / source |
+| --- | --- | --- |
+| `DesignStore` | `list` / `has` / `read` | `entity(design)` + `record('')`, `ORDER BY slug` |
+| | `write` / `remove` | staged; at commit: upsert entity + record (`WHERE body::text IS DISTINCT FROM $b`) / delete record, end-of-commit entity sweep |
+| `DefinitionStore` | `list(kind)` / `write(kind, list)` | rows ordered by `ord`; connectors composed with `composeConnectors`; `write` diffs by id |
+| `DrawingStore` | `read` / `writeMeta` / `writePhoto` / `move` / `remove` | `record('drawing')`, `drawing_photo` → `asset` → `BlobStore.get` |
+| `AssetStore` | `list` / `get` / `put` | `asset` + `blob`; bytes uploaded before BEGIN (§5.2); GLB/STL accepted |
+| `ModelLinkStore` | `list()` / `get(record)` | `SELECT body FROM model_link`, then **sorted in JS by `sortLinks`** |
+| | `put(link)` / `remove(record)` | staged as `model-link` (B0); at commit, upsert or delete, and set `entity_id` from the record key |
+| `ModelCache` | `has(key)` / `get(key)` | `derived_blob(cache 'model', key)` → `BlobStore.get`; `put` is the `model-cache` job's alone |
+| `VocabStore` | `ids` / `read` / `write` | `entity(vocab)` |
+| `TagStore` | `tags` / `review` / `writeReview` / `regenerate` / `preview` | `derived_doc` / `catalog_doc` / the commit's derived set / pure compute |
+| `WireLibraryStore` | `read` / `writeParts` / `writeRecipes` / `wires` / `putWire` | ordered kinds; list diff; strip practice from `catalog_doc` |
+| `BuildsStore` | `list` / `read` / `write` | `entity(build)` |
+| `VersionStore` | all | `design_revision` / `design_working` / `design_draft` / `revision_artwork` |
+| `LockStore` | all | the `edit_lock` tables (below) |
+| `DepictionStore` | all | Phase B7: records + `depiction_file` |
+| deps | `loadDb`, `loadPartNumberFiles` | the snapshot's `catalog` |
+| | `catalogVersion()` | `SELECT version::text FROM catalog_head` |
+
+Endpoints that stay pure model over the snapshot, and are deliberately **not** SQL:
+`GET /api/definitions/:kind/:id/usage` and the definition delete refusal (`usageOf` →
+model `definitionUsage`; `ref_edge` is the backstop behind them, never the answer), and
+every part-number route.
+
+`PgLockStore` (the interface already takes `now` in epoch ms):
+
+- `acquire`: `INSERT … ON CONFLICT (org_id, record) DO UPDATE SET … WHERE
+  edit_lock.seen_ms < EXCLUDED.seen_ms - LEASE_MS RETURNING *`. A record held by the same
+  holder's other tab is refused, as today.
+- `heartbeat`: `UPDATE … SET seen_ms = $now WHERE record = $r AND token = $t RETURNING *`.
+  With no row: if the token is in `edit_lock_displaced` (`until_ms > $now`), answer `lost`
+  with `takenOverAt`; otherwise `acquire`.
+- `takeOver(force)`: in one transaction, `SELECT … FOR UPDATE`; when replacing a live
+  lease, insert the old token into `edit_lock_displaced` with `until_ms = old.seen_ms +
+  LEASE_MS`.
+- `release` / `request` / `decline`: a single `UPDATE`/`DELETE … WHERE token = …`.
+- `get` / `list`: `WHERE seen_ms > $now - LEASE_MS`; the sweep runs in `list`.
+- After a change: `NOTIFY studio_locks, '<record>'`.
+- The gate is unchanged: `recordsOfWrite(method, path, body)` names the records; the 423
+  runs before the transaction.
+- Why a table and not advisory locks: a lease lives for minutes across many requests and a
+  restart, and has to be listed with its holder. Advisory locks are used only for "one
+  runner" jobs (`backup`, `restore-check`, `derive`):
+  `pg_try_advisory_lock(hashtextextended('studio:' || job, 0))`.
+
+### 4.2 The commit transaction
+
+```ts
+async function commitPg(set: ChangeSet, derive: ReadonlySet<DerivedKind>, snap: Snapshot): Promise<CommitResult> {
+  await uploadBlobs(set);                         // §5.2 — idempotent, outside the transaction
+  return db.transaction().setIsolationLevel('read committed').execute(async (trx) => {
+    await setOrg(trx, org);                        // set_config('studio.org_id', …, true); statement_timeout 15s; lock_timeout 5s
+    const head = await lockHead(trx);              // SELECT version FROM catalog_head WHERE org_id=$1 FOR UPDATE  ← writers' mutex
+    await checkPreconditions(trx, set.changes);    // expect vs etag → StaleRecordError (409), nothing written
+    const cs = await insertChangeSet(trx, head.version + 1, set.context);   // + set_config('studio.change_set_id')
+    const plan = coalesceRename(set.changes);      // §4.3
+    for (const c of plan) await applyPg(trx, c);   // §4.1, per kind — incl. model-link, depiction-*, doc
+    await rebuildRefEdges(trx, touched(plan));     // vendored referencesOf(kind, value)
+    await sweepEntities(trx, touched(plan));
+    const derived = await deriveInTx(trx, snap, head.version, plan, derive);   // §4.4
+    await trx.updateTable('catalog_head').set({ version: head.version + 1, updated_at: sql`now()` }).execute();
+    await insertChanges(trx, cs.id, plan);
+    await sql`SELECT pg_notify('studio_catalog', ${payload(cs, plan)})`.execute(trx);
+    return { applied: set.changes.length, derived };
+  });                                              // deferred FKs checked here → 409 "still used by …"
+}
+after(commit) → enqueue('model-cache') if the plan touched a model_link that needs conversion
+```
+
+- **Isolation: READ COMMITTED plus the per-org head row lock.** Writers run one at a time
+  across processes; readers never wait.
+- **Preconditions.** Per-record kinds compare `etag` with `expect`. List kinds compare the
+  list's ETag, computed in the transaction by the store's own `list()`. `model-link`
+  compares `linkETag(link)` = `contentETag(link ?? null)`.
+- **409s.** `StaleRecordError` → `staleWriteResponse`. A deferred FK (`23503`) →
+  "`<id>` is still used by …", with the referrers from `ref_edge`. The revision guard
+  (`23514`) → "revision is locked".
+- **Statement budget.** A design save takes about 12 statements; a definitions save up to
+  60 (batch with `unnest()` above 10 changed rows).
+
+### 4.3 Renames keep identity
+
+`coalesceRename` sees the `design-versions move` marker and runs `UPDATE entity SET slug =
+$new` first. The uuid, the ref edges, the revisions, the drafts and the audit trail all
+follow.
+
+### 4.4 Derived data
+
+`tags` and module derived records are computed **in the commit transaction**, over the
+post-commit catalog rebuilt in memory through the codec. `tags` can never leave the
+transaction, because `loadDb()` reads it. Derived **caches** are not derived data in this
+sense: they are never inputs to `loadDb`, and they may lag a commit (§5.5).
+
+### 4.5 API clients: personal tokens, batches, dry runs
+
+Script and agent changes reach the data through the studio's own API, with tokens scoped
+to the person who runs them: that person is the responsible party, and no "agent" field
+exists in the record. The API, the validation and the change set are the GUI's; only the
+way the request authenticates is new.
+
+**Tokens.**
+
+- **Account → API tokens** (`/account/tokens`): each person creates, lists and revokes
+  **their own** tokens. Create asks for a name, the scopes and an expiry (1, 7, 30 or 90
+  days; default 7), and shows the token once with a copy button. The list shows the name,
+  the first 12 characters, the scopes, created, last used and expires. An owner also sees
+  everyone's tokens and can revoke any of them; nobody can create a token for someone
+  else.
+- **Scopes** narrow what the person may do; they never widen it. `read` is always
+  included. `catalog:write` covers every write route of the GUI and `POST /api/batch`;
+  `imports` starts and publishes import jobs and writes imported docs (below); modules
+  declare their own scopes (`<module>:<scope>`) for their routes. At each request the
+  effective rights are the token's scopes **and** the person's current role: a `viewer`'s
+  token can only read, and a person removed from the org has no working tokens.
+- **Never through a token:** creating, listing or revoking tokens, lock take-overs (a
+  token never displaces a person), invitations and the admin settings. Those need a
+  session.
+- **Storage:** `auth.api_token` (§3.16), `sha256` only. The token never appears in a log,
+  an error, a change set or a URL: the request logger redacts the `Authorization` header,
+  and a test asserts it.
+- **Environment:** a token carries its environment in its prefix (`cst_prod_…`,
+  `cst_dev_…`). The server refuses a token whose `env` is not its `STUDIO_ENV` (401,
+  before any lookup).
+
+**The auth gate.** `Authorization: Bearer cst_…` is accepted on `/api/*` only. The gate
+hashes the token, looks it up, checks `env`, `expires_at`, `revoked_at`, the person and the
+scope of the route, and sets the request's person exactly as a session does. It updates
+`last_used_at` at most once a minute. A bearer request carries no cookie, so the
+cross-site guard does not apply to it; the size and content-type guards do. Every failure
+is `401` with `WWW-Authenticate: Bearer` and no detail beyond "invalid or expired token"
+(or `403` "the token lacks scope <s>").
+
+**Same API, same rules.**
+
+- **If-Match / ETag:** every write quotes the ETag it read; a stale one is the GUI's `409`.
+  The client never retries a 409 by re-reading and re-writing on its own: it stops and
+  reports.
+- **Edit locks:** a write to a record someone holds needs that lease's `x-edit-lock`
+  token, so a token client is refused `423` with the holder's name. The client may take
+  its own leases for a long batch (`studio-api push --lock`): holder `{name: <person>,
+  clientId: 'api:<id12>', tabId: <run id>}`, heartbeats every 15 s, releases at the end.
+- **Attribution:** the change set is the token's person's (`actor_id`, `actor_label`),
+  `source = 'studio'`, and the message is the route's usual one or the batch's `message`.
+  `api_token_id` is the only trace of the token. The server stores no user agent.
+
+**Batches: `POST /api/batch`** (scope `catalog:write`; `imports` for doc writes). One
+logical change of several records is **one change set**:
+
+```json
+{ "message": "Re-pin the RS-485 adapters", "dryRun": false,
+  "requests": [
+    { "method": "PUT", "path": "/api/designs/rs485-de9-terminal-board", "ifMatch": "\"9f2…\"", "body": { … } },
+    { "method": "PUT", "path": "/api/definitions/connectors", "ifMatch": "\"41c…\"", "body": [ … ] }
+  ] }
+```
+
+- The server runs each request through the **same router and handler**, in order, inside
+  **one** `UnitOfWork`; a later request reads the earlier ones' staged writes. Locks are
+  checked for every request's `recordsOfWrite` before the first handler runs.
+- If every request answers 2xx, the unit commits once: one change set, one
+  `catalog_version`, derived data once. If any answers 4xx, **nothing** is written, and the
+  response lists each request's status and body.
+- Allowed: the JSON write routes of `catalog:write` and the doc route below. Not allowed
+  inside a batch: uploads (they go first, as their own requests, and the batch then names
+  their sha), job starts, module integration routes, lock routes and auth routes. At most
+  200 requests and 24 MB per batch.
+- The file backend runs the same endpoint (the seam already stages a request's writes), so
+  it is tested on files, memory and pg alike (SA1).
+
+**Dry runs.** Every write route and `/api/batch` take `?dryRun=1` (or `"dryRun": true` in a
+batch). The request runs exactly as a real one, up to the commit, and the unit of work is
+then **discarded**. The answer is the would-be change set: per record the kind, key, op,
+before and after ETags, and a JSON diff of the bodies (RFC 6902 patch plus a short text
+diff), plus the derived records it would recompute. Nothing is written, and no lock is
+taken. Dry runs count against the rate limit like a write.
+
+**Imported docs.** Files an importer or script writes and no GUI route writes (a module's
+reports) get one route: `PUT /api/docs/*path` (scope `imports`, If-Match, text or JSON
+body), allowed **only** for paths a module declares as imported or report. Truth files keep
+their own routes; derived files are never written.
+
+**Rate limits** (per token, in the studio process; over the limit → `429` with
+`Retry-After`):
+
+| What | Limit |
+| --- | --- |
+| reads | 600 a minute |
+| writes, dry runs and batches (a batch counts as one) | 60 a minute, 1,000 a day |
+| failed token attempts, per client IP | 10 a minute, then 15 minutes of `429` |
+
+**The client: `studio-api`** (`apps/studio/scripts/studio-api.ts`). Scripts and agents keep
+working on JSON files:
+
+- `studio-api pull <dir>`: `GET /api/export` into `<dir>`, plus `<dir>/.studio-api.json`
+  with the server's URL, `catalog_head.version` and every record's ETag at that moment;
+- the script or agent edits the JSON in `<dir>`;
+- `studio-api push <dir> --dry-run`: maps each changed file to its write route (through
+  the codec, §7.1) and sends **one** dry-run batch with the pulled ETags, then prints the
+  diff;
+- `studio-api push <dir> -m "<message>"`: the same batch for real. A record that changed
+  since the pull fails its If-Match, and the whole batch is refused;
+- `studio-api call <method> <path> [body]` for single routes;
+- the token comes from `STUDIO_API_TOKEN` only (never a flag, never a file it writes), the
+  URL from `STUDIO_API_URL`; it refuses a `cst_prod_` token against a URL configured as dev,
+  and the other way round.
+
+**Which token where.** Development instances: a person's dev token with broad scopes is
+fine, because dev data is disposable and a dev token cannot work on prod. Production: a
+token created for one task, scoped as narrowly as the task allows, with a short expiry,
+passed in the process environment only, revoked when the task is done.
+
+**Reaching the API.** Token clients use the same origin as browsers (through whatever
+reverse proxy the deployment runs), or a private network address the deployment chooses
+(a compose network for a co-located service, a VPN address). Every path runs through the
+same auth gate and rate limits; no network is treated as trusted.
+
+---
+
+## 5. Blobs
+
+### 5.1 The blob store and its keys
+
+- **One interface, two implementations** (`apps/studio/server/pg/blobs.ts`):
+  `BlobStore { put, get, head, delete, list }`:
+  - `fsBlobStore(dir)` — a directory on a volume; the default for the self-hosted compose
+    (§8.1) and for tests;
+  - `s3BlobStore` — any S3-compatible service (AWS S3, MinIO, Garage, Ceph RGW, Backblaze
+    B2, Cloudflare R2, …), `@aws-sdk/client-s3`, endpoint, region and path-style from env.
+  `STUDIO_BLOBS=fs:<dir>|s3`.
+- **One bucket (or directory) for record and derived blobs.** Every key is the sha256 of
+  its bytes, so an object is never overwritten with different content. No bucket
+  versioning is needed; the only delete is the GC's (§5.4), and the protection against a
+  bad delete is the backup (§8.4).
+- Blob key: `<org uuid>/sha256/<aa>/<bb>/<64 hex>`, with metadata `content-type` and
+  `x-amz-meta-sha256` (S3) or a sidecar-free file (fs).
+- **S3 features relied on**, deliberately the lowest common denominator: `PUT`, `GET`,
+  `HEAD`, `DELETE`, `ListObjectsV2`, multipart upload above 16 MB. Not relied on:
+  conditional `PUT` (`If-None-Match`), bucket versioning, object lock, server-side
+  checksums (re-read verification is the default, §5.2), presigned URLs, lifecycle rules
+  (an "abort incomplete multipart uploads after 1 day" rule is recommended where
+  supported).
+- **Credentials**: one access key with read + write on the bucket for the studio and the
+  worker; a separate **read-only** key for the backup job where the backend supports
+  per-key permissions.
+
+### 5.2 Upload flow
+
+1. The request guard caps the body: 24 MB in general, **34 MB** for
+   `POST /api/models/:kind/:id/upload`. The handler validates. STEP and STL are converted
+   to GLB in the capped child (`convert-worker.ts`) before anything is staged.
+2. Stage: `sha256` and the bytes in the `RecordChange`.
+3. Before BEGIN: `HEAD` the key. If it is there with the right size, done. Otherwise `PUT`
+   it, then **re-read** it and compare the sha256. A mismatch deletes the object and fails
+   the request with a 503; nothing has been committed.
+4. In the transaction: `INSERT INTO blob … ON CONFLICT DO NOTHING` (`class 'record'`), then
+   the referencing rows.
+5. A rolled-back transaction leaves an object with no row, and GC removes it after 24 h.
+
+The re-read costs one extra GET per upload; uploads are rare, so it stays on.
+`STUDIO_BLOB_VERIFY=off` exists for backends with enforced checksums.
+
+### 5.3 Serving and SVG safety
+
+- `GET /api/blobs/:sha` streams bytes with `ETag: "<sha>"`, `Cache-Control: private,
+  max-age=31536000, immutable`, `nosniff`, and the sandbox CSP for SVG. Today's endpoints
+  keep their answers: `GET /api/assets/:id` serves an upload from `asset` → blob, an
+  imported model from `derived_blob` → blob, and a model not built yet as the
+  **not-built** state (`404`, `state: 'not-built'`); `DrawingStore.read` keeps answering
+  data URIs.
+- SVG refusal (`<script>`, `foreignObject`, `on*`, `javascript:`, external `href`,
+  `<!ENTITY`) at upload in `prepareDepictionImport`.
+
+### 5.4 GC
+
+- Daily, after the backup. The live set of **record** blobs is every sha referenced by
+  `asset`, `drawing_photo`, `depiction_file`, `revision_artwork`, `job_file` (jobs < 7
+  days) and `qa_test_run.raw_blob`. Assets are roots.
+- A record blob not in the live set becomes an orphan. After 30 days its object and its
+  row are deleted — and only if a backup completed **after** it became an orphan (its
+  copy then stays in the backup for the retention period).
+- **Derived** blobs: the live keys are every `model_link.asset_key` where `imported`, at
+  the current builder version. Any other `derived_blob` row is deleted after 7 days, and
+  its blob follows the orphan rule. Always safe: a rebuild makes it again.
+- An object with no row, older than 24 h, is deleted.
+
+### 5.5 Derived caches as blobs
+
+| Cache | File backend (gitignored) | Key | On pg |
+| --- | --- | --- | --- |
+| Converted 3D models | `data/.model-cache/<key>.glb` | `sourceKey(files)` + `CONVERTER_VERSION` | `model-cache` worker job |
+
+- **The keys do not change** between backends, so the gate compares them directly.
+- The STEP conversion stays in its memory-capped child (it peaks at about 1.1 GB); the
+  worker runs **one conversion at a time**. `STUDIO_CONVERT_WINDOW=HH:MM-HH:MM` optionally
+  confines conversions to a night window on small machines.
+- Triggers: an `after(commit)` hook when a `model_link` that needs conversion is new or
+  changed; at worker boot, a sweep that builds any live key missing at the current builder
+  version.
+- A missing derived blob is never an error in a request: the model answers "not built
+  yet". Derived blobs are **never in the backup, never in the export**; after a restore,
+  the boot sweep rebuilds them.
+- If the builder is not byte-deterministic, the gate compares key sets and triangle counts
+  instead of shas.
+
+---
+
+## 6. Migrations
+
+- **Tooling:** the Kysely `Migrator`; `apps/studio/server/pg/migrations/NNNN_name.ts`;
+  forward-only (`down()` throws); run as `studio_owner` by the `migrate` one-shot service
+  or `pnpm --filter studio db:migrate`. Module migrations run after the base's (§3.13).
+- **Conventions:** SQL migrations, never edited after release (`migrations/CHECKSUMS`
+  test); expand → migrate → contract; every new org-scoped table gets RLS in the same
+  migration (the RLS suite fails otherwise).
+- **Data migrations** vendor the model functions they call (`migrations/vendor/NNNN/`,
+  with a lint test). Each runs as a change set (`source='migration'`) and is idempotent.
+- **Schema version**: `CURRENT_SCHEMA_VERSION` (4). A bump ships with its
+  `NNNN_data_design_schema_vN.ts`. At boot the studio refuses to start when
+  `catalog_head.schema_version > CURRENT_SCHEMA_VERSION`.
+- **Builder versions are not schema versions.** A bump of `CONVERTER_VERSION` needs no
+  migration: the boot sweep builds the missing keys, and GC expires the old ones.
+- **CI check** (`migration.pg.test.ts`): a template at the previous release's schema with
+  `fixtures/v1` imported → every pending migration → export → diff against the golden →
+  validation clean.
+
+---
+
+## 7. Import, export and parity
+
+### 7.1 The codec (`packages/catalog/src/codec/`, zero deps)
+
+Pure and deterministic. It provides `FILE_MAP`, `explode(files) → Rows` and `render(rows)
+→ files`: JSON renders as `JSON.stringify(value, null, 2) + '\n'`; envelopes splice their
+list member; markdown renders byte for byte; files whose store sorts them render with that
+store's sort.
+
+**Coverage rule:** every file under `data/` and `depictions/` matches exactly one entry of
+§3.2, or the import fails. The gitignored dot-directories and temp files are skipped by
+name, and a test lists them from `.gitignore`, so the two lists cannot drift. A
+`canonical-json.test.ts` guard fails on any non-canonical JSON under `data/`, so the gate
+can demand strict byte identity.
+
+Used by: the importer, the on-demand export, the pg snapshot, import publishes, and the
+in-memory post-commit state for derive.
+
+### 7.2 The importer and the gate
+
+`pnpm --filter studio pg:import --from packages/catalog --org <slug> [--dry-run]`:
+
+1. Read the whole tree. `explode`. Fail on any uncovered file.
+2. Upload record blobs (idempotent). Then, in **one transaction**: every row, `ref_edge` /
+   `ref_dangling`, one `change_set` (`source='import'`), and `catalog_head.version`.
+3. Derived caches are not imported; the worker builds them.
+4. Run the gate (`pnpm --filter studio pg:gate`):
+   - `render(rows)` is byte-identical to the tree;
+   - `validateDb` and every design's `validateDesign` give the same issues over the pg
+     snapshot as over the files;
+   - for each design, the schematic SVG, build sheet, BOM and continuity spec are
+     string-equal;
+   - `contentETag` of every record read through the pg stores equals the file stores';
+   - `/usage` of every definition and `GET /api/models` are deep-equal;
+   - the `derived_doc` bodies equal the files;
+   - after the `model-cache` job finishes, every live key exists.
+
+The same importer is what the clean install uses to load the starter catalog (§9.4).
+
+### 7.3 Git history → `change_set` (optional)
+
+A deployment that ran the file backend with the git export may import its history once:
+each commit becomes a `change_set` with `source='git-history'`, `git_commit` set, and its
+files as `change` rows (paths the codec did not cover at the time as `kind='doc'`).
+
+### 7.4 Shadow mode (optional)
+
+For a deployment migrating a live file catalog: the file backend stays the record; a
+shadow sync replays every committed change into Postgres, and the `parity` job compares
+every GET route × every id between `filesDeps` and `pgDeps` (byte routes by status and
+sha; locks by shape). Module integration routes are excluded from the enumeration. S2 is
+the go criterion.
+
+### 7.5 Import publishes on pg
+
+A module importer that runs as a job (§2) writes its plan into `job_file`; `publish(job)`
+explodes the plan's files into `RecordChange`s (definitions, `doc`, `depiction-*`), each
+carrying `expect` = its ETag in the job's snapshot, and commits them as **one**
+`commitPg`. A stale change → 409 "changed since the run". Derived records are recomputed,
+never taken from a plan.
+
+### 7.6 Cut-over, the on-demand export, and what the git export becomes
+
+- **On-demand export:** `GET /api/export` (owner/editor) and `pnpm --filter studio
+  pg:export --out <dir>` render the current snapshot as `data/` + `depictions/` text.
+  **Blobs are never included.** The export is a valid file catalog: it can be committed to
+  git, opened by the file backend, or loaded into another deployment with `pg:import`.
+- **Cut-over** for an existing file deployment: write freeze (`STUDIO_READ_ONLY=1`); a
+  final shadow sync, parity 0 and `pg:gate`; `STUDIO_BACKEND=pg`; restart; smoke test
+  (open, save and revert a design; release and unlock a version; attach and detach a
+  model; `pg:export` to a temp directory and spot-check it); unfreeze.
+- **Rollback** is a restore of the latest backup (§8.5), not a switch back to files.
+- **The git export of saves goes away on pg**:
+
+| Piece | File backend | On pg |
+| --- | --- | --- |
+| Backup queue (`backup/backup.ts`) | serial queue; commit per save; optional push | not constructed (`deps.backup` undefined) |
+| Write journal (`write-journal.ts`) | the paths a save wrote | unused; `change` rows are the journal |
+| `commit-message.ts` | the git message and author | kept: it writes `change_set.message` and `actor_label` |
+| `GET /api/backup` | the indicator's state | answers `{state: 'database', lastChangeSet: {version, at, by}}`; the indicator reads "Saved" |
+| `POST /api/backup/retry` | retry a blocked push | `404` "not used with the database backend" |
+| `STUDIO_GIT_*` | env | ignored (a warning at boot if set) |
+| `saves.jsonl` | the save log | replaced by `change_set` |
+
+A deployment that still wants its catalog in git schedules `pg:export` and commits the
+result; that is an export, never the record.
+
+---
+
+## 8. Self-hosted deployment
+
+One compose file, one machine, no external services required. Everything optional is off
+until configured.
+
+### 8.1 Compose services
+
+`docker-compose.yml` (the file backend, today) stays the zero-dependency install.
+`docker-compose.pg.yml` (Phase S) is the database-backed one:
+
+| Service | Image | Memory cap | Notes |
+| --- | --- | --- | --- |
+| `postgres` | `postgres:18-bookworm` (pinned minor) | 512 MiB | volume `pg_data`; `docker/postgres/bootstrap.sh` creates the roles and the database on first start |
+| `migrate` | the studio image, `db:migrate` | 256 MiB | one-shot; `studio` and `worker` depend on its successful completion |
+| `studio` | the studio image (`docker/app.Dockerfile`) | 512 MiB | port `${STUDIO_PORT:-5183}`; volume `blobs` at `/data/blobs` when `STUDIO_BLOBS=fs:/data/blobs` |
+| `worker` | the studio image, `server/worker.ts` | 1.5 GiB | shares the `blobs` volume |
+| `minio` (profile `s3`) | `minio/minio` (pinned) | 256 MiB | optional: for people who want S3 semantics locally; any external S3 works instead |
+
+- **Networks:** one internal network for all services; only the studio's port is
+  published. Postgres and the blob store are never published.
+- **Volumes:** `pg_data`, `blobs`, and `backups` (when the backup job is on). Nothing is
+  bind-mounted from the source tree in the pg compose.
+- **TLS:** terminate it in front of the studio with the reverse proxy of the deployer's
+  choice (Caddy, Traefik, nginx); set `BETTER_AUTH_URL` to the public origin. An example
+  Caddy service is in the compose file as a commented profile.
+- **Images:** `docker compose build` builds locally; release images are published to a
+  registry by CI (a follow-up), tagged by version and git sha.
+
+### 8.2 Configuration
+
+All in `.env` (`.env.example` documents every variable):
+
+| Variable | Default | |
+| --- | --- | --- |
+| `STUDIO_ENV` | `prod` in the pg compose | `dev` / `prod`; the environment guard (§8.7) |
+| `STUDIO_BACKEND` | `pg` in the pg compose | `files` / `pg` |
+| `DATABASE_URL` | the compose's postgres, as `studio_app` | the app's connection |
+| `DATABASE_OWNER_URL` | as `studio_owner` | `migrate` only |
+| `POSTGRES_PASSWORD`, `STUDIO_APP_PASSWORD`, `STUDIO_RO_PASSWORD` | generated on first run if empty (§9.1) | written back to `.env` by the setup script |
+| `STUDIO_BLOBS` | `fs:/data/blobs` | or `s3` |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | — | with `STUDIO_BLOBS=s3` |
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` | secret generated on first run; URL `http://localhost:5183` | |
+| `AUTH_LOCAL_ACCOUNTS` | `true` in pg mode | email + password sign-in |
+| `AUTH_OIDC_*`, `AUTH_SMTP_*` | — | optional sign-in methods (`apps/studio/README.md`) |
+| `STUDIO_BACKUP_DIR`, `STUDIO_BACKUP_AT`, `STUDIO_BACKUP_KEEP` | off; `03:00`; `14` | the bundled backup job (§8.4) |
+| `STUDIO_NOTIFY_URL` | — | optional webhook for alerts (§8.6) |
+
+### 8.3 Health checks
+
+- postgres: `pg_isready`.
+- studio `/healthz`: process up. `/healthz?deep=1`: pg `SELECT 1`; a blob-store canary
+  (`HEAD` of a canary object written at boot); the age of the last successful backup when
+  backups are on (≤ 30 h); the pg-boss failed-job count; `STUDIO_ENV` and the image's
+  version.
+- worker: a heartbeat row it updates every 60 s; the studio's deep check fails when it is
+  older than 5 minutes.
+
+### 8.4 Backups
+
+Built in, because a self-hosted tool nobody backs up loses data. With `STUDIO_BACKUP_DIR`
+set (the compose mounts the `backups` volume there), the worker's `backup` job runs daily:
+
+1. `pg_dump -Fc` as `studio_ro` into `<dir>/pg/studio-<date>.dump`, with a per-table row
+   count file beside it;
+2. a mirror of the **record** blobs (not derived ones) into `<dir>/blobs/` as plain files
+   named by sha256, copying only what is new; `blob.backed_up_at` is set for each;
+3. a redacted config export (the compose file, `.env` with secrets blanked, migration
+   `CHECKSUMS`, the image version);
+4. retention: keep the last `STUDIO_BACKUP_KEEP` dumps; blobs are content-addressed and
+   kept while any kept dump references them.
+
+The backup directory is meant to be shipped off the machine by whatever the deployer
+uses — restic, borg, rclone, a NAS snapshot. The docs give a restic example (a sidecar
+container that runs `restic backup /backups` after the job's sentinel file changes), but
+the base depends on no backup service. Point-in-time recovery (WAL archiving with
+pgBackRest or WAL-G) is an optional add-on for larger installs.
+
+### 8.5 Restore and restore checks
+
+- **Restore** (`pnpm --filter studio db:restore --from <dir> [--date <d>]`, also a compose
+  one-shot): into an empty database, `pg_restore` the dump, copy the blobs into the blob
+  store, verify 20 random blobs against their names and the row counts against the count
+  file, then start; the worker's boot sweep rebuilds derived blobs.
+- **Restore check** (weekly, automatic when backups are on): restore the latest dump into a
+  scratch database on the same Postgres (`studio_restore_check`), compare row counts, hash
+  20 random record blobs, drop the scratch database, record the result in `job_run` and
+  alert on failure.
+- A manual full restore on another machine, timed against S7, is recommended before a
+  deployment relies on the studio, and yearly after.
+
+### 8.6 Monitoring
+
+`STUDIO_NOTIFY_URL` (optional) receives a JSON POST per event — compatible with ntfy,
+Gotify, Slack/Matrix webhooks through a small adapter — and every event is also logged:
+
+| Event | Severity |
+| --- | --- |
+| Backup failed / restore check failed | urgent |
+| Unattributed write in `audit_log` | high |
+| Parity diff > 0 (migration only) | high |
+| Model-cache build failures after a sweep | default |
+| Backup stale (> 30 h), GC error | default |
+| Blob-store canary failing | high |
+| API token created (who, name, scopes, expiry; never the token) | default |
+| Repeated refused tokens, or an IP throttled for failed tokens | high |
+
+### 8.7 Environments and the environment guard
+
+A deployer may run a production instance and a development instance (for trying a new
+version or a module on a copy of the data). `STUDIO_ENV` keeps them apart:
+
+- at boot, the studio refuses to start when the environment and its configuration
+  disagree: a `dev` process with a database or bucket name configured as production's
+  (`STUDIO_PROD_MARKERS`, a list of substrings), a `prod` process with `STUDIO_BACKEND=files`
+  unless `STUDIO_ALLOW_FILES_IN_PROD=1`, a token of the other environment (§4.5);
+- a dev instance shows a banner;
+- **refreshing dev from prod** is a restore of prod's latest backup into dev's database
+  (`db:restore`), keeping dev's own `auth` schema, so prod credentials and token hashes
+  never reach dev.
+
+### 8.8 Upgrades
+
+- The studio: pull or build the new image, `docker compose up -d` — `migrate` runs first
+  and the services wait for it. Take a backup first (`pnpm --filter studio db:backup-now`
+  or the admin page's button). Rollback = the previous image plus a restore of that
+  backup when a migration ran.
+- Postgres: a minor bump is an image tag change; a major bump is `pg_dump` / `pg_restore`
+  into a new volume (documented script), tried on a dev instance first.
+
+---
+
+## 9. Clean install
+
+The goal (S8): a person with Docker gets from `git clone` to a signed-in admin with a
+working studio in minutes, without editing a file.
+
+### 9.1 One command
+
+```
+git clone <repo> cable-studio && cd cable-studio
+docker compose -f docker-compose.pg.yml up -d
+# open http://localhost:5183
+```
+
+On first start:
+
+- `docker/postgres/bootstrap.sh` creates the roles (`studio_owner`, `studio_app`,
+  `studio_ro`) and the database. Passwords come from `.env`; when `.env` is absent, the
+  `setup` one-shot service writes one from `.env.example` with random passwords and a
+  random `BETTER_AUTH_SECRET` (printed nowhere, readable only by the owner of the
+  checkout), and every other service waits for it.
+- `migrate` runs every migration; the database has **no org yet**.
+- The studio starts in **setup mode**: every route but `/setup`, `/healthz` and the static
+  bundle answers `503 {state: 'setup'}`, and the SPA shows the setup page.
+
+### 9.2 First-run setup
+
+`/setup` (reachable only while no org exists; it requires the one-time **setup code** the
+studio prints to its log at boot, so a studio exposed by mistake cannot be claimed by a
+stranger):
+
+1. **Organisation**: name and slug (`example-shop`).
+2. **Admin account**: name, email, password (local account). Optionally "I will sign in
+   with OIDC instead", which shows the redirect URI to register and the variables to set.
+3. **Catalog**: **starter catalog** (default — the seven example cables and their parts)
+   or **empty catalog** (the three required files, empty, plus the base vocabulary).
+   Installing catalog packs comes later (`docs/catalog-store.md`).
+4. **Part numbers**: the default prefix scheme, or edit its prefixes and digits (writes
+   `part-numbers.json`); a module scheme, when the build has one, is shown as fixed.
+
+Submitting runs in one transaction: the `org` row, `catalog_head`, the admin's
+`auth."user"` + `auth.account` and `studio.person` (role `owner`), the catalog rows
+through the importer (§7.2) as the first `change_set` (`source='import'`, message
+"Initial catalog: starter" or "… empty"). Then setup mode ends and the admin is signed in.
+
+After setup, **Settings → People** invites others by email with a role (`auth.invitation`;
+the link is emailed when SMTP is configured, else shown to copy).
+
+### 9.3 Sign-in methods
+
+- **Local accounts** (default on in pg mode): email + password, Better Auth's password
+  hashing, password reset by email when SMTP is configured (else by an owner).
+- **Magic link** (optional): SMTP variables.
+- **OIDC** (optional): the `AUTH_OIDC_*` variables configure one provider; a module may
+  contribute further providers (`docs/modules.md`, auth providers). An owner can switch
+  local accounts off once OIDC works.
+- The file-backend studio keeps today's behaviour (login off by default; OIDC / magic link
+  with an allow-list).
+
+### 9.4 The empty and starter catalogs
+
+- **Starter**: `packages/catalog/data` as shipped (§ "The starter catalog" in `SPEC.md`),
+  imported through the codec, so the gate's guarantees apply.
+- **Empty**: `connectors.json`, `wires.json`, `components.json` as `[]`, and the base
+  vocabulary lists (signals, colours, families …) so the editor's pickers work.
+- Either way the result is an ordinary catalog: it can be exported, and packs can be
+  installed into it later.
+
+### 9.5 The file-backend quick start stays
+
+`docker compose up` (the existing compose file) remains the no-database install: the
+catalog is files in the checkout, the login is off unless configured, and the optional
+git export can version saves. It is the right choice for one person evaluating the tool;
+the pg compose is the right choice for a team.
+
+---
+
+## 10. Tests
+
+- **Storage contract suite** (`apps/studio/test/storage-contract/contract.ts`):
+  `describeStorageContract(name, makeBackend)`, run on memory, files and pg; cases for
+  every store, the model-link put / remove / If-Match, a multi-design write (all or
+  nothing), builds → `Db.boardParts` freshness, lock take-over memory.
+- **API clients** (SA1): the contract suite's write cases through the HTTP API with a
+  bearer token on files, memory and pg; token checks (wrong env prefix, expired, revoked, a
+  viewer's token writing, a missing scope, a token on a token route or a take-over → the
+  right 401/403; the change set's `actor_id` is the token's person with `api_token_id` set);
+  `POST /api/batch` all-or-nothing; dry runs write nothing and answer the change list a
+  real run commits; rate limits (injected clock); redaction (no `cst_` string in any log
+  line or error body); a **secret scan** test that fails on any token-shaped string in a
+  tracked file and on a committed `.env`.
+- **Clean install** (S8): a CI job brings up `docker-compose.pg.yml` from nothing, drives
+  `/setup` over HTTP (starter catalog), signs in, saves a design, runs `pg:export` and
+  diffs it against `packages/catalog/data` (+ the one saved change).
+- **Setup safety**: `/setup` refuses without the setup code, refuses after an org exists,
+  and every other route answers 503 in setup mode.
+- **Backup and restore**: the backup job's output restores into an empty database and
+  passes the restore check; GC never deletes a blob newer than the last completed backup.
+- **Environment guard**: every refusal of §8.7, as a table test.
+- **Canonical JSON guard**, **RLS suite** (every table in `studio`, `auth` tokens and
+  module schemas has RLS enabled and forced, with cross-org isolation), **migration
+  test**, **trigger tests** (revision guard, audit, touch, deferred FKs), **gate in CI**
+  (on `fixtures/v1` and the starter catalog).
+- **Postgres in tests:** `docker-compose.test.yml` `pg-test` (tmpfs, `fsync=off`, 256 MiB);
+  a template database; one database per file; a single fork. Blobs use `fsBlobStore`.
+  S3 cases run only with `STUDIO_TEST_S3_URL` (a throwaway MinIO container).
+- **RAM discipline:** only the suites a change touches; the full run one workspace at a
+  time with `--maxWorkers=2`.
+
+---
+
+## 11. Phased task plan
+
+Sizes are in person-days (d) for an agent-plus-review loop, tests included. Total A–D +
+S ≈ 75 d; E optional, 7 d.
+
+### Phase A — schema and read path (≈ 21 d)
+
+| # | Task | Size | Depends on |
+| --- | --- | --- | --- |
+| A0 | `canonical-json.test.ts` guard over `data/` and `depictions/` (the starter catalog already is canonical) | 0.5 d | — |
+| A1 | `apps/studio/server/pg/` scaffold: `pg` + Kysely, pool, `inOrg`, config; `docker-compose.dev-pg.yml` with `postgres` + `bootstrap.sh` | 1.5 d | — |
+| A2 | Migrations `0000`–`0013` from §3, migrator, `CHECKSUMS` test, trigger tests (revision guard, audit, touch, deferred FKs incl. `model_link.entity_id`) | 2.5 d | A1 |
+| A3 | Codec: `FILE_MAP` for all of §3.2, coverage rule + the gitignore-derived skip list; byte-identity tests on `fixtures/v1` and the starter catalog | 3 d | A0 |
+| A4 | Importer (tree → rows, blobs to `fsBlobStore`), vendored `referencesOf` (+ equality test against `definitionUsage`), `ref_edge`/`ref_dangling`, `model_link.entity_id` | 3 d | A2, A3 |
+| A5 | Snapshot: `PgCatalogSource`, cache by `catalog_head.version`, `LISTEN` pre-warm; all `load*` deps | 2 d | A3, A4 |
+| A6 | Read half of every `Pg*Store` (§4.1); `/api/models`, `/usage` over the snapshot | 3.5 d | A5 |
+| A7 | `pg:gate` (§7.2), minus the derived-blob check | 2 d | A6 |
+| A8 | Test infra: `docker-compose.test.yml`, template DB, contract suite (read cases) on memory/files/pg, RLS suite | 2.5 d | A2, A6 |
+| A9 | On-demand export (`GET /api/export`, `pg:export`), text only | 0.5 d | A5 |
+
+**Go/no-go A:** `pg:gate` green on the starter catalog and on a larger synthetic catalog;
+a parity run over every GET route shows 0 diffs; snapshot rebuild within S4; `pg:export`
+round-trips byte-identically.
+
+### Phase B — write path, blobs and API clients (≈ 24 d)
+
+| # | Task | Size | Depends on |
+| --- | --- | --- | --- |
+| B0 | **File backend first:** `model-link` RecordKind; `ModelLinkStore` staged in the UoW (read-your-writes, `expect` = `linkETag`); applied by `commitChangeSet`; `sortLinks` in code-point order | 1 d | — |
+| B1 | `commitPg` (§4.2), head lock, preconditions, `change_set`/`change`, NOTIFY, 409 mapping; `deps.commit` | 3 d | A6 |
+| B2 | Write half of every `Pg*Store` incl. `model-link`; rename coalescing; drafts | 3 d | B1, B0 |
+| B3 | Derived in the transaction (§4.4), `inputs_version` checks, module derived docs | 1.5 d | B1 |
+| B4 | `BlobStore` (fs + S3), upload-before-BEGIN as HEAD → PUT → re-read (§5.2), `GET /api/blobs/:sha`, SVG refusal | 2.5 d | A4 |
+| B6 | `PgLockStore` incl. `edit_lock_displaced`; `GET /api/events` (SSE) | 2.5 d | B1 |
+| B7 | Depictions into the change set (`depiction-meta`/`depiction-asset`), file backend first; `PgDepictionStore` | 2.5 d | B2, B4 |
+| B8 | Better Auth on pg (§3.15), local accounts, invitations | 2 d | A2 |
+| B9 | Contract suite write cases on all three backends | 1.5 d | B2, B7 |
+| B10 | Derived blobs: `derived_blob`, pg `ModelCache`, serving through `/api/assets/:id` incl. the not-built state | 1.5 d | B4 |
+| B12 | Personal API tokens (§3.16, §4.5): table, Account → API tokens page, the bearer path in the auth gate, `change_set.api_token_id`, header redaction, rate limits, token-holder leases | 2.5 d | B8, B6 |
+| B13 | `POST /api/batch` and `?dryRun=1` on every write route and on batches; `PUT /api/docs/*path`; contract cases through the API (SA1) | 2.5 d | B2, B9, B12 |
+
+**Go/no-go B:** the contract suite green on files and pg, also through the API with a
+token (SA1); a staging pg studio used for a day of real edits with save p95 within S5; one
+multi-design batch committed as one change set after a dry run whose diff matched it.
+
+### Phase C — worker and jobs (≈ 8 d)
+
+| # | Task | Size | Depends on |
+| --- | --- | --- | --- |
+| C1 | `worker.ts` + pg-boss, `job_run`, the worker heartbeat, compose `worker` | 2 d | B1 |
+| C2 | The `import` job shape for module importers: plan → `job_file` + blobs; publish → one change set (§7.5) | 2 d | C1, B7 |
+| C4 | `blob-gc` (§5.4) and the `backup` job (§8.4) | 1.5 d | B4, C1 |
+| C5 | `derive` repair job; alert rules (§8.6) | 1 d | C1, B3 |
+| C6 | `model-cache` job (triggers, boot sweep, one conversion at a time, optional window); determinism check; the gate's derived-blob comparison | 1.5 d | C1, B10 |
+
+**Go/no-go C:** an example module importer publishes through the worker with the same
+result as on files; the boot sweep rebuilds every live model key; a backup restores; the
+worker's peak stays under its cap.
+
+### Phase D — migrating an existing file deployment (≈ 6 d, optional per deployment)
+
+| # | Task | Size | Depends on |
+| --- | --- | --- | --- |
+| D1 | Git history → `change_set` (§7.3) | 1.5 d | A4 |
+| D2 | Shadow sync + write-path shadow queue (§7.4) | 2 d | B1, C1, B0 |
+| D3 | Parity job, `parity_run`, `/admin/parity` page, alerts | 1.5 d | D2 |
+| D6 | Retire the git export in pg mode (§7.6): `/api/backup` answer, indicator copy, boot warning | 0.5 d | B1 |
+| D7 | Cut-over runbook (§7.6) and a rehearsal on a copy | 0.5 d | D3 |
+
+### Phase S — self-hosted deployment and clean install (≈ 16 d)
+
+| # | Task | Size | Depends on |
+| --- | --- | --- | --- |
+| S1 | `docker-compose.pg.yml` (§8.1): postgres, migrate, studio, worker, optional minio and Caddy profiles; caps; health checks; volumes | 1.5 d | C1 |
+| S2 | The `setup` one-shot: `.env` from `.env.example` with generated secrets; `bootstrap.sh` roles and database | 1 d | S1 |
+| S3 | Setup mode and `/setup` (§9.1–9.2): setup code, org, admin, starter/empty catalog, PN scheme; one transaction; the SPA page | 3 d | B8, A4 |
+| S4 | Settings → People: invitations, roles, revoking access | 2 d | B8 |
+| S5 | Environment guard and dev banner (§8.7); dev refresh by restore | 1 d | A1 |
+| S6 | Restore command and the weekly restore check (§8.5); backup-now button | 2 d | C4 |
+| S7 | Monitoring webhook (§8.6) | 0.5 d | C5 |
+| S8 | Upgrade path (§8.8): migrate-before-start, backup-before-upgrade, the Postgres major-upgrade script | 1 d | S1 |
+| S9 | The `studio-api` client (§4.5) | 1.5 d | B13, A9 |
+| S10 | The clean-install CI job (§10) | 1.5 d | S3 |
+| S11 | Docs: install guide, configuration reference, backup/restore guide, reverse-proxy examples | 1 d | S1–S8 |
+
+**Go/no-go S:** S8 met on a clean VM; the clean-install CI job green; a restore drill on
+another machine within S7; the install guide followed by someone who did not write it.
+
+### Phase E — build/QA records (optional, v1.1, ≈ 7 d)
+
+E1 the migration (§3.14) 1 d; E2 API + UI 5 d; E3 export option 1 d.
+
+**Order (recommended):** A → B → C → S, with D only for deployments that already hold a
+file catalog worth migrating. B0 and B7 (file-backend changes) can land early.
+
+---
+
+## 12. Risks and open questions
+
+| # | Risk / question | Mitigation / recommendation |
+| --- | --- | --- |
+| R1 | Key order in `jsonb` would change ETags and exported bytes | documents are `body json` (exact text) with a generated `jsonb`; the gate checks ETags byte for byte |
+| R2 | The snapshot reload cost grows with the catalog | per-org cache keyed by version; reload in one read-only transaction; S4 measured on a synthetic catalog 10× the starter; if it fails, incremental reload by `change` rows |
+| R3 | A blob uploaded but never committed | content-addressed keys, GC of row-less objects after 24 h |
+| R4 | GC deleting a blob a backup has not captured | orphan deletion only after a later completed backup (§5.4) |
+| R5 | The STEP conversion's memory peak on a small VM | memory-capped child, one at a time, optional night window, `STUDIO_CONVERT=off` to disable conversion entirely |
+| R6 | Non-deterministic model builds weaken the gate | compare key sets and triangle counts when shas differ |
+| R7 | Module migrations interfering with the base schema | separate schema per module, references only from module to base, RLS suite covers them (§3.13) |
+| R8 | A self-hosted studio exposed before setup | setup code printed to the log; setup mode answers 503 everywhere else |
+| R9 | People never configure backups | the backup job is on by default in the pg compose (to the `backups` volume) and the deep health check reports its age; the docs say plainly that the volume must leave the machine |
+| R10 | S3-compatible services differ | rely only on the common subset (§5.1); the S3 test runs against MinIO; re-read verification by default |
+| Q1 | Should local accounts stay on once OIDC is configured? | recommendation: on until an owner switches them off, so nobody is locked out by a misconfigured provider |
+| Q2 | One org per deployment forever? | recommendation: yes for v1; the schema and RLS keep multi-org possible without promising it |
+| Q3 | Default blob store in the pg compose: filesystem or bundled MinIO? | recommendation: filesystem (one volume fewer, no extra service); MinIO as a profile |
