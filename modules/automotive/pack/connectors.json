@@ -1,0 +1,12 @@
+[
+  {
+    "id": "obd2-male",
+    "label": "OBD-II plug, J1962 pinout",
+    "family": "obd2",
+    "gender": "male",
+    "construction": "crimp",
+    "body": "obd2-16-male",
+    "interface": "obd2-j1962",
+    "src": "SAE J1962 pin assignment on a generic 16-pin diagnostic plug"
+  }
+]

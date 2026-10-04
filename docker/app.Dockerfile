@@ -26,7 +26,8 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app
 USER node
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=5183 WIREHUB_VERSION=${WIREHUB_VERSION}
+# a fresh hub opens on first-run setup (/setup) until domain modules are chosen
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=5183 WIREHUB_VERSION=${WIREHUB_VERSION} WIREHUB_SETUP_PROMPT=1
 WORKDIR /app/apps/studio
 EXPOSE 5183
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD node -e "fetch('http://127.0.0.1:5183/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"

@@ -1,0 +1,83 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "src": "automotive pack: vehicle diagnostic and bus signals, standards cited per entry",
+  "entries": [
+    {
+      "id": "can-h",
+      "label": "CAN high",
+      "short": "CAN-H",
+      "kind": "data",
+      "aliases": [
+        "CANH",
+        "CAN_H",
+        "CAN High"
+      ],
+      "src": "ISO 11898-2"
+    },
+    {
+      "id": "can-l",
+      "label": "CAN low",
+      "short": "CAN-L",
+      "kind": "data",
+      "aliases": [
+        "CANL",
+        "CAN_L",
+        "CAN Low"
+      ],
+      "src": "ISO 11898-2"
+    },
+    {
+      "id": "kline",
+      "label": "K-line",
+      "kind": "data",
+      "aliases": [
+        "K line",
+        "ISO 9141 K"
+      ],
+      "src": "ISO 9141-2 / ISO 14230 (KWP2000)"
+    },
+    {
+      "id": "lline",
+      "label": "L-line",
+      "kind": "data",
+      "aliases": [
+        "L line",
+        "ISO 9141 L"
+      ],
+      "src": "ISO 9141-2"
+    },
+    {
+      "id": "j1850-bus-p",
+      "label": "J1850 bus +",
+      "kind": "data",
+      "aliases": [
+        "J1850+",
+        "J1850 Bus+"
+      ],
+      "src": "SAE J1850"
+    },
+    {
+      "id": "j1850-bus-n",
+      "label": "J1850 bus −",
+      "kind": "data",
+      "aliases": [
+        "J1850-",
+        "J1850 Bus-"
+      ],
+      "src": "SAE J1850"
+    },
+    {
+      "id": "pwr-battery",
+      "label": "Battery positive",
+      "short": "B+",
+      "kind": "power",
+      "aliases": [
+        "Battery +",
+        "Battery power",
+        "Ubat"
+      ],
+      "src": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number)"
+    }
+  ]
+}

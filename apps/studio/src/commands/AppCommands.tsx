@@ -44,6 +44,12 @@ export function AppCommands(): null {
         run: () => void navigate({ to: '/library' }),
       },
       {
+        id: 'nav.setup',
+        title: 'Set up domain modules',
+        keywords: ['setup', 'modules', 'domains', 'packs', 'video', 'automotive'],
+        run: () => void navigate({ to: '/setup' }),
+      },
+      {
         id: 'view.theme.toggle',
         title: studio.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
         keywords: ['theme', 'dark', 'light', 'appearance'],

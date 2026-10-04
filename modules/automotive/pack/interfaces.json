@@ -1,0 +1,77 @@
+[
+  {
+    "id": "obd2-j1962",
+    "label": "OBD-II diagnostic connector (SAE J1962), mandated pins",
+    "short": "OBD-II",
+    "bodies": [
+      "obd2-16-male"
+    ],
+    "pins": {
+      "1": {
+        "signal": "reserved",
+        "label": "Manufacturer discretionary (1)"
+      },
+      "2": {
+        "signal": "j1850-bus-p",
+        "label": "J1850 bus +"
+      },
+      "3": {
+        "signal": "reserved",
+        "label": "Manufacturer discretionary (3)"
+      },
+      "4": {
+        "signal": "gnd-chassis",
+        "label": "Chassis ground"
+      },
+      "5": {
+        "signal": "gnd-signal",
+        "label": "Signal ground"
+      },
+      "6": {
+        "signal": "can-h",
+        "label": "CAN high (ISO 15765-4)"
+      },
+      "7": {
+        "signal": "kline",
+        "label": "K-line (ISO 9141-2 / 14230)"
+      },
+      "8": {
+        "signal": "reserved",
+        "label": "Manufacturer discretionary (8)"
+      },
+      "9": {
+        "signal": "reserved",
+        "label": "Manufacturer discretionary (9)"
+      },
+      "10": {
+        "signal": "j1850-bus-n",
+        "label": "J1850 bus −"
+      },
+      "11": {
+        "signal": "reserved",
+        "label": "Manufacturer discretionary (11)"
+      },
+      "12": {
+        "signal": "reserved",
+        "label": "Manufacturer discretionary (12)"
+      },
+      "13": {
+        "signal": "reserved",
+        "label": "Manufacturer discretionary (13)"
+      },
+      "14": {
+        "signal": "can-l",
+        "label": "CAN low (ISO 15765-4)"
+      },
+      "15": {
+        "signal": "lline",
+        "label": "L-line (ISO 9141-2 / 14230)"
+      },
+      "16": {
+        "signal": "pwr-battery",
+        "label": "Battery positive"
+      }
+    },
+    "src": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number); discretionary pins are the vehicle manufacturer's and are not standard"
+  }
+]

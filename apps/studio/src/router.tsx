@@ -28,6 +28,8 @@ import { Shell } from './shell/Shell.tsx';
 import { NotFoundView } from './shell/NotFoundView.tsx';
 import { CablesRoute } from './routes/CablesRoute.tsx';
 import { CableRoute } from './routes/CableRoute.tsx';
+import { SetupRoute } from './routes/SetupRoute.tsx';
+import { setupNeeded } from './setup.browser.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
 
@@ -89,9 +91,17 @@ export const rootRoute = createRootRoute({
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: () => {
+  // a fresh hub (the server asks for it: WIREHUB_SETUP_PROMPT) opens on first-run setup
+  beforeLoad: async () => {
+    if (await setupNeeded()) throw redirect({ to: '/setup' });
     throw redirect({ to: '/cables' });
   },
+});
+
+export const setupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/setup',
+  component: SetupRoute,
 });
 
 export const cablesRoute = createRoute({
@@ -148,6 +158,7 @@ export const libraryItemRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  setupRoute,
   cablesRoute,
   cableRoute,
   libraryIndexRoute,

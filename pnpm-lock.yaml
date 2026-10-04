@@ -49,6 +49,12 @@ importers:
       '@wirehub/model':
         specifier: workspace:*
         version: link:../../packages/model
+      '@wirehub/module-automotive':
+        specifier: workspace:*
+        version: link:../../modules/automotive
+      '@wirehub/module-av-video':
+        specifier: workspace:*
+        version: link:../../modules/av-video
       '@wirehub/modules':
         specifier: workspace:*
         version: link:../../packages/modules
@@ -122,6 +128,30 @@ importers:
       vite:
         specifier: 8.2.0
         version: 8.2.0(@types/node@26.1.2)(jiti@2.7.0)
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@26.1.2)(jsdom@30.0.1(@noble/hashes@2.4.0))(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0))
+
+  modules/automotive:
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.2
+        version: 26.1.2
+      '@wirehub/catalog':
+        specifier: workspace:*
+        version: link:../../packages/catalog
+      '@wirehub/editor-react':
+        specifier: workspace:*
+        version: link:../../packages/editor-react
+      '@wirehub/model':
+        specifier: workspace:*
+        version: link:../../packages/model
+      '@wirehub/modules':
+        specifier: workspace:*
+        version: link:../../packages/modules
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@26.1.2)(jsdom@30.0.1(@noble/hashes@2.4.0))(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0))

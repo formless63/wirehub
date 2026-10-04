@@ -50,6 +50,7 @@ import type { DerivedStore } from './derived.ts';
 import { StaleRecordError, type Awaitable } from './storage/change-set.ts';
 import { UnitOfWork } from './storage/unit-of-work.ts';
 import { withWriteLock } from './storage/write-lock.ts';
+import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
 import { isWriteMethod } from './request-guard.ts';
 
 /* ------------------------------------------------------------------ *
@@ -191,6 +192,11 @@ export interface WorkbenchDeps {
    * under `/api/modules/<id>/…`. Absent → none.
    */
   modules?: ModuleRegistry;
+  /**
+   * First-run setup (`setup.ts`): where domain modules' packs are installed
+   * and the selection is kept. Absent → `/api/setup` answers 501.
+   */
+  setup?: SetupDeps;
 }
 
 /** `GET /api/part-numbers`' file half; `designs` and `drawings` come from the stores. */
@@ -766,6 +772,8 @@ const ROUTES = [
   'GET    /api/backup',
   'POST   /api/backup/retry',
   'ANY    /api/modules/:module/…',
+  'GET    /api/setup',
+  'POST   /api/setup',
   ...VERSION_ROUTES,
   ...LOCK_ROUTES,
 ] as const;
@@ -839,6 +847,12 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   // module integrations answer for themselves; a route that writes takes the lock
   const moduleRoute = findModuleRoute(request, deps.modules);
   if (moduleRoute !== undefined) return moduleRoute.writes === true ? withWriteLock(moduleRoute.run) : moduleRoute.run();
+  // first-run setup installs packs straight into the catalog (journaled by
+  // the installer), outside the unit of work, under the write lock
+  if (isSetupPath(request.path)) {
+    const run = (): Promise<ApiResponse> => handleSetupRequest(request, deps.setup, deps.modules);
+    return isWriteMethod(request.method) ? withWriteLock(run) : run();
+  }
   if (isModelPath(request.path)) {
     const ifMatch = request.headers?.['if-match'];
     return handleModelRequest(

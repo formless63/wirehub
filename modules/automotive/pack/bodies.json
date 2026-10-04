@@ -1,0 +1,60 @@
+[
+  {
+    "id": "obd2-16-male",
+    "label": "OBD-II 16-pin male (J1962 type A plug)",
+    "family": "obd2",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "5"
+      },
+      {
+        "id": "6"
+      },
+      {
+        "id": "7"
+      },
+      {
+        "id": "8"
+      },
+      {
+        "id": "9"
+      },
+      {
+        "id": "10"
+      },
+      {
+        "id": "11"
+      },
+      {
+        "id": "12"
+      },
+      {
+        "id": "13"
+      },
+      {
+        "id": "14"
+      },
+      {
+        "id": "15"
+      },
+      {
+        "id": "16"
+      }
+    ],
+    "construction": "crimp",
+    "src": "SAE J1962 / ISO 15031-3: 16 contacts in two rows of eight; generic cable plug"
+  }
+]

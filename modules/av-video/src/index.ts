@@ -16,7 +16,9 @@
 import { defineModule } from '@wirehub/modules';
 
 /** The pack directory, as a `file:` URL (resolved on the server; the browser never reads it). */
-export const AV_VIDEO_PACK = new URL('../pack/', import.meta.url).href;
+/** relative to this file; a variable, so bundlers leave it alone instead of copying the directory as an asset */
+const PACK_DIR = '../pack/';
+export const AV_VIDEO_PACK = new URL(PACK_DIR, import.meta.url).href;
 
 export const avVideo = defineModule({
   id: 'av-video',

@@ -1,0 +1,17 @@
+{
+  "id": "families",
+  "label": "Connector families",
+  "src": "automotive pack",
+  "entries": [
+    {
+      "id": "obd2",
+      "label": "OBD-II (SAE J1962)",
+      "aliases": [
+        "OBD2",
+        "J1962",
+        "DLC"
+      ],
+      "src": "SAE J1962 / ISO 15031-3"
+    }
+  ]
+}

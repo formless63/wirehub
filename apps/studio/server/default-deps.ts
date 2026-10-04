@@ -71,5 +71,12 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     locks: memoryLockStore(),
     // the deployment's modules (modules.config.ts)
     modules: registry,
+    // first-run setup: domain modules' packs go into the live catalog; the
+    // container image sets WIREHUB_SETUP_PROMPT=1 so a fresh hub opens on /setup
+    setup: {
+      dataDir: dataPath(''),
+      prompt: process.env.WIREHUB_SETUP_PROMPT === '1',
+      now: () => new Date().toISOString(),
+    },
   };
 }
