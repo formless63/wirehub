@@ -28,3 +28,6 @@ packages/catalog/data/.model-cache/
 # KiCad's standard 3D library, only the files a link needs, fetched at a pinned
 # tag; data/models.json records each file's URL and sha256
 packages/catalog/data/.kicad-3d-cache/
+
+# brand previews (apps/studio/scripts/brand-icons.mjs --preview)
+brand/.preview-*.png

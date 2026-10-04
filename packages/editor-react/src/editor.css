@@ -53,6 +53,10 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-copper: var(--brand-copper);
+  --color-brand-wordmark: var(--brand-wordmark);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-err: var(--err);

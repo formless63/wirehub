@@ -1,12 +1,12 @@
 {
-  "name": "Cable Studio",
-  "short_name": "Cable Studio",
+  "name": "WireHub",
+  "short_name": "WireHub",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ],
-  "background_color": "#0b0d13",
-  "theme_color": "#0b0d13",
+  "background_color": "#1d3a5f",
+  "theme_color": "#1d3a5f",
   "display": "standalone",
   "start_url": "/"
 }

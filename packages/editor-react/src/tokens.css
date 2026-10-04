@@ -31,9 +31,14 @@
   --faint: #6f6d67;
   --canvas: #0f1012;
   --dot: #232428;
-  --accent: #e28a50;
+  --accent: #e39256;
   --accent-ink: #1c1008;
-  --accent-soft: rgba(226, 138, 80, 0.14);
+  --accent-soft: rgba(227, 146, 86, 0.14);
+  /* brand (the WireHub logo): deep blue badge, warm copper node */
+  --brand: #2e5e99;
+  --brand-ink: #ffffff;
+  --brand-copper: #e39256;
+  --brand-wordmark: #e8edf3;
   --ok: #5fbf8a;
   --warn: #d9a441;
   --err: #ef6461;
@@ -74,9 +79,13 @@
   --faint: #98948b;
   --canvas: #f2f1ed;
   --dot: #d7d4cc;
-  --accent: #c2602a;
+  --accent: #b9622a;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(194, 96, 42, 0.1);
+  --accent-soft: rgba(185, 98, 42, 0.1);
+  --brand: #1d3a5f;
+  --brand-ink: #ffffff;
+  --brand-copper: #c06a2b;
+  --brand-wordmark: #1d3a5f;
   --ok: #2f8f5b;
   --warn: #a8740f;
   --err: #c9403c;
@@ -112,9 +121,13 @@
     --faint: #98948b;
     --canvas: #f2f1ed;
     --dot: #d7d4cc;
-    --accent: #c2602a;
+    --accent: #b9622a;
     --accent-ink: #ffffff;
-    --accent-soft: rgba(194, 96, 42, 0.1);
+    --accent-soft: rgba(185, 98, 42, 0.1);
+    --brand: #1d3a5f;
+    --brand-ink: #ffffff;
+    --brand-copper: #c06a2b;
+    --brand-wordmark: #1d3a5f;
     --ok: #2f8f5b;
     --warn: #a8740f;
     --err: #c9403c;

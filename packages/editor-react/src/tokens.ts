@@ -1,11 +1,10 @@
 /**
  * Semantic design tokens — the single source of truth for both this package
- * and `apps/studio`. The app depends on `@cable-studio/editor-react`, not the
+ * and `apps/studio`. The app depends on `@wirehub/editor-react`, not the
  * other way around, so the editor is the natural owner: import from here
  * rather than redefining a palette.
  *
- * Values are copied by hand from the `THEMES` / `COND` constants near the top
- * of `specs/mockups/ui-redesign/mockup-gen.mjs` (owner-approved 2026-09-23).
+ * The brand tokens match the logo (`brand/wirehub-logo.svg`, `brand/README.md`).
  * There is no code-generation step — `tokens.css` mirrors this file as CSS
  * custom properties; keep the two in sync when either changes.
  *
@@ -38,6 +37,11 @@ export interface SemanticTokens {
   accent: string;
   accentInk: string;
   accentSoft: string;
+  /** the WireHub logo: badge fill, its lettering, the copper node, the "Wire" strokes */
+  brand: string;
+  brandInk: string;
+  brandCopper: string;
+  brandWordmark: string;
   ok: string;
   warn: string;
   err: string;
@@ -68,9 +72,13 @@ export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
     faint: '#6f6d67',
     canvas: '#0f1012',
     dot: '#232428',
-    accent: '#e28a50',
+    accent: '#e39256',
     accentInk: '#1c1008',
-    accentSoft: 'rgba(226,138,80,0.14)',
+    accentSoft: 'rgba(227,146,86,0.14)',
+    brand: '#2e5e99',
+    brandInk: '#ffffff',
+    brandCopper: '#e39256',
+    brandWordmark: '#e8edf3',
     ok: '#5fbf8a',
     warn: '#d9a441',
     err: '#ef6461',
@@ -99,9 +107,13 @@ export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
     faint: '#98948b',
     canvas: '#f2f1ed',
     dot: '#d7d4cc',
-    accent: '#c2602a',
+    accent: '#b9622a',
     accentInk: '#ffffff',
-    accentSoft: 'rgba(194,96,42,0.10)',
+    accentSoft: 'rgba(185,98,42,0.10)',
+    brand: '#1d3a5f',
+    brandInk: '#ffffff',
+    brandCopper: '#c06a2b',
+    brandWordmark: '#1d3a5f',
     ok: '#2f8f5b',
     warn: '#a8740f',
     err: '#c9403c',

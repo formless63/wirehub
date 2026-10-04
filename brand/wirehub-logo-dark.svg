@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 322 100" width="322" height="100" role="img" aria-labelledby="t">
+  <title id="t">WireHub</title>
+  <g fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke="#e8edf3" d="M0 14 L10 70 L21 30 L32 70 L42 14 M55 36 V70 M70 36 V70 M70 50 C70 40 77 34 88 35 M98 52 H134 C134 41 126 34 116 34 C105 34 98 42 98 52 C98 63 105 70 116 70 C124 70 130 66 133 61"/>
+    <rect fill="#2e5e99" x="146" y="-2" width="160" height="88" rx="20"/>
+    <path stroke="#ffffff" d="M164 14 V70 M196 14 V70 M164 42 H196 M213 36 V55 C213 64 219 70 227 70 C236 70 242 64 242 55 M242 36 V70 M258 14 V70 M258 52 C258 41 266 34 276 34 C286 34 293 42 293 52 C293 62 286 70 276 70 C266 70 258 63 258 52"/>
+  </g>
+  <circle fill="#e39256" cx="55" cy="18" r="6"/>
+</svg>
