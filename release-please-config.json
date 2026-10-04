@@ -9,9 +9,16 @@
       "bump-patch-for-minor-pre-major": false,
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
-        { "type": "generic", "path": "compose.yaml" },
-        { "type": "generic", "path": ".env.example" }
-      ]
+        {
+          "type": "generic",
+          "path": "compose.yaml"
+        },
+        {
+          "type": "generic",
+          "path": ".env.example"
+        }
+      ],
+      "release-as": "0.1.0"
     }
   }
 }
