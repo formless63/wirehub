@@ -24,6 +24,7 @@ import { inOrg, openPg, resolveOrgId, type Db, type PgHandle } from './db.ts';
 import { migrationFiles, MIGRATION_SCHEMA } from './migrate.ts';
 import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
+import { pgModelCache } from './model-cache.ts';
 import { blobObjectKey } from './keys.ts';
 import { SnapshotCache, type Snapshot } from './snapshot.ts';
 import {
@@ -69,7 +70,8 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     drawings: pgDrawingStore(context, assets),
     assets,
     modelLinks: pgModelLinkStore(context),
-    modelCache: fileModelCache(),
+    // converted models: derived blobs in the database when it has one (B10), else the gitignored file cache
+    modelCache: options.db !== undefined ? pgModelCache(options.db, cache.orgId, options.blobs) : fileModelCache(),
     vocab: pgVocabStore(context),
     tags: pgTagStore(context),
     wireLibrary: pgWireLibraryStore(context),
