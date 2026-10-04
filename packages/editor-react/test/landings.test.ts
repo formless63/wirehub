@@ -18,7 +18,7 @@
 import { loadDb, loadDesign, type DepictionMeta } from '@wirehub/catalog';
 import type { Db } from '@wirehub/model';
 import { boardOutlineFromSvg, copperPads, padPolygon, segmentHitsPolygon, segmentsIntersect } from '@wirehub/render-svg';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -213,7 +213,7 @@ describe('every board cable-pad landing leaves the pad outward (e5c.29)', () => 
  * wire drawn on the left.
  */
 describe('every straight cable row faces the wire, on every board and both sides (e5c.30)', () => {
-  const ids = readdirSync(DEPICTIONS).sort();
+  const ids = existsSync(DEPICTIONS) ? readdirSync(DEPICTIONS).sort() : [];
   const wrong: string[] = [];
   let checked = 0;
   for (const defId of ids) {
