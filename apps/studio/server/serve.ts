@@ -32,7 +32,8 @@ import { studioAuthFromEnv, type StudioAuth } from './auth/studio-auth.ts';
 import { studioBackupFromEnv } from './backup/backup.ts';
 import { createStandaloneApp } from './standalone-app.ts';
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
-import { defaultWorkbenchDeps } from './default-deps.ts';
+import { workbenchDepsFromEnv } from './default-deps.ts';
+import { backendFromEnv } from './pg/config.ts';
 import { envVar, legacyEnvWarning } from './env.ts';
 import { registry } from './modules.ts';
 import { generateSetupCode, parseSuggestedModules, setupBanner, setupNeeded } from './setup.ts';
@@ -70,7 +71,16 @@ try {
 // every save a git commit, pushed to the remote (WIREHUB_GIT_AUTOCOMMIT=true;
 // "Backup" in the README). The repo is the checkout this file is in.
 const repoDir = envVar('GIT_DIR') ?? fileURLToPath(new URL('../../..', import.meta.url));
-const backup = studioBackupFromEnv(process.env, repoDir);
+// the database backend is its own history: no git export there (specs/postgres-backend.md §7.6)
+let usesDatabase = false;
+try {
+  usesDatabase = backendFromEnv(process.env) === 'pg';
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+if (usesDatabase && envVar('GIT_AUTOCOMMIT') !== undefined) console.warn('[backup] WIREHUB_GIT_* is ignored with WIREHUB_BACKEND=pg: the database is the history.');
+const backup = usesDatabase ? undefined : studioBackupFromEnv(process.env, repoDir);
 if (backup !== undefined) {
   // pull --rebase before serving, so the first save lands on the remote's latest
   await backup.start();
@@ -108,12 +118,21 @@ if (blobs !== undefined && 'ensureBucket' in blobs && typeof blobs.ensureBucket 
 // (WIREHUB_SETUP_CODE / _FILE), else one made up now; printed below
 const configuredCode = process.env.WIREHUB_SETUP_CODE?.trim();
 const setupCode = configuredCode !== undefined && configuredCode !== '' ? configuredCode : process.env.WIREHUB_SETUP_PROMPT === '1' ? generateSetupCode() : undefined;
-const deps = defaultWorkbenchDeps({ ...(blobs === undefined ? {} : { blobs }), ...(setupCode === undefined ? {} : { setupCode }) });
 const suggested = parseSuggestedModules(process.env.WIREHUB_SUGGESTED_MODULES) ?? [];
 const unknownSuggested = suggested.filter((id) => !registry.domains().some((m) => m.id === id));
 if (unknownSuggested.length > 0) {
   console.warn(`[setup] WIREHUB_SUGGESTED_MODULES names no domain module of this build: ${unknownSuggested.join(', ')} (offered: ${registry.domains().map((m) => m.id).join(', ')}).`);
 }
+
+// the stores: files (default) or Postgres (WIREHUB_BACKEND=pg; specs/postgres-backend.md)
+let workbench: Awaited<ReturnType<typeof workbenchDepsFromEnv>>;
+try {
+  workbench = await workbenchDepsFromEnv(process.env, { ...(blobs === undefined ? {} : { blobs }), ...(setupCode === undefined ? {} : { setupCode }) });
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+const deps = workbench.deps;
 
 const app = createStandaloneApp({ distDir, deps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 
@@ -121,6 +140,7 @@ serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`WireHub serving ${distDir}`);
   console.log(`  http://${info.address === '0.0.0.0' || info.address === '::' ? 'localhost' : info.address}:${info.port}`);
   console.log(`  (bound to ${host}:${info.port} — reachable on the LAN unless HOST was narrowed)`);
+  console.log(`  catalog: ${workbench.describe}`);
   console.log(`  blobs: ${blobs === undefined ? 'beside the catalog (WIREHUB_BLOBS unset)' : blobs.describe}`);
   if (auth !== undefined) {
     const methods = [auth.config.oidc === undefined ? '' : auth.config.oidc.name, auth.config.smtp === undefined ? '' : 'magic link']

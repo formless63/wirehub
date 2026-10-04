@@ -98,5 +98,16 @@ export class StaleRecordError extends Error {
   }
 }
 
+/**
+ * A backend that cannot write (the Postgres backend before its write path,
+ * plan Phase B) refused a change. Nothing was written; the request answers 503.
+ */
+export class ReadOnlyBackendError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReadOnlyBackendError';
+  }
+}
+
 /** A value, or a promise of one — what every store method returns (a file store answers at once, a database later). */
 export type Awaitable<T> = T | Promise<T>;

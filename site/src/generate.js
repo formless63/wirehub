@@ -151,8 +151,8 @@ export function generateEnv(templates, options, secrets = {}) {
     ['WIREHUB_SUGGESTED_MODULES', modules.filter((m) => o.modules.includes(m.id)).map((m) => m.id).join(',')],
   ]);
   if (o.postgres.mode === 'external') {
-    if (trim(o.postgres.url) === '') notes.push({ level: 'error', text: 'Your own Postgres: give its connection URL (postgres://user:password@host:5432/db).' });
-    group('your own PostgreSQL', [['DATABASE_URL', trim(o.postgres.url)]]);
+    if (trim(o.postgres.url) === '') notes.push({ level: 'error', text: 'Your own Postgres: give an admin connection URL (postgres://user:password@host:5432/db) — a role that may create roles and the database.' });
+    group('your own PostgreSQL (WireHub creates its roles through this connection)', [['DATABASE_ADMIN_URL', trim(o.postgres.url)]]);
   }
   if (o.s3.mode === 'external') {
     if (trim(o.s3.endpoint) === '' || trim(o.s3.accessKeyId) === '' || trim(o.s3.secretAccessKey) === '') {

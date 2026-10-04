@@ -43,14 +43,15 @@ describe('the default output', () => {
 });
 
 describe('choices', () => {
-  it('your own Postgres drops the bundled one and sets DATABASE_URL', () => {
+  it('your own Postgres drops the bundled one and sets DATABASE_ADMIN_URL', () => {
     const options = { postgres: { mode: 'external', url: 'postgres://me:pw@db.example.com:5432/hub' } };
     const { compose, env } = generate(templates, options);
     expect(services(compose)).not.toContain('postgres');
     expect(compose).not.toContain('pg_data');
     expect(compose).not.toContain('bundled-postgres');
     expect(services(compose)).toEqual(expect.arrayContaining(['bootstrap', 'wirehub', 'garage', 'garage-init', 'backup-dump']));
-    expect(env).toContain('DATABASE_URL=postgres://me:pw@db.example.com:5432/hub');
+    expect(env).toContain('DATABASE_ADMIN_URL=postgres://me:pw@db.example.com:5432/hub');
+    expect(services(compose)).toContain('migrate');
   });
 
   it('your own S3 drops Garage and sets the S3 variables', () => {

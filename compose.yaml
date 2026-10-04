@@ -13,8 +13,9 @@
 #   bootstrap    one-shot: secrets, the setup code and Garage's config
 #   wirehub      the app (UI + API), the only published port
 #   postgres     PostgreSQL 18 (the first release runs on it; until the
-#                database backend lands the app keeps its catalog in the
-#                `catalog` volume)
+#                database backend's write path lands the app keeps its
+#                catalog in the `catalog` volume)
+#   migrate      one-shot: the database roles and every pending migration
 #   garage       S3-compatible store for uploaded files (photos, datasheets,
 #                3D models) — Garage, single node
 #   garage-init  one-shot: Garage's layout, its access keys and the bucket
@@ -23,8 +24,8 @@
 #   backup       restic backups through Backrest (web UI on port 9898):
 #                backup-init, backup-dump, backup-mirror, backrest
 #
-# Using your own Postgres or S3: delete the block between ">>> bundled-…" and
-# "<<< bundled-…" and set DATABASE_URL or the S3_* variables (the config
+# Using your own Postgres or S3: delete the blocks between ">>> bundled-…" and
+# "<<< bundled-…" and set DATABASE_ADMIN_URL or the S3_* variables (the config
 # generator does both for you).
 #
 # Nothing is published beyond the app's port (and Backrest's, with the backup
@@ -42,7 +43,14 @@ services:
     environment:
       # explicit values win over generated ones (unset = generate)
       POSTGRES_PASSWORD:
+      WIREHUB_OWNER_PASSWORD:
+      WIREHUB_APP_PASSWORD:
+      WIREHUB_RO_PASSWORD:
+      # your own Postgres: an admin connection; the role URLs are derived from it
+      DATABASE_ADMIN_URL:
+      DATABASE_OWNER_URL:
       DATABASE_URL:
+      DATABASE_RO_URL:
       BETTER_AUTH_SECRET:
       GARAGE_RPC_SECRET:
       GARAGE_ADMIN_TOKEN:
@@ -59,6 +67,7 @@ services:
     environment:
       BETTER_AUTH_URL: ${WIREHUB_PUBLIC_URL:-http://localhost:${WIREHUB_PORT:-5183}}
       WIREHUB_BACKEND: ${WIREHUB_BACKEND:-files}
+      WIREHUB_ORG:
       WIREHUB_SUGGESTED_MODULES:
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       AUTH_DATA_DIR: /data/auth
@@ -108,10 +117,8 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
-      # >>> bundled-postgres
-      postgres:
-        condition: service_healthy
-      # <<< bundled-postgres
+      migrate:
+        condition: service_completed_successfully
       # >>> bundled-s3
       garage-init:
         condition: service_completed_successfully
@@ -120,7 +127,36 @@ services:
     restart: unless-stopped
     networks: [internal, public]
 
-  # >>> bundled-postgres: the bundled PostgreSQL 18. Using your own? Delete down to "<<< bundled-postgres" and set DATABASE_URL.
+  migrate:
+    image: *wirehub-image
+    # *_FILE variables resolved first (server/boot-env.ts), then the roles and the migrations
+    command:
+      - sh
+      - -c
+      - >-
+        node --experimental-strip-types --no-warnings --import ./server/boot-env.ts server/pg/cli.ts bootstrap &&
+        node --experimental-strip-types --no-warnings --import ./server/boot-env.ts server/pg/cli.ts migrate
+    environment:
+      DATABASE_ADMIN_URL_FILE: /run/wirehub/database_admin_url
+      DATABASE_OWNER_URL_FILE: /run/wirehub/database_owner_url
+      DATABASE_URL_FILE: /run/wirehub/database_url
+      WIREHUB_OWNER_PASSWORD_FILE: /run/wirehub/wirehub_owner_password
+      WIREHUB_APP_PASSWORD_FILE: /run/wirehub/wirehub_app_password
+      WIREHUB_RO_PASSWORD_FILE: /run/wirehub/wirehub_ro_password
+    volumes:
+      - secrets:/run/wirehub:ro
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      # >>> bundled-postgres
+      postgres:
+        condition: service_healthy
+      # <<< bundled-postgres
+    mem_limit: 256m
+    restart: "no"
+    networks: [internal, public]
+
+  # >>> bundled-postgres: the bundled PostgreSQL 18. Using your own? Delete down to "<<< bundled-postgres" and set DATABASE_ADMIN_URL.
   postgres:
     image: postgres:18.6-bookworm
     environment:
@@ -214,8 +250,8 @@ services:
     image: postgres:18.6-bookworm
     entrypoint: ["bash", "/run/wirehub/backup/pg-dump.sh"]
     environment:
-      DATABASE_URL:
-      DATABASE_URL_FILE: /run/wirehub/database_url
+      # the admin connection: every schema, whoever owns it
+      DATABASE_URL_FILE: /run/wirehub/database_admin_url
       BACKUP_DUMP_AT: ${BACKUP_DUMP_AT:-02:30}
       BACKUP_KEEP_DUMPS: ${BACKUP_KEEP_DUMPS:-7}
       TZ: ${TZ:-UTC}

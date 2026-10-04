@@ -3,7 +3,7 @@
 # compose.yaml, no .env, `docker compose up -d` — then checks what a person
 # would: the secrets were generated, the app answers, the setup code is in
 # its log, /setup takes it, an upload lands in the bucket, Postgres is up
-# with the generated password. With --backup it runs again with
+# with the generated passwords and migrated. With --backup it runs again with
 # COMPOSE_PROFILES=backup and takes a snapshot through Backrest. Everything it
 # creates (containers, volumes, networks) is removed at the end.
 #
@@ -36,6 +36,10 @@ fail() {
   COMPOSE_PROFILES=backup compose logs --tail 40 >&2 || true
   exit 1
 }
+log_has() { # service, extended regex — retried: a log can lag behind the container
+  for _ in $(seq 1 20); do compose logs --no-log-prefix "$1" 2>/dev/null | grep -qE "$2" && return 0; sleep 1; done
+  return 1
+}
 wait_for() { # url, seconds
   for _ in $(seq 1 "$2"); do curl -fsS -o /dev/null "$1" 2>/dev/null && return 0; sleep 1; done
   return 1
@@ -46,7 +50,7 @@ check_stack() {
   compose up -d --quiet-pull >/dev/null 2>&1 || fail "docker compose up"
   wait_for "http://127.0.0.1:$port/healthz" 120 || fail "the app did not answer on port $port"
   echo "smoke: app answers /healthz"
-  compose logs --no-log-prefix bootstrap | grep -q 'postgres_password: \(generated\|kept\)' || fail "bootstrap did not fill the secrets volume"
+  log_has bootstrap 'postgres_password: (generated|kept)' || fail "bootstrap did not fill the secrets volume"
   echo "smoke: $(compose logs --no-log-prefix bootstrap | tail -2 | head -1)"
   local code=""
   for _ in $(seq 1 30); do
@@ -73,7 +77,9 @@ check_stack() {
   echo "smoke: an uploaded photo is in the Garage bucket (keys created by Garage)"
   docker run --rm --network "${project}_internal" -v "${project}_secrets:/run/wirehub:ro" postgres:18.6-bookworm \
     sh -c 'psql "$(cat /run/wirehub/database_url)" -tAc "select 1"' | grep -q '^1$' || fail "Postgres did not take the generated password"
-  echo "smoke: Postgres is up with the generated password"
+  echo "smoke: Postgres is up; studio_app connects with its generated password"
+  log_has migrate 'applied|up to date' || fail "migrate did not run the migrations"
+  echo "smoke: $(compose logs --no-log-prefix migrate | grep -E 'applied|up to date' | tail -1 | cut -c1-120)"
 }
 
 check_stack

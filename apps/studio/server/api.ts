@@ -47,11 +47,12 @@ import type { TagStore, VocabStore } from './vocab-store.ts';
 import { LOCK_ROUTES } from './locks/lock-api.ts';
 import type { LockStore } from './locks/lock-store.ts';
 import type { DerivedStore } from './derived.ts';
-import { StaleRecordError, type Awaitable } from './storage/change-set.ts';
+import { ReadOnlyBackendError, StaleRecordError, type Awaitable, type ChangeSet, type CommitResult, type DerivedKind } from './storage/change-set.ts';
 import { UnitOfWork } from './storage/unit-of-work.ts';
 import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
 import { isWriteMethod } from './request-guard.ts';
+import type { CatalogExport } from './pg/export.ts';
 
 /* ------------------------------------------------------------------ *
  * Transport-shaped, transport-free
@@ -111,6 +112,17 @@ export interface WorkbenchDeps {
    * loads its own.
    */
   catalogVersion?: () => Awaitable<string | undefined>;
+  /**
+   * The on-demand export (`GET /api/export`): the catalog as file text, the
+   * same on every backend (`pg/export.ts`). Absent → 501.
+   */
+  exportCatalog?: () => Promise<CatalogExport>;
+  /**
+   * Commit a request's change set in the backend's own transaction (the
+   * Postgres backend, `pg/`). Absent: `commitChangeSet` applies it through
+   * the stores above (the file backend).
+   */
+  commit?: (set: ChangeSet, derive: ReadonlySet<DerivedKind>) => Promise<CommitResult>;
   /**
    * The derived records the commit recomputes when a save changes their inputs
    * (a module's reports and exports — `derived.ts`). Absent: none.
@@ -755,6 +767,7 @@ const ROUTES = [
   'POST   /api/designs/:id/rename',
   'DELETE /api/designs/:id',
   'GET    /api/db',
+  'GET    /api/export',
   'GET    /api/part-numbers',
   'GET    /api/drawings',
   'GET    /api/drawings/:id',
@@ -868,6 +881,7 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
       await uow.commit({ method: request.method.toUpperCase(), path: request.path, ...(request.user === undefined ? {} : { user: request.user }) });
     } catch (error) {
       if (error instanceof StaleRecordError) return staleWriteResponse(error.kind, error.key);
+      if (error instanceof ReadOnlyBackendError) return fail(503, error.message, 'Nothing was written. This studio serves its catalog read-only for now.');
       throw error;
     }
     return response;
@@ -906,6 +920,12 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
       deps.backup?.retry();
       return ok(deps.backup?.status() ?? BACKUP_DISABLED);
     }
+  }
+
+  if (head === 'export' && id === undefined) {
+    if (method !== 'GET') return methodNotAllowed(method, ['GET']);
+    if (deps.exportCatalog === undefined) return fail(501, 'This studio does not offer a catalog export.', 'Export the catalog files from the host instead.');
+    return ok(await deps.exportCatalog());
   }
 
   if (head === 'db' && id === undefined) {

@@ -49,7 +49,7 @@ wins on design and this document wins on process. When the plan and `SPEC.md` di
   keep `--maxWorkers=2`.
 - Cap every container you start (`--memory 256m` for a scratch Postgres or MinIO) and
   remove scratch containers on exit (`trap … EXIT`).
-- Use `docker-compose.test.yml` (A8 creates it) with a project name of your own
+- Use `apps/studio/test/pg/compose.test.yaml` (A8 created it) with a project name of your own
   (`-p cs-pg-test`), random localhost ports and no `container_name`, or throwaway
   `docker run` containers. Never bring up a compose file that binds a port or a container
   name another running service uses.
@@ -81,8 +81,8 @@ checkout itself.
   on your branch; re-run the gates of §6 after each merge.
 - **The orchestrator merges each phase** after reviewing it and running the full suite.
 - **Commits:** small, one task (or part of one) each; the message says what and why, names
-  the task (`B4`) and its bead, and ends with the tests you ran and their counts, then the
-  attribution trailers your harness gives you. Never `git add -A` blindly; never commit
+  the task (`B4`) and its bead, and ends with the tests you ran and their counts. No tool or agent attribution
+  trailers (`AGENTS.md`, "Contributing"). Never `git add -A` blindly; never commit
   `.env`, dumps, blobs or caches.
 - **Beads (`bd`)** is the only task tracker. Create an epic "Postgres backend: execution
   (plan rev 6)", one bead per phase and one per task with `--parent`; claim before you

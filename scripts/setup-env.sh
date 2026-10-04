@@ -37,6 +37,9 @@ code() {
 }
 declare -A value=(
   [POSTGRES_PASSWORD]="$(hex 24)"
+  [WIREHUB_OWNER_PASSWORD]="$(hex 24)"
+  [WIREHUB_APP_PASSWORD]="$(hex 24)"
+  [WIREHUB_RO_PASSWORD]="$(hex 24)"
   [BETTER_AUTH_SECRET]="$(b64 32)"
   [GARAGE_RPC_SECRET]="$(hex 32)"
   [GARAGE_ADMIN_TOKEN]="$(b64 32)"

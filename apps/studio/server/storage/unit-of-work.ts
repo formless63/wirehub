@@ -464,7 +464,9 @@ export class UnitOfWork {
   /** Commit what was staged, in one step. A no-op when nothing was. */
   async commit(context: ChangeSet['context']): Promise<CommitResult> {
     if (this.changes.length === 0 && this.derive.size === 0) return { applied: 0, derived: [] };
-    return commitChangeSet(this.base, { changes: this.changes, context }, this.derive);
+    const set: ChangeSet = { changes: this.changes, context };
+    // a backend that commits in its own transaction (Postgres) brings `commit`; the file stores apply through themselves
+    return this.base.commit !== undefined ? this.base.commit(set, this.derive) : commitChangeSet(this.base, set, this.derive);
   }
 }
 

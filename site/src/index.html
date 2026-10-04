@@ -58,7 +58,8 @@ bash setup-env.sh</code></pre>
     <label class="choice"><input type="radio" name="postgres.mode" value="bundled" checked> Bundled PostgreSQL 18 <span class="hint">recommended</span></label>
     <label class="choice"><input type="radio" name="postgres.mode" value="external"> My own PostgreSQL</label>
     <div class="when" data-when="postgres.mode=external">
-      <label>Connection URL <input name="postgres.url" placeholder="postgres://wirehub:password@db.example.com:5432/wirehub"></label>
+      <label>Admin connection URL <span class="hint">a role that may create roles and the database; WireHub makes its own roles with it</span>
+        <input name="postgres.url" placeholder="postgres://postgres:password@db.example.com:5432/wirehub"></label>
     </div>
   </fieldset>
 

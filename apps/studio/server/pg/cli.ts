@@ -1,0 +1,163 @@
+#!/usr/bin/env -S node --experimental-strip-types
+/**
+ * The Postgres backend's commands (`specs/postgres-backend.md` §6, §7):
+ *
+ *   pnpm --filter studio db:bootstrap                 roles + database (DATABASE_ADMIN_URL, WIREHUB_*_PASSWORD)
+ *   pnpm --filter studio db:migrate                   every pending migration (DATABASE_OWNER_URL)
+ *   pnpm --filter studio pg:import --from <dir> --org <slug> [--create-org] [--name <org name>] [--dry-run]
+ *   pnpm --filter studio pg:export --out <dir> [--with-blobs]
+ *   pnpm --filter studio pg:gate --from <dir>         the S1 gate: files vs the database
+ *
+ * `<dir>` holds a catalog's `data/` (and `depictions/`), like `packages/catalog`;
+ * relative paths resolve from where pnpm was run. The app connection is
+ * DATABASE_URL (studio_app), the org WIREHUB_ORG (default: the only one), the
+ * blob store WIREHUB_BLOBS (`fs:<dir>` or `s3`).
+ */
+
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { parseArgs } from 'node:util';
+
+import { dataPath } from '@wirehub/catalog';
+import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
+
+import { ASSET_MIME_EXT } from '@wirehub/catalog/src/codec/index.ts';
+import { blobStoreFromEnv, type BlobStore } from '../blobs.ts';
+import { defaultWorkbenchDeps } from '../default-deps.ts';
+import { bootstrapDatabase } from './bootstrap.ts';
+import { PgConfigError, pgAppConfigFromEnv, redactUrl, requireEnv } from './config.ts';
+import { openPg, resolveOrgId } from './db.ts';
+import { writeExport } from './export.ts';
+import { formatGateReport, runGate } from './gate.ts';
+import { ImportError, importCatalog } from './import.ts';
+import { migrateToLatest } from './migrate.ts';
+import { SnapshotCache } from './snapshot.ts';
+
+const env = process.env;
+const from = (path: string): string => resolve(env.INIT_CWD ?? process.cwd(), path);
+const log = (line: string): void => console.log(line);
+
+function blobs(): BlobStore | undefined {
+  return blobStoreFromEnv(env);
+}
+
+async function bootstrap(): Promise<void> {
+  const adminUrl = requireEnv(env, 'DATABASE_ADMIN_URL', 'db:bootstrap');
+  const database = (env.WIREHUB_DB_NAME ?? '').trim() || new URL(requireEnv(env, 'DATABASE_URL', 'db:bootstrap (for the database name)')).pathname.slice(1) || 'wirehub';
+  const passwords = {
+    owner: requireEnv(env, 'WIREHUB_OWNER_PASSWORD', 'db:bootstrap'),
+    app: requireEnv(env, 'WIREHUB_APP_PASSWORD', 'db:bootstrap'),
+    ro: requireEnv(env, 'WIREHUB_RO_PASSWORD', 'db:bootstrap'),
+  };
+  log(`bootstrapping ${database} on ${redactUrl(adminUrl)}`);
+  await bootstrapDatabase(adminUrl, { database, passwords, log: (line) => log(`  ${line}`) });
+}
+
+async function migrate(): Promise<void> {
+  const url = requireEnv(env, 'DATABASE_OWNER_URL', 'db:migrate');
+  const handle = openPg(url, { max: 1, applicationName: 'wirehub-migrate' });
+  try {
+    const applied = await migrateToLatest(handle.db);
+    log(applied.length === 0 ? 'the database is up to date' : `applied ${applied.join(', ')}`);
+  } finally {
+    await handle.close();
+  }
+}
+
+async function importCommand(args: string[]): Promise<void> {
+  const { values } = parseArgs({ args, options: { from: { type: 'string' }, org: { type: 'string' }, name: { type: 'string' }, 'create-org': { type: 'boolean' }, 'dry-run': { type: 'boolean' } } });
+  if (values.from === undefined || values.org === undefined) throw new PgConfigError('pg:import needs --from <catalog dir> and --org <slug>.');
+  const root = from(values.from);
+  if (!existsSync(resolve(root, 'data'))) throw new PgConfigError(`${root} has no data/ directory.`);
+  const files = readCatalogTree(root);
+  const store = blobs();
+  const handle = openPg(pgAppConfigFromEnv(env).url, { max: 2, applicationName: 'wirehub-import' });
+  try {
+    const report = await importCatalog(handle.db, {
+      org: { slug: values.org, name: values.name ?? values.org, create: values['create-org'] === true },
+      files,
+      ...(store === undefined ? {} : { blobs: store }),
+      // an asset the file backend kept in the blob store (WIREHUB_BLOBS) rather than in data/assets/
+      fetchMissing: async (blob) => {
+        const ext = ASSET_MIME_EXT[blob.mediaType];
+        if (store === undefined || ext === undefined) return undefined;
+        const bytes = await store.get(`assets/${blob.sha256}.${ext}`);
+        return bytes === undefined ? undefined : new Uint8Array(bytes);
+      },
+      dryRun: values['dry-run'] === true,
+      message: `Import the catalog from ${values.from}`,
+    });
+    if (values['dry-run'] === true) log(`dry run: ${files.size} files explode cleanly into ${report.rows.records.length} records, ${report.rows.docs.length} docs, ${report.rows.blobs.length} blobs`);
+    else log(`imported ${files.size} files into org '${values.org}' (version ${report.version}, change set ${report.changeSetId}): ${JSON.stringify(report.counts)}, ${report.uploaded} blob(s) uploaded`);
+  } finally {
+    await handle.close();
+  }
+}
+async function exportCommand(args: string[]): Promise<void> {
+  const { values } = parseArgs({ args, options: { out: { type: 'string' }, 'with-blobs': { type: 'boolean' } } });
+  if (values.out === undefined) throw new PgConfigError('pg:export needs --out <dir>.');
+  const config = pgAppConfigFromEnv(env);
+  const handle = openPg(config.url, { max: 2, applicationName: 'wirehub-export' });
+  try {
+    const orgId = await resolveOrgId(handle.db, config.org);
+    if (orgId === undefined) throw new PgConfigError('No org to export (set WIREHUB_ORG).');
+    const snapshot = await new SnapshotCache(handle.db, orgId).get();
+    const store = values['with-blobs'] === true ? blobs() : undefined;
+    const n = await writeExport(snapshot, from(values.out), store === undefined ? {} : { blobs: store, orgId });
+    log(`exported version ${snapshot.version}: ${n} files into ${from(values.out)}${store === undefined ? ' (text only)' : ''}`);
+  } finally {
+    await handle.close();
+  }
+}
+
+async function gateCommand(args: string[]): Promise<boolean> {
+  const { values } = parseArgs({ args, options: { from: { type: 'string' } } });
+  const root = from(values.from ?? dataPath('..'));
+  const config = pgAppConfigFromEnv(env);
+  const handle = openPg(config.url, { max: 4, applicationName: 'wirehub-gate' });
+  try {
+    const orgId = await resolveOrgId(handle.db, config.org);
+    if (orgId === undefined) throw new PgConfigError('No org to compare (set WIREHUB_ORG).');
+    const store = blobs();
+    const live = resolve(root) === resolve(dataPath('..'));
+    const report = await runGate({
+      tree: readCatalogTree(root),
+      root,
+      pg: { db: handle.db, cache: new SnapshotCache(handle.db, orgId), ...(store === undefined ? {} : { blobs: store }) },
+      ...(live ? { filesDeps: defaultWorkbenchDeps(store === undefined ? {} : { blobs: store }) } : {}),
+    });
+    log(formatGateReport(report));
+    return report.ok;
+  } finally {
+    await handle.close();
+  }
+}
+
+const [command, ...rest] = process.argv.slice(2);
+try {
+  switch (command) {
+    case 'bootstrap':
+      await bootstrap();
+      break;
+    case 'migrate':
+      await migrate();
+      break;
+    case 'import':
+      await importCommand(rest);
+      break;
+    case 'export':
+      await exportCommand(rest);
+      break;
+    case 'gate':
+      if (!(await gateCommand(rest))) process.exitCode = 1;
+      break;
+    default:
+      console.error('usage: cli.ts bootstrap | migrate | import --from <dir> --org <slug> | export --out <dir> | gate --from <dir>');
+      process.exitCode = 2;
+  }
+} catch (error) {
+  if (error instanceof PgConfigError || error instanceof ImportError) {
+    console.error(error.message);
+    process.exitCode = 1;
+  } else throw error;
+}

@@ -32,7 +32,13 @@ describe('bootstrap', () => {
     const report = bootstrap(env());
     expect(report).toMatchObject({
       postgres_password: 'generated',
+      wirehub_owner_password: 'generated',
+      wirehub_app_password: 'generated',
+      wirehub_ro_password: 'generated',
+      database_admin_url: 'derived',
+      database_owner_url: 'derived',
       database_url: 'derived',
+      database_ro_url: 'derived',
       better_auth_secret: 'generated',
       garage_rpc_secret: 'generated',
       garage_admin_token: 'generated',
@@ -43,33 +49,43 @@ describe('bootstrap', () => {
     expect(read('garage_rpc_secret')).toMatch(/^[0-9a-f]{64}\n$/);
     expect(read('better_auth_secret').trim().length).toBeGreaterThanOrEqual(43);
     expect(read('setup_code')).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}\n$/);
-    expect(read('database_url').trim()).toBe(bundledDatabaseUrl(read('postgres_password').trim()));
+    expect(read('database_admin_url').trim()).toBe(bundledDatabaseUrl(read('postgres_password').trim()));
+    expect(read('database_owner_url').trim()).toBe(`postgres://studio_owner:${read('wirehub_owner_password').trim()}@postgres:5432/wirehub`);
+    expect(read('database_url').trim()).toBe(`postgres://studio_app:${read('wirehub_app_password').trim()}@postgres:5432/wirehub`);
+    expect(read('database_ro_url').trim()).toBe(`postgres://studio_ro:${read('wirehub_ro_password').trim()}@postgres:5432/wirehub`);
     expect(statSync(join(dir, 'postgres_password')).mode & 0o777).toBe(0o644);
   });
 
   it('keeps what it generated: a second run changes nothing', () => {
     bootstrap(env());
-    const before = ['postgres_password', 'better_auth_secret', 'garage_rpc_secret', 'garage_admin_token', 'setup_code', 'database_url'].map(read);
+    const names = ['postgres_password', 'wirehub_owner_password', 'wirehub_app_password', 'wirehub_ro_password', 'better_auth_secret', 'garage_rpc_secret', 'garage_admin_token', 'setup_code', 'database_url', 'database_owner_url', 'database_admin_url'];
+    const before = names.map(read);
     const report = bootstrap(env());
     expect(report.postgres_password).toBe('kept');
     expect(report.setup_code).toBe('kept');
-    expect(['postgres_password', 'better_auth_secret', 'garage_rpc_secret', 'garage_admin_token', 'setup_code', 'database_url'].map(read)).toEqual(before);
+    expect(names.map(read)).toEqual(before);
   });
 
   it('lets explicit values win, from the variable or its _FILE, and the URL follows the password', () => {
     bootstrap(env());
     const file = join(dir, 'given-secret');
     writeFileSync(file, 'from-a-docker-secret\n');
-    const report = bootstrap(env({ POSTGRES_PASSWORD: 'p@ss word', BETTER_AUTH_SECRET_FILE: file, WIREHUB_SETUP_CODE: '  ' }));
+    const report = bootstrap(env({ POSTGRES_PASSWORD: 'p@ss word', WIREHUB_APP_PASSWORD: 'app/pw', BETTER_AUTH_SECRET_FILE: file, WIREHUB_SETUP_CODE: '  ' }));
     expect(report.postgres_password).toBe('explicit');
+    expect(report.wirehub_app_password).toBe('explicit');
     expect(report.better_auth_secret).toBe('explicit');
     expect(report.setup_code).toBe('kept');
     expect(read('postgres_password')).toBe('p@ss word\n');
-    expect(read('database_url').trim()).toBe('postgres://wirehub:p%40ss%20word@postgres:5432/wirehub');
+    expect(read('database_admin_url').trim()).toBe('postgres://wirehub:p%40ss%20word@postgres:5432/wirehub');
+    expect(read('database_url').trim()).toBe('postgres://studio_app:app%2Fpw@postgres:5432/wirehub');
     expect(read('better_auth_secret')).toBe('from-a-docker-secret\n');
-    // your own Postgres: DATABASE_URL as given
-    bootstrap(env({ DATABASE_URL: 'postgres://me:x@db.example:5432/hub' }));
-    expect(read('database_url')).toBe('postgres://me:x@db.example:5432/hub\n');
+    // your own Postgres: the role URLs follow the admin URL's server and database
+    bootstrap(env({ DATABASE_ADMIN_URL: 'postgres://admin:x@db.example.com:6543/hub?sslmode=require' }));
+    expect(read('database_admin_url')).toBe('postgres://admin:x@db.example.com:6543/hub?sslmode=require\n');
+    expect(read('database_owner_url')).toMatch(/^postgres:\/\/studio_owner:[0-9a-f]{48}@db\.example\.com:6543\/hub\?sslmode=require\n$/);
+    // …and a URL given outright is used as given
+    bootstrap(env({ DATABASE_URL: 'postgres://me:y@elsewhere:5432/hub' }));
+    expect(read('database_url')).toBe('postgres://me:y@elsewhere:5432/hub\n');
   });
 
   it('writes a Garage config that reads its secrets from the volume', () => {
@@ -245,7 +261,13 @@ describe('compose.yaml', () => {
     const written = new Set([
       // bootstrap
       'postgres_password',
+      'wirehub_owner_password',
+      'wirehub_app_password',
+      'wirehub_ro_password',
+      'database_admin_url',
+      'database_owner_url',
       'database_url',
+      'database_ro_url',
       'better_auth_secret',
       'garage_rpc_secret',
       'garage_admin_token',
