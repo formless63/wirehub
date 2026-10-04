@@ -108,7 +108,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       if (api) {
         return json(403, {
           error: `${user.email} is not allowed to use the studio.`,
-          hint: 'Ask the owner to add it to AUTH_ALLOWED_EMAILS, or sign out and use another account.',
+          hint: 'Ask an administrator to add it to AUTH_ALLOWED_EMAILS, or sign out and use another account.',
           code: EMAIL_NOT_ALLOWED,
         });
       }

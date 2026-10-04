@@ -341,7 +341,7 @@ describe('auth on', () => {
     expect((await call('/api/designs', {}, jar)).status).toBe(401);
 
     const page = await (await call(`${location.pathname}${location.search}`)).text();
-    expect(page).toContain('not allowed to use the studio');
+    expect(page).toContain('not allowed to use this hub');
   });
 
   it('OIDC: a missing studio_email claim is refused, naming the claim', async () => {

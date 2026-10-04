@@ -12,7 +12,7 @@
  *   and all, for a live rule display;
  * - `partPopulation`: each part's state on a build, and which setting sets it;
  * - `conditioningFromVia`: conditioning ids a path's `via` text suggests
- *   (a series 330–560 Ω → `attenuate-csync`, `220 µF` → `ac-couple-220u`);
+ *   (a series resistor → `series-resistor`, `220 µF` → `ac-coupling`);
  * - `buildsFileName` / `buildsFileFor`: where a board's build file lives;
  * - `canonicalBuildsFile`: a file's keys in the order the committed files
  *   use, so a save from a form diffs as the change and nothing else.
@@ -421,27 +421,25 @@ function resistances(text: string): number[] {
 }
 
 /**
- * The conditioning a path's `via` text suggests (data model v2 §8 J3 step 4:
- * suggested, then confirmed by a person). Only the recognisers the catalog's
- * own `via` strings bear out; nothing is suggested from a value alone when
- * the signal says otherwise (a 75 Ω on a sync path is still `series-75r`).
+ * The conditioning a path's `via` text suggests (suggested, then confirmed by
+ * a person), as ids of the base `conditioning` vocabulary: a series resistor,
+ * a line termination, AC coupling through a series capacitor, a buffer, a
+ * level shift. Only what the words say — never a guess from a value alone.
+ * A domain module's own conditioning (a sync stripper, say) is its vocabulary
+ * entry and a person's choice.
  */
-export function conditioningFromVia(via: string | undefined, signal?: SignalRef): string[] {
+export function conditioningFromVia(via: string | undefined, _signal?: SignalRef): string[] {
   if (via === undefined || via.trim() === '') return [];
   const text = via;
   const out: string[] = [];
   const add = (id: string): void => {
     if (!out.includes(id)) out.push(id);
   };
-  const sync = signal === undefined ? true : signalIds(signal).some((id) => /sync/.test(id));
-  if (/LM1881/i.test(text)) add('strip-lm1881');
-  if (/AHCT1?G?125/i.test(text)) add('buffer-ahct125');
-  for (const ohms of resistances(text)) {
-    if (ohms >= 300 && ohms <= 560 && sync) add('attenuate-csync');
-    else if (ohms === 75) add('series-75r');
-    else if (ohms === 150 && /xclk/i.test(text)) add('xclk-kill-150r');
-  }
-  if (/220\s*[uµμ]F/i.test(text)) add('ac-couple-220u');
+  if (/\bterminat/i.test(text)) add('termination');
+  else if (resistances(text).length > 0) add('series-resistor');
+  if (/\d+(\.\d+)?\s*[unpµμ]F\b/i.test(text)) add('ac-coupling');
+  if (/\bbuffer\b/i.test(text)) add('buffer');
+  if (/level.?shift/i.test(text)) add('level-shift');
   return out;
 }
 

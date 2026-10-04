@@ -364,7 +364,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
                   className="cs-input"
                   required
                   value={state.src}
-                  placeholder="ground-truth.md §4, measured on the bench, …"
+                  placeholder="datasheet §4, measured on the bench, …"
                   onChange={(event) => dispatch({ type: 'set-src', value: event.target.value })}
                 />
               </label>

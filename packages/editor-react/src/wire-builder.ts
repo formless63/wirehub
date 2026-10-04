@@ -7,7 +7,6 @@
  */
 
 import {
-  FLEET_SIGNAL_WORDS,
   LAY_ARRANGEMENT_RING_COUNT,
   compileWire,
   suggestBondedSets,
@@ -19,6 +18,8 @@ import {
   type WirePartKind,
   type WireRecipe,
   type StripPractice,
+  type Vocab,
+  type VocabEntry,
 } from '@wirehub/model';
 
 import type { Outcome } from './persistence.ts';
@@ -61,9 +62,11 @@ export function partsOfKind<K extends WirePartKind>(parts: readonly WirePart[], 
   return parts.filter((part): part is Extract<WirePart, { kind: K }> => part.kind === kind);
 }
 
-/** The words the signal picker offers: the fleet code, then whatever the recipe already says. */
-export function signalChoices(recipe: WireRecipe): string[] {
-  const words = [...Object.values(FLEET_SIGNAL_WORDS)];
+/** The words the signal picker offers: the vocabulary's signal labels, then whatever the recipe already says. */
+export function signalChoices(recipe: WireRecipe, vocab?: Vocab): string[] {
+  const words = ((vocab?.['signals']?.entries ?? []) as VocabEntry[])
+    .filter((e) => e.pending !== true && e.deprecatedBy === undefined)
+    .map((e) => e.label);
   for (const core of recipe.cores) if (core.signal !== undefined && !words.includes(core.signal)) words.push(core.signal);
   return words;
 }
@@ -76,11 +79,12 @@ export function compileRecipe(recipe: WireRecipe, library: WireLibrary): Compile
  * New and duplicate
  * ------------------------------------------------------------------ */
 
-const FLEET_ORDER = ['red', 'green', 'blue', 'yellow', 'white', 'black', 'brown', 'purple'];
+/** The order new cores take colours in when none is chosen. */
+const COLOUR_ORDER = ['red', 'green', 'blue', 'yellow', 'white', 'black', 'brown', 'purple', 'orange', 'grey'];
 
 /** A stock with nothing in it yet — "new stock from parts". */
 export function blankRecipe(id = 'new-stock'): WireRecipe {
-  return { id, label: '', colourCode: 'ra-fleet', cores: [], src: '' };
+  return { id, label: '', cores: [], src: '' };
 }
 
 /**
@@ -111,10 +115,10 @@ function freeCoreId(recipe: WireRecipe, colour: string): string {
   return id;
 }
 
-/** The first fleet colour the stock does not use yet. */
+/** The first colour the stock does not use yet. */
 export function nextColour(recipe: WireRecipe): string {
   const used = new Set(recipe.cores.map((core) => core.colour));
-  return FLEET_ORDER.find((colour) => !used.has(colour)) ?? 'red';
+  return COLOUR_ORDER.find((colour) => !used.has(colour)) ?? 'red';
 }
 
 export function addCore(recipe: WireRecipe, part: string, colour = nextColour(recipe)): WireRecipe {

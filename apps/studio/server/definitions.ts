@@ -103,7 +103,7 @@ function ok(body: unknown, status = 200, headers?: Record<string, string>): ApiR
 }
 
 const ID_RULE =
-  'Ids are lowercase words joined by hyphens, like `scart-male` or `cap-220uf-tant` — no spaces, capitals or slashes; a dot only inside a number (`hw-nut-m2.5`).';
+  'Ids are lowercase words joined by hyphens, like `de9-male` or `cap-220uf-tant` — no spaces, capitals or slashes; a dot only inside a number (`hw-nut-m2.5`).';
 
 /** The record id rule. Kebab-case: a definition id is quoted in files and URLs. */
 export function isDefinitionId(value: unknown): value is string {
@@ -215,7 +215,7 @@ function gateConnector(value: unknown): Gate<ConnectorDefinition> {
   if (!isFilledString(record['family'])) {
     return reject(
       'This connector does not say what family it belongs to.',
-      'Name the connector family — SCART, DIN, D-Sub, RCA, console multi-out …',
+      'Name the connector family — D-Sub, DIN, RJ45, XLR, RCA …',
     );
   }
   const gender = record['gender'];
@@ -421,7 +421,7 @@ function gatePcba(value: unknown): Gate<PcbaDefinition> {
   if (!isFilledString(record['partNumber'])) {
     return reject(
       'This board has no part number.',
-      'Use the number printed on the board — PCA-00101.',
+      'Use the number printed on the board — PCA-00001.',
     );
   }
   if (!isFilledString(record['revision'])) {
@@ -433,7 +433,7 @@ function gatePcba(value: unknown): Gate<PcbaDefinition> {
   if (!isOptionalString(record['build']) || !isOptionalString(record['kicadProject'])) {
     return reject(
       'The build and project name have to be text.',
-      'The build is the populated variant, like "CPL Basic".',
+      'The build is the populated variant, like "Standard" or "Terminated".',
     );
   }
   const terminals = record['terminals'];
@@ -466,7 +466,7 @@ function gatePcba(value: unknown): Gate<PcbaDefinition> {
       if (!isObject(entry) || !isFilledString(entry['connectorDefId']) || !isFilledString(entry['terminalPrefix'])) {
         return reject(
           'A connector soldered to this board is missing its definition or its prefix.',
-          'Say which connector it is and what its pins are called here — `scart` makes pin 15 into `scart.15`.',
+          'Say which connector it is and what its pins are called here — `j1` makes pin 15 into `j1.15`.',
         );
       }
     }
@@ -502,7 +502,7 @@ function gateBody(value: unknown): Gate<ConnectorBody> {
   if (!common.ok) return common;
   const record = common.record;
   if (!isFilledString(record['family'])) {
-    return reject('This body does not say what family it belongs to.', 'Pick the connector family — DIN, Mini-DIN, D-Sub, SCART …');
+    return reject('This body does not say what family it belongs to.', 'Pick the connector family — DIN, Mini-DIN, D-Sub, RJ45 …');
   }
   if (record['gender'] !== 'male' && record['gender'] !== 'female') {
     return reject('A connector body is a plug (male) or a socket (female).', 'Pick the gender.');

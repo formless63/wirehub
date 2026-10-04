@@ -374,7 +374,7 @@ export default function WireModel3d(props: WireModel3dProps): JSX.Element {
                 type="button"
                 className={classes(state.show === s && 'is-active')}
                 aria-pressed={state.show === s}
-                title={s === 'a' ? 'The source (console) end' : s === 'b' ? 'The destination end' : 'The whole length'}
+                title={s === 'a' ? 'The source end' : s === 'b' ? 'The destination end' : 'The whole length'}
                 onClick={() => setState((st) => ({ ...st, show: s }))}
               >
                 {s === 'a' ? 'End A' : s === 'b' ? 'End B' : 'Full length'}

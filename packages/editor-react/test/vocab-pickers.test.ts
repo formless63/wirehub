@@ -52,16 +52,16 @@ describe('the mapping carries tags and unknown fields', () => {
   });
 
   it('keeps extra component and terminal fields', () => {
-    const component = { ...(db.components[0] as ComponentDefinition), package: '0805', conditioning: ['attenuate-csync'] } as ComponentDefinition;
+    const component = { ...(db.components[0] as ComponentDefinition), package: '0805', conditioning: ['series-resistor'] } as ComponentDefinition;
     expect(componentOf(componentDraftOf(component))).toEqual(component);
   });
 
   it('keeps a stock colour code and a conductor lane', () => {
     const wire = structuredClone(db.wires.find((w) => wireFormOf(w) !== undefined) as WireDefinition);
-    wire.colourCode = 'ra-fleet';
+    wire.colourCode = 'rca-audio';
     const draft = wireFormOf(wire);
     expect(draft).toBeDefined();
-    expect(wireDefinitionOf(draft!).colourCode).toBe('ra-fleet');
+    expect(wireDefinitionOf(draft!).colourCode).toBe('rca-audio');
   });
 
   it('never writes a side-table tag into the record', () => {

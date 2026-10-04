@@ -1140,7 +1140,7 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
               label="location"
               value={component.location ?? ''}
               onChange={(v) => patch('location', v)}
-              placeholder="source-hood | scart-head | inline"
+              placeholder="source-hood | dest-head | inline"
             />
             <InstanceField label="note" value={component.note ?? ''} onChange={(v) => patch('note', v)} />
           </>

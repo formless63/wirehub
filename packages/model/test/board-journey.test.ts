@@ -177,12 +177,12 @@ describe('settings and population', () => {
 });
 
 describe('conditioningFromVia', () => {
-  it('recognises the catalog parts', () => {
-    expect(conditioningFromVia('R1 470 Ω', 'csync')).toEqual(['attenuate-csync']);
-    expect(conditioningFromVia('R4 470 Ω → C4 220 µF')).toEqual(['attenuate-csync', 'ac-couple-220u']);
-    expect(conditioningFromVia('R2 75R')).toEqual(['series-75r']);
-    expect(conditioningFromVia('U1 LM1881')).toEqual(['strip-lm1881']);
-    expect(conditioningFromVia('R1 470 Ω', 'video-r')).toEqual([]);
+  it('suggests the base conditioning the words name', () => {
+    expect(conditioningFromVia('R1 470 Ω')).toEqual(['series-resistor']);
+    expect(conditioningFromVia('R4 470 Ω → C4 220 µF')).toEqual(['series-resistor', 'ac-coupling']);
+    expect(conditioningFromVia('R1 120 Ω termination via JP1')).toEqual(['termination']);
+    expect(conditioningFromVia('U1 buffer')).toEqual(['buffer']);
+    expect(conditioningFromVia('U1 LM1881')).toEqual([]);
     expect(conditioningFromVia(undefined)).toEqual([]);
   });
 });

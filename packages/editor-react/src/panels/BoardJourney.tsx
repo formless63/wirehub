@@ -857,7 +857,7 @@ function ConnectorStep(props: { journey: BoardJourney }): JSX.Element {
               />
             </label>
             {current === undefined ? null : (
-              <label className="cs-bj-check" title="The board carries the connector itself (a multi-out or SCART on the board)">
+              <label className="cs-bj-check" title="The board carries the connector itself (a connector soldered to the board)">
                 <input type="checkbox" checked={current.integrated} onChange={(e) => setFootprint(open, { ...current, integrated: e.target.checked })} /> connector on the board
               </label>
             )}

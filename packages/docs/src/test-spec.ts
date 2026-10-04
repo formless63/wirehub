@@ -514,7 +514,7 @@ export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOpt
     kind: 'ground-landing',
     expected:
       row.landing === ''
-        ? 'NOT LANDED — the design is missing this landing; query the owner.'
+        ? 'NOT LANDED — the design is missing this landing; query the designer.'
         : `Twist present, on ${row.pad === undefined ? row.landing : `pad ${row.pad}`}, nothing else on it.`,
   }));
 
@@ -941,7 +941,7 @@ function deriveOpens(design: CableDesign, db: Db, nets: Net[]): OpenCheck[] {
               }`
             : `${path} is terminated at the other end of ${terminal.instance} and deliberately open here — the house drain/shield policy, not a missed joint.${
                 noteIndex === undefined
-                  ? ' No design note names it; treat as a query for the owner.'
+                  ? ' No design note names it; treat as a query for the designer.'
                   : ` Design note ${noteIndex + 1} covers it.`
               }`,
           ...(noteIndex === undefined ? {} : { noteIndex }),

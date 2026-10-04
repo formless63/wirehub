@@ -16,7 +16,6 @@
  * drain sits in the gap against the shield.
  */
 
-import { FLEET_SIGNAL_WORDS } from '@wirehub/model';
 import type { CompiledWire, RecipeCore, StripPractice, WireLayOrder, WireLibrary, WirePart, WirePartKind, WireRecipe } from '@wirehub/model';
 import { crossSectionLayout, renderCrossSection, type CrossSection } from '@wirehub/render-svg';
 import { IconArrowsExchange, IconCopy, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
@@ -675,7 +674,8 @@ export function WireBuilder(props: WireBuilderProps): JSX.Element {
   };
   const set = <K extends keyof WireRecipe>(key: K, value: WireRecipe[K]): void => onChange({ ...recipe, [key]: value });
   const cores = partsOfKind(library.parts, 'core');
-  const signals = signalChoices(recipe);
+  const vocabScope = useVocab();
+  const signals = signalChoices(recipe, vocabScope.vocab);
   const lay = recipe.lay;
   const suggestions = bondingSuggestions(recipe, compiled);
   const warnings = compiled.issues.filter((issue) => issue.severity === 'warning');
@@ -769,7 +769,7 @@ export function WireBuilder(props: WireBuilderProps): JSX.Element {
                     </td>
                     <td>
                       <select aria-label={`${core.id} signal`} value={core.signal ?? ''} onChange={(event) => updateCore(core.id, { signal: event.target.value })}>
-                        <option value="">{`${FLEET_SIGNAL_WORDS[core.colour] ?? core.colour} (colour code)`}</option>
+                        <option value="">{`${core.colour} (colour code)`}</option>
                         {signals.map((s) => (
                           <option key={s} value={s}>
                             {s}

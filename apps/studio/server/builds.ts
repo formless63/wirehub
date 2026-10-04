@@ -94,7 +94,7 @@ export function readBuildsBody(value: unknown): { ok: true; file: BoardBuilds } 
   const say = (error: string, hint: string): { ok: false; response: ApiResponse } => ({ ok: false, response: fail(400, error, hint) });
   const file = isObject(value) && isObject(value['file']) ? value['file'] : undefined;
   if (file === undefined) return say('That is not a build file.', 'Send { file: { board, label, end, builds: [ … ] } }.');
-  if (!filled(file['board'])) return say('The build file names no board.', 'Give the board part number, as the netlist spells it (PCA-00107).');
+  if (!filled(file['board'])) return say('The build file names no board.', 'Give the board part number, as the netlist spells it (PCA-00001).');
   if (file['revision'] !== undefined && !filled(file['revision'])) return say('The revision is blank.', 'Leave it out, or name it (Rev5).');
   if (!filled(file['label'])) return say('The build file has no label.', 'Name the board the way the build sheet does.');
   if (file['end'] !== 'source' && file['end'] !== 'destination' && file['end'] !== 'inline') {
@@ -103,10 +103,10 @@ export function readBuildsBody(value: unknown): { ok: true; file: BoardBuilds } 
   if (!Array.isArray(file['builds']) || file['builds'].length === 0) return say('The file has no builds.', 'A board has at least one build.');
   for (const [n, build] of file['builds'].entries()) {
     if (!isObject(build) || !filled(build['key']) || !NAME.test(build['key'])) {
-      return say(`Build ${n + 1} has no usable key.`, 'A key is lowercase words joined by hyphens (csync-ttl).');
+      return say(`Build ${n + 1} has no usable key.`, 'A key is lowercase words joined by hyphens (term-on).');
     }
     if (typeof build['build'] !== 'string') return say(`Build '${build['key']}' does not say what it is.`, 'Fill in the build line the definition carries.');
-    if (!filled(build['src'])) return say(`Build '${build['key']}' has no src.`, 'Say where the population comes from — the owner, a placement file, ground-truth.');
+    if (!filled(build['src'])) return say(`Build '${build['key']}' has no src.`, 'Say where the population comes from — the board designer, a placement file, a datasheet.');
   }
   for (const key of ['settings', 'footprints', 'exclusive', 'hazards'] as const) {
     if (file[key] !== undefined && !Array.isArray(file[key])) return say(`'${key}' is not a list.`, 'Send it as a list, or leave it out.');
@@ -175,7 +175,7 @@ export async function handleBuildsRequest(method: string, parts: string[], body:
     const issues = await check(store, db, '');
     return ok({ files: all.map((f) => ({ ...f, etag: contentETag(f.file), issues: own(issues, f.file) })) });
   }
-  if (!NAME.test(name)) return fail(400, `${JSON.stringify(name)} is not a build file name.`, 'Names are the board part number in lowercase (PCA-00107), with the revision when the file is per revision.');
+  if (!NAME.test(name)) return fail(400, `${JSON.stringify(name)} is not a build file name.`, 'Names are the board part number in lowercase (PCA-00001), with the revision when the file is per revision.');
   if (method === 'GET') {
     const file = await store.read(name);
     if (file === undefined) return fail(404, `There is no build file '${name}'.`, 'Start one from the board page: Builds › New build file.');

@@ -146,7 +146,6 @@ export {
 } from './signal-words.ts';
 export type { TerminalTags } from './signals.ts';
 export {
-  FLEET_SIGNAL_WORDS,
   WIRE_PART_KINDS,
   compileWire,
   conductorArea,

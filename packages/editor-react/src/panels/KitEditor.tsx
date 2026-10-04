@@ -105,7 +105,7 @@ export function KitEditor(props: KitEditorProps): JSX.Element {
               <th scope="col">Part</th>
               <th scope="col" title="How many of this part the kit ships">Qty</th>
               <th scope="col" title="A line that applies to one stock family only — the coax or the bonded multi-core shell">Stock</th>
-              <th scope="col" title="The catalog's inference, for the owner to confirm">Inferred</th>
+              <th scope="col" title="The catalog's inference, for a person to confirm">Inferred</th>
               <th scope="col">Note</th>
               <th scope="col">
                 <span className="cs-visually-hidden">Reorder</span>

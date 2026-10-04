@@ -77,7 +77,7 @@ describe('compileWire', () => {
     const sheath = resolveElementPath(compiled.wire.structure, 'core-red.sheath');
     expect(sheath).toMatchObject({ odMm: 2.4, color: 'red', label: 'Coax sheath (red)' });
     const center = resolveElementPath(compiled.wire.structure, 'core-red.center');
-    expect(center).toMatchObject({ formation: 'TC 11x0.10 mm', areaMm2: 0.086, odMm: 0.38, label: 'Video R centre conductor' });
+    expect(center).toMatchObject({ formation: 'TC 11x0.10 mm', areaMm2: 0.086, odMm: 0.38, label: 'red centre conductor' });
     expect(compiled.wire.odMm).toBe(9);
   });
 

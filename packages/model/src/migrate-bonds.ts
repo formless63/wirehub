@@ -288,7 +288,7 @@ export function migrateShieldBonds(input: CableDesign, db: Db): BondMigrationRes
           const bridges: Joint[] = ranked.slice(1).map((group) => ({
             a: { ...landing },
             b: { ...(group[0] as Hit).landing },
-            note: 'ground pins bridged in the head; the shield mass lands once (owner, 2026-09-24)',
+            note: 'ground pins bridged in the head; the shield mass lands once',
           }));
           place(hits, [landingJoint(main, pigtail, landing, undefined), ...bridges]);
           report.entries.push({

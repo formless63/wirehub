@@ -81,7 +81,7 @@ export interface StudioAuthOverrides {
 function forbidden(email: string): APIError {
   return new APIError('FORBIDDEN', {
     code: EMAIL_NOT_ALLOWED,
-    message: `${email} is not allowed to use the studio. Ask the owner to add it to AUTH_ALLOWED_EMAILS.`,
+    message: `${email} is not allowed to use this hub. Ask an administrator to add it to AUTH_ALLOWED_EMAILS.`,
   });
 }
 

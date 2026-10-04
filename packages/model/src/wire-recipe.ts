@@ -310,23 +310,12 @@ export interface WireLibrary {
  * ------------------------------------------------------------------ */
 
 /**
- * The fleet colour → signal words (ground-truth §2, SPEC.md "Signal/colour map
- * (GOLD)"). The controlled vocabulary's `colour-codes` list (data-model v2
- * §2.1, P1) supersedes this table once it lands; the words are the same.
+ * The words a core's signal is shown as: what the recipe says it carries, else
+ * its colour. Which lane a colour stands for is the stock's colour code (vocab
+ * `colour-codes`), never a table in code.
  */
-export const FLEET_SIGNAL_WORDS: Readonly<Record<string, string>> = {
-  red: 'Video R',
-  green: 'Video G',
-  blue: 'Video B',
-  yellow: 'Video Sync',
-  white: 'Audio L',
-  black: 'Audio R',
-  brown: '+5 V DC',
-  purple: 'spare (NC on current drawings)',
-};
-
 export function signalWordsOf(core: RecipeCore): string {
-  return core.signal ?? FLEET_SIGNAL_WORDS[core.colour] ?? core.colour;
+  return core.signal ?? core.colour;
 }
 
 /* ------------------------------------------------------------------ *

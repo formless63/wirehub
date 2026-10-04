@@ -5,7 +5,7 @@
  * A board in this model is a **black box with declared continuity**: the studio
  * does not read schematics, it records what the board joins to what. So the
  * screen is three lists — the pads a conductor lands on, the connectors that
- * come pre-soldered (whose pins become terminals like `scart.15`), and the
+ * come pre-soldered (whose pins become terminals like `j1.15`), and the
  * internal links between them, each with the plain-words note of what sits in
  * the path ("C1 220 µF").
  *
@@ -63,7 +63,7 @@ export interface CopperPathGroup {
 
 /**
  * `internalLinks` grouped by the pad each one starts from (50a.38: the flat
- * from/to table read as "SCART shows 14 pins all being joined"). A link
+ * from/to table read as "the connector shows 14 pins all being joined"). A link
  * between two pads, or two connector pins, groups under its `from`. The data
  * is not touched — this is only how it is read.
  */
@@ -219,7 +219,7 @@ export function PcbaEditor(props: PcbaEditorProps): JSX.Element {
             value={draft.build}
             onChange={(value) => set('build', value)}
             options={values.pcbaBuilds}
-            placeholder="CPL Basic"
+            placeholder="Standard"
           />
           <Field
             label="KiCad project"
@@ -345,7 +345,7 @@ export function PcbaEditor(props: PcbaEditorProps): JSX.Element {
 
       <FormSection
         title="Connectors soldered to the board"
-        say="A board sold with its connector already on it exposes that connector’s pins as terminals. The prefix is what they are called here: `scart` makes pin 15 into `scart.15`."
+        say="A board sold with its connector already on it exposes that connector’s pins as terminals. The prefix is what they are called here: `j1` makes pin 15 into `j1.15`."
         right={<span className="cs-count">{draft.integrated.length}</span>}
       >
         <table className="cs-rows">
@@ -385,7 +385,7 @@ export function PcbaEditor(props: PcbaEditorProps): JSX.Element {
                   <input
                     value={row.terminalPrefix}
                     aria-label={`soldered connector ${index + 1} prefix`}
-                    placeholder="scart"
+                    placeholder="j1"
                     onChange={(event) =>
                       integrated({
                         type: 'update',

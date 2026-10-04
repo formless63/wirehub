@@ -386,7 +386,7 @@ export function Pick(props: PickProps): JSX.Element {
                   </select>
                 </label>
               ) : null}
-              <label title="Where this entry comes from — the spec sheet, board silkscreen or ground-truth section. Required.">
+              <label title="Where this entry comes from — the spec sheet, board silkscreen or standard. Required.">
                 <span>Source</span>
                 <input
                   className="cs-input"

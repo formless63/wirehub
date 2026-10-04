@@ -177,14 +177,14 @@ function entryOfBody(listId: string, body: unknown): { entry: VocabEntry } | { r
     };
   }
   if (!filled(body['label'])) {
-    return { refusal: fail(400, 'This entry has no label.', 'The label is the words a picker shows — "CSync", "Video R pad".') };
+    return { refusal: fail(400, 'This entry has no label.', 'The label is the words a picker shows — "TXD", "Audio L pad".') };
   }
   if (!filled(body['src'])) {
     return {
       refusal: fail(
         400,
         'This entry does not say where it comes from.',
-        'Every entry cites a source — the spec sheet, the board silkscreen or the ground-truth section it was read from.',
+        'Every entry cites a source — the spec sheet, the board silkscreen or the standard it was read from.',
       ),
     };
   }

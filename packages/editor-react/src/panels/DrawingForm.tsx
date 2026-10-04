@@ -285,7 +285,7 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
             label={`BOM wording for ${id}`}
             value={meta.materials?.[id] ?? ''}
             placeholder={hint}
-            say="What purchasing orders — e.g. the assembled board PCA-00103-00. Blank prints the catalog part number."
+            say="What purchasing orders — e.g. the assembled board PCA-00001. Blank prints the catalog part number."
             onChange={(v) => onMaterial(id, v)}
           />
         ))}

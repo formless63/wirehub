@@ -191,10 +191,10 @@ function componentZoneFromLocation(
   if (location === undefined) return undefined;
   const normalized = location.toLowerCase();
   if (normalized.includes('inline')) return 'inline';
-  if (normalized.includes('source') || normalized.includes('hood') || normalized.includes('console')) {
+  if (normalized.includes('source') || normalized.includes('hood')) {
     return 'source';
   }
-  if (normalized.includes('scart') || normalized.includes('dest') || normalized.includes('head')) {
+  if (normalized.includes('dest') || normalized.includes('head')) {
     return 'dest';
   }
   return undefined;

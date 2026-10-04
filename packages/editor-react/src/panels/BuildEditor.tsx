@@ -391,7 +391,7 @@ export function BuildEditor(props: BuildEditorProps): JSX.Element {
             )}
           </Section>
 
-          <Section title="Settings" say="The board's jumpers and switches by the function the owner calls them; set per build">
+          <Section title="Settings" say="The board's jumpers and switches by the function the board's documentation calls them; set per build">
             {(file.settings ?? []).length === 0 ? <p className="cs-empty">No jumpers on this board.</p> : null}
             <table className="cs-bj-table">
               <tbody>
@@ -727,7 +727,7 @@ function BoardSection(props: { file: BoardBuilds; onChange: (next: BoardBuilds) 
       >
         {settings.map((s, n) => (
           <div key={n} className="cs-bj-row">
-            <Text label="Function" value={s.function} onChange={(v) => setSetting(n, { ...s, function: v })} placeholder="TTL" say="The name on the silkscreen / the owner's legend" />
+            <Text label="Function" value={s.function} onChange={(v) => setSetting(n, { ...s, function: v })} placeholder="TERM" say="The name on the silkscreen / the owner's legend" />
             <label className="cs-bj-text">
               <span>Ref</span>
               <Pick ariaLabel={`jumper ${n + 1} ref`} options={refOptions} value={s.ref} mono allowCustom onChange={(v) => setSetting(n, { ...s, ref: v })} />

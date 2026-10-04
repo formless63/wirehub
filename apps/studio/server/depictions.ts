@@ -147,7 +147,7 @@ function fail(
  * ------------------------------------------------------------------ */
 
 const ID_RULE =
-  'Ids are lowercase words joined by hyphens, like `PCA-00110-rev4` — no spaces, capitals, dots or slashes.';
+  'Ids are lowercase words joined by hyphens, like `PCA-00001-rev2` — no spaces, capitals, dots or slashes.';
 
 /**
  * The id rule, matching the design store's. A definition id becomes a

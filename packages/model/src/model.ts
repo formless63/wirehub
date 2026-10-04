@@ -209,8 +209,8 @@ export interface WireDefinition {
    */
   bonded?: WireBondedSet[];
   /**
-   * The colour code its conductors follow (vocab `colour-codes`: `ra-fleet`
-   * red→video-r … brown→power), which is where each core's lane comes from.
+   * The colour code its conductors follow (vocab `colour-codes`: `rca-audio`
+   * white→audio-l, red→audio-r), which is where each core's lane comes from.
    */
   colourCode?: string;
   src: string;

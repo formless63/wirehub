@@ -47,10 +47,12 @@ describe('the committed lists', () => {
     }
   });
 
-  it('carry the starter signals across the domains the examples use', () => {
-    for (const id of ['video-r', 'hsync', 'audio-l', 'audio-hot', 'rs232-txd', 'rs485-a', 'eth-da-p', 'usb-dp', 'pwr-5v', 'gnd', 'gnd-chassis', 'nc']) {
+  it('carry the starter signals across the domains the examples use, and no video', () => {
+    for (const id of ['audio-l', 'audio-hot', 'rs232-txd', 'rs485-a', 'eth-da-p', 'usb-dp', 'pwr-5v', 'gnd', 'gnd-chassis', 'nc']) {
       expect(ids('signals'), id).toContain(id);
     }
+    // video belongs to the av-video module's pack
+    for (const id of ['video-r', 'hsync', 'csync', 'cvbs']) expect(ids('signals'), id).not.toContain(id);
     expect(ids('lanes')).toEqual(expect.arrayContaining(['audio-l', 'audio-r', 'power', 'ground', 'spare']));
   });
 

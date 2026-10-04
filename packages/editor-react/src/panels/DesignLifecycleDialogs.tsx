@@ -148,7 +148,7 @@ function NameDialog(props: DialogProps): JSX.Element {
           <input
             value={src}
             onChange={(event) => setSrc(event.target.value)}
-            placeholder="ground-truth.md §4, measured on the bench 2026-08-18, …"
+            placeholder="datasheet §4, measured on the bench, …"
           />
           <small>
             The document, board or measurement behind this cable. Say so here if any of it is

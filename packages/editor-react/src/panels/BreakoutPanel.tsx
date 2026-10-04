@@ -178,7 +178,7 @@ export function BreakoutPanel({ state, id }: { state: EditorState; id: string })
         // soldering the drain never lands the foil: it is trimmed back
         const foil = wire !== undefined && isTrimmedFoil(wire, path) && fate === 'terminated';
         next = foil
-          ? setBreakoutFate(next, db, id, row.segment, path, 'nc', { reason: 'foil trimmed back, never landed (owner 2026-09-25)' })
+          ? setBreakoutFate(next, db, id, row.segment, path, 'nc', { reason: 'foil trimmed back, never landed' })
           : setBreakoutFate(next, db, id, row.segment, path, fate, options);
       }
       return next;

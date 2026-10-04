@@ -157,7 +157,7 @@ export type DefinitionResult =
   | { ok: true; change: DefinitionChange; status: string }
   | { ok: false; problem: LifecycleProblem };
 
-const ID_RULE = 'Ids are lowercase words joined by hyphens, like `scart-male` or `cap-220uf-tant`.';
+const ID_RULE = 'Ids are lowercase words joined by hyphens, like `de9-male` or `cap-220uf-tant`.';
 
 function refuse(message: string, hint?: string): DefinitionResult {
   return { ok: false, problem: { message, ...(hint === undefined ? {} : { hint }), details: [] } };

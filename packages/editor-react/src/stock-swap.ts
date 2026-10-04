@@ -196,7 +196,7 @@ export function withTrunkStock(design: CableDesign, db: Db, wireId: string): Sto
   const added = [...b.conductor.keys()].filter((c) => !a.conductor.has(c));
   notes.push(
     `Trunk stock: ${to.label} (was ${from.label}). Wiring carried across by conductor colour${
-      b.drain === undefined ? '; this stock has no drain wire — the core shields and the overall foil are the ground (owner, 2026-09-22)' : ''
+      b.drain === undefined ? '; this stock has no drain wire — the core shields and the overall foil are the ground' : ''
     }${added.length > 0 ? `; ${added.join(', ')} ${added.length === 1 ? 'is a spare core' : 'are spare cores'}, unconnected at both ends` : ''}.`,
   );
   next.notes = notes;

@@ -26,7 +26,7 @@ function esc(value: string): string {
 export function signInErrorMessage(code: string, model: Pick<SignInPageModel, 'oidc'>): string {
   switch (code.toUpperCase()) {
     case 'EMAIL_NOT_ALLOWED':
-      return 'That account is not allowed to use the studio. Ask the owner to add your email to the allow-list.';
+      return 'That account is not allowed to use this hub. Ask an administrator to add your email to the allow-list.';
     case 'EMAIL_NOT_FOUND':
       return model.oidc === undefined
         ? 'The sign-in provider did not send an email address.'
