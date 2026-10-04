@@ -33,6 +33,8 @@ import { localStudioUser } from './me.ts';
 import { memoryLockStore } from './locks/lock-store.ts';
 import { fileCatalogVersion } from './storage/catalog-version.ts';
 import { registry } from './modules.ts';
+import { fileDepictionStore } from './depictions.ts';
+import { fileDocStore } from './storage/doc-store.ts';
 import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
 import { exportTree } from './pg/export.ts';
 import { backendFromEnv, type Backend } from './pg/config.ts';
@@ -61,6 +63,9 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     tags: fileTagStore(),
     wireLibrary: fileWireLibraryStore(),
     builds: fileBuildsStore(),
+    // artwork and catalog documents, staged like the rest (B7)
+    depictions: fileDepictionStore(),
+    docs: fileDocStore(),
     versions: fileVersionStore(),
     loadDb,
     // the unit of work reuses the loaded db until one of its files changes (50a.49)

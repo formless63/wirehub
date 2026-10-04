@@ -94,6 +94,12 @@ export interface DepictionDeps {
    * detail carries no `usedBy`, and the Artwork tab counts every terminal.
    */
   loadDesigns?: () => Awaitable<CableDesign[]>;
+  /**
+   * Run a write in one unit of work (B7): artwork, manifest and board map
+   * are staged and commit as one change set. Absent: writes go straight to
+   * the store (the Vite dev server, tests).
+   */
+  transact?: (run: (deps: DepictionDeps) => Promise<DepictionApiResponse>) => Promise<DepictionApiResponse>;
 }
 
 /**
@@ -1228,10 +1234,11 @@ export function isDepictionPath(path: string): boolean {
  * The artwork API surface. Query strings are ignored — no endpoint takes one.
  */
 export async function handleDepictionRequest(request: DepictionApiRequest, deps: DepictionDeps): Promise<DepictionApiResponse> {
-  // artwork writes go straight to the depiction store (not staged — see
-  // specs/storage-seam.md, "Not yet in the change set"), one writer at a time
-  // like every other mutating request
-  return isWriteMethod(request.method) ? withWriteLock(() => routeDepictionRequest(request, deps)) : routeDepictionRequest(request, deps);
+  // a write runs in a unit of work when the host gave one (the change set;
+  // B7), else straight against the store — one writer at a time either way
+  if (!isWriteMethod(request.method)) return routeDepictionRequest(request, deps);
+  const transact = deps.transact;
+  return withWriteLock(() => (transact !== undefined ? transact((staged) => routeDepictionRequest(request, staged)) : routeDepictionRequest(request, deps)));
 }
 
 async function routeDepictionRequest(

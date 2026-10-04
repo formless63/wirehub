@@ -23,6 +23,9 @@ import { loadDb, loadDesigns } from '@wirehub/catalog';
 import type { Db } from '@wirehub/model';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { transactingDepictionDeps, type WorkbenchDeps } from '../server/api.ts';
+import { commitChangeSet } from '../server/storage/unit-of-work.ts';
+
 import {
   DEPICTION_ROUTES,
   depictionPaths,
@@ -677,5 +680,44 @@ describe('pins the designs actually use', () => {
     deps = { ...deps, loadDesigns: () => designs };
     const detail = body(await call('GET', `/api/depictions/${BOARD}`));
     expect(detail.usedBy).toEqual(usedTerminals(designs, BOARD, detail.definition.terminals));
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Artwork in the change set (Postgres plan task B7, file backend first)
+ * ------------------------------------------------------------------ */
+
+describe('artwork writes commit as one change set', () => {
+  const workbench = (): WorkbenchDeps => ({
+    designs: { list: () => [], has: () => false, read: () => undefined, write: () => ({ changed: true }), remove: () => {} },
+    loadDb: () => db,
+  });
+
+  it('stages the asset and the manifest, then commits both through the store', async () => {
+    const seen: string[] = [];
+    const base = deps;
+    deps = transactingDepictionDeps(base, { ...workbench(), commit: async (set) => {
+      seen.push(...set.changes.map((c) => `${c.kind} ${c.key} ${c.op}`));
+      return commitChangeSet({ ...workbench(), depictions: store }, set);
+    } });
+    const response = await upload(BOARD, 'board-top', 'board.svg', DIRTY_SVG);
+    expect(response.status).toBe(201);
+    expect(seen).toEqual([`depiction-asset ${BOARD}/board-top.svg put`, `depiction-meta ${BOARD} put`]);
+    expect(store.metas.has(BOARD)).toBe(true);
+    expect(store.assets.has(`${BOARD}/board-top.svg`)).toBe(true);
+  });
+
+  it('a manifest changed after the request read it refuses the whole set', async () => {
+    await upload(BOARD, 'board-top', 'board.svg', DIRTY_SVG);
+    const before = store.metas.get(BOARD);
+    const base = deps;
+    deps = transactingDepictionDeps(base, { ...workbench(), commit: async (set) => {
+      // another writer lands between the read and the commit
+      store.metas.set(BOARD, formatMetaJson({ ...JSON.parse(before as string), src: 'changed elsewhere' }));
+      return commitChangeSet({ ...workbench(), depictions: store }, set);
+    } });
+    const response = await upload(BOARD, 'illustration', 'b.svg', DIRTY_SVG);
+    expect(response.status).toBe(409);
+    expect(store.assets.has(`${BOARD}/illustration.svg`)).toBe(false);
   });
 });

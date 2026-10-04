@@ -38,11 +38,15 @@ import type { TagStore, VocabStore } from '../vocab-store.ts';
 import type { TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import type { WireLibraryStore } from '../wire-library.ts';
 import { sortLinks, type ModelLink, type ModelLinkStore } from '../models/links.ts';
+import type { DepictionStore } from '../depictions.ts';
+import { isDocPath, type DocStore } from './doc-store.ts';
 import { StaleRecordError, type ChangeSet, type CommitResult, type DerivedKind, type RecordChange, type RecordKind } from './change-set.ts';
 
 const ref = (kind: RecordKind, key: string): string => `${kind}\u0000${key}`;
 const clone = <T>(value: T): T => structuredClone(value);
 const versionOf = (value: unknown): string | null => (value === undefined ? null : contentETag(value));
+/** the version of a binary record: its sha256 (an ETag of the bytes as JSON would be large and slow) */
+const bytesVersion = (bytes: Uint8Array): string => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
 /* ------------------------------------------------------------------ *
  * Catalog snapshot, cached by catalog version
@@ -90,6 +94,8 @@ export class UnitOfWork {
     if (base.builds !== undefined) staged.builds = this.builds(base.builds);
     if (base.versions !== undefined) staged.versions = this.versions(base.versions);
     if (base.modelLinks !== undefined) staged.modelLinks = this.modelLinks(base.modelLinks);
+    if (base.docs !== undefined) staged.docs = this.docs(base.docs);
+    if (base.depictions !== undefined) staged.depictions = this.depictions(base.depictions, staged.docs);
     this.deps = staged;
   }
 
@@ -292,6 +298,77 @@ export class UnitOfWork {
         return true;
       },
     };
+  }
+
+  private docs(base: DocStore): DocStore {
+    const read = async (path: string): Promise<unknown> => {
+      const s = this.staged<unknown>('doc', path);
+      if (s.found) return s.value;
+      const value = await base.read(path);
+      this.observe('doc', path, value);
+      return value;
+    };
+    return {
+      read,
+      write: async (path, value) => {
+        if (!isDocPath(path)) throw new Error(`'${path}' is not a catalog document path`);
+        await read(path);
+        this.stage({ kind: 'doc', key: path, op: 'put', value: clone(value) });
+      },
+      remove: async (path) => {
+        await read(path);
+        this.stage({ kind: 'doc', key: path, op: 'delete' });
+      },
+    };
+  }
+
+  private depictions(base: DepictionStore, docs: DocStore | undefined): DepictionStore {
+    const readMeta = async (defId: string): Promise<Record<string, unknown> | undefined> => {
+      const s = this.staged<Record<string, unknown>>('depiction-meta', defId);
+      if (s.found) return s.value;
+      const value = await base.readMeta(defId);
+      this.observe('depiction-meta', defId, value);
+      return value === undefined ? undefined : clone(value);
+    };
+    const stagedAsset = (defId: string, file: string): RecordChange | undefined => this.latest('depiction-asset', `${defId}/${file}`);
+    const store: DepictionStore = {
+      listDefIds: async () => {
+        const ids = new Set(await base.listDefIds());
+        for (const [defId, c] of this.stagedKeys('depiction-meta')) if (c.op === 'put') ids.add(defId);
+        return [...ids].sort();
+      },
+      readMeta,
+      writeMeta: async (defId, meta) => {
+        await readMeta(defId);
+        this.stage({ kind: 'depiction-meta', key: defId, op: 'put', value: clone(meta) });
+      },
+      readAsset: async (defId, file) => {
+        const c = stagedAsset(defId, file);
+        if (c !== undefined) return c.op === 'put' && c.bytes !== undefined ? new Uint8Array(c.bytes) : undefined;
+        const bytes = await base.readAsset(defId, file);
+        this.observe('depiction-asset', `${defId}/${file}`, bytes === undefined ? undefined : bytesVersion(bytes));
+        return bytes;
+      },
+      writeAsset: async (defId, file, content) => {
+        if (stagedAsset(defId, file) === undefined) await store.readAsset(defId, file);
+        const bytes = typeof content === 'string' ? new TextEncoder().encode(content) : new Uint8Array(content);
+        this.stage({ kind: 'depiction-asset', key: `${defId}/${file}`, op: 'put', bytes });
+      },
+      // a directory on disk does not hold staged files yet: no directory to check them in
+      dirFor: (defId) => ([...this.stagedKeys('depiction-asset').keys()].some((k) => k.startsWith(`${defId}/`)) ? undefined : base.dirFor(defId)),
+    };
+    // the reviewed board maps are catalog documents (data/kicad-maps/<def>.json)
+    if (docs !== undefined) {
+      store.readBoardMap = async (defId) => {
+        const value = await docs.read(`data/kicad-maps/${defId}.json`);
+        return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+      };
+      store.writeBoardMap = (defId, map) => docs.write(`data/kicad-maps/${defId}.json`, map);
+    } else {
+      if (base.readBoardMap !== undefined) store.readBoardMap = (defId) => (base.readBoardMap as NonNullable<DepictionStore['readBoardMap']>)(defId);
+      if (base.writeBoardMap !== undefined) store.writeBoardMap = (defId, map) => (base.writeBoardMap as NonNullable<DepictionStore['writeBoardMap']>)(defId, map);
+    }
+    return store;
   }
 
   private vocab(base: VocabStore): VocabStore {
@@ -537,6 +614,15 @@ async function currentVersion(base: WorkbenchDeps, change: RecordChange): Promis
       return base.versions === undefined ? 'unknown' : versionOf(await base.versions.readDraft(head, tail));
     case 'model-link':
       return base.modelLinks === undefined ? 'unknown' : versionOf(await base.modelLinks.get(key));
+    case 'depiction-meta':
+      return base.depictions === undefined ? 'unknown' : versionOf(await base.depictions.readMeta(key));
+    case 'depiction-asset': {
+      if (base.depictions === undefined) return 'unknown';
+      const bytes = await base.depictions.readAsset(head, key.slice(slash + 1));
+      return bytes === undefined ? null : versionOf(bytesVersion(bytes));
+    }
+    case 'doc':
+      return base.docs === undefined ? 'unknown' : versionOf(await base.docs.read(key));
     default:
       return 'unknown';
   }
@@ -617,6 +703,16 @@ async function apply(base: WorkbenchDeps, change: RecordChange): Promise<void> {
     case 'model-link':
       if (op === 'put') await need(base.modelLinks).put(change.value as ModelLink);
       else await need(base.modelLinks).remove(key);
+      return;
+    case 'depiction-meta':
+      await need(base.depictions).writeMeta(key, change.value as Record<string, unknown>);
+      return;
+    case 'depiction-asset':
+      await need(base.depictions).writeAsset(head, tail, change.bytes as Uint8Array);
+      return;
+    case 'doc':
+      if (op === 'put') await need(base.docs).write(key, change.value);
+      else await need(base.docs).remove(key);
       return;
   }
 }

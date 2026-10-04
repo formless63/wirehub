@@ -53,6 +53,8 @@ import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
 import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
+import type { DepictionDeps, DepictionStore } from './depictions.ts';
+import type { DocStore } from './storage/doc-store.ts';
 
 /* ------------------------------------------------------------------ *
  * Transport-shaped, transport-free
@@ -174,6 +176,14 @@ export interface WorkbenchDeps {
   wireLibrary?: WireLibraryStore;
   /** the board build files (`data/builds/*.json`, pci.10); optional like the rest */
   builds?: BuildsStore;
+  /**
+   * The artwork store (`depictions.ts`). Given here, artwork writes are
+   * staged and commit with the rest of a change set (B7); the artwork routes
+   * themselves still answer through `DepictionDeps`.
+   */
+  depictions?: DepictionStore;
+  /** catalog documents by path (`storage/doc-store.ts`): the `doc` change-set kind */
+  docs?: DocStore;
   /** today, YYYY-MM-DD, for a record's date (injected by tests) */
   today?: () => string;
   /**
@@ -886,6 +896,29 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
     return commitUnit(uow, request, await routeWorkbenchRequest(request, uow.deps));
   };
   return isWriteMethod(request.method) ? withWriteLock(run) : run();
+}
+
+/**
+ * Artwork writes in a unit of work over `workbench` (B7): the depiction
+ * store is staged with everything else, and the change set commits through
+ * the backend (`commitUnit`). The host calls this with its workbench deps.
+ */
+export function transactingDepictionDeps(deps: DepictionDeps, workbench: WorkbenchDeps, user?: StudioUser): DepictionDeps {
+  return {
+    ...deps,
+    transact: async (run) => {
+      // the artwork deps' store is the authority; board maps go through the
+      // workbench's doc store only when both describe the same catalog tree
+      const probe = (store: DepictionStore | undefined): string | undefined => store?.dirFor('probe');
+      const sameTree = workbench.depictions === deps.store || (probe(deps.store) !== undefined && probe(deps.store) === probe(workbench.depictions));
+      const { docs, ...rest } = workbench;
+      const uow = new UnitOfWork({ ...rest, depictions: deps.store, ...(sameTree && docs !== undefined ? { docs } : {}) });
+      const staged = uow.deps.depictions as DepictionStore;
+      const response = await run({ ...deps, store: staged, loadDb: uow.deps.loadDb });
+      const committed = await commitUnit(uow, { method: 'POST', path: '/api/depictions', ...(user === undefined ? {} : { user }) }, 'body' in response ? { status: response.status, body: response.body } : { status: response.status, body: null });
+      return committed.status === response.status ? response : { status: committed.status, body: committed.body };
+    },
+  };
 }
 
 /**

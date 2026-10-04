@@ -14,7 +14,7 @@
 import { Hono, type Context } from 'hono';
 import { compress } from 'hono/compress';
 
-import { handleWorkbenchRequest, type WorkbenchDeps } from './api.ts';
+import { handleWorkbenchRequest, transactingDepictionDeps, type WorkbenchDeps } from './api.ts';
 import { signedInUser } from './auth/gate.ts';
 import { saveCommitFor, type StudioBackup } from './backup/backup.ts';
 import type { StudioUser } from './me.ts';
@@ -134,7 +134,7 @@ async function handleDepiction(
           ...(contentType === undefined ? {} : { contentType }),
           ...(raw === undefined ? {} : { raw }),
         },
-        deps,
+        workbench === undefined ? deps : transactingDepictionDeps(deps, workbench, signedInUser(request)),
       ),
     );
     if ('bytes' in response) {
