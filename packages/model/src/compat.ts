@@ -8,12 +8,12 @@
  * - every terminal falls into one **class** (`TerminalClass`): a connector
  *   pin, a board's cable-side pad (`R`, `GND`, `LA` …), a board's
  *   connector-side pad (`j.3`, `j1.5`, `jp.GND`, or an integrated connector's
- *   `scart.15`), a wire conductor, a drain, a shield/foil, or a component lead;
+ *   `j1.15`), a wire conductor, a drain, a shield/foil, or a component lead;
  * - its **signal** (`SignalHint`) comes from its vocab tags (`signalOf`: pin
- *   signal, pad role, the lane a stock's colour code gives a core — data model
- *   v2 task 3), and only for an untagged terminal is it read off its label —
- *   `Video R`, `CSync`, `Audio L`, `+5 V`, `GND` — falling back to a
- *   conductor's colour;
+ *   signal, pad role, the lane a stock's colour code gives a core), and only
+ *   for an untagged terminal is it read off its label against the catalog's
+ *   vocabulary (`Audio L`, `TXD`, `+5 V`, `GND` — whatever words the
+ *   `signals` list carries);
  * - `jointCompatibility` says whether two terminals may share a joint.
  *
  * The rules are deliberately few, and each one is a fact about copper, not a
@@ -24,7 +24,7 @@
  *    on a signal pin/pad, a signal conductor or a component lead;
  * 2. two pins on *different* connectors never meet directly unless they mate
  *    (same family, opposite genders, same pin) or are both ground (a bonding
- *    tie) — an RCA plug's tip does not solder to a SCART pin;
+ *    tie) — an RCA plug's tip does not solder to an XLR pin;
  * 3. pads on *different* boards likewise never meet directly unless both are
  *    ground — boards are linked by wire, not by touching;
  * 4. a wire stock's terminals are never joined to each other — that is a loop
@@ -61,6 +61,7 @@ import {
 } from './model.ts';
 import { isElectricalElement, resolveElementPath } from './paths.ts';
 import { kindOfSignal, laneOfPadRole, signalOf, type TerminalTags } from './signals.ts';
+import { isGroundSignal, readSignalWords, signalOfLane } from './signal-words.ts';
 import { findInstance, terminalKey } from './validate.ts';
 import { signalIds } from './vocab.ts';
 
@@ -75,28 +76,18 @@ export type TerminalClass =
   | 'component-lead';
 
 /**
- * The signal a terminal carries, as far as its label says. `sync` covers every
- * signal the sync core carries in practice (CSync, H/V sync, luma, CVBS);
- * `switching` is the +V-fed control lines (SCART blanking, JP21 Ys, function
- * switching) that a cable feeds from its +5 V core.
+ * The signal a terminal carries, for compatibility and ranking: `ground` for
+ * any return or screen, `power` for any supply rail, otherwise the vocab
+ * signal id (`audio-l`, `rs232-txd`, whatever a module's pack defines). Read
+ * from the terminal's tags, else from its words against the vocabulary
+ * (`signal-words.ts`); `undefined` when neither says anything.
  */
-export type SignalHint =
-  | 'red'
-  | 'green'
-  | 'blue'
-  | 'sync'
-  | 'chroma'
-  | 'audio-l'
-  | 'audio-r'
-  | 'audio-mono'
-  | 'power'
-  | 'switching'
-  | 'ground';
+export type SignalHint = string;
 
 /** One terminal, described for compatibility. */
 export interface TerminalProfile {
   class: TerminalClass;
-  /** undefined = the label says nothing recognisable (`Signal`, `Mode select`, `spare`) */
+  /** undefined = nothing recognisable (`Signal`, `Mode select`, `spare`) */
   signal?: SignalHint;
   /** at ground: a ground-labelled pin/pad, or any shield/drain */
   ground: boolean;
@@ -104,90 +95,35 @@ export interface TerminalProfile {
   connector?: { family: string; gender?: ConnectorGender; pin: string };
 }
 
-const CONDUCTOR_COLOUR_SIGNAL: Readonly<Record<string, SignalHint>> = {
-  red: 'red',
-  green: 'green',
-  blue: 'blue',
-  yellow: 'sync',
-  white: 'audio-l',
-  black: 'audio-r',
-  brown: 'power',
-};
+/** A vocab signal id as a hint: grounds and rails fold into their kind. */
+function hintOfSignal(db: Db, id: string): SignalHint | undefined {
+  if (isGroundSignal(db.vocab, id)) return 'ground';
+  const kind = kindOfSignal(db, id);
+  if (kind === 'power') return 'power';
+  if (kind === 'none' || id === 'nc') return undefined;
+  return kind === undefined ? undefined : id;
+}
 
-/**
- * The signal a label names, or `undefined`. Order matters: `Red GND` is ground
- * before it is red, `Audio R` is audio before it is red, and an explicit
- * "not connected" beats anything else in the text.
- */
-export function signalFromLabel(label: string | undefined): SignalHint | undefined {
-  if (label === undefined) return undefined;
-  const text = label.trim();
-  if (text === '') return undefined;
-  if (/\bgnd\b|ground|\bshield\b|\bshell\b|chassis/i.test(text)) return 'ground';
-  if (/not connected|unused|unknown|internal net|\bspare\b/i.test(text)) return undefined;
-  if (/chroma/i.test(text)) return 'chroma';
-  if (/sync|luma|cvbs|composite/i.test(text)) return 'sync';
-  if (/audio|\bLA\b|\bRA\b/i.test(text)) {
-    if (/mono|L\s*\+\s*R/i.test(text)) return 'audio-mono';
-    if (/\bL\b|left|\bLA\b/i.test(text)) return 'audio-l';
-    if (/\bR\b|right|\bRA\b/i.test(text)) return 'audio-r';
-    return 'audio-mono';
-  }
-  if (/\bred\b|video r\b/i.test(text)) return 'red';
-  if (/\bgreen\b|video g\b/i.test(text)) return 'green';
-  if (/\bblue\b|video b\b/i.test(text)) return 'blue';
-  if (/blanking|rgb select|\bYs\b|function switch|status/i.test(text)) return 'switching';
-  if (/[+-]?\d+(\.\d+)?\s*V\b|\bV\+|power/i.test(text)) return 'power';
+/** A lane as a hint: the signal it carries, or the lane's own sense for `power` / `ground`. */
+function hintOfLane(db: Db, lane: string): SignalHint | undefined {
+  const signal = signalOfLane(db.vocab, lane);
+  if (signal !== undefined) return hintOfSignal(db, signal);
+  if (lane === 'ground' || lane === 'power') return lane;
   return undefined;
 }
 
-/* ------------------------------------------------------------------ *
- * Tags → hints
- * ------------------------------------------------------------------ */
-
-const SIGNAL_HINTS: Readonly<Record<string, SignalHint>> = {
-  'video-r': 'red',
-  'video-g': 'green',
-  'video-b': 'blue',
-  csync: 'sync',
-  cvbs: 'sync',
-  luma: 'sync',
-  hsync: 'sync',
-  vsync: 'sync',
-  sog: 'sync',
-  chroma: 'chroma',
-  'audio-l': 'audio-l',
-  'audio-l-in': 'audio-l',
-  'audio-r': 'audio-r',
-  'audio-r-in': 'audio-r',
-  'audio-mono': 'audio-mono',
-  blanking: 'switching',
-  'function-switch': 'switching',
-};
-
-const LANE_HINTS: Readonly<Record<string, SignalHint>> = {
-  'video-r': 'red',
-  'video-g': 'green',
-  'video-b': 'blue',
-  sync: 'sync',
-  'audio-l': 'audio-l',
-  'audio-r': 'audio-r',
-  power: 'power',
-};
-
-const ROLE_HINTS: Readonly<Record<string, SignalHint>> = {
-  gnd: 'ground',
-  'gnd-audio': 'ground',
-  'audio-l-in': 'audio-l',
-  'audio-r-in': 'audio-r',
-};
-
-function hintOfSignal(db: Db, id: string): SignalHint | undefined {
-  const hint = SIGNAL_HINTS[id];
-  if (hint !== undefined) return hint;
-  const kind = kindOfSignal(db, id);
-  if (kind === 'ground' || id === 'gnd' || id.startsWith('gnd-')) return 'ground';
-  if (kind === 'power' || id.startsWith('pwr-')) return 'power';
+/**
+ * The hint a label gives, read against the catalog's vocabulary, or
+ * `undefined`. Without a vocabulary only the base's own words count: ground
+ * and its synonyms, and a voltage as power.
+ */
+export function signalFromLabel(label: string | undefined, db?: Db): SignalHint | undefined {
+  if (label === undefined || label.trim() === '') return undefined;
+  const id = readSignalWords(db?.vocab, label);
+  if (id !== undefined && db !== undefined) return hintOfSignal(db, id);
+  const text = label.toLowerCase();
+  if (/\bgnd\b|ground|\bshield\b|\bshell\b|chassis/.test(text)) return 'ground';
+  if (/[+-]?\d+(\.\d+)?\s*v\b|\bv\+|power/.test(text)) return 'power';
   return undefined;
 }
 
@@ -195,7 +131,7 @@ function hintOfSignal(db: Db, id: string): SignalHint | undefined {
  * The compat hint a terminal's tags give: a screen is ground; otherwise the
  * signal (the first of a `oneOf` — the pin's own label), then the pad role,
  * then the lane. `undefined` when the tags name nothing compat has a word for
- * (`nc`, `mode-select`, a spare core).
+ * (`nc`, a spare core).
  */
 export function hintOfTags(db: Db, tags: TerminalTags): SignalHint | undefined {
   if (tags.screen === true) return 'ground';
@@ -205,13 +141,11 @@ export function hintOfTags(db: Db, tags: TerminalTags): SignalHint | undefined {
     if (hint !== undefined) return hint;
   }
   if (tags.role !== undefined) {
-    const own = ROLE_HINTS[tags.role];
-    if (own !== undefined) return own;
     const lane = laneOfPadRole(db, tags.role);
-    if (lane !== undefined) return LANE_HINTS[lane];
-    return undefined;
+    if (lane !== undefined) return hintOfLane(db, lane);
+    return /^gnd\b|ground|shield/.test(tags.role) ? 'ground' : undefined;
   }
-  if (tags.lane !== undefined) return LANE_HINTS[tags.lane];
+  if (tags.lane !== undefined) return hintOfLane(db, tags.lane);
   return undefined;
 }
 
@@ -219,7 +153,7 @@ function pinProfile(db: Db, connector: ConnectorDefinition, pinId: string, cls: 
   const pin = connector.pins.find((p) => p.id === pinId);
   if (pin === undefined) return undefined;
   const tags = signalOf(db, 'connector', connector.id, pin.id);
-  const signal = tags === undefined ? signalFromLabel(pin.label) : hintOfTags(db, tags);
+  const signal = tags === undefined ? signalFromLabel(pin.label, db) : hintOfTags(db, tags);
   return {
     class: cls,
     ...(signal === undefined ? {} : { signal }),
@@ -262,11 +196,7 @@ export function profileTerminal(
       if (element.kind === 'shield') return { class: 'shield', signal: 'ground', ground: true };
       if (element.bare === true) return { class: 'drain', signal: 'ground', ground: true };
       const tags = signalOf(db, 'segment', def, terminal);
-      const signal =
-        tags !== undefined
-          ? hintOfTags(db, tags)
-          : (signalFromLabel(element.label) ??
-            (element.color === undefined ? undefined : CONDUCTOR_COLOUR_SIGNAL[element.color]));
+      const signal = tags !== undefined ? hintOfTags(db, tags) : signalFromLabel(element.label, db);
       return { class: 'conductor', ...(signal === undefined ? {} : { signal }), ground: signal === 'ground' };
     }
     case 'component': {
@@ -280,7 +210,7 @@ export function profileTerminal(
       const own = pcba.terminals.find((t) => t.id === terminal);
       if (own !== undefined) {
         const tags = signalOf(db, 'pcba', def, terminal);
-        const signal = tags !== undefined ? hintOfTags(db, tags) : (signalFromLabel(own.label) ?? signalFromLabel(own.id));
+        const signal = tags !== undefined ? hintOfTags(db, tags) : (signalFromLabel(own.label, db) ?? signalFromLabel(own.id, db));
         return {
           // a dotted pad id (`j.3`, `j1.5`, `jp.GND`) is a pad of a connector
           // footprint on the board — the console/display side; a bare id
@@ -382,8 +312,7 @@ export function jointCompatibility(x: InstanceTerminal, y: InstanceTerminal): Jo
     return { ok: true };
   }
   // two boards' connector-side pads soldered straight together are a stacked
-  // board: the DIN-8 perfboard's slot pads T-join the console board's pin
-  // landings (PCA-00109 Rev2 README "T-joint pad method"; owner 2026-09-29)
+  // board: a carrier board's slot pads T-join the other board's pin landings
   const tJoint = p.class === 'board-connector-pad' && q.class === 'board-connector-pad';
   if (isBoard(p.class) && isBoard(q.class) && !sameInstance && !(p.ground && q.ground) && !tJoint) {
     return { ok: false, code: 'board-to-board', reason: 'pads of two different boards are linked by a wire, not directly' };

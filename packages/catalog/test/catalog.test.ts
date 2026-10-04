@@ -36,7 +36,6 @@ describe('the starter catalog', () => {
       'rs485-de9-terminal-board',
       'trs-to-2rca-y',
       'usb-a-led-lead',
-      'vga-monitor-cable',
       'xlr-mic-cable',
     ]);
     const db = loadDb();

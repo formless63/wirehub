@@ -31,8 +31,8 @@ describe('wire spec sheet', () => {
   });
 
   it('is deterministic and self-contained', () => {
-    const html = sheet('vga-3coax-4core');
-    expect(sheet('vga-3coax-4core')).toBe(html);
+    const html = sheet('shielded-2pair-24awg');
+    expect(sheet('shielded-2pair-24awg')).toBe(html);
     expect(html).not.toMatch(/<link\b|<script\b|\bsrc="http|url\(http/);
   });
 
@@ -51,7 +51,7 @@ describe('wire spec sheet', () => {
   });
 
   it('draws the cutaway to a stated scale', () => {
-    expect(wireSpecScale(wire('vga-3coax-4core').odMm)).toBe(8);
-    expect(groundingNotes(wire('vga-3coax-4core')).length).toBeGreaterThan(0);
+    expect(wireSpecScale(wire('shielded-2pair-24awg').odMm)).toBe(15);
+    expect(groundingNotes(wire('shielded-2pair-24awg')).length).toBeGreaterThan(0);
   });
 });

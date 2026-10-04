@@ -1,0 +1,270 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "src": "av-video pack: analog and digital video signals, public standards cited per entry",
+  "entries": [
+    {
+      "id": "video-r",
+      "label": "Video R",
+      "kind": "video",
+      "aliases": [
+        "Red",
+        "Video red"
+      ],
+      "src": "VESA DDC / analog RGB video (public)"
+    },
+    {
+      "id": "video-g",
+      "label": "Video G",
+      "kind": "video",
+      "aliases": [
+        "Green",
+        "Video green"
+      ],
+      "src": "VESA DDC / analog RGB video (public)"
+    },
+    {
+      "id": "video-b",
+      "label": "Video B",
+      "kind": "video",
+      "aliases": [
+        "Blue",
+        "Video blue"
+      ],
+      "src": "VESA DDC / analog RGB video (public)"
+    },
+    {
+      "id": "hsync",
+      "label": "H sync",
+      "kind": "video",
+      "aliases": [
+        "HSync",
+        "Horizontal sync",
+        "H-sync"
+      ],
+      "near": [
+        "csync"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "vsync",
+      "label": "V sync",
+      "kind": "video",
+      "aliases": [
+        "VSync",
+        "Vertical sync",
+        "V-sync"
+      ],
+      "near": [
+        "csync"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "csync",
+      "label": "Composite sync",
+      "kind": "video",
+      "short": "CSync",
+      "aliases": [
+        "CSync",
+        "C-sync",
+        "Sync"
+      ],
+      "near": [
+        "cvbs",
+        "luma"
+      ],
+      "src": "analog video practice (public)"
+    },
+    {
+      "id": "cvbs",
+      "label": "Composite video",
+      "kind": "video",
+      "short": "CVBS",
+      "aliases": [
+        "CVBS",
+        "Composite"
+      ],
+      "near": [
+        "csync",
+        "luma"
+      ],
+      "src": "ITU-R BT.1700 composite video (public)"
+    },
+    {
+      "id": "luma",
+      "label": "Luma (Y)",
+      "kind": "video",
+      "aliases": [
+        "Luma",
+        "S-Video Y",
+        "Y/C luma"
+      ],
+      "near": [
+        "cvbs",
+        "csync"
+      ],
+      "src": "IEC 60933-5 S-Video (Y/C) (public)"
+    },
+    {
+      "id": "chroma",
+      "label": "Chroma (C)",
+      "kind": "video",
+      "aliases": [
+        "Chroma",
+        "S-Video C",
+        "Y/C chroma"
+      ],
+      "near": [],
+      "src": "IEC 60933-5 S-Video (Y/C) (public)"
+    },
+    {
+      "id": "ypbpr-y",
+      "label": "Component Y",
+      "kind": "video",
+      "aliases": [
+        "Y (component)"
+      ],
+      "src": "EIA-770 component video (public)"
+    },
+    {
+      "id": "ypbpr-pb",
+      "label": "Component Pb",
+      "kind": "video",
+      "aliases": [
+        "Pb"
+      ],
+      "src": "EIA-770 component video (public)"
+    },
+    {
+      "id": "ypbpr-pr",
+      "label": "Component Pr",
+      "kind": "video",
+      "aliases": [
+        "Pr"
+      ],
+      "src": "EIA-770 component video (public)"
+    },
+    {
+      "id": "data-ddc-sda",
+      "label": "DDC data (SDA)",
+      "kind": "data",
+      "aliases": [
+        "SDA",
+        "DDC SDA"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "data-ddc-scl",
+      "label": "DDC clock (SCL)",
+      "kind": "data",
+      "aliases": [
+        "SCL",
+        "DDC SCL"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "blanking",
+      "label": "Blanking / RGB select",
+      "kind": "control",
+      "aliases": [
+        "Blanking",
+        "RGB select",
+        "Fast blanking"
+      ],
+      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+    },
+    {
+      "id": "function-switch",
+      "label": "Function switching",
+      "kind": "control",
+      "aliases": [
+        "Status",
+        "Slow switching"
+      ],
+      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+    },
+    {
+      "id": "scart-data",
+      "label": "SCART data (AV.link)",
+      "kind": "data",
+      "aliases": [
+        "AV.link",
+        "AV link"
+      ],
+      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+    },
+    {
+      "id": "gnd-video-r",
+      "label": "Red return",
+      "kind": "ground",
+      "returnFor": [
+        "video-r"
+      ],
+      "aliases": [
+        "Red GND",
+        "Video R GND"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "gnd-video-g",
+      "label": "Green return",
+      "kind": "ground",
+      "returnFor": [
+        "video-g"
+      ],
+      "aliases": [
+        "Green GND",
+        "Video G GND"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "gnd-video-b",
+      "label": "Blue return",
+      "kind": "ground",
+      "returnFor": [
+        "video-b"
+      ],
+      "aliases": [
+        "Blue GND",
+        "Video B GND"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "gnd-sync",
+      "label": "Sync return",
+      "kind": "ground",
+      "returnFor": [
+        "hsync",
+        "vsync",
+        "csync",
+        "cvbs",
+        "luma"
+      ],
+      "aliases": [
+        "Sync GND",
+        "CVBS GND",
+        "Composite GND"
+      ],
+      "src": "VESA DDC (public)"
+    },
+    {
+      "id": "gnd-blanking",
+      "label": "Blanking return",
+      "kind": "ground",
+      "returnFor": [
+        "blanking"
+      ],
+      "aliases": [
+        "Blanking GND"
+      ],
+      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+    }
+  ]
+}

@@ -18,7 +18,7 @@
  */
 
 import type { SignalKind } from '@wirehub/model';
-import { SIGNAL_KINDS } from '@wirehub/model';
+import { signalKinds } from '@wirehub/model';
 import { IconCheck, IconChevronDown, IconPlus, IconX } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
 import { useId, useMemo, useRef, useState, type JSX, type KeyboardEvent } from 'react';
@@ -145,7 +145,7 @@ export function Pick(props: PickProps): JSX.Element {
 
   const startAdd = (): void => {
     const label = query.trim();
-    setAdding({ label, id: vocabIdOf(label), idTouched: false, src: '', kind: guessSignalKind(label) });
+    setAdding({ label, id: vocabIdOf(label), idTouched: false, src: '', kind: guessSignalKind(label, scope.vocab) });
   };
 
   const choose = (index: number): void => {
@@ -378,7 +378,7 @@ export function Pick(props: PickProps): JSX.Element {
                     value={adding.kind}
                     onChange={(event) => setAdding({ ...adding, kind: event.target.value as SignalKind })}
                   >
-                    {SIGNAL_KINDS.map((kind) => (
+                    {signalKinds(scope.vocab).map((kind) => (
                       <option key={kind} value={kind}>
                         {kind}
                       </option>

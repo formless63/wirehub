@@ -279,11 +279,6 @@ describe('instances', () => {
   });
 
   describe('delete-instances (docked boards)', () => {
-    /** a board design: j1 (DB-23) is docked on board u1. */
-    function dockedState(): EditorState {
-      return stateFor('vga-monitor-cable');
-    }
-
     it('a batch with no docked pair just deletes every id, still one commit', () => {
       const before = stateFor('rs485-de9-terminal-board');
       // w1 and u2 are unrelated — neither mounts on the other

@@ -496,10 +496,10 @@ describe('bodies and pinouts', () => {
     src: 'test',
   };
   const iface = {
-    id: 'test-rgb',
-    label: 'Test RGB',
+    id: 'test-serial',
+    label: 'Test serial',
     bodies: ['minidin8-male'],
-    pins: { '1': { signal: 'video-r' }, '2': { signal: 'video-g' }, '3': { signal: 'video-b' }, '4': { signal: 'gnd' }, shell: { signal: 'gnd-chassis' } },
+    pins: { '1': { signal: 'rs232-txd' }, '2': { signal: 'rs232-rxd' }, '3': { signal: 'pwr-5v' }, '4': { signal: 'gnd' }, shell: { signal: 'gnd-chassis' } },
     src: 'test',
   };
 
@@ -507,7 +507,7 @@ describe('bodies and pinouts', () => {
     expect((await call('POST', '/api/definitions/bodies', body)).status).toBe(201);
     expect((await call('POST', '/api/definitions/interfaces', iface)).status).toBe(201);
     const pins = ['1', '2', '3', '4', 'shell'].map((id) => ({ id, label: id, signal: (iface.pins as Record<string, { signal: string }>)[id]!.signal }));
-    const connector = { id: 'test-md8', label: 'Test MD8', family: 'Mini-DIN', gender: 'male', body: 'minidin8-male', interface: 'test-rgb', pins, src: 'test' };
+    const connector = { id: 'test-md8', label: 'Test MD8', family: 'Mini-DIN', gender: 'male', body: 'minidin8-male', interface: 'test-serial', pins, src: 'test' };
     const response = await call('POST', '/api/definitions/connectors', connector);
     expect(response.status, JSON.stringify(response.body)).toBe(201);
   });

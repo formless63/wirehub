@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "id": "av-video",
+  "name": "AV / video",
+  "version": "0.1.0",
+  "publisher": {
+    "id": "wirehub",
+    "name": "WireHub bundled modules"
+  },
+  "license": "CC0-1.0",
+  "catalogSchema": 4,
+  "requires": {
+    "wirehub": ">=0.1 <1"
+  },
+  "counts": {},
+  "description": "Analog and digital video: RGB, sync, composite, S-Video and component signals with their returns; the VGA (DE-15) and SCART connectors; a VGA monitor cable on a three-coax multicore."
+}

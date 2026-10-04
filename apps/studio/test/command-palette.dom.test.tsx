@@ -49,7 +49,7 @@ function loadDbFromDisk(): Db {
 }
 const loadDesign = (id: string): CableDesign => read<CableDesign>('designs', `${id}.json`);
 
-/** A = Sony the source device → SCART…; B = the source device → SCART… — distinct ids/labels, nothing in common to search on */
+/** two designs with distinct ids and labels, nothing in common to search on */
 const A = 'rs485-de9-terminal-board';
 const B = 'xlr-mic-cable';
 const IDS = [A, B];

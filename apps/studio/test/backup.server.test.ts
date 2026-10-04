@@ -175,11 +175,11 @@ describe('commit message and author', () => {
     expect(
       commitMessage({
         method: 'PUT',
-        path: '/api/designs/vga-monitor-cable',
-        changes: ['~ moved w1:core-purple.center@b from j1:15 to j1:4 (note was: "old\nnote")', '− joint j1:6 — j1:10'],
+        path: '/api/designs/db9-null-modem',
+        changes: ['~ moved w1:pair-1.a@b from j2:2 to j2:3 (note was: "old\nnote")', '− joint j1:7 — j1:8'],
       }),
     ).toBe(
-      'studio: update design vga-monitor-cable\n\n~ moved w1:core-purple.center@b from j1:15 to j1:4 (note was: "old note")\n− joint j1:6 — j1:10\n\nStudio-Request: PUT /api/designs/vga-monitor-cable',
+      'studio: update design db9-null-modem\n\n~ moved w1:pair-1.a@b from j2:2 to j2:3 (note was: "old note")\n− joint j1:7 — j1:8\n\nStudio-Request: PUT /api/designs/db9-null-modem',
     );
     const many = Array.from({ length: 45 }, (_, i) => `+ joint j1:${i} — w1:x@b`);
     const text = commitMessage({ method: 'PUT', path: '/api/designs/a', changes: many });

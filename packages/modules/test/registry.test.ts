@@ -66,3 +66,23 @@ describe('module registry', () => {
     expect(() => createRegistry([example, twin])).toThrow(ModuleManifestError);
   });
 });
+
+describe('domain modules', () => {
+  const video = defineModule({
+    id: 'video',
+    label: 'Video',
+    version: '0.1.0',
+    setup: { kind: 'domain', description: 'Video signals and connectors.', suggested: true },
+    catalogPacks: [{ id: 'video', label: 'Video', version: '0.1.0', root: 'file:///packs/video/' }],
+  });
+
+  it('lists the optional domain modules setup offers, and only those', () => {
+    const registry = createRegistry([example, video]);
+    expect(registry.domains().map((m) => m.id)).toEqual(['video']);
+  });
+
+  it('refuses a domain module with nothing to install', () => {
+    const { catalogPacks: _packs, ...empty } = video;
+    expect(manifestProblems([empty])).toEqual(["domain module 'video' ships no catalog pack for setup to install"]);
+  });
+});

@@ -80,3 +80,44 @@ export function diskDepictions(): DepictionSource {
     },
   };
 }
+
+/**
+ * A design over the starter multicore (three coax and four cores under a
+ * foil with a drain): DE-9 plugs at both ends, the coax centres and cores on
+ * their pins, the foil and drain twisted into a pigtail on each shell.
+ * Synthetic — the starter catalog has no cable built on that stock.
+ */
+export function multicoreDesign(): CableDesign {
+  const cores = ['core-red.center', 'core-green.center', 'core-blue.center', 'yellow', 'white', 'brown', 'orange'];
+  const joints: CableDesign['joints'] = [];
+  for (const [end, plug] of [['a', 'j1'], ['b', 'j2']] as const) {
+    cores.forEach((path, index) => joints.push({ a: { instance: 'w1', terminal: path, end }, b: { instance: plug, terminal: String(index + 1) } }));
+    joints.push({ a: { instance: 'w1', terminal: 'pigtail:gnd', end }, b: { instance: plug, terminal: 'shell' } });
+  }
+  return {
+    schemaVersion: 4,
+    id: 'multicore-test-lead',
+    label: 'DE-9 → DE-9, multicore test lead',
+    instances: {
+      connectors: [
+        { id: 'j1', def: 'de9-female-rs232' },
+        { id: 'j2', def: 'de9-female-rs232' },
+      ],
+      segments: [
+        {
+          id: 'w1',
+          def: 'multicore-3coax-4core',
+          lengthMm: 1830,
+          pigtails: [
+            { id: 'gnd', end: 'a', members: ['foil', 'drain'] },
+            { id: 'gnd', end: 'b', members: ['foil', 'drain'] },
+          ],
+        },
+      ],
+      components: [],
+      pcbas: [],
+    },
+    joints,
+    src: 'synthetic example: test fixture',
+  };
+}

@@ -4,26 +4,6 @@
   "src": "the role a conductor plays along the cable, from its colour code",
   "entries": [
     {
-      "id": "video-r",
-      "label": "Video R",
-      "src": "synthetic example: base starter vocabulary"
-    },
-    {
-      "id": "video-g",
-      "label": "Video G",
-      "src": "synthetic example: base starter vocabulary"
-    },
-    {
-      "id": "video-b",
-      "label": "Video B",
-      "src": "synthetic example: base starter vocabulary"
-    },
-    {
-      "id": "sync",
-      "label": "Sync",
-      "src": "synthetic example: base starter vocabulary"
-    },
-    {
       "id": "audio-l",
       "label": "Audio L",
       "src": "synthetic example: base starter vocabulary"

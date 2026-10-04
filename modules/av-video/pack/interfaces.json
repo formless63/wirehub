@@ -1,0 +1,203 @@
+[
+  {
+    "id": "vga",
+    "label": "VGA analog RGB (DE-15)",
+    "short": "VGA",
+    "bodies": [
+      "hd15-male"
+    ],
+    "pins": {
+      "1": {
+        "signal": "video-r",
+        "label": "Red",
+        "dir": "out"
+      },
+      "2": {
+        "signal": "video-g",
+        "label": "Green",
+        "dir": "out"
+      },
+      "3": {
+        "signal": "video-b",
+        "label": "Blue",
+        "dir": "out"
+      },
+      "4": {
+        "signal": "reserved",
+        "label": "Reserved (ID2)"
+      },
+      "5": {
+        "signal": "gnd",
+        "label": "GND"
+      },
+      "6": {
+        "signal": "gnd-video-r",
+        "label": "Red return"
+      },
+      "7": {
+        "signal": "gnd-video-g",
+        "label": "Green return"
+      },
+      "8": {
+        "signal": "gnd-video-b",
+        "label": "Blue return"
+      },
+      "9": {
+        "signal": "pwr-5v",
+        "label": "+5 V (DDC)",
+        "dir": "out"
+      },
+      "10": {
+        "signal": "gnd-sync",
+        "label": "Sync return"
+      },
+      "11": {
+        "signal": "reserved",
+        "label": "Reserved (ID0)"
+      },
+      "12": {
+        "signal": "data-ddc-sda",
+        "label": "DDC SDA",
+        "dir": "bidir"
+      },
+      "13": {
+        "signal": "hsync",
+        "label": "H sync",
+        "dir": "out"
+      },
+      "14": {
+        "signal": "vsync",
+        "label": "V sync",
+        "dir": "out"
+      },
+      "15": {
+        "signal": "data-ddc-scl",
+        "label": "DDC SCL",
+        "dir": "bidir"
+      },
+      "shell": {
+        "signal": "gnd-chassis",
+        "label": "Shell"
+      }
+    },
+    "confidence": "documented",
+    "src": "VESA Enhanced Display Data Channel (E-DDC) / VESA DDC — public VGA pin assignment"
+  },
+  {
+    "id": "euroscart",
+    "label": "SCART (EN 50049), device-side naming",
+    "short": "SCART",
+    "bodies": [
+      "scart-21-male"
+    ],
+    "pins": {
+      "1": {
+        "signal": "audio-r",
+        "label": "Audio out R",
+        "dir": "out"
+      },
+      "2": {
+        "signal": "audio-r",
+        "label": "Audio in R",
+        "dir": "in"
+      },
+      "3": {
+        "signal": "audio-l",
+        "label": "Audio out L",
+        "dir": "out"
+      },
+      "4": {
+        "signal": "gnd-audio",
+        "label": "Audio GND"
+      },
+      "5": {
+        "signal": "gnd-video-b",
+        "label": "Blue GND"
+      },
+      "6": {
+        "signal": "audio-l",
+        "label": "Audio in L",
+        "dir": "in"
+      },
+      "7": {
+        "signal": "video-b",
+        "label": "Blue",
+        "dir": "in"
+      },
+      "8": {
+        "signal": "function-switch",
+        "label": "Function switching (status)",
+        "dir": "in"
+      },
+      "9": {
+        "signal": "gnd-video-g",
+        "label": "Green GND"
+      },
+      "10": {
+        "signal": "scart-data",
+        "label": "Data 2 / AV.link",
+        "dir": "bidir"
+      },
+      "11": {
+        "signal": "video-g",
+        "label": "Green",
+        "dir": "in"
+      },
+      "12": {
+        "signal": "reserved",
+        "label": "Data 1 (reserved)"
+      },
+      "13": {
+        "signal": "gnd-video-r",
+        "label": "Red GND"
+      },
+      "14": {
+        "signal": "gnd",
+        "label": "Data GND"
+      },
+      "15": {
+        "signal": {
+          "oneOf": [
+            "video-r",
+            "chroma"
+          ]
+        },
+        "label": "Red (or chroma)",
+        "dir": "in"
+      },
+      "16": {
+        "signal": "blanking",
+        "label": "Blanking / RGB select",
+        "dir": "in"
+      },
+      "17": {
+        "signal": "gnd-sync",
+        "label": "Composite video GND"
+      },
+      "18": {
+        "signal": "gnd-blanking",
+        "label": "Blanking GND"
+      },
+      "19": {
+        "signal": "cvbs",
+        "label": "Composite video out",
+        "dir": "out"
+      },
+      "20": {
+        "signal": {
+          "oneOf": [
+            "cvbs",
+            "luma"
+          ]
+        },
+        "label": "Composite video in (or luma)",
+        "dir": "in"
+      },
+      "21": {
+        "signal": "gnd-chassis",
+        "label": "Shield / common ground"
+      }
+    },
+    "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+  }
+]

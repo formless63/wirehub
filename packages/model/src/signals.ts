@@ -3,21 +3,21 @@
  * v2 §9 task 3).
  *
  * One reader for every consumer that asks "what is this pin / pad / core
- * for?": compat's joint rules, the new-cable wizard and the bare-SCART
- * breakout. Each reads the tags first and keeps today's label reading only as
- * the fallback for a terminal nobody has tagged yet (a part just drawn in the
- * Library, a fixture db with no tag table).
+ * for?": compat's joint rules and the new-cable wizard. Each reads the tags
+ * first and falls back to reading the terminal's words against the
+ * vocabulary (`signal-words.ts`) only for a terminal nobody has tagged yet (a
+ * part just drawn in the Library, a fixture db with no tag table).
  *
  * Where a tag comes from, first match wins:
  *
  * - a connector pin: `ConnectorPin.signal`, then `Db.tags.connectors`;
  * - a board terminal: `PcbaTerminal.role` / `.signal`, then `Db.tags.pcbas`;
- *   a pin of a connector the board integrates (`scart.15`) is that pin;
+ *   a pin of a connector the board integrates (`j1.5`) is that pin;
  * - a wire conductor: its `lane` override, then `Db.tags.wires[..].lanes`,
  *   then the stock's colour code (`colourCode`, then the tag table) applied
  *   to its colour through the `colour-codes` list;
  * - a shield or a bare drain is a screen; a shield also names the lane of the
- *   core it wraps (the braid of the red coax belongs with video R).
+ *   core it wraps (the braid of a coax belongs with the signal its centre carries).
  *
  * `undefined` means untagged — never "carries nothing" (that is `nc`).
  * Pure: definitions in, tags out.
@@ -131,28 +131,9 @@ export function signalOf(db: Db, kind: InstanceKind, def: string, terminal: stri
   }
 }
 
-/** The lanes of the pad roles the catalog ships with — so a db with no vocab still reads its tags. */
-const SEED_ROLE_LANES: Readonly<Record<string, string>> = {
-  'video-r': 'video-r',
-  'video-g': 'video-g',
-  'video-b': 'video-b',
-  sync: 'sync',
-  'sync-ttl': 'sync',
-  'sync-in': 'sync',
-  'luma-bodge': 'sync',
-  cvbs: 'sync',
-  'audio-l': 'audio-l',
-  'audio-r': 'audio-r',
-  power: 'power',
-  spare: 'spare',
-};
-
 /** The lane a pad role lands (vocab `pad-roles` `lane`), if it names one. */
 export function laneOfPadRole(db: Db, role: string): string | undefined {
-  return (
-    SEED_ROLE_LANES[role] ??
-    vocabEntry<{ id: string; label: string; src: string; lane?: string }>(db.vocab, 'pad-roles', role)?.lane
-  );
+  return vocabEntry<{ id: string; label: string; src: string; lane?: string }>(db.vocab, 'pad-roles', role)?.lane;
 }
 
 /** A signal's `kind` from the list (`ground`, `power`, …), for ids no consumer has its own rule for. */

@@ -21,7 +21,7 @@ import { fileVersionStore, memoryVersionStore, type VersionListing } from '../se
 import { withLoadedVersion } from './loaded-version.ts';
 
 const db = loadDb();
-const ID = 'vga-monitor-cable';
+const ID = 'db9-null-modem';
 
 function memoryDesigns(seed: CableDesign[]): DesignStore {
   const files = new Map(seed.map((d) => [d.id, formatDesignJson(d)]));
@@ -43,7 +43,7 @@ let clock = 0;
 beforeEach(async () => {
   clock = 0;
   const drawings = memoryDrawingStore();
-  drawings.writeMeta(ID, { revision: '1', title: 'HD15 to SCART' });
+  drawings.writeMeta(ID, { revision: '1', title: 'DE-9 null modem' });
   deps = {
     designs: memoryDesigns([loadDesign(ID)]),
     loadDb: () => db,
@@ -164,10 +164,10 @@ describe('design lifecycle', () => {
   it('a design with saved versions cannot be deleted; rename moves its versions', async () => {
     await call('POST', base, { note: 'first release' });
     expect((await call('DELETE', `/api/designs/${ID}`, { confirm: ID })).status).toBe(409);
-    expect((await call('POST', `/api/designs/${ID}/rename`, { newId: 'hd15-scart-renamed' })).status).toBe(200);
-    const moved = (await call('GET', '/api/designs/hd15-scart-renamed/versions/1')).body as DesignVersionFile;
-    expect(moved.designId).toBe('hd15-scart-renamed');
-    expect(moved.design.id).toBe('hd15-scart-renamed');
+    expect((await call('POST', `/api/designs/${ID}/rename`, { newId: 'db9-null-modem-renamed' })).status).toBe(200);
+    const moved = (await call('GET', '/api/designs/db9-null-modem-renamed/versions/1')).body as DesignVersionFile;
+    expect(moved.designId).toBe('db9-null-modem-renamed');
+    expect(moved.design.id).toBe('db9-null-modem-renamed');
   });
 
   it('refuses paths and numbers that are not ids', async () => {

@@ -206,9 +206,9 @@ function entryOfBody(listId: string, body: unknown): { entry: VocabEntry } | { r
   // the list-specific fields a picker's "Add" can supply
   if (listId === 'signals') {
     const kind = body['kind'];
-    if (typeof kind !== 'string' || !(SIGNAL_KINDS as readonly string[]).includes(kind)) {
+    if (typeof kind !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(kind)) {
       return {
-        refusal: fail(400, 'A signal needs its kind.', `Say what family of signal it is: ${SIGNAL_KINDS.join(', ')}.`),
+        refusal: fail(400, 'A signal needs its kind.', `Say what family of signal it is — one of ${SIGNAL_KINDS.join(', ')}, or another kebab-case kind your catalog uses.`),
       };
     }
     entry['kind'] = kind;
@@ -375,7 +375,7 @@ async function putTags(deps: VocabDeps, tagStore: TagStore, kind: string, id: st
       if (value !== null) for (const s of signalIds(value)) issues.push(...refIssue(db.vocab, 'signals', s, where));
       if (same(value, current[pinId])) continue;
       // a correction that only restates the generator's proposal is no correction
-      const kept = withoutProposal({ signal: value as SignalRef | null, why }, { signal: pinSignal(pin) });
+      const kept = withoutProposal({ signal: value as SignalRef | null, why }, { signal: pinSignal(db.vocab, pin) });
       review.connectors ??= {};
       review.connectors[id] ??= {};
       if (kept === undefined) delete review.connectors[id][pinId];

@@ -35,16 +35,16 @@ describe('schematic layout', () => {
 });
 
 describe('wire stock geometry', () => {
-  it('lays the VGA ring in the catalogued order around its centre core', () => {
-    const cs = crossSectionLayout(wire('vga-3coax-4core'));
+  it('lays the multicore ring in the catalogued order around its centre core', () => {
+    const cs = crossSectionLayout(wire('multicore-3coax-4core'));
     expect(cs).toBeDefined();
     const ring = cs!.cores.filter((core) => core.layIndex >= 0).map((core) => core.elementPath);
-    expect(ring).toEqual(wire('vga-3coax-4core').layOrder!.ring);
+    expect(ring).toEqual(wire('multicore-3coax-4core').layOrder!.ring);
   });
 
   it('reads the ring the other way round at the far end', () => {
-    const a = endFaceLayout(wire('vga-3coax-4core'), 'a');
-    const b = endFaceLayout(wire('vga-3coax-4core'), 'b');
+    const a = endFaceLayout(wire('multicore-3coax-4core'), 'a');
+    const b = endFaceLayout(wire('multicore-3coax-4core'), 'b');
     expect(a?.reading).toBeDefined();
     expect(b?.reading).toBeDefined();
     expect(a?.reading).not.toBe(b?.reading);
@@ -59,7 +59,7 @@ describe('wire stock geometry', () => {
 
 describe('connector art', () => {
   it('draws the D-sub family and the RCA plug', () => {
-    for (const id of ['de9-female-rs232', 'hd15-male-vga', 'rca-male']) {
+    for (const id of ['de9-female-rs232', 'rca-male']) {
       const def = db.connectors.find((c) => c.id === id)!;
       expect(connectorArt({ def, facing: 'right' }), id).toBeDefined();
     }

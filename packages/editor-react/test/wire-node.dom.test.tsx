@@ -15,7 +15,7 @@ import { CableEditor } from '../src/CableEditor.tsx';
 import { BreakoutEdge } from '../src/edges.tsx';
 import { HoverContext, createHoverStore } from '../src/hover.ts';
 import { wireArt } from '../src/wire-art.ts';
-import { designWithFacelessWhip, loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
+import { designWithFacelessWhip, loadDbFromDisk, loadDesignFromDisk, multicoreDesign } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();
 
@@ -28,14 +28,14 @@ function nodeOf(container: HTMLElement, instance: string): HTMLElement {
 }
 
 describe('wire node with end faces', () => {
-  const design = loadDesignFromDisk('vga-monitor-cable');
+  const design = multicoreDesign();
 
   it('puts a handle on every element of each end, where the geometry says', () => {
     const { container } = render(<CableEditor design={design} db={db} />);
     const w1 = nodeOf(container, 'w1');
     const expected = wireArt({
       instanceId: 'w1',
-      wire: db.wires.find((wire) => wire.id === 'vga-3coax-4core')!,
+      wire: db.wires.find((wire) => wire.id === 'multicore-3coax-4core')!,
       lengthMm: 1830,
     })!;
     const handles = [...w1.querySelectorAll<HTMLElement>('.react-flow__handle.cs-wire-handle')];
@@ -72,7 +72,7 @@ describe('wire node with end faces', () => {
 });
 
 describe('breakouts on the wire node', () => {
-  const design = loadDesignFromDisk('vga-monitor-cable');
+  const design = multicoreDesign();
 
   it('turns the faces and reports the angles', () => {
     const { container } = render(<CableEditor design={design} db={db} />);

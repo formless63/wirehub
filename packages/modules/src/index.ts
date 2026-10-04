@@ -36,7 +36,11 @@ export interface CatalogPackContribution {
   label: string;
   /** semver of the pack's data */
   version: string;
-  /** absolute path of the pack's data directory (server only) */
+  /**
+   * the pack's data directory (server only): an absolute path, or a `file:`
+   * URL — `new URL('../pack/', import.meta.url).href` keeps the module
+   * importable in the browser bundle, where `node:url` is not
+   */
   root?: string;
   /** SPDX licence expression of the pack's data as a whole; records may carry their own */
   license?: string;
@@ -132,6 +136,19 @@ export interface AuthProviderContribution {
   config: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * How first-run setup (`/setup`) offers a module. A **domain** module —
+ * the vocabulary and catalog packs of one field (video, automotive,
+ * fieldbus …) — is optional: a person picks it, and its packs are installed
+ * into the catalog then. `suggested` pre-ticks it; nothing is forced.
+ */
+export interface SetupContribution {
+  kind: 'domain';
+  /** one sentence: what enabling it adds */
+  description: string;
+  suggested?: boolean;
+}
+
 /** The commit hook a module may install in the editor (`setCommitHook`). */
 export type CommitHookContribution = (before: CableDesign, proposed: CableDesign, description: string) => CableDesign;
 
@@ -147,6 +164,8 @@ export interface WireHubModule {
   version: string;
   /** SPDX licence expression of the module's code */
   license?: string;
+  /** set for an optional (domain) module that first-run setup offers; absent = always part of the deployment */
+  setup?: SetupContribution;
   catalogPacks?: readonly CatalogPackContribution[];
   importers?: readonly ImporterContribution[];
   exporters?: readonly ExporterContribution[];
@@ -177,6 +196,8 @@ export interface ModuleRegistry {
   partNumberScheme(): PartNumberScheme | undefined;
   commitHook(): CommitHookContribution | undefined;
   catalogPacks(): readonly (CatalogPackContribution & { module: string })[];
+  /** the optional (domain) modules first-run setup offers, in manifest order */
+  domains(): readonly WireHubModule[];
   importers(): readonly (ImporterContribution & { module: string })[];
   /** the importers that take `fileName`, by extension */
   importersFor(fileName: string): readonly (ImporterContribution & { module: string })[];
@@ -214,6 +235,7 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
     if (ids.has(m.id)) problems.push(`module '${m.id}' is listed twice`);
     ids.add(m.id);
     if (!/^\d+\.\d+\.\d+/.test(m.version)) problems.push(`module '${m.id}' version '${m.version}' is not semver`);
+    if (m.setup !== undefined && (m.catalogPacks ?? []).length === 0) problems.push(`domain module '${m.id}' ships no catalog pack for setup to install`);
   }
   const schemes = modules.filter((m) => m.partNumberScheme !== undefined).map((m) => m.id);
   if (schemes.length > 1) problems.push(`more than one module sets a part-number scheme (${schemes.join(', ')})`);
@@ -245,6 +267,7 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     partNumberScheme: () => list.find((m) => m.partNumberScheme !== undefined)?.partNumberScheme,
     commitHook: () => list.find((m) => m.commitHook !== undefined)?.commitHook,
     catalogPacks: () => list.flatMap((m) => tag(m, m.catalogPacks)),
+    domains: () => list.filter((m) => m.setup?.kind === 'domain'),
     importers: () => list.flatMap((m) => tag(m, m.importers)),
     importersFor: (fileName) => {
       const lower = fileName.toLowerCase();

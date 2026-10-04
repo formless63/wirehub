@@ -22,7 +22,7 @@
               "color": "blue",
               "material": "tinned-copper",
               "areaMm2": 0.205,
-              "insulatedOdMm": 1.0
+              "insulatedOdMm": 1
             },
             {
               "kind": "conductor",
@@ -30,7 +30,7 @@
               "color": "white-blue",
               "material": "tinned-copper",
               "areaMm2": 0.205,
-              "insulatedOdMm": 1.0
+              "insulatedOdMm": 1
             }
           ]
         },
@@ -46,7 +46,7 @@
               "color": "orange",
               "material": "tinned-copper",
               "areaMm2": 0.205,
-              "insulatedOdMm": 1.0
+              "insulatedOdMm": 1
             },
             {
               "kind": "conductor",
@@ -54,7 +54,7 @@
               "color": "white-orange",
               "material": "tinned-copper",
               "areaMm2": 0.205,
-              "insulatedOdMm": 1.0
+              "insulatedOdMm": 1
             }
           ]
         },
@@ -70,7 +70,7 @@
               "color": "green",
               "material": "tinned-copper",
               "areaMm2": 0.205,
-              "insulatedOdMm": 1.0
+              "insulatedOdMm": 1
             },
             {
               "kind": "conductor",
@@ -78,7 +78,7 @@
               "color": "white-green",
               "material": "tinned-copper",
               "areaMm2": 0.205,
-              "insulatedOdMm": 1.0
+              "insulatedOdMm": 1
             }
           ]
         },
@@ -94,7 +94,7 @@
               "color": "brown",
               "material": "tinned-copper",
               "areaMm2": 0.205,
-              "insulatedOdMm": 1.0
+              "insulatedOdMm": 1
             },
             {
               "kind": "conductor",
@@ -102,7 +102,7 @@
               "color": "white-brown",
               "material": "tinned-copper",
               "areaMm2": 0.205,
-              "insulatedOdMm": 1.0
+              "insulatedOdMm": 1
             }
           ]
         },
@@ -122,7 +122,7 @@
     "id": "shielded-2pair-24awg",
     "label": "2-pair shielded data cable, 24 AWG, foil + drain",
     "partNumber": "WIR-00002",
-    "odMm": 5.0,
+    "odMm": 5,
     "structure": {
       "kind": "group",
       "id": "shielded-2pair-24awg",
@@ -200,7 +200,7 @@
           "id": "jacket",
           "label": "Jacket",
           "material": "pvc",
-          "odMm": 5.0,
+          "odMm": 5,
           "color": "grey"
         }
       ]
@@ -220,7 +220,7 @@
     "id": "mic-2core-braid",
     "label": "Microphone cable, 2 × 0.22 mm², braid shield",
     "partNumber": "WIR-00003",
-    "odMm": 6.0,
+    "odMm": 6,
     "colourCode": "balanced-mic",
     "layOrder": {
       "arrangement": "pair",
@@ -269,7 +269,7 @@
           "id": "jacket",
           "label": "Jacket",
           "material": "pvc",
-          "odMm": 6.0,
+          "odMm": 6,
           "color": "black"
         }
       ]
@@ -280,7 +280,7 @@
     "id": "audio-stereo-2core",
     "label": "Stereo audio lead, 2 cores, overall spiral shield",
     "partNumber": "WIR-00004",
-    "odMm": 3.0,
+    "odMm": 3,
     "colourCode": "rca-audio",
     "layOrder": {
       "arrangement": "pair",
@@ -329,7 +329,7 @@
           "id": "jacket",
           "label": "Jacket",
           "material": "pvc",
-          "odMm": 3.0,
+          "odMm": 3,
           "color": "black"
         }
       ]
@@ -388,10 +388,10 @@
     "src": "generic two-core 24 AWG DC power cable; synthetic example"
   },
   {
-    "id": "vga-3coax-4core",
-    "label": "VGA cable, 3 × 75 Ω mini-coax + 4 cores, foil + drain",
+    "id": "multicore-3coax-4core",
+    "label": "Multicore, 3 × 75 Ω mini-coax + 4 cores, foil + drain",
     "partNumber": "WIR-00006",
-    "odMm": 8.0,
+    "odMm": 8,
     "layOrder": {
       "arrangement": "6-around-1",
       "direction": "ccw",
@@ -409,14 +409,14 @@
     },
     "structure": {
       "kind": "group",
-      "id": "vga-3coax-4core",
-      "label": "VGA cable",
+      "id": "multicore-3coax-4core",
+      "label": "Multicore",
       "role": "cable",
       "children": [
         {
           "kind": "group",
           "id": "core-red",
-          "label": "Red coax",
+          "label": "Coax 1 (red)",
           "role": "coax",
           "children": [
             {
@@ -445,7 +445,7 @@
               "kind": "insulation",
               "id": "sheath",
               "material": "pvc",
-              "odMm": 2.0,
+              "odMm": 2,
               "color": "red"
             }
           ]
@@ -453,7 +453,7 @@
         {
           "kind": "group",
           "id": "core-green",
-          "label": "Green coax",
+          "label": "Coax 2 (green)",
           "role": "coax",
           "children": [
             {
@@ -482,7 +482,7 @@
               "kind": "insulation",
               "id": "sheath",
               "material": "pvc",
-              "odMm": 2.0,
+              "odMm": 2,
               "color": "green"
             }
           ]
@@ -490,7 +490,7 @@
         {
           "kind": "group",
           "id": "core-blue",
-          "label": "Blue coax",
+          "label": "Coax 3 (blue)",
           "role": "coax",
           "children": [
             {
@@ -519,7 +519,7 @@
               "kind": "insulation",
               "id": "sheath",
               "material": "pvc",
-              "odMm": 2.0,
+              "odMm": 2,
               "color": "blue"
             }
           ]
@@ -527,38 +527,38 @@
         {
           "kind": "conductor",
           "id": "yellow",
-          "label": "H sync",
+          "label": "Core 4 (yellow)",
           "color": "yellow",
           "material": "tinned-copper",
           "areaMm2": 0.08,
-          "insulatedOdMm": 1.0
+          "insulatedOdMm": 1
         },
         {
           "kind": "conductor",
           "id": "white",
-          "label": "V sync",
+          "label": "Core 5 (white)",
           "color": "white",
           "material": "tinned-copper",
           "areaMm2": 0.08,
-          "insulatedOdMm": 1.0
+          "insulatedOdMm": 1
         },
         {
           "kind": "conductor",
           "id": "brown",
-          "label": "DDC SDA",
+          "label": "Core 6 (brown)",
           "color": "brown",
           "material": "tinned-copper",
           "areaMm2": 0.08,
-          "insulatedOdMm": 1.0
+          "insulatedOdMm": 1
         },
         {
           "kind": "conductor",
           "id": "orange",
-          "label": "DDC SCL",
+          "label": "Core 7 (orange)",
           "color": "orange",
           "material": "tinned-copper",
           "areaMm2": 0.08,
-          "insulatedOdMm": 1.0
+          "insulatedOdMm": 1
         },
         {
           "kind": "shield",
@@ -583,7 +583,7 @@
           "id": "jacket",
           "label": "Jacket",
           "material": "pvc",
-          "odMm": 8.0,
+          "odMm": 8,
           "color": "black"
         }
       ]
@@ -597,6 +597,6 @@
         "src": "the drain lies on the foil for the whole length (generic construction)"
       }
     ],
-    "src": "generic VGA monitor cable construction (three 75 Ω mini-coax for RGB, separate sync and DDC cores, overall foil + drain); synthetic example"
+    "src": "synthetic example: a multicore of three 75 Ω mini-coax and four cores under an overall foil with a drain (generic construction)"
   }
 ]

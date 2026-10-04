@@ -1,0 +1,17 @@
+{
+  "id": "levels",
+  "label": "Signal levels",
+  "src": "av-video pack",
+  "entries": [
+    {
+      "id": "rgb-analog",
+      "label": "Analog RGB (0.7 Vp-p, 75 Ω)",
+      "src": "VESA analog video signal standard (public)"
+    },
+    {
+      "id": "cvbs-1vpp",
+      "label": "Composite video (1 Vp-p, 75 Ω)",
+      "src": "ITU-R BT.1700 (public)"
+    }
+  ]
+}

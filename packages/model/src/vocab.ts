@@ -47,16 +47,42 @@ export interface VocabEntry {
 /**
  * What family of signal an entry is. It lets a consumer treat a signal it has
  * no special rule for sensibly — a newly added return is still ground.
+ *
+ * A kebab-case string, not a closed union: a domain module's catalog pack may
+ * bring kinds of its own (`video`, `sync`, `bus` …). Three kinds mean
+ * something to the base itself: `ground` (a return or a bond), `power` (a
+ * supply rail) and `none` (`nc`, reserved). `SIGNAL_KINDS` lists the kinds
+ * the base vocabulary uses; `signalKinds(vocab)` adds every kind a catalog's
+ * own list names.
  */
-export type SignalKind = 'video' | 'sync' | 'audio' | 'power' | 'control' | 'data' | 'ground' | 'none';
+export type SignalKind = string;
 
-export const SIGNAL_KINDS: readonly SignalKind[] = ['video', 'sync', 'audio', 'power', 'control', 'data', 'ground', 'none'];
+export const SIGNAL_KINDS: readonly SignalKind[] = ['data', 'control', 'audio', 'power', 'ground', 'none'];
 
 /** An entry of `signals`. */
 export interface SignalEntry extends VocabEntry {
   kind: SignalKind;
-  /** for a return (`gnd-video-r`): the signals it is the return of */
+  /** for a return (`gnd-audio`): the signals it is the return of */
   returnFor?: string[];
+  /**
+   * Signals that can stand in for this one when an end carries nothing that
+   * matches it exactly — offered to a person as a near miss, never taken
+   * silently. Absent: the other signals of the same kind.
+   */
+  near?: string[];
+  /**
+   * The signal a conductor of this one lands on, on its own, when an end
+   * has no landing for this signal but exactly one for that (both channels of
+   * a stereo pair into a single mono input). A documented convention, so it
+   * is taken without asking, with a note on the design.
+   */
+  standIn?: string;
+}
+
+/** An entry of `lanes`: the role a conductor plays along the cable. */
+export interface LaneEntry extends VocabEntry {
+  /** the signal a conductor in this lane carries, when the lane is one signal */
+  signal?: string;
 }
 
 /** An entry of `pad-roles`: a board's cable pad, and the lane that lands on it. */
@@ -143,6 +169,15 @@ export const VOCAB_LIST_IDS = [
  * ------------------------------------------------------------------ */
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** The base's signal kinds plus every kind the catalog's `signals` list uses, in that order. */
+export function signalKinds(vocab: Vocab | undefined): SignalKind[] {
+  const kinds = [...SIGNAL_KINDS];
+  for (const entry of (vocab?.['signals']?.entries ?? []) as SignalEntry[]) {
+    if (typeof entry.kind === 'string' && !kinds.includes(entry.kind)) kinds.push(entry.kind);
+  }
+  return kinds;
+}
 
 /** How free text is compared with ids, labels and aliases: case and spacing ignored. */
 export function vocabKey(text: string): string {
@@ -296,11 +331,19 @@ function crossRefIssues(vocab: Vocab): Issue[] {
   const has = (list: string, id: string): boolean => vocab[list]?.entries.some((e) => e.id === id) === true;
   const signals = vocab['signals']?.entries as SignalEntry[] | undefined;
   for (const entry of signals ?? []) {
-    if (!SIGNAL_KINDS.includes(entry.kind)) {
+    if (typeof entry.kind !== 'string' || !KEBAB.test(entry.kind)) {
       issues.push(issue('vocab-bad-kind', `signal '${entry.id}' has kind '${String(entry.kind)}'`, `vocab/signals/${entry.id}`));
     }
     for (const id of entry.returnFor ?? []) {
       if (!has('signals', id)) issues.push(issue('vocab-unknown', `signal '${entry.id}' returns unknown signal '${id}'`, `vocab/signals/${entry.id}`));
+    }
+    for (const id of [...(entry.near ?? []), ...(entry.standIn === undefined ? [] : [entry.standIn])]) {
+      if (!has('signals', id)) issues.push(issue('vocab-unknown', `signal '${entry.id}' names unknown signal '${id}'`, `vocab/signals/${entry.id}`));
+    }
+  }
+  for (const entry of (vocab['lanes']?.entries ?? []) as LaneEntry[]) {
+    if (entry.signal !== undefined && vocab['signals'] !== undefined && !has('signals', entry.signal)) {
+      issues.push(issue('vocab-unknown', `lane '${entry.id}' names unknown signal '${entry.signal}'`, `vocab/lanes/${entry.id}`));
     }
   }
   if (vocab['lanes'] !== undefined) {

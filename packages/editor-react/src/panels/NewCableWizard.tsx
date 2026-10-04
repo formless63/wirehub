@@ -33,8 +33,6 @@ import { createWiredDesign, type CatalogChange, type LifecycleProblem } from '..
 import type { DesignSummary, PersistenceAdapter } from '../persistence.ts';
 import { describeIssue } from '../store.ts';
 import {
-  BARE_SCART_DEF,
-  BARE_SCART_NOTE,
   LENGTH_PRESETS,
   STEP_SAY,
   STEP_TITLES,
@@ -176,11 +174,8 @@ function EndStep(props: {
 }): JSX.Element {
   const { db } = props.state;
   const chosen = props.state[props.side];
-  const bareChosen = chosen?.kind === 'connector' && chosen.def === BARE_SCART_DEF;
-  const [choice, setChoice] = useState<'connector' | 'pcba' | 'bare-scart'>(
-    bareChosen && props.side === 'destination' ? 'bare-scart' : (chosen?.kind ?? 'pcba'),
-  );
-  const kind: 'connector' | 'pcba' = choice === 'pcba' ? 'pcba' : 'connector';
+  const [choice, setChoice] = useState<'connector' | 'pcba'>(chosen?.kind ?? 'pcba');
+  const kind: 'connector' | 'pcba' = choice;
 
   const rows: PickerRow[] =
     kind === 'connector'
@@ -205,6 +200,7 @@ function EndStep(props: {
             .map((terminal) => ({
               id: terminal.id,
               label: terminal.label ?? terminal.id,
+              roles: [],
               cableSide: false,
               plugPrefix: (board.integratedConnectors ?? []).some(
                 (entry) => entry.terminalPrefix === terminal.id.slice(0, terminal.id.indexOf('.')),
@@ -222,15 +218,6 @@ function EndStep(props: {
           [
             ['pcba', 'A board', 'The cable is soldered to a board (PCBA) from the library.'],
             ['connector', 'A plug on its own', 'The cable is soldered straight into the plug’s hood.'],
-            ...(props.side === 'destination'
-              ? ([
-                  [
-                    'bare-scart',
-                    'A SCART head with no board',
-                    'A SCART male soldered straight to the cable, wired the way the SCART destination board would be.',
-                  ],
-                ] as const)
-              : []),
           ] as const
         ).map(([value, title, say]) => (
           <label key={value} className="cs-wizard-radio" title={say}>
@@ -241,9 +228,6 @@ function EndStep(props: {
               onChange={() => {
                 setChoice(value);
                 props.dispatch({ type: 'clear-end', end: props.side });
-                if (value === 'bare-scart') {
-                  props.dispatch({ type: 'set-end', end: props.side, kind: 'connector', def: BARE_SCART_DEF });
-                }
               }}
             />
             <span>
@@ -253,21 +237,17 @@ function EndStep(props: {
         ))}
       </fieldset>
 
-      {choice === 'bare-scart' ? (
-        <p className="cs-form-say">{BARE_SCART_NOTE}</p>
-      ) : (
-        <Picker
-          legend={kind === 'connector' ? 'Which plug?' : 'Which board?'}
-          say={
-            kind === 'connector'
-              ? 'The connector that mates with the source device or display.'
-              : 'The board part number, revision and build. The build decides which sync path is fitted.'
-          }
-          rows={rows}
-          {...(chosen?.kind === kind ? { value: chosen.def } : {})}
-          onPick={(def) => props.dispatch({ type: 'set-end', end: props.side, kind, def })}
-        />
-      )}
+      <Picker
+        legend={kind === 'connector' ? 'Which plug?' : 'Which board?'}
+        say={
+          kind === 'connector'
+            ? 'The connector that mates with the device at this end.'
+            : 'The board part number, revision and build. The build decides what is fitted on it.'
+        }
+        rows={rows}
+        {...(chosen?.kind === kind ? { value: chosen.def } : {})}
+        onPick={(def) => props.dispatch({ type: 'set-end', end: props.side, kind, def })}
+      />
 
       {prefixes.length === 0 || chosen === undefined ? null : (
         <div className="cs-form-section">

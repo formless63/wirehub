@@ -13,8 +13,10 @@
  * the one-line codec a draft uses to hold a `SignalRef` as text.
  */
 
+import { readSignalWords, vocabEntry } from '@wirehub/model';
 import type {
   PcbaTerminalTags,
+  SignalEntry,
   SignalKind,
   SignalRef,
   Vocab,
@@ -204,14 +206,19 @@ export function signalRefOf(text: string): SignalRef | undefined {
   return ids.length === 1 ? (ids[0] as string) : { oneOf: ids };
 }
 
-/** A picker's first guess at a new signal's kind, from its label. */
-export function guessSignalKind(label: string): SignalKind {
+/**
+ * A picker's first guess at a new signal's kind, from its label: ground and
+ * supply words by the base's own rules, then the kind of whatever existing
+ * signal the words already name (a pack's `video`, `bus` …), else `data`.
+ */
+export function guessSignalKind(label: string, vocab?: Vocab): SignalKind {
   const text = label.toLowerCase();
   if (/\b(gnd|ground|return|shield|chassis)\b/.test(text)) return 'ground';
-  if (/\bsync\b|csync|hsync|vsync/.test(text)) return 'sync';
-  if (/audio|\bl\b|\br\b/.test(text)) return 'audio';
   if (/\+?\d+\s*v\b|power|vcc|\bv\+/.test(text)) return 'power';
-  if (/data|sda|scl|clock|clk/.test(text)) return 'data';
-  if (/video|rgb|luma|chroma|cvbs|\by\b|pb|pr/.test(text)) return 'video';
-  return 'control';
+  const known = readSignalWords(vocab, label);
+  const kind = known === undefined ? undefined : vocabEntry<SignalEntry>(vocab, 'signals', known)?.kind;
+  if (kind !== undefined && kind !== 'ground' && kind !== 'none') return kind;
+  if (/audio|\bleft\b|\bright\b/.test(text)) return 'audio';
+  if (/enable|select|switch|mode|reset|status/.test(text)) return 'control';
+  return 'data';
 }

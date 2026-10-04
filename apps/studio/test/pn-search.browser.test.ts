@@ -35,7 +35,7 @@ describe('the starter cable list', () => {
 
   it("finds cables by a part's PN", () => {
     expect(find('WIR-00002').sort()).toEqual(['db9-null-modem', 'rs485-de9-terminal-board']);
-    expect(matchedPartNumber(rows.find((r) => r.id === 'vga-monitor-cable')!, 'WIR-00006')).toBe('WIR-00006');
+    expect(matchedPartNumber(rows.find((r) => r.id === 'xlr-mic-cable')!, 'WIR-00003')).toBe('WIR-00003');
   });
 
   it('finds nothing for a number no cable carries', () => {

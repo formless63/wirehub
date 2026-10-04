@@ -28,7 +28,10 @@ import {
   deriveNets,
   findConnector,
   findPcba,
+  isGroundSignal,
+  kindOfSignal,
   noteIndexReferencingTerminal,
+  readSignalWords,
   terminalsOf,
   trace,
   unwiredTerminals,
@@ -55,67 +58,51 @@ import { deriveGroundLandings, type GroundLanding } from './landings.ts';
  * ------------------------------------------------------------------ */
 
 /**
- * What kind of signal a port carries, read off the definition's pin label and
- * the instance's role. Order of classification matters and is not
- * alphabetical: `Blue GND` is a ground, not a video line, and
- * `Blanking / RGB select` is a control line, not a video line.
+ * What kind of signal a port carries: the vocab `kind` of the signal its pin
+ * label names (`readSignalWords` against the catalog's `signals` list —
+ * `ground`, `power`, `audio`, `data`, or whatever kinds a domain module's pack
+ * brings), falling back to the instance's role, else `other`. Grounds are
+ * read first, so `Audio GND` is a ground, not an audio line.
  */
-export type SignalClass =
-  | 'ground'
-  | 'power'
-  | 'sync'
-  | 'control'
-  | 'video'
-  | 'audio'
-  | 'data'
-  | 'other';
+export type SignalClass = string;
 
-const SIGNAL_PATTERNS: readonly (readonly [SignalClass, RegExp])[] = [
-  ['ground', /\bgnd\b|ground|shell|chassis|\breturn\b|sleeve|\bshield\b/i],
-  ['power', /\+\s?\d+(\.\d+)?\s?v\b|\bvcc\b|\bvin\b|\bv\+\b|\b(5|9|12)\s?v\b|\bldo\b/i],
-  ['sync', /\bsync\b|\bcsync\b|\bhsync\b|\bvsync\b/i],
-  ['control', /blanking|aspect|switching|status|select|\bmode\b/i],
-  ['video', /video|\bred\b|\bgreen\b|\bblue\b|luma|chroma|cvbs|\brgb\b|\bs-?video\b|\by\/c\b/i],
-  ['audio', /audio|\bleft\b|\bright\b|\bmono\b|\bline[- ]?out\b|\btip\b|\bring\b/i],
-  ['data', /\bdata\b|av\.?link|\bi2c\b|\bclk\b|clock|xclk/i],
-];
-
-function matchSignal(text: string): SignalClass {
-  for (const [signal, pattern] of SIGNAL_PATTERNS) {
-    if (pattern.test(text)) return signal;
+function kindOfWords(db: Db, text: string | undefined): SignalClass | undefined {
+  if (text === undefined || text.trim() === '') return undefined;
+  const id = readSignalWords(db.vocab, text);
+  if (id !== undefined) {
+    if (isGroundSignal(db.vocab, id)) return 'ground';
+    const kind = kindOfSignal(db, id);
+    if (kind !== undefined && kind !== 'none') return kind;
   }
-  return 'other';
+  // the base's own words, for a catalog with no vocabulary
+  if (/\bgnd\b|ground|shell|chassis|\breturn\b|sleeve|\bshield\b/i.test(text)) return 'ground';
+  if (/\+\s?\d+(\.\d+)?\s?v\b|\bvcc\b|\bvin\b|\bv\+/i.test(text)) return 'power';
+  return undefined;
 }
 
 /**
  * Classify a port from its **pin label** first, and only fall back to the
  * instance's role when the label says nothing useful.
  *
- * This ordering is load-bearing and was learned the hard way: instance prose
- * ("SCART male destination, CPL Basic sync passthrough") mentions signals it
- * does not carry, and letting it into the classifier reclassified every pin
- * on that board as sync — which then reported the Green pin shorted to sync
- * on a perfectly good cable. Labels are per-pin facts; notes are prose about
- * the whole part. Only labels get to name a pin's signal.
+ * This ordering is load-bearing: instance prose ("destination plug, sync
+ * passthrough") mentions signals it does not carry, and letting it into the
+ * classifier would reclassify every pin of that part — and then report a
+ * perfectly good cable's pins as shorted to each other. Labels are per-pin
+ * facts; notes are prose about the whole part. Only labels get to name a
+ * pin's signal.
  */
-function classifySignal(label: string | undefined, role: string | undefined): SignalClass {
-  const fromLabel = label === undefined ? 'other' : matchSignal(label);
-  if (fromLabel !== 'other') return fromLabel;
-  // `Signal` on an RCA tip says nothing; `audio L plug (whip)` says plenty
-  return role === undefined ? 'other' : matchSignal(role);
+function classifySignal(db: Db, label: string | undefined, role: string | undefined): SignalClass {
+  return kindOfWords(db, label) ?? kindOfWords(db, role) ?? 'other';
 }
 
 /**
- * The family a class is held apart *as*.
- *
- * `sync` folds into `video` on purpose. Routing CVBS onto the sync core is
- * standard practice in this catalog — `scart-source-db25-pvm-bonded multi-core` does
- * exactly that, deliberately — so "CVBS must not touch sync" is not a defect
- * rule, it is a design choice. What survives is the rule that actually holds:
- * two *distinct* picture nets must stay distinct.
+ * The family a class is held apart *as*: its kind. Two signals of one kind
+ * on distinct nets must stay distinct; how a catalog groups its signals into
+ * kinds (a video pack folds sync into `video`, because routing composite
+ * onto a sync core is a design choice, not a defect) is the vocabulary's call.
  */
 function isolationFamily(signal: SignalClass): SignalClass {
-  return signal === 'sync' ? 'video' : signal;
+  return signal;
 }
 
 /** Which end of the finished assembly a port sits on. */
@@ -128,7 +115,7 @@ export interface Port {
   label?: string;
   /** the instance's authored role, when it has one */
   role?: string;
-  /** printable identity: `j1.7 CSync` */
+  /** printable identity: `j1.7 TXD` */
   text: string;
   side: Side;
   signal: SignalClass;
@@ -158,7 +145,7 @@ function instanceSides(design: CableDesign): Map<string, Side> {
  *
  * Connector pins always count. A PCBA's *pads* never do — they are under the
  * hood — except for the pins of a connector the board carries integrated
- * (`u2:scart.15` is a SCART pin you can put a probe on). The one further case
+ * (`u2:j1.15` is a connector pin you can put a probe on). The one further case
  * is a board that is the whole product: the JagSat bridge exposes its mating
  * faces as plain terminals with dotted prefixes and has no connector instance
  * jointed to it, so those become the ports rather than the document having no
@@ -185,7 +172,7 @@ export function designPorts(design: CableDesign, db: Db, nets: Net[]): Port[] {
       ...(role === undefined ? {} : { role }),
       text: portText(resolved.instance, resolved.terminal, label),
       side: sides.get(resolved.instance) ?? 'unassigned',
-      signal: classifySignal(label, role),
+      signal: classifySignal(db, label, role),
       ...(netOf.has(resolved.key) ? { net: netOf.get(resolved.key) as string } : {}),
     };
     ports.push(port);
@@ -323,8 +310,8 @@ export interface TestSpec {
   /** isolation checks whose two sides turned out to be one net */
   violations: IsolationCheck[];
   /**
-   * Two channels of one family on one net by design (the source device mono audio
-   * on both SCART inputs, the device LA = RA): continuity rows, each citing the
+   * Two channels of one family on one net by design (a mono source on both
+   * inputs of a stereo plug, L = R): continuity rows, each citing the
    * fact that makes it deliberate. Undeclared commoning is a violation.
    */
   commoned: IsolationCheck[];
@@ -355,43 +342,65 @@ const SIDE_WORD: Readonly<Record<Side, string>> = {
 };
 
 /**
- * Isolation rules, as class-family pairs plus why a bench cares.
+ * Isolation rules, as class-family pairs plus why a bench cares, built from
+ * the kinds the design's ports actually carry (`isolationRules`).
  *
- * Classes here are *families* (`isolationFamily`), so `sync` is part of
- * `video`. Cross-family pairs are absolute: finding one net carrying both is
- * a defect, and the check is emitted as a violation. Same-family pairs are
- * asserted only between nets that are already distinct — because a design
- * that deliberately commons two nets of a family (the source device audio is mono:
- * one net feeds both channels) is not broken, and the honest output is no
- * check rather than a false failure.
+ * Classes here are *families* (`isolationFamily`). Cross-family pairs are
+ * absolute: finding one net carrying both is a defect, and the check is
+ * emitted as a violation. Same-family pairs are asserted only between nets
+ * that are already distinct — because a design that deliberately commons two
+ * nets of a family (a mono source: one net feeds both channels) is not
+ * broken, and the honest output is no check rather than a false failure.
  *
- * `control` and `data` appear in no rule. SCART pin 8 is *supposed* to sit on
- * the +5 V rail, and pin 16 blanking is *supposed* to be fed from it through
- * a resistor; a rule that called those shorts would cry wolf on every cable
- * in the catalog.
+ * `control` and `data` lines appear in no rule: a control line is often
+ * *supposed* to sit on a rail, or to be fed from one through a resistor, and a
+ * rule that called those shorts would cry wolf on every such cable.
  */
-const ISOLATION_RULES: readonly {
+interface IsolationRule {
   a: SignalClass;
   b: SignalClass;
   why: string;
-}[] = [
-  { a: 'video', b: 'ground', why: 'a picture line shorted to ground is a dead channel' },
-  { a: 'audio', b: 'ground', why: 'an audio line shorted to ground is a silent channel' },
-  {
-    a: 'power',
-    b: 'ground',
-    why: 'the rail shorted to ground draws the source device down and can damage it',
+}
+
+/** Kinds no isolation rule is about. */
+const UNRULED = new Set<SignalClass>(['ground', 'power', 'control', 'data', 'none', 'other']);
+
+/** Wording for the base's own line kinds; any other kind gets the generic sentence. */
+const LINE_WORDING: Readonly<Record<string, { toGround: string; fromRail: string; withinFamily: string }>> = {
+  audio: {
+    toGround: 'an audio line shorted to ground is a silent channel',
+    fromRail: 'the rail on an audio line is a loud DC thump and a damaged input',
+    withinFamily: 'left shorted to right is a mono cable sold as stereo',
   },
-  { a: 'power', b: 'video', why: 'the rail on a picture line drives the sink input out of range' },
-  { a: 'power', b: 'audio', why: 'the rail on an audio line is a loud DC thump and a damaged input' },
-  { a: 'audio', b: 'video', why: 'audio bleeding onto a picture line is visible interference' },
-  {
-    a: 'video',
-    b: 'video',
-    why: 'separate picture nets that short together bleed into one another',
-  },
-  { a: 'audio', b: 'audio', why: 'left shorted to right is a mono cable sold as stereo' },
-];
+};
+
+function wordingOf(kind: SignalClass): { toGround: string; fromRail: string; withinFamily: string } {
+  return (
+    LINE_WORDING[kind] ?? {
+      toGround: `a ${kind} line shorted to ground is a dead channel`,
+      fromRail: `the rail on a ${kind} line drives the input out of range`,
+      withinFamily: `separate ${kind} nets that short together bleed into one another`,
+    }
+  );
+}
+
+/** The rules for the line kinds present: each to ground, the rail to ground, the rail to each, across kinds, within each. */
+export function isolationRules(kinds: Iterable<SignalClass>): IsolationRule[] {
+  const lines = [...new Set(kinds)].filter((kind) => !UNRULED.has(kind)).sort(compareStrings);
+  const rules: IsolationRule[] = [];
+  for (const kind of lines) rules.push({ a: kind, b: 'ground', why: wordingOf(kind).toGround });
+  rules.push({ a: 'power', b: 'ground', why: 'the rail shorted to ground draws the source device down and can damage it' });
+  for (const kind of lines) rules.push({ a: 'power', b: kind, why: wordingOf(kind).fromRail });
+  for (let i = 0; i < lines.length; i += 1) {
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const a = lines[i] as string;
+      const b = lines[j] as string;
+      rules.push({ a, b, why: `${a} bleeding onto a ${b} line is interference` });
+    }
+  }
+  for (const kind of lines) rules.push({ a: kind, b: kind, why: wordingOf(kind).withinFamily });
+  return rules;
+}
 
 /** Reserved for options a host may pass; none today. */
 export type TestSpecOptions = Record<string, never>;
@@ -475,8 +484,8 @@ export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOpt
   pathChecks.sort(byKeys<PathCheck>((check) => check.from.key, (check) => check.to.key));
 
   /* --- isolation --------------------------------------------------- */
-  // net pairs a path already joins are *related by design* — the R core and
-  // the SCART Red pin sit either side of C1 — so they are not isolation
+  // net pairs a path already joins are *related by design* — a core and the
+  // pin it feeds sit either side of a series capacitor — so they are not isolation
   // candidates. Suppressing them here rather than in the rule table keeps the
   // rules about signals and this about topology.
   const linked = new Set<string>();
@@ -603,18 +612,18 @@ function makePathCheck(
  *
  * Two collapses, each for a reason:
  *
- * - *Per net pair.* Six SCART ground pins against four picture nets is four
+ * - *Per net pair.* Six ground pins against four signal nets is four
  *   assertions, not twenty-four: the ground pins are already proven to be one
  *   node by the net check, so the cross product only buries the four facts
  *   that matter. Each row names a representative port from each net and how
  *   many further terminals ride with it.
  * - *Per end.* A short is a physical event — solder bridging two pins in one
- *   hood, or a stray braid whisker at the SCART head. Asserting that a pin in
- *   the console plug is isolated from a pin 1830 mm away in the SCART head is
+ *   hood, or a stray braid whisker at the far head. Asserting that a pin in
+ *   the source plug is isolated from a pin 1830 mm away in the far head is
  *   neither a plausible defect nor a check anyone can run with two probes in
  *   one hand. So candidates are grouped by the end they sit on.
  *
- * `linkedNets` holds net pairs a path already joins — R either side of C1 —
+ * `linkedNets` holds net pairs a path already joins — a core either side of a series part —
  * which are related by design and so not isolation candidates at all.
  */
 function deriveIsolation(
@@ -654,7 +663,7 @@ function deriveIsolation(
     const isLinked = (netA: string, netB: string): boolean =>
       linkedNets.has([netA, netB].sort(compareStrings).join('|'));
 
-    for (const rule of ISOLATION_RULES) {
+    for (const rule of isolationRules(byClass.keys())) {
       const left = representatives(rule.a);
       const right = representatives(rule.b);
       const ruleName = `${rule.a} vs ${rule.b}`;
@@ -856,7 +865,7 @@ function deriveCommoning(
           commoned: source,
         });
       } else {
-        const why = ISOLATION_RULES.find((r) => r.a === family && r.b === family)?.why ?? '';
+        const why = isolationRules([family]).find((r) => r.a === family && r.b === family)?.why ?? '';
         shorts.push({
           id,
           kind: 'isolation',

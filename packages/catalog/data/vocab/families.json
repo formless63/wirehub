@@ -13,15 +13,6 @@
       "src": "IEC 60807-3 / DIN 41652"
     },
     {
-      "id": "hd15",
-      "label": "HD15 (DE-15)",
-      "aliases": [
-        "VGA",
-        "DE-15"
-      ],
-      "src": "VESA DDC"
-    },
-    {
       "id": "rj45",
       "label": "RJ45 (8P8C)",
       "aliases": [

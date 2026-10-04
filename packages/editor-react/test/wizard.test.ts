@@ -5,13 +5,9 @@
  *
  * 1. The flow is a state machine that will not let a step be left while the
  *    answers on it would produce something unbuildable.
- * 2. **The joint generator reproduces cables that already exist.** Three
- *    hand-authored production designs — a board-to-board build, a
- *    direct-solder DIN, and a plug soldered onto the
- *    source board's pin pads — are regenerated from nothing but the answers a
- *    person would give the wizard, and compared joint for joint against the
- *    committed files. Anything the wizard cannot work out confidently has to
- *    show up as a question or a sentence, never as a guessed joint.
+ * 2. The generator is deterministic and reports what it cannot decide as a
+ *    question or a sentence, never as a guessed joint. Every signal it knows
+ *    comes from the catalog's vocabulary.
  */
 
 import { noteReferencesTerminal, type CableDesign, type Db, type Joint } from '@wirehub/model';
@@ -26,6 +22,7 @@ import {
   openChoices,
   parseLengthMm,
   planCable,
+  readingsOfLabels,
   roleOfLabels,
   stepBlockers,
   wireLines,
@@ -53,73 +50,35 @@ function jointKey(joint: Joint): string {
   return [side(joint.a), side(joint.b)].sort().join(' — ');
 }
 
-function jointSet(design: CableDesign): Set<string> {
-  return new Set(design.joints.map(jointKey));
-}
-
-/**
- * `design`'s joints with a DIN-8 perfboard carrier (owner 2026-09-29,
- *) collapsed: each plug pin → carrier → board pair read
- * as the plug pin on the board pad directly. The wizard does not place the
- * carrier yet (it has no build data) — follow-up in the pci.34 notes.
- */
-function withoutCarrier(design: CableDesign, carrierDef = 'PCA-00109-rev3'): CableDesign {
-  const carrier = design.instances.pcbas.find((p) => p.def === carrierDef)?.id;
-  if (carrier === undefined) return design;
-  const def = db.pcbas.find((p) => p.id === carrierDef)!;
-  const linked = (x: string, y: string): boolean =>
-    x === y || def.internalLinks.some((l) => l.via === undefined && ((l.from === x && l.to === y) || (l.from === y && l.to === x)));
-  const onCarrier = (j: Joint): [Joint['a'], Joint['a']] | undefined =>
-    j.a.instance === carrier ? [j.a, j.b] : j.b.instance === carrier ? [j.b, j.a] : undefined;
-  const hops = design.joints.map(onCarrier).filter((h): h is [Joint['a'], Joint['a']] => h !== undefined);
-  const joints: Joint[] = design.joints.filter((j) => onCarrier(j) === undefined);
-  for (const [mine, plug] of hops) {
-    if (!/^j\d+$/.test(plug.instance)) continue;
-    for (const [pad, board] of hops) if (board.instance !== plug.instance && linked(mine.terminal, pad.terminal)) joints.push({ a: plug, b: board });
-  }
-  return { ...design, joints, instances: { ...design.instances, pcbas: design.instances.pcbas.filter((p) => p.id !== carrier) } };
-}
-
-/** What one set has that the other does not, both ways. */
-function diff(mine: Set<string>, theirs: Set<string>): { missing: string[]; extra: string[] } {
-  return {
-    missing: [...theirs].filter((entry) => !mine.has(entry)).sort(),
-    extra: [...mine].filter((entry) => !theirs.has(entry)).sort(),
-  };
-}
-
 /* ------------------------------------------------------------------ *
  * Reading the catalog's conventions
  * ------------------------------------------------------------------ */
 
 describe('what the catalog says a terminal is for', () => {
-  it('reads the role out of a label', () => {
-    expect(roleOfLabels(['Video R'])?.role).toBe('video-r');
-    expect(roleOfLabels(['Sync (delivered)'])?.role).toBe('sync');
-    expect(roleOfLabels(['CSYNC (TTL)'])?.role).toBe('sync');
-    expect(roleOfLabels(['Audio L'])?.role).toBe('audio-l');
-    expect(roleOfLabels(['Audio (mono)'])?.role).toBe('audio-mono');
-    expect(roleOfLabels(['+5 V'])?.role).toBe('power-5v');
-    expect(roleOfLabels(['+12 V'])?.role).toBe('power-12v');
-    expect(roleOfLabels(['Not connected'])).toBeUndefined();
-    expect(roleOfLabels(['HSYNC'])).toBeUndefined();
+  it('reads the role out of a label, against the vocabulary', () => {
+    expect(roleOfLabels(db, ['Audio L'])?.role).toBe('audio-l');
+    expect(roleOfLabels(db, ['Audio (mono)'])?.role).toBe('audio-mono');
+    expect(roleOfLabels(db, ['+5 V'])?.role).toBe('pwr-5v');
+    expect(roleOfLabels(db, ['+12 V'])?.role).toBe('pwr-12v');
+    expect(roleOfLabels(db, ['TXD'])?.role).toBe('rs232-txd');
+    expect(roleOfLabels(db, ['Not connected'])).toBeUndefined();
+    expect(roleOfLabels(db, ['Mode select'])).toBeUndefined();
   });
 
-  it('lets an alias win when it names the signal the cable carries', () => {
-    // SCART pin 20 is printed "CVBS in" and aliased "Sync in"; on a cable it is
-    // the sync line, and that is the reading the wizard has to take
-    expect(roleOfLabels(['CVBS in', '20', 'Sync in'])?.role).toBe('sync');
-    expect(roleOfLabels(['CVBS out', '19'])?.role).toBe('cvbs');
+  it('keeps every signal a pin and its aliases name, label first', () => {
+    expect(readingsOfLabels(db, ['Audio L', '2', 'Audio (mono)']).map((r) => r.role)).toEqual(['audio-l', 'audio-mono']);
   });
 
   it('classes a ground by whatever it is a return for', () => {
-    expect(roleOfLabels(['Red GND'])).toEqual({ role: 'ground', ground: 'video-r' });
-    expect(roleOfLabels(['Audio GND'])).toEqual({ role: 'ground', ground: 'audio' });
-    expect(roleOfLabels(['CVBS GND'])).toEqual({ role: 'ground', ground: 'video-sync' });
-    expect(roleOfLabels(['GND'])).toEqual({ role: 'ground' });
-    expect(roleOfLabels(['Shell / chassis'])).toEqual({ role: 'ground', ground: 'chassis' });
+    expect(roleOfLabels(db, ['Audio GND'])).toEqual({ role: 'ground', ground: 'gnd-audio' });
+    expect(roleOfLabels(db, ['GND'])).toEqual({ role: 'ground' });
+    expect(roleOfLabels(db, ['Shell / chassis'])).toEqual({ role: 'ground', ground: 'chassis' });
   });
 
+  it('knows no signal the vocabulary does not have', () => {
+    const bare: Db = { ...db, vocab: {} };
+    expect(roleOfLabels(bare, ['Audio L'])).toBeUndefined();
+  });
 });
 
 /* ------------------------------------------------------------------ *
@@ -218,6 +177,21 @@ describe('the flow', () => {
 
 
 describe('the plan', () => {
+
+  it('reproduces the hand-made microphone lead from the vocabulary alone', () => {
+    const state = answers({
+      source: { kind: 'connector', def: 'xlr3-female', plugs: {} },
+      destination: { kind: 'connector', def: 'xlr3-male', plugs: {} },
+      wireDef: 'mic-2core-braid',
+      lengthText: '3000',
+    });
+    const plan = planCable(state);
+    expect(plan.errors).toEqual([]);
+    expect(plan.choices).toEqual([]);
+    expect(plan.unconnected).toEqual([]);
+    const handMade = loadDesignFromDisk('xlr-mic-cable');
+    expect(plan.design.joints.map(jointKey).sort()).toEqual(handMade.joints.map(jointKey).sort());
+  });
 
   it('is the same document every time it is asked for', () => {
     const state = answers({

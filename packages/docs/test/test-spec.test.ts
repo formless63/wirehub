@@ -75,7 +75,8 @@ function shorted(id: DesignId, a: [string, string], b: [string, string]): CableD
 
 describe('isolation', () => {
   it('catches a line deliberately shorted to ground', () => {
-    const spec = deriveTestSpec(shorted('vga-monitor-cable', ['j1', '1'], ['j1', '5']), db);
+    // the microphone lead's hot pin bridged to its shield pin
+    const spec = deriveTestSpec(shorted('xlr-mic-cable', ['j1', '2'], ['j1', '1']), db);
     expect(spec.violations.length).toBeGreaterThan(0);
   });
 

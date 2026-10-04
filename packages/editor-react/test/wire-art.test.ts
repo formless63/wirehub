@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { autoLayout, deriveNodes, type SegmentNodeData } from '../src/derive.ts';
 import { estimateNodeSize, nodeRect, overlappingPairs } from '../src/layout-size.ts';
 import { WIRE_LAYOUT, feetAndInches, runLabel, wireArt, type WireArt } from '../src/wire-art.ts';
-import { designWithFacelessWhip, loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
+import { designWithFacelessWhip, loadDbFromDisk, loadDesignFromDisk, multicoreDesign } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();
 
@@ -41,9 +41,9 @@ const DESIGNS = readdirSync(join(process.cwd(), '..', 'catalog', 'data', 'design
 describe('wireArt', () => {
 
   it('is the layout end face, scaled into the node', () => {
-    const art = artOf('vga-3coax-4core', { a: 40, b: 200 });
+    const art = artOf('multicore-3coax-4core', { a: 40, b: 200 });
     for (const face of art.faces) {
-      const geometry = endFaceLayout(wireOf('vga-3coax-4core'), face.end, {
+      const geometry = endFaceLayout(wireOf('multicore-3coax-4core'), face.end, {
         rotationDeg: face.end === 'a' ? 40 : 200,
       })!;
       expect(face.rotationDeg).toBe(face.end === 'a' ? 40 : 200);
@@ -55,8 +55,8 @@ describe('wireArt', () => {
   });
 
   it('puts one handle per electrical element per end, minus folded bonded screens, edges leaving a left and b right', () => {
-    const wire = wireOf('vga-3coax-4core');
-    const art = artOf('vga-3coax-4core');
+    const wire = wireOf('multicore-3coax-4core');
+    const art = artOf('multicore-3coax-4core');
     //: a bonded screen other than its set's
     // representative gets no handle — "the drain stands for the mass"
     const dropped = bondFoldedPaths(wire);
@@ -80,7 +80,7 @@ describe('wireArt', () => {
 describe('wire nodes in the catalog designs', () => {
 
   it('widens the art for a long title so the header fits', () => {
-    const design = loadDesignFromDisk('vga-monitor-cable');
+    const design = multicoreDesign();
     const w1 = deriveNodes(design, db).find((node) => node.id === 'w1')!;
     const data = w1.data as SegmentNodeData;
     expect(data.wire!.width).toBeGreaterThanOrEqual(WIRE_LAYOUT.minWidth);
@@ -90,7 +90,7 @@ describe('wire nodes in the catalog designs', () => {
 
 describe('wireArt flipped', () => {
   it('draws end b on the left, a on the right, faces unmirrored, shields picked up outward', () => {
-    const wire = wireOf('vga-3coax-4core');
+    const wire = wireOf('multicore-3coax-4core');
     const plain = wireArt({ instanceId: 'w1', wire, lengthMm: 1830 })!;
     const flipped = wireArt({ instanceId: 'w1', wire, lengthMm: 1830, flip: true })!;
     expect(flipped.flipped).toBe(true);

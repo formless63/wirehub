@@ -71,7 +71,7 @@ describe('determinism', () => {
   });
 
   it('does not depend on what was laid out before', () => {
-    const design = loadDesign('vga-monitor-cable');
+    const design = loadDesign('rs485-de9-terminal-board');
     const first = autoLayout(design, db, depictions);
     for (const other of designs.slice(0, 5)) autoLayout(other, db, depictions);
     expect(autoLayout(design, db, depictions)).toEqual(first);

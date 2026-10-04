@@ -1,0 +1,213 @@
+[
+  {
+    "id": "vga-3coax-4core",
+    "label": "VGA cable, 3 × 75 Ω mini-coax + 4 cores, foil + drain",
+    "odMm": 8,
+    "layOrder": {
+      "arrangement": "6-around-1",
+      "direction": "ccw",
+      "viewedFrom": "source",
+      "ring": [
+        "core-red",
+        "core-green",
+        "core-blue",
+        "yellow",
+        "white",
+        "brown"
+      ],
+      "center": "orange",
+      "src": "synthetic example: the three coax and three cores around one centre core"
+    },
+    "structure": {
+      "kind": "group",
+      "id": "vga-3coax-4core",
+      "label": "VGA cable",
+      "role": "cable",
+      "children": [
+        {
+          "kind": "group",
+          "id": "core-red",
+          "label": "Red coax",
+          "role": "coax",
+          "children": [
+            {
+              "kind": "conductor",
+              "id": "center",
+              "color": "red",
+              "material": "tinned-copper",
+              "areaMm2": 0.08,
+              "odMm": 0.32
+            },
+            {
+              "kind": "insulation",
+              "id": "dielectric",
+              "material": "fm-pe",
+              "odMm": 1.3
+            },
+            {
+              "kind": "shield",
+              "id": "shield",
+              "construction": "braid",
+              "material": "tinned-copper",
+              "coveragePct": "90",
+              "odMm": 1.6
+            },
+            {
+              "kind": "insulation",
+              "id": "sheath",
+              "material": "pvc",
+              "odMm": 2,
+              "color": "red"
+            }
+          ]
+        },
+        {
+          "kind": "group",
+          "id": "core-green",
+          "label": "Green coax",
+          "role": "coax",
+          "children": [
+            {
+              "kind": "conductor",
+              "id": "center",
+              "color": "green",
+              "material": "tinned-copper",
+              "areaMm2": 0.08,
+              "odMm": 0.32
+            },
+            {
+              "kind": "insulation",
+              "id": "dielectric",
+              "material": "fm-pe",
+              "odMm": 1.3
+            },
+            {
+              "kind": "shield",
+              "id": "shield",
+              "construction": "braid",
+              "material": "tinned-copper",
+              "coveragePct": "90",
+              "odMm": 1.6
+            },
+            {
+              "kind": "insulation",
+              "id": "sheath",
+              "material": "pvc",
+              "odMm": 2,
+              "color": "green"
+            }
+          ]
+        },
+        {
+          "kind": "group",
+          "id": "core-blue",
+          "label": "Blue coax",
+          "role": "coax",
+          "children": [
+            {
+              "kind": "conductor",
+              "id": "center",
+              "color": "blue",
+              "material": "tinned-copper",
+              "areaMm2": 0.08,
+              "odMm": 0.32
+            },
+            {
+              "kind": "insulation",
+              "id": "dielectric",
+              "material": "fm-pe",
+              "odMm": 1.3
+            },
+            {
+              "kind": "shield",
+              "id": "shield",
+              "construction": "braid",
+              "material": "tinned-copper",
+              "coveragePct": "90",
+              "odMm": 1.6
+            },
+            {
+              "kind": "insulation",
+              "id": "sheath",
+              "material": "pvc",
+              "odMm": 2,
+              "color": "blue"
+            }
+          ]
+        },
+        {
+          "kind": "conductor",
+          "id": "yellow",
+          "label": "H sync",
+          "color": "yellow",
+          "material": "tinned-copper",
+          "areaMm2": 0.08,
+          "insulatedOdMm": 1
+        },
+        {
+          "kind": "conductor",
+          "id": "white",
+          "label": "V sync",
+          "color": "white",
+          "material": "tinned-copper",
+          "areaMm2": 0.08,
+          "insulatedOdMm": 1
+        },
+        {
+          "kind": "conductor",
+          "id": "brown",
+          "label": "DDC SDA",
+          "color": "brown",
+          "material": "tinned-copper",
+          "areaMm2": 0.08,
+          "insulatedOdMm": 1
+        },
+        {
+          "kind": "conductor",
+          "id": "orange",
+          "label": "DDC SCL",
+          "color": "orange",
+          "material": "tinned-copper",
+          "areaMm2": 0.08,
+          "insulatedOdMm": 1
+        },
+        {
+          "kind": "shield",
+          "id": "foil",
+          "label": "Overall foil",
+          "construction": "foil",
+          "material": "aluminium-foil",
+          "coveragePct": "100",
+          "odMm": 7.2
+        },
+        {
+          "kind": "conductor",
+          "id": "drain",
+          "label": "Drain",
+          "bare": true,
+          "material": "tinned-copper",
+          "areaMm2": 0.2,
+          "odMm": 0.5
+        },
+        {
+          "kind": "insulation",
+          "id": "jacket",
+          "label": "Jacket",
+          "material": "pvc",
+          "odMm": 8,
+          "color": "black"
+        }
+      ]
+    },
+    "bonded": [
+      {
+        "members": [
+          "foil",
+          "drain"
+        ],
+        "src": "the drain lies on the foil for the whole length (generic construction)"
+      }
+    ],
+    "src": "generic VGA monitor cable construction (three 75 Ω mini-coax for RGB, separate sync and DDC cores, overall foil + drain); synthetic example"
+  }
+]

@@ -26,6 +26,17 @@ export { createCatalog, designVersionsDir, isDesignId } from './catalog.ts';
 export type { Catalog, DesignId } from './catalog.ts';
 export { fsCatalogSource, memoryCatalogSource } from './source.ts';
 export type { CatalogSource } from './source.ts';
+export {
+  PACK_MANIFEST,
+  installPack,
+  layeredCatalogSource,
+  mergeCatalogFile,
+  packFiles,
+  planPackInstall,
+  readInstalledPacks,
+  readPackManifest,
+} from './packs.ts';
+export type { InstalledPack, InstalledPacks, PackInstallPlan, PackManifest } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */
 export function dataPath(relative: string): string {

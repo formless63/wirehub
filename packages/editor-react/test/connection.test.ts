@@ -27,10 +27,10 @@ function design(): CableDesign {
     label: 'test',
     src: 'test fixture',
     instances: {
-      connectors: [{ id: 'j1', def: 'db23-male' }],
-      segments: [{ id: 'w1', def: 'vga-3coax-4core' }],
+      connectors: [{ id: 'j1', def: 'de9-male' }],
+      segments: [{ id: 'w1', def: 'multicore-3coax' }],
       components: [],
-      pcbas: [{ id: 'u1', def: 'PCA-00116-rev0' }],
+      pcbas: [{ id: 'u1', def: 'demo-board' }],
     },
     joints: [
       // 0: j1 <-> u1 (connector-side, no ends)

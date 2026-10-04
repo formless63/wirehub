@@ -14,6 +14,7 @@
 
 import {
   electricalPaths,
+  laneOfSignal as laneOfSignalInVocab,
   resolveElementPath,
   signalIds,
   vocabEntry,
@@ -177,7 +178,7 @@ export function buildTags(given: TagInputs): TagOutputs {
         continue;
       }
       const fix = review.connectors?.[connector.id]?.[pin.id];
-      const signal = fix !== undefined ? (fix.signal ?? undefined) : pinSignal(pin);
+      const signal = fix !== undefined ? (fix.signal ?? undefined) : pinSignal(vocab, pin);
       const tagged = pinLabels.get(pin.label) ?? new Set<string>();
       tagged.add(show(signal));
       pinLabels.set(pin.label, tagged);
@@ -195,10 +196,7 @@ export function buildTags(given: TagInputs): TagOutputs {
   const unclassifiedPads: { board: string; terminal: string; label: string; used: boolean }[] = [];
   const conflicts: { board: string; terminal: string; label: string; role: string; signal: string }[] = [];
   const padIds = new Map<string, Set<string>>();
-  const laneOfSignal = (id: string): string | undefined => {
-    const lanes: Record<string, string> = { 'video-r': 'video-r', 'video-g': 'video-g', 'video-b': 'video-b', 'audio-l': 'audio-l', 'audio-r': 'audio-r' };
-    return lanes[id];
-  };
+  const laneOfSignal = (id: string): string | undefined => laneOfSignalInVocab(vocab, id);
   for (const pcba of input.pcbas) {
     const out: Record<string, PcbaTerminalTags> = {};
     for (const terminal of pcba.terminals) {

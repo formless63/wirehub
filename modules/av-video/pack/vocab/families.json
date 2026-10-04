@@ -1,0 +1,30 @@
+{
+  "id": "families",
+  "label": "Connector families",
+  "src": "av-video pack",
+  "entries": [
+    {
+      "id": "hd15",
+      "label": "HD15 (DE-15)",
+      "aliases": [
+        "VGA",
+        "DE-15"
+      ],
+      "src": "VESA DDC"
+    },
+    {
+      "id": "scart",
+      "label": "SCART (Peritel)",
+      "aliases": [
+        "Peritel",
+        "EuroSCART"
+      ],
+      "src": "IEC 60933-1 / EN 50049-1"
+    },
+    {
+      "id": "bnc",
+      "label": "BNC",
+      "src": "IEC 61169-8"
+    }
+  ]
+}

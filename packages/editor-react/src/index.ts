@@ -73,7 +73,7 @@ export type { DesignActionsProps } from './panels/DesignActions.tsx';
 /* The new-cable wizard — the guided flow that produces a wired design. */
 export {
   LENGTH_PRESETS,
-  ROLE_LABELS,
+  roleLabel,
   STEP_SAY,
   STEP_TITLES,
   WIZARD_STEPS,
@@ -87,6 +87,7 @@ export {
   pcbaTerminals,
   planCable,
   plugPrefixes,
+  readingsOfLabels,
   roleOfLabels,
   roleOfTags,
   stepBlockers,

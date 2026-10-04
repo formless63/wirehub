@@ -28,7 +28,7 @@ describe('defTerminals', () => {
   });
 
   it('lists a wire element at both ends', () => {
-    const terminals = defTerminals('segment', 'vga-3coax-4core', db);
+    const terminals = defTerminals('segment', 'mic-2core-braid', db);
     expect(terminals.length).toBeGreaterThan(0);
     expect(terminals.every((t) => t.end === 'a' || t.end === 'b')).toBe(true);
   });
@@ -38,11 +38,11 @@ describe('defTerminals', () => {
   });
 });
 
-describe("a board's cable-side R pad — u1:R on the board design", () => {
-  // a pad takes more than one wire (LA takes the trunk and the whip here), so
-  // the picker ranks against it whether or not something is already on it
-  const design = loadDesign('vga-monitor-cable');
-  const anchor: TerminalRef = { instance: 'u1', terminal: 'R' };
+describe("a board's cable-side data pad — u1:A on the RS-485 board design", () => {
+  // a pad may take more than one wire, so the picker ranks against it
+  // whether or not something is already on it
+  const design = loadDesign('rs485-de9-terminal-board');
+  const anchor: TerminalRef = { instance: 'u1', terminal: 'A' };
   const { fits, other } = rankDefinitions(design, db, anchor, entries);
 
   it('other boards do not fit a signal pad — boards are linked by wire', () => {
@@ -52,9 +52,9 @@ describe("a board's cable-side R pad — u1:R on the board design", () => {
 });
 
 
-describe('a free shield handle — w1:drain@b on the board design', () => {
-  // the drain is terminated at the source end only (design note): end b is free
-  const design = loadDesign('vga-monitor-cable');
+describe('a shield handle — w1:drain@b on the RS-485 board design', () => {
+  // the drain is a screen: whatever it lands on must be at ground
+  const design = loadDesign('rs485-de9-terminal-board');
   const anchor: TerminalRef = { instance: 'w1', terminal: 'drain', end: 'b' };
   const { fits, other } = rankDefinitions(design, db, anchor, entries);
 

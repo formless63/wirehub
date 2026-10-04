@@ -22,17 +22,6 @@
     "partNumber": "CON-00002"
   },
   {
-    "id": "hd15-male-vga",
-    "label": "HD15 male, VGA pinout",
-    "family": "hd15",
-    "gender": "male",
-    "construction": "solder-cup",
-    "body": "hd15-male",
-    "interface": "vga",
-    "src": "VESA DDC pin assignment on a generic DE-15 male solder-cup connector",
-    "partNumber": "CON-00003"
-  },
-  {
     "id": "rj45-plug-t568b",
     "label": "RJ45 plug, T568B",
     "family": "rj45",

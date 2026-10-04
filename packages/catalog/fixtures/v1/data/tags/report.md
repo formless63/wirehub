@@ -7,24 +7,23 @@ Do not edit: correct a tag in `data/tags/review.json` (with its reason) and re-r
 
 | What | Count | Tagged | Unclassified | Used by a live design and unclassified |
 |---|---:|---:|---:|---:|
-| Connector pins (11 connectors) | 69 | 65 | 4 | 0 |
+| Connector pins (10 connectors) | 53 | 49 | 4 | 0 |
 | Board terminals (1 boards; 4 cable pads) | 4 | 0 | 0 | 0 |
 | Wire stocks (colour code) | 6 | 0 | 3 | — |
-| Instance role strings (7 designs) | 15 | 3 | 12 | — |
+| Instance role strings (6 designs) | 13 | 3 | 10 | — |
 
 **0 unclassified terminal(s) are soldered by a live design** (the gate is 0).
 
 ## Counts
 
-- **59 distinct pin labels** → 44 distinct signals.
+- **45 distinct pin labels** → 32 distinct signals.
 - **0 distinct cable-pad ids** → 0 pad roles.
-- **15 distinct instance role strings** across 7 designs → 2 slots.
+- **13 distinct instance role strings** across 6 designs → 2 slots.
 
 ## Pin labels → signals
 
 | Pin label | Tag(s) |
 |---|---|
-| +5 V (DDC) | `pwr-5v` |
 | +V | `pwr-v` |
 | 0 V | `gnd` |
 | 1 | — |
@@ -41,32 +40,21 @@ Do not edit: correct a tag in `data/tags/review.json` (with its reason) and re-r
 | BI_DC− | `eth-dc-n` |
 | BI_DD+ | `eth-dd-p` |
 | BI_DD− | `eth-dd-n` |
-| Blue | `video-b` |
-| Blue return | `gnd-video-b` |
 | CNTR-P (optional) | `nc` |
 | Cold (−) | `audio-cold` |
 | CTS | `rs232-cts` |
 | D+ | `usb-dp` |
 | D− | `usb-dn` |
 | DCD | `rs232-dcd` |
-| DDC SCL | `data-ddc-scl` |
-| DDC SDA | `data-ddc-sda` |
 | DGND | `gnd-signal` |
 | DSR | `rs232-dsr` |
 | DTR | `rs232-dtr` |
 | GND | `gnd-signal`; `gnd` |
-| Green | `video-g` |
-| Green return | `gnd-video-g` |
 | Ground | `gnd-audio` |
 | Ground / shield | `gnd` |
-| H sync | `hsync` |
 | Hot (+) | `audio-hot` |
 | Left | `audio-l` |
 | n/c | `nc` |
-| Red | `video-r` |
-| Red return | `gnd-video-r` |
-| Reserved (ID0) | `reserved` |
-| Reserved (ID2) | `reserved` |
 | RI | `rs232-ri` |
 | Right | `audio-r` |
 | RTS | `rs232-rts` |
@@ -78,9 +66,7 @@ Do not edit: correct a tag in `data/tags/review.json` (with its reason) and re-r
 | Shield (STP only) | `gnd-chassis` |
 | Shield / ground | `gnd-chassis` |
 | Signal | `any` |
-| Sync return | `gnd-sync` |
 | TXD | `rs232-txd` |
-| V sync | `vsync` |
 | VBUS | `pwr-5v` |
 | VP (+5 V, termination supply) | `pwr-5v` |
 
@@ -115,7 +101,7 @@ None.
 | mic-2core-braid | — (unclassified) |
 | audio-stereo-2core | — (unclassified) |
 | dc-2core-24awg | — (unclassified) |
-| vga-3coax-4core | — (unclassified) |
+| multicore-3coax-4core | — (unclassified) |
 
 ## Instance roles → slots
 
@@ -124,7 +110,6 @@ Kept in `data/tags/instance-slots.json`; design files are never rewritten by the
 | Role string | Kind | Instances | Slot |
 |---|---|---:|---|
 | bus connector | connector | 1 | — (unclassified) |
-| display end | connector | 1 | — (unclassified) |
 | end A | connector | 2 | — (unclassified) |
 | end B | connector | 2 | — (unclassified) |
 | LED module connector | connector | 1 | — (unclassified) |
@@ -134,7 +119,6 @@ Kept in `data/tags/instance-slots.json`; design files are never rewritten by the
 | mixer end | connector | 1 | — (unclassified) |
 | right leg | segment | 1 | `leg` |
 | right plug | connector | 1 | — (unclassified) |
-| source end | connector | 1 | — (unclassified) |
 | source plug | connector | 1 | `source-plug` |
 | stem | segment | 1 | — (unclassified) |
 | USB plug | connector | 1 | — (unclassified) |

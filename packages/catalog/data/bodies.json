@@ -86,66 +86,6 @@
     "src": "IEC 60807-3 / DIN 41652 DE-9 shell size E, 9 contacts; generic solder-cup part"
   },
   {
-    "id": "hd15-male",
-    "label": "HD15 (DE-15) male",
-    "family": "hd15",
-    "gender": "male",
-    "positions": [
-      {
-        "id": "1"
-      },
-      {
-        "id": "2"
-      },
-      {
-        "id": "3"
-      },
-      {
-        "id": "4"
-      },
-      {
-        "id": "5"
-      },
-      {
-        "id": "6"
-      },
-      {
-        "id": "7"
-      },
-      {
-        "id": "8"
-      },
-      {
-        "id": "9"
-      },
-      {
-        "id": "10"
-      },
-      {
-        "id": "11"
-      },
-      {
-        "id": "12"
-      },
-      {
-        "id": "13"
-      },
-      {
-        "id": "14"
-      },
-      {
-        "id": "15"
-      },
-      {
-        "id": "shell",
-        "kind": "shell"
-      }
-    ],
-    "construction": "solder-cup",
-    "drawing": "d-sub",
-    "src": "VESA DDC / Enhanced DDC VGA connector (DE-15, three rows); generic solder-cup part"
-  },
-  {
     "id": "rj45-8p8c-plug",
     "label": "RJ45 (8P8C) modular plug",
     "family": "rj45",

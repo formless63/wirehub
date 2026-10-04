@@ -103,6 +103,7 @@ export type { ScreenTermination } from './bonds.ts';
 export {
   SIGNAL_KINDS,
   VOCAB_LIST_IDS,
+  signalKinds,
   appendVocabEntry,
   resolveVocab,
   signalIds,
@@ -117,6 +118,7 @@ export {
 export type {
   AppendResult,
   ColourCodeEntry,
+  LaneEntry,
   PadRoleEntry,
   PcbaTerminalTags,
   SignalEntry,
@@ -132,6 +134,16 @@ export type {
   WireTags,
 } from './vocab.ts';
 export { colourCodeOf, kindOfSignal, laneOfPadRole, signalOf } from './signals.ts';
+export {
+  CHASSIS_SIGNAL,
+  GROUND_SIGNAL,
+  isGroundSignal,
+  laneOfSignal,
+  readSignalLabels,
+  readSignalWords,
+  returnOf,
+  signalOfLane,
+} from './signal-words.ts';
 export type { TerminalTags } from './signals.ts';
 export {
   FLEET_SIGNAL_WORDS,

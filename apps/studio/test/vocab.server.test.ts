@@ -129,10 +129,10 @@ describe('POST /api/vocab/:list — append-only, src required', () => {
   });
 
   it('writes a signal in the committed key order, kind included', async () => {
-    const response = await call('POST', '/api/vocab/signals', { label: 'Composite sync out', kind: 'sync', src: 'ground-truth §5' });
+    const response = await call('POST', '/api/vocab/signals', { label: 'Bus enable out', kind: 'control', src: 'device datasheet' });
     expect(response.status).toBe(201);
     expect(Object.keys(response.body.entry)).toEqual(['id', 'label', 'kind', 'src']);
-    expect(response.body.entry.id).toBe('composite-sync-out');
+    expect(response.body.entry.id).toBe('bus-enable-out');
   });
 
   it('refuses an entry with no source, and writes nothing', async () => {
@@ -142,8 +142,10 @@ describe('POST /api/vocab/:list — append-only, src required', () => {
     expect(vocab.writes).toBe(0);
   });
 
-  it('refuses a signal with no kind', async () => {
+  it('refuses a signal with no kind, and takes a kind a pack brings', async () => {
     expect((await call('POST', '/api/vocab/signals', { label: 'Mystery', src: 'x' })).status).toBe(400);
+    expect((await call('POST', '/api/vocab/signals', { label: 'Mystery', kind: 'Not Kebab', src: 'x' })).status).toBe(400);
+    expect((await call('POST', '/api/vocab/signals', { label: 'Field bus A', kind: 'fieldbus', src: 'x' })).status).toBe(201);
   });
 
   it('adds accepted entries only — `pending` is owner question Q8 (b), not in use', async () => {

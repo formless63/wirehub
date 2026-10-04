@@ -19,43 +19,47 @@
  *
  * ## Where the conventions come from
  *
- * They are read out of the data, not hardcoded per console. First from the
- * vocab **tags** (`signalOf`, data model v2 task 3): a pin's signal, a pad's
- * role and signal, the lane the stock's colour code gives each core
- * (`roleOfTags`). Only a terminal nobody has tagged is read from its words, as
- * it always was:
+ * They are read out of the data, never hardcoded. First from the vocab
+ * **tags** (`signalOf`): a pin's signal, a pad's role and signal, the lane
+ * the stock's colour code gives each core. Only a terminal nobody has tagged
+ * is read from its words — matched against the catalog's own `signals` list
+ * (label, short name, aliases), so a domain module's pack teaches the wizard
+ * its signals without a line of code here:
  *
- * - **Wire cores** carry their role in their own `label` ("Video Sync centre
- *   conductor", "Audio L…", "+5 V DC…") and, as a fallback, in `color` — the
- *   fleet colour code red/green/blue = video, yellow = sync, white/black =
- *   audio L/R, brown = +5 V. The label wins because the audio whip's *right*
- *   core is red and its label is the one that is right about it.
- * - **Connector pins** carry theirs in `label`/`aliases` ("Red", "CSync",
- *   "Audio in L", "CVBS in" aliased "Sync in", "Red GND").
- * - **Board pads** carry theirs in `label` ("Video R", "Sync (delivered)",
- *   "Audio L", "+5 V", "GND"), and their `note` says whether a pad is where the
- *   *trunk* lands ("conductor landing pad H9") or where a *connector pin* does
- *   ("connector pin landing pad H1") — which is how the wizard knows to solder
- *   the cable to one set and a plug to the other.
+ * - **Wire cores** carry their role in their tags or their own `label`.
+ * - **Connector pins** carry theirs in `label`/`aliases` ("Audio L", "TXD",
+ *   "+5 V", "GND"); a pin whose words (or `oneOf` tag) name several signals
+ *   takes a core of any of them.
+ * - **Board pads** carry theirs in `label`, and their `note` says whether a
+ *   pad is where the *trunk* lands ("conductor landing pad H9") or where a
+ *   *connector pin* does ("connector pin landing pad H1") — which is how the
+ *   wizard knows to solder the cable to one set and a plug to the other.
  *
- * Shields and the drain go to ground. A shield whose core has a role prefers a
- * ground pin that names that role ("Red GND"), which is how a bare SCART head
- * gets its per-colour returns; otherwise every shield and the drain bond to the
- * end's single general ground.
+ * Shields and the drain go to ground. A shield whose core has a role prefers
+ * the return the vocabulary names for that signal (`returnFor`), which is how
+ * a connector with per-signal returns gets each braid on its own return;
+ * otherwise every shield and the drain bond to the end's general ground.
  */
 
 import {
+  CHASSIS_SIGNAL,
   CURRENT_SCHEMA_VERSION,
+  GROUND_SIGNAL,
   findConnector,
   findPcba,
   findWire,
+  isGroundSignal,
   kindOfSignal,
   laneOfPadRole,
   migrateShieldBonds,
+  readSignalLabels,
+  returnOf,
   signalIds,
   signalOf,
+  signalOfLane,
   validateDesign,
-  type SignalRef,
+  vocabEntry,
+  type SignalEntry,
   type TerminalTags,
   type CableDesign,
   type ConnectorDefinition,
@@ -71,258 +75,136 @@ import {
 import { isDesignId, suggestDesignId } from './persistence.ts';
 
 /* ------------------------------------------------------------------ *
- * Roles — the shared vocabulary of "what this wire/pin/pad is for"
+ * Roles — what a wire, pin or pad is for
  * ------------------------------------------------------------------ */
 
-export type Role =
-  | 'video-r'
-  | 'video-g'
-  | 'video-b'
-  | 'sync'
-  | 'cvbs'
-  | 'luma'
-  | 'chroma'
-  | 'audio-l'
-  | 'audio-r'
-  | 'audio-mono'
-  | 'power-5v'
-  | 'power-12v'
-  | 'ground';
+/**
+ * What a wire, pin or pad is for: a vocab signal id (`audio-l`,
+ * `rs232-txd`, whatever a module's pack defines), a kind-level role for a
+ * conductor whose lane names only a kind (`kind:power` — any supply rail), or
+ * `ground`. The wizard knows no signal by name; everything comes from the
+ * catalog's vocabulary.
+ */
+export type Role = string;
 
-/** How a role reads on screen. Plain words, no codes. */
-export const ROLE_LABELS: Readonly<Record<Role, string>> = {
-  'video-r': 'video red',
-  'video-g': 'video green',
-  'video-b': 'video blue',
-  sync: 'sync',
-  cvbs: 'composite video (CVBS)',
-  luma: 'luma (Y)',
-  chroma: 'chroma (C)',
-  'audio-l': 'audio left',
-  'audio-r': 'audio right',
-  'audio-mono': 'audio (mono)',
-  'power-5v': '+5 V',
-  'power-12v': '+12 V',
-  ground: 'ground',
-};
+export const GROUND_ROLE: Role = 'ground';
 
 /**
- * The coarse class a *ground* belongs to.
- *
- * SCART gives every colour its own return ("Red GND", "Audio GND", "CVBS
- * GND"), so a shield can land on the one that names its own core. The classes
- * are deliberately coarser than the roles: on a connector head the sync core's
- * braid lands on the CVBS/sync return, and audio L and R share one audio
- * ground — which is exactly what the hand-authored SCART builds do.
+ * The class a *ground* belongs to: the id of the return it is
+ * (`gnd-audio` — a return with `returnFor`), `chassis` for the shell tab (a
+ * bond, not a signal return), `other` for a return the vocabulary gives no
+ * signals for; `undefined` is the end's general ground.
  */
-export type GroundClass =
-  | 'video-r'
-  | 'video-g'
-  | 'video-b'
-  | 'video-sync'
-  | 'audio'
-  | 'power'
-  /** the shell/chassis tab — a bond, not a signal return */
-  | 'chassis'
-  | 'other';
+export type GroundClass = string;
 
-function groundClassOf(role: Role | undefined): GroundClass | undefined {
-  switch (role) {
-    case 'video-r':
-    case 'video-g':
-    case 'video-b':
-      return role;
-    case 'sync':
-    case 'cvbs':
-    case 'luma':
-    case 'chroma':
-      return 'video-sync';
-    case 'audio-l':
-    case 'audio-r':
-    case 'audio-mono':
-      return 'audio';
-    case 'power-5v':
-    case 'power-12v':
-      return 'power';
-    default:
-      return undefined;
-  }
+const KIND_ROLE = 'kind:';
+
+/** How a role reads on screen: the signal's label, in plain words. */
+export function roleLabel(db: Db, role: Role): string {
+  if (role === GROUND_ROLE) return 'ground';
+  if (role.startsWith(KIND_ROLE)) return `${role.slice(KIND_ROLE.length)} (any)`;
+  const entry = vocabEntry<SignalEntry>(db.vocab, 'signals', role);
+  return entry?.label ?? role;
 }
-
-/** What a role would *accept* when nothing carries it exactly — offered, never taken. */
-const NEAR: Readonly<Partial<Record<Role, Role[]>>> = {
-  sync: ['cvbs', 'luma', 'chroma'],
-  cvbs: ['sync'],
-  luma: ['sync'],
-  chroma: ['sync'],
-  'power-5v': ['power-12v'],
-  'power-12v': ['power-5v'],
-  'audio-l': ['audio-mono'],
-  'audio-r': ['audio-mono'],
-  'audio-mono': ['audio-l', 'audio-r'],
-};
-
-function normalise(text: string): string {
-  return text.toLowerCase().replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-/** What one label says, as a role — `undefined` when it says nothing we carry. */
-function roleOfOne(raw: string): { role: Role; ground?: GroundClass } | undefined {
-  const text = normalise(raw);
-  if (text === '') return undefined;
-
-  // grounds first: "Red GND" is a ground, not a red signal
-  if (/\b(gnd|ground|chassis|shell|shield)\b/.test(text)) {
-    // the shell tab is a bond to the body, not a return for any one signal
-    if (/\b(shell|chassis)\b/.test(text)) return { role: 'ground', ground: 'chassis' };
-    // the qualifier is whatever is left once the ground words are taken out
-    const qualifier = text
-      .replace(/\b(gnd|ground|shield|connector)\b/g, ' ')
-      .replace(/[^a-z0-9+ ]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (qualifier === '') return { role: 'ground' };
-    // "Audio GND" names a class, not a channel — L and R share one return
-    if (/^(audio|aud)$/.test(qualifier)) return { role: 'ground', ground: 'audio' };
-    const inner = roleOfOne(qualifier);
-    return { role: 'ground', ground: groundClassOf(inner?.role) ?? 'other' };
-  }
-
-  if (/\bnot connected\b|^n\/?c$/.test(text)) return undefined;
-  if (/\bhsync\b|\bvsync\b/.test(text)) return undefined;
-  if (/\bcsync\b|\bsync\b/.test(text)) return { role: 'sync' };
-  if (/\bcvbs\b|\bcomposite\b/.test(text)) return { role: 'cvbs' };
-  if (/\bluma\b|\(y\)/.test(text)) return { role: 'luma' };
-  if (/\bchroma\b|\(c\)/.test(text)) return { role: 'chroma' };
-
-  if (/\bmono\b/.test(text) && /\baudio\b/.test(text)) return { role: 'audio-mono' };
-  if (/\baudio\b.*\bl\b|\baudio\b.*\bleft\b|\bleft\b.*\baudio\b|^l a$|^la$/.test(text)) {
-    return { role: 'audio-l' };
-  }
-  if (/\baudio\b.*\br\b|\baudio\b.*\bright\b|\bright\b.*\baudio\b|^r a$|^ra$/.test(text)) {
-    return { role: 'audio-r' };
-  }
-
-  if (/\bred\b|\bvideo r\b|\bpr\b/.test(text)) return { role: 'video-r' };
-  if (/\bgreen\b|\bvideo g\b/.test(text)) return { role: 'video-g' };
-  if (/\bblue\b|\bvideo b\b|\bpb\b/.test(text)) return { role: 'video-b' };
-
-  if (/[+]?\s*5\s*v\b|^v\+$|^v$/.test(text)) return { role: 'power-5v' };
-  if (/[+]?\s*12\s*v\b/.test(text)) return (/-\s*12/.test(text) ? undefined : { role: 'power-12v' });
-  return undefined;
-}
-
-/**
- * The role a terminal carries, read from its label and any aliases.
- *
- * Aliases matter: SCART pin 20 is printed "CVBS in" and aliased "Sync in", and
- * on a cable it is the sync line. Sync therefore beats composite when both are
- * on offer for the same pin.
- */
-export function roleOfLabels(labels: (string | undefined)[]): { role: Role; ground?: GroundClass } | undefined {
-  const found = labels
-    .filter((label): label is string => typeof label === 'string' && label !== '')
-    .map(roleOfOne)
-    .filter((entry): entry is { role: Role; ground?: GroundClass } => entry !== undefined);
-  if (found.length === 0) return undefined;
-  const sync = found.find((entry) => entry.role === 'sync');
-  if (sync !== undefined) return sync;
-  const chosen = found[0];
-  if (chosen === undefined) return undefined;
-  // a terminal whose id is `shell` is the chassis tab however its label reads
-  if (chosen.role === 'ground' && found.some((entry) => entry.ground === 'chassis')) {
-    return { role: 'ground', ground: 'chassis' };
-  }
-  return chosen;
-}
-
-/* ------------------------------------------------------------------ *
- * Tags → roles (data model v2 task 3)
- * ------------------------------------------------------------------ */
 
 type Reading = { role: Role; ground?: GroundClass };
 
-const SIGNAL_ROLES: Readonly<Record<string, Reading>> = {
-  'video-r': { role: 'video-r' },
-  'video-g': { role: 'video-g' },
-  'video-b': { role: 'video-b' },
-  csync: { role: 'sync' },
-  cvbs: { role: 'cvbs' },
-  luma: { role: 'luma' },
-  chroma: { role: 'chroma' },
-  'audio-l': { role: 'audio-l' },
-  'audio-l-in': { role: 'audio-l' },
-  'audio-r': { role: 'audio-r' },
-  'audio-r-in': { role: 'audio-r' },
-  'audio-mono': { role: 'audio-mono' },
-  'pwr-5v': { role: 'power-5v' },
-  'pwr-12v': { role: 'power-12v' },
-  gnd: { role: 'ground' },
-  'gnd-chassis': { role: 'ground', ground: 'chassis' },
-  'gnd-video-r': { role: 'ground', ground: 'video-r' },
-  'gnd-video-g': { role: 'ground', ground: 'video-g' },
-  'gnd-video-b': { role: 'ground', ground: 'video-b' },
-  'gnd-sync': { role: 'ground', ground: 'video-sync' },
-  'gnd-audio': { role: 'ground', ground: 'audio' },
-  'gnd-power': { role: 'ground', ground: 'power' },
-};
-
-const LANE_ROLES: Readonly<Record<string, Role>> = {
-  'video-r': 'video-r',
-  'video-g': 'video-g',
-  'video-b': 'video-b',
-  sync: 'sync',
-  'audio-l': 'audio-l',
-  'audio-r': 'audio-r',
-  // the fleet's brown is +5 V (ground-truth §2); a 12 V rail is the device's, not the core's
-  power: 'power-5v',
-};
-
-const PAD_ROLES: Readonly<Record<string, Reading>> = {
-  cvbs: { role: 'cvbs' },
-  'audio-l-in': { role: 'audio-l' },
-  'audio-r-in': { role: 'audio-r' },
-  gnd: { role: 'ground' },
-  'gnd-audio': { role: 'ground', ground: 'audio' },
-};
-
-function roleOfSignalId(db: Db, id: string): Reading | undefined {
-  const known = SIGNAL_ROLES[id];
-  if (known !== undefined) return known;
-  // a return the wizard has no class for (Video GND, Blanking GND, a new one) is still ground
-  if (kindOfSignal(db, id) === 'ground' || id.startsWith('gnd-')) return { role: 'ground', ground: 'other' };
-  return undefined;
+/** A vocab signal id as a reading: grounds by their class, `nc` and the like as nothing. */
+function readingOfSignal(db: Db, id: string): Reading | undefined {
+  const entry = vocabEntry<SignalEntry>(db.vocab, 'signals', id);
+  if (isGroundSignal(db.vocab, id)) {
+    if (id === CHASSIS_SIGNAL) return { role: GROUND_ROLE, ground: 'chassis' };
+    if (id === GROUND_SIGNAL) return { role: GROUND_ROLE };
+    if ((entry?.returnFor ?? []).length > 0) return { role: GROUND_ROLE, ground: id };
+    return { role: GROUND_ROLE, ground: 'other' };
+  }
+  if (entry === undefined || entry.kind === 'none') return undefined;
+  return { role: id };
 }
 
-function roleOfSignal(db: Db, ref: SignalRef): Reading | undefined {
-  const readings = signalIds(ref).map((id) => roleOfSignalId(db, id));
-  // a pin that can take sync (SCART 20: CVBS or CSync) is where the sync core lands
-  const sync = readings.find((r) => r?.role === 'sync');
-  return sync ?? readings[0];
+/** The ground class a shield takes from the core it wraps: that signal's return. */
+function groundClassOf(db: Db, role: Role | undefined): GroundClass | undefined {
+  if (role === undefined || role === GROUND_ROLE || role.startsWith(KIND_ROLE)) return undefined;
+  return returnOf(db.vocab, role);
+}
+
+/** The role a lane gives a conductor: its signal, else its kind (`power`), else ground. */
+function roleOfLane(db: Db, lane: string): Role | undefined {
+  const signal = signalOfLane(db.vocab, lane);
+  if (signal !== undefined) return readingOfSignal(db, signal)?.role;
+  if (lane === 'ground') return GROUND_ROLE;
+  if (lane === 'power') return `${KIND_ROLE}power`;
+  return undefined;
 }
 
 /**
- * The role a terminal's tags give: its signal first (the first of a `oneOf`,
- * unless one of them is sync), then its pad role, then its lane. `undefined`
- * when the tags name nothing a cable lands (`nc`, `hsync`, a spare core).
+ * The roles a terminal's words name, label first: every signal of the label
+ * and its aliases, read against the catalog's vocabulary. A terminal whose
+ * id or label is a shell/chassis word is the chassis tab however its other
+ * words read.
  */
-export function roleOfTags(db: Db, tags: TerminalTags): Reading | undefined {
+export function readingsOfLabels(db: Db, labels: (string | undefined)[]): Reading[] {
+  const readings = readSignalLabels(db.vocab, labels)
+    .map((id) => readingOfSignal(db, id))
+    .filter((r): r is Reading => r !== undefined);
+  if (readings[0]?.role === GROUND_ROLE && readings.some((r) => r.ground === 'chassis')) {
+    return [{ role: GROUND_ROLE, ground: 'chassis' }, ...readings.slice(1).filter((r) => r.ground !== 'chassis')];
+  }
+  return readings;
+}
+
+/** The first role a terminal's words name — `undefined` when they name nothing the vocabulary carries. */
+export function roleOfLabels(db: Db, labels: (string | undefined)[]): Reading | undefined {
+  return readingsOfLabels(db, labels)[0];
+}
+
+/**
+ * The roles a terminal's tags give: every signal of a `oneOf` (the device
+ * decides, so a core of any of them may land there), else its pad role's
+ * lane, else its lane. `[]` when the tags name nothing a cable lands (`nc`,
+ * a spare core).
+ */
+export function readingsOfTags(db: Db, tags: TerminalTags): Reading[] {
   if (tags.signal !== undefined) {
-    const reading = roleOfSignal(db, tags.signal);
-    if (reading !== undefined) return reading;
+    const readings = signalIds(tags.signal)
+      .map((id) => readingOfSignal(db, id))
+      .filter((r): r is Reading => r !== undefined);
+    if (readings.length > 0) return readings;
   }
   if (tags.role !== undefined) {
-    const own = PAD_ROLES[tags.role];
-    if (own !== undefined) return own;
     const lane = laneOfPadRole(db, tags.role);
-    const role = lane === undefined ? undefined : LANE_ROLES[lane];
-    return role === undefined ? undefined : { role };
+    const role = lane === undefined ? (/^gnd\b|ground|shield/.test(tags.role) ? GROUND_ROLE : undefined) : roleOfLane(db, lane);
+    return role === undefined ? [] : [{ role }];
   }
   if (tags.lane !== undefined) {
-    const role = LANE_ROLES[tags.lane];
-    return role === undefined ? undefined : { role };
+    const role = roleOfLane(db, tags.lane);
+    return role === undefined ? [] : [{ role }];
   }
-  return undefined;
+  return [];
+}
+
+/** The first role a terminal's tags give, or `undefined`. */
+export function roleOfTags(db: Db, tags: TerminalTags): Reading | undefined {
+  return readingsOfTags(db, tags)[0];
+}
+
+/** Does terminal `terminal` take a core of role `role`? A kind-level role takes any signal of that kind. */
+function takes(db: Db, terminal: EndTerminal, role: Role): boolean {
+  if (terminal.roles.includes(role)) return true;
+  if (!role.startsWith(KIND_ROLE)) return false;
+  const kind = role.slice(KIND_ROLE.length);
+  return terminal.roles.some((r) => kindOfSignal(db, r) === kind);
+}
+
+/** What a role would *accept* when nothing carries it exactly — offered, never taken. */
+function nearRoles(db: Db, role: Role): Role[] {
+  if (role === GROUND_ROLE || role.startsWith(KIND_ROLE)) return [];
+  const entry = vocabEntry<SignalEntry>(db.vocab, 'signals', role);
+  if (entry === undefined) return [];
+  if (entry.near !== undefined) return entry.near;
+  return ((db.vocab?.['signals']?.entries ?? []) as SignalEntry[])
+    .filter((e) => e.id !== entry.id && e.kind === entry.kind && e.kind !== 'ground' && e.kind !== 'none' && e.pending !== true && e.deprecatedBy === undefined)
+    .map((e) => e.id);
 }
 
 /* ------------------------------------------------------------------ *
@@ -335,7 +217,10 @@ export interface EndTerminal {
   id: string;
   /** what the catalog calls it */
   label: string;
+  /** its first role (the label's, or the first of a `oneOf`) */
   role?: Role;
+  /** every role a core may land here as — a pin the device switches between signals takes any of them */
+  roles: Role[];
   ground?: GroundClass;
   /**
    * True for the pads/pins the *trunk* lands on. A board's other terminals are
@@ -350,62 +235,67 @@ export interface EndTerminal {
 /**
  * Whether a pad is where the *trunk* lands.
  *
- * The generated board records say so in the pad's own note: "conductor landing
- * pad H9" and "shield / ground pads H16, H17" are cable-side, "connector pin
- * landing pad H1" is where a plug's pin goes. Terminals whose id carries a
- * prefix (`j.5`, `scart.15`) are already excluded by their shape, so the note
- * only has to catch the one phrase.
+ * A board record says so in the pad's own note: "conductor landing pad H9"
+ * and "shield / ground pads H16, H17" are cable-side, "connector pin landing
+ * pad H1" is where a plug's pin goes. Terminals whose id carries a prefix
+ * (`j.5`, `j1.15`) are already excluded by their shape, so the note only has
+ * to catch the one phrase.
  */
 function isTrunkPad(note: string | undefined): boolean {
   return note === undefined || !normalise(note).startsWith('connector pin landing pad');
 }
 
+function normalise(text: string): string {
+  return text.toLowerCase().replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function terminalOf(id: string, label: string, readings: Reading[], cableSide: boolean, extra: { plugPrefix?: string } = {}): EndTerminal {
+  const first = readings[0];
+  return {
+    id,
+    label,
+    cableSide,
+    roles: readings.map((r) => r.role),
+    ...(first === undefined ? {} : { role: first.role }),
+    ...(first?.ground === undefined ? {} : { ground: first.ground }),
+    ...extra,
+  };
+}
+
 /**
- * A connector's pins as the wizard reads them. With `db`, a tagged pin is read
- * from its tags (`signalOf`); an untagged one — or any pin, without `db` —
- * from its label, id and aliases.
+ * A connector's pins as the wizard reads them: a tagged pin from its tags
+ * (`signalOf`); an untagged one from its label, id and aliases.
  */
-export function connectorTerminals(connector: ConnectorDefinition, db?: Db): EndTerminal[] {
+export function connectorTerminals(connector: ConnectorDefinition, db: Db): EndTerminal[] {
   return connector.pins.map((pin) => {
-    const tags = db === undefined ? undefined : signalOf(db, 'connector', connector.id, pin.id);
-    const parsed =
-      tags !== undefined && db !== undefined
-        ? roleOfTags(db, tags)
-        : roleOfLabels([pin.label, pin.id, ...(pin.aliases ?? [])]);
-    return {
-      id: pin.id,
-      label: pin.label,
-      cableSide: true,
-      ...(parsed === undefined ? {} : { role: parsed.role }),
-      ...(parsed?.ground === undefined ? {} : { ground: parsed.ground }),
-    };
+    const tags = signalOf(db, 'connector', connector.id, pin.id);
+    const readings = tags !== undefined ? readingsOfTags(db, tags) : readingsOfLabels(db, [pin.label, pin.id, ...(pin.aliases ?? [])]);
+    return terminalOf(pin.id, pin.label, readings, true);
   });
 }
 
-/** A board's terminals as the wizard reads them — tags first with `db`, as `connectorTerminals`. */
-export function pcbaTerminals(pcba: PcbaDefinition, db?: Db): EndTerminal[] {
+/** A board's terminals as the wizard reads them — tags first, as `connectorTerminals`. */
+export function pcbaTerminals(pcba: PcbaDefinition, db: Db): EndTerminal[] {
   const integrated = new Set((pcba.integratedConnectors ?? []).map((entry) => entry.terminalPrefix));
   return pcba.terminals.map((terminal) => {
-    const tags = db === undefined ? undefined : signalOf(db, 'pcba', pcba.id, terminal.id);
-    const parsed =
-      tags !== undefined && db !== undefined ? roleOfTags(db, tags) : roleOfLabels([terminal.label, terminal.id]);
+    const tags = signalOf(db, 'pcba', pcba.id, terminal.id);
+    const readings = tags !== undefined ? readingsOfTags(db, tags) : readingsOfLabels(db, [terminal.label, terminal.id]);
     const dot = terminal.id.indexOf('.');
     const prefix = dot === -1 ? undefined : terminal.id.slice(0, dot);
     const cableSide = dot === -1 && isTrunkPad(terminal.note);
-    return {
-      id: terminal.id,
-      label: terminal.label ?? terminal.id,
+    return terminalOf(
+      terminal.id,
+      terminal.label ?? terminal.id,
+      readings,
       cableSide,
-      ...(parsed === undefined ? {} : { role: parsed.role }),
-      ...(parsed?.ground === undefined ? {} : { ground: parsed.ground }),
-      ...(prefix === undefined || integrated.has(prefix) ? {} : { plugPrefix: prefix }),
-    };
+      prefix === undefined || integrated.has(prefix) ? {} : { plugPrefix: prefix },
+    );
   });
 }
 
 /** One electrical element of a wire stock, with the signal it carries. */
 export interface WireLine {
-  /** the element path a `TerminalRef` uses — `core-red.center`, `drain` */
+  /** the element path a `TerminalRef` uses — `pair-1.a`, `drain` */
   path: string;
   label: string;
   kind: 'conductor' | 'shield';
@@ -416,32 +306,22 @@ export interface WireLine {
   drain: boolean;
 }
 
-const COLOUR_ROLE: Readonly<Record<string, Role>> = {
-  red: 'video-r',
-  green: 'video-g',
-  blue: 'video-b',
-  yellow: 'sync',
-  white: 'audio-l',
-  black: 'audio-r',
-  brown: 'power-5v',
-};
-
 /**
  * Every electrical element of a stock, in lay order of the structure, with the
- * role it carries. Conductors take their role from their own label and fall
- * back to the fleet colour code; shields take the *ground class* of the core
- * they wrap, so a shield knows which return it belongs on.
+ * role it carries. Conductors take their role from their tags (the lane the
+ * stock's colour code gives them) and, untagged, from their own label;
+ * shields take the *ground class* of the core they wrap, so a shield knows
+ * which return it belongs on.
  */
-export function wireLines(wire: WireDefinition, db?: Db): WireLine[] {
+export function wireLines(wire: WireDefinition, db: Db): WireLine[] {
   const lines: WireLine[] = [];
-  /** a conductor's role from its lane, when `db` tags it */
+  /** a conductor's role from its tags, or `undefined` when it is untagged or carries nothing */
   const tagged = (path: string): Role | undefined => {
-    if (db === undefined) return undefined;
     const tags = signalOf(db, 'segment', wire.id, path);
     return tags === undefined || tags.screen === true ? undefined : roleOfTags(db, tags)?.role;
   };
-  const isTagged = (path: string): boolean =>
-    db !== undefined && signalOf(db, 'segment', wire.id, path) !== undefined;
+  const isTagged = (path: string): boolean => signalOf(db, 'segment', wire.id, path) !== undefined;
+  const ofLabel = (label: string | undefined): Role | undefined => (label === undefined ? undefined : roleOfLabels(db, [label])?.role);
 
   const walk = (element: Element, path: string, coreRole: Role | undefined): void => {
     if (element.kind === 'group') {
@@ -459,9 +339,7 @@ export function wireLines(wire: WireDefinition, db?: Db): WireLine[] {
           ? coreRole
           : innerPath !== undefined && isTagged(innerPath)
             ? tagged(innerPath)
-            : (roleOfLabels([inner.label])?.role ??
-              (inner.color === undefined ? undefined : COLOUR_ROLE[inner.color]) ??
-              roleOfLabels([element.label])?.role);
+            : (ofLabel(inner.label) ?? ofLabel(element.label));
       for (const child of element.children) {
         walk(child, path === '' ? child.id : `${path}.${child.id}`, role);
       }
@@ -470,13 +348,11 @@ export function wireLines(wire: WireDefinition, db?: Db): WireLine[] {
     if (element.kind === 'insulation') return;
     if (element.kind === 'conductor') {
       const role =
-        element.bare === true && isTagged(path)
-          ? 'ground'
+        element.bare === true
+          ? GROUND_ROLE
           : isTagged(path)
             ? tagged(path)
-            : (roleOfLabels([element.label])?.role ??
-              (element.color === undefined ? undefined : COLOUR_ROLE[element.color]) ??
-              (element.bare === true ? 'ground' : coreRole));
+            : (ofLabel(element.label) ?? coreRole);
       if (role === undefined) return;
       lines.push({
         path,
@@ -489,12 +365,12 @@ export function wireLines(wire: WireDefinition, db?: Db): WireLine[] {
       return;
     }
     // a shield is a ground, classed by the core it wraps
-    const cls = groundClassOf(coreRole);
+    const cls = groundClassOf(db, coreRole);
     lines.push({
       path,
       label: element.label ?? path,
       kind: 'shield',
-      role: 'ground',
+      role: GROUND_ROLE,
       drain: false,
       ...(cls === undefined ? {} : { ground: cls }),
     });
@@ -573,7 +449,7 @@ export const WIZARD_STEPS: readonly WizardStep[] = [
 
 export const STEP_TITLES: Readonly<Record<WizardStep, string>> = {
   name: 'What is this cable called?',
-  source: 'What does it plug into? (console end)',
+  source: 'What does it plug into at the source end?',
   wire: 'Which wire, and how long?',
   destination: 'What does it plug into at the other end?',
   choices: 'A few things only you can decide',
@@ -584,7 +460,7 @@ export const STEP_SAY: Readonly<Record<WizardStep, string>> = {
   name: 'A name a builder would read at the top of the build sheet, and a note of where the information comes from.',
   source: 'Pick the plug that goes into the source device, or the source-side board the cable is soldered to.',
   wire: 'The stock the trunk is cut from, and how long to cut it.',
-  destination: 'The plug or board at the far end — usually a SCART male destination board.',
+  destination: 'The plug or board at the far end.',
   choices:
     'Where the catalog offers more than one landing for the same signal, it is not the wizard’s call to make.',
   review: 'Everything the wizard is about to solder, and everything it deliberately left alone.',
@@ -902,17 +778,24 @@ export function plugPrefixes(terminals: EndTerminal[]): string[] {
   return seen;
 }
 
-function trunkCandidates(end: ResolvedEnd, role: Role): EndTerminal[] {
-  return end.terminals.filter((terminal) => terminal.cableSide && terminal.role === role);
+function trunkCandidates(db: Db, end: ResolvedEnd, role: Role): EndTerminal[] {
+  return end.terminals.filter((terminal) => terminal.cableSide && terminal.role !== GROUND_ROLE && takes(db, terminal, role));
 }
 
+/**
+ * Where a ground of class `cls` lands: the returns of that class, else the
+ * end's general grounds, else — when the end has exactly one ground of any
+ * sort (an XLR's pin 1, a plug's only shell) — that one.
+ */
 function groundCandidates(end: ResolvedEnd, cls: GroundClass | undefined): EndTerminal[] {
-  const grounds = end.terminals.filter((t) => t.cableSide && t.role === 'ground');
+  const grounds = end.terminals.filter((t) => t.cableSide && t.role === GROUND_ROLE);
   if (cls !== undefined) {
     const exact = grounds.filter((t) => t.ground === cls);
     if (exact.length > 0) return exact;
   }
-  return grounds.filter((t) => t.ground === undefined);
+  const general = grounds.filter((t) => t.ground === undefined);
+  if (general.length > 0) return general;
+  return grounds.length === 1 ? grounds : [];
 }
 
 function choiceIdOf(end: EndSide, key: string): string {
@@ -920,17 +803,16 @@ function choiceIdOf(end: EndSide, key: string): string {
 }
 
 /**
- * The single mono audio pin an audio core falls back to.
- *
- * several source devices deliver one audio pin
- * that feeds both channels; the catalog says so by labelling it "Audio (mono)".
- * When that pin is the *only* audio landing on the end, sending both the L and
- * R cores to it is the documented build, not an invention.
+ * The single landing a core falls back to by the vocabulary's own
+ * convention (`standIn`): a source that delivers one mono audio pin feeding
+ * both channels, say. When that landing is the *only* one of its signal on
+ * the end, sending the core to it is the documented build, not an invention.
  */
-function monoStandIn(end: ResolvedEnd, role: Role): EndTerminal | undefined {
-  if (role !== 'audio-l' && role !== 'audio-r') return undefined;
-  const mono = trunkCandidates(end, 'audio-mono');
-  return mono.length === 1 ? mono[0] : undefined;
+function standInFor(db: Db, end: ResolvedEnd, role: Role): EndTerminal | undefined {
+  const standIn = vocabEntry<SignalEntry>(db.vocab, 'signals', role)?.standIn;
+  if (standIn === undefined) return undefined;
+  const landings = trunkCandidates(db, end, standIn);
+  return landings.length === 1 ? landings[0] : undefined;
 }
 
 /**
@@ -943,52 +825,6 @@ function monoStandIn(end: ResolvedEnd, role: Role): EndTerminal | undefined {
  * Anything with exactly one landing is not a question, and anything with
  * nothing near it is not a question either — it is a sentence on the review.
  */
-/* ------------------------------------------------------------------ *
- * A bare SCART head — the SCART male soldered straight to the cable
- * ------------------------------------------------------------------ */
-
-/**
- * A SCART male with no destination board (the contract manufacturer's sample
- * runs). Everything the board would decide is decided the same way here, so a
- * bare head is wired exactly like a PCA-00101 Rev6 "CPL Basic" build:
- *
- * - audio lands on the TV's audio *inputs*, 6 (L) and 2 (R) — the board's
- *   LA → 6 and RA → 2;
- * - the overall shield bonds to the shell, pin 21;
- * - +5 V goes to pin 8 directly and to pin 16 through a discrete 180 Ω — the
- *   board's plain V → 8 link and its R203 180 Ω blanking resistor.
- */
-export const BARE_SCART_DEF = 'scart-male';
-export const BARE_SCART_BLANKING = 'r-180';
-
-const BARE_SCART_PICKS: Readonly<Record<string, string>> = {
-  ground: '21',
-  'audio-l': '6',
-  'audio-r': '2',
-};
-
-export const BARE_SCART_NOTE =
-  'Bare SCART head (no destination board): wired as the PCA-00101 Rev6 CPL Basic board would be — audio into pins 6/2, overall shield to the shell (21), +5 V to pin 8, a 180 Ω blanking resistor fitted by hand across pins 8 and 16 (the board\'s R203), and hand-wired ground jumpers on the returns the board commoned that no braid reaches (14 → 13, 18 → 17).';
-
-/**
- * A ground return no braid lands on is bonded by a short hand-wired jumper to
- * its neighbouring return, so every pin the board commoned is still ground.
- */
-export const GROUND_JUMPER_TO: Readonly<Record<string, string>> = {
-  '14': '13',
-  '18': '17',
-};
-
-function isBareScart(end: { kind: 'connector' | 'pcba'; def: string }): boolean {
-  return end.kind === 'connector' && end.def === BARE_SCART_DEF;
-}
-
-/** What a bare SCART head answers on its own, keyed like a pick. */
-function presetPick(end: ResolvedEnd, key: 'ground' | Role): string | undefined {
-  if (!isBareScart(end)) return undefined;
-  return BARE_SCART_PICKS[key];
-}
-
 export function openChoices(state: WizardState): OpenChoice[] {
   const wire = state.wireDef === undefined ? undefined : findWire(state.db, state.wireDef);
   if (wire === undefined) return [];
@@ -996,7 +832,7 @@ export function openChoices(state: WizardState): OpenChoice[] {
   const out: OpenChoice[] = [];
 
   for (const end of resolveEnds(state)) {
-    const where = end.side === 'source' ? 'console end' : 'far end';
+    const where = end.side === 'source' ? 'source end' : 'far end';
 
     // one question for the ground bond, however many braids share the answer
     const grounds = end.terminals.filter((t) => t.cableSide && t.role === 'ground');
@@ -1007,7 +843,7 @@ export function openChoices(state: WizardState): OpenChoice[] {
         !(line.drain && end.wireEnd === 'b') &&
         groundCandidates(end, line.ground).length !== 1,
     );
-    if (needing.length > 0 && grounds.length > 0 && presetPick(end, 'ground') === undefined) {
+    if (needing.length > 0 && grounds.length > 0) {
       const names = needing.map((line) => line.label).join(', ');
       out.push({
         id: choiceIdOf(end.side, 'ground'),
@@ -1028,26 +864,25 @@ export function openChoices(state: WizardState): OpenChoice[] {
     // one question per signal core that is ambiguous or unlanded-but-adjacent
     for (const line of lines) {
       if (line.role === 'ground') continue;
-      const exact = trunkCandidates(end, line.role);
+      const exact = trunkCandidates(state.db, end, line.role);
       if (exact.length === 1) continue;
-      if (presetPick(end, line.role) !== undefined) continue;
-      // a lone "Audio (mono)" pin feeding both audio cores is the catalog's own
-      // convention, not a guess — see `planCable`. Nothing to ask.
-      if (exact.length === 0 && monoStandIn(end, line.role) !== undefined) continue;
+      // a lone stand-in landing (a mono pin feeding both audio cores) is the
+      // vocabulary's own convention, not a guess — see `planCable`. Nothing to ask.
+      if (exact.length === 0 && standInFor(state.db, end, line.role) !== undefined) continue;
       const near =
         exact.length === 0
-          ? (NEAR[line.role] ?? []).flatMap((role) => trunkCandidates(end, role))
+          ? nearRoles(state.db, line.role).flatMap((role) => trunkCandidates(state.db, end, role))
           : [];
       const options = exact.length > 1 ? exact : near;
       if (options.length === 0) continue;
       out.push({
         id: choiceIdOf(end.side, line.path),
         end: end.side,
-        question: `Where does the ${ROLE_LABELS[line.role]} core land at the ${where}?`,
+        question: `Where does the ${roleLabel(state.db, line.role)} core land at the ${where}?`,
         say:
           exact.length > 1
-            ? `${end.label} has ${exact.length} landings for ${ROLE_LABELS[line.role]}. Only you know which one this build uses.`
-            : `Nothing on ${end.label} is labelled ${ROLE_LABELS[line.role]}. These are the closest — leave it unconnected if none is right.`,
+            ? `${end.label} has ${exact.length} landings for ${roleLabel(state.db, line.role)}. Only you know which one this build uses.`
+            : `Nothing on ${end.label} is labelled ${roleLabel(state.db, line.role)}. These are the closest — leave it unconnected if none is right.`,
         options: options.map((terminal) => ({
           value: terminal.id,
           label: `${terminal.id} — ${terminal.label}`,
@@ -1061,11 +896,14 @@ export function openChoices(state: WizardState): OpenChoice[] {
 
 /** The design note the validator matches, copied verbatim from the catalog. */
 export function drainNote(segment: string): string {
-  return `Drain policy (SW / "Stripping Coax"): the drain is terminated at the source end only — ${segment} drain @b is deliberately cut at the destination and left unconnected.`;
+  return `Drain policy: the drain is terminated at the source end only — ${segment} drain @b is deliberately cut at the destination and left unconnected.`;
 }
 
-const MONO_NOTE =
-  'The console end delivers mono audio: one audio pin feeds both the Audio L and Audio R cores.';
+/** The note a stand-in landing leaves on the design: which landing takes which cores. */
+function standInNote(db: Db, end: ResolvedEnd, landing: EndTerminal, roles: Role[]): string {
+  const cores = roles.map((role) => roleLabel(db, role)).join(' and ');
+  return `The ${end.side === 'source' ? 'source' : 'far'} end has one landing for ${cores}: ${end.instance} ${landing.id} (${landing.label}) takes them all.`;
+}
 
 const GENERATED_SRC =
   'Wiring generated by the new-cable wizard from the catalog’s conductor-colour and pad-role conventions (inferred — verify each joint against the board before building).';
@@ -1101,7 +939,7 @@ export function planCable(state: WizardState): CablePlan {
       design.instances.connectors.push({
         id: end.instance,
         def: end.def,
-        role: end.side === 'source' ? 'source plug (console end)' : 'destination plug',
+        role: end.side === 'source' ? 'source plug' : 'destination plug',
       });
     } else {
       design.instances.pcbas.push({ id: end.instance, def: end.def });
@@ -1150,8 +988,8 @@ export function planCable(state: WizardState): CablePlan {
         const byRole =
           pad.role === undefined
             ? []
-            : pad.role === 'ground'
-              ? pins.filter((pin) => pin.role === 'ground' && pin.ground === pad.ground)
+            : pad.role === GROUND_ROLE
+              ? pins.filter((pin) => pin.role === GROUND_ROLE && pin.ground === pad.ground)
               : pins.filter((pin) => pin.role === pad.role);
         if (byRole.length === 1 && byRole[0] !== undefined) {
           const pin = byRole[0];
@@ -1178,22 +1016,20 @@ export function planCable(state: WizardState): CablePlan {
   if (wire !== undefined) {
     const allLines = wireLines(wire, state.db);
     for (const end of ends) {
-      const where = end.side === 'source' ? 'console end' : 'far end';
+      const where = end.side === 'source' ? 'source end' : 'far end';
+      /** stand-in landings used on this end: landing id → the roles it took */
+      const stoodIn = new Map<string, { landing: EndTerminal; roles: Role[] }>();
       for (const line of allLines) {
-        // the drain is landed at the source end only — shop standard
+        // the drain is landed at the source end only — the documented practice
         if (line.drain && end.wireEnd === 'b') continue;
-        // +5 V on a bare SCART head is two joints and a resistor — below
-        if (line.role === 'power-5v' && isBareScart(end)) continue;
 
         const ref: TerminalRef = { instance: segmentId, terminal: line.path, end: end.wireEnd };
-        const pick =
-          state.picks[choiceIdOf(end.side, line.role === 'ground' ? 'ground' : line.path)] ??
-          presetPick(end, line.role === 'ground' ? 'ground' : line.role);
+        const pick = state.picks[choiceIdOf(end.side, line.role === GROUND_ROLE ? 'ground' : line.path)];
 
         let target: EndTerminal | undefined;
         let why: string | undefined;
 
-        if (line.role === 'ground') {
+        if (line.role === GROUND_ROLE) {
           const classed = groundCandidates(end, line.ground);
           if (classed.length === 1) target = classed[0];
           else if (pick !== undefined && pick !== '') {
@@ -1204,23 +1040,26 @@ export function planCable(state: WizardState): CablePlan {
             why = `${end.label} has no ground landing for it.`;
           }
         } else {
-          const exact = trunkCandidates(end, line.role);
+          const exact = trunkCandidates(state.db, end, line.role);
+          const label = roleLabel(state.db, line.role);
           if (exact.length === 1) target = exact[0];
           else if (pick !== undefined && pick !== '') {
             target = end.terminals.find((terminal) => terminal.id === pick);
           } else if (exact.length === 0) {
-            // a lone mono audio pin legitimately feeds both audio cores
-            const mono = monoStandIn(end, line.role);
-            if (mono !== undefined) {
-              target = mono;
-              if (!notes.includes(MONO_NOTE)) notes.push(MONO_NOTE);
+            // a lone stand-in landing legitimately takes the core (a mono pin, both audio cores)
+            const standIn = standInFor(state.db, end, line.role);
+            if (standIn !== undefined) {
+              target = standIn;
+              const used = stoodIn.get(standIn.id) ?? { landing: standIn, roles: [] };
+              if (!used.roles.includes(line.role)) used.roles.push(line.role);
+              stoodIn.set(standIn.id, used);
             } else {
               why = choiceIds.has(choiceIdOf(end.side, line.path))
-                ? `nothing on ${end.label} is labelled ${ROLE_LABELS[line.role]}, and you did not pick a stand-in.`
-                : `nothing on ${end.label} carries ${ROLE_LABELS[line.role]}.`;
+                ? `nothing on ${end.label} is labelled ${label}, and you did not pick a stand-in.`
+                : `nothing on ${end.label} carries ${label}.`;
             }
           } else {
-            why = `${end.label} offers ${exact.length} landings for ${ROLE_LABELS[line.role]} and you have not chosen one.`;
+            why = `${end.label} offers ${exact.length} landings for ${label} and you have not chosen one.`;
           }
         }
 
@@ -1235,7 +1074,7 @@ export function planCable(state: WizardState): CablePlan {
         const note =
           line.drain
             ? 'drain terminated at the source end only'
-            : line.role === 'ground' && line.kind === 'shield' && end.side === 'source'
+            : line.role === GROUND_ROLE && line.kind === 'shield' && end.side === 'source'
               ? 'braid trimmed and twisted together with the drain onto the ground landing'
               : undefined;
         solder(
@@ -1245,37 +1084,10 @@ export function planCable(state: WizardState): CablePlan {
           `${line.label} (${line.path}) at the ${where} → ${end.instance} ${target.id} (${target.label})`,
         );
       }
-    }
-
-    // --- a bare SCART head: +5 V to pin 8, and to 16 through 180 Ω ---------
-    for (const end of ends) {
-      if (!isBareScart(end)) continue;
-      const power = allLines.find((line) => line.role === 'power-5v');
-      if (power !== undefined) {
-        const ref: TerminalRef = { instance: segmentId, terminal: power.path, end: end.wireEnd };
-        const resistor = `r${design.instances.components.length + 1}`;
-        design.instances.components.push({
-          id: resistor,
-          def: BARE_SCART_BLANKING,
-          location: 'scart-head',
-          note: 'RGB blanking, fitted by hand across SCART pins 8 and 16 — stands in for the destination board\'s R203 180 Ω',
-        });
-        solder(ref, { instance: end.instance, terminal: '8' }, undefined, `${power.label} (${power.path}) at the far end → ${end.instance} 8 (status)`);
-        solder({ instance: end.instance, terminal: '8' }, { instance: resistor, terminal: 'a' }, undefined, `${resistor} (180 Ω) fitted across ${end.instance} 8 …`);
-        solder({ instance: resistor, terminal: 'b' }, { instance: end.instance, terminal: '16' }, undefined, `… and ${end.instance} 16 (RGB blanking)`);
+      for (const { landing, roles } of stoodIn.values()) {
+        const note = standInNote(state.db, end, landing, roles);
+        if (!notes.includes(note)) notes.push(note);
       }
-      // the returns the board would have commoned
-      const used = new Set(joints.flatMap((j) => [j.a, j.b]).filter((r) => r.instance === end.instance).map((r) => r.terminal));
-      for (const [pin, partner] of Object.entries(GROUND_JUMPER_TO)) {
-        if (used.has(pin) || !used.has(partner)) continue;
-        solder(
-          { instance: end.instance, terminal: pin },
-          { instance: end.instance, terminal: partner },
-          `ground jumper, hand-wired: the destination board commons pin ${pin} with the other returns`,
-          `${end.instance} ${pin} ⟷ ${end.instance} ${partner} (ground jumper)`,
-        );
-      }
-      if (!notes.includes(BARE_SCART_NOTE)) notes.push(BARE_SCART_NOTE);
     }
 
     // the drain is cut at the destination on purpose; the note is what stops
