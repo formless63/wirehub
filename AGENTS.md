@@ -59,12 +59,13 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
   (`LICENSE-EXCEPTION.md`); `packages/modules` is MIT; bundled modules are MIT with
   CC0-1.0 pack data; the starter catalog data is CC0-1.0 too. No per-file licence headers.
 
-## Git
+## Contributing
 
-No remote is configured by default. Agents working in worktrees commit on their own
-branch and never push, pull, rebase the main branch, or touch the remote config.
-Where the beads section below mandates `git push`, that applies only to the session
-the owner has asked to push.
+- Work on a branch and open a pull request against `main`.
+- Use conventional commit messages (`feat: …`, `fix: …`, `docs: …`).
+- The privacy hooks in `.githooks/` must pass; `--no-verify` is never used.
+- Commit with your own noreply or public email address.
+- No tool or agent attribution trailers in commit messages.
 
 ---
 
