@@ -129,8 +129,8 @@ vendored data migration (plan §6).
   every new org table; data migrations vendor the model code they call.
 - **The file backend stays first-class** (tests, development, small installs). Every new
   seam kind lands there first, with a contract test.
-- **Tests that need Postgres or S3** skip with one line when `STUDIO_TEST_PG_URL` /
-  `STUDIO_TEST_S3_URL` is unset, so `pnpm test` stays green without Docker.
+- **Tests that need Postgres or S3** skip with one line when `WIREHUB_TEST_PG_URL` /
+  `WIREHUB_TEST_S3_URL` is unset, so `pnpm test` stays green without Docker.
 - **Plan edits:** when reality differs from the plan, update `specs/postgres-backend.md` in
   the same branch, add a changelog line, and say so in your report.
 

@@ -171,10 +171,10 @@ export interface WorkbenchDeps {
   versions?: VersionStore;
   /** now, as an ISO time stamp, for a version's `savedAt` (injected by tests) */
   now?: () => string;
-  /** who is using a studio without a login (`STUDIO_LOCAL_USER`, else git's user.name) */
+  /** who is using a studio without a login (`WIREHUB_LOCAL_USER`, else git's user.name) */
   localUser?: StudioUser;
   /**
-   * The optional git export (`STUDIO_GIT_AUTOCOMMIT=true` on the standalone
+   * The optional git export (`WIREHUB_GIT_AUTOCOMMIT=true` on the standalone
    * server). Absent → `GET /api/backup` answers "off".
    */
   backup?: BackupControl;

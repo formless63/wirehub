@@ -43,7 +43,7 @@ function rawJson(relative: string): unknown {
 export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): WorkbenchDeps {
   // one asset store, shared: `drawings` dedups every photo it is handed
   // against exactly this store, and `assets` is what the picker lists; its
-  // bytes go to the blob store when the host configured one (STUDIO_BLOBS)
+  // bytes go to the blob store when the host configured one (WIREHUB_BLOBS)
   const assets = fileAssetStore(options.blobs);
   return {
     designs: fileDesignStore(),

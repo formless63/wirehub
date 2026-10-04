@@ -6,7 +6,7 @@
  * content addresses (`assets/<sha256>.<ext>`), so an object is never
  * overwritten with different content and a retried upload is harmless.
  *
- * Two implementations, chosen by `STUDIO_BLOBS` (`blobStoreFromEnv`):
+ * Two implementations, chosen by `WIREHUB_BLOBS` (`blobStoreFromEnv`):
  *
  * - `s3` — any S3-compatible service (Garage by default in `compose.yaml`;
  *   also AWS S3, MinIO, RustFS, Ceph RGW, Backblaze B2, Cloudflare R2). The
@@ -28,6 +28,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import { writeFileAtomic } from './atomic-write.ts';
+import { envVar } from './env.ts';
 
 export interface BlobStore {
   /** a short description for logs: `s3 http://garage:3900/wirehub`, `fs /data/blobs` */
@@ -246,20 +247,20 @@ export function s3BlobStore(
 /**
  * The blob store the environment asks for, or `undefined` (bytes stay in the
  * catalog directory). Throws, with one sentence per problem, when
- * `STUDIO_BLOBS` names a store whose settings are incomplete — a hub that
+ * `WIREHUB_BLOBS` names a store whose settings are incomplete — a hub that
  * silently fell back to local files would lose uploads on the next deploy.
  */
 export function blobStoreFromEnv(env: Record<string, string | undefined>): BlobStore | undefined {
-  const mode = env.STUDIO_BLOBS?.trim() ?? '';
+  const mode = envVar('BLOBS', env)?.trim() ?? '';
   if (mode === '' || mode === 'catalog') return undefined;
   if (mode.startsWith('fs:')) {
     const dir = mode.slice(3);
-    if (dir === '') throw new Error('STUDIO_BLOBS=fs:<dir> needs a directory.');
+    if (dir === '') throw new Error('WIREHUB_BLOBS=fs:<dir> needs a directory.');
     return fsBlobStore(dir);
   }
   if (mode === 's3') {
     const missing = ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'].filter((name) => (env[name] ?? '') === '');
-    if (missing.length > 0) throw new Error(`STUDIO_BLOBS=s3 needs ${missing.join(', ')}.`);
+    if (missing.length > 0) throw new Error(`WIREHUB_BLOBS=s3 needs ${missing.join(', ')}.`);
     return s3BlobStore({
       endpoint: env.S3_ENDPOINT ?? '',
       region: env.S3_REGION ?? 'us-east-1',
@@ -268,5 +269,5 @@ export function blobStoreFromEnv(env: Record<string, string | undefined>): BlobS
       secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? '',
     });
   }
-  throw new Error(`STUDIO_BLOBS must be 's3', 'fs:<dir>' or unset; got '${mode}'.`);
+  throw new Error(`WIREHUB_BLOBS must be 's3', 'fs:<dir>' or unset; got '${mode}'.`);
 }

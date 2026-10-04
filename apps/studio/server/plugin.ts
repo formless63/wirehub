@@ -29,6 +29,7 @@ import { editLockLayer, type EditLockDeps } from './locks/lock-api.ts';
 import { LOCK_HEADER } from '../src/locks/records.ts';
 
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
+import { legacyEnvWarning } from './env.ts';
 import { MAX_JSON_BODY_BYTES as MAX_JSON_BYTES, contentTypeRefusal, crossSiteRefusal, type GuardRefusal } from './request-guard.ts';
 
 export { defaultWorkbenchDeps } from './default-deps.ts';
@@ -221,6 +222,8 @@ export function workbenchApi(deps: WorkbenchDeps = defaultWorkbenchDeps()): Plug
           'AUTH_ENABLED=true is ignored by the Vite dev server — no login here. Use `pnpm --filter studio start` for the gated server.',
         );
       }
+      const legacyEnv = legacyEnvWarning(process.env);
+      if (legacyEnv !== undefined) server.config.logger.warn(legacyEnv);
       // artwork first: those endpoints carry bytes in and images out, which the
       // JSON pipe below cannot express. Everything else falls through to it.
       server.middlewares.use(depictionLockMiddleware(deps));

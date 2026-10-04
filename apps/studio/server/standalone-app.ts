@@ -30,7 +30,7 @@ export interface StandaloneAppOptions {
    * is byte-for-byte what it was without it.
    */
   auth?: StudioAuth;
-  /** the git backup (`STUDIO_GIT_AUTOCOMMIT=true`); absent → saves are not committed */
+  /** the git backup (`WIREHUB_GIT_AUTOCOMMIT=true`); absent → saves are not committed */
   backup?: StudioBackup;
 }
 

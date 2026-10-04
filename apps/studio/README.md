@@ -37,9 +37,12 @@ docker compose up -d           # then open http://localhost:5183
 
 The catalog lives in the `catalog` volume (seeded from the image's starter
 catalog on first start). Uploaded file bytes go to the blob store named by
-`STUDIO_BLOBS` (`server/blobs.ts`): `s3` (Garage, by default), `fs:<dir>`, or
+`WIREHUB_BLOBS` (`server/blobs.ts`): `s3` (Garage, by default), `fs:<dir>`, or
 unset — beside the catalog, as in development. `GET /healthz` is the
 healthcheck. Settings go in `.env` (`.env.example` documents every one).
+WireHub's own variables are `WIREHUB_*`; the pre-rename `STUDIO_*` names are
+still read as a deprecated fallback, with one warning at startup
+(`server/env.ts`).
 
 To work on the catalog in your checkout instead, run the app from source
 (`pnpm --filter studio dev`), where saves land in `packages/catalog/data`.
@@ -51,9 +54,9 @@ build includes. It is empty in the base. See `../../docs/modules.md`.
 
 ## Optional git export of saves
 
-Off unless `STUDIO_GIT_AUTOCOMMIT=true`. The repository is the checkout the
-server runs from (`STUDIO_GIT_DIR` overrides); `STUDIO_GIT_REMOTE` (`origin`)
-and `STUDIO_GIT_BRANCH` pick where commits are pushed. Code: `server/backup/`.
+Off unless `WIREHUB_GIT_AUTOCOMMIT=true`. The repository is the checkout the
+server runs from (`WIREHUB_GIT_DIR` overrides); `WIREHUB_GIT_REMOTE` (`origin`)
+and `WIREHUB_GIT_BRANCH` pick where commits are pushed. Code: `server/backup/`.
 
 - **Every save is a commit.** After a successful write, exactly the files that
   request wrote (the stores report them, `server/write-journal.ts`; generated
@@ -108,7 +111,7 @@ the server at startup with one line naming it.
 | `AUTH_SMTP_SECURE` | `true` | implicit TLS; `false` = STARTTLS |
 | `AUTH_SMTP_USER` / `AUTH_SMTP_PASS` | — | |
 | `AUTH_SMTP_FROM` | `AUTH_SMTP_USER` | sender address |
-| `STUDIO_LOCAL_USER` | `git config user.name`, else `local` | who the studio names with the login **off**; `GET /api/me` answers either |
+| `WIREHUB_LOCAL_USER` | `git config user.name`, else `local` | who the studio names with the login **off**; `GET /api/me` answers either |
 
 **OIDC client:** a confidential client with PKCE, callback URL
 `<BETTER_AUTH_URL>/api/auth/callback/<AUTH_OIDC_PROVIDER_ID>`.

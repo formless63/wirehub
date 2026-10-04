@@ -31,7 +31,7 @@ export interface BackupStatus {
 export const BACKUP_DISABLED: BackupStatus = {
   enabled: false,
   state: 'ok',
-  message: 'Backup is off (STUDIO_GIT_AUTOCOMMIT is not true).',
+  message: 'Backup is off (WIREHUB_GIT_AUTOCOMMIT is not true).',
   lastCommit: null,
   lastPush: null,
   pendingCommits: 0,

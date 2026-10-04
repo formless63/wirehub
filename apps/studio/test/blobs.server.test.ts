@@ -3,7 +3,7 @@
  *
  * The S3 client is checked three ways: its signer against the worked example
  * in the AWS documentation, its requests against an in-memory fake, and — when
- * `STUDIO_TEST_S3_URL` names a real store (`http://<key>:<secret>@host:port/<bucket>?region=<r>`)
+ * `WIREHUB_TEST_S3_URL` names a real store (`http://<key>:<secret>@host:port/<bucket>?region=<r>`)
  * — against that store. Without it, the live case is skipped.
  */
 
@@ -13,6 +13,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { envVar } from '../server/env.ts';
 import { blobStoreFromEnv, fsBlobStore, isBlobKey, s3BlobStore, signV4 } from '../server/blobs.ts';
 
 let dataDir = '';
@@ -141,11 +142,11 @@ describe('s3BlobStore (in-memory endpoint)', () => {
 describe('blobStoreFromEnv', () => {
   it('is off when unset, and says what an s3 store is missing', () => {
     expect(blobStoreFromEnv({})).toBeUndefined();
-    expect(() => blobStoreFromEnv({ STUDIO_BLOBS: 's3', S3_ENDPOINT: 'http://x' })).toThrow(
-      'STUDIO_BLOBS=s3 needs S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY.',
+    expect(() => blobStoreFromEnv({ WIREHUB_BLOBS: 's3', S3_ENDPOINT: 'http://x' })).toThrow(
+      'WIREHUB_BLOBS=s3 needs S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY.',
     );
-    expect(blobStoreFromEnv({ STUDIO_BLOBS: 'fs:/tmp/x' })?.describe).toMatch(/^fs /);
-    expect(() => blobStoreFromEnv({ STUDIO_BLOBS: 'ftp' })).toThrow(/must be 's3'/);
+    expect(blobStoreFromEnv({ WIREHUB_BLOBS: 'fs:/tmp/x' })?.describe).toMatch(/^fs /);
+    expect(() => blobStoreFromEnv({ WIREHUB_BLOBS: 'ftp' })).toThrow(/must be 's3'/);
   });
 });
 
@@ -181,8 +182,8 @@ describe('the asset store over a blob store', () => {
   });
 });
 
-const live = process.env.STUDIO_TEST_S3_URL;
-describe.skipIf(live === undefined)('s3BlobStore against STUDIO_TEST_S3_URL', () => {
+const live = envVar('TEST_S3_URL');
+describe.skipIf(live === undefined)('s3BlobStore against WIREHUB_TEST_S3_URL', () => {
   it('round-trips an object', async () => {
     const url = new URL(live ?? 'http://x');
     const store = s3BlobStore({

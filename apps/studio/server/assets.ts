@@ -109,7 +109,7 @@ export function assetBlobKey(id: string, mime: AssetMime): string {
 /**
  * The committed catalog tree as the store. The index (`assets/index.json`)
  * is always catalog data; the bytes are beside it, or — given `blobs`
- * (`STUDIO_BLOBS`, `blobs.ts`) — in the blob store. With a blob store, an
+ * (`WIREHUB_BLOBS`, `blobs.ts`) — in the blob store. With a blob store, an
  * asset whose bytes are still only in the catalog directory (one committed
  * before the store was configured) is read from there and copied into the
  * store on first read.

@@ -4,12 +4,14 @@
  * With the login on (`AUTH_ENABLED=true`, standalone server) the person is the
  * Better Auth session's user, handed to the router on the request by the host
  * adapter. With it off, there is no session: the studio names a configurable
- * local user — `STUDIO_LOCAL_USER`, else the machine's `git config user.name`,
+ * local user — `WIREHUB_LOCAL_USER`, else the machine's `git config user.name`,
  * else `local`. Records that say who (declined proposals) take the name from
  * here, and the rail's avatar shows its initials.
  */
 
 import { execFileSync } from 'node:child_process';
+
+import { envVar } from './env.ts';
 
 export interface StudioUser {
   name: string;
@@ -32,7 +34,7 @@ export function gitUserName(): string | undefined {
 
 /** The user a studio without a login names. `gitName` is injected so tests never shell out. */
 export function localStudioUser(env: Readonly<Record<string, string | undefined>>, gitName: () => string | undefined = gitUserName): StudioUser {
-  const configured = env.STUDIO_LOCAL_USER?.trim();
+  const configured = envVar('LOCAL_USER', env)?.trim();
   return { name: configured !== undefined && configured !== '' ? configured : (gitName() ?? 'local'), source: 'local' };
 }
 

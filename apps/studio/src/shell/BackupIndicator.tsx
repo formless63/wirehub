@@ -40,7 +40,7 @@ export function BackupDetails({ status, now }: { status: BackupStatus; now: Date
   return (
     <div className="flex flex-col gap-2">
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-        {status.enabled ? null : <Row label="State">off — set STUDIO_GIT_AUTOCOMMIT=true</Row>}
+        {status.enabled ? null : <Row label="State">off — set WIREHUB_GIT_AUTOCOMMIT=true</Row>}
         {status.enabled ? <Row label="State">{status.state}</Row> : null}
         {status.enabled ? (
           <Row label="Remote">

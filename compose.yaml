@@ -20,7 +20,7 @@
 # the Garage volumes (uploaded file bytes). compose.backup.yaml backs all of
 # them up, plus the Postgres dump.
 #
-# Fallback without object storage: set STUDIO_BLOBS=fs:/data/blobs in .env
+# Fallback without object storage: set WIREHUB_BLOBS=fs:/data/blobs in .env
 # and start only the app: `docker compose up -d --no-deps wirehub`.
 #
 # Every setting is in .env (documented in .env.example). Nothing here is
@@ -45,8 +45,9 @@ services:
     environment:
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       AUTH_DATA_DIR: /data/auth
-      STUDIO_MODEL_CACHE_DIR: /data/cache/models
-      STUDIO_BLOBS: ${STUDIO_BLOBS:-s3}
+      WIREHUB_MODEL_CACHE_DIR: /data/cache/models
+      # an .env written before the rename may still say STUDIO_BLOBS: honoured, deprecated
+      WIREHUB_BLOBS: ${WIREHUB_BLOBS:-${STUDIO_BLOBS:-s3}}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
       S3_REGION: ${S3_REGION:-garage}
       S3_BUCKET: ${S3_BUCKET:-wirehub}

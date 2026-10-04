@@ -10,7 +10,7 @@ rules for agents building it are `postgres-backend-EXECUTION.md`.
   Garage as the S3-compatible blob store, PostgreSQL 18 provisioned ahead of this plan)
   and the backup add-on (`compose.backup.yaml`: pg_dump + bucket mirror + restic through
   Backrest). The blob seam is wired for uploaded file bytes in the file backend already
-  (`apps/studio/server/blobs.ts`, `STUDIO_BLOBS`); Garage replaces the MinIO profile and
+  (`apps/studio/server/blobs.ts`, `WIREHUB_BLOBS`); Garage replaces the MinIO profile and
   object storage replaces the filesystem as the default (§5.1, §8, §9, Q3). Secrets come
   from `scripts/setup-env.sh` instead of a `setup` one-shot service (§9.1).
 - **rev 6 (base)** — ported from the private studio's plan (revs 1–5.2) and generalised.
@@ -34,7 +34,7 @@ rules for agents building it are `postgres-backend-EXECUTION.md`.
 1. **Postgres is the record.** Every catalog record, saved revision and binary lives in
    Postgres (documents and relations) plus a blob store (bytes), written by one SQL
    transaction per request.
-2. **Same app, same API.** `STUDIO_BACKEND=files|pg` picks the stores in
+2. **Same app, same API.** `WIREHUB_BACKEND=files|pg` picks the stores in
    `default-deps.ts`. The handlers, the pure model and the browser do not change.
 3. **Parity, proven.** `export(import(catalog))` is byte-identical to the catalog.
    Validation, schematics and every ETag are identical between backends.
@@ -155,7 +155,7 @@ and nothing else.
 | `model-cache` | after any commit that adds or changes a `model_link` that needs conversion; at boot when `CONVERTER_VERSION` has no rows | builds the missing or stale GLBs into `derived_blob` (§5.5) |
 | `derive` | only on repair (`derived_doc.inputs_version ≠ head`) | recomputes derived docs |
 | `blob-gc` | daily, after the backup | mark and sweep record blobs; expire derived blobs no live key names (§5.4) |
-| `backup` | daily at `STUDIO_BACKUP_AT` (default 03:00 local) when `STUDIO_BACKUP_DIR` is set | `pg_dump` + record-blob mirror (§8.4) |
+| `backup` | daily at `WIREHUB_BACKUP_AT` (default 03:00 local) when `WIREHUB_BACKUP_DIR` is set | `pg_dump` + record-blob mirror (§8.4) |
 | `restore-check` | weekly when backups are on | restores the latest dump into a scratch database and compares counts and sampled hashes (§8.5) |
 | `parity` | only while migrating from files (§7.4) | compares every GET route between backends |
 
@@ -1064,7 +1064,7 @@ CREATE TABLE auth.api_token (
   org_id        uuid NOT NULL,                  -- studio.org.id
   person_id     uuid NOT NULL,                  -- studio.person.id: the token acts as this person, and only as this person
   name          text NOT NULL CHECK (length(name) BETWEEN 1 AND 80),   -- the person's label: "laptop scripts"
-  env           text NOT NULL CHECK (env IN ('dev', 'prod')),          -- must equal STUDIO_ENV; also the token's prefix
+  env           text NOT NULL CHECK (env IN ('dev', 'prod')),          -- must equal WIREHUB_ENV; also the token's prefix
   token_sha256  text NOT NULL UNIQUE CHECK (token_sha256 ~ '^[0-9a-f]{64}$'),
   scopes        text[] NOT NULL CHECK ('read' = ANY (scopes)),        -- 'read', 'catalog:write', 'imports', and '<module>:<scope>'
   expires_at    timestamptz NOT NULL,
@@ -1214,7 +1214,7 @@ way the request authenticates is new.
   an error, a change set or a URL: the request logger redacts the `Authorization` header,
   and a test asserts it.
 - **Environment:** a token carries its environment in its prefix (`cst_prod_…`,
-  `cst_dev_…`). The server refuses a token whose `env` is not its `STUDIO_ENV` (401,
+  `cst_dev_…`). The server refuses a token whose `env` is not its `WIREHUB_ENV` (401,
   before any lookup).
 
 **The auth gate.** `Authorization: Bearer cst_…` is accepted on `/api/*` only. The gate
@@ -1295,8 +1295,8 @@ working on JSON files:
 - `studio-api push <dir> -m "<message>"`: the same batch for real. A record that changed
   since the pull fails its If-Match, and the whole batch is refused;
 - `studio-api call <method> <path> [body]` for single routes;
-- the token comes from `STUDIO_API_TOKEN` only (never a flag, never a file it writes), the
-  URL from `STUDIO_API_URL`; it refuses a `cst_prod_` token against a URL configured as dev,
+- the token comes from `WIREHUB_API_TOKEN` only (never a flag, never a file it writes), the
+  URL from `WIREHUB_API_URL`; it refuses a `cst_prod_` token against a URL configured as dev,
   and the other way round.
 
 **Which token where.** Development instances: a person's dev token with broad scopes is
@@ -1323,7 +1323,7 @@ same auth gate and rate limits; no network is treated as trusted.
     SigV4 client over `fetch` (path-style), endpoint, region, bucket and keys from env;
   - `fsBlobStore(dir)` — a directory on a volume; the documented fallback without object
     storage, and the store for tests.
-  `STUDIO_BLOBS=s3|fs:<dir>`; unset keeps bytes beside the catalog (development).
+  `WIREHUB_BLOBS=s3|fs:<dir>`; unset keeps bytes beside the catalog (development).
 - **One bucket (or directory) for record and derived blobs.** Every key is the sha256 of
   its bytes, so an object is never overwritten with different content. No bucket
   versioning is needed; the only delete is the GC's (§5.4), and the protection against a
@@ -1354,7 +1354,7 @@ same auth gate and rate limits; no network is treated as trusted.
 5. A rolled-back transaction leaves an object with no row, and GC removes it after 24 h.
 
 The re-read costs one extra GET per upload; uploads are rare, so it stays on.
-`STUDIO_BLOB_VERIFY=off` exists for backends with enforced checksums.
+`WIREHUB_BLOB_VERIFY=off` exists for backends with enforced checksums.
 
 ### 5.3 Serving and SVG safety
 
@@ -1388,7 +1388,7 @@ The re-read costs one extra GET per upload; uploads are rare, so it stays on.
 
 - **The keys do not change** between backends, so the gate compares them directly.
 - The STEP conversion stays in its memory-capped child (it peaks at about 1.1 GB); the
-  worker runs **one conversion at a time**. `STUDIO_CONVERT_WINDOW=HH:MM-HH:MM` optionally
+  worker runs **one conversion at a time**. `WIREHUB_CONVERT_WINDOW=HH:MM-HH:MM` optionally
   confines conversions to a night window on small machines.
 - Triggers: an `after(commit)` hook when a `model_link` that needs conversion is new or
   changed; at worker boot, a sweep that builds any live key missing at the current builder
@@ -1489,8 +1489,8 @@ never taken from a plan.
   pg:export --out <dir>` render the current snapshot as `data/` + `depictions/` text.
   **Blobs are never included.** The export is a valid file catalog: it can be committed to
   git, opened by the file backend, or loaded into another deployment with `pg:import`.
-- **Cut-over** for an existing file deployment: write freeze (`STUDIO_READ_ONLY=1`); a
-  final shadow sync, parity 0 and `pg:gate`; `STUDIO_BACKEND=pg`; restart; smoke test
+- **Cut-over** for an existing file deployment: write freeze (`WIREHUB_READ_ONLY=1`); a
+  final shadow sync, parity 0 and `pg:gate`; `WIREHUB_BACKEND=pg`; restart; smoke test
   (open, save and revert a design; release and unlock a version; attach and detach a
   model; `pg:export` to a temp directory and spot-check it); unfreeze.
 - **Rollback** is a restore of the latest backup (§8.5), not a switch back to files.
@@ -1503,7 +1503,7 @@ never taken from a plan.
 | `commit-message.ts` | the git message and author | kept: it writes `change_set.message` and `actor_label` |
 | `GET /api/backup` | the indicator's state | answers `{state: 'database', lastChangeSet: {version, at, by}}`; the indicator reads "Saved" |
 | `POST /api/backup/retry` | retry a blocked push | `404` "not used with the database backend" |
-| `STUDIO_GIT_*` | env | ignored (a warning at boot if set) |
+| `WIREHUB_GIT_*` | env | ignored (a warning at boot if set) |
 | `saves.jsonl` | the save log | replaced by `change_set` |
 
 A deployment that still wants its catalog in git schedules `pg:export` and commits the
@@ -1524,14 +1524,14 @@ provisioned but unused:
 
 | Service | Image | Memory cap | Today | After Phase S |
 | --- | --- | --- | --- | --- |
-| `wirehub` | `ghcr.io/formless63/wirehub` (`docker/app.Dockerfile`) | 768 MiB | the app; volumes `catalog`, `auth`, `blobs`, `cache` | the app with `STUDIO_BACKEND=pg`; the `catalog` volume only for import/export |
+| `wirehub` | `ghcr.io/formless63/wirehub` (`docker/app.Dockerfile`) | 768 MiB | the app; volumes `catalog`, `auth`, `blobs`, `cache` | the app with `WIREHUB_BACKEND=pg`; the `catalog` volume only for import/export |
 | `garage` | `dxflrs/garage` (pinned) | 256 MiB | blob store, single node, internal network | the same |
 | `garage-init` | the app image, `docker/garage/init.mjs` | 128 MiB | one-shot: layout, app key + read-only backup key, bucket | the same |
 | `postgres` | `postgres:18.x-bookworm` (pinned minor) | 512 MiB | provisioned, unused; volume `pg_data` | `docker/postgres/bootstrap.sh` creates the roles and the database on first start |
 | `migrate` | the app image, `db:migrate` | 256 MiB | — | one-shot; `wirehub` and `worker` depend on its successful completion |
 | `worker` | the app image, `server/worker.ts` | 1.5 GiB | — | jobs (§2), model conversion |
 
-`STUDIO_BLOBS=fs:/data/blobs` with `docker compose up -d --no-deps wirehub` is the
+`WIREHUB_BLOBS=fs:/data/blobs` with `docker compose up -d --no-deps wirehub` is the
 documented fallback without object storage.
 
 - **Networks:** one internal network for all services; only the studio's port is
@@ -1552,12 +1552,12 @@ All in `.env` (`.env.example` documents every variable):
 
 | Variable | Default | |
 | --- | --- | --- |
-| `STUDIO_ENV` | `prod` in compose | `dev` / `prod`; the environment guard (§8.7) |
-| `STUDIO_BACKEND` | `pg` in compose once Phase S lands | `files` / `pg` |
+| `WIREHUB_ENV` | `prod` in compose | `dev` / `prod`; the environment guard (§8.7) |
+| `WIREHUB_BACKEND` | `pg` in compose once Phase S lands | `files` / `pg` |
 | `DATABASE_URL` | the compose's postgres, as `studio_app` | the app's connection |
 | `DATABASE_OWNER_URL` | as `studio_owner` | `migrate` only |
-| `POSTGRES_PASSWORD`, `STUDIO_APP_PASSWORD`, `STUDIO_RO_PASSWORD` | generated by `scripts/setup-env.sh` (§9.1) | (`POSTGRES_PASSWORD` exists today; the role passwords arrive with S2) |
-| `STUDIO_BLOBS` | `s3` | or `fs:<dir>` (fallback) |
+| `POSTGRES_PASSWORD`, `WIREHUB_APP_PASSWORD`, `WIREHUB_RO_PASSWORD` | generated by `scripts/setup-env.sh` (§9.1) | (`POSTGRES_PASSWORD` exists today; the role passwords arrive with S2) |
+| `WIREHUB_BLOBS` | `s3` | or `fs:<dir>` (fallback) |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | the bundled Garage; keys generated | path-style always |
 | `S3_BACKUP_ACCESS_KEY_ID`, `S3_BACKUP_SECRET_ACCESS_KEY` | generated | the read-only key the backup mirror uses |
 | `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `GARAGE_CAPACITY` | generated; `100G` | the bundled Garage |
@@ -1565,14 +1565,14 @@ All in `.env` (`.env.example` documents every variable):
 | `AUTH_LOCAL_ACCOUNTS` | `true` in pg mode | email + password sign-in |
 | `AUTH_OIDC_*`, `AUTH_SMTP_*` | — | optional sign-in methods (`apps/studio/README.md`) |
 | `BACKUP_DUMP_AT`, `BACKUP_KEEP_DUMPS`, `BACKUP_MIRROR_INTERVAL`, `BACKREST_PORT` | `02:30`; `7`; `3600`; `9898` | the backup add-on (§8.4) |
-| `STUDIO_NOTIFY_URL` | — | optional webhook for alerts (§8.6) |
+| `WIREHUB_NOTIFY_URL` | — | optional webhook for alerts (§8.6) |
 
 ### 8.3 Health checks
 
 - postgres: `pg_isready`.
 - studio `/healthz`: process up. `/healthz?deep=1`: pg `SELECT 1`; a blob-store canary
   (`HEAD` of a canary object written at boot); the age of the last successful backup when
-  backups are on (≤ 30 h); the pg-boss failed-job count; `STUDIO_ENV` and the image's
+  backups are on (≤ 30 h); the pg-boss failed-job count; `WIREHUB_ENV` and the image's
   version.
 - worker: a heartbeat row it updates every 60 s; the studio's deep check fails when it is
   older than 5 minutes.
@@ -1617,7 +1617,7 @@ the worker), and the deep health check reports its age.
 
 ### 8.6 Monitoring
 
-`STUDIO_NOTIFY_URL` (optional) receives a JSON POST per event — compatible with ntfy,
+`WIREHUB_NOTIFY_URL` (optional) receives a JSON POST per event — compatible with ntfy,
 Gotify, Slack/Matrix webhooks through a small adapter — and every event is also logged:
 
 | Event | Severity |
@@ -1634,12 +1634,12 @@ Gotify, Slack/Matrix webhooks through a small adapter — and every event is als
 ### 8.7 Environments and the environment guard
 
 A deployer may run a production instance and a development instance (for trying a new
-version or a module on a copy of the data). `STUDIO_ENV` keeps them apart:
+version or a module on a copy of the data). `WIREHUB_ENV` keeps them apart:
 
 - at boot, the studio refuses to start when the environment and its configuration
   disagree: a `dev` process with a database or bucket name configured as production's
-  (`STUDIO_PROD_MARKERS`, a list of substrings), a `prod` process with `STUDIO_BACKEND=files`
-  unless `STUDIO_ALLOW_FILES_IN_PROD=1`, a token of the other environment (§4.5);
+  (`WIREHUB_PROD_MARKERS`, a list of substrings), a `prod` process with `WIREHUB_BACKEND=files`
+  unless `WIREHUB_ALLOW_FILES_IN_PROD=1`, a token of the other environment (§4.5);
 - a dev instance shows a banner;
 - **refreshing dev from prod** is a restore of prod's latest backup into dev's database
   (`db:restore`), keeping dev's own `auth` schema, so prod credentials and token hashes
@@ -1762,7 +1762,7 @@ runs the file backend, with the catalog in a volume.
   (on `fixtures/v1` and the starter catalog).
 - **Postgres in tests:** `docker-compose.test.yml` `pg-test` (tmpfs, `fsync=off`, 256 MiB);
   a template database; one database per file; a single fork. Blobs use `fsBlobStore`.
-  S3 cases run only with `STUDIO_TEST_S3_URL` (a throwaway Garage container; the client's
+  S3 cases run only with `WIREHUB_TEST_S3_URL` (a throwaway Garage container; the client's
   signer is also checked against the AWS documentation's worked example).
 - **RAM discipline:** only the suites a change touches; the full run one workspace at a
   time with `--maxWorkers=2`.
@@ -1842,7 +1842,7 @@ worker's peak stays under its cap.
 
 | # | Task | Size | Depends on |
 | --- | --- | --- | --- |
-| S1 | `compose.yaml` (§8.1): add migrate and worker, the Caddy example profile, `STUDIO_BACKEND=pg`; health checks (garage, postgres, wirehub, garage-init exist today) | 1 d | C1 |
+| S1 | `compose.yaml` (§8.1): add migrate and worker, the Caddy example profile, `WIREHUB_BACKEND=pg`; health checks (garage, postgres, wirehub, garage-init exist today) | 1 d | C1 |
 | S2 | `scripts/setup-env.sh` gains the role passwords (exists today); `bootstrap.sh` roles and database | 0.5 d | S1 |
 | S3 | Setup mode and `/setup` (§9.1–9.2): setup code, org, admin, starter/empty catalog, PN scheme; one transaction; the SPA page | 3 d | B8, A4 |
 | S4 | Settings → People: invitations, roles, revoking access | 2 d | B8 |
@@ -1874,7 +1874,7 @@ file catalog worth migrating. B0 and B7 (file-backend changes) can land early.
 | R2 | The snapshot reload cost grows with the catalog | per-org cache keyed by version; reload in one read-only transaction; S4 measured on a synthetic catalog 10× the starter; if it fails, incremental reload by `change` rows |
 | R3 | A blob uploaded but never committed | content-addressed keys, GC of row-less objects after 24 h |
 | R4 | GC deleting a blob a backup has not captured | orphan deletion only after a later completed backup (§5.4) |
-| R5 | The STEP conversion's memory peak on a small VM | memory-capped child, one at a time, optional night window, `STUDIO_CONVERT=off` to disable conversion entirely |
+| R5 | The STEP conversion's memory peak on a small VM | memory-capped child, one at a time, optional night window, `WIREHUB_CONVERT=off` to disable conversion entirely |
 | R6 | Non-deterministic model builds weaken the gate | compare key sets and triangle counts when shas differ |
 | R7 | Module migrations interfering with the base schema | separate schema per module, references only from module to base, RLS suite covers them (§3.13) |
 | R8 | A self-hosted studio exposed before setup | setup code printed to the log; setup mode answers 503 everywhere else |

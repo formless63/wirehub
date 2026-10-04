@@ -28,7 +28,7 @@ the catalog, the designs, drawings and saved versions are JSON files in the
 sign-in state and the save audit log are in the `auth` volume. What already
 goes through the storage seam to object storage is the **bytes of uploaded
 files**: their records stay in the catalog (`assets/index.json`), their
-content goes to the bucket (`STUDIO_BLOBS=s3`, `apps/studio/server/blobs.ts`).
+content goes to the bucket (`WIREHUB_BLOBS=s3`, `apps/studio/server/blobs.ts`).
 
 PostgreSQL runs so an install made today already has its database, its
 credentials and its backups in place when the database backend lands
@@ -64,7 +64,7 @@ RustFS, MinIO, Ceph RGW, Backblaze B2, Cloudflare R2).
 
 ### Fallback without object storage
 
-Set `STUDIO_BLOBS=fs:/data/blobs` in `.env` and start only the app:
+Set `WIREHUB_BLOBS=fs:/data/blobs` in `.env` and start only the app:
 
 ```
 docker compose up -d --no-deps wirehub
@@ -129,6 +129,14 @@ WireHub today, because today's data is not in Postgres.
 Pull or build the new image and `docker compose up -d`. Take a backup first.
 Pin `WIREHUB_IMAGE` to a version tag (`ghcr.io/formless63/wirehub:0.1.0`)
 for production; `edge` follows `main`.
+
+**Renamed variables.** WireHub's own settings are named `WIREHUB_*`
+(`WIREHUB_BLOBS`, `WIREHUB_LOCAL_USER`, `WIREHUB_GIT_*`,
+`WIREHUB_MODEL_CACHE_DIR`). An `.env` from before the rename that still says
+`STUDIO_*` keeps working: the server reads the old name when the new one is
+unset and logs one warning at startup naming each one to rename
+(`apps/studio/server/env.ts`). The old names will be dropped in a future
+release.
 
 ## Running a development copy beside production
 

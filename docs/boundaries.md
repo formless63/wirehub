@@ -149,7 +149,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `server/modules.ts`, `modules.config.ts` | BASE (new) | the deployment's module manifest |
 | `server/auth/*` | BASE-gen | Better Auth: local allow-list, OIDC against any provider (default claim `email`), magic link; no provider-specific defaults |
 | `server/locks/*` | BASE | edit leases |
-| `server/backup/*` | BASE-gen | the optional git export of saves (`STUDIO_GIT_AUTOCOMMIT`), with neutral identities and no remote-specific wording |
+| `server/backup/*` | BASE-gen | the optional git export of saves (`WIREHUB_GIT_AUTOCOMMIT`), with neutral identities and no remote-specific wording |
 | `server/models/*` | BASE-gen | 3D model links, uploads, STEP/STL/GLB conversion, KiCad library mapping kept; the share matcher (`match.ts`) and the revision art/import/API left behind; importer-specific paths generalised |
 | the ERP server module | MODULE | the ERP push/dry-run endpoints and their environment |
 | `server/board-import.ts` | MODULE | the board import runner over the share |

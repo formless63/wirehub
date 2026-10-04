@@ -20,6 +20,7 @@
 import { existsSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
+import { envVar } from '../env.ts';
 import type { StudioUser } from '../me.ts';
 import { commitAuthor, commitMessage, STUDIO_COMMITTER, type GitIdentity, type SaveRequest } from './commit-message.ts';
 import { execGit, type GitResult, type GitRunner } from './git.ts';
@@ -352,10 +353,10 @@ export function createStudioBackup(options: BackupOptions): StudioBackup {
   };
 }
 
-/** `STUDIO_GIT_AUTOCOMMIT=true` → a backup for `repoDir`; anything else → undefined. */
+/** `WIREHUB_GIT_AUTOCOMMIT=true` → a backup for `repoDir`; anything else → undefined. */
 export function studioBackupFromEnv(env: Readonly<Record<string, string | undefined>>, repoDir: string): StudioBackup | undefined {
-  if (env.STUDIO_GIT_AUTOCOMMIT?.trim().toLowerCase() !== 'true') return undefined;
-  const remote = env.STUDIO_GIT_REMOTE?.trim() || 'origin';
-  const branch = env.STUDIO_GIT_BRANCH?.trim() || 'master';
+  if (envVar('GIT_AUTOCOMMIT', env)?.trim().toLowerCase() !== 'true') return undefined;
+  const remote = envVar('GIT_REMOTE', env)?.trim() || 'origin';
+  const branch = envVar('GIT_BRANCH', env)?.trim() || 'master';
   return createStudioBackup({ repoDir, remote, branch });
 }

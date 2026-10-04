@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import { dataPath } from '@wirehub/catalog';
 
 import { writeFileAtomic } from '../atomic-write.ts';
+import { envVar } from '../env.ts';
 import type { Awaitable } from '../storage/change-set.ts';
 
 /**
@@ -107,7 +108,7 @@ export interface ModelCache {
 const KEY = /^[0-9a-f]{64}$/;
 
 export function modelCacheDir(): string {
-  return process.env.STUDIO_MODEL_CACHE_DIR ?? dataPath('.model-cache');
+  return envVar('MODEL_CACHE_DIR') ?? dataPath('.model-cache');
 }
 
 export function fileModelCache(dir = modelCacheDir()): ModelCache {

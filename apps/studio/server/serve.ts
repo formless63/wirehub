@@ -30,6 +30,7 @@ import { studioBackupFromEnv } from './backup/backup.ts';
 import { createStandaloneApp } from './standalone-app.ts';
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
 import { defaultWorkbenchDeps } from './default-deps.ts';
+import { envVar, legacyEnvWarning } from './env.ts';
 
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 
@@ -39,6 +40,10 @@ if (!existsSync(join(distDir, 'index.html'))) {
   );
   process.exit(1);
 }
+
+// hubs set up before the rename still use STUDIO_* names: they work, with one warning
+const legacyEnv = legacyEnvWarning(process.env);
+if (legacyEnv !== undefined) console.warn(`[env] ${legacyEnv}`);
 
 const host = process.env.HOST ?? '0.0.0.0';
 const port = Number(process.env.PORT ?? 5183);
@@ -57,9 +62,9 @@ try {
   process.exit(1);
 }
 
-// every save a git commit, pushed to the remote (STUDIO_GIT_AUTOCOMMIT=true;
+// every save a git commit, pushed to the remote (WIREHUB_GIT_AUTOCOMMIT=true;
 // "Backup" in the README). The repo is the checkout this file is in.
-const repoDir = process.env.STUDIO_GIT_DIR ?? fileURLToPath(new URL('../../..', import.meta.url));
+const repoDir = envVar('GIT_DIR') ?? fileURLToPath(new URL('../../..', import.meta.url));
 const backup = studioBackupFromEnv(process.env, repoDir);
 if (backup !== undefined) {
   // pull --rebase before serving, so the first save lands on the remote's latest
@@ -69,7 +74,7 @@ if (backup !== undefined) {
 }
 
 // where uploaded file bytes go: an S3-compatible store, a directory, or (unset)
-// beside the catalog — STUDIO_BLOBS, see server/blobs.ts and .env.example
+// beside the catalog — WIREHUB_BLOBS, see server/blobs.ts and .env.example
 let blobs: BlobStore | undefined;
 try {
   blobs = blobStoreFromEnv(process.env);
@@ -100,7 +105,7 @@ serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`WireHub serving ${distDir}`);
   console.log(`  http://${info.address === '0.0.0.0' || info.address === '::' ? 'localhost' : info.address}:${info.port}`);
   console.log(`  (bound to ${host}:${info.port} — reachable on the LAN unless HOST was narrowed)`);
-  console.log(`  blobs: ${blobs === undefined ? 'beside the catalog (STUDIO_BLOBS unset)' : blobs.describe}`);
+  console.log(`  blobs: ${blobs === undefined ? 'beside the catalog (WIREHUB_BLOBS unset)' : blobs.describe}`);
   if (auth !== undefined) {
     const methods = [auth.config.oidc === undefined ? '' : auth.config.oidc.name, auth.config.smtp === undefined ? '' : 'magic link']
       .filter((m) => m !== '')

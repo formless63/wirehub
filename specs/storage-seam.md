@@ -115,7 +115,7 @@ A tag PUT answers with the table it will derive via `TagStore.preview(review)`.
 
 `postgres-backend.md` designs it in full. In brief:
 
-- `STUDIO_BACKEND=files|pg` picks the stores in `default-deps.ts`. The handlers, the model
+- `WIREHUB_BACKEND=files|pg` picks the stores in `default-deps.ts`. The handlers, the model
   and the browser are unchanged. The switch is one line in `handleWorkbenchRequest`:
   `deps.commit?.(set) ?? commitChangeSet(deps, set)`.
 - `catalogVersion()` is `catalog_head.version`. The snapshot is the same loaders fed the
@@ -164,13 +164,13 @@ The seam is the same in every environment; what changes is which stores
 
 | Env var | development | production | tests |
 | --- | --- | --- | --- |
-| `STUDIO_ENV` | `dev` | `prod` | unset (`test`) |
-| `STUDIO_BACKEND` | `files` or `pg` | `pg` (or `files` for a small single-user install) | `files` / memory / pg (contract suite) |
-| `STUDIO_BLOBS` | `fs:<dir>` or `s3` | `s3` or `fs:<dir>` | `fs:<dir>` |
+| `WIREHUB_ENV` | `dev` | `prod` | unset (`test`) |
+| `WIREHUB_BACKEND` | `files` or `pg` | `pg` (or `files` for a small single-user install) | `files` / memory / pg (contract suite) |
+| `WIREHUB_BLOBS` | `fs:<dir>` or `s3` | `s3` or `fs:<dir>` | `fs:<dir>` |
 
 The git export (§4) is a file-backend piece only. The environment guard
 (`postgres-backend.md` §8.7) refuses a process whose stores, buckets or database do not
-match its `STUDIO_ENV`.
+match its `WIREHUB_ENV`.
 
 ## 9. API clients: one request, one unit of work
 
