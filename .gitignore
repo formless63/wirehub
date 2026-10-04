@@ -1,33 +1,79 @@
+# --- dependencies and build output ----------------------------------------
 node_modules/
 dist/
+build/
+coverage/
 *.tsbuildinfo
-.env*
-!.env.example
-.DS_Store
+.vite/
+.turbo/
+.cache/
+.pnpm-store/
+.eslintcache
 
-# Beads / Dolt files (added by bd init)
+# --- secrets and local configuration --------------------------------------
+# .env holds credentials (see .env.example); never committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+# private terms for scripts/privacy-check.sh (see CONTRIBUTING.md)
+.privacy-terms
+
+# --- OS and editor files --------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+.#*
+.claude/settings.local.json
+
+# --- logs -----------------------------------------------------------------
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# --- local runtime data ---------------------------------------------------
+# the login's local state (SQLite sessions, save audit log); the directory is
+# kept so a bind mount lands on a host-user-owned folder
+data/auth/*
+!data/auth/.gitkeep
+# docker compose bind-mount fallbacks and local volume folders
+data/blobs/
+data/postgres/
+data/backups/
+data/s3/
+data/garage/
+volumes/
+# local catalogs: a deployment's own catalog kept beside the checkout
+data/catalog/
+catalogs/
+# installed catalog packs (the file backend's data/packs/<id>/)
+packages/catalog/data/packs/
+
+# what the running studio writes that is not catalog truth: in-flight temp
+# files of writeFileAtomic and the importer
+.*.tmp
+*.import-tmp
+
+# --- model caches ---------------------------------------------------------
+# GLBs built by an importer; data/models.json is the committed truth
+packages/catalog/data/.model-cache/
+# KiCad's 3D library, only the files a link needs, fetched at a pinned tag
+packages/catalog/data/.kicad-3d-cache/
+.model-cache/
+
+# --- beads / Dolt (added by bd init) --------------------------------------
 .dolt/
 *.db
 .beads-credential-key
 
-# studio login state (apps/studio/server/auth): SQLite sessions + save audit
-# log. Never committed; the directory itself is kept so a bind mount lands on
-# a host-user-owned folder.
-data/auth/*
-!data/auth/.gitkeep
-
-# what the running studio writes that is not catalog truth: writeFileAtomic's
-# in-flight temp files
-.*.tmp
-*.import-tmp
-
-# the generated 3D model cache: GLBs built by an importer; data/models.json is
-# the committed truth
-packages/catalog/data/.model-cache/
-
-# KiCad's standard 3D library, only the files a link needs, fetched at a pinned
-# tag; data/models.json records each file's URL and sha256
-packages/catalog/data/.kicad-3d-cache/
-
-# brand previews (apps/studio/scripts/brand-icons.mjs --preview)
+# --- brand previews (apps/studio/scripts/brand-icons.mjs --preview) --------
 brand/.preview-*.png

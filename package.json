@@ -1,12 +1,15 @@
 {
   "name": "wirehub",
+  "license": "AGPL-3.0-only",
   "private": true,
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "test": "pnpm -r --workspace-concurrency=1 test",
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
+    "privacy-check": "bash scripts/privacy-check.sh --tree"
   },
   "packageManager": "pnpm@10.33.1"
 }

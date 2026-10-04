@@ -353,7 +353,7 @@ Tests that need data use the starter or fixture catalog, never a private one.
 ## Verification bar
 
 - `pnpm -r build` green (tsc --noEmit, strict), `pnpm test` green.
-- `bash scripts/leak-scan.sh` clean.
+- `bash scripts/privacy-check.sh --tree` clean (with the local private-terms file where one exists).
 - Every catalog value traceable to its cited source; anything inferred is flagged in `src`.
 
 ## Phase plan

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Blocks home paths, secrets, .env files and non-noreply author emails in the
+# staged changes. Enabled by `pnpm install` (the root `prepare` script sets
+# core.hooksPath=.githooks) or by hand: git config core.hooksPath .githooks
+exec bash "$(git rev-parse --show-toplevel)/scripts/privacy-check.sh" --staged

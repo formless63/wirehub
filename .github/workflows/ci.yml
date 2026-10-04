@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  privacy:
+    name: Privacy check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Script tests
+        run: bash scripts/privacy-check.test.sh
+      - name: Changes in this pull request
+        if: github.event_name == 'pull_request'
+        run: bash scripts/privacy-check.sh --range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+      - name: Commits in this push
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: bash scripts/privacy-check.sh --range "${{ github.event.before }}..${{ github.sha }}"
+      - name: The whole tree
+        run: bash scripts/privacy-check.sh --tree
+
+  build-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      # each workspace in turn; git is needed by the export-of-saves tests
+      - run: |
+          git config --global user.name ci
+          git config --global user.email ci@users.noreply.github.com
+          pnpm test
+
+  compose:
+    name: Compose files and image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose files
+        run: |
+          docker compose -f compose.yaml config --quiet
+          docker compose -f compose.yaml -f compose.backup.yaml config --quiet
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the image (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/app.Dockerfile
+          push: false
+          tags: wirehub:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

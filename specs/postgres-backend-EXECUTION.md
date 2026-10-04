@@ -41,7 +41,7 @@ wins on design and this document wins on process. When the plan and `SPEC.md` di
 | Deterministic library code | No `Date.now()`, randomness or network in `model`/`catalog` `src`. The server and the worker may use them |
 | Citations | Every catalog data record carries `"src"` |
 | Canonical JSON | Catalog JSON is `JSON.stringify(v, null, 2) + '\n'`; A0 adds a guard test |
-| Leak scan | `bash scripts/leak-scan.sh` must stay clean (`docs/boundaries.md`) |
+| Privacy check | `bash scripts/privacy-check.sh --tree` must stay clean (`CONTRIBUTING.md`); the git hooks run it on every commit |
 
 ### Shared machines
 

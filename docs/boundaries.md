@@ -24,7 +24,7 @@ folders: the catalog here is a new, synthetic starter catalog.
 
 Names used below for things left behind are deliberately generic (the
 "private ERP", the "board designer's share", the "console resolver"): the
-leak scan at the end must stay clean, including this file.
+privacy check (§9) must stay clean, including this file.
 
 ## 1. Repository level
 
@@ -34,7 +34,7 @@ leak scan at the end must stay clean, including this file.
 | `SPEC.md` | BASE-gen | rewritten for the base: the model, the starter catalog, the phase plan |
 | `AGENTS.md` / `CLAUDE.md` | BASE-gen | rewritten; no private paths, hosts or remote |
 | `README.md` | BASE-gen | new |
-| `LICENSE` | BASE-gen | a placeholder: licence TBD by the owner |
+| `LICENSE` | BASE-gen | AGPL-3.0-only, with the WireHub Module Exception (`LICENSE-EXCEPTION.md`); `packages/modules` MIT |
 | `NOTICE` | BASE-gen | now lists the embedded fonts; the 3D-library section went with the model import script |
 | `package.json` (root) | BASE-gen | deploy scripts removed; `packageManager` pinned; tests run one workspace at a time |
 | `pnpm-lock.yaml` | BASE-gen | regenerated from the base's package set |
@@ -241,22 +241,22 @@ removed (editor 170 cases across 29 files, studio 70 across 14, docs 32 across
 - Not yet verified: `docker build` of `docker/app.Dockerfile` (the bundle
   and the standalone server were smoke-tested; bead filed).
 
-## 9. Leak scan
+## 9. Leak scan → privacy check
 
-The scan script is `scripts/leak-scan.sh` (patterns written in split quotes
-so the script does not match itself). It covers the working tree (tracked and
-untracked, binary files included), every commit's tree, every commit message
-and every path, plus a pass that joins comment continuation lines so a name
-split over two lines is still found. The patterns: the private shop's and
-its people's names, the private ERP and its hosts, the machine names, LAN and
-tailnet addresses, the private remote, the home directory, the private
-part-number series, and the product (console) names its catalog was built
-around — case-insensitive, with digit-suffixed ids (`name2`) included.
+The split was checked by a leak scan whose patterns named the private shop,
+its people, hosts, part-number series and product words. A public repository
+should not carry that list, so on the rename to WireHub the scan was folded
+into `scripts/privacy-check.sh` (`CONTRIBUTING.md`):
 
-Run on the commit before the one that added this output (the scan is re-run
-on every commit; it must stay clean):
+- the public script checks generic things — home paths, the machine's own
+  hostname and login, keys and tokens, `.env` files, non-noreply emails, agent
+  session trailers — on every commit (`.githooks/`) and in CI;
+- the private words live in a **local, gitignored** `.privacy-terms` file in
+  the owner's checkout. When the file is present, every mode checks it too,
+  including the pass that joins comment continuation lines so a name split
+  over two lines is still found.
 
-```
-$ bash scripts/leak-scan.sh
-leak scan clean: 612 files in the tree, 7 commits (trees, messages, paths)
-```
+`bash scripts/privacy-check.sh --tree` must stay clean. `--history` checks
+every commit's tree, message and paths; the commits made before the rename
+still carry the old leak-scan script and agent trailers, which a history
+rewrite before publishing removes.

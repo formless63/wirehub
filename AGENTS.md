@@ -25,7 +25,9 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
   (`tsc --noEmit` per package, strict).
 - Single test file: `pnpm --filter @wirehub/model test -- test/trace.test.ts`.
 - On a shared machine run vitest with `--maxWorkers=2`.
-- `bash scripts/leak-scan.sh` — must stay clean (see `docs/boundaries.md` §9).
+- `bash scripts/privacy-check.sh --tree` — must stay clean (`CONTRIBUTING.md`, `docs/boundaries.md` §9).
+  The git hooks in `.githooks/` (enabled by `pnpm install`) run it on every commit; a
+  local, gitignored `.privacy-terms` file adds private words without publishing them.
 - The app: `pnpm --filter studio dev`, or `docker compose up --build`
   (`apps/studio/README.md`).
 

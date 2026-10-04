@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Blocks agent session trailers and links (and the other privacy-check
+# patterns) in commit messages.
+exec bash "$(git rev-parse --show-toplevel)/scripts/privacy-check.sh" --commit-msg "$1"
