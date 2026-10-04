@@ -11,7 +11,7 @@
  * derived from the design or left blank, never invented.
  */
 
-import { designStatus, findWire, type CableDesign, type Db } from '@cable-studio/model';
+import { designStatus, findWire, type CableDesign, type Db } from '@wirehub/model';
 
 import type { DrawingMeta, LengthVariant } from '../drawing/model.ts';
 import { trunkSegment } from '../drawing/model.ts';

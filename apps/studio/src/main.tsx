@@ -18,7 +18,7 @@ import '@xyflow/react/dist/style.css';
 // order — utilities last, i.e. highest-priority — before `editor.css` ever
 // mentions the name, so both builds agree on it.
 import './studio.css';
-import '@cable-studio/editor-react/editor.css';
+import '@wirehub/editor-react/editor.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

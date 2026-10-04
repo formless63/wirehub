@@ -15,7 +15,7 @@
  * dragged card back into its part's position.
  */
 
-import type { InstanceKind } from '@cable-studio/model';
+import type { InstanceKind } from '@wirehub/model';
 import type { Edge, Node } from '@xyflow/react';
 
 import type { BoardViewArt } from './board-art.ts';

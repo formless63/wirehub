@@ -7,8 +7,8 @@
  * write is.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { ConnectorDefinition, Db, WireDefinition } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { ConnectorDefinition, Db, WireDefinition } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {

@@ -1,4 +1,4 @@
-# Cable Studio — Master Spec
+# WireHub — Master Spec
 
 Single source of truth for everyone building on this repository. Read this fully before
 writing code or data. When this spec and another doc disagree, this spec wins; flag the
@@ -26,7 +26,7 @@ in 3D from their definitions.
 
 ## The one architectural rule
 
-**The model owns truth.** `@cable-studio/model` knows nothing about SVG, React Flow,
+**The model owns truth.** `@wirehub/model` knows nothing about SVG, React Flow,
 coordinates, databases or modules. Every downstream artifact (schematic, build sheet, BOM,
 continuity spec, drawing, editor state) derives from the same serialized definition.
 Renderers and editors may carry their own presentation metadata, but never inside the
@@ -51,14 +51,14 @@ the base never interprets it.
 
 ```
 SPEC.md                         this file
-packages/model/                 @cable-studio/model — the canonical model: types, path
+packages/model/                 @wirehub/model — the canonical model: types, path
                                 addressing, validation, nets, trace, bonds, breakouts,
                                 part-number schemes, design edits, versions. Zero deps.
-packages/catalog/               @cable-studio/catalog — the file-backed catalog: loaders over a
+packages/catalog/               @wirehub/catalog — the file-backed catalog: loaders over a
   data/                         CatalogSource (filesystem or in-memory), the starter catalog,
   fixtures/v1/                  its frozen copy for snapshot tests, signal-tag builder,
   src/                          artwork (depiction) loading and import
-packages/modules/               @cable-studio/modules — the build-time module registry
+packages/modules/               @wirehub/modules — the build-time module registry
 packages/layout/                ELK layout of a design into a drawable graph
 packages/render-svg/            deterministic SVG schematics and cross-sections
 packages/docs/                  build sheet, BOM, continuity spec, drawing sheet, wire spec

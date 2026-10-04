@@ -21,7 +21,7 @@ import {
   type Pigtail,
   type SegmentInstance,
   type TerminalRef,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 export type PigtailEdit =
   /** twist `members` (omitted: the whole mass of a bonded stock) and land them on `landing` */

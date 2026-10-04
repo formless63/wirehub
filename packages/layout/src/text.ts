@@ -16,7 +16,7 @@
  * **The tables** are the per-character *envelope* — the wider of Liberation
  * Sans (standing in for Arial/Helvetica: identical advances) and DejaVu Sans
  * (the widest face the stack can land on) — measured in Chromium by
- * `pnpm --filter @cable-studio/render-svg measure-glyphs`.
+ * `pnpm --filter @wirehub/render-svg measure-glyphs`.
  * DejaVu is the wider almost everywhere, by ~10 % at regular weight and ~20 %
  * in bold, so on a Helvetica/Arial machine the estimate runs that generous:
  * text never overruns the room reserved for it on any face in the stack.

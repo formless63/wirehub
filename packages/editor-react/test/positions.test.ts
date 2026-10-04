@@ -9,8 +9,8 @@
  * that must leave the parts exactly where they were put.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { autoLayout } from '../src/derive.ts';

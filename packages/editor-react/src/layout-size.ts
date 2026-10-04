@@ -22,7 +22,7 @@
  *
  * Deterministic by construction: a static advance-width table, no DOM, no
  * measurement, no randomness — the same design always lays out the same way.
- * The table is the same technique `@cable-studio/layout`'s `text.ts` uses for
+ * The table is the same technique `@wirehub/layout`'s `text.ts` uses for
  * the schematic renderer; it is repeated rather than imported because these are
  * *CSS* metrics (system-ui at 9/10px, plus a monospace column) and that one is
  * calibrated for the SVG face.

@@ -1,11 +1,11 @@
 /**
- * @cable-studio/layout — the positioned diagram model.
+ * @wirehub/layout — the positioned diagram model.
  *
- *   import { layoutSchematic } from '@cable-studio/layout';
+ *   import { layoutSchematic } from '@wirehub/layout';
  *   const diagram = layoutSchematic(design, db);
  *
  * Pure data in, pure data out: millimetre coordinates, colour *names* rather
- * than paint, and no SVG anywhere. `@cable-studio/render-svg` consumes this.
+ * than paint, and no SVG anywhere. `@wirehub/render-svg` consumes this.
  * Layout is fully deterministic — identical input yields identical numbers.
  */
 

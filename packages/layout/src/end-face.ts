@@ -31,8 +31,8 @@
  * cutaway's real geometry), only the interactive port disappears.
  */
 
-import { elementPaths, isElectricalElement } from '@cable-studio/model';
-import type { WireDefinition } from '@cable-studio/model';
+import { elementPaths, isElectricalElement } from '@wirehub/model';
+import type { WireDefinition } from '@wirehub/model';
 
 import { bondFoldedPaths } from './bond-fold.ts';
 import { crossSectionLayout } from './cross-section.ts';

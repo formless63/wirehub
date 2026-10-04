@@ -5,8 +5,8 @@
  * and the component journey's value lists and terminal templates.
  */
 
-import { loadDb } from '@cable-studio/catalog';
-import type { ComponentDefinition, ConnectorDefinition, PcbaDefinition, WireDefinition } from '@cable-studio/model';
+import { loadDb } from '@wirehub/catalog';
+import type { ComponentDefinition, ConnectorDefinition, PcbaDefinition, WireDefinition } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {

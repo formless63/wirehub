@@ -1,7 +1,7 @@
 /** The one channel from a node/panel back into the store. */
 
 import { createContext, useContext } from 'react';
-import type { StripPractice, TerminalRef } from '@cable-studio/model';
+import type { StripPractice, TerminalRef } from '@wirehub/model';
 
 import type { EditorAction, Selection } from './store.ts';
 

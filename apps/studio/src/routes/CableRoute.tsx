@@ -14,8 +14,8 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { CableEditor, type CatalogChange, type DocumentRelease, type EditorView } from '@cable-studio/editor-react';
-import { versionDb } from '@cable-studio/model';
+import { CableEditor, type CatalogChange, type DocumentRelease, type EditorView } from '@wirehub/editor-react';
+import { versionDb } from '@wirehub/model';
 import { toast } from 'sonner';
 
 import { cableRoute, type CableSearch, type CableView } from '../router.tsx';

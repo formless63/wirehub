@@ -24,7 +24,7 @@ import {
   type MechanicalDefinition,
   type PcbaDefinition,
   type WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { DefinitionRecord, LibraryKind } from './definitions.ts';
 import { CONSTRUCTION_SHORT, constructionLabel, mountingSummaryText } from './naming.ts';
@@ -235,7 +235,7 @@ function connectorCells(db: Db, c: ConnectorDefinition, designs?: LibraryTableCo
   const iface = (db.interfaces ?? []).find((i) => i.id === c.interface);
   const construction = connectorConstruction(c, db.bodies);
   const fromBody = c.construction === undefined && construction !== undefined;
-  const inferred = /Construction \(cable-studio-50a\.6[04]\):[^.]*INFERRED/.test(`${c.src} ${fromBody ? (body?.src ?? '') : ''}`);
+  const inferred = /Construction \([^)]*\):[^.]*INFERRED/.test(`${c.src} ${fromBody ? (body?.src ?? '') : ''}`);
   // mounting summary: how the designs using it are
   // mounted — direct-solder vs board-straddle — beside its construction
   const mounting = designs === undefined ? undefined : connectorMountingUsage(db, designs, c.id);

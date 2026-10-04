@@ -17,8 +17,8 @@
  * itself, marked as not in the list.
  */
 
-import type { SignalKind } from '@cable-studio/model';
-import { SIGNAL_KINDS } from '@cable-studio/model';
+import type { SignalKind } from '@wirehub/model';
+import { SIGNAL_KINDS } from '@wirehub/model';
 import { IconCheck, IconChevronDown, IconPlus, IconX } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
 import { useId, useMemo, useRef, useState, type JSX, type KeyboardEvent } from 'react';

@@ -22,7 +22,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { dataPath, designVersionsDir, isDesignId } from '@cable-studio/catalog';
+import { dataPath, designVersionsDir, isDesignId } from '@wirehub/catalog';
 import {
   artworkBlobName,
   canonicalVersionFile,
@@ -45,7 +45,7 @@ import {
   type DesignVersionFile,
   type Issue,
   type VersionSummary,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { ApiError, ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
@@ -533,7 +533,7 @@ async function saveVersion(deps: VersionDeps, store: VersionStore, id: string, b
     drawingRewritten = true;
   }
   // this save just rewrote the drawing sidecar behind whichever browser has
-  // it open (`cable-studio-50a` drawing-form bug): say so, with its fresh
+  // it open (drawing-form bug): say so, with its fresh
   // ETag, so that form's own stale-write guard does not have to find out the
   // hard way — a 409 on its very next save
   const drawingTag = drawingRewritten ? { drawingTag: contentETag(await deps.drawings?.read(id)) } : {};

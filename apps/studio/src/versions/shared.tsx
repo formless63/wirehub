@@ -4,7 +4,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { DesignVersionFile, VersionHistoryEntry } from '@cable-studio/model';
+import type { DesignVersionFile, VersionHistoryEntry } from '@wirehub/model';
 import { useCallback, type JSX, type ReactNode } from 'react';
 
 import { cableListKey } from '../queries.ts';

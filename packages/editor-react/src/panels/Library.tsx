@@ -37,8 +37,8 @@ import {
   type SignalTags,
   type Vocab,
   type VocabList,
-} from '@cable-studio/model';
-import type { DepictionArtwork } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import type { DepictionArtwork } from '@wirehub/render-svg';
 import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type JSX, type ReactNode } from 'react';
@@ -119,7 +119,7 @@ import { Splitter } from './Splitter.tsx';
 import { WireStockEditor, type CrossSectionRenderer } from './WireStockEditor.tsx';
 import { WireStockDetail, type WireDetailTab } from './WireStockDetail.tsx';
 import { blankRecipe, duplicateRecipe, type VendorDocumentsAdapter, type WireLibraryAdapter } from '../wire-builder.ts';
-import type { WireLibrary, WireRecipe } from '@cable-studio/model';
+import type { WireLibrary, WireRecipe } from '@wirehub/model';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 import { useEditLocked } from './edit-session.ts';
 

@@ -27,7 +27,7 @@ import {
   type Vocab,
   type WireDefinition,
   type WireTags,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { colourCodeFor, padTags, pinSignal, slotOfRole } from './classify.ts';
 

@@ -13,7 +13,7 @@
 import { IconBulb } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useState } from 'react';
-import type { PnKind } from '@cable-studio/model';
+import type { PnKind } from '@wirehub/model';
 
 import { classes } from '../context.ts';
 import { usePartNumbers, type PartNumberTarget, type SuggestResult } from '../part-numbers.ts';

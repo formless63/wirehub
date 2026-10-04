@@ -25,8 +25,8 @@ import {
   type PnKind,
   type PnSuggestion,
   type WireDefinition,
-} from '@cable-studio/model';
-import type { DrawingMeta } from '@cable-studio/docs';
+} from '@wirehub/model';
+import type { DrawingMeta } from '@wirehub/docs';
 
 /** What the host knows about part numbers: the scheme, and the designs and drawings beside the catalog. */
 export interface PartNumberData {

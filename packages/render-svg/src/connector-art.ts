@@ -1,6 +1,6 @@
 /**
  * A connector block's drawing: the shared connector art
- * (`@cable-studio/layout`'s `connectorArt` — the same geometry the canvas's
+ * (`@wirehub/layout`'s `connectorArt` — the same geometry the canvas's
  * connector node paints) in print paint, placed at the block's art frame.
  *
  * Painted as artwork (`.depiction`), under the wiring, so every wire reads as
@@ -10,7 +10,7 @@
  * the schematic panel shows the sheet as paper in either theme.
  */
 
-import type { ArtShape, DiagramBlock, DiagramConnectorArt, DiagramMouldJack } from '@cable-studio/layout';
+import type { ArtShape, DiagramBlock, DiagramConnectorArt, DiagramMouldJack } from '@wirehub/layout';
 
 import { fmt, leaf, node, text, tooltip } from './svg.ts';
 

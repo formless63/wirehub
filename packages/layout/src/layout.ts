@@ -30,9 +30,9 @@ import {
   type ConnectorDefinition,
   type Db,
   type Issue,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
-import type { BoardPart } from '@cable-studio/catalog';
+import type { BoardPart } from '@wirehub/catalog';
 
 import {
   boardFaces,
@@ -3183,7 +3183,7 @@ export function layoutSchematic(
   /*
    * Notes default to their own full-width strip below everything else. When
    * a cutaway is drawn, nothing else is placed as low as its row (the cutaway
-   * is inset under everything already placed, cable-studio-e5c §12b), so a
+   * is inset under everything already placed), so a
    * notes column that fits beside it is free height the drawing does not
    * have to add — that is most of what made these sheets feel like wasted
    * paper. A notes list too wide to read in what is

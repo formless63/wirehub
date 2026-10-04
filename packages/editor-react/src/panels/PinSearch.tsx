@@ -6,7 +6,7 @@
  * brings it into view.
  */
 
-import { designInstances, terminalsOf, type CableDesign, type Db } from '@cable-studio/model';
+import { designInstances, terminalsOf, type CableDesign, type Db } from '@wirehub/model';
 import { IconSearch } from '@tabler/icons-react';
 import { useMemo, useState, type JSX } from 'react';
 

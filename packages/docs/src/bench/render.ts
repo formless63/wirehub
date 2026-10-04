@@ -8,8 +8,8 @@
  * that leaves the stack still says what it belongs to.
  */
 
-import { findWire, isFullyBonded, validateDesign, type CableDesign, type Db } from '@cable-studio/model';
-import { catalogDepictions, type DepictionSource } from '@cable-studio/layout';
+import { findWire, isFullyBonded, validateDesign, type CableDesign, type Db } from '@wirehub/model';
+import { catalogDepictions, type DepictionSource } from '@wirehub/layout';
 
 import { deriveDrawing, type DrawingFace } from '../drawing/model.ts';
 import { deriveBomSheet, type BomSheet, type BomSheetOptions } from '../bom-sheet.ts';
@@ -17,7 +17,7 @@ import { deriveTestSpec, type Port, type TestSpec } from '../test-spec.ts';
 import { SHEET_STYLESHEET } from '../styles.ts';
 import { compareStrings, escapeHtml } from '../text.ts';
 import { lengthFromMm } from '../units.ts';
-import { conductorPaint } from '@cable-studio/render-svg';
+import { conductorPaint } from '@wirehub/render-svg';
 import { boardFigure, breakoutFigure, faceFigure, landingWords, stripFigure, type FaceSource } from './figures.ts';
 import { headerHtml, runningHeaderHtml, type SheetHeader } from './header.ts';
 import { deriveBench, type Bench, type BenchEnd, type Landing, type SegmentEnd, type Termination } from './model.ts';

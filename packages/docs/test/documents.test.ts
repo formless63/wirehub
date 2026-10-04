@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { listDesignIds, loadDb, loadDesign, loadDesigns } from '@cable-studio/catalog';
-import { DEFAULT_PART_NUMBER_SCHEME, knownPartNumbers } from '@cable-studio/model';
+import { listDesignIds, loadDb, loadDesign, loadDesigns } from '@wirehub/catalog';
+import { DEFAULT_PART_NUMBER_SCHEME, knownPartNumbers } from '@wirehub/model';
 
 import { deriveBom, deriveBomSheet, renderBomMarkdown, renderBuildSheet, renderDrawingSheet, renderTestSpecSheet } from '../src/index.ts';
 

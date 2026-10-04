@@ -19,7 +19,7 @@
  * copper screen.
  */
 
-import { resolveElementPath, type ConductorElement, type Element, type GroupElement, type WireDefinition } from '@cable-studio/model';
+import { resolveElementPath, type ConductorElement, type Element, type GroupElement, type WireDefinition } from '@wirehub/model';
 
 import { CUTAWAY_ART } from './assets.ts';
 import { sans } from './fonts.generated.ts';

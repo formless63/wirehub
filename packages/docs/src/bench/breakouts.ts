@@ -5,7 +5,7 @@
  * indicated (owner 2026-09-25).
  */
 
-import { breakoutViews, isTrimmedFoil, type CableDesign, type Db } from '@cable-studio/model';
+import { breakoutViews, isTrimmedFoil, type CableDesign, type Db } from '@wirehub/model';
 
 import { escapeHtml, facts } from '../text.ts';
 import { lengthFromMm } from '../units.ts';

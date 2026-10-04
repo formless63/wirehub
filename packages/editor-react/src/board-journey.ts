@@ -21,7 +21,7 @@ import {
   type Issue,
   type PcbaDefinition,
   type SignalRef,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { DepictionMeta, EntryGuide } from './artwork.ts';
 import type { Outcome } from './persistence.ts';

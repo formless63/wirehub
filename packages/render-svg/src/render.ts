@@ -15,7 +15,7 @@
  * colour says, a label also says.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
+import type { CableDesign, Db } from '@wirehub/model';
 import {
   catalogDepictions,
   layoutSchematic,
@@ -32,7 +32,7 @@ import {
   type DiagramMouldJack,
   type DiagramPort,
   type DiagramTrack,
-} from '@cable-studio/layout';
+} from '@wirehub/layout';
 
 import { renderBoardParts } from './board-parts.ts';
 import { renderConnectorArt, renderMouldJack } from './connector-art.ts';

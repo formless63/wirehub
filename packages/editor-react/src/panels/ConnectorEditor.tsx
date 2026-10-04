@@ -23,7 +23,7 @@ import {
   type PinRow,
   type RowAction,
 } from '../library.ts';
-import { resolveVocab } from '@cable-studio/model';
+import { resolveVocab } from '@wirehub/model';
 
 import { signalRefOf, useVocab } from '../vocab.ts';
 import { Field, FormSection, RowTools, SrcField } from './fields.tsx';

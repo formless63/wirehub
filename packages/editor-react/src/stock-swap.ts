@@ -28,7 +28,7 @@
  * Pure: design in, design out, plus plain sentences for what it could not map.
  */
 
-import { trunkSegment } from '@cable-studio/docs';
+import { trunkSegment } from '@wirehub/docs';
 import {
   findWire,
   isFullyBonded,
@@ -41,7 +41,7 @@ import {
   type Joint,
   type TerminalRef,
   type WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 export interface StockSwapResult {
   design: CableDesign;

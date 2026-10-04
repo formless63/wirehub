@@ -6,7 +6,7 @@
 
 import './reactflow-jsdom.ts';
 
-import type { Db } from '@cable-studio/model';
+import type { Db } from '@wirehub/model';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Position } from '@xyflow/react';
 import { afterEach, describe, expect, it } from 'vitest';

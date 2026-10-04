@@ -9,7 +9,7 @@
  * separate piece of work (specs/data-model-v2.md).
  */
 
-import type { Db, Element } from '@cable-studio/model';
+import type { Db, Element } from '@wirehub/model';
 import { createContext, useContext } from 'react';
 
 export interface CatalogValues {

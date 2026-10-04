@@ -38,7 +38,7 @@ import {
   type PartBuildState,
   type PcbaDefinition,
   type SignalRef,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 import { IconAlertTriangle, IconCheck, IconCopy, IconPlus, IconTrash, IconX } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
 import { useMemo, useState, type JSX, type ReactNode } from 'react';

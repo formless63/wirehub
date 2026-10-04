@@ -4,8 +4,8 @@
  * consumers of one model — not two models.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { Db } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { renderPreview } from '../src/panels/Preview.tsx';

@@ -21,8 +21,8 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 
-import { dataPath } from '@cable-studio/catalog';
-import { buildsFileName, canonicalBuildsFile, errors, validateBoardBuilds, type BoardBuilds, type Db, type Issue } from '@cable-studio/model';
+import { dataPath } from '@wirehub/catalog';
+import { buildsFileName, canonicalBuildsFile, errors, validateBoardBuilds, type BoardBuilds, type Db, type Issue } from '@wirehub/model';
 
 import type { ApiError, ApiResponse } from './api.ts';
 import { checkIfMatch, contentETag } from './etag.ts';

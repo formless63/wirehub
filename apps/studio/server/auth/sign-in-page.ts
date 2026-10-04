@@ -1,7 +1,7 @@
 /**
  * The sign-in page — server-rendered, self-contained (inline CSS + a few
  * lines of script), so it needs nothing from the SPA bundle, which stays
- * behind the gate. Same palette as `@cable-studio/editor-react/tokens.css`,
+ * behind the gate. Same palette as `@wirehub/editor-react/tokens.css`,
  * light and dark, following the studio's stored theme choice.
  */
 
@@ -76,12 +76,12 @@ export function renderSignInPage(model: SignInPageModel): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Sign in · Cable Studio</title>
-<script>try{var t=localStorage.getItem('cable-studio:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<title>Sign in · WireHub</title>
+<script>try{var t=localStorage.getItem('wirehub:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 <style>
-:root{--bg:#121315;--panel:#18191c;--raised:#1f2024;--line:#27282d;--line2:#34353b;--ink:#ebe8e3;--dim:#a19e96;--faint:#6f6d67;--accent:#e28a50;--accent-ink:#1c1008;--ok:#5fbf8a;--err:#ef6461}
-[data-theme='light']{--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#98948b;--accent:#c2602a;--accent-ink:#fff;--ok:#2f8f5b;--err:#c9403c}
-@media (prefers-color-scheme:light){:root:not([data-theme='dark']){--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#98948b;--accent:#c2602a;--accent-ink:#fff;--ok:#2f8f5b;--err:#c9403c}}
+:root{--bg:#121315;--panel:#18191c;--raised:#1f2024;--line:#27282d;--line2:#34353b;--ink:#ebe8e3;--dim:#a19e96;--faint:#6f6d67;--accent:#e39256;--accent-ink:#1c1008;--ok:#5fbf8a;--err:#ef6461}
+[data-theme='light']{--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#98948b;--accent:#b9622a;--accent-ink:#fff;--ok:#2f8f5b;--err:#c9403c}
+@media (prefers-color-scheme:light){:root:not([data-theme='dark']){--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#98948b;--accent:#b9622a;--accent-ink:#fff;--ok:#2f8f5b;--err:#c9403c}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:13px/1.4 'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 main{min-height:100%;display:grid;place-items:center;padding:16px}
@@ -108,7 +108,7 @@ input:focus,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1p
 <body>
 <main>
 <div class="card">
-<h1>Cable Studio <span>· sign in</span></h1>
+<h1>WireHub <span>· sign in</span></h1>
 ${error}
 ${body}
 <p class="msg" id="status" aria-live="polite"></p>

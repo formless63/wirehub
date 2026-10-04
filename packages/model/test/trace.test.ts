@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { loadDb, loadDesign } from '@cable-studio/catalog';
+import { loadDb, loadDesign } from '@wirehub/catalog';
 
 import { reachedTerminal, trace, type CableDesign, type Db, type TerminalRef } from '../src/index.ts';
 

@@ -25,8 +25,8 @@
  * `ArtworkAdapter`, exactly as it supplies a `PersistenceAdapter`.
  */
 
-import type { ConnectorBody, ConnectorDefinition, Db, Issue } from '@cable-studio/model';
-import type { DepictionArtwork } from '@cable-studio/render-svg';
+import type { ConnectorBody, ConnectorDefinition, Db, Issue } from '@wirehub/model';
+import type { DepictionArtwork } from '@wirehub/render-svg';
 import {
   useCallback,
   useEffect,
@@ -55,7 +55,7 @@ import {
   extendGuideTo,
   guideSlots,
   offsetGuideTo,
-} from '@cable-studio/render-svg';
+} from '@wirehub/render-svg';
 import { AssetPicker } from './AssetPicker.tsx';
 import { BuiltInConnectorArt, builtInConnectorArt, drawnTerminals } from './BuiltInArt.tsx';
 import {

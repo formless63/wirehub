@@ -6,7 +6,7 @@
  * hook's existing draft/dirty/save plumbing needs no changes to support it.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
+import type { CableDesign, Db } from '@wirehub/model';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

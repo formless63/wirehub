@@ -36,7 +36,7 @@ wins on design and this document wins on process. When the plan and `SPEC.md` di
 | One test file | `pnpm --filter studio test -- test/<file>.test.ts` |
 | A package's tests | `pnpm --filter <pkg> test -- --maxWorkers=2` |
 | Full run | `pnpm test` (each workspace in turn), with `--maxWorkers=2` on a shared machine, once per batch of commits |
-| Zero-dep rule | `@cable-studio/model`, `@cable-studio/catalog` and `@cable-studio/modules` have **zero runtime dependencies** (`node:` built-ins are fine). `pg`, Kysely, `@aws-sdk/client-s3` and pg-boss go in `apps/studio` only |
+| Zero-dep rule | `@wirehub/model`, `@wirehub/catalog` and `@wirehub/modules` have **zero runtime dependencies** (`node:` built-ins are fine). `pg`, Kysely, `@aws-sdk/client-s3` and pg-boss go in `apps/studio` only |
 | The model owns truth | Domain logic stays in `model`; Postgres is storage, not logic: validation, usage and derivation stay pure functions over the snapshot |
 | Deterministic library code | No `Date.now()`, randomness or network in `model`/`catalog` `src`. The server and the worker may use them |
 | Citations | Every catalog data record carries `"src"` |

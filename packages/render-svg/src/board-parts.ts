@@ -9,8 +9,8 @@
  * touching another. Deterministic, like everything the renderer emits.
  */
 
-import type { BoardPart } from '@cable-studio/catalog';
-import { textWidth } from '@cable-studio/layout';
+import type { BoardPart } from '@wirehub/catalog';
+import { textWidth } from '@wirehub/layout';
 
 import { partBodyShapes, type PartDetailShape } from './part-body.ts';
 import { fmt, leaf, node, text, tooltip } from './svg.ts';

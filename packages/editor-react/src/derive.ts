@@ -29,8 +29,8 @@ import {
   type InstanceKind,
   type Joint,
   type TerminalRef,
-} from '@cable-studio/model';
-import { wireDisplayName } from '@cable-studio/docs';
+} from '@wirehub/model';
+import { wireDisplayName } from '@wirehub/docs';
 import {
   bondFoldedPaths,
   carriedConnectors,
@@ -38,7 +38,7 @@ import {
   mountedConnectors,
   representativeLabel,
   type DepictionSource,
-} from '@cable-studio/render-svg';
+} from '@wirehub/render-svg';
 import type { Edge, Node } from '@xyflow/react';
 
 import {

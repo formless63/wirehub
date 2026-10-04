@@ -16,7 +16,7 @@
  * exactly the unit the ANSI A sheet is laid out in.
  */
 
-import type { ConnectorDefinition } from '@cable-studio/model';
+import type { ConnectorDefinition } from '@wirehub/model';
 
 import { TRACED_FACES, TRACED_PLUGS } from './assets.ts';
 import { drawnFace } from './drawn-faces.ts';

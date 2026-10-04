@@ -14,8 +14,8 @@
  * pin-row form, which is always correct.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
-import { renderSchematic, type DepictionSource } from '@cable-studio/render-svg';
+import type { CableDesign, Db } from '@wirehub/model';
+import { renderSchematic, type DepictionSource } from '@wirehub/render-svg';
 import { useEffect, useState, type JSX } from 'react';
 
 export interface PreviewProps {
@@ -64,7 +64,7 @@ export function PreviewPane({
           <p className="cs-error">renderer: {result.error}</p>
         ) : (
           // the renderer escapes its own text and emits no scripts or external
-          // references (@cable-studio/render-svg is deterministic and self
+          // references (@wirehub/render-svg is deterministic and self
           // contained), so its output is safe to mount directly
           <div className="cs-svg" dangerouslySetInnerHTML={{ __html: result.svg }} />
         )}

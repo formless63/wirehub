@@ -19,7 +19,7 @@ import {
   IconRestore,
   IconX,
 } from '@tabler/icons-react';
-import { diffLines, diffVersions, freezeDefinitions, type VersionContent, type VersionHistoryEntry } from '@cable-studio/model';
+import { diffLines, diffVersions, freezeDefinitions, type VersionContent, type VersionHistoryEntry } from '@wirehub/model';
 import { Dialog } from 'radix-ui';
 import { useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -140,7 +140,7 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
     }
     setNote('');
     // this save may have just rewritten the drawing sidecar's `revision`
-    // (`cable-studio-50a` drawing-form bug) — hand the open drawing form's
+    // (drawing-form bug) — hand the open drawing form's
     // adapter the fresh tag so its next save does not find out as a 409
     if (out.value.drawingTag !== undefined) studio.drawings.noteTag(id, out.value.drawingTag);
     toast.success(`Saved Rev ${out.value.version.rev}`, { description: 'Locked. Documents now use it.' });

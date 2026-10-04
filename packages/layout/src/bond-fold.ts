@@ -20,8 +20,8 @@
  * only.
  */
 
-import { isFullyBonded, resolveElementPath } from '@cable-studio/model';
-import type { WireBondedSet, WireDefinition } from '@cable-studio/model';
+import { isFullyBonded, resolveElementPath } from '@wirehub/model';
+import type { WireBondedSet, WireDefinition } from '@wirehub/model';
 
 /** Is the element at `path` a foil or tape shield (aluminium, not copper)? */
 export function isFoilElement(wire: WireDefinition, path: string): boolean {

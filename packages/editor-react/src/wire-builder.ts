@@ -19,7 +19,7 @@ import {
   type WirePartKind,
   type WireRecipe,
   type StripPractice,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { Outcome } from './persistence.ts';
 

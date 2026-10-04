@@ -22,7 +22,7 @@ import {
   type Interface,
   type PinFunction,
   type Vocab,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { CUSTOM_TEMPLATE, numberedPositions, suggestBodyId, templateOfBody, templatesFor } from './body-templates.ts';
 import { connectorNameOf } from './naming.ts';

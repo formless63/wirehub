@@ -21,7 +21,7 @@
  * So every passage is decomposed into elements, each element is classified,
  * and the path takes the verdict of its worst element. A board link's
  * elements are core's structure (`PcbaInternalLink.elements`, falling back to
- * core's parse of the `via` for a definition that has none — cable-studio-
+ * core's parse of the `via` for a definition that has none — wirehub-
  * 6n6.7); where a real `ComponentDefinition` exists (a discrete part
  * instanced in the design) its declared `kind` is used, because a declared
  * fact outranks a parse.
@@ -37,7 +37,7 @@ import {
   type Passage,
   type PcbaLinkElement,
   type PcbaLinkElementKind,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { compareStrings } from './text.ts';
 

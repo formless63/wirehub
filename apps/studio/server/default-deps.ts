@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-import { dataPath, loadDb } from '@cable-studio/catalog';
+import { dataPath, loadDb } from '@wirehub/catalog';
 
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';

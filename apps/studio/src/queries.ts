@@ -15,8 +15,8 @@
  * component tree.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
-import type { DesignSummary, PersistenceAdapter } from '@cable-studio/editor-react';
+import type { CableDesign, Db } from '@wirehub/model';
+import type { DesignSummary, PersistenceAdapter } from '@wirehub/editor-react';
 
 import { EMPTY_DB } from './catalog.browser.ts';
 import type { CableListEntry } from './cable-list.ts';

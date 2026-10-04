@@ -12,9 +12,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { listDesignIds, loadDb, loadDesign, type DesignId } from '@cable-studio/catalog';
+import { listDesignIds, loadDb, loadDesign, type DesignId } from '@wirehub/catalog';
 
-import type { CableDesign, Db } from '@cable-studio/model';
+import type { CableDesign, Db } from '@wirehub/model';
 
 import { DETOUR_DB, DETOUR_DESIGN } from '../../layout/test/detour-fixtures.ts';
 import { renderSchematic } from '../src/index.ts';

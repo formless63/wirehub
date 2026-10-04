@@ -1,6 +1,6 @@
 # Boundaries — what the base took, and what it left behind
 
-This repository is the **open base** of Cable Studio. It was copied, on
+This repository is the **open base** of WireHub. It was copied, on
 2026-10-04, out of a private studio repository that one shop used to capture
 its own production cables. That private repository is now frozen: it keeps
 running as a reference, and as the worked example for building private
@@ -47,10 +47,10 @@ leak scan at the end must stay clean, including this file.
 
 ## 2. Packages
 
-### 2.1 `packages/core` → `packages/model` (`@cable-studio/model`)
+### 2.1 `packages/core` → `packages/model` (`@wirehub/model`)
 
 Renamed: the word "core" names a separate product; the truth model is now
-`@cable-studio/model`. Every import was updated.
+`@wirehub/model`. Every import was updated.
 
 | Module | Class | Notes |
 | --- | --- | --- |
@@ -68,7 +68,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `lineup.ts`, `products.ts` | MODULE | the product lineup and product merge/split |
 | `production-route.ts` | MODULE | in-house vs contract-manufactured routes, keyed on private PN series |
 
-### 2.2 `packages/catalog` (`@cable-studio/catalog`)
+### 2.2 `packages/catalog` (`@wirehub/catalog`)
 
 | Item | Class | Notes |
 | --- | --- | --- |
@@ -77,7 +77,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `src/depictions/components.ts` | BASE-gen | only the pure `componentsFor` placement kept |
 | `src/depictions/{generate,gerber}.ts` | MODULE | pinmaps-driven generation and the gerber art pipeline over the board designer's share |
 | `src/tags/{build,classify}.ts` | BASE | scrubbed; report text generalised |
-| `src/importer/*`, `src/kicad/*`, `src/easyeda/*`, `src/components/*`, `src/readme/*` | MODULE | the board importers (pinmaps, KiCad-direct, EasyEDA, fab BOM/CPL, board READMEs) — tied to the share's layout; a generic importer contract now lives in `@cable-studio/modules` |
+| `src/importer/*`, `src/kicad/*`, `src/easyeda/*`, `src/components/*`, `src/readme/*` | MODULE | the board importers (pinmaps, KiCad-direct, EasyEDA, fab BOM/CPL, board READMEs) — tied to the share's layout; a generic importer contract now lives in `@wirehub/modules` |
 | `src/recipe-check.ts` | MODULE | the recipe report |
 | `scripts/*` (40 scripts) | MODULE / DROP | board pipelines, imports and one-shot data migrations of the private catalog; none copied |
 | `data/` (every file and folder) | DROP | replaced by a synthetic starter catalog (§4) |
@@ -98,7 +98,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `render-svg/scripts/*`, `render-svg/raster-baselines/` | DROP | preview/measurement tools and raster baselines of private designs |
 | goldens (`__snapshots__`) | BASE-gen | regenerated over the starter catalog |
 
-### 2.4 `packages/docs` (`@cable-studio/docs`)
+### 2.4 `packages/docs` (`@wirehub/docs`)
 
 | Item | Class | Notes |
 | --- | --- | --- |
@@ -108,7 +108,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `bench/header.ts` | BASE-gen | PN resolution is `productRef` → drawing PN; generic length-family notation (`…-XX`); no default designer name |
 | `bench/standard-work.ts` | BASE-gen | the shop's written work instructions replaced by a small generic step set; a module can supply its own |
 | `drawing/*` | BASE-gen | the ANSI-A drawing sheet kept; the shop's traced faces, cutaway art, logo, marking font and rights line removed (`drawing/assets.ts` is an empty hook) |
-| `wire-spec.ts` | BASE-gen | organisation, standard name and rights line are options (default "Cable Studio Standard", `WSS_` file prefix) |
+| `wire-spec.ts` | BASE-gen | organisation, standard name and rights line are options (default "WireHub Standard", `WSS_` file prefix) |
 | the ERP folder (contract, transport, identity table, PN reconciliation, numbering status, mock server) | MODULE | the private ERP integration |
 | `lineup-export.ts` | MODULE | the configurator lineup export |
 | the shop's brand font and its licence | DROP | branding |
@@ -135,7 +135,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 
 | Item | Class | Notes |
 | --- | --- | --- |
-| `@cable-studio/modules` | BASE (new) | the build-time module registry (`docs/modules.md`) |
+| `@wirehub/modules` | BASE (new) | the build-time module registry (`docs/modules.md`) |
 
 ## 3. `apps/studio`
 

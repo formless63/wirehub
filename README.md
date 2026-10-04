@@ -1,6 +1,6 @@
-# Cable Studio
+# WireHub
 
-Cable Studio captures the cable assemblies you build as canonical definitions, and
+WireHub captures the cable assemblies you build as canonical definitions, and
 derives everything else from them: wiring schematics, build sheets, BOMs, continuity
 test specs, drawings and wire specs.
 
@@ -48,19 +48,19 @@ The catalog is plain JSON under `packages/catalog/data` and saves go straight ba
 ```
 pnpm build                      # tsc --noEmit, strict, every package
 pnpm test                       # vitest, each workspace in turn
-pnpm --filter @cable-studio/model test -- test/trace.test.ts
+pnpm --filter @wirehub/model test -- test/trace.test.ts
 bash scripts/leak-scan.sh       # keeps private material out (docs/boundaries.md)
 ```
 
 | Package | |
 | --- | --- |
-| `@cable-studio/model` | the canonical model: types, validation, nets, trace, part-number schemes. Zero dependencies. |
-| `@cable-studio/catalog` | the file-backed catalog and the starter data. Zero dependencies. |
-| `@cable-studio/modules` | the build-time module registry. Zero dependencies. |
-| `@cable-studio/layout` | ELK layout of a design |
-| `@cable-studio/render-svg` | deterministic SVG schematics and cross-sections |
-| `@cable-studio/docs` | build sheet, BOM, continuity spec, drawing, wire spec |
-| `@cable-studio/editor-react` | the editor |
+| `@wirehub/model` | the canonical model: types, validation, nets, trace, part-number schemes. Zero dependencies. |
+| `@wirehub/catalog` | the file-backed catalog and the starter data. Zero dependencies. |
+| `@wirehub/modules` | the build-time module registry. Zero dependencies. |
+| `@wirehub/layout` | ELK layout of a design |
+| `@wirehub/render-svg` | deterministic SVG schematics and cross-sections |
+| `@wirehub/docs` | build sheet, BOM, continuity spec, drawing, wire spec |
+| `@wirehub/editor-react` | the editor |
 | `apps/studio` | the app: Vite SPA and Hono server |
 
 ## Read next

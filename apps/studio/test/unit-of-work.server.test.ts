@@ -6,8 +6,8 @@
  * reused per catalog version.
  */
 
-import { fixtureCatalog } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { fixtureCatalog } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';

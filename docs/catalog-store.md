@@ -1,9 +1,9 @@
 # Catalog store
 
 Status: **design** — nothing here is implemented yet beyond the catalog-pack contribution
-type in `@cable-studio/modules`. Tracked in beads.
+type in `@wirehub/modules`. Tracked in beads.
 
-A fresh Cable Studio has the starter catalog: a few dozen generic records. Real work needs
+A fresh WireHub has the starter catalog: a few dozen generic records. Real work needs
 the connectors, stocks and parts of a domain — XLR and speakON for live audio, M12 and
 PROFIBUS for a factory floor, the OBD-II connector for a vehicle harness. Every shop
 re-entering the same public facts is wasted effort, and every shop re-entering them by hand
@@ -44,27 +44,27 @@ manifest:
 
 ```
 fieldbus-1.4.0/
-  cable-studio-pack.json     manifest (below)
+  wirehub-pack.json     manifest (below)
   CHANGELOG.md
   bodies.json  interfaces.json  connectors.json  wires.json  components.json
   mechanicals.json  kits.json  pcbas.json        (each optional)
   vocab/signals.json …                           (vocabulary additions)
   designs/*.json                                 (example designs, optional)
   depictions/<def>/…                             (artwork, optional)
-  cable-studio-pack.sig      detached signature over the manifest
+  wirehub-pack.sig      detached signature over the manifest
 ```
 
 ```jsonc
-// cable-studio-pack.json
+// wirehub-pack.json
 {
   "format": 1,
   "id": "fieldbus",                       // kebab, globally unique in a store
   "name": "Fieldbus connectors and cables",
   "version": "1.4.0",                     // semver of the data
-  "publisher": { "id": "cable-studio", "name": "Cable Studio store" },
+  "publisher": { "id": "wirehub", "name": "WireHub store" },
   "license": "CC-BY-4.0",                 // SPDX: the default for records that name none
   "catalogSchema": 4,                     // the CableDesign / record schema it targets
-  "requires": { "cable-studio": ">=1.0 <2", "packs": { "core-bodies": "^2.1.0" } },
+  "requires": { "wirehub": ">=1.0 <2", "packs": { "core-bodies": "^2.1.0" } },
   "idPrefix": "fb-",                      // optional: every record id starts with it
   "files": { "connectors.json": "sha256-…", "wires.json": "sha256-…" },
   "counts": { "connectors": 42, "wires": 9, "interfaces": 18 },

@@ -12,7 +12,7 @@
  * keystroke) and **Other**; without one, every definition lists together.
  */
 
-import type { CableDesign, Db, InstanceKind, TerminalRef } from '@cable-studio/model';
+import type { CableDesign, Db, InstanceKind, TerminalRef } from '@wirehub/model';
 import {
   IconCircuitResistor,
   IconCpu,

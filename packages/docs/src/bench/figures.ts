@@ -24,9 +24,9 @@ import {
   type DepictionSource,
   type FacePad,
   type FacePlan,
-} from '@cable-studio/layout';
-import { DEPICTION_STYLESHEET, conductorPaint, inlineVectorAsset, renderBoardParts } from '@cable-studio/render-svg';
-import type { BoardPart } from '@cable-studio/catalog';
+} from '@wirehub/layout';
+import { DEPICTION_STYLESHEET, conductorPaint, inlineVectorAsset, renderBoardParts } from '@wirehub/render-svg';
+import type { BoardPart } from '@wirehub/catalog';
 
 import { faceArtMarkup } from '../drawing/render.ts';
 import type { FaceArt, FaceBridge, PinState } from '../drawing/index.ts';

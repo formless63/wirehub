@@ -6,8 +6,8 @@
  * Labels live in tooltips and placeholders, per the UX rules.
  */
 
-import type { CableDesign } from '@cable-studio/model';
-import type { DrawingMeta, SheetSettings } from '@cable-studio/docs';
+import type { CableDesign } from '@wirehub/model';
+import type { DrawingMeta, SheetSettings } from '@wirehub/docs';
 import type { JSX } from 'react';
 
 export interface SheetOptionsProps {

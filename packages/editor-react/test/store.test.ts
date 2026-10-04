@@ -4,7 +4,7 @@
  * approving the whole candidate document.**
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
+import { loadDb, loadDesign } from '@wirehub/catalog';
 import {
   errors,
   terminalKey,
@@ -13,7 +13,7 @@ import {
   type CableDesign,
   type Db,
   type TerminalRef,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {

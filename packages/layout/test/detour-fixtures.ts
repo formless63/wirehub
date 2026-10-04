@@ -23,7 +23,7 @@ import type {
   Db,
   Joint,
   WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 const SRC: ConnectorDefinition = {
   id: 'x-src-10',

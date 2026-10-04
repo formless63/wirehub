@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { listDesignIds, loadDb, loadDesign } from '@cable-studio/catalog';
+import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
 
 import { renderSchematic } from '../src/index.ts';
 

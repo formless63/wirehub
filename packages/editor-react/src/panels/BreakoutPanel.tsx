@@ -27,9 +27,9 @@ import {
   type BreakoutInstance,
   type CableDesign,
   type Db,
-} from '@cable-studio/model';
-import { wireDisplayName } from '@cable-studio/docs';
-import { bondFoldedPaths } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import { wireDisplayName } from '@wirehub/docs';
+import { bondFoldedPaths } from '@wirehub/render-svg';
 import { useState, type JSX } from 'react';
 
 import { useEditorApi } from '../context.ts';

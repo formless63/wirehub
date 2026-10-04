@@ -8,7 +8,7 @@
  * the one sub-assembly instead, and the bench builds only the other end.
  */
 
-import { findMechanical, type CableDesign, type Db, type MechanicalDefinition } from '@cable-studio/model';
+import { findMechanical, type CableDesign, type Db, type MechanicalDefinition } from '@wirehub/model';
 
 import { trunkSides } from './bench/model.ts';
 import { trunkSegment } from './drawing/model.ts';

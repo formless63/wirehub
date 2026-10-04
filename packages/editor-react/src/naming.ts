@@ -17,7 +17,7 @@
  * earlier labels as `aliases` so a search for one still finds it.
  */
 
-import type { ConnectorBody, Interface, Vocab } from '@cable-studio/model';
+import type { ConnectorBody, Interface, Vocab } from '@wirehub/model';
 
 export const CONNECTOR_NAMING_RULE = '<Family>[ <pins>-pin][ <angle>] <gender>[, <construction>] (<use>)';
 

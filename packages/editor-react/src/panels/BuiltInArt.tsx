@@ -12,7 +12,7 @@
  * hover title per pin. Uploaded artwork is an optional extra beside it.
  */
 
-import type { ConnectorBody, ConnectorDefinition } from '@cable-studio/model';
+import type { ConnectorBody, ConnectorDefinition } from '@wirehub/model';
 import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from 'react';
 
 import { connectorArt, type ConnectorArt, type ConnectorPinArt } from '../connector-art.ts';

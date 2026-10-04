@@ -17,7 +17,7 @@
  * than the JSON pipe's 4 MB.
  */
 
-import type { Db } from '@cable-studio/model';
+import type { Db } from '@wirehub/model';
 
 import type { ApiResponse, WorkbenchDeps } from '../api.ts';
 import type { StudioUser } from '../me.ts';

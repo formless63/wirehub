@@ -1,7 +1,7 @@
 /** Structural validation: the example designs are clean, and broken variants name the right issue. */
 
 import { describe, expect, it } from 'vitest';
-import { listDesignIds, loadDb, loadDesign } from '@cable-studio/catalog';
+import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
 
 import { errors, validateDesign, type CableDesign } from '../src/index.ts';
 

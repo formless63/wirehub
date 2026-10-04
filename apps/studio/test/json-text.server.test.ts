@@ -5,7 +5,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 
-import { dataPath } from '@cable-studio/catalog';
+import { dataPath } from '@wirehub/catalog';
 import { describe, expect, it } from 'vitest';
 
 import { canonicalJson, patchJsonText } from '../server/json-text.ts';

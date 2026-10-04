@@ -1,4 +1,4 @@
-# Cable Studio — a self-contained image of the current (file-backed) studio:
+# WireHub — a self-contained image of the current (file-backed) studio:
 # the standalone Node server (apps/studio/server/serve.ts) serving the built
 # bundle and /api/*. Built from the repository root (see docker-compose.yml).
 FROM node:24-bookworm-slim AS build

@@ -13,7 +13,7 @@
  *   returns from here as offline, exactly as the build-time copy was.
  */
 
-const DB_NAME = 'cable-studio-offline';
+const DB_NAME = 'wirehub-offline';
 const STORE = 'answers';
 
 export interface CachedAnswer<T> {

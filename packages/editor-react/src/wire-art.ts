@@ -4,7 +4,7 @@
  * jacket run, with a handle on every electrical element of each face.
  *
  * Pure geometry — no React, no DOM. The faces themselves come from
- * `@cable-studio/layout`'s `endFaceLayout` (through render-svg's re-export),
+ * `@wirehub/layout`'s `endFaceLayout` (through render-svg's re-export),
  * which is the documents' cross-section with each end's chirality applied:
  * the destination end reads the ring clockwise, the source end
  * counter-clockwise (owner, 2026-09-23). This module only scales the two faces
@@ -37,14 +37,14 @@
  * diameters) has no art (`undefined`): the node keeps its element rows.
  */
 
-import { terminalKey, type WireDefinition } from '@cable-studio/model';
+import { terminalKey, type WireDefinition } from '@wirehub/model';
 import {
   bondedRepresentative,
   endFaceLayout,
   figure8Path,
   type EndFace,
   type EndFaceTerminalRole,
-} from '@cable-studio/render-svg';
+} from '@wirehub/render-svg';
 
 import type { Facing } from './board-art.ts';
 

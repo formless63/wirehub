@@ -3,8 +3,8 @@
  * pinout drafts, copy/mirror, and the connector that is the pair.
  */
 
-import type { ConnectorBody, Db } from '@cable-studio/model';
-import { composeConnector, decomposeConnector } from '@cable-studio/model';
+import type { ConnectorBody, Db } from '@wirehub/model';
+import { composeConnector, decomposeConnector } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { BODY_TEMPLATES, oppositeGenderBody, templateOfBody } from '../src/body-templates.ts';

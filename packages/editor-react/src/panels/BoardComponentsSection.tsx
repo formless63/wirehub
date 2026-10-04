@@ -11,7 +11,7 @@
  * lines.
  */
 
-import { boardBuildOf, boardComponentRows, boardPartsOf, compressRefs, type Db } from '@cable-studio/model';
+import { boardBuildOf, boardComponentRows, boardPartsOf, compressRefs, type Db } from '@wirehub/model';
 import { useMemo, useState, type JSX } from 'react';
 
 import { classes } from '../context.ts';

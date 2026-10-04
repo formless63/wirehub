@@ -4,10 +4,10 @@
  * each module is a workspace or git dependency imported here and bundled
  * with the app. The base ships with none.
  *
- *   import { erpLink } from '@acme/cable-studio-erp-link';
+ *   import { erpLink } from '@acme/wirehub-erp-link';
  *   export const modules = [erpLink];
  */
 
-import type { CableStudioModule } from '@cable-studio/modules';
+import type { WireHubModule } from '@wirehub/modules';
 
-export const modules: readonly CableStudioModule[] = [];
+export const modules: readonly WireHubModule[] = [];

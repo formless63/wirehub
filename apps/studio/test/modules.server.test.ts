@@ -4,9 +4,9 @@
  * save the way the base validator does.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign } from '@cable-studio/model';
-import { createRegistry, defineModule } from '@cable-studio/modules';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign } from '@wirehub/model';
+import { createRegistry, defineModule } from '@wirehub/modules';
 import { describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type ApiRequest, type WorkbenchDeps } from '../server/api.ts';

@@ -8,8 +8,8 @@
  * and demand the same document.
  */
 
-import { loadDb } from '@cable-studio/catalog';
-import type { Db, WireDefinition } from '@cable-studio/model';
+import { loadDb } from '@wirehub/catalog';
+import type { Db, WireDefinition } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {

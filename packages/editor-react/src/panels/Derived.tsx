@@ -14,8 +14,8 @@ import {
   type CompatibilityCode,
   type Issue,
   type Net,
-} from '@cable-studio/model';
-import { depictionDiagnostics, type DepictionDiagnostic, type DepictionSource } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import { depictionDiagnostics, type DepictionDiagnostic, type DepictionSource } from '@wirehub/render-svg';
 import { IconNote } from '@tabler/icons-react';
 import { useDeferredValue, useMemo, type JSX } from 'react';
 

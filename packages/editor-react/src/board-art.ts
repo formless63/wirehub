@@ -49,7 +49,7 @@
  * `connector-art.ts`'s business; this module only makes the room.
  */
 
-import { boardOutlineFromSvg, cableRowOutward, copperPads, exitSlot, guideSlots, partBodyShapes, wireDirection, type DepictionSource, type GuideSlot, type PartDetailShape } from '@cable-studio/render-svg';
+import { boardOutlineFromSvg, cableRowOutward, copperPads, exitSlot, guideSlots, partBodyShapes, wireDirection, type DepictionSource, type GuideSlot, type PartDetailShape } from '@wirehub/render-svg';
 
 import type { DepictionMeta } from './artwork.ts';
 
@@ -412,7 +412,7 @@ function padsOf(anchor: Anchor): Pad[] {
 /**
  * A direction's angle (degrees) reflected across `axis` — this package does
  * not depend on the catalog (see the module doc), so this mirrors the exact
- * arithmetic `@cable-studio/catalog`'s `anchors.ts` (`reflectAngle`) applies
+ * arithmetic `@wirehub/catalog`'s `anchors.ts` (`reflectAngle`) applies
  * to a `PinAnchor.approach`; a test holds the two equal.
  */
 function reflectApproach(deg: number, axis: 'x' | 'y'): number {

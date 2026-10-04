@@ -4,7 +4,7 @@
  * along the pad's own axis is *off the board*.
  *
  * Pure and dependency-free — `gerber.ts` uses it at generation time, and
- * `@cable-studio/layout` re-exports it for the entry guides and the landing
+ * `@wirehub/layout` re-exports it for the entry guides and the landing
  * tests, so all of them read one outline the same way.
  */
 

@@ -69,7 +69,7 @@ if (backup !== undefined) {
 const app = createStandaloneApp({ distDir, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 
 serve({ fetch: app.fetch, hostname: host, port }, (info) => {
-  console.log(`Cable Studio serving ${distDir}`);
+  console.log(`WireHub serving ${distDir}`);
   console.log(`  http://${info.address === '0.0.0.0' || info.address === '::' ? 'localhost' : info.address}:${info.port}`);
   console.log(`  (bound to ${host}:${info.port} — reachable on the LAN unless HOST was narrowed)`);
   if (auth !== undefined) {

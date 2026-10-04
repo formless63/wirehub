@@ -7,7 +7,7 @@
  * `/api/models/:kind/:id` to `definition:<kind>:<id>`).
  */
 
-import type { ModelLinkView, ModelsAdapter, ModelUploadStats, Outcome, StoredModel } from '@cable-studio/editor-react';
+import type { ModelLinkView, ModelsAdapter, ModelUploadStats, Outcome, StoredModel } from '@wirehub/editor-react';
 
 import { request } from './persistence.browser.ts';
 

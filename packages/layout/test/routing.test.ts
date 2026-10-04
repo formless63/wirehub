@@ -16,7 +16,7 @@ import type {
   Db,
   Joint,
   WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { layoutSchematic } from '../src/index.ts';
 import { METRICS as M } from '../src/metrics.ts';

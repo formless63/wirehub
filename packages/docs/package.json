@@ -1,5 +1,5 @@
 {
-  "name": "@cable-studio/docs",
+  "name": "@wirehub/docs",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,10 +10,10 @@
     "build": "tsc --noEmit"
   },
   "dependencies": {
-    "@cable-studio/catalog": "workspace:*",
-    "@cable-studio/model": "workspace:*",
-    "@cable-studio/layout": "workspace:*",
-    "@cable-studio/render-svg": "workspace:*"
+    "@wirehub/catalog": "workspace:*",
+    "@wirehub/layout": "workspace:*",
+    "@wirehub/model": "workspace:*",
+    "@wirehub/render-svg": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.1.2",

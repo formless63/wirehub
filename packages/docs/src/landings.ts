@@ -21,7 +21,7 @@ import {
   type Db,
   type TerminalRef,
   type WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 export interface GroundLanding {
   /** `w1:pigtail:rgb@b` */

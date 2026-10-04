@@ -12,8 +12,8 @@
  *  4. the canvas is untouched: `deriveNodes` has no idea depictions exist
  */
 
-import { loadDb, loadDepiction, loadDesign } from '@cable-studio/catalog';
-import type { Db } from '@cable-studio/model';
+import { loadDb, loadDepiction, loadDesign } from '@wirehub/catalog';
+import type { Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { deriveNodes } from '../src/derive.ts';

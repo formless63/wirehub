@@ -15,7 +15,7 @@
  * it starts at this boundary.
  */
 
-import { CURRENT_SCHEMA_VERSION, type CableDesign, type Issue } from '@cable-studio/model';
+import { CURRENT_SCHEMA_VERSION, type CableDesign, type Issue } from '@wirehub/model';
 
 /** What a design picker needs: the id and the human name. */
 export interface DesignSummary {

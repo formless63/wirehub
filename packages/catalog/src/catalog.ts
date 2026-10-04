@@ -2,7 +2,7 @@
  * The catalog loaders, bound to a `CatalogSource` (storage seams,
  *).
  *
- * `createCatalog(source)` returns every loader `@cable-studio/catalog`
+ * `createCatalog(source)` returns every loader `@wirehub/catalog`
  * exports — `loadDb`, `loadDesign`, … — reading through `source` instead of
  * `node:fs`. The package's top-level functions are this, bound to the live
  * `data/` directory (the starter catalog); `fixtureCatalog` is this, bound
@@ -17,7 +17,7 @@
  * can never mutate a shared singleton.
  */
 
-import { DEFAULT_PART_NUMBER_SCHEME, boardPartsWithBuilds, composeConnectors, composePcbas, parsePrefixSchemeConfig, prefixPartNumberScheme, withPcbaPads, type BoardPartsEntry, type PcbaStatusEntry } from '@cable-studio/model';
+import { DEFAULT_PART_NUMBER_SCHEME, boardPartsWithBuilds, composeConnectors, composePcbas, parsePrefixSchemeConfig, prefixPartNumberScheme, withPcbaPads, type BoardPartsEntry, type PcbaStatusEntry } from '@wirehub/model';
 import type {
   BoardBuilds,
   CableDesign,
@@ -41,7 +41,7 @@ import type {
   WireLibrary,
   WirePart,
   WireRecipe,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { CatalogSource } from './source.ts';
 

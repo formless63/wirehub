@@ -24,7 +24,7 @@
  * is per page load, so two tabs of one person are two holders.
  */
 
-import type { Issue } from '@cable-studio/model';
+import type { Issue } from '@wirehub/model';
 
 import { isRecordKey, recordsOfWrite, tokensOf, LEASE_MS, type LockView } from '../../src/locks/records.ts';
 import type { ApiResponse } from '../api.ts';

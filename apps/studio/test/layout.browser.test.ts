@@ -58,7 +58,7 @@ describe('arrangements', () => {
 
   it('reads a hand-mangled record as nothing remembered', () => {
     const layout = localLayoutStore();
-    const key = 'cable-studio/layout/1/positions/rs485-de9-terminal-board';
+    const key = 'wirehub/layout/1/positions/rs485-de9-terminal-board';
     for (const junk of [
       'not json',
       '[]',
@@ -80,7 +80,7 @@ describe('pane sizes', () => {
     layout.savePanes({ palette: 200, side: 300, dock: 400 });
     expect(layout.panes()).toEqual({ palette: 200, side: 300, dock: 400 });
 
-    store.set('cable-studio/layout/1/panes', '{"palette":200,"side":300}');
+    store.set('wirehub/layout/1/panes', '{"palette":200,"side":300}');
     expect(layout.panes()).toBeUndefined();
   });
 });

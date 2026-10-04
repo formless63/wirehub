@@ -4,8 +4,8 @@
  * file someone else changed since it was read. Nothing here throws.
  */
 
-import type { BuildsAdapter, BuildsFileView } from '@cable-studio/editor-react';
-import type { BoardBuilds } from '@cable-studio/model';
+import type { BuildsAdapter, BuildsFileView } from '@wirehub/editor-react';
+import type { BoardBuilds } from '@wirehub/model';
 
 import { request } from './definitions.browser.ts';
 

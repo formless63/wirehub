@@ -10,7 +10,7 @@
 
 import './reactflow-jsdom.ts';
 
-import { terminalKey, type Db } from '@cable-studio/model';
+import { terminalKey, type Db } from '@wirehub/model';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';

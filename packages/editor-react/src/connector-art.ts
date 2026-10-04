@@ -3,18 +3,18 @@
  * definition (spec: ui-redesign, Canvas v2 item 5).
  *
  * The geometry itself — every family's mating face or side profile, and the
- * point each pin sits on — lives in `@cable-studio/layout`
+ * point each pin sits on — lives in `@wirehub/layout`
  * (`layout/src/connector-art.ts`), so the SVG schematic draws exactly the
  * connector the canvas does; it reaches this package
- * through `@cable-studio/render-svg`, like the rest of layout's geometry the
+ * through `@wirehub/render-svg`, like the rest of layout's geometry the
  * canvas shares. The node (`nodes/ConnectorNode.tsx`) only paints it, and
  * `layout-size.ts` reserves exactly its size. What stays here is the canvas's
  * own frame around the drawing: padding, the docked caption.
  */
 
-import type { ConnectorArt } from '@cable-studio/render-svg';
+import type { ConnectorArt } from '@wirehub/render-svg';
 
-export { BODY_DRAWINGS, bodyDrawing, connectorArt } from '@cable-studio/render-svg';
+export { BODY_DRAWINGS, bodyDrawing, connectorArt } from '@wirehub/render-svg';
 export type {
   ArtLabel,
   ArtShape,
@@ -25,7 +25,7 @@ export type {
   ConnectorArtInput,
   ConnectorPinArt,
   PinForm,
-} from '@cable-studio/render-svg';
+} from '@wirehub/render-svg';
 
 
 /* ------------------------------------------------------------------ *

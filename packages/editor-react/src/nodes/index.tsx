@@ -18,7 +18,7 @@
  *   component  a two-lead part with its value
  */
 
-import { parseTerminalKey } from '@cable-studio/model';
+import { parseTerminalKey } from '@wirehub/model';
 import { Handle, Position, type NodeProps, type NodeTypes, type Node } from '@xyflow/react';
 import { useMemo, type CSSProperties, type JSX, type MouseEvent, type ReactNode } from 'react';
 

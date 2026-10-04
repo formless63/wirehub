@@ -19,8 +19,8 @@
  * 4. A definition id is a slug, never a path.
  */
 
-import { loadDb, loadDesigns } from '@cable-studio/catalog';
-import type { Db } from '@cable-studio/model';
+import { loadDb, loadDesigns } from '@wirehub/catalog';
+import type { Db } from '@wirehub/model';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {

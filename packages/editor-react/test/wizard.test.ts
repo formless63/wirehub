@@ -14,7 +14,7 @@
  *    show up as a question or a sentence, never as a guessed joint.
  */
 
-import { noteReferencesTerminal, type CableDesign, type Db, type Joint } from '@cable-studio/model';
+import { noteReferencesTerminal, type CableDesign, type Db, type Joint } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {

@@ -18,7 +18,7 @@
  * where `rotatePoint` says.
  */
 
-import type { BoardPart, PadPosition } from '@cable-studio/catalog';
+import type { BoardPart, PadPosition } from '@wirehub/catalog';
 
 import { copperFromPads, exitSlot } from './entry-guides.ts';
 

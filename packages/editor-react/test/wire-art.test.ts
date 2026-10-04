@@ -9,8 +9,8 @@ import {
   terminalKey,
   type Db,
   type WireDefinition,
-} from '@cable-studio/model';
-import { bondFoldedPaths, endFaceLayout } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import { bondFoldedPaths, endFaceLayout } from '@wirehub/render-svg';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

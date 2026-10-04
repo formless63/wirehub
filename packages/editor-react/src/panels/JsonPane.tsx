@@ -5,7 +5,7 @@
  * before it can replace the current design.
  */
 
-import type { CableDesign } from '@cable-studio/model';
+import type { CableDesign } from '@wirehub/model';
 import { useEffect, useState, type ChangeEvent, type JSX } from 'react';
 
 import { useEditorApi } from '../context.ts';

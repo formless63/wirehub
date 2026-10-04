@@ -4,7 +4,7 @@
  * a joint; clicking the row selects the terminal for the trace readout.
  */
 
-import { parseTerminalKey } from '@cable-studio/model';
+import { parseTerminalKey } from '@wirehub/model';
 import { Handle, Position } from '@xyflow/react';
 import type { JSX, MouseEvent } from 'react';
 

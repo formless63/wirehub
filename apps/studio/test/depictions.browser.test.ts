@@ -7,7 +7,7 @@
  * matches nothing, which is exactly how this feature would silently do nothing.
  */
 
-import { renderPreview } from '@cable-studio/editor-react';
+import { renderPreview } from '@wirehub/editor-react';
 import { describe, expect, it } from 'vitest';
 
 import { cableListRows, liveCatalogInMemory } from './catalog-in-memory.ts';

@@ -4,7 +4,7 @@
  * validator holding elements and prose together.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
+import { loadDb, loadDesign } from '@wirehub/catalog';
 import { describe, expect, it } from 'vitest';
 
 import {

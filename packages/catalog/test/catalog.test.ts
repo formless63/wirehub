@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
-import { errors, kitsContaining, validateDb, validateDesign } from '@cable-studio/model';
+import { errors, kitsContaining, validateDb, validateDesign } from '@wirehub/model';
 
 import {
   createCatalog,

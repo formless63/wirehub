@@ -37,14 +37,14 @@
  * iteration over unordered sets, no clock, no randomness.
  */
 
-import { isGroup, resolveElementPath, stripMakerSuffix } from '@cable-studio/model';
+import { isGroup, resolveElementPath, stripMakerSuffix } from '@wirehub/model';
 import type {
   ConductorElement,
   Element,
   InsulationElement,
   ShieldElement,
   WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { figure8Path } from './figure8.ts';
 import { METRICS as M } from './metrics.ts';

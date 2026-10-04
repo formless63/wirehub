@@ -9,8 +9,8 @@ import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, write
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { dataPath, loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign, DesignVersionFile } from '@cable-studio/model';
+import { dataPath, loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign, DesignVersionFile } from '@wirehub/model';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type ApiRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -188,7 +188,7 @@ describe('the file store', () => {
     await call('POST', base, { note: 'first release' });
     const text = readFileSync(join(dir, ID, '1.json'), 'utf8');
     expect(text.endsWith('}\n')).toBe(true);
-    expect(JSON.parse(text)).toMatchObject({ format: 'cable-studio/design-version@2', rev: 1 });
+    expect(JSON.parse(text)).toMatchObject({ format: 'wirehub/design-version@2', rev: 1 });
     expect(readFileSync(join(dir, ID, 'working.json'), 'utf8')).toBe('{\n  "basedOnRev": 1\n}\n');
     expect(store.revisions(ID)).toEqual([1]);
   });

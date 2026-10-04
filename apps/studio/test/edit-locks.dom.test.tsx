@@ -9,7 +9,7 @@
 
 import { useState, type JSX } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useEditLocked, useUnsavedChangesGuard } from '@cable-studio/editor-react';
+import { useEditLocked, useUnsavedChangesGuard } from '@wirehub/editor-react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { handleLockRequest } from '../server/locks/lock-api.ts';

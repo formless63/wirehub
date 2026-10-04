@@ -4,8 +4,8 @@
  * times runs cross near given parts.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
-import { segmentsIntersect } from '@cable-studio/render-svg';
+import type { CableDesign, Db } from '@wirehub/model';
+import { segmentsIntersect } from '@wirehub/render-svg';
 
 import { anchorOf, edgeRoute, placedNode, type PlacedNode, type XY } from '../src/breakout.ts';
 import { autoLayout, deriveFlow, type EditorEdge, type Flow } from '../src/derive.ts';

@@ -377,7 +377,7 @@ export function strandedOd(strands: number, strandMm: number): { od: number; for
  * Ø of the round bundle a lay makes, mm — ring cores on the pitch circle
  * where neighbours just touch (`d / (2·sin(π/n))`), opened up if the centre
  * (or the centre pair, side by side) needs the room. The same geometry the
- * cutaway draws (`@cable-studio/layout` `crossSectionLayout`).
+ * cutaway draws (`@wirehub/layout` `crossSectionLayout`).
  */
 export function layEnvelope(
   arrangement: WireLayOrder['arrangement'],

@@ -41,8 +41,8 @@ import {
   type WireDefinition,
   type WirePart,
   type WireRecipe,
-} from '@cable-studio/model';
-import { renderCrossSection } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import { renderCrossSection } from '@wirehub/render-svg';
 
 import { escapeHtml } from './text.ts';
 
@@ -63,7 +63,7 @@ export interface WireSpecOptions {
   manufacturers?: readonly { id: string; label: string }[];
   /** where a vendor document opens in-app (an asset URL); omitted = cited by name only */
   vendorDocHref?: (asset: string) => string | undefined;
-  /** the organisation the sheet is issued by (the header mark); default `Cable Studio` */
+  /** the organisation the sheet is issued by (the header mark); default `WireHub` */
   organisation?: string;
   /** the name of the document standard (default `WIRE_SPEC_STANDARD`) */
   standard?: string;
@@ -72,7 +72,7 @@ export interface WireSpecOptions {
 }
 
 /** What the generated sheets are called, unless the caller names its own standard. */
-export const WIRE_SPEC_STANDARD = 'Cable Studio Standard';
+export const WIRE_SPEC_STANDARD = 'WireHub Standard';
 /** The prefix of every exported, downloaded or printed spec-sheet file. */
 export const WIRE_SPEC_FILE_PREFIX = 'WSS_';
 
@@ -275,7 +275,7 @@ function layNote(wire: WireDefinition, rows: CoreRow[]): string {
 
 /** The spec sheet, as a standalone printable HTML document (or a fragment). */
 export function renderWireSpecSheet(wire: WireDefinition, options: WireSpecOptions = {}): string {
-  const organisation = options.organisation ?? 'Cable Studio';
+  const organisation = options.organisation ?? 'WireHub';
   const standard = options.standard ?? WIRE_SPEC_STANDARD;
   const recipe = options.recipe;
   const parts = new Map((options.parts ?? []).map((part) => [part.id, part]));
@@ -598,7 +598,7 @@ export function wireSpecElement(wire: WireDefinition, path: string): Element | u
   return resolveElementPath(wire.structure, path);
 }
 
-export const WIRE_SPEC_STYLESHEET = `@layer cable-studio.docs{
+export const WIRE_SPEC_STYLESHEET = `@layer wirehub.docs{
 .cs-ws{--ws-ink:#15181c;--ws-muted:#5a636d;--ws-rule:#c9d0d6;--ws-head:#eef1f4;--ws-accent:#c2602a;
 font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:9.5pt;line-height:1.35;color:var(--ws-ink);background:#fff;
 max-width:186mm;margin:0 auto;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}

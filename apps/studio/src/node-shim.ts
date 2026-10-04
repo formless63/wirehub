@@ -1,6 +1,6 @@
 /**
  * Browser stand-in for the `node:fs` / `node:url` / `node:path` bindings that
- * `@cable-studio/catalog` (and, through it, `layout`/`render-svg`) import at
+ * `@wirehub/catalog` (and, through it, `layout`/`render-svg`) import at
  * module scope for the depiction tree.
  *
  * Nothing in the studio calls them: catalog data comes from the workbench API

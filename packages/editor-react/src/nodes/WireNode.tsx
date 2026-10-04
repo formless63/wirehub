@@ -19,8 +19,8 @@
  * braid lights and lists the whole twist, clicking one selects its landing.
  */
 
-import { parseTerminalKey, terminalKey } from '@cable-studio/model';
-import { conductorPaint } from '@cable-studio/render-svg';
+import { parseTerminalKey, terminalKey } from '@wirehub/model';
+import { conductorPaint } from '@wirehub/render-svg';
 import { IconTarget } from '@tabler/icons-react';
 import { Handle, NodeToolbar, Position } from '@xyflow/react';
 import { useId, useMemo, type JSX, type MouseEvent } from 'react';

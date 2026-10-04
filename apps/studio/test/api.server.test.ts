@@ -9,8 +9,8 @@
  * task's transcript, which byte-compares a saved file.
  */
 
-import { loadDb, loadDesign, listDesignIds } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { loadDb, loadDesign, listDesignIds } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {

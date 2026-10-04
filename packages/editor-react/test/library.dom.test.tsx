@@ -12,7 +12,7 @@
 
 import './reactflow-jsdom.ts';
 
-import type { CableDesign, Db, WireDefinition } from '@cable-studio/model';
+import type { CableDesign, Db, WireDefinition } from '@wirehub/model';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

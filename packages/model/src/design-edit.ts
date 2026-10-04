@@ -7,7 +7,7 @@
  *
  * None of this touches presentation (no coordinates, no React Flow) and none
  * of it is editor-specific, so it lives here rather than in
- * `@cable-studio/editor-react`'s store (moved by) — every
+ * `@wirehub/editor-react`'s store (moved by) — every
  * consumer needs the same semantics, notably that removing an instance
  * removes the joints that land on it.
  */

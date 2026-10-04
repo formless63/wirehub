@@ -58,8 +58,8 @@ import {
   IconSearch,
   IconWaveSine,
 } from '@tabler/icons-react';
-import type { Db } from '@cable-studio/model';
-import type { LibraryKind } from '@cable-studio/editor-react';
+import type { Db } from '@wirehub/model';
+import type { LibraryKind } from '@wirehub/editor-react';
 
 import type { CableListEntry } from '../cable-list.ts';
 import { matchedPartNumber, pnMatches } from '../pn-search.ts';

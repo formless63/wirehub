@@ -21,7 +21,7 @@
  * back on itself) are broken at the node design order lists first.
  */
 
-import { designInstances, type CableDesign, type InstanceKind, type TerminalRef } from '@cable-studio/model';
+import { designInstances, type CableDesign, type InstanceKind, type TerminalRef } from '@wirehub/model';
 
 export interface Ranks {
   /** the column each instance belongs in, from 0 */

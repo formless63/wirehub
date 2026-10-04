@@ -22,9 +22,9 @@ import {
   type SharedAsset,
   type VendorDocument,
   type VendorDocumentsAdapter,
-} from '@cable-studio/editor-react';
-import type { DrawingMeta } from '@cable-studio/docs';
-import type { CableDesign, Issue } from '@cable-studio/model';
+} from '@wirehub/editor-react';
+import type { DrawingMeta } from '@wirehub/docs';
+import type { CableDesign, Issue } from '@wirehub/model';
 
 import type { CableListEntry } from './cable-list.ts';
 
@@ -191,7 +191,7 @@ export async function fetchCableList(base = '/api'): Promise<Outcome<CableListEn
  *
  * `noteTag` is the extra beyond `DrawingAdapter` that lets a caller who knows
  * a *different* request just rewrote this design's drawing (a version save,
- * `cable-studio-50a` drawing-form bug) hand this adapter the fresh `ETag`
+ * the drawing-form bug) hand this adapter the fresh `ETag`
  * straight from that response, instead of this form finding out only when
  * its own next save comes back 409. It only updates the remembered tag —
  * `useDrawingSidecar`'s stale-write recovery (`documents.ts`'s
@@ -227,7 +227,7 @@ export function workbenchDrawings(base = '/api'): DrawingAdapter & { noteTag: (i
  * picked most recently is a fact about *them*, not a thing the workbench
  * API should be asked to remember for anyone who opens it.
  */
-const RECENT_ASSETS_KEY = 'cable-studio/assets/1/recent';
+const RECENT_ASSETS_KEY = 'wirehub/assets/1/recent';
 
 function readRecentIds(): string[] {
   try {

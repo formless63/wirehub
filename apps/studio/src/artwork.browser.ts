@@ -31,8 +31,8 @@ import type {
   DepictionArtwork,
   UploadReport,
   UploadRequest,
-} from '@cable-studio/editor-react';
-import type { Issue } from '@cable-studio/model';
+} from '@wirehub/editor-react';
+import type { Issue } from '@wirehub/model';
 
 interface ApiError {
   error?: string;

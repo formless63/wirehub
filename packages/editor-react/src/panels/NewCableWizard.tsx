@@ -22,9 +22,9 @@
  *   the real catalog fixtures.
  */
 
-import type { Db } from '@cable-studio/model';
-import { wireDisplayName } from '@cable-studio/docs';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import type { Db } from '@wirehub/model';
+import { wireDisplayName } from '@wirehub/docs';
+import type { DepictionSource } from '@wirehub/render-svg';
 import { useMemo, useReducer, useState, type JSX } from 'react';
 
 import { classes } from '../context.ts';

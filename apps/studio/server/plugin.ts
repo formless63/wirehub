@@ -209,7 +209,7 @@ export function workbenchMiddleware(
 
 export function workbenchApi(deps: WorkbenchDeps = defaultWorkbenchDeps()): Plugin {
   return {
-    name: 'cable-studio:workbench-api',
+    name: 'wirehub:workbench-api',
     // dev only: a static bundle has no filesystem to write to, and the studio
     // says so in plain words rather than pretending Save worked
     apply: 'serve',

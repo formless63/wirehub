@@ -8,8 +8,8 @@
  * edit, the stack is bounded, and switching documents starts a fresh history.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import { terminalKey, terminalsOf, type Db, type TerminalRef } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import { terminalKey, terminalsOf, type Db, type TerminalRef } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {

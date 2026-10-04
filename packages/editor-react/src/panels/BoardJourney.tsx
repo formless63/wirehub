@@ -33,8 +33,8 @@ import {
   type Issue,
   type PcbaDefinition,
   type SignalRef,
-} from '@cable-studio/model';
-import { boardOutlineFromSvg, defaultEntryGuides, type DepictionArtwork } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import { boardOutlineFromSvg, defaultEntryGuides, type DepictionArtwork } from '@wirehub/render-svg';
 import {
   IconAlertTriangle,
   IconCheck,

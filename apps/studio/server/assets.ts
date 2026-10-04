@@ -31,7 +31,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { dataPath } from '@cable-studio/catalog';
+import { dataPath } from '@wirehub/catalog';
 import { writeFileAtomic } from './atomic-write.ts';
 import type { Awaitable } from './storage/change-set.ts';
 

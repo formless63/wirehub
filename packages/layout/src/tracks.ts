@@ -13,13 +13,13 @@
  * shield/drain folds away.
  */
 
-import { isElectricalElement, isGroup } from '@cable-studio/model';
+import { isElectricalElement, isGroup } from '@wirehub/model';
 import type {
   ElectricalElement,
   Element,
   GroupElement,
   WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { bondedMassLabel, bondedRepresentative, bondFoldedPaths } from './bond-fold.ts';
 import type { TrackRole } from './model.ts';

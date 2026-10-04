@@ -47,7 +47,7 @@ import {
   type PinAnchor,
   type Stage,
 } from '../src/artwork.ts';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 /** A 20 × 10 mm board in a 400 × 300 px box — deliberately not square. */
 const FRAME: Frame = { widthUnits: 20, heightUnits: 10 };

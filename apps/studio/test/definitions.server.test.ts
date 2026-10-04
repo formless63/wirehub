@@ -9,7 +9,7 @@
  * a connector, a design that solders to a wire's cores.
  */
 
-import { loadDb, loadDesign, listDesignIds } from '@cable-studio/catalog';
+import { loadDb, loadDesign, listDesignIds } from '@wirehub/catalog';
 import type {
   CableDesign,
   ConnectorBody,
@@ -18,7 +18,7 @@ import type {
   MechanicalDefinition,
   PcbaDefinition,
   WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type ApiError, type WorkbenchDeps } from '../server/api.ts';

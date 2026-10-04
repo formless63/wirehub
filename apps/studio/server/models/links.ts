@@ -17,7 +17,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-import { dataPath } from '@cable-studio/catalog';
+import { dataPath } from '@wirehub/catalog';
 
 import { writeFileAtomic } from '../atomic-write.ts';
 import type { Awaitable } from '../storage/change-set.ts';

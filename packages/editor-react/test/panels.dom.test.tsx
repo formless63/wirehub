@@ -5,8 +5,8 @@
  * that their controls dispatch the intended edit — no markup snapshots.
  */
 
-import type { Db } from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import type { Db } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { JSX, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';

@@ -7,9 +7,9 @@
  * with no one looking costs nothing.
  */
 
-import { findWire, type CableDesign, type Db, type StripPractice } from '@cable-studio/model';
-import { deriveBench } from '@cable-studio/docs';
-import type { StripPreset } from '@cable-studio/render-svg';
+import { findWire, type CableDesign, type Db, type StripPractice } from '@wirehub/model';
+import { deriveBench } from '@wirehub/docs';
+import type { StripPreset } from '@wirehub/render-svg';
 import { useMemo, useState, type JSX } from 'react';
 
 import { DEFAULT_LENGTH_MM, presetsFor, stripFromPlan } from '../wire-view.ts';

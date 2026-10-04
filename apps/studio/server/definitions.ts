@@ -54,7 +54,7 @@ import {
   type MechanicalDefinition,
   type PcbaDefinition,
   type WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { ApiError, ApiResponse } from './api.ts';
 import {
@@ -769,7 +769,7 @@ export interface DefinitionUsage {
  * Every design is read, because a design references a definition by id and
  * there is no index — the catalog is files, and the honest way to answer "who
  * uses this?" is to look. The edges themselves are `definitionUsage`
- * (`@cable-studio/model`), the same function the Library tables' "Used" column
+ * (`@wirehub/model`), the same function the Library tables' "Used" column
  * counts with, so the two never disagree.
  */
 export async function usageOf(deps: DefinitionDeps, kind: DefinitionKind, id: string): Promise<DefinitionUsage> {

@@ -22,9 +22,9 @@ export interface GitIdentity {
 }
 
 /** The author of every commit made with the login off. */
-export const LOCAL_AUTHOR: GitIdentity = { name: 'Cable Studio (local)', email: 'studio@localhost' };
+export const LOCAL_AUTHOR: GitIdentity = { name: 'WireHub (local)', email: 'studio@localhost' };
 /** The committer of every studio commit, whoever the author is. */
-export const STUDIO_COMMITTER: GitIdentity = { name: 'Cable Studio', email: 'studio@localhost' };
+export const STUDIO_COMMITTER: GitIdentity = { name: 'WireHub', email: 'studio@localhost' };
 
 /** The signed-in person (Better Auth session) — else the fixed local identity. */
 export function commitAuthor(user: StudioUser | undefined): GitIdentity {

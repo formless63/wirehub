@@ -1,11 +1,11 @@
 # Modules
 
-Cable Studio's base is generic. What only one shop needs — its ERP link, its numbering
+WireHub's base is generic. What only one shop needs — its ERP link, its numbering
 scheme, its importers for its own file layout, extra design rules, branding — goes in a
 **module**: a package that contributes to a fixed set of extension points, registered at
 build time in the deployment's manifest.
 
-The skeleton exists today: `@cable-studio/modules` (`packages/modules/src/index.ts`) defines
+The skeleton exists today: `@wirehub/modules` (`packages/modules/src/index.ts`) defines
 the module shape and the registry; `apps/studio/modules.config.ts` is the manifest (empty in
 the base); the server and browser each build the registry from it. Not every extension point
 is mounted in the app yet — the table below says which.
@@ -34,7 +34,7 @@ is mounted in the app yet — the table below says which.
 ## The module object
 
 ```ts
-import { defineModule } from '@cable-studio/modules';
+import { defineModule } from '@wirehub/modules';
 
 export const acme = defineModule({
   id: 'acme',                    // kebab, unique; also the key under CableDesign.extensions
@@ -56,12 +56,12 @@ export const acme = defineModule({
 
 ## Extension points
 
-| Point | Shape (in `@cable-studio/modules`) | Where it runs | Mounted today |
+| Point | Shape (in `@wirehub/modules`) | Where it runs | Mounted today |
 | --- | --- | --- | --- |
 | **Catalog packs** | `CatalogPackContribution { id, label, version, root?, license? }` — a data directory laid out like `packages/catalog/data` | server, at install | registry only; install flow in `docs/catalog-store.md` |
 | **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import(input, db) → { definitions?, designs?, notes } }` — proposes records, never writes | server (may run in the browser if pure) | registry + `importersFor(fileName)`; UI not yet |
 | **Exporters / document types** | `ExporterContribution { id, label, description?, render(design, db, options) → { mimeType, fileName, body } }` | browser and server | registry only; Documents view not yet |
-| **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@cable-studio/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
+| **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@wirehub/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
 | **Validation rules** | `ValidationRuleContribution { id, label, check(design, db) → Issue[] }` | everywhere | **yes** — every design save runs them after `validateDesign` |
 | **Integrations** | `IntegrationContribution { id, label, env?, routes?: { method, path, writes?, handle(request) }[] }` | server only | **yes** — `/api/modules/<module>/<path>`; `writes: true` routes take the write lock |
 | **UI panels** | `PanelContribution { id, label, slot: 'cable-inspector' \| 'cable-documents' \| 'library-detail' \| 'settings', component }` | browser | registry only |
@@ -95,18 +95,18 @@ A private module never lives in this repository. It is its own package, in its o
 (private) repository, and a deployment opts in to it.
 
 ```
-acme-cable-studio-module/          (private repo)
-  package.json                     name: @acme/cable-studio-module
-                                   peerDependencies: @cable-studio/model, @cable-studio/modules
+acme-wirehub-module/          (private repo)
+  package.json                     name: @acme/wirehub-module
+                                   peerDependencies: @wirehub/model, @wirehub/modules
   src/index.ts                     export const acme = defineModule({...})
   src/panels/*.tsx                 (peer: react)
   data/                            a catalog pack, if it ships one
-  test/                            vitest against @cable-studio/catalog's starter catalog
+  test/                            vitest against @wirehub/catalog's starter catalog
 ```
 
 Rules for the module's package:
 
-- `@cable-studio/*` packages are **peer dependencies**, so the module is built against the
+- `@wirehub/*` packages are **peer dependencies**, so the module is built against the
   deployment's copy and never bundles a second one.
 - It exports TS source like the base packages (or compiled ESM — either bundles).
 - Its tests run against the base's starter catalog or its own fixtures, never against a
@@ -119,12 +119,12 @@ A deployment is a checkout of this repository (or a fork that tracks it) plus it
 1. Add the module as a dependency of the app — a git dependency, a private registry
    package, or a workspace folder:
    ```
-   pnpm --filter studio add git+ssh://git@git.example.com/acme/acme-cable-studio-module.git#v1.2.0
+   pnpm --filter studio add git+ssh://git@git.example.com/acme/acme-wirehub-module.git#v1.2.0
    ```
    (For local development of the module, add its folder to `pnpm-workspace.yaml` instead.)
 2. List it in `apps/studio/modules.config.ts`:
    ```ts
-   import { acme } from '@acme/cable-studio-module';
+   import { acme } from '@acme/wirehub-module';
    export const modules = [acme];
    ```
 3. `pnpm build && pnpm test`, then rebuild the image (`docker compose up --build`). A bad
@@ -137,7 +137,7 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 ### Versioning and compatibility
 
-- The registry API (`@cable-studio/modules`) and the model types are the module contract.
+- The registry API (`@wirehub/modules`) and the model types are the module contract.
   Breaking changes to them bump the base's major version and are listed in the changelog.
 - A module declares the base range it supports in `peerDependencies`; pnpm warns on a
   mismatch at install.

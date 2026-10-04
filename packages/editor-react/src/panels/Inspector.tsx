@@ -27,8 +27,8 @@ import {
   type InstanceKind,
   type ResolvedTerminal,
   type TerminalRef,
-} from '@cable-studio/model';
-import { wireDisplayName } from '@cable-studio/docs';
+} from '@wirehub/model';
+import { wireDisplayName } from '@wirehub/docs';
 import {
   IconCheck,
   IconChevronDown,

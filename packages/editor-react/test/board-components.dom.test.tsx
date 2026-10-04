@@ -4,7 +4,7 @@
  * component, qty per refdes group for the build shown, DNP refs named.
  */
 
-import type { BoardPartsEntry, ComponentDefinition } from '@cable-studio/model';
+import type { BoardPartsEntry, ComponentDefinition } from '@wirehub/model';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

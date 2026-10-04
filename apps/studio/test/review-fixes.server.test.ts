@@ -8,8 +8,8 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -37,7 +37,7 @@ function memoryDesigns(seed: CableDesign[]): DesignStore {
 describe('writeFileAtomic', () => {
   let dir: string;
   beforeEach(async () => {
-    dir = mkdtempSync(join(tmpdir(), 'cable-studio-atomic-'));
+    dir = mkdtempSync(join(tmpdir(), 'wirehub-atomic-'));
   });
   afterEach(async () => rmSync(dir, { recursive: true, force: true }));
 

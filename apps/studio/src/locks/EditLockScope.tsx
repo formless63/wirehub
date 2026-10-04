@@ -19,7 +19,7 @@
  * Without a lock client in context it renders its children and nothing else.
  */
 
-import { EditSessionContext, type EditSession } from '@cable-studio/editor-react';
+import { EditSessionContext, type EditSession } from '@wirehub/editor-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 
 import { EditLockBanner, type EditLockBannerState } from './EditLockBanner.tsx';

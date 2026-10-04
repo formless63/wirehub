@@ -3,10 +3,10 @@
  * the owner's drawing-sheet title block (ruled cells, small upper-case labels
  * over large values, black hairlines), one page per bench stage, the numbered
  * landing lists and the check tables. Same house rules: `cs-`-prefixed, in
- * the `cable-studio.docs` layer, system fonts, `print-color-adjust: exact`.
+ * the `wirehub.docs` layer, system fonts, `print-color-adjust: exact`.
  */
 
-export const BENCH_STYLESHEET = `@layer cable-studio.docs{
+export const BENCH_STYLESHEET = `@layer wirehub.docs{
 .cs-bench{--cs-accent:#c2602a;--cs-ok:#1f7a45;font-family:Helvetica,Arial,var(--cs-font);font-size:8.6pt}
 .cs-tb{border:1pt solid #000;margin:0 0 3mm;break-inside:avoid}
 .cs-tb__row{display:flex;border-top:0.6pt solid #000}

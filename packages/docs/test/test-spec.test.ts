@@ -7,8 +7,8 @@
  * claim broke rather than just which number moved.
  */
 
-import { listDesignIds, loadDb, loadDesign, type DesignId } from '@cable-studio/catalog';
-import type { CableDesign } from '@cable-studio/model';
+import { listDesignIds, loadDb, loadDesign, type DesignId } from '@wirehub/catalog';
+import type { CableDesign } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { deriveTestSpec, type PathCheck, type TestSpec } from '../src/test-spec.ts';

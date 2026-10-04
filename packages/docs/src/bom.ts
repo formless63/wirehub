@@ -39,10 +39,10 @@ import {
   type CableDesign,
   type Db,
   type Issue,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { byKeys, compareStrings, facts } from './text.ts';
-import { wireDisplayName } from '@cable-studio/model';
+import { wireDisplayName } from '@wirehub/model';
 import { lengthFromMm, type Length } from './units.ts';
 import { suppliedEnds } from './supplied.ts';
 

@@ -12,7 +12,7 @@
  * generator, `mockup-gen.mjs`'s CABLES section, is the exact column/size
  * reference — 30px rows, 10px mono caps header, `22px … 60px` grid).
  *
- * **New cable.** `@cable-studio/editor-react` already exports
+ * **New cable.** `@wirehub/editor-react` already exports
  * `NewCableWizard` standalone (`DesignActions.tsx` opens the very same
  * component for the "New…" button inside an open cable) — the modal itself
  * is hosted once at the shell (`shell/NewCableWizardHost.tsx`, driven by
@@ -49,7 +49,7 @@ import {
   IconFilter,
   IconPlus,
 } from '@tabler/icons-react';
-import { DESIGN_STATUSES } from '@cable-studio/model';
+import { DESIGN_STATUSES } from '@wirehub/model';
 
 import type { CableListEntry } from '../cable-list.ts';
 import { offlineCopyFrom } from '../catalog.browser.ts';

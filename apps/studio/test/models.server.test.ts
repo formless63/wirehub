@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadDb } from '@cable-studio/catalog';
+import { loadDb } from '@wirehub/catalog';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';

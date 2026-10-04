@@ -25,7 +25,7 @@ import {
   type Interface,
   type InterfaceLibrary,
   type Issue,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type {
   DefinitionKind,

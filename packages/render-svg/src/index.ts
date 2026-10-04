@@ -1,7 +1,7 @@
 /**
- * @cable-studio/render-svg — the schematic drawing.
+ * @wirehub/render-svg — the schematic drawing.
  *
- *   import { renderCrossSection, renderSchematic } from '@cable-studio/render-svg';
+ *   import { renderCrossSection, renderSchematic } from '@wirehub/render-svg';
  *   const svg = renderSchematic(design, db);   // a plain string
  *   const cut = renderCrossSection(wire);      // the cutaway on its own
  *
@@ -14,19 +14,19 @@ export type { RenderOptions } from './render.ts';
 /**
  * Re-exported so a caller that supplies its own artwork (the browser editor
  * assembles one from bundled assets) can name the type without depending on
- * `@cable-studio/layout` directly. Types only — the implementation, and the
+ * `@wirehub/layout` directly. Types only — the implementation, and the
  * catalog-backed default, stay where they are.
  */
-export type { DepictionArtwork, DepictionDiagnostic, DepictionSource } from '@cable-studio/layout';
+export type { DepictionArtwork, DepictionDiagnostic, DepictionSource } from '@wirehub/layout';
 /**
  * The cut end faces the editor canvas draws its wire nodes with — layout's
  * geometry, re-exported for the same reason as the depiction types.
  */
-export { endFaceLayout } from '@cable-studio/layout';
+export { endFaceLayout } from '@wirehub/layout';
 /** A figure-8 stock's end face outline — two joined circles. */
-export { figure8Path } from '@cable-studio/layout';
+export { figure8Path } from '@wirehub/layout';
 /** The parametric 3D wire: pure pieces the lazy viewer sweeps into meshes. */
-export { BARE_END, coreConstruction, stripFromPractice, stripPresets, wireModel } from '@cable-studio/layout';
+export { BARE_END, coreConstruction, stripFromPractice, stripPresets, wireModel } from '@wirehub/layout';
 export type {
   CapKind,
   StripEnd,
@@ -38,7 +38,7 @@ export type {
   WireModelOptions,
   WirePiece,
   WirePieceKind,
-} from '@cable-studio/layout';
+} from '@wirehub/layout';
 /**
  * Which bonded screens a presentation drops in favour of their set's
  * representative ("the drain stands for the bonded
@@ -46,13 +46,13 @@ export type {
  * way `endFaceLayout`'s terminals already do, and so a joint that names a
  * folded screen directly still resolves to a handle.
  */
-export { bondedMassLabel, bondedRepresentative, bondFoldedPaths, isFoilElement, representativeLabel } from '@cable-studio/layout';
+export { bondedMassLabel, bondedRepresentative, bondFoldedPaths, isFoilElement, representativeLabel } from '@wirehub/layout';
 /**
  * Which connectors a design mounts on a board — one rule for the canvas's
  * dock bay and the schematic's docked block.
  */
-export { carriedConnectors, mountedConnectors } from '@cable-studio/layout';
-export type { CarriedMount, ConnectorMount } from '@cable-studio/layout';
+export { carriedConnectors, mountedConnectors } from '@wirehub/layout';
+export type { CarriedMount, ConnectorMount } from '@wirehub/layout';
 export type {
   EndFace,
   EndFaceCore,
@@ -61,14 +61,14 @@ export type {
   EndFaceTerminal,
   EndFaceTerminalRole,
   WireEnd,
-} from '@cable-studio/layout';
+} from '@wirehub/layout';
 /**
  * Connector artwork — every family's mating face or side profile and its pin
  * points. Layout's geometry, which the schematic draws
  * connector blocks with; re-exported so the canvas's connector node draws the
  * very same drawing without depending on layout directly.
  */
-export { BODY_DRAWINGS, bodyDrawing, connectorArt } from '@cable-studio/layout';
+export { BODY_DRAWINGS, bodyDrawing, connectorArt } from '@wirehub/layout';
 export type {
   ArtLabel,
   ArtShape,
@@ -79,11 +79,11 @@ export type {
   ConnectorArtInput,
   ConnectorPinArt,
   PinForm,
-} from '@cable-studio/layout';
+} from '@wirehub/layout';
 export { inlineVectorAsset, prefixIds, svgBody, usesXlink } from './depiction.ts';
 /** A board's mounted parts over its artwork (y1u.17), for any drawing that depicts a board. */
 export { placePartLabels, renderBoardParts } from './board-parts.ts';
-export type { BoardPart } from '@cable-studio/catalog';
+export type { BoardPart } from '@wirehub/catalog';
 export { drawnPinPoints, partBodyShapes, partPadMismatches, resistorMarking } from './part-body.ts';
 export type { DrawnPinPoint, PartDetailShape, PartPadMismatch, PartTone } from './part-body.ts';
 export {
@@ -97,7 +97,7 @@ export type { CrossSectionOptions } from './cross-section.ts';
  * Library can crop the drawing to the cable and print the key as a legible
  * legend of its own without depending on layout.
  */
-export { crossSectionLayout } from '@cable-studio/layout';
+export { crossSectionLayout } from '@wirehub/layout';
 /**
  * Angled-row entry guides — layout's geometry,
  * re-exported so the canvas and the Library guide editor share it.
@@ -120,9 +120,9 @@ export {
   segmentsIntersect,
   slotOfPad,
   wireDirection,
-} from '@cable-studio/layout';
-export type { CopperPad, GuideSlot, GuideXY } from '@cable-studio/layout';
-export type { CrossSection, CrossSectionKeyEntry } from '@cable-studio/layout';
+} from '@wirehub/layout';
+export type { CopperPad, GuideSlot, GuideXY } from '@wirehub/layout';
+export type { CrossSection, CrossSectionKeyEntry } from '@wirehub/layout';
 export { CONNECTOR_ART_STYLESHEET, DEPICTION_STYLESHEET, INK, STYLESHEET, conductorPaint, jointStyle, trackStyle } from './theme.ts';
 export type { StrokeStyle } from './theme.ts';
 

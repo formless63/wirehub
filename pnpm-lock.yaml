@@ -10,19 +10,19 @@ importers:
 
   apps/studio:
     dependencies:
-      '@cable-studio/catalog':
+      '@wirehub/catalog':
         specifier: workspace:*
         version: link:../../packages/catalog
-      '@cable-studio/docs':
+      '@wirehub/docs':
         specifier: workspace:*
         version: link:../../packages/docs
-      '@cable-studio/editor-react':
+      '@wirehub/editor-react':
         specifier: workspace:*
         version: link:../../packages/editor-react
-      '@cable-studio/model':
+      '@wirehub/model':
         specifier: workspace:*
         version: link:../../packages/model
-      '@cable-studio/modules':
+      '@wirehub/modules':
         specifier: workspace:*
         version: link:../../packages/modules
       '@fontsource/ibm-plex-mono':
@@ -128,7 +128,7 @@ importers:
 
   packages/catalog:
     dependencies:
-      '@cable-studio/model':
+      '@wirehub/model':
         specifier: workspace:*
         version: link:../model
     devDependencies:
@@ -144,16 +144,16 @@ importers:
 
   packages/docs:
     dependencies:
-      '@cable-studio/catalog':
+      '@wirehub/catalog':
         specifier: workspace:*
         version: link:../catalog
-      '@cable-studio/layout':
+      '@wirehub/layout':
         specifier: workspace:*
         version: link:../layout
-      '@cable-studio/model':
+      '@wirehub/model':
         specifier: workspace:*
         version: link:../model
-      '@cable-studio/render-svg':
+      '@wirehub/render-svg':
         specifier: workspace:*
         version: link:../render-svg
     devDependencies:
@@ -169,13 +169,13 @@ importers:
 
   packages/editor-react:
     dependencies:
-      '@cable-studio/docs':
+      '@wirehub/docs':
         specifier: workspace:*
         version: link:../docs
-      '@cable-studio/model':
+      '@wirehub/model':
         specifier: workspace:*
         version: link:../model
-      '@cable-studio/render-svg':
+      '@wirehub/render-svg':
         specifier: workspace:*
         version: link:../render-svg
       '@tabler/icons-react':
@@ -203,7 +203,7 @@ importers:
         specifier: 0.186.1
         version: 0.186.1
     devDependencies:
-      '@cable-studio/catalog':
+      '@wirehub/catalog':
         specifier: workspace:*
         version: link:../catalog
       '@testing-library/dom':
@@ -245,10 +245,10 @@ importers:
 
   packages/layout:
     dependencies:
-      '@cable-studio/catalog':
+      '@wirehub/catalog':
         specifier: workspace:*
         version: link:../catalog
-      '@cable-studio/model':
+      '@wirehub/model':
         specifier: workspace:*
         version: link:../model
     devDependencies:
@@ -264,7 +264,7 @@ importers:
 
   packages/model:
     devDependencies:
-      '@cable-studio/catalog':
+      '@wirehub/catalog':
         specifier: workspace:*
         version: link:../catalog
       '@types/node':
@@ -279,7 +279,7 @@ importers:
 
   packages/modules:
     dependencies:
-      '@cable-studio/model':
+      '@wirehub/model':
         specifier: workspace:*
         version: link:../model
     devDependencies:
@@ -295,13 +295,13 @@ importers:
 
   packages/render-svg:
     dependencies:
-      '@cable-studio/catalog':
+      '@wirehub/catalog':
         specifier: workspace:*
         version: link:../catalog
-      '@cable-studio/layout':
+      '@wirehub/layout':
         specifier: workspace:*
         version: link:../layout
-      '@cable-studio/model':
+      '@wirehub/model':
         specifier: workspace:*
         version: link:../model
     devDependencies:

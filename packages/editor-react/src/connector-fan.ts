@@ -18,7 +18,7 @@
  * leads along it — the same numbers, so the lead and its edge meet exactly.
  */
 
-import { segmentsIntersect } from '@cable-studio/render-svg';
+import { segmentsIntersect } from '@wirehub/render-svg';
 
 import type { Facing } from './board-art.ts';
 import type { ConnectorArtLayout, ConnectorPinArt } from './connector-art.ts';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { listDesignIds, loadDb, loadDesign } from '@cable-studio/catalog';
-import { electricalPaths, findWire, inScope, isFullyBonded, terminalKey } from '@cable-studio/model';
+import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
+import { electricalPaths, findWire, inScope, isFullyBonded, terminalKey } from '@wirehub/model';
 
 import { bondFoldedPaths, isFoilElement, layoutSchematic } from '../src/index.ts';
 

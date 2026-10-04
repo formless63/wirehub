@@ -22,9 +22,9 @@
  * list, which the GUI renders in plain language. Nothing here ever dead-ends.
  */
 
-import { isDesignId, type DesignId } from '@cable-studio/catalog';
-import { designChangeLines, errors, isReadableSchemaVersion, upgradeDesignSchema, validateDesign, type CableDesign, type Db, type Issue } from '@cable-studio/model';
-import type { ModuleRegistry } from '@cable-studio/modules';
+import { isDesignId, type DesignId } from '@wirehub/catalog';
+import { designChangeLines, errors, isReadableSchemaVersion, upgradeDesignSchema, validateDesign, type CableDesign, type Db, type Issue } from '@wirehub/model';
+import type { ModuleRegistry } from '@wirehub/modules';
 
 import { cableListEntry, type CableListContext, type CableListEntry, type CableListPnContext } from '../src/cable-list.ts';
 import { assetSummaryWithDataUri, isImageAsset, isModelAsset, type AssetStore } from './assets.ts';
@@ -876,7 +876,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
 
   if (head === undefined) {
     return method === 'GET'
-      ? ok({ workbench: 'cable-studio', routes: ROUTES })
+      ? ok({ workbench: 'wirehub', routes: ROUTES })
       : methodNotAllowed(method, ['GET']);
   }
 

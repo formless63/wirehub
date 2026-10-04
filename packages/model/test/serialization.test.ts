@@ -11,7 +11,7 @@ import {
   loadDb,
   loadDesign,
   loadDesigns,
-} from '@cable-studio/catalog';
+} from '@wirehub/catalog';
 
 import { CURRENT_SCHEMA_VERSION, deriveNets, upgradeDesignSchema, validateDesign } from '../src/index.ts';
 

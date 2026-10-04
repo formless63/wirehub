@@ -4,8 +4,8 @@
  * `jointCompatibility` decides what fits, `picker.ts` ranks what does.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import { profileTerminal, type Db, type TerminalRef } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import { profileTerminal, type Db, type TerminalRef } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { paletteEntries } from '../src/panels/Palette.tsx';

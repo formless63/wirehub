@@ -1,4 +1,4 @@
-import type { CableDesign } from '@cable-studio/model';
+import type { CableDesign } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {

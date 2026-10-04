@@ -5,8 +5,8 @@
  * directly against the kind of `via` text board definitions carry.
  */
 
-import { loadDb } from '@cable-studio/catalog';
-import type { Passage } from '@cable-studio/model';
+import { loadDb } from '@wirehub/catalog';
+import type { Passage } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { parsePassageElement, pathBehaviour } from '../src/passages.ts';

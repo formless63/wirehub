@@ -22,8 +22,8 @@
  * 7–8 pt pins).
  */
 
-import type { ConnectorDefinition } from '@cable-studio/model';
-import { DSUB_SHELLS } from '@cable-studio/layout';
+import type { ConnectorDefinition } from '@wirehub/model';
+import { DSUB_SHELLS } from '@wirehub/layout';
 
 import type { FaceArt, FaceArtPath, FacePin } from './faces.ts';
 

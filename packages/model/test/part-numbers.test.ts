@@ -1,7 +1,7 @@
 /** The pluggable part-number scheme and its built-in default. */
 
 import { describe, expect, it } from 'vitest';
-import { loadDb, loadDesigns, loadPartNumberScheme } from '@cable-studio/catalog';
+import { loadDb, loadDesigns, loadPartNumberScheme } from '@wirehub/catalog';
 
 import {
   DEFAULT_PART_NUMBER_SCHEME,

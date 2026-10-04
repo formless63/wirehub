@@ -11,8 +11,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { brotliDecompressSync, gunzipSync } from 'node:zlib';
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { WorkbenchDeps } from '../server/api.ts';
@@ -80,7 +80,7 @@ function depictionDeps(): DepictionDeps {
 let distDir: string;
 
 beforeEach(() => {
-  distDir = mkdtempSync(join(tmpdir(), 'cable-studio-dist-'));
+  distDir = mkdtempSync(join(tmpdir(), 'wirehub-dist-'));
   writeFileSync(join(distDir, 'index.html'), '<!doctype html><html><body>studio shell</body></html>\n');
   mkdirSync(join(distDir, 'assets'), { recursive: true });
   writeFileSync(join(distDir, 'assets', 'app-abc12345.js'), 'console.log("hi");\n');
@@ -187,7 +187,7 @@ describe('the standalone server: static bundle + SPA fallback', () => {
   });
 
   it('says one clear line when there is no build, instead of a blank page', async () => {
-    const emptyDir = mkdtempSync(join(tmpdir(), 'cable-studio-empty-'));
+    const emptyDir = mkdtempSync(join(tmpdir(), 'wirehub-empty-'));
     try {
       const app = createStandaloneApp({ distDir: emptyDir, deps: deps(), depictionDeps: depictionDeps() });
       const response = await app.request('/');

@@ -2,7 +2,7 @@
  * The Documents tab, in the browser's own conditions.
  *
  * This suite runs under the app's Vite config, where `node:fs`/`node:url` are
- * the throwing shim — so it is the proof that `@cable-studio/docs` (and the
+ * the throwing shim — so it is the proof that `@wirehub/docs` (and the
  * whole `render-svg` → `layout` → `catalog` chain under it) can build a bench
  * build sheet with no filesystem in reach. A document that reached for one
  * would fail here, loudly, rather than in front of a user.
@@ -11,7 +11,7 @@
  * preview uses, threaded through the docs package's `depictions` option.
  */
 
-import { renderDocument } from '@cable-studio/editor-react';
+import { renderDocument } from '@wirehub/editor-react';
 import { describe, expect, it } from 'vitest';
 
 import { liveCatalogInMemory } from './catalog-in-memory.ts';

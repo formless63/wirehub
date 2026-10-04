@@ -12,7 +12,7 @@
  * editor cannot tell them apart.
  */
 
-import { errors, validateDesign, type CableDesign, type Db } from '@cable-studio/model';
+import { errors, validateDesign, type CableDesign, type Db } from '@wirehub/model';
 
 import type { DesignSummary, Outcome, PersistenceAdapter } from '../src/persistence.ts';
 

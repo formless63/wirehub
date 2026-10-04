@@ -26,8 +26,8 @@ import {
   listDesignIds,
   loadDesign,
   type DesignId,
-} from '@cable-studio/catalog';
-import type { CableDesign } from '@cable-studio/model';
+} from '@wirehub/catalog';
+import type { CableDesign } from '@wirehub/model';
 import { writeFileAtomic } from './atomic-write.ts';
 import { recordWrite } from './write-journal.ts';
 import type { Awaitable } from './storage/change-set.ts';

@@ -10,9 +10,9 @@
  * scheme registers it at build time (`docs/modules.md`).
  */
 
-import { DEFAULT_PART_NUMBER_SCHEME, parsePrefixSchemeConfig, prefixPartNumberScheme, type CableDesign, type PartNumberScheme } from '@cable-studio/model';
-import type { DrawingMeta } from '@cable-studio/docs';
-import type { PartNumberData } from '@cable-studio/editor-react';
+import { DEFAULT_PART_NUMBER_SCHEME, parsePrefixSchemeConfig, prefixPartNumberScheme, type CableDesign, type PartNumberScheme } from '@wirehub/model';
+import type { DrawingMeta } from '@wirehub/docs';
+import type { PartNumberData } from '@wirehub/editor-react';
 
 import { fetchOrRecall } from './catalog.browser.ts';
 import { registeredPartNumberScheme } from './modules.browser.ts';

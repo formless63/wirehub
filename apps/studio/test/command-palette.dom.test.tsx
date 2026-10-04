@@ -12,9 +12,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { composeConnectors } from '@cable-studio/model';
-import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition } from '@cable-studio/model';
-import { createCatalog, fsCatalogSource } from '@cable-studio/catalog';
+import { composeConnectors } from '@wirehub/model';
+import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition } from '@wirehub/model';
+import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,8 +22,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { formatDesignJson, type DesignStore } from '../server/designs.ts';
 
-vi.mock('@cable-studio/editor-react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cable-studio/editor-react')>();
+vi.mock('@wirehub/editor-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@wirehub/editor-react')>();
   const react = await import('react');
   return {
     ...actual,

@@ -20,8 +20,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-import type { WireDefinition } from '@cable-studio/model';
-import { wireModel, type StripEnd, type StripPreset, type WireEndShown, type WireModel } from '@cable-studio/render-svg';
+import type { WireDefinition } from '@wirehub/model';
+import { wireModel, type StripEnd, type StripPreset, type WireEndShown, type WireModel } from '@wirehub/render-svg';
 
 import { classes } from '../context.ts';
 import { frameBox, makeLights } from '../model-scene.ts';

@@ -5,7 +5,7 @@
  * part and every joint it took with it back.
  */
 
-import { terminalKey, type CableDesign } from '@cable-studio/model';
+import { terminalKey, type CableDesign } from '@wirehub/model';
 import { useEffect, useRef, type JSX } from 'react';
 
 import { keepDockedConnectors } from '../store.ts';

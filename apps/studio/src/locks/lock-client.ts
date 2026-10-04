@@ -21,8 +21,8 @@ import { HEARTBEAT_MS, LOCK_HEADER, recordsOfWrite, type LockView } from './reco
 export const POLL_MS = 5_000;
 export const DEFAULT_NAME = 'This browser';
 
-const CLIENT_KEY = 'cable-studio/locks/1/client-id';
-const NAME_KEY = 'cable-studio/locks/1/name';
+const CLIENT_KEY = 'wirehub/locks/1/client-id';
+const NAME_KEY = 'wirehub/locks/1/name';
 
 export interface LockTransportResponse {
   status: number;

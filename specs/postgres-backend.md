@@ -161,9 +161,9 @@ permanent export job: the export is on demand (§7.6).
 
 ### 3.1 Conventions
 
-- One database (default name `cable_studio`), created with the builtin C locale, so that
+- One database (default name `wirehub`), created with the builtin C locale, so that
   `ORDER BY slug` is code-point order:
-  `CREATE DATABASE cable_studio LOCALE_PROVIDER builtin BUILTIN_LOCALE 'C.UTF-8' TEMPLATE template0;`
+  `CREATE DATABASE wirehub LOCALE_PROVIDER builtin BUILTIN_LOCALE 'C.UTF-8' TEMPLATE template0;`
 - Schemas: `studio` (catalog), `auth` (Better Auth and the personal API tokens, §3.16),
   `pgboss` (pg-boss), and one schema per module that brings tables (`mod_<id>`, §3.13).
 - Roles, created by `docker/postgres/bootstrap.sh` rather than by a migration:
@@ -344,7 +344,7 @@ CREATE TABLE studio.change_set (
   org_id           uuid NOT NULL REFERENCES studio.org,
   catalog_version  bigint NOT NULL,           -- the version this set produced
   actor_id         uuid REFERENCES studio.person,
-  actor_label      text NOT NULL,             -- the person's name, or 'Cable Studio (local)'
+  actor_label      text NOT NULL,             -- the person's name, or 'WireHub (local)'
   source           text NOT NULL CHECK (source IN ('studio', 'worker', 'import', 'git-history', 'migration', 'script')),
   api_token_id     uuid,                      -- the personal API token the request came with (auth.api_token.id), for audit and
                                               -- revocation only; NULL for a session. The actor is the token's person.
@@ -1641,7 +1641,7 @@ working studio in minutes, without editing a file.
 ### 9.1 One command
 
 ```
-git clone <repo> cable-studio && cd cable-studio
+git clone <repo> wirehub && cd wirehub
 docker compose -f docker-compose.pg.yml up -d
 # open http://localhost:5183
 ```

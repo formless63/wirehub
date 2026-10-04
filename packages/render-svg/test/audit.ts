@@ -10,7 +10,7 @@
  * measures it.
  *
  * **Text metrics.** There is no font engine here and no browser, so the boxes
- * come from `textWidth` in `@cable-studio/layout` — the same static advance
+ * come from `textWidth` in `@wirehub/layout` — the same static advance
  * tables, at the same font sizes and weights, that layout used to *reserve*
  * the space. That makes this an audit of the drawing against its own metrics:
  * it catches "these two boxes were never going to fit". The tables are the
@@ -26,7 +26,7 @@
  * it does check is that the artwork frame lands inside the block that owns it.
  */
 
-import { textWidth, type FontWeight } from '@cable-studio/layout';
+import { textWidth, type FontWeight } from '@wirehub/layout';
 
 import { findAll, hasClass, parseXml, type XmlNode } from './xml.ts';
 

@@ -23,7 +23,7 @@
  * lead and the edge leaving it always agree.
  */
 
-import { buildGraph, deriveNets, type CableDesign, type Db } from '@cable-studio/model';
+import { buildGraph, deriveNets, type CableDesign, type Db } from '@wirehub/model';
 
 export type NetPaint = { kind: 'conductor'; colorName: string } | { kind: 'ground' };
 

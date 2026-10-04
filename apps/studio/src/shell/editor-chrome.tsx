@@ -13,7 +13,7 @@
  * it never touches persistence, routing or the query cache.
  */
 
-import type { EditorChromeState, EditorHandle } from '@cable-studio/editor-react';
+import type { EditorChromeState, EditorHandle } from '@wirehub/editor-react';
 import {
   createContext,
   useCallback,

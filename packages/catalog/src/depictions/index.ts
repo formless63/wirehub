@@ -1,14 +1,14 @@
 /**
  * Depictions — imported/generated artwork for connector and PCBA blocks.
  *
- *   import { loadDepictions, anchorsFor } from '@cable-studio/catalog/src/depictions/index.ts';
+ *   import { loadDepictions, anchorsFor } from '@wirehub/catalog/src/depictions/index.ts';
  *
  * Presentation assets only: nothing here is truth, and nothing in `core` or in
  * the catalog's electrical JSON references a depiction. A block with no
  * depiction — or with a broken one — renders as today's abstract block.
  *
  * The asset API (loader, anchors, validation, model types) is re-exported from
- * the package root too — `import { loadDepictions } from '@cable-studio/catalog'`.
+ * the package root too — `import { loadDepictions } from '@wirehub/catalog'`.
  * This module additionally exposes the house-style SVG primitives, the
  * importer normaliser and the pinmaps-driven generator, which only the
  * catalog's own scripts and tests need.

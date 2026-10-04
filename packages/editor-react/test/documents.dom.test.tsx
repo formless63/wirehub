@@ -9,7 +9,7 @@
 
 import './reactflow-jsdom.ts';
 
-import type { CableDesign, Db, Issue } from '@cable-studio/model';
+import type { CableDesign, Db, Issue } from '@wirehub/model';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,7 +21,7 @@ import {
   type DocumentsProps,
 } from '../src/panels/Documents.tsx';
 import type { DocumentKind, DrawingAdapter } from '../src/documents.ts';
-import type { DrawingMeta } from '@cable-studio/docs';
+import type { DrawingMeta } from '@wirehub/docs';
 import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 
 const db: Db = loadDbFromDisk();

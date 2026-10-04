@@ -7,7 +7,7 @@
  * (white, yellow) get a neutral halo underneath so they survive white paper.
  */
 
-import { FONT_FAMILY, METRICS as M, type DiagramTrack } from '@cable-studio/layout';
+import { FONT_FAMILY, METRICS as M, type DiagramTrack } from '@wirehub/layout';
 
 export const INK = {
   ink: '#14181d',

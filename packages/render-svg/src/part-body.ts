@@ -24,7 +24,7 @@
  * shapes, keeping its existing dotted-box treatment.
  */
 
-import type { BoardPart } from '@cable-studio/catalog';
+import type { BoardPart } from '@wirehub/catalog';
 
 /** A CSS class suffix (`pt-<tone>` / `cs-pt-<tone>`) — see each renderer's stylesheet. */
 export type PartTone =

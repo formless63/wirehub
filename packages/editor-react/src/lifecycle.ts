@@ -18,7 +18,7 @@
  *   without guessing from the id it happened to pass in.
  */
 
-import type { CableDesign } from '@cable-studio/model';
+import type { CableDesign } from '@wirehub/model';
 
 import {
   blankDesign,

@@ -7,8 +7,8 @@
  * derived, with its nodes' *drawn* boxes checked for collisions.
  */
 
-import { loadDb, loadDesigns } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { loadDb, loadDesigns } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { NODE_DRAG_HANDLE, NODE_METRICS, autoLayout, deriveNodes, vacantPosition } from '../src/derive.ts';

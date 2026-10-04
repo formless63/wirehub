@@ -19,7 +19,7 @@ import {
   type Db,
   type InstanceKind,
   type TerminalRef,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { Zone } from './model.ts';
 

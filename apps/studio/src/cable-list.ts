@@ -1,7 +1,7 @@
 /**
  * The cable list's per-design row, and the pure computation that produces it.
  *
- * `DesignSummary` (`@cable-studio/editor-react`) is just `{ id, label }` —
+ * `DesignSummary` (`@wirehub/editor-react`) is just `{ id, label }` —
  * enough for a picker, not enough for `/cables`' columns (destination, wire,
  * boards, parts, joints). This is a studio-local shape, computed here so the
  * server (`server/api.ts`, real designs) and the browser (the browser-path
@@ -23,7 +23,7 @@ import {
   type CableDesign,
   type Db,
   type DesignStatus,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 /** A design's own product PN as the list shows it, and why. */
 export interface ResolvedPartNumber {

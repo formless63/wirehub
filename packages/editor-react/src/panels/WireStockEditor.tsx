@@ -16,7 +16,7 @@
  * pane instead with a sentence explaining why.
  */
 
-import { LAY_ARRANGEMENT_RING_COUNT, type WireDefinition, type WireLayOrder } from '@cable-studio/model';
+import { LAY_ARRANGEMENT_RING_COUNT, type WireDefinition, type WireLayOrder } from '@wirehub/model';
 import {
   INK,
   conductorPaint,
@@ -25,7 +25,7 @@ import {
   type CrossSection,
   type CrossSectionKeyEntry,
   type CrossSectionOptions,
-} from '@cable-studio/render-svg';
+} from '@wirehub/render-svg';
 import { IconZoomIn } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 

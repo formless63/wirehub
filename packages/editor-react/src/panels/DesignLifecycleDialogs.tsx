@@ -10,8 +10,8 @@
  * every field explains itself.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import type { CableDesign, Db } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 import { useState, type FormEvent, type JSX } from 'react';
 
 import type { LifecycleProblem } from '../lifecycle.ts';

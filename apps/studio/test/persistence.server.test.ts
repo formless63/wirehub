@@ -10,9 +10,9 @@
  * issue list the GUI renders in plain language.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
-import type { PersistenceAdapter } from '@cable-studio/editor-react';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
+import type { PersistenceAdapter } from '@wirehub/editor-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';

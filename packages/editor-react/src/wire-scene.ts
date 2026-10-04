@@ -1,6 +1,6 @@
 /**
  * The three.js half of the parametric wire view: a
- * `WireModel` (pure pieces from `@cable-studio/layout`) → a scene group.
+ * `WireModel` (pure pieces from `@wirehub/layout`) → a scene group.
  * DOM-free, so it is unit-tested in Node; only the lazy viewer chunk
  * (`panels/WireModel3d.tsx`) and tests import it.
  *
@@ -22,7 +22,7 @@
 
 import * as THREE from 'three';
 
-import type { WireMaterialKind, WireModel, WirePiece } from '@cable-studio/render-svg';
+import type { WireMaterialKind, WireModel, WirePiece } from '@wirehub/render-svg';
 
 export interface WirePalette {
   /** catalog colour name → CSS colour (`red` → `#e5484d`) */

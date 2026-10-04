@@ -2,14 +2,14 @@
  * The **diagram model** — pure positioned data, no SVG.
  *
  * `layoutSchematic(design, db)` turns the canonical electrical model into the
- * shapes below; `@cable-studio/render-svg` turns those into a drawing. Nothing
+ * shapes below; `@wirehub/render-svg` turns those into a drawing. Nothing
  * here knows about strokes, colours or fonts: a track carries the conductor's
  * *colour name* from the catalog, never a hex value, and the renderer decides
  * how to paint it. All coordinates are millimetres, origin top-left, y down.
  */
 
-import type { Issue } from '@cable-studio/model';
-import type { BoardPart } from '@cable-studio/catalog';
+import type { Issue } from '@wirehub/model';
+import type { BoardPart } from '@wirehub/catalog';
 
 import type { ArtLabel, ArtShape, ArtView, ConnectorPinArt } from './connector-art.ts';
 
@@ -123,7 +123,7 @@ export interface DiagramPort {
    */
   slot?: { x: number; y: number };
   /**
-   * A connector drawn as itself (`DiagramBlock.connectorArt`, cable-studio-
+   * A connector drawn as itself (`DiagramBlock.connectorArt`, wirehub-
    * 7xo.11): the wire's own run inside the block, page mm, from its `slot`
    * (the row on the block's cable edge the route lands at) on to the drawn
    * pin at `x`/`y` — the points between the two, in order. The pin's text

@@ -11,7 +11,7 @@
  * Pure data and functions; no React.
  */
 
-import type { BodyPosition, ConnectorBody } from '@cable-studio/model';
+import type { BodyPosition, ConnectorBody } from '@wirehub/model';
 
 import type { BodyDrawing } from './connector-art.ts';
 

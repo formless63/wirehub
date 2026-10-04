@@ -1,7 +1,7 @@
 /**
  * The depiction tree, loaded the way a browser can load it.
  *
- * `@cable-studio/catalog` reads `packages/catalog/depictions/` with `node:fs`,
+ * `@wirehub/catalog` reads `packages/catalog/depictions/` with `node:fs`,
  * which is why the studio aliases those bindings to a throwing shim. Vite can
  * read that same committed tree at build time, though: `import.meta.glob`
  * turns each `meta.json` into a module and each `.svg` into its own source
@@ -23,9 +23,9 @@
  * (`load`), so its first auto-layout already sees the real board sizes.
  */
 
-import { parseDepictionMeta, type DepictionMeta } from '@cable-studio/catalog';
-import type { CableDesign } from '@cable-studio/model';
-import type { DepictionArtwork, DepictionSource } from '@cable-studio/editor-react';
+import { parseDepictionMeta, type DepictionMeta } from '@wirehub/catalog';
+import type { CableDesign } from '@wirehub/model';
+import type { DepictionArtwork, DepictionSource } from '@wirehub/editor-react';
 
 /** File extension → media type, for the raster tier's data URIs. */
 const MEDIA_TYPES: Readonly<Record<string, string>> = {

@@ -4,13 +4,13 @@
  * like any other, so it goes through the validator before it exists.
  */
 
-import type { Db, InstanceKind } from '@cable-studio/model';
-import { wireDisplayName } from '@cable-studio/docs';
+import type { Db, InstanceKind } from '@wirehub/model';
+import { wireDisplayName } from '@wirehub/docs';
 import { useMemo, useState, type DragEvent, type JSX } from 'react';
 
 import { useEditorApi } from '../context.ts';
 
-export const PART_MIME = 'application/x-cable-studio-part';
+export const PART_MIME = 'application/x-wirehub-part';
 
 export interface PaletteEntry {
   kind: InstanceKind;

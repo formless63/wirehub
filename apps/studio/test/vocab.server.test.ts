@@ -7,9 +7,9 @@
  * tested end to end without touching a file.
  */
 
-import { loadConnectors, loadDb, loadDesigns, loadPcbas, loadVocab, loadWires } from '@cable-studio/catalog';
-import { buildTags, type TagReview } from '@cable-studio/catalog/src/tags/build.ts';
-import type { Db, SignalTags, VocabList } from '@cable-studio/model';
+import { loadConnectors, loadDb, loadDesigns, loadPcbas, loadVocab, loadWires } from '@wirehub/catalog';
+import { buildTags, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
+import type { Db, SignalTags, VocabList } from '@wirehub/model';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';

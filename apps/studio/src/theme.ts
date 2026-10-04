@@ -1,5 +1,5 @@
 /**
- * Light/dark theme: the app's job, not the editor's (`@cable-studio/editor-react`
+ * Light/dark theme: the app's job, not the editor's (`@wirehub/editor-react`
  * never reads or writes this). Defaults to the system preference; once the
  * person picks one explicitly (the header toggle), that choice is persisted
  * and wins over the system from then on. `data-theme` on `<html>` is what
@@ -7,7 +7,7 @@
  * actually switches on.
  */
 
-const STORAGE_KEY = 'cable-studio:theme';
+const STORAGE_KEY = 'wirehub:theme';
 
 export type Theme = 'light' | 'dark';
 

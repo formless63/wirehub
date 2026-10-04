@@ -15,8 +15,8 @@
  * whole library again before writing the recipe and its compiled stock.
  */
 
-import type { StripPractice, WireDefinition, WireLibrary, WirePart, WirePartKind, WireRecipe } from '@cable-studio/model';
-import { renderWireSpecSheet, wireSpecFileName, wireSpecFileStem } from '@cable-studio/docs';
+import type { StripPractice, WireDefinition, WireLibrary, WirePart, WirePartKind, WireRecipe } from '@wirehub/model';
+import { renderWireSpecSheet, wireSpecFileName, wireSpecFileStem } from '@wirehub/docs';
 import { IconDownload, IconPrinter } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 
@@ -32,7 +32,7 @@ import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 export type WireDetailTab = 'builder' | 'spec' | 'record';
 
 /**
- * The stock's Cable Studio Standard sheet (pci.18/pci.29). Every file it
+ * The stock's WireHub Standard sheet (pci.18/pci.29). Every file it
  * leaves as is named `ASS_<part number>`: the download, and the print —
  * a browser names a saved PDF after the page title, so the title is set for
  * the length of the print.

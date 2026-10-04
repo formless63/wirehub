@@ -4,7 +4,7 @@
  *
  * Non-negotiables, each of them load-bearing:
  *
- * - Everything lives in `@layer cable-studio.docs`, so a host application's
+ * - Everything lives in `@layer wirehub.docs`, so a host application's
  *   CSS reset cannot outrank it and it cannot outrank the host's own layers.
  * - Every class is `cs-`-prefixed and every token is a custom property on
  *   `.cs-root`, so a host restyles without forking and nothing collides.
@@ -23,7 +23,7 @@
  * `renderBuildSheet` from the `paper` option — never from here.
  */
 
-export const SHEET_STYLESHEET = `@layer cable-studio.docs{
+export const SHEET_STYLESHEET = `@layer wirehub.docs{
 .cs-root{
 --cs-ink:#14181d;
 --cs-muted:#5b6570;

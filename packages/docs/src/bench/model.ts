@@ -38,7 +38,7 @@ import {
   type Element,
   type GroupElement,
   type TerminalRef,
-  type WireDefinition, stripMakerSuffix } from '@cable-studio/model';
+  type WireDefinition, stripMakerSuffix } from '@wirehub/model';
 
 import { trunkSegment } from '../drawing/model.ts';
 import { compareStrings } from '../text.ts';

@@ -44,8 +44,8 @@ import {
   type Outcome,
   type PersistenceAdapter,
   type PartNumberData,
-} from '@cable-studio/editor-react';
-import type { CableDesign, Db } from '@cable-studio/model';
+} from '@wirehub/editor-react';
+import type { CableDesign, Db } from '@wirehub/model';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -66,7 +66,7 @@ import { EMPTY_DB, type DesignId } from './catalog.browser.ts';
 import { loadPartNumberData, partNumbersKey } from './part-numbers.browser.ts';
 import { loadMe, meKey, type StudioUser } from './me.browser.ts';
 import { browserDepictions, depictionDefsOf } from './depictions.browser.ts';
-import type { DepictionSource } from '@cable-studio/editor-react';
+import type { DepictionSource } from '@wirehub/editor-react';
 import { workbenchArtwork } from './artwork.browser.ts';
 import { workbenchDefinitions } from './definitions.browser.ts';
 import { workbenchVocab } from './vocab.browser.ts';

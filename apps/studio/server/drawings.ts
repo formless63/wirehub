@@ -26,8 +26,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { dataPath, isDesignId } from '@cable-studio/catalog';
-import type { DrawingMeta, LengthVariant, SheetSettings } from '@cable-studio/docs';
+import { dataPath, isDesignId } from '@wirehub/catalog';
+import type { DrawingMeta, LengthVariant, SheetSettings } from '@wirehub/docs';
 
 import { assetDataUri, decodeImageDataUri, fileAssetStore, memoryAssetStore, type AssetStore } from './assets.ts';
 import { writeFileAtomic } from './atomic-write.ts';

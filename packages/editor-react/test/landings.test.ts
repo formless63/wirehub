@@ -15,9 +15,9 @@
  * and come in from the connector's side; they are left out.
  */
 
-import { loadDb, loadDesign, type DepictionMeta } from '@cable-studio/catalog';
-import type { Db } from '@cable-studio/model';
-import { boardOutlineFromSvg, copperPads, padPolygon, segmentHitsPolygon, segmentsIntersect } from '@cable-studio/render-svg';
+import { loadDb, loadDesign, type DepictionMeta } from '@wirehub/catalog';
+import type { Db } from '@wirehub/model';
+import { boardOutlineFromSvg, copperPads, padPolygon, segmentHitsPolygon, segmentsIntersect } from '@wirehub/render-svg';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

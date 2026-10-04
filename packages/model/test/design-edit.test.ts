@@ -1,6 +1,6 @@
 /**
  * The pure `CableDesign → CableDesign` edit primitives — kept apart from
- * `@cable-studio/editor-react`'s store because nothing
+ * `@wirehub/editor-react`'s store because nothing
  * about them is editor-specific: every writer of a design document needs the
  * same semantics, notably that removing an instance removes the joints that
  * land on it, and that a joint's removal can leave a pigtail landed nowhere.
@@ -11,7 +11,7 @@
  * validation in between.
  */
 
-import { loadDesign } from '@cable-studio/catalog';
+import { loadDesign } from '@wirehub/catalog';
 import { describe, expect, it } from 'vitest';
 
 import {

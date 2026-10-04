@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { prefixPartNumberScheme, type CableDesign, type Db } from '@cable-studio/model';
+import { prefixPartNumberScheme, type CableDesign, type Db } from '@wirehub/model';
 
 import { EMPTY_REGISTRY, ModuleManifestError, createRegistry, defineModule, manifestProblems } from '../src/index.ts';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@cable-studio/catalog",
+  "name": "@wirehub/catalog",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "build": "tsc --noEmit"
   },
   "dependencies": {
-    "@cable-studio/model": "workspace:*"
+    "@wirehub/model": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.1.2",

@@ -16,7 +16,7 @@
  */
 
 import { boardOutlineFromSvg, guideSlots } from './entry-guides.ts';
-import type { BoardPart, DepictionMeta, PadPosition, PinAnchor } from '@cable-studio/catalog';
+import type { BoardPart, DepictionMeta, PadPosition, PinAnchor } from '@wirehub/catalog';
 import type { BoardFacesSource } from './board-faces.ts';
 import {
   anchorPads,
@@ -25,7 +25,7 @@ import {
   loadDepictions,
   readDepictionAsset,
   readDepictionAssetDataUri,
-} from '@cable-studio/catalog';
+} from '@wirehub/catalog';
 
 /* ------------------------------------------------------------------ *
  * Source

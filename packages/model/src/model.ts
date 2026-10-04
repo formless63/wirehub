@@ -1,5 +1,5 @@
 /**
- * Canonical domain model for Cable Studio.
+ * Canonical domain model for WireHub.
  *
  * Everything here is plain JSON-serialisable data: no classes, no Maps, no
  * presentation concerns (SVG, coordinates, React Flow, database ids). Every
@@ -188,7 +188,7 @@ export interface WireDefinition {
   partNumber?: string;
   /**
    * the document the stock's values were taken from (a citation only — our
-   * own spec sheet is the Cable Studio Standard numbered by the part number)
+   * own spec sheet is the WireHub Standard numbered by the part number)
    */
   specRef?: string;
   /** who makes it — an id in the `manufacturers` vocab list; absent = not known */

@@ -18,7 +18,7 @@
 
 import { createHash } from 'node:crypto';
 
-import type { Issue } from '@cable-studio/model';
+import type { Issue } from '@wirehub/model';
 
 import type { ApiError, ApiResponse } from './api.ts';
 

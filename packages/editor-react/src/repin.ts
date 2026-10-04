@@ -13,7 +13,7 @@
  * for one braid of a twist, and moving it is a pigtail edit, not a re-pin.
  */
 
-import { parseTerminalKey, terminalKey, type CableDesign, type JointEndMove, type TerminalRef } from '@cable-studio/model';
+import { parseTerminalKey, terminalKey, type CableDesign, type JointEndMove, type TerminalRef } from '@wirehub/model';
 
 import { terminalKeyOfHandle } from './board-art.ts';
 import type { EditorEdgeData } from './derive.ts';

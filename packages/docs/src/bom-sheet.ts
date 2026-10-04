@@ -21,9 +21,9 @@ import {
   type PartNumberScheme,
   type PnKind,
   type PnSuggestion,
-} from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/layout';
-import { catalogDepictions } from '@cable-studio/layout';
+} from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/layout';
+import { catalogDepictions } from '@wirehub/layout';
 
 import { deriveBom, type BomCategory, type BomLine } from './bom.ts';
 import { headerHtml, sheetHeader, type DocumentFacts, type SheetHeader } from './bench/header.ts';

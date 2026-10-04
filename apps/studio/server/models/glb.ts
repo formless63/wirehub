@@ -154,7 +154,7 @@ export function writeGlb(parts: readonly MeshPart[], extras: GlbExtras = {}): Ui
   }
 
   const json: Record<string, unknown> = {
-    asset: { version: '2.0', generator: 'Cable Studio model import', ...(Object.keys(extras).length === 0 ? {} : { extras }) },
+    asset: { version: '2.0', generator: 'WireHub model import', ...(Object.keys(extras).length === 0 ? {} : { extras }) },
     extensionsUsed: ['KHR_mesh_quantization'],
     extensionsRequired: ['KHR_mesh_quantization'],
     scene: 0,

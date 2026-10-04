@@ -29,9 +29,9 @@ import {
   loadVocab,
   loadVocabList,
   loadWires,
-} from '@cable-studio/catalog';
-import { buildTags, type TagReview } from '@cable-studio/catalog/src/tags/build.ts';
-import type { SignalTags, VocabList } from '@cable-studio/model';
+} from '@wirehub/catalog';
+import { buildTags, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
+import type { SignalTags, VocabList } from '@wirehub/model';
 import { writeFileAtomic } from './atomic-write.ts';
 import type { Awaitable } from './storage/change-set.ts';
 

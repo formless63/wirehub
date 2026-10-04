@@ -59,7 +59,7 @@
  * edges between the same two columns keep their order where the parts allow.
  */
 
-import { pigtailOfTerminal, terminalKey, type CableDesign, type TerminalRef } from '@cable-studio/model';
+import { pigtailOfTerminal, terminalKey, type CableDesign, type TerminalRef } from '@wirehub/model';
 
 import { BOARD_LAYOUT, type Facing } from './board-art.ts';
 import type { EditorNodeData } from './derive.ts';

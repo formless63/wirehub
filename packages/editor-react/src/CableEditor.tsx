@@ -18,9 +18,9 @@ import {
   type InstanceKind,
   type StripPractice,
   type TerminalRef,
-} from '@cable-studio/model';
-import type { DocumentFacts } from '@cable-studio/docs';
-import type { DepictionSource } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import type { DocumentFacts } from '@wirehub/docs';
+import type { DepictionSource } from '@wirehub/render-svg';
 import {
   Background,
   ConnectionMode,

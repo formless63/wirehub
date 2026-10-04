@@ -23,8 +23,8 @@
  * editor is handed an `ArtworkAdapter` and never learns a URL.
  */
 
-import type { Issue } from '@cable-studio/model';
-import type { DepictionArtwork, DepictionSource } from '@cable-studio/render-svg';
+import type { Issue } from '@wirehub/model';
+import type { DepictionArtwork, DepictionSource } from '@wirehub/render-svg';
 
 /* ------------------------------------------------------------------ *
  * Types, borrowed rather than re-declared
@@ -32,7 +32,7 @@ import type { DepictionArtwork, DepictionSource } from '@cable-studio/render-svg
 
 /**
  * The manifest shape, taken from the source the editor is already handed. This
- * package does not depend on `@cable-studio/catalog` and should not start:
+ * package does not depend on `@wirehub/catalog` and should not start:
  * `DepictionSource` already names the type, so the type comes from there.
  */
 export type DepictionMeta = NonNullable<ReturnType<DepictionSource['meta']>>;

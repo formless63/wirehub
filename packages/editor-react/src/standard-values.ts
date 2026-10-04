@@ -14,7 +14,7 @@
  * Pure: nothing here knows about React or the catalog.
  */
 
-import type { ComponentDefinition } from '@cable-studio/model';
+import type { ComponentDefinition } from '@wirehub/model';
 
 type Kind = ComponentDefinition['kind'];
 

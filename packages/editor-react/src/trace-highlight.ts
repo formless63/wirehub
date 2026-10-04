@@ -20,7 +20,7 @@ import {
   type Db,
   type Net,
   type ResolvedTerminal,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 export interface TraceSummary {
   /** the terminal the trace started from */

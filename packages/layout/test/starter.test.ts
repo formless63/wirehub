@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { listDesignIds, loadDb, loadDesign } from '@cable-studio/catalog';
-import { findWire, type WireDefinition } from '@cable-studio/model';
+import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
+import { findWire, type WireDefinition } from '@wirehub/model';
 
 import { connectorArt, crossSectionLayout, endFaceLayout, layoutSchematic, wireModel } from '../src/index.ts';
 

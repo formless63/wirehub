@@ -24,7 +24,7 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 
-import type { CableDesign, Db, SignalTags, WireDefinition } from '@cable-studio/model';
+import type { CableDesign, Db, SignalTags, WireDefinition } from '@wirehub/model';
 
 import type { WorkbenchDeps } from '../api.ts';
 import type { AssetMime, AssetSummary, AssetStore } from '../assets.ts';
@@ -35,7 +35,7 @@ import type { DrawingStore, StoredDrawing } from '../drawings.ts';
 import { contentETag } from '../etag.ts';
 import type { DraftFile, DraftSummary, VersionStore, WorkingState } from '../versions.ts';
 import type { TagStore, VocabStore } from '../vocab-store.ts';
-import type { TagReview } from '@cable-studio/catalog/src/tags/build.ts';
+import type { TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import type { WireLibraryStore } from '../wire-library.ts';
 import { StaleRecordError, type ChangeSet, type CommitResult, type DerivedKind, type RecordChange, type RecordKind } from './change-set.ts';
 

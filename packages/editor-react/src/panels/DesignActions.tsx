@@ -8,8 +8,8 @@
  * `EditorHandle` without this button row ever mounting.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import type { CableDesign, Db } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 import type { JSX } from 'react';
 
 import { classes, useEditorApi } from '../context.ts';

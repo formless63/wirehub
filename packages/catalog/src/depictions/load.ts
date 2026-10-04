@@ -1,7 +1,7 @@
 /**
  * Depiction loader.
  *
- *   import { loadDepictions, loadDepiction } from '@cable-studio/catalog/…/depictions';
+ *   import { loadDepictions, loadDepiction } from '@wirehub/catalog/…/depictions';
  *   const { index, issues } = loadDepictions(loadDb());
  *
  * Reads `packages/catalog/depictions/<def-id>/meta.json`, parses it
@@ -15,7 +15,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { Db, Issue } from '@cable-studio/model';
+import type { Db, Issue } from '@wirehub/model';
 
 import { parseDepictionMeta, validateDepiction } from './validate.ts';
 import type { DepictionIndex, DepictionMeta } from './model.ts';

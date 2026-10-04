@@ -8,7 +8,7 @@
  * problem. Nothing in this path may show a code or a payload.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
+import type { CableDesign, Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {

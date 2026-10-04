@@ -15,8 +15,8 @@
  */
 
 import { useState, type Dispatch, type SetStateAction } from 'react';
-import { validateDesign, type CableDesign, type Db } from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import { validateDesign, type CableDesign, type Db } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 import {
   createDesign,

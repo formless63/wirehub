@@ -39,8 +39,8 @@ import {
   type Db,
   type Joint,
   type TerminalRef,
-} from '@cable-studio/model';
-import { bondFoldedPaths, conductorPaint } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import { bondFoldedPaths, conductorPaint } from '@wirehub/render-svg';
 
 import { connectorArt, dockCaption, dockedLayout, type ConnectorArt, type ConnectorArtLayout } from './connector-art.ts';
 

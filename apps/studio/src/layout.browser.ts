@@ -11,9 +11,9 @@
  * and a workbench whose pane sizes did not persist is still a workbench.
  */
 
-import { isPaneSizes, type EditorLayoutStore } from '@cable-studio/editor-react';
+import { isPaneSizes, type EditorLayoutStore } from '@wirehub/editor-react';
 
-const PREFIX = 'cable-studio/layout/1';
+const PREFIX = 'wirehub/layout/1';
 const PANES_KEY = `${PREFIX}/panes`;
 const DETAIL_KEY = `${PREFIX}/detail`;
 const PART_LABELS_KEY = `${PREFIX}/part-labels`;

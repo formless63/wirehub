@@ -5,7 +5,7 @@
  * of the catalog — shows nothing, so the chip only ever marks the exceptions.
  */
 
-import type { DesignStatus } from '@cable-studio/model';
+import type { DesignStatus } from '@wirehub/model';
 import type { JSX } from 'react';
 
 const TITLES: Record<Exclude<DesignStatus, 'active'>, string> = {

@@ -10,7 +10,7 @@
  * finishing writes a cable that is actually wired.
  */
 
-import type { Db } from '@cable-studio/model';
+import type { Db } from '@wirehub/model';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 

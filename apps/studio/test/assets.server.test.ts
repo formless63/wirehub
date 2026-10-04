@@ -4,7 +4,7 @@
  * that stops using a photo does not take the shared asset down with it.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
+import { loadDb, loadDesign } from '@wirehub/catalog';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';

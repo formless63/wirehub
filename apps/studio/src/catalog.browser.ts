@@ -13,9 +13,9 @@
  * fetch-then-remember / recall pattern, and the document-facts rule.
  */
 
-import type { DesignId } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
-import type { DocumentFacts } from '@cable-studio/docs';
+import type { DesignId } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
+import type { DocumentFacts } from '@wirehub/docs';
 
 import { cableListEntry } from './cable-list.ts';
 import { offlineCopyFrom, recall, remember } from './offline-cache.browser.ts';

@@ -19,8 +19,8 @@ import {
   type CableDesign,
   type Db,
   type TerminalRef,
-} from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { PinAnchor } from '../artwork.ts';
 import { orientJoint, type Connection } from '../connection.ts';

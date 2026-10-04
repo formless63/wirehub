@@ -3,7 +3,7 @@
  * deployment's manifest (`../modules.config.ts`).
  */
 
-import { createRegistry, type ModuleRegistry } from '@cable-studio/modules';
+import { createRegistry, type ModuleRegistry } from '@wirehub/modules';
 
 import { modules } from '../modules.config.ts';
 

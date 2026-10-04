@@ -1,7 +1,7 @@
 /** Element path resolution on the starter stocks. */
 
 import { describe, expect, it } from 'vitest';
-import { loadDb } from '@cable-studio/catalog';
+import { loadDb } from '@wirehub/catalog';
 
 import { findWire, resolveElementPath, type WireDefinition } from '../src/index.ts';
 

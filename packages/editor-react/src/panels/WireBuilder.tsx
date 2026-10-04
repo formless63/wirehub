@@ -16,9 +16,9 @@
  * drain sits in the gap against the shield.
  */
 
-import { FLEET_SIGNAL_WORDS } from '@cable-studio/model';
-import type { CompiledWire, RecipeCore, StripPractice, WireLayOrder, WireLibrary, WirePart, WirePartKind, WireRecipe } from '@cable-studio/model';
-import { crossSectionLayout, renderCrossSection, type CrossSection } from '@cable-studio/render-svg';
+import { FLEET_SIGNAL_WORDS } from '@wirehub/model';
+import type { CompiledWire, RecipeCore, StripPractice, WireLayOrder, WireLibrary, WirePart, WirePartKind, WireRecipe } from '@wirehub/model';
+import { crossSectionLayout, renderCrossSection, type CrossSection } from '@wirehub/render-svg';
 import { IconArrowsExchange, IconCopy, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useMemo, useRef, useState, type JSX, type PointerEvent as ReactPointerEvent } from 'react';
 
@@ -44,7 +44,7 @@ import {
   type VendorDocument,
   type VendorDocumentsAdapter,
 } from '../wire-builder.ts';
-import { resolveVocab } from '@cable-studio/model';
+import { resolveVocab } from '@wirehub/model';
 
 import { useVocab, vocabOptions } from '../vocab.ts';
 import { layFactsOf, presetsFor } from '../wire-view.ts';

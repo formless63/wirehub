@@ -2,7 +2,7 @@
  * Connector artwork: a connector drawn as itself, from its definition (spec:
  * ui-redesign, Canvas v2 item 5) — the one home of this geometry
  *. The canvas (`editor-react/src/connector-art.ts`,
- * re-exported through `@cable-studio/render-svg`) and the SVG schematic
+ * re-exported through `@wirehub/render-svg`) and the SVG schematic
  * (`layout.ts`, drawn by `render-svg`) both read it from here; the drawing
  * sheets' solder-side faces (`docs/src/drawing/drawn-faces.ts`) restate it
  * and are held to it by `docs/test/drawing-faces.test.ts`.
@@ -30,7 +30,7 @@
  * comment and the art carries `approximate: true` (shown in the tooltip).
  */
 
-import type { ConnectorBody, ConnectorDefinition } from '@cable-studio/model';
+import type { ConnectorBody, ConnectorDefinition } from '@wirehub/model';
 
 /** The side a drawing's wire leaves toward (the canvas's board-art `Facing`). */
 export type Facing = 'left' | 'right';

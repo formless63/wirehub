@@ -27,7 +27,7 @@ import {
   pcbaTerminalIds,
   type Db,
   type Issue,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import {
   ANCHOR_SIDES,

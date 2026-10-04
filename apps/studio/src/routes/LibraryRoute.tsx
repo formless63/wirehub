@@ -4,7 +4,7 @@
  * selected definition's detail on the right, selection in the URL. `/library`
  * itself redirects to the first kind (`router.tsx`).
  *
- * `Library` (`@cable-studio/editor-react`) does the actual list/detail/tabs
+ * `Library` (`@wirehub/editor-react`) does the actual list/detail/tabs
  * work — this route is only the URL ↔ props wiring asked
  * for: which kind and which id the URL names, in both directions (a click in
  * the list pushes a URL; a URL change selects). The kind segment in the URL
@@ -26,7 +26,7 @@
 import type { JSX } from 'react';
 import { useCallback, useMemo } from 'react';
 import { useMatches, useNavigate } from '@tanstack/react-router';
-import { Library, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@cable-studio/editor-react';
+import { Library, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
 
 import { useStudio } from '../studio-context.tsx';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';

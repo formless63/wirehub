@@ -47,8 +47,8 @@ import {
   type JointEndMove,
   type ParseResult,
   type TerminalRef,
-} from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+} from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 import { autoLayout, mountsOf, vacantPosition, type XY } from './derive.ts';
 import { connectTerminals, editPigtails, type PigtailEdit } from './pigtail-edit.ts';
@@ -473,7 +473,7 @@ function reject(state: EditorState, message: string): EditorState {
  *
  * `addInstance`/`removeInstance`/`addJoint`/`removeJoint`/`removeJoints`/
  * `updateInstance`, `nextInstanceId`'s shop naming, and `dropUnlandedPigtails`
- * live in `@cable-studio/model` — every writer of a
+ * live in `@wirehub/model` — every writer of a
  * design document needs the same semantics, not just this editor. Re-exported
  * here so existing imports from this module (and from this package's index)
  * keep working unchanged.
@@ -547,7 +547,7 @@ export function jointIndexFor(design: CableDesign, a: TerminalRef, b: TerminalRe
 /* ------------------------------------------------------------------ *
  * Serialization
  *
- * `parseDesignJson`/`ParseResult` moved to `@cable-studio/model`
+ * `parseDesignJson`/`ParseResult` moved to `@wirehub/model`
  * and are re-exported above; `exportDesignJson` stays
  * here — trivial and not part of that move.
  * ------------------------------------------------------------------ */

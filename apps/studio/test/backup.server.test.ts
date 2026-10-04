@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, w
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
+import { loadDb, loadDesign } from '@wirehub/catalog';
 import { Hono } from 'hono';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -190,7 +190,7 @@ describe('commit message and author', () => {
   it('authors as the signed-in person, else the fixed local identity', async () => {
     expect(commitAuthor({ name: 'Alex', email: 'alex@example.com', source: 'session' })).toEqual({ name: 'Alex', email: 'alex@example.com' });
     expect(commitAuthor(undefined)).toEqual(LOCAL_AUTHOR);
-    expect(commitAuthor({ name: 'local-user', source: 'local' })).toEqual({ name: 'Cable Studio (local)', email: 'studio@localhost' });
+    expect(commitAuthor({ name: 'local-user', source: 'local' })).toEqual({ name: 'WireHub (local)', email: 'studio@localhost' });
   });
 });
 
@@ -205,7 +205,7 @@ describe('auto-commit', () => {
     await backup.idle();
 
     expect(git(live, 'show', '--name-only', '--format=', 'HEAD').trim()).toBe('data/a.json');
-    expect(log(live, '%an <%ae>|%cn <%ce>')[0]).toBe('Alex <alex@example.com>|Cable Studio <studio@localhost>');
+    expect(log(live, '%an <%ae>|%cn <%ce>')[0]).toBe('Alex <alex@example.com>|WireHub <studio@localhost>');
     expect(log(live, '%B')[0]).toBe('studio: update design a');
     expect(git(live, 'log', '-1', '--format=%B').trim()).toBe('studio: update design a\n\nStudio-Request: PUT /api/designs/a');
     // the hand edit is neither committed nor staged
@@ -213,10 +213,10 @@ describe('auto-commit', () => {
     expect(backup.status()).toMatchObject({ enabled: true, pendingCommits: 1, lastCommit: { author: 'Alex <alex@example.com>' } });
   });
 
-  it('with the login off, commits as Cable Studio (local)', async () => {
+  it('with the login off, commits as WireHub (local)', async () => {
     await save({ 'data/a.json': '{"a":3}\n' });
     await backup.idle();
-    expect(log(live, '%an <%ae>')[0]).toBe('Cable Studio (local) <studio@localhost>');
+    expect(log(live, '%an <%ae>')[0]).toBe('WireHub (local) <studio@localhost>');
   });
 
   it('commits new files and removals, and skips gitignored ones', async () => {
@@ -391,7 +391,7 @@ describe('/api/backup', () => {
     const body = response.body as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual(['branch', 'enabled', 'lastCommit', 'lastPush', 'message', 'nextAttemptAt', 'pendingCommits', 'remote', 'state']);
     expect(body).toMatchObject({ enabled: true, state: 'ok', pendingCommits: 1, remote: 'origin', branch: 'master', lastPush: null });
-    expect(body.lastCommit).toMatchObject({ subject: 'studio: update design a', author: 'Cable Studio (local) <studio@localhost>' });
+    expect(body.lastCommit).toMatchObject({ subject: 'studio: update design a', author: 'WireHub (local) <studio@localhost>' });
     expect(typeof body.nextAttemptAt).toBe('string');
   });
 
@@ -430,7 +430,7 @@ describe('/api/backup', () => {
     });
     expect(put.status).toBe(200);
     await backup.idle();
-    expect(log(live, '%s|%an')[0]).toBe(`studio: update design ${real.id}|Cable Studio (local)`);
+    expect(log(live, '%s|%an')[0]).toBe(`studio: update design ${real.id}|WireHub (local)`);
     expect(git(live, 'show', '--name-only', '--format=', 'HEAD').trim()).toBe(`data/designs/${real.id}.json`);
 
     const status = await app.request('/api/backup');

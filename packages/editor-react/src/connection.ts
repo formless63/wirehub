@@ -13,7 +13,7 @@
  * joints belong to which connection.
  */
 
-import { terminalKey, type CableDesign, type Joint, type TerminalRef } from '@cable-studio/model';
+import { terminalKey, type CableDesign, type Joint, type TerminalRef } from '@wirehub/model';
 
 import type { Selection } from './store.ts';
 

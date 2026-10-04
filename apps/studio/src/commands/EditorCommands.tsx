@@ -8,7 +8,7 @@
  *
  * Every `run` calls straight into that handle — this file adds no logic of
  * its own beyond the shortcuts and the palette rows; `useDesignLifecycle`
- * (`@cable-studio/editor-react`) still owns the actual rules. Mounted once,
+ * (`@wirehub/editor-react`) still owns the actual rules. Mounted once,
  * at the shell (`Shell.tsx`), same as `AppCommands`. Renders nothing.
  */
 

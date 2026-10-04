@@ -6,7 +6,7 @@
  * read?" — and a non-technical user must be able to get all three without a
  * terminal (`specs/studio-workbench.md`). They are the same four artifacts the
  * CLI emits, from the same derivations: this file computes nothing itself, it
- * only chooses which `@cable-studio/docs` renderer to call and how to describe
+ * only chooses which `@wirehub/docs` renderer to call and how to describe
  * the result in words a bench can act on.
  *
  * Two rules the pane depends on:
@@ -23,7 +23,7 @@
  * host that mounts this pane is usually a browser.
  */
 
-import { errors, validateDesign, type CableDesign, type Db, type Issue, type KnownPartNumber, type PartNumberScheme } from '@cable-studio/model';
+import { errors, validateDesign, type CableDesign, type Db, type Issue, type KnownPartNumber, type PartNumberScheme } from '@wirehub/model';
 import type { Outcome } from './persistence.ts';
 import {
   deriveTestSpec,
@@ -38,8 +38,8 @@ import {
   type DrawingMeta,
   type LengthVariant,
   type SheetSettings,
-} from '@cable-studio/docs';
-import type { DepictionSource } from '@cable-studio/render-svg';
+} from '@wirehub/docs';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 /* ------------------------------------------------------------------ *
  * The three documents

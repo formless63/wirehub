@@ -7,8 +7,8 @@
  * parts, never the kit.
  */
 
-import { KIT_PART_KINDS, KIT_SKU, kitPartExists, type Db, type KitPartKind } from '@cable-studio/model';
-import { wireDisplayName } from '@cable-studio/docs';
+import { KIT_PART_KINDS, KIT_SKU, kitPartExists, type Db, type KitPartKind } from '@wirehub/model';
+import { wireDisplayName } from '@wirehub/docs';
 import { useMemo, type JSX } from 'react';
 
 import { classes } from '../context.ts';

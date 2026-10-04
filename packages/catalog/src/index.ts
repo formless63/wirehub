@@ -1,7 +1,7 @@
 /**
- * @cable-studio/catalog — the catalog loaders, the starter catalog and the example designs.
+ * @wirehub/catalog — the catalog loaders, the starter catalog and the example designs.
  *
- *   import { loadDb, loadDesign } from '@cable-studio/catalog';
+ *   import { loadDb, loadDesign } from '@wirehub/catalog';
  *   const db = loadDb();
  *   const design = loadDesign('db9-serial-null-modem');
  *

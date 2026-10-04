@@ -3,8 +3,8 @@
  * recipes out, the whole library validated before anything is written.
  */
 
-import { loadDb, loadStripPractice, loadWireLibrary } from '@cable-studio/catalog';
-import type { WirePart } from '@cable-studio/model';
+import { loadDb, loadStripPractice, loadWireLibrary } from '@wirehub/catalog';
+import type { WirePart } from '@wirehub/model';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';

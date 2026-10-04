@@ -11,7 +11,7 @@
 import type { JSX } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
-import { NewCableWizard, type CatalogChange } from '@cable-studio/editor-react';
+import { NewCableWizard, type CatalogChange } from '@wirehub/editor-react';
 
 import { useStudio } from '../studio-context.tsx';
 

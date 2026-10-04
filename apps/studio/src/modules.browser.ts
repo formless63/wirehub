@@ -3,8 +3,8 @@
  * deployment's manifest (`../modules.config.ts`) at bundle time.
  */
 
-import type { PartNumberScheme } from '@cable-studio/model';
-import { createRegistry, type ModuleRegistry } from '@cable-studio/modules';
+import type { PartNumberScheme } from '@wirehub/model';
+import { createRegistry, type ModuleRegistry } from '@wirehub/modules';
 
 import { modules } from '../modules.config.ts';
 

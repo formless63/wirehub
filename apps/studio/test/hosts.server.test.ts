@@ -15,8 +15,8 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign, ConnectorDefinition, Db } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign, ConnectorDefinition, Db } from '@wirehub/model';
 import { Hono } from 'hono';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 

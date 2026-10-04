@@ -4,8 +4,8 @@
  * through the editor and back into `packages/catalog/data/designs/` unchanged.
  */
 
-import { listDesignIds, loadDb, loadDesign } from '@cable-studio/catalog';
-import { errors, type Db } from '@cable-studio/model';
+import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
+import { errors, type Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {

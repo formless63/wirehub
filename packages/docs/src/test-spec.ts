@@ -39,7 +39,7 @@ import {
   type Net,
   type Passage,
   type ResolvedTerminal,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import {
   passageKey,

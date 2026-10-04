@@ -9,8 +9,8 @@
  * fabrication colours in both themes; only the chrome uses tokens.
  */
 
-import { parseTerminalKey } from '@cable-studio/model';
-import { inlineVectorAsset } from '@cable-studio/render-svg';
+import { parseTerminalKey } from '@wirehub/model';
+import { inlineVectorAsset } from '@wirehub/render-svg';
 import { IconCpu } from '@tabler/icons-react';
 import { Handle, Position } from '@xyflow/react';
 import { useMemo, type JSX, type MouseEvent } from 'react';

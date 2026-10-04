@@ -22,11 +22,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { composeConnectors, withPcbaPads } from '@cable-studio/model';
-import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition, PcbaPadTable } from '@cable-studio/model';
-import type { PersistenceAdapter } from '@cable-studio/editor-react';
+import { composeConnectors, withPcbaPads } from '@wirehub/model';
+import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition, PcbaPadTable } from '@wirehub/model';
+import type { PersistenceAdapter } from '@wirehub/editor-react';
 import { QueryClient } from '@tanstack/react-query';
-import { createCatalog, fsCatalogSource } from '@cable-studio/catalog';
+import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -43,7 +43,7 @@ import { clearOfflineCache } from '../src/offline-cache.browser.ts';
  * synchronous-under-the-hood call into `handleWorkbenchRequest`; a query that
  * fails here is a real bug this suite should surface at once, not something
  * to paper over with up to 30s of silent retries that would masquerade as a
- * hang under a loaded CI box (`cable-studio-01q`).
+ * hang under a loaded CI box.
  */
 function testQueryClient(): QueryClient {
   return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
@@ -55,8 +55,8 @@ const seen = vi.hoisted(() => ({
   props: undefined as Record<string, unknown> | undefined,
 }));
 
-vi.mock('@cable-studio/editor-react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cable-studio/editor-react')>();
+vi.mock('@wirehub/editor-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@wirehub/editor-react')>();
   const react = await import('react');
   return {
     ...actual,
@@ -83,7 +83,7 @@ const { createStudioRouter } = await import('../src/router.tsx');
 /**
  * The catalog, read straight off disk.
  *
- * `@cable-studio/catalog` resolves its data directory from `import.meta.url`,
+ * `@wirehub/catalog` resolves its data directory from `import.meta.url`,
  * which under a browser-like test environment is a dev-server URL and not a
  * file path — the same reason `editor-react/test/fixture.ts` exists. These are
  * the same committed bytes either way.
@@ -276,7 +276,7 @@ describe('the unsaved buffers', () => {
    * *different* test in this file (a heavier list mount) missed the 5s
    * budget at ~5.1s. Every test here does the same `readyOnCable` mount, so
    * the same margin problem reaches this one under worse — but plausible —
-   * contention (`cable-studio-01q`: "flaky … under full parallel load").
+   * contention ("flaky … under full parallel load").
    * 15s leaves headroom without hiding a real hang.
    */
   it('a save clears the buffer without remounting the editor', async () => {

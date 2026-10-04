@@ -1,9 +1,9 @@
 /**
- * @cable-studio/editor-react — the authoring GUI, as a component.
+ * @wirehub/editor-react — the authoring GUI, as a component.
  *
- *   import { CableEditor } from '@cable-studio/editor-react';
+ *   import { CableEditor } from '@wirehub/editor-react';
  *   import '@xyflow/react/dist/style.css';
- *   import '@cable-studio/editor-react/editor.css';
+ *   import '@wirehub/editor-react/editor.css';
  *
  *   <CableEditor design={design} db={db} onDesignChange={save} />
  *
@@ -563,7 +563,7 @@ export type { AssetsAdapter, SharedAsset } from './assets.ts';
 export { AssetPicker } from './panels/AssetPicker.tsx';
 
 /** the shape a host builds to give the preview artwork; see `depictionSource` */
-export type { DepictionArtwork, DepictionSource } from '@cable-studio/render-svg';
+export type { DepictionArtwork, DepictionSource } from '@wirehub/render-svg';
 export { EditorContext, useEditorApi } from './context.ts';
 export type { EditorApi } from './context.ts';
 /* The same cable on another trunk stock. */

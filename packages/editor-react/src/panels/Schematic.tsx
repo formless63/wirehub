@@ -21,9 +21,9 @@
  * SVG — no need to hold a modifier or fight the drag handler for a selection.
  */
 
-import { deriveNets, type CableDesign, type Db } from '@cable-studio/model';
+import { deriveNets, type CableDesign, type Db } from '@wirehub/model';
 import { IconClipboard, IconTag, IconX } from '@tabler/icons-react';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import type { DepictionSource } from '@wirehub/render-svg';
 import {
   useCallback,
   useEffect,

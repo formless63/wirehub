@@ -6,8 +6,8 @@
  * the lazy chunk (`panels/WireModel3d.tsx`) draws it.
  */
 
-import type { StripPractice, WireDefinition, WireRecipe } from '@cable-studio/model';
-import { BARE_END, stripPresets, type StripEnd, type StripPreset, type WireEndShown, type WireModelOptions } from '@cable-studio/render-svg';
+import type { StripPractice, WireDefinition, WireRecipe } from '@wirehub/model';
+import { BARE_END, stripPresets, type StripEnd, type StripPreset, type WireEndShown, type WireModelOptions } from '@wirehub/render-svg';
 
 /** Facts the recipe knows that the compiled stock does not carry. */
 export interface WireLayFacts {

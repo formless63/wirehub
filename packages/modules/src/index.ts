@@ -1,7 +1,7 @@
 /**
- * @cable-studio/modules — the build-time module registry.
+ * @wirehub/modules — the build-time module registry.
  *
- * A **module** is a plain object (`CableStudioModule`) that contributes to a
+ * A **module** is a plain object (`WireHubModule`) that contributes to a
  * fixed set of extension points: catalog packs, importers, exporters /
  * document types, a part-number scheme, validation rules, integrations
  * (server routes), UI panels and routes, and auth providers. A deployment
@@ -18,7 +18,7 @@
  * package needs no React).
  */
 
-import type { CableDesign, Db, Issue, PartNumberScheme } from '@cable-studio/model';
+import type { CableDesign, Db, Issue, PartNumberScheme } from '@wirehub/model';
 
 /* ------------------------------------------------------------------ *
  * Extension points
@@ -139,7 +139,7 @@ export type CommitHookContribution = (before: CableDesign, proposed: CableDesign
  * The module
  * ------------------------------------------------------------------ */
 
-export interface CableStudioModule {
+export interface WireHubModule {
   /** kebab id, unique in the deployment; also the key of the module's data under `CableDesign.extensions` */
   id: string;
   label: string;
@@ -162,7 +162,7 @@ export interface CableStudioModule {
 }
 
 /** Identity helper so a module file type-checks its own literal. */
-export function defineModule<M extends CableStudioModule>(module: M): M {
+export function defineModule<M extends WireHubModule>(module: M): M {
   return module;
 }
 
@@ -171,8 +171,8 @@ export function defineModule<M extends CableStudioModule>(module: M): M {
  * ------------------------------------------------------------------ */
 
 export interface ModuleRegistry {
-  readonly modules: readonly CableStudioModule[];
-  module(id: string): CableStudioModule | undefined;
+  readonly modules: readonly WireHubModule[];
+  module(id: string): WireHubModule | undefined;
   /** the scheme a module registered, or `undefined` (the host then uses the catalog's configured default) */
   partNumberScheme(): PartNumberScheme | undefined;
   commitHook(): CommitHookContribution | undefined;
@@ -201,12 +201,12 @@ export class ModuleManifestError extends Error {
   }
 }
 
-function tag<T extends object>(module: CableStudioModule, items: readonly T[] | undefined): (T & { module: string })[] {
+function tag<T extends object>(module: WireHubModule, items: readonly T[] | undefined): (T & { module: string })[] {
   return (items ?? []).map((item) => ({ ...item, module: module.id }));
 }
 
 /** Check a manifest's problems without throwing: empty when it is usable. */
-export function manifestProblems(modules: readonly CableStudioModule[]): string[] {
+export function manifestProblems(modules: readonly WireHubModule[]): string[] {
   const problems: string[] = [];
   const ids = new Set<string>();
   for (const m of modules) {
@@ -235,7 +235,7 @@ export function manifestProblems(modules: readonly CableStudioModule[]): string[
 }
 
 /** Build the registry from a manifest. Throws `ModuleManifestError` when the manifest is unusable. */
-export function createRegistry(modules: readonly CableStudioModule[]): ModuleRegistry {
+export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistry {
   const problems = manifestProblems(modules);
   if (problems.length > 0) throw new ModuleManifestError(problems);
   const list = [...modules];

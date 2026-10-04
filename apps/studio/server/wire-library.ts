@@ -17,7 +17,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-import { dataPath } from '@cable-studio/catalog';
+import { dataPath } from '@wirehub/catalog';
 import {
   compileWire,
   errors,
@@ -31,7 +31,7 @@ import {
   type WireLibrary,
   type WirePart,
   type WireRecipe,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { ApiResponse } from './api.ts';
 import { readAllDesigns, type DesignStore } from './designs.ts';

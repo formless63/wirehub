@@ -4,8 +4,8 @@
  * catalog so the expected values never drift.
  */
 
-import { fixtureCatalog } from '@cable-studio/catalog';
-import type { CableDesign } from '@cable-studio/model';
+import { fixtureCatalog } from '@wirehub/catalog';
+import type { CableDesign } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';

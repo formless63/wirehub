@@ -42,7 +42,7 @@ import {
   type ResolvedTerminal,
   type SegmentInstance,
   type WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { faceFor, materialFromLabel, plugFor, type FaceArt, type FaceSource } from './faces.ts';
 

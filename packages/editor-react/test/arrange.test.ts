@@ -6,8 +6,8 @@
  * the same design always lands in the same place.
  */
 
-import { loadDb, loadDesign, loadDesigns } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { loadDb, loadDesign, loadDesigns } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { autoLayout, deriveNodes, type EditorNode } from '../src/derive.ts';

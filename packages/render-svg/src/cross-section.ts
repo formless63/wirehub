@@ -21,14 +21,14 @@
  * file free of `url(...)` references.
  */
 
-import { stripMakerSuffix, type WireDefinition } from '@cable-studio/model';
+import { stripMakerSuffix, type WireDefinition } from '@wirehub/model';
 import {
   crossSectionLayout,
   METRICS as M,
   type CrossSection,
   type CrossSectionCore,
   type CrossSectionRing,
-} from '@cable-studio/layout';
+} from '@wirehub/layout';
 
 import { esc, fmt, leaf, node, text, tooltip } from './svg.ts';
 import { conductorPaint, INK, STYLESHEET } from './theme.ts';

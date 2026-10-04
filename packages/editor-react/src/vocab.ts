@@ -21,7 +21,7 @@ import type {
   VocabEntry,
   VocabList,
   WireTags,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 import { createContext, useContext } from 'react';
 
 import type { Outcome } from './persistence.ts';

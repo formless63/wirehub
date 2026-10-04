@@ -3,7 +3,7 @@
  *): which definitions can join a given handle, and in
  * what order to offer them.
  *
- * **What may join is core's call.** `@cable-studio/model`'s `compat.ts` owns
+ * **What may join is core's call.** `@wirehub/model`'s `compat.ts` owns
  * the rules — terminal classes, shields only on ground, no pin-to-pin between
  * connectors that do not mate, no pad-to-pad between boards, no wire joined to
  * itself — and this module never second-guesses them: a terminal is
@@ -44,7 +44,7 @@ import {
   type SignalHint,
   type TerminalClass,
   type TerminalRef,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 /** One terminal a fresh instance of a definition could be joined at. */
 export interface CandidateTerminal {

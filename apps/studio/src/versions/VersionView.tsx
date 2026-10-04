@@ -12,8 +12,8 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { IconArrowLeft, IconGitBranch, IconLock, IconLockOpen, IconPhotoExclamation } from '@tabler/icons-react';
-import { CableEditor, type DocumentRelease, type EditorView } from '@cable-studio/editor-react';
-import { versionDb, type CableDesign } from '@cable-studio/model';
+import { CableEditor, type DocumentRelease, type EditorView } from '@wirehub/editor-react';
+import { versionDb, type CableDesign } from '@wirehub/model';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 

@@ -25,13 +25,13 @@ import type { SignalTags } from './vocab.ts';
 import { jointMoveText } from './design-edit.ts';
 import { terminalKey, validateDesign } from './validate.ts';
 
-export const DESIGN_VERSION_FORMAT = 'cable-studio/design-version@2';
+export const DESIGN_VERSION_FORMAT = 'wirehub/design-version@2';
 /**
  * The first format: `depictions` held one hash per definition and the artwork
  * itself was not kept. Still read (and rendered against today's artwork);
  * never written.
  */
-export const DESIGN_VERSION_FORMAT_V1 = 'cable-studio/design-version@1';
+export const DESIGN_VERSION_FORMAT_V1 = 'wirehub/design-version@1';
 
 /**
  * One definition's artwork as a version keeps it: each file of its depiction

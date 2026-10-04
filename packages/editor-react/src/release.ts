@@ -8,8 +8,8 @@
  * package — the host loads a revision however it keeps them.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import type { CableDesign, Db } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 /** What the editor has open: the working copy, or one saved revision. */
 export type ReleaseShowing =

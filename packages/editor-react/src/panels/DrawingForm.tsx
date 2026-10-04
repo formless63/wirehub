@@ -8,8 +8,8 @@
  * revision and lengths are facts about the *drawing*.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
-import type { DrawingMeta } from '@cable-studio/docs';
+import type { CableDesign, Db } from '@wirehub/model';
+import type { DrawingMeta } from '@wirehub/docs';
 import { useState, type ChangeEvent, type JSX } from 'react';
 
 import type { AssetsAdapter } from '../assets.ts';
@@ -47,12 +47,12 @@ export interface DrawingFormProps {
 
 /** The drawing photo's stored-size ceiling — `server/drawings.ts`'s `readPhoto` refuses over this. */
 export const PHOTO_SIZE_LIMIT = 2.5 * 1024 * 1024;
-/** The floor the downscale never re-encodes below (`cable-studio-50a`: quality over squeezing). */
+/** The floor the downscale never re-encodes below (quality over squeezing). */
 export const PHOTO_MIN_QUALITY = 0.9;
 
 /**
  * How much to shrink an oversized photo so its *re-encoded* bytes fit the
- * limit (`cable-studio-50a`, replacing the old flat refusal): assuming JPEG
+ * limit (replacing the old flat refusal): assuming JPEG
  * bytes scale roughly with pixel area at a fixed quality, the scale that
  * would just fit `limitBytes` is `sqrt(limitBytes / bytes)` — backed off 8%
  * because that assumption is a heuristic, not a promise, so the first
@@ -85,8 +85,8 @@ export function dataUriBytes(dataUri: string): number {
 }
 
 /**
- * Shrink an oversized photo to fit `limitBytes`, in place of refusing it
- * (`cable-studio-50a`): the long edge first, then JPEG at `quality` or
+ * Shrink an oversized photo to fit `limitBytes`, in place of refusing it.
+ * The long edge first, then JPEG at `quality` or
  * higher — re-checking the actual encoded size and shrinking a little
  * further, up to a few tries, if the first pass is still over. `undefined`
  * when this browser cannot do it (no canvas) or it still would not fit.
@@ -198,7 +198,7 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
       reader.readAsDataURL(file);
       return;
     }
-    // over the limit: shrink it to fit instead of refusing it (cable-studio-50a)
+    // over the limit: shrink it to fit instead of refusing it
     void downscalePhoto(file).then((result) => {
       if (result === undefined) {
         setPhotoProblem(`${file.name} is ${mb(file.size)} and this browser could not shrink it — try a smaller photo.`);

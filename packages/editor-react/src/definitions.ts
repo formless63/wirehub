@@ -24,7 +24,7 @@ import type {
   MechanicalDefinition,
   PcbaDefinition,
   WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { problemOf, type LifecycleProblem, type Refusal } from './lifecycle.ts';
 import type { Outcome } from './persistence.ts';

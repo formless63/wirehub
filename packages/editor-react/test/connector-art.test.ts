@@ -4,8 +4,8 @@
  * does not know keeps the pin list exactly.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { ConnectorDefinition, Db } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { ConnectorDefinition, Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { bodyDrawing, connectorArt, type ConnectorArt } from '../src/connector-art.ts';

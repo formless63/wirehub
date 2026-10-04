@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fixtureCatalog } from '@cable-studio/catalog';
+import { fixtureCatalog } from '@wirehub/catalog';
 
 import {
   groundingNotes,
@@ -43,7 +43,7 @@ describe('wire spec sheet', () => {
 
   it('carries the organisation and standard a deployment names, and no rights line unless given one', () => {
     const plain = sheet('mic-2core-braid');
-    expect(plain).toContain('Cable Studio Standard');
+    expect(plain).toContain('WireHub Standard');
     const branded = sheet('mic-2core-braid', { organisation: 'Acme Cables', standard: 'Acme Wire Standard', rightsNotice: 'Acme internal' });
     expect(branded).toContain('ACME CABLES');
     expect(branded).toContain('Acme Wire Standard');

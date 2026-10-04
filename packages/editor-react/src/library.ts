@@ -66,7 +66,7 @@ import {
   type KitPartKind,
   type MechanicalDefinition,
   type ConnectorGender,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { DEFINITION_NOUNS, type DefinitionKind, type DefinitionRecord, type LibraryKind } from './definitions.ts';
 import { signalRefOf, signalText, type RecordTags } from './vocab.ts';

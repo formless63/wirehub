@@ -40,7 +40,7 @@
  * Deterministic: arithmetic over the declared order, no clock, no randomness.
  */
 
-import type { StripPractice, WireDefinition } from '@cable-studio/model';
+import type { StripPractice, WireDefinition } from '@wirehub/model';
 
 import { crossSectionLayout } from './cross-section.ts';
 import type { CrossSection, CrossSectionCore, CrossSectionRing } from './model.ts';

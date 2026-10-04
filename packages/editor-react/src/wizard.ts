@@ -66,7 +66,7 @@ import {
   type PcbaDefinition,
   type TerminalRef,
   type WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import { isDesignId, suggestDesignId } from './persistence.ts';
 

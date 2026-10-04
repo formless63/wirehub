@@ -8,8 +8,8 @@
  * when a derivation fails.
  */
 
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -271,7 +271,7 @@ describe('the stale-write recovery', () => {
   });
 });
 
-describe('the drawing photo, resized to fit instead of refused (cable-studio-50a)', () => {
+describe('the drawing photo, resized to fit instead of refused', () => {
   it('leaves a photo already under the limit alone', () => {
     expect(downscaleTarget(4000, 3000, PHOTO_SIZE_LIMIT - 1, PHOTO_SIZE_LIMIT)).toBeUndefined();
     expect(downscaleTarget(4000, 3000, PHOTO_SIZE_LIMIT, PHOTO_SIZE_LIMIT)).toBeUndefined();

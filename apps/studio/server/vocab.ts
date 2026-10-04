@@ -42,9 +42,9 @@ import {
   type VocabEntry,
   type VocabList,
   type WireTags,
-} from '@cable-studio/model';
-import { proposedColourCode, withoutProposal, type TagReview } from '@cable-studio/catalog/src/tags/build.ts';
-import { padTags, pinSignal } from '@cable-studio/catalog/src/tags/classify.ts';
+} from '@wirehub/model';
+import { proposedColourCode, withoutProposal, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
+import { padTags, pinSignal } from '@wirehub/catalog/src/tags/classify.ts';
 
 import type { ApiError, ApiResponse } from './api.ts';
 import { checkIfMatch, contentETag, ifMatchSatisfied } from './etag.ts';

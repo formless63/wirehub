@@ -4,8 +4,8 @@
  * refusal or an unreachable server comes back as a sentence and a next step.
  */
 
-import type { Issue, StripPractice, WireLibrary, WirePart, WireRecipe } from '@cable-studio/model';
-import type { Outcome, WireLibraryAdapter } from '@cable-studio/editor-react';
+import type { Issue, StripPractice, WireLibrary, WirePart, WireRecipe } from '@wirehub/model';
+import type { Outcome, WireLibraryAdapter } from '@wirehub/editor-react';
 
 async function call<T>(
   input: string,

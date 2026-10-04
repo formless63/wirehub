@@ -9,7 +9,7 @@
  * - Bug 14: a blank new record shows no "saved" chip and no Revert.
  */
 
-import type { Db } from '@cable-studio/model';
+import type { Db } from '@wirehub/model';
 import { cleanup, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 

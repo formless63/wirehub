@@ -19,8 +19,8 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 import { serve, type ServerType } from '@hono/node-server';
-import { loadDb, loadDesign } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
+import { loadDb, loadDesign } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
 import { Hono } from 'hono';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 

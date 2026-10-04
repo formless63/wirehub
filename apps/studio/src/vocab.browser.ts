@@ -9,8 +9,8 @@
  * validator's issues, exactly like the definitions adapter next door.
  */
 
-import type { NewVocabEntry, RecordTags, SavedTags, VocabAdapter } from '@cable-studio/editor-react';
-import type { VocabEntry, VocabList } from '@cable-studio/model';
+import type { NewVocabEntry, RecordTags, SavedTags, VocabAdapter } from '@wirehub/editor-react';
+import type { VocabEntry, VocabList } from '@wirehub/model';
 
 import { request } from './definitions.browser.ts';
 

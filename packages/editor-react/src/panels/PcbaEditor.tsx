@@ -19,7 +19,7 @@
  * read-only and says so.
  */
 
-import type { Db } from '@cable-studio/model';
+import type { Db } from '@wirehub/model';
 import { IconInfoCircle } from '@tabler/icons-react';
 import { useMemo, type JSX } from 'react';
 

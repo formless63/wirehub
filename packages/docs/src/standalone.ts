@@ -15,7 +15,7 @@
  * kind), same determinism — no clock unless the caller passes one.
  */
 
-import { designStatus, type CableDesign, type Db } from '@cable-studio/model';
+import { designStatus, type CableDesign, type Db } from '@wirehub/model';
 
 import { bomSheetBody, bomSheetMarkdown, deriveBomSheet } from './bom-sheet.ts';
 import { benchOptions, type BuildSheetOptions, type SheetOptions } from './build-sheet.ts';

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { listVocabIds, loadDb, loadVocab } from '@cable-studio/catalog';
+import { listVocabIds, loadDb, loadVocab } from '@wirehub/catalog';
 
 import {
   VOCAB_LIST_IDS,

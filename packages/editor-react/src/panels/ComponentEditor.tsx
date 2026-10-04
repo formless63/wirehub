@@ -7,7 +7,7 @@
  * a resistor has no + leg, and offering one invites a wrong answer.
  */
 
-import type { ComponentDefinition } from '@cable-studio/model';
+import type { ComponentDefinition } from '@wirehub/model';
 import { useMemo, type JSX } from 'react';
 
 import { classes } from '../context.ts';

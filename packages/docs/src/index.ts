@@ -1,11 +1,11 @@
 /**
- * @cable-studio/docs — the build documents.
+ * @wirehub/docs — the build documents.
  *
- *   import { deriveBom, deriveTestSpec, renderBuildSheet } from '@cable-studio/docs';
+ *   import { deriveBom, deriveTestSpec, renderBuildSheet } from '@wirehub/docs';
  *
  * SPEC's mission names four artifacts that derive from the canonical model:
  * schematics, build sheets, BOMs and continuity/test specifications. The
- * schematic lives in `@cable-studio/render-svg`; the other three live here.
+ * schematic lives in `@wirehub/render-svg`; the other three live here.
  *
  * The house rules, same as everywhere else in this repo:
  *
@@ -106,4 +106,4 @@ export {
 } from './wire-spec.ts';
 export type { WireSpecOptions } from './wire-spec.ts';
 
-export { constructionTag, stripMakerSuffix, wireDisplayName } from '@cable-studio/model';
+export { constructionTag, stripMakerSuffix, wireDisplayName } from '@wirehub/model';

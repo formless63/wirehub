@@ -1,7 +1,7 @@
 /**
- * @cable-studio/model — the canonical cable model.
+ * @wirehub/model — the canonical cable model.
  *
- *   import { validateDesign, deriveNets, trace } from '@cable-studio/model';
+ *   import { validateDesign, deriveNets, trace } from '@wirehub/model';
  *
  * core owns truth: it knows nothing about SVG, React Flow, coordinates or the
  * database. Every derived artifact is a pure function of the serialized

@@ -23,8 +23,8 @@
  *    `.cs-svg` so dropping a build sheet into an ERP never restyles the ERP.
  */
 
-import type { CableDesign, Db, KnownPartNumber, PartNumberScheme } from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import type { CableDesign, Db, KnownPartNumber, PartNumberScheme } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { DocumentFacts } from './bench/header.ts';
 import { benchSheetBody, type BenchSheetOptions } from './bench/render.ts';

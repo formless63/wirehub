@@ -19,8 +19,8 @@ import type {
   DefinitionUsage,
   DefinitionsAdapter,
   Outcome,
-} from '@cable-studio/editor-react';
-import type { Db, Issue } from '@cable-studio/model';
+} from '@wirehub/editor-react';
+import type { Db, Issue } from '@wirehub/model';
 
 interface ApiError {
   error?: string;

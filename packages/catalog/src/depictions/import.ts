@@ -910,7 +910,7 @@ export function importGuidance(input: GuidanceInput): string[] {
   if (input.hasKicadSource === true) {
     lines.push(
       'Rung 1 is available for this definition: pinmaps.json carries pad x/y for this board,',
-      'so `pnpm --filter @cable-studio/catalog generate-depictions` produces mm-true artwork',
+      'so `pnpm --filter @wirehub/catalog generate-depictions` produces mm-true artwork',
       'with every anchor placed — no upload, no hand anchoring. Prefer it to this import.',
     );
   } else if (input.kind === 'raster') {

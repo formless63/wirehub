@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { fixtureCatalog, fixtureDepictionsRoot, listDesignIds, loadDb, loadDesign } from '@cable-studio/catalog';
-import { depictionsFromRoot } from '@cable-studio/layout';
+import { fixtureCatalog, fixtureDepictionsRoot, listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
+import { depictionsFromRoot } from '@wirehub/layout';
 
 import { renderSchematic } from '../src/index.ts';
 

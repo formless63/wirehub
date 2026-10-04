@@ -1,7 +1,7 @@
 /** Breakouts on the starter catalog's Y cable: every conductor accounted for, once. */
 
 import { describe, expect, it } from 'vitest';
-import { loadDb, loadDesign } from '@cable-studio/catalog';
+import { loadDb, loadDesign } from '@wirehub/catalog';
 
 import { breakoutFates, breakoutIssues, removeBreakout, type CableDesign } from '../src/index.ts';
 

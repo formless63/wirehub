@@ -18,10 +18,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { composeConnectors } from '@cable-studio/model';
-import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition } from '@cable-studio/model';
-import type { EditorChromeState, EditorHandle } from '@cable-studio/editor-react';
-import { createCatalog, fsCatalogSource } from '@cable-studio/catalog';
+import { composeConnectors } from '@wirehub/model';
+import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition } from '@wirehub/model';
+import type { EditorChromeState, EditorHandle } from '@wirehub/editor-react';
+import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,8 +47,8 @@ const seen = vi.hoisted(() => ({
   props: undefined as Record<string, unknown> | undefined,
 }));
 
-vi.mock('@cable-studio/editor-react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@cable-studio/editor-react')>();
+vi.mock('@wirehub/editor-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@wirehub/editor-react')>();
   const react = await import('react');
   const CableEditor = react.forwardRef(function StubCableEditor(
     props: Record<string, unknown>,

@@ -16,13 +16,13 @@ export default defineConfig({
   //
   // `tailwindcss()` compiles every CSS file it finds an `@import "tailwindcss…"`
   // in — `studio.css` (unprefixed) and, via `main.tsx`'s import of
-  // `@cable-studio/editor-react/editor.css`, that package's own `prefix(cs)`
+  // `@wirehub/editor-react/editor.css`, that package's own `prefix(cs)`
   // stylesheet too. Each is its own independent Tailwind root (see the
   // comments at the top of those two files).
   plugins: [tailwindcss(), react(), workbenchApi()],
   resolve: {
     alias: [
-      // `@cable-studio/catalog` imports these at module scope for the depiction
+      // `@wirehub/catalog` imports these at module scope for the depiction
       // tree; the studio never reads a file, so they resolve to a loud stub
       { find: /^node:(fs|url|path)$/, replacement: nodeShim },
     ],

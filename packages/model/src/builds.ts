@@ -9,7 +9,7 @@
  *
  * - `settings`: the board's jumpers, switches and optional links named by
  *   the owner's function legend (CS, CV, Y, TTL, Luma) and mapped to the
- *   KiCad reference, with the per-order rules the owner gave (cable-studio-
+ *   KiCad reference, with the per-order rules the owner gave (wirehub-
  *   8ou.26: "TTL open for SCART, closed for HD15/BNC");
  * - `capability`: what the build does to each signal on its way through —
  *   input, output, the conditioning recipes on the path — every path backed

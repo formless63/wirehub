@@ -1,6 +1,6 @@
-name: cable-studio
+name: wirehub
 
-# Cable Studio as one container: the standalone Node server serving the built
+# WireHub as one container: the standalone Node server serving the built
 # bundle + /api/* on port 5183. The catalog (definitions, designs, drawings)
 # is plain JSON under packages/catalog/data — mounted from the checkout so
 # saves persist and stay under version control.
@@ -20,7 +20,7 @@ services:
     build:
       context: .
       dockerfile: docker/app.Dockerfile
-    image: cable-studio:local
+    image: ghcr.io/formless63/wirehub:local
     env_file:
       - path: .env
         required: false

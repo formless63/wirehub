@@ -1,4 +1,4 @@
-# Cable Studio — the app
+# WireHub — the app
 
 The editor and its server — see `../../SPEC.md` for the model.
 
@@ -52,7 +52,7 @@ and `STUDIO_GIT_BRANCH` pick where commits are pushed. Code: `server/backup/`.
 - **Every save is a commit.** After a successful write, exactly the files that
   request wrote (the stores report them, `server/write-journal.ts`; generated
   tag files only when their content changed) are committed. Author: the
-  signed-in person; with the login off, `Cable Studio (local)
+  signed-in person; with the login off, `WireHub (local)
   <studio@localhost>`. Message: `studio: <action> <kind> <id>`, the version
   note if any, and a `Studio-Request: <METHOD> <path>` trailer. Saves and
   commits run in one serial queue.

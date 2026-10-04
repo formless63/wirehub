@@ -1,7 +1,7 @@
 /**
  * Catalog data for the jsdom tests.
  *
- * `@cable-studio/catalog` resolves its data directory from `import.meta.url`,
+ * `@wirehub/catalog` resolves its data directory from `import.meta.url`,
  * which under a browser-like test environment is a dev-server URL rather than a
  * file path. The DOM tests therefore read the same committed JSON straight off
  * disk, relative to this package. Node-environment tests use the real loader.
@@ -10,9 +10,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createCatalog, fsCatalogSource } from '@cable-studio/catalog';
-import type { CableDesign, Db } from '@cable-studio/model';
-import type { DepictionSource } from '@cable-studio/render-svg';
+import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
+import type { CableDesign, Db } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 const DATA = join(process.cwd(), '..', 'catalog', 'data');
 

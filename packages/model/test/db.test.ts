@@ -1,7 +1,7 @@
 /** The starter catalog as a whole: zero errors, every record cited. */
 
 import { describe, expect, it } from 'vitest';
-import { loadDb, loadVocab } from '@cable-studio/catalog';
+import { loadDb, loadVocab } from '@wirehub/catalog';
 
 import { errors, validateDb, validateVocab, type Db } from '../src/index.ts';
 

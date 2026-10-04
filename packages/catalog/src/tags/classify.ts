@@ -12,7 +12,7 @@
  * Pure: strings and vocab in, ids out.
  */
 
-import { resolveVocab, type ColourCodeEntry, type SignalRef, type Vocab } from '@cable-studio/model';
+import { resolveVocab, type ColourCodeEntry, type SignalRef, type Vocab } from '@wirehub/model';
 
 /** A reading of one string: a signal, the bare word "sync" (the lane, no type), or nothing. */
 export type Reading = { signal: string } | { genericSync: true } | undefined;

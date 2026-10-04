@@ -27,7 +27,7 @@ import {
   type Db,
   type Interface,
   type Issue,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 
 import { BODY_TEMPLATES, CUSTOM_TEMPLATE, oppositeGenderBody, templatesFor } from '../body-templates.ts';

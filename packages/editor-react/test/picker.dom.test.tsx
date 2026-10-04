@@ -8,7 +8,7 @@
 
 import './reactflow-jsdom.ts';
 
-import type { Db } from '@cable-studio/model';
+import type { Db } from '@wirehub/model';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';

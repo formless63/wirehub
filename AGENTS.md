@@ -11,7 +11,7 @@ silently choosing.
 
 ## What this is
 
-Cable Studio is an engineering tool that captures **real, buildable cable
+WireHub is an engineering tool that captures **real, buildable cable
 assemblies** as canonical definitions — a hierarchical wire model, a connector
 library (bodies + interfaces), discrete components, PCBAs as black boxes with
 declared internal continuity — from which schematics, build sheets, BOMs,
@@ -23,7 +23,7 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
 
 - `pnpm install` · `pnpm test` (each workspace in turn, vitest) · `pnpm build`
   (`tsc --noEmit` per package, strict).
-- Single test file: `pnpm --filter @cable-studio/model test -- test/trace.test.ts`.
+- Single test file: `pnpm --filter @wirehub/model test -- test/trace.test.ts`.
 - On a shared machine run vitest with `--maxWorkers=2`.
 - `bash scripts/leak-scan.sh` — must stay clean (see `docs/boundaries.md` §9).
 - The app: `pnpm --filter studio dev`, or `docker compose up --build`
@@ -35,7 +35,7 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
   `tsc --noEmit`). Dev deps pinned: typescript 7.0.2, vitest 4.1.10, @types/node 26.1.2.
   The server runs on Node's type stripping: no TS parameter properties, enums or
   namespaces in server code.
-- `@cable-studio/model`, `@cable-studio/catalog` and `@cable-studio/modules` have
+- `@wirehub/model`, `@wirehub/catalog` and `@wirehub/modules` have
   **zero runtime dependencies**. Downstream packages (`layout`, `render-svg`, …) may
   add deps, but keep them minimal and never let presentation concepts leak into the
   model — **the model owns truth**.

@@ -4,8 +4,8 @@
  * `Outcome`, the same contract as `persistence.browser.ts`.
  */
 
-import type { Outcome } from '@cable-studio/editor-react';
-import { DESIGN_VERSION_FORMAT_V1, type CableDesign, type DesignVersionFile, type VersionSummary } from '@cable-studio/model';
+import type { Outcome } from '@wirehub/editor-react';
+import { DESIGN_VERSION_FORMAT_V1, type CableDesign, type DesignVersionFile, type VersionSummary } from '@wirehub/model';
 
 import { request } from './persistence.browser.ts';
 

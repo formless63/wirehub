@@ -9,8 +9,8 @@
  * (`cable-list.ts`), from the same inputs `GET /api/designs` reads.
  */
 
-import { createCatalog, memoryCatalogSource, type Catalog } from '@cable-studio/catalog';
-import type { DrawingMeta } from '@cable-studio/docs';
+import { createCatalog, memoryCatalogSource, type Catalog } from '@wirehub/catalog';
+import type { DrawingMeta } from '@wirehub/docs';
 
 import { cableListEntry, type CableListEntry } from '../src/cable-list.ts';
 

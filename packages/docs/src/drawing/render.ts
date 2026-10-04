@@ -9,7 +9,7 @@
  * no external resources (the logo and the cutaway are inlined), no script.
  */
 
-import type { CableDesign, Db } from '@cable-studio/model';
+import type { CableDesign, Db } from '@wirehub/model';
 
 import { escapeHtml } from '../text.ts';
 import { LOGO } from './assets.ts';

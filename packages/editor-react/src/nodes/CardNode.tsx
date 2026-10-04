@@ -4,7 +4,7 @@
  * face. Two hidden handles, one per side, for the bundle edges.
  */
 
-import { inlineVectorAsset } from '@cable-studio/render-svg';
+import { inlineVectorAsset } from '@wirehub/render-svg';
 import { IconArrowsSplit, IconCircuitResistor, IconCpu, IconPlug, IconTarget } from '@tabler/icons-react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { useMemo, type JSX, type MouseEvent } from 'react';

@@ -14,7 +14,7 @@ import {
   type CableDesign,
   type Db,
   type WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 
 import type { BenchEnd } from './model.ts';
 

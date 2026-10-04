@@ -17,7 +17,7 @@
  * turn the results exactly as they reflect and turn the pads.
  */
 
-import { boardOutlineFromSvg, outlineExit, type DepictionMeta, type EntryGuide } from '@cable-studio/catalog';
+import { boardOutlineFromSvg, outlineExit, type DepictionMeta, type EntryGuide } from '@wirehub/catalog';
 
 export interface GuideXY {
   x: number;

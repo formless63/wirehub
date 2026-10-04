@@ -12,7 +12,7 @@
  * mark on the board side. Its joints to the board draw no edge.
  */
 
-import { parseTerminalKey } from '@cable-studio/model';
+import { parseTerminalKey } from '@wirehub/model';
 import { IconPlug } from '@tabler/icons-react';
 import { Handle, Position } from '@xyflow/react';
 import { useMemo, type JSX, type MouseEvent, type ReactNode } from 'react';

@@ -31,8 +31,8 @@ import { isDeepStrictEqual } from 'node:util';
 
 import { patchJsonText } from './json-text.ts';
 
-import { dataPath, loadBodies, loadInterfaces, loadVocab } from '@cable-studio/catalog';
-import { composeConnectors, decomposeConnector } from '@cable-studio/model';
+import { dataPath, loadBodies, loadInterfaces, loadVocab } from '@wirehub/catalog';
+import { composeConnectors, decomposeConnector } from '@wirehub/model';
 import type {
   ComponentDefinition,
   ConnectorBody,
@@ -44,7 +44,7 @@ import type {
   MechanicalDefinition,
   PcbaDefinition,
   WireDefinition,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 import { writeFileAtomic } from './atomic-write.ts';
 import type { Awaitable } from './storage/change-set.ts';
 

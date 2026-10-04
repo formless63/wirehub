@@ -32,7 +32,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { loadDb, loadDesigns } from '@cable-studio/catalog';
+import { loadDb, loadDesigns } from '@wirehub/catalog';
 import {
   ANCHOR_SIDES,
   DEPICTION_VIEWS,
@@ -53,7 +53,7 @@ import {
   type ImportVoice,
   type MirrorAxis,
   type SourceKind,
-} from '@cable-studio/catalog/src/depictions/index.ts';
+} from '@wirehub/catalog/src/depictions/index.ts';
 import {
   designInstances,
   errors,
@@ -63,7 +63,7 @@ import {
   type CableDesign,
   type Db,
   type Issue,
-} from '@cable-studio/model';
+} from '@wirehub/model';
 import { writeFileAtomic } from './atomic-write.ts';
 
 /* ------------------------------------------------------------------ *

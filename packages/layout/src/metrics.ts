@@ -13,7 +13,7 @@ export const METRICS = {
   /* --- type scale (mm cap-to-descender box, i.e. SVG font-size) ---
    * Raised so pin/pad labels read larger at fit on a 1600×1000 viewport
    * — see
-   * `pnpm --filter @cable-studio/render-svg measure-density`. The print-first
+   * `pnpm --filter @wirehub/render-svg measure-density`. The print-first
    * fixed scales elsewhere on the sheet (the board and cutaway artwork are
    * never "fit the panel", see below) mean a bigger type scale also widens
    * text-driven blocks, which partly offsets itself at fit — see that
