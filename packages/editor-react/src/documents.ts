@@ -39,6 +39,8 @@ import {
   renderBuildSheet,
   renderDrawingSheet,
   renderTestSpecSheet,
+  deriveFormboard,
+  formboardHtml,
   type DocumentFacts,
   type DocumentIdentity,
   type DrawingMeta,
@@ -51,16 +53,17 @@ import type { DepictionSource } from '@wirehub/render-svg';
  * The three documents
  * ------------------------------------------------------------------ */
 
-export type DocumentKind = 'build-sheet' | 'bom' | 'test-spec' | 'drawing';
+export type DocumentKind = 'build-sheet' | 'bom' | 'test-spec' | 'drawing' | 'formboard';
 
 /** Sub-view order, most-used first — the bench opens the build sheet. */
-export const DOCUMENT_KINDS: readonly DocumentKind[] = ['build-sheet', 'bom', 'test-spec', 'drawing'];
+export const DOCUMENT_KINDS: readonly DocumentKind[] = ['build-sheet', 'bom', 'test-spec', 'drawing', 'formboard'];
 
 export const DOCUMENT_LABELS: Readonly<Record<DocumentKind, string>> = {
   'build-sheet': 'Build sheet',
   bom: 'BOM',
   'test-spec': 'Continuity spec',
   drawing: 'Drawing sheet',
+  formboard: 'Formboard',
 };
 
 /** One plain sentence per document, for someone who has not met them before. */
@@ -70,6 +73,8 @@ export const DOCUMENT_BLURBS: Readonly<Record<DocumentKind, string>> = {
   'test-spec': 'What the meter should read when the cable is finished, including the opens that are meant to be open.',
   drawing:
     'The engineering drawing (ANSI A, landscape): title block, BOM, connector faces coloured by conductor, the wire table and remarks. Part number, revision and the other title-block facts are edited above the sheet.',
+  formboard:
+    'The cable laid flat at true length for the board: runs, branch angles, pegs at the ends and breakouts, connectors, labels. An overview sheet, then pages tiled at the chosen scale with registration marks.',
 };
 
 export interface DocumentOptions {
@@ -93,6 +98,8 @@ export interface DocumentOptions {
   variation?: string;
   /** the saved revision being printed */
   revisionNumber?: number;
+  /** formboard: paper millimetres per board millimetre (1 is 1:1) */
+  scale?: number;
   /** cables in the build: the BOM's quantity breaks are read at this (default 1) */
   buildQty?: number;
   /** the design's continuity test parameters (the drawing sidecar's `test`) */
@@ -150,6 +157,20 @@ export function renderDocument(
             ...(options.testParameters === undefined ? {} : { testParameters: options.testParameters }),
             ...(options.testDefaults === undefined ? {} : { testDefaults: options.testDefaults }),
           }),
+        };
+      case 'formboard':
+        return {
+          html: formboardHtml(
+            deriveFormboard(design, db, {
+              ...(options.variation === undefined ? {} : { variation: options.variation }),
+              ...(options.drawing?.meta === undefined ? {} : { drawing: options.drawing.meta }),
+            }),
+            {
+              ...(options.paper === undefined ? {} : { paper: options.paper }),
+              ...(options.scale === undefined ? {} : { scale: options.scale }),
+              ...(options.revisionNumber === undefined ? {} : { revisionNumber: options.revisionNumber }),
+            },
+          ),
         };
       case 'drawing':
         return {

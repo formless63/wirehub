@@ -390,9 +390,10 @@ export function DocumentsPane({
   // editor's own design-document export/import, kept reachable from here
   // rather than a bottom dock chrome="host" no longer draws ().
   const [kind, setKind] = useState<DocumentKind | 'json'>('build-sheet');
+  const [boardScale, setBoardScale] = useState(1);
   // the drawing, the build sheet and the BOM read the sidecar (part number,
   // lengths, designer); the continuity spec does not, so its edits never re-render it
-  const readsSidecar = kind === 'drawing' || kind === 'build-sheet' || kind === 'bom';
+  const readsSidecar = kind === 'drawing' || kind === 'build-sheet' || kind === 'bom' || kind === 'formboard';
   const drawingInput = useMemo(
     () =>
       !readsSidecar
@@ -488,6 +489,7 @@ export function DocumentsPane({
           ...(pnInputs === undefined ? {} : { partNumbers: pnInputs }),
           ...(docFacts === undefined ? {} : { facts: docFacts }),
           ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
+          ...(kind === 'formboard' ? { scale: boardScale } : {}),
           ...(kind === 'bom' && buildQty !== undefined && buildQty > 1 ? { buildQty } : {}),
           ...(typeof target === 'number' ? { revisionNumber: target } : {}),
           ...(kind === 'test-spec' && sidecar.draft.meta.test !== undefined ? { testParameters: sidecar.draft.meta.test } : {}),
@@ -501,7 +503,7 @@ export function DocumentsPane({
     }, debounceMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- target only matters as the revision number
-  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, buildQty, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
+  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, boardScale, buildQty, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
 
   const result = rendered?.kind === kind ? rendered.result : undefined;
   const html = result !== undefined && 'html' in result ? result.html : undefined;
@@ -604,7 +606,22 @@ export function DocumentsPane({
           JSON
         </button>
         <span className="cs-spacer" />
-        {family === undefined || variations.length === 0 || (kind !== 'build-sheet' && kind !== 'bom') ? null : (
+        {kind !== 'formboard' ? null : (
+          <select
+            className="cs-input cs-doc-variation"
+            aria-label="Formboard scale"
+            title="Print scale of the formboard pages: 1:1 is true length on the board; the overview sheet is always fitted to one page"
+            value={String(boardScale)}
+            onChange={(event) => setBoardScale(Number(event.target.value))}
+          >
+            {[1, 0.5, 0.25, 0.2, 0.1].map((value) => (
+              <option key={value} value={String(value)}>
+                {value === 1 ? '1:1' : `1:${Math.round(1 / value)}`}
+              </option>
+            ))}
+          </select>
+        )}
+        {family === undefined || variations.length === 0 || (kind !== 'build-sheet' && kind !== 'bom' && kind !== 'formboard') ? null : (
           <select
             className="cs-input cs-doc-variation"
             aria-label="Variation to print"
