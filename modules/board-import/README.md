@@ -51,6 +51,17 @@ models the footprints name from kicad-packages3D at a pinned commit. Those model
 CC-BY-SA 4.0 (with the KiCad libraries exception): they are fetched into the model cache,
 never committed or shipped.
 
+A board with Gerber-tier art also shows it on the model: the art's `board-top.svg` and
+`board-bottom.svg` are among the model link's source files (the link is re-keyed when
+the Gerbers are imported after the model, or picked up when the model is attached after
+them), and the `model-cache` job paints them as textures on the board body, inside the
+same memory-capped conversion child (one raster at a time).
+
+**Gerber and Excellon coverage.** Apertures C/R/O/P and macros (primitives 1, 2, 4, 5, 7,
+20, 21, 22; inch files too), regions, arcs, polarity, step-and-repeat (`%SR`), aperture
+mirror/rotate/scale (`%LM`, `%LR`, `%LS`: flashes only, as the spec says), and Excellon
+drills with routed slots (G85, or G00/M15/G01/M16 routs; routed arcs are drawn straight).
+
 Zero dependencies: the S-expression, Gerber, Excellon, ZIP and CSV readers are in
 `src/`. Tests use a synthetic board written in `test/synthetic.ts`.
 
