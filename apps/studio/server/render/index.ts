@@ -15,7 +15,8 @@
  * (`layout.ts`) — tables and notes, without the figures — because laying out
  * HTML needs a browser engine this repository does not ship; the schematic,
  * the drawing sheet and the label sheet are drawings already, so they come out
- * as themselves (SVG) or as a rasterised page (PDF).
+ * as themselves (SVG) or as a rasterised page (PDF); the formboard is the exception, its
+ * PDF is vector (`vector.ts`), so a 1:1 nail-board tile prints crisp.
  */
 
 import { renderSchematic } from '@wirehub/render-svg';
@@ -51,6 +52,7 @@ import type { DepictionSource } from '@wirehub/render-svg';
 import { layoutMarkdown, PAPER } from './layout.ts';
 import { pagesToPdf, type PdfPage } from './pdf.ts';
 import { svgToPdfPage } from './raster.ts';
+import { svgToVectorPdfPage } from './vector.ts';
 import { pagesToSvg } from './svg.ts';
 
 export const DOCUMENT_KINDS = ['schematic', 'build-sheet', 'bom', 'test-spec', 'drawing', 'labels', 'formboard'] as const;
@@ -210,7 +212,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
         const mm = paper === 'letter' ? { w: 279.4, h: 215.9 } : { w: 297, h: 210 };
         const pages: PdfPage[] = [];
         for (const svg of formboardSvgPages(board, sheetOptions)) {
-          pages.push(await svgToPdfPage({ svg, width: (mm.w / 25.4) * 72, height: (mm.h / 25.4) * 72, dpi: 150 }));
+          pages.push(svgToVectorPdfPage(svg, { width: (mm.w / 25.4) * 72, height: (mm.h / 25.4) * 72 }));
         }
         return out(pagesToPdf(pages, titleOf(request)));
       }

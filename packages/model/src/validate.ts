@@ -5,7 +5,7 @@
  * `Issue`. `resolveTerminal` is the foundation every derived view uses.
  */
 
-import { electricalIssues } from './electrical.ts';
+import { designElectricalProblems, electricalIssues } from './electrical.ts';
 import {
   findComponent,
   findConnector,
@@ -894,6 +894,8 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
   if (labour !== undefined && !(typeof labour === 'number' && Number.isFinite(labour) && labour >= 0)) {
     issues.push(issue('invalid-labour', 'labourMinutes must be a number of minutes, zero or more', 'labourMinutes'));
   }
+
+  for (const p of designElectricalProblems(design, db)) issues.push(issue('invalid-electrical', p.message, p.path));
 
   // module-owned data (`extensions`): an object keyed by module id; the base never looks inside
   const extensions: unknown = (design as { extensions?: unknown }).extensions;

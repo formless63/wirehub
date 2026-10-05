@@ -99,7 +99,7 @@ move records and designs in and out of other tools. Both are MIT; neither adds a
 | Bundled module | Adds |
 | --- | --- |
 | `modules/wireviz` (`@wirehub/module-wireviz`) | an importer for WireViz YAML (`.yml`, `.yaml`) and a **WireViz (YAML)** exporter in the Documents toolbar. The mapping is written from WireViz's public syntax documentation; none of WireViz's GPL-3.0 code is used or copied (the one dependency is the MIT-compatible `yaml` parser). |
-| `modules/csv-library` (`@wirehub/module-csv-library`) | an importer for CSV files of connectors, wire stocks, components and mechanicals, and the pure column-mapping, validation and dry-run functions behind the Library's **Bulk CSV…** dialog; a second importer, `connection-list`, makes a design from a from/to pin CSV (the Library's **Connections CSV…**) |
+| `modules/csv-library` (`@wirehub/module-csv-library`) | an importer (new records, or update-existing) for CSV and XLSX files of connectors, wire stocks, components, mechanicals, boards and kits, and the pure column-mapping, validation and dry-run functions behind the Library's **Bulk CSV…** dialog; a third importer, `connection-list`, makes a design from a from/to pin CSV (the Library's **Connections CSV…**) |
 
 **WireViz import** (`docs/interop.md`) runs through the importer and job flow, so the person reviews a plan and publishes
 one change set. A connector or cable is matched to the library only by an identity the file names (`pn`,
@@ -216,7 +216,7 @@ export const acme = defineModule({
 | --- | --- | --- | --- |
 | **Catalog packs** | `CatalogPackContribution { id, label, version, root?, license? }` — a data directory laid out like `packages/catalog/data` plus `wirehub-pack.json`; `root` a path or `file:` URL | server, at install | **yes** — installed by first-run setup for domain modules (`/setup`); `layeredCatalogSource` reads one without installing |
 | **Setup (domain)** | `SetupContribution { kind: 'domain', description, suggested? }` | server + browser | **yes** — `/setup` lists `registry.domains()` |
-| **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import({ fileName, bytes, options? }, db) → { definitions?, designs?, boardParts?, depictions?, notes } }` — proposes records (and a board's placed parts and artwork), never writes | server | **yes** — the Library's **Import…** button (every kind's list) offers the importers that take the file; the person reviews the proposal and accepts it; `POST /api/modules/<module>/_import/<importer>` (below); with `job: true` it runs as a job instead (the worker on Postgres) and its plan is published with `POST /api/jobs/<job>/publish` (`specs/postgres-backend.md` §7.5) |
+| **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import({ fileName, bytes, options? }, db) → { definitions?, updates?, designs?, boardParts?, depictions?, notes } }` — proposes records (and a board's placed parts and artwork), never writes | server | **yes** — the Library's **Import…** button (every kind's list) offers the importers that take the file; the person reviews the proposal and accepts it; `POST /api/modules/<module>/_import/<importer>` (below); with `job: true` it runs as a job instead (the worker on Postgres) and its plan is published with `POST /api/jobs/<job>/publish` (`specs/postgres-backend.md` §7.5) |
 | **Exporters / document types** | `ExporterContribution { id, label, description?, source?, render(design, db, options) → { mimeType, fileName, body } }` — `source: 'continuity'` makes the host pass the neutral continuity data as `options.continuity`, for a tester's own format (`docs/exports.md`) | browser and server | **yes** — one download button per exporter in the cable's Documents toolbar; `GET /api/modules/<module>/_export/<exporter>?design=<id>` (below) |
 | **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@wirehub/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
 | **Validation rules** | `ValidationRuleContribution { id, label, check(design, db) → Issue[] }` | everywhere | **yes** — every design save runs them after `validateDesign` |
@@ -381,7 +381,7 @@ the records in the same change set; an existing depiction is kept unless every o
 is of a tier the importer lists in `replaces` (`['kicad']`), so a person's own artwork is never
 overwritten. The proposal names them (`boardParts: ['<board>@<rev>']`, `depictions: [<id>]`). Without `accept` the
 answer is the proposal — new definitions by kind, ids the library already has (skipped, never
-overwritten), designs, and the importer's notes — and nothing is written. With `accept: true` the
+overwritten), designs, the importer's notes and, when it returns `updates` (whole replacement records for ids the library has, an "update existing" mode), the records it would edit — each saved as a `PUT` against the version it read — and nothing is written. With `accept: true` the
 file is read again and the proposal is written as **one change set** (the batch machinery:
 definition and design validation apply, nothing lands if one record is refused). Importers must
 be deterministic in their input. A bigger file goes up as raw bytes, always as a job:

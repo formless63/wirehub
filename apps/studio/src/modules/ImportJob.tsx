@@ -26,6 +26,13 @@ export function PlanSummary({ proposal, notes }: { proposal: ImportProposal | un
               {list.length} new {kind}: {list.map((r) => r.id).join(', ')}
             </div>
           ))}
+      {proposal === undefined
+        ? null
+        : Object.entries(proposal.updated ?? {}).map(([kind, list]) => (
+            <div key={`updated-${kind}`}>
+              {list.length} updated {kind}: {list.map((r) => r.id).join(', ')}
+            </div>
+          ))}
       {proposal === undefined || proposal.designs.length === 0 ? null : (
         <div>
           {proposal.designs.length} new designs: {proposal.designs.map((d) => d.id).join(', ')}
@@ -44,7 +51,7 @@ export function PlanSummary({ proposal, notes }: { proposal: ImportProposal | un
 }
 
 export function addedCount(proposal: ImportProposal | undefined): number {
-  return proposal === undefined ? 0 : Object.values(proposal.definitions).reduce((n, list) => n + list.length, 0) + proposal.designs.length + (proposal.boardParts?.length ?? 0) + (proposal.depictions?.length ?? 0);
+  return proposal === undefined ? 0 : Object.values(proposal.definitions).reduce((n, list) => n + list.length, 0) + Object.values(proposal.updated ?? {}).reduce((n, list) => n + list.length, 0) + proposal.designs.length + (proposal.boardParts?.length ?? 0) + (proposal.depictions?.length ?? 0);
 }
 
 /** The job's own words for where it is. */

@@ -12,7 +12,7 @@
 import { toCsv } from './csv.ts';
 import { EXAMPLE, FIELDS, TYPE_COLUMN, type LibraryKind } from './kinds.ts';
 
-const TYPE_VALUE: Record<LibraryKind, string> = { connectors: 'connector', wires: 'wire', components: 'component', mechanicals: 'mechanical' };
+const TYPE_VALUE: Record<LibraryKind, string> = { connectors: 'connector', wires: 'wire', components: 'component', mechanicals: 'mechanical', pcbas: 'pcba', kits: 'kit' };
 
 /** The template CSV for a kind: the header row and one worked example row. */
 export function templateCsv(kind: LibraryKind): string {

@@ -4,7 +4,7 @@ import { createRegistry } from '@wirehub/modules';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 
-import { colourFromCode, colourToCode, exportWireViz, gaugeToMm2, importWireViz, lengthToMm, wireviz } from '../src/index.ts';
+import { codeColours, colourFromCode, colourToCode, exportWireViz, gaugeToMm2, importWireViz, lengthToMm, wireviz } from '../src/index.ts';
 
 const db = loadDb();
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text);
@@ -59,6 +59,32 @@ describe('colours, gauge and length', () => {
     expect(lengthToMm(0.2)).toBe(200);
     expect(lengthToMm('2.5 ft')).toBe(762);
     expect(lengthToMm('3 parsecs')).toBeUndefined();
+  });
+});
+
+describe('colour codes', () => {
+  it('reads IEC, DIN, BW, TEL, TELALT and the Ethernet orders in WireViz\'s published sequences', () => {
+    expect(codeColours('IEC', 10)).toEqual(['brown', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'grey', 'white', 'black']);
+    expect(codeColours('din', 12)).toEqual(['white', 'brown', 'green', 'yellow', 'grey', 'pink', 'blue', 'red', 'black', 'purple', 'grey-pink', 'red-blue']);
+    expect(codeColours('DIN', 100)).toHaveLength(60);
+    expect(codeColours('DIN', 60)![59]).toBe('brown-red-black');
+    expect(codeColours('TEL', 4)).toEqual(['blue-white', 'white-blue', 'orange-white', 'white-orange']);
+    expect(codeColours('TEL', 50)![49]).toBe('purple-slate');
+    expect(codeColours('TELALT', 4)).toEqual(['white-blue', 'blue', 'white-orange', 'orange']);
+    expect(codeColours('TELALT', 12)![11]).toBe('blue-red');
+    expect(codeColours('BW', 3)).toEqual(['black', 'white']);
+    expect(codeColours('T568B', 2)).toEqual(['white-orange', 'orange']);
+    expect(codeColours('NOPE', 2)).toBeUndefined();
+  });
+
+  it('a DIN colour_code is read without an inferred flag, and a short code is reported', () => {
+    const yml = 'connectors:\n  A: {pincount: 3}\n  B: {pincount: 3}\ncables:\n  W: {wirecount: 3, color_code: DIN}\nconnections:\n  - [{A: [1-3]}, {W: [1-3]}, {B: [1-3]}]\n';
+    const r = importWireViz('d.yml', bytes(yml), db);
+    expect(r.notes.join('\n')).toContain("colours taken from colour code DIN, in WireViz's published order");
+    expect(r.notes.join('\n')).not.toContain('INFERRED sequence');
+    expect((r.definitions!.wires![0]!.structure.children[0] as { color?: string }).color).toBe('white');
+    const long = importWireViz('d.yml', bytes(yml.replace('wirecount: 3', 'wirecount: 12').replace('color_code: DIN', 'color_code: IEC')), db);
+    expect(long.notes.join('\n')).toContain('has 10 colours for 12 wires');
   });
 });
 
@@ -134,12 +160,25 @@ describe('export and round trip', () => {
     const design = loadDesign('de9-crossover');
     const out = exportWireViz(design, db);
     expect(out.fileName).toBe('de9-crossover.wireviz.yml');
-    expect(out.body).toContain('# Not carried over: segment w1: 1 pigtail(s).');
+    // the shield pigtail lands on J1's shell as WireViz's `s` wire, so it is not lost
+    expect(out.body).not.toContain('pigtail(s)');
     const doc = parse(String(out.body)) as { connectors: Record<string, { loops?: unknown }>; cables: Record<string, { length: number; shield: boolean }>; connections: unknown[] };
     expect(Object.keys(doc.connectors)).toEqual(['J1', 'J2']);
     expect(doc.connectors['J1']!.loops).toEqual([['7', '8'], ['4', '6'], ['4', '1']]);
     expect(doc.cables['W1']).toMatchObject({ length: 1.83, shield: true });
     expect(doc.connections.length).toBeGreaterThan(0);
+    expect(JSON.stringify(doc.connections)).toContain('{"W1":["s"]}');
+    expect(JSON.stringify(doc.cables['W1'])).toContain('foil and drain twisted together');
+  });
+
+  it('writes the compact flow style on request, the same document either way', () => {
+    const design = loadDesign('de9-crossover');
+    const block = String(exportWireViz(design, db).body);
+    const flow = String(exportWireViz(design, db, { style: 'flow' }).body);
+    expect(flow).not.toBe(block);
+    expect(flow).toMatch(/^ {2}W1: \{.*\}$/m);
+    expect(flow).toMatch(/^ {2}- \[/m);
+    expect(parse(flow)).toEqual(parse(block));
   });
 
   it('is deterministic', () => {

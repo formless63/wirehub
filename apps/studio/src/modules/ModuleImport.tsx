@@ -22,6 +22,7 @@ import { ImportJob } from './ImportJob.tsx';
 interface Proposal {
   definitions: Record<string, { id: string; label: string }[]>;
   existing: string[];
+  updated?: Record<string, { id: string; label: string }[]>;
   designs: { id: string; label: string }[];
   existingDesigns: string[];
   boardParts?: string[];
@@ -117,7 +118,7 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
   };
 
   const proposal = pending?.proposal;
-  const added = proposal === undefined ? 0 : Object.values(proposal.definitions).reduce((n, list) => n + list.length, 0) + proposal.designs.length + (proposal.boardParts?.length ?? 0) + (proposal.depictions?.length ?? 0);
+  const added = proposal === undefined ? 0 : Object.values(proposal.definitions).reduce((n, list) => n + list.length, 0) + Object.values(proposal.updated ?? {}).reduce((n, list) => n + list.length, 0) + proposal.designs.length + (proposal.boardParts?.length ?? 0) + (proposal.depictions?.length ?? 0);
   return (
     <>
       <input
@@ -149,6 +150,11 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
           {Object.entries(proposal.definitions).map(([kind, list]) => (
             <div key={kind}>
               {list.length} new {kind}: {list.map((r) => r.id).join(', ')}
+            </div>
+          ))}
+          {Object.entries(proposal.updated ?? {}).map(([kind, list]) => (
+            <div key={`updated-${kind}`}>
+              {list.length} updated {kind}: {list.map((r) => r.id).join(', ')}
             </div>
           ))}
           {proposal.designs.length === 0 ? null : <div>{proposal.designs.length} new designs: {proposal.designs.map((d) => d.id).join(', ')}</div>}

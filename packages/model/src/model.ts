@@ -9,7 +9,7 @@
 
 import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
-import type { DbRules } from './electrical.ts';
+import type { DbRules, DesignElectrical } from './electrical.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
 import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
@@ -1022,6 +1022,8 @@ export interface CableDesign {
   notes?: string[];
   /** hand labour to build one cable, in minutes (the cost roll-up prices it at the organisation's rate); absent = not recorded */
   labourMinutes?: number;
+  /** this design's electrical data: the current a pin carries here and rule thresholds over the organisation's (`electrical.ts`) */
+  electrical?: DesignElectrical;
   src: string;
   /**
    * Data owned by modules, keyed by module id (`docs/modules.md`). The base

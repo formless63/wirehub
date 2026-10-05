@@ -82,6 +82,32 @@ describe('connection list through the import job (cs-8c4)', () => {
   }, 30_000);
 });
 
+describe('bulk CSV update mode through the import job', () => {
+  it('plans a diff against an existing record next to a new one and publishes both as one change set', async () => {
+    const deps = serve();
+    const before = (await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/r-150' }, deps)).body as Record<string, unknown>;
+    const csv = ['type,id,label,kind,value,package,terminals,src,unit_cost', 'component,r-150,"Resistor 150 Ω, 0.25 W",resistor,150 Ω,0805,,datasheet,0.01', 'component,r-upd-new,Brand new,resistor,1 kΩ,0603,2,s1,'].join('\r\n');
+    const { id, job } = await run(deps, 'csv-library', 'library-csv-update', 'parts.csv', csv);
+    expect(job.status, JSON.stringify(job)).toBe('done');
+    const proposal = job.result.proposal as unknown as { updated: Record<string, { id: string }[]>; definitions: Record<string, { id: string }[]> };
+    expect(proposal.updated['components']?.map((r) => r.id)).toEqual(['r-150']);
+    expect(proposal.definitions['components']?.map((r) => r.id)).toEqual(['r-upd-new']);
+    // nothing changes before Publish
+    expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/r-150' }, deps)).body).toMatchObject({ package: before['package'] });
+    const published = await handleWorkbenchRequest({ method: 'POST', path: `/api/jobs/${id}/publish`, user: { name: 'Ada', source: 'session' } }, deps);
+    expect(published.status, JSON.stringify(published.body)).toBe(200);
+    expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/r-150' }, deps)).body).toMatchObject({ package: '0805', partNumber: before['partNumber'], cost: { unit: 0.01 }, src: 'datasheet' });
+    expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/r-upd-new' }, deps)).status).toBe(200);
+  }, 30_000);
+
+  it('plain mode still skips the existing id', async () => {
+    const deps = serve();
+    const { job } = await run(deps, 'csv-library', 'library-csv', 'parts.csv', ['type,id,label,kind,value,package,src', 'component,r-150,"Resistor 150 Ω, 0.25 W",resistor,150 Ω,0805,datasheet'].join('\r\n'));
+    expect((job.result.proposal as unknown as { updated?: unknown }).updated).toBeUndefined();
+    expect(job.result.notes.join('\n')).toContain('line 2 (r-150) is already in the library and is left as it is; the file differs in package');
+  }, 30_000);
+});
+
 const HARNESS = `metadata:
   title: Bench lead
 connectors:

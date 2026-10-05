@@ -84,7 +84,15 @@ export interface ImportedDepiction {
 
 export interface ImportResult {
   /** definitions proposed for the catalog — never written until a person accepts them */
-  definitions?: Partial<Pick<Db, 'connectors' | 'wires' | 'components' | 'pcbas' | 'mechanicals'>>;
+  definitions?: Partial<Pick<Db, 'connectors' | 'wires' | 'components' | 'pcbas' | 'mechanicals' | 'kits'>>;
+  /**
+   * Whole replacement records for definitions the catalog already has (an
+   * importer's "update existing" mode): each is saved as an edit of the record
+   * with its id, through the same validation as a person's save, and a record
+   * the file leaves unchanged is skipped. An id the catalog does not have is
+   * ignored (it belongs in `definitions`).
+   */
+  updates?: Partial<Pick<Db, 'connectors' | 'wires' | 'components' | 'pcbas' | 'mechanicals' | 'kits'>>;
   /** designs proposed for the catalog */
   designs?: CableDesign[];
   /**

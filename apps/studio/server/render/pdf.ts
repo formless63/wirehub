@@ -11,11 +11,12 @@ import { winAnsiByte, type Op, type Page } from './layout.ts';
 
 export type PdfPage =
   | { kind: 'ops'; page: Page }
+  | { kind: 'vector'; width: number; height: number; content: string; alphas: { key: string; ca: number; CA: number }[] }
   | { kind: 'image'; width: number; height: number; at: { x: number; y: number; w: number; h: number }; pixelWidth: number; pixelHeight: number; rgb: Uint8Array };
 
 const n = (v: number): string => String(Math.round(v * 100) / 100);
 
-function pdfString(text: string): string {
+export function pdfString(text: string): string {
   let out = '(';
   for (const ch of text) {
     const b = winAnsiByte(ch);
@@ -67,6 +68,9 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
     let imageNo: number | undefined;
     if (p.kind === 'ops') {
       stream = deflateSync(Buffer.from(content(p.page), 'latin1'));
+    } else if (p.kind === 'vector') {
+      if (p.alphas.length > 0) resources += ` /ExtGState << ${p.alphas.map((a) => `/${a.key} << /ca ${n(a.ca)} /CA ${n(a.CA)} >>`).join(' ')} >>`;
+      stream = deflateSync(Buffer.from(p.content, 'latin1'));
     } else {
       imageNo = streamNo + 1;
       resources += ` /XObject << /Im${i} ${imageNo} 0 R >>`;
