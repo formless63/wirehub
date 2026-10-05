@@ -24,6 +24,8 @@ import type {
   ConnectorBody,
   ConnectorDefinition,
   ConnectorRecord,
+  DbRules,
+  ElectricalRules,
   Db,
   DesignVersionFile,
   Interface,
@@ -170,10 +172,17 @@ export function createCatalog(source: CatalogSource) {
   }
   /** `board-parts.json` — optional file; the builds' population is laid over it here, at load */
   const loadBoardPartsFile = (): BoardPartsEntry[] | undefined => readOptional<{ boards: BoardPartsEntry[] }>('board-parts.json')?.boards;
+  /** the organisation's rule thresholds, kept in the hub's engineering settings (`settings/engineering.json`) */
+  const loadRules = (): DbRules | undefined => {
+    const electrical = readOptional<{ electrical?: ElectricalRules }>('settings/engineering.json')?.electrical;
+    return electrical === undefined ? undefined : { electrical };
+  };
   function loadDb(): Db {
     const pcbas = loadPcbas();
     const boardParts = loadBoardPartsFile();
+    const rules = loadRules();
     return {
+      ...(rules === undefined ? {} : { rules }),
       connectors: loadConnectors(),
       wires: loadWires(),
       components: loadComponents(),

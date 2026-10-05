@@ -224,7 +224,30 @@ export type InstancePatch = {
   note?: string | undefined;
   lengthMm?: number | undefined;
   location?: string | undefined;
+  /** label text (`SegmentInstance`, `ConnectorInstance`) */
+  label?: string | undefined;
+  /** a segment's end label lines; empty arrays and absent ends are dropped */
+  endLabels?: { a?: string[]; b?: string[] } | undefined;
+  /** a segment's core labels by conductor path; empty text is dropped */
+  coreLabels?: Record<string, string> | undefined;
 };
+
+/** Empty label data is no label data: drop blank lines, blank texts and empty objects. */
+function tidyLabels(field: keyof InstancePatch, value: unknown): unknown {
+  if (field === 'endLabels' && typeof value === 'object' && value !== null) {
+    const out: { a?: string[]; b?: string[] } = {};
+    for (const end of ['a', 'b'] as const) {
+      const lines = ((value as { a?: string[]; b?: string[] })[end] ?? []).map((l) => l.trim()).filter((l) => l !== '');
+      if (lines.length > 0) out[end] = lines;
+    }
+    return Object.keys(out).length === 0 ? undefined : out;
+  }
+  if (field === 'coreLabels' && typeof value === 'object' && value !== null) {
+    const out = Object.fromEntries(Object.entries(value as Record<string, string>).map(([k, v]) => [k, v.trim()] as const).filter(([, v]) => v !== ''));
+    return Object.keys(out).length === 0 ? undefined : out;
+  }
+  return value;
+}
 
 function applyPatch<T extends object>(
   instance: T,
@@ -234,7 +257,7 @@ function applyPatch<T extends object>(
   const next: Record<string, unknown> = { ...(instance as Record<string, unknown>) };
   for (const field of fields) {
     if (!(field in patch)) continue;
-    const value = patch[field];
+    const value = tidyLabels(field, patch[field]);
     if (value === undefined || value === '') delete next[field];
     else next[field] = value;
   }
@@ -251,10 +274,10 @@ export function updateInstance(
     instances: {
       ...design.instances,
       connectors: design.instances.connectors.map((i) =>
-        i.id === id ? applyPatch(i, patch, ['role', 'note']) : i,
+        i.id === id ? applyPatch(i, patch, ['role', 'note', 'label']) : i,
       ),
       segments: design.instances.segments.map((i) =>
-        i.id === id ? applyPatch(i, patch, ['role', 'lengthMm']) : i,
+        i.id === id ? applyPatch(i, patch, ['role', 'lengthMm', 'label', 'endLabels', 'coreLabels']) : i,
       ),
       components: design.instances.components.map((i) =>
         i.id === id ? applyPatch(i, patch, ['note', 'location']) : i,

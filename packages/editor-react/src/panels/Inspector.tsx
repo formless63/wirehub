@@ -12,6 +12,7 @@
 
 import {
   breakoutAt,
+  elementPaths,
   connectorMountingOfInstance,
   findComponent,
   findConnector,
@@ -38,7 +39,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
-import { useMemo, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 
 import { classes, useEditorApi } from '../context.ts';
 import {
@@ -912,6 +913,72 @@ function InstanceField({
   );
 }
 
+/** A text field that commits on blur or Enter, so a label can be typed in pieces (`a | b` is two lines). */
+function LabelField({
+  label,
+  value,
+  onCommit,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onCommit: (value: string) => void;
+  placeholder?: string;
+}): JSX.Element {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  const commit = (): void => {
+    if (text !== value) onCommit(text);
+  };
+  return (
+    <label className="cs-field">
+      <span>{label}</span>
+      <input
+        className="cs-input"
+        aria-label={label}
+        value={text}
+        placeholder={placeholder ?? ''}
+        maxLength={130}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') commit();
+        }}
+      />
+    </label>
+  );
+}
+
+/** The marker text of one wire run: its designation, the text at each end, and a label per core. */
+function SegmentLabels({ state, id }: { state: EditorState; id: string }): JSX.Element | null {
+  const { dispatch } = useEditorApi();
+  const { design, db } = state;
+  const segment = design.instances.segments.find((s) => s.id === id);
+  const wire = segment === undefined ? undefined : findWire(db, segment.def);
+  if (segment === undefined) return null;
+  const cores = wire === undefined ? [] : elementPaths(wire.structure).filter((e) => e.element.kind === 'conductor' && e.element.bare !== true).map((e) => e.path);
+  const lines = (end: 'a' | 'b'): string => (segment.endLabels?.[end] ?? []).join(' | ');
+  const setEnd = (end: 'a' | 'b', text: string): void =>
+    dispatch({ type: 'update-instance', id, patch: { endLabels: { ...(segment.endLabels ?? {}), [end]: text.split('|').slice(0, 3).map((l) => l.trim().slice(0, 40)) } } });
+  return (
+    <div data-testid="segment-labels">
+      <h3>labels</h3>
+      <LabelField label="run label" value={segment.label ?? ''} placeholder="W1 (generated)" onCommit={(v) => dispatch({ type: 'update-instance', id, patch: { label: v.trim() } })} />
+      <LabelField label="end A text" value={lines('a')} placeholder="generated; lines separated by |" onCommit={(v) => setEnd('a', v)} />
+      <LabelField label="end B text" value={lines('b')} placeholder="generated; lines separated by |" onCommit={(v) => setEnd('b', v)} />
+      {cores.map((path) => (
+        <LabelField
+          key={path}
+          label={`core ${path}`}
+          value={segment.coreLabels?.[path] ?? ''}
+          placeholder="printed at both ends"
+          onCommit={(v) => dispatch({ type: 'update-instance', id, patch: { coreLabels: { ...(segment.coreLabels ?? {}), [path]: v } } })}
+        />
+      ))}
+    </div>
+  );
+}
+
 /**
  * A part's own bridges: joints between two of its own
  * pins or pads — the HD15's ground returns bridged in the head, a SCART's
@@ -1112,6 +1179,7 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
         {connector === undefined ? null : (
           <>
             <InstanceField label="role" value={connector.role ?? ''} onChange={(v) => patch('role', v)} />
+            <InstanceField label="label" value={connector.label ?? ''} onChange={(v) => dispatch({ type: 'update-instance', id, patch: { label: v } })} placeholder={`${id.toUpperCase()} (used on the wire labels)`} />
             <InstanceField label="note" value={connector.note ?? ''} onChange={(v) => patch('note', v)} />
           </>
         )}
@@ -1130,6 +1198,7 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
                 })
               }
             />
+            <SegmentLabels state={state} id={id} />
             <SegmentBreakoutSection state={state} segment={id} />
             <SegmentModel3d design={design} db={db} segment={id} practice={stripPracticeOf} />
           </>

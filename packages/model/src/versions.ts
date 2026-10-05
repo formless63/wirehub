@@ -73,7 +73,24 @@ export interface FrozenDefinitions {
   tags?: SignalTags;
 }
 
-export type VersionHistoryAction = 'save' | 'unlock' | 'edit' | 'relock';
+export type VersionHistoryAction = 'save' | 'unlock' | 'edit' | 'relock' | 'submit' | 'approve' | 'reject';
+
+/** Where a saved version stands in release approval: absent on the file means draft (not submitted). */
+export type ApprovalState = 'submitted' | 'approved' | 'rejected';
+
+/** The latest approval step of a version (the whole trail is in `history`). */
+export interface VersionApproval {
+  state: ApprovalState;
+  /** ISO time stamp of this step */
+  at: string;
+  /** who took this step */
+  by: string;
+  /** what they said (required) */
+  comment: string;
+  /** who submitted it, once it has been approved or rejected */
+  submittedBy?: string;
+  submittedAt?: string;
+}
 
 /** One line of a version's append-only history. */
 export interface VersionHistoryEntry {
@@ -113,6 +130,8 @@ export interface DesignVersionFile {
   depictions: Record<string, ArtworkFiles | string>;
   /** present only while the version is unlocked for an edit */
   unlocked?: VersionUnlock;
+  /** release approval (cs-5k1.11): absent = draft; an approved version is the released one */
+  approval?: VersionApproval;
   history: VersionHistoryEntry[];
 }
 
@@ -126,6 +145,8 @@ export interface VersionSummary {
   locked: boolean;
   /** how many recorded edits since it was saved */
   edits: number;
+  /** the approval state, name, time and comment of the latest step; absent = draft */
+  approval?: VersionApproval;
 }
 
 export function versionSummary(file: DesignVersionFile): VersionSummary {
@@ -137,6 +158,7 @@ export function versionSummary(file: DesignVersionFile): VersionSummary {
     ...(file.basedOnRev === undefined ? {} : { basedOnRev: file.basedOnRev }),
     locked: file.unlocked === undefined,
     edits: file.history.filter((entry) => entry.action === 'edit').length,
+    ...(file.approval === undefined ? {} : { approval: file.approval }),
   };
 }
 
@@ -327,6 +349,7 @@ export function canonicalVersionFile(file: DesignVersionFile): DesignVersionFile
         .map(([defId, entry]) => [defId, typeof entry === 'string' ? entry : sortedKeys(entry)]),
     ),
     ...(file.unlocked === undefined ? {} : { unlocked: file.unlocked }),
+    ...(file.approval === undefined ? {} : { approval: file.approval }),
     history: file.history,
   };
 }
@@ -383,6 +406,54 @@ export function relockVersion(file: DesignVersionFile, at: string, by: string, n
   });
 }
 
+/** What an approval step is refused for, or `undefined` when it may go ahead. */
+export function approvalStepProblem(file: DesignVersionFile, step: 'submit' | 'approve' | 'reject'): string | undefined {
+  const state = file.approval?.state;
+  if (file.unlocked !== undefined) return `Rev ${file.rev} is unlocked for an edit — lock it again first.`;
+  if (step === 'submit') {
+    if (state === 'submitted') return `Rev ${file.rev} is already waiting for approval.`;
+    if (state === 'approved') return `Rev ${file.rev} is already approved.`;
+    return undefined;
+  }
+  if (state !== 'submitted') return `Rev ${file.rev} is ${state === undefined ? 'a draft that has not been submitted' : state}, so there is nothing to ${step}.`;
+  return undefined;
+}
+
+/** Submit a version for approval (a rejected one may be submitted again). A comment is required. */
+export function submitVersion(file: DesignVersionFile, at: string, by: string, comment: string): DesignVersionFile {
+  const note = comment.trim();
+  return canonicalVersionFile({
+    ...file,
+    approval: { state: 'submitted', at, by, comment: note },
+    history: [...file.history, { action: 'submit', at, by, note }],
+  });
+}
+
+function decideVersion(file: DesignVersionFile, state: 'approved' | 'rejected', at: string, by: string, comment: string): DesignVersionFile {
+  const note = comment.trim();
+  const submitted = file.approval?.state === 'submitted' ? file.approval : undefined;
+  return canonicalVersionFile({
+    ...file,
+    approval: {
+      state,
+      at,
+      by,
+      comment: note,
+      ...(submitted === undefined ? {} : { submittedBy: submitted.by, submittedAt: submitted.at }),
+    },
+    history: [...file.history, { action: state === 'approved' ? 'approve' : 'reject', at, by, note }],
+  });
+}
+
+export const approveVersion = (file: DesignVersionFile, at: string, by: string, comment: string): DesignVersionFile => decideVersion(file, 'approved', at, by, comment);
+export const rejectVersion = (file: DesignVersionFile, at: string, by: string, comment: string): DesignVersionFile => decideVersion(file, 'rejected', at, by, comment);
+
+/** The released revision of a design: the latest approved one when approvals are on, else the latest saved. */
+export function releasedRevision(summaries: readonly Pick<VersionSummary, 'rev' | 'approval'>[], approvalsOn: boolean): number | undefined {
+  const pool = approvalsOn ? summaries.filter((s) => s.approval?.state === 'approved') : summaries;
+  return pool.length === 0 ? undefined : Math.max(...pool.map((s) => s.rev));
+}
+
 /**
  * An unlocked version's edit: the new design, re-frozen (definitions the
  * version already had stay frozen; new ones come from `live`), the change
@@ -402,7 +473,8 @@ export function editVersion(
   const before = { design: file.design, definitions: file.definitions };
   const after = { design, definitions };
   const changes = diffLines(diffVersions(before, after));
-  const { unlocked: _unlocked, ...rest } = file;
+  // changed content is no longer what was approved: it goes back to draft (the trail stays in history)
+  const { unlocked: _unlocked, approval: _approval, ...rest } = file;
   return canonicalVersionFile({
     ...rest,
     design: JSON.parse(JSON.stringify(design)) as CableDesign,

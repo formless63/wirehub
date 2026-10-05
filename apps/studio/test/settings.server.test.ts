@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { memoryAssetStore } from '../server/assets.ts';
 import { sanitizePng } from '../server/png-sanitize.ts';
-import { BRANDING_PATH } from '../server/settings.ts';
+import { BRANDING_PATH, ENGINEERING_PATH, effectiveTestDefaults } from '../server/settings.ts';
 import { memoryDocStore } from '../server/storage/doc-store.ts';
 import { makePng, pngDataUri } from './png-fixture.ts';
 
@@ -78,5 +78,36 @@ describe('branding settings', () => {
     expect((await put(d, { organisation: 'x'.repeat(200) }, now)).status).toBe(400);
     expect((await put(d, { rights: 'a\nb' }, now)).status).toBe(400);
     expect((await put(d, { notes: ['one', 'two'] }, now)).status).toBe(400);
+  });
+});
+
+describe('engineering settings (testing defaults, electrical thresholds, approvals)', () => {
+  const eng = (d: WorkbenchDeps, method: string, body?: unknown, ifMatch?: string) =>
+    handleWorkbenchRequest({ method, path: '/api/settings/engineering', ...(body === undefined ? {} : { body }), ...(ifMatch === undefined ? {} : { headers: { 'if-match': ifMatch } }) }, d);
+
+  it('round-trips the three sections, refuses bad values and a stale write, and clearing removes the document', async () => {
+    const { deps: d, docs } = deps();
+    const first = await eng(d, 'GET');
+    expect(first.status).toBe(200);
+    expect((first.body as { builtIn: { electrical: { maxDropV: number } } }).builtIn.electrical.maxDropV).toBe(0.5);
+    const saved = await eng(d, 'PUT', { testDefaults: { isolationVolts: 250 }, electrical: { maxDropV: 0.3 }, approvals: { enabled: true, approverRoles: ['owner', 'editor'] } }, first.headers!.ETag!);
+    expect(saved.status).toBe(200);
+    expect(docs.docs.get(ENGINEERING_PATH)).toMatchObject({ testDefaults: { isolationVolts: 250 }, electrical: { maxDropV: 0.3 }, approvals: { enabled: true } });
+    expect((await eng(d, 'PUT', {}, first.headers!.ETag!)).status).toBe(409);
+    expect((await eng(d, 'PUT', { testDefaults: { isolationVolts: -1 } }, saved.headers!.ETag!)).status).toBe(400);
+    expect((await eng(d, 'PUT', { electrical: { maxDropV: 0 } }, saved.headers!.ETag!)).status).toBe(400);
+    expect((await eng(d, 'PUT', { approvals: { enabled: 'yes' } }, saved.headers!.ETag!)).status).toBe(400);
+    const cleared = await eng(d, 'PUT', {}, saved.headers!.ETag!);
+    expect(cleared.status).toBe(200);
+    expect(docs.docs.has(ENGINEERING_PATH)).toBe(false);
+  });
+
+  it('the settings override the environment fallback per parameter', async () => {
+    const { docs } = deps();
+    const env = { isolationVolts: 100, hipotVolts: 1500 };
+    expect(await effectiveTestDefaults({ docs, testDefaults: env })).toEqual(env);
+    await docs.write(ENGINEERING_PATH, { testDefaults: { isolationVolts: 250 }, src: 'x' });
+    expect(await effectiveTestDefaults({ docs, testDefaults: env })).toEqual({ isolationVolts: 250, hipotVolts: 1500 });
+    expect(await effectiveTestDefaults({ docs })).toEqual({ isolationVolts: 250 });
   });
 });

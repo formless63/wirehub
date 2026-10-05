@@ -35,9 +35,11 @@ import {
   terminalsOf,
   trace,
   unwiredTerminals,
+  electricalReport,
   validateDesign,
   type CableDesign,
   type Db,
+  type ElectricalReport,
   type Issue,
   type Net,
   type Passage,
@@ -327,6 +329,8 @@ export interface TestSpec {
     groundLandings: number;
     violations: number;
   };
+  /** currents declared in the design: per-conductor ampacity, contact rating and voltage drop (empty when none are declared) */
+  electrical: ElectricalReport;
   issues: Issue[];
 }
 
@@ -555,6 +559,7 @@ export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOpt
       violations: violations.length,
       commoned: commoning.commoned.length,
     },
+    electrical: electricalReport(design, db),
     issues: validateDesign(design, db),
   };
 }

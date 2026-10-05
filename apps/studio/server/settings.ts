@@ -13,6 +13,9 @@
  * so a module still wins and an empty setting leaves the generic text.
  */
 
+import { electricalRulesProblems, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, type ElectricalRules } from '@wirehub/model';
+import { readTestParameters, type TestParameters } from '@wirehub/docs';
+
 import type { ApiResponse } from './api.ts';
 import { assetDataUri, decodeImageDataUri, type AssetStore } from './assets.ts';
 import { checkIfMatch, contentETag } from './etag.ts';
@@ -21,7 +24,52 @@ import type { DocStore } from './storage/doc-store.ts';
 
 export const BRANDING_PATH = 'data/settings/branding.json';
 
-export const SETTINGS_ROUTES = ['GET    /api/settings/branding', 'PUT    /api/settings/branding'] as const;
+export const ENGINEERING_PATH = 'data/settings/engineering.json';
+
+export const SETTINGS_ROUTES = [
+  'GET    /api/settings/branding',
+  'PUT    /api/settings/branding',
+  'GET    /api/settings/engineering',
+  'PUT    /api/settings/engineering',
+] as const;
+
+/** Roles a person can approve a release with. */
+export type ApproverRole = 'owner' | 'editor';
+
+/**
+ * `data/settings/engineering.json`: how this hub tests, checks and releases.
+ * Every section optional; an absent section means the built-in behaviour (and,
+ * for `testDefaults`, the `WIREHUB_TEST_DEFAULTS` environment variable).
+ */
+export interface EngineeringRecord {
+  /** the organisation's default continuity test parameters */
+  testDefaults?: TestParameters;
+  /** thresholds of the electrical rules (`@wirehub/model` electrical.ts) */
+  electrical?: ElectricalRules;
+  /** release approvals on saved versions */
+  approvals?: { enabled: boolean; approverRoles?: ApproverRole[] };
+  src: string;
+}
+
+const ENGINEERING_SRC = 'Hub settings (entered in the app)';
+
+export async function readEngineering(docs: DocStore | undefined): Promise<EngineeringRecord | undefined> {
+  return docs === undefined ? undefined : ((await docs.read(ENGINEERING_PATH)) as EngineeringRecord | undefined);
+}
+
+/** The test defaults in force: the environment's (fallback) with the settings page's laid over, parameter by parameter. */
+export async function effectiveTestDefaults(deps: { docs?: DocStore; testDefaults?: TestParameters }): Promise<TestParameters | undefined> {
+  const set = (await readEngineering(deps.docs))?.testDefaults;
+  if (set === undefined && deps.testDefaults === undefined) return undefined;
+  const merged = { ...(deps.testDefaults ?? {}), ...(set ?? {}) };
+  return Object.keys(merged).length === 0 ? undefined : merged;
+}
+
+/** Whether approvals are on, and who may approve. */
+export async function approvalPolicy(docs: DocStore | undefined): Promise<{ enabled: boolean; approverRoles: ApproverRole[] }> {
+  const a = (await readEngineering(docs))?.approvals;
+  return { enabled: a?.enabled === true, approverRoles: a?.approverRoles !== undefined && a.approverRoles.length > 0 ? a.approverRoles : ['owner'] };
+}
 
 /** What is kept in the document. Every field optional: unset = the generic text. */
 export interface BrandingRecord {
@@ -54,6 +102,8 @@ const SRC = 'Hub settings (entered in the app)';
 interface SettingsDeps {
   docs?: DocStore;
   assets?: AssetStore;
+  /** the environment's test defaults (`WIREHUB_TEST_DEFAULTS`): the fallback the engineering settings override */
+  testDefaults?: TestParameters;
 }
 
 function fail(status: number, error: string, hint?: string): ApiResponse {
@@ -77,8 +127,55 @@ function clean(value: unknown, field: string, max: number): { value?: string; er
   return { value: text };
 }
 
+function engineeringView(record: EngineeringRecord | undefined, envDefaults: TestParameters | undefined): Record<string, unknown> {
+  return {
+    ...(record ?? { src: ENGINEERING_SRC }),
+    // read-only context for the page: what applies when a section is left empty
+    env: { testDefaults: envDefaults ?? null },
+    builtIn: { electrical: DEFAULT_ELECTRICAL_RULES, ampacity: DEFAULT_AMPACITY },
+  };
+}
+
+async function handleEngineering(method: string, body: unknown, deps: SettingsDeps, ifMatch: string | undefined): Promise<ApiResponse> {
+  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
+  const current = await readEngineering(deps.docs);
+  const etag = contentETag(current ?? null);
+  if (method === 'GET') return { status: 200, body: engineeringView(current, deps.testDefaults), headers: { ETag: etag } };
+  if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
+  const guard = checkIfMatch(ifMatch, etag, 'settings', 'engineering');
+  if (guard !== undefined) return guard;
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return fail(400, 'Send the settings as a JSON object.');
+  const input = body as Record<string, unknown>;
+  const next: EngineeringRecord = { src: ENGINEERING_SRC };
+  const td = input['testDefaults'];
+  if (td !== undefined && td !== null) {
+    const read = readTestParameters(td);
+    if (!read.ok) return fail(400, `The test defaults are not valid: ${read.problems.join(' ')}`);
+    if (Object.keys(read.parameters).length > 0) next.testDefaults = read.parameters;
+  }
+  const el = input['electrical'];
+  if (el !== undefined && el !== null) {
+    const problems = electricalRulesProblems(el);
+    if (problems.length > 0) return fail(400, `The electrical rules are not valid: ${problems.join(' ')}`);
+    if (Object.keys(el as object).length > 0) next.electrical = el as ElectricalRules;
+  }
+  const ap = input['approvals'];
+  if (ap !== undefined && ap !== null) {
+    if (typeof ap !== 'object' || Array.isArray(ap) || typeof (ap as { enabled?: unknown }).enabled !== 'boolean') return fail(400, 'approvals is { enabled: true or false, approverRoles? }.');
+    const roles = (ap as { approverRoles?: unknown }).approverRoles;
+    if (roles !== undefined && (!Array.isArray(roles) || roles.some((r) => r !== 'owner' && r !== 'editor'))) return fail(400, 'approverRoles is a list of owner and editor.');
+    next.approvals = { enabled: (ap as { enabled: boolean }).enabled, ...(roles === undefined || (roles as string[]).length === 0 ? {} : { approverRoles: [...new Set(roles as ApproverRole[])].sort() }) };
+  }
+  const empty = Object.keys(next).every((k) => k === 'src');
+  if (empty) await deps.docs.remove(ENGINEERING_PATH);
+  else await deps.docs.write(ENGINEERING_PATH, next);
+  const saved = empty ? undefined : next;
+  return { status: 200, body: engineeringView(saved, deps.testDefaults), headers: { ETag: contentETag(saved ?? null) } };
+}
+
 export async function handleSettingsRequest(method: string, parts: string[], body: unknown, deps: SettingsDeps, ifMatch: string | undefined): Promise<ApiResponse | undefined> {
   if (parts[0] !== 'api' || parts[1] !== 'settings') return undefined;
+  if (parts[2] === 'engineering' && parts.length === 3) return await handleEngineering(method, body, deps, ifMatch);
   if (parts[2] !== 'branding' || parts.length !== 3) return undefined;
   if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = (await deps.docs.read(BRANDING_PATH)) as BrandingRecord | undefined;

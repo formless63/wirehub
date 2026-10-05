@@ -8,6 +8,11 @@ import { describe, expect, it } from 'vitest';
 import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
 
 import {
+  approvalStepProblem,
+  approveVersion,
+  rejectVersion,
+  releasedRevision,
+  submitVersion,
   createVersion,
   describeJointMove,
   designChangeLines,
@@ -167,5 +172,36 @@ describe('a re-pin in the diff', () => {
     expect(diff.joints.moved).toEqual([]);
     expect(diff.joints.added).toHaveLength(1);
     expect(diff.joints.removed).toHaveLength(1);
+  });
+});
+
+describe('approval steps (cs-5k1.11)', () => {
+  const file = (): ReturnType<typeof createVersion> =>
+    createVersion({ design: loadDesign('de9-crossover'), db: loadDb(), rev: 0, at: '2026-10-01T10:00:00.000Z', by: 'A', note: 'first' });
+
+  it('walks submit, reject, resubmit, approve, with the trail in history', () => {
+    let v = file();
+    expect(approvalStepProblem(v, 'approve')).toContain('not been submitted');
+    v = submitVersion(v, 't1', 'Ann', ' look at pin 3 ');
+    expect(v.approval).toMatchObject({ state: 'submitted', by: 'Ann', comment: 'look at pin 3' });
+    expect(approvalStepProblem(v, 'submit')).toContain('already waiting');
+    v = rejectVersion(v, 't2', 'Bob', 'wrong');
+    expect(approvalStepProblem(v, 'submit')).toBeUndefined();
+    v = submitVersion(v, 't3', 'Ann', 'fixed');
+    v = approveVersion(v, 't4', 'Bob', 'ok');
+    expect(v.approval).toMatchObject({ state: 'approved', by: 'Bob', submittedBy: 'Ann', submittedAt: 't3' });
+    expect(v.history.map((h) => h.action)).toEqual(['save', 'submit', 'reject', 'submit', 'approve']);
+    expect(versionSummary(v).approval?.state).toBe('approved');
+    expect(releasedRevision([versionSummary(v), { rev: 1 }], true)).toBe(0);
+    expect(releasedRevision([{ rev: 0 }, { rev: 1 }], true)).toBeUndefined();
+    expect(releasedRevision([{ rev: 0 }, { rev: 1 }], false)).toBe(1);
+  });
+
+  it('an edit sends an approved version back to draft', () => {
+    const approved = approveVersion(submitVersion(file(), 't1', 'A', 'x'), 't2', 'B', 'y');
+    const unlocked = unlockVersion(approved, 't3', 'A', 'typo');
+    expect(approvalStepProblem(unlocked, 'submit')).toContain('unlocked');
+    const edited = editVersion(unlocked, { ...unlocked.design, notes: ['n'] }, loadDb(), 't4', 'A');
+    expect(edited.approval).toBeUndefined();
   });
 });

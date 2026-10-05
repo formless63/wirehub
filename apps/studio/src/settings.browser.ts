@@ -49,3 +49,48 @@ export const brandingQuery = {
   },
   retry: false,
 } as const;
+
+/* ------------------------------------------------------------------ *
+ * Engineering settings: testing defaults, electrical thresholds, approvals
+ * ------------------------------------------------------------------ */
+
+export const engineeringKey = ['settings', 'engineering'] as const;
+
+export interface EngineeringSettings {
+  testDefaults?: Record<string, number>;
+  electrical?: { enabled?: boolean; ampacityDerate?: number; contactDerate?: number; maxDropV?: number; maxDropPct?: number };
+  approvals?: { enabled: boolean; approverRoles?: ('owner' | 'editor')[] };
+  /** read-only context from the server */
+  env?: { testDefaults: Record<string, number> | null };
+  builtIn?: { electrical: { maxDropV: number; maxDropPct: number; ampacityDerate: number; contactDerate: number } };
+}
+
+export interface EngineeringView extends EngineeringSettings {
+  etag: string;
+}
+
+export async function fetchEngineering(base = '/api'): Promise<Outcome<EngineeringView>> {
+  let etag = '';
+  const out = await request<EngineeringSettings>(`${base}/settings/engineering`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function saveEngineering(input: Pick<EngineeringSettings, 'testDefaults' | 'electrical' | 'approvals'>, etag: string, base = '/api'): Promise<Outcome<EngineeringView>> {
+  let next = '';
+  const out = await request<EngineeringSettings>(`${base}/settings/engineering`, { method: 'PUT', body: input, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+export const engineeringQuery = {
+  queryKey: engineeringKey,
+  queryFn: async (): Promise<EngineeringView> => {
+    const out = await fetchEngineering();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;

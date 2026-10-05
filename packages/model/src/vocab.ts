@@ -63,6 +63,10 @@ export const SIGNAL_KINDS: readonly SignalKind[] = ['data', 'control', 'audio', 
 /** An entry of `signals`. */
 export interface SignalEntry extends VocabEntry {
   kind: SignalKind;
+  /** the current this signal usually carries, amps — the default for a pin that declares none (electrical rules) */
+  currentA?: number;
+  /** the nominal voltage of this signal, volts — lets the electrical rules judge a drop as a percentage */
+  voltageV?: number;
   /** for a return (`gnd-audio`): the signals it is the return of */
   returnFor?: string[];
   /**

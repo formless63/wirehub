@@ -164,8 +164,16 @@ describePg('the migrated schema', () => {
       await app.query('ROLLBACK TO SAVEPOINT s');
       // a rename changes only the design id fields
       await app.query('UPDATE studio.design_revision SET body = $1', [JSON.stringify({ ...locked, designId: 'e', design: { id: 'e', label: 'D' } })]);
+      await app.query('SAVEPOINT s');
+      // an approval step (0018): `approval` and one submit/approve/reject entry, nothing else
+      const step = { ...locked, designId: 'e', design: { id: 'e', label: 'D' }, approval: { state: 'submitted', by: 'x', at: 't', comment: 'c' }, history: [...locked.history, { action: 'submit' }] };
+      await expect(app.query('UPDATE studio.design_revision SET body = $1', [JSON.stringify({ ...step, note: 'sneaked in' })])).rejects.toThrow(/locked: unlock it first/);
+      await app.query('ROLLBACK TO SAVEPOINT s');
+      await expect(app.query('UPDATE studio.design_revision SET body = $1', [JSON.stringify({ ...step, history: [...locked.history, { action: 'edit' }] })])).rejects.toThrow(/locked: unlock it first/);
+      await app.query('ROLLBACK TO SAVEPOINT s');
+      await app.query('UPDATE studio.design_revision SET body = $1', [JSON.stringify(step)]);
       // an unlock adds `unlocked` and appends one 'unlock' history entry
-      const renamed = { ...locked, designId: 'e', design: { id: 'e', label: 'D' } };
+      const renamed = step;
       await app.query('UPDATE studio.design_revision SET body = $1', [JSON.stringify({ ...renamed, unlocked: { by: 'x' }, history: [...renamed.history, { action: 'unlock' }] })]);
       expect((await app.query('SELECT locked FROM studio.design_revision')).rows[0].locked).toBe(false);
       // unlocked: anything goes

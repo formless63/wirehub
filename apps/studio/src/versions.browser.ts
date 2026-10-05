@@ -14,6 +14,10 @@ export interface WorkingStatus {
   unreleased: boolean;
   nextRev: number;
   latestRev?: number;
+  /** release approvals are on */
+  approvals?: boolean;
+  /** the latest approved revision, when approvals are on */
+  releasedRev?: number;
 }
 
 export interface DraftSummary {
@@ -61,6 +65,12 @@ export const unlockVersion = (id: string, rev: number, reason: string): Promise<
 
 export const lockVersion = (id: string, rev: number): Promise<Outcome<DesignVersionFile>> =>
   request(`${base(id)}/${rev}/lock`, { method: 'POST', body: {} });
+
+export type ApprovalStep = 'submit' | 'approve' | 'reject';
+
+/** submit, approve or reject a saved version; a comment is required */
+export const approvalStep = (id: string, rev: number, step: ApprovalStep, comment: string): Promise<Outcome<VersionListing & { version: VersionSummary }>> =>
+  request(`${base(id)}/${rev}/${step}`, { method: 'POST', body: { comment } });
 
 export const editVersion = (id: string, rev: number, design: CableDesign): Promise<Outcome<DesignVersionFile>> =>
   request(`${base(id)}/${rev}`, { method: 'PUT', body: { design } });

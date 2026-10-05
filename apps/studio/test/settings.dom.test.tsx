@@ -78,3 +78,19 @@ describe('Hub settings', () => {
     }
   });
 });
+
+describe('Engineering settings', () => {
+  it('saves test defaults, electrical thresholds and approvals through the API', async () => {
+    mount();
+    const volts = (await screen.findByLabelText('Isolation test voltage (V DC)')) as HTMLInputElement;
+    fireEvent.change(volts, { target: { value: '250' } });
+    fireEvent.change(screen.getByLabelText('Largest voltage drop (V)'), { target: { value: '0.3' } });
+    fireEvent.click(screen.getByLabelText('Approvals on'));
+    fireEvent.click(screen.getByLabelText('Editors may approve'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save engineering settings' }));
+    await waitFor(async () => {
+      const stored = await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/engineering' }, deps);
+      expect(stored.body).toMatchObject({ testDefaults: { isolationVolts: 250 }, electrical: { maxDropV: 0.3 }, approvals: { enabled: true, approverRoles: ['editor', 'owner'] } });
+    });
+  });
+});

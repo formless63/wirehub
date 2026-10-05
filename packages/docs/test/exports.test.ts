@@ -3,6 +3,7 @@
  * documented, and agreeing with the sheets they sit beside.
  */
 
+import { elementPaths, validateDesign } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
 
@@ -195,6 +196,28 @@ describe.each(listDesignIds())('%s', (id) => {
     const svg = labelSheetSvg(labels);
     expect(svg).toContain('<svg');
     expect((svg.match(/data-label=/g) ?? []).length).toBe(labels.length);
+  });
+
+  it('label text: a run label, end text, a connector label and per-core labels override the defaults', () => {
+    const d = structuredClone(design);
+    const seg = d.instances.segments[0]!;
+    const wire = db.wires.find((w) => w.id === seg.def)!;
+    const core = elementPaths(wire.structure).find((e) => e.element.kind === 'conductor')!.path;
+    seg.label = 'FEED-1';
+    seg.endLabels = { b: ['TO AMP', ' ', 'rack 2'] };
+    seg.coreLabels = { [core]: 'SYNC', 'no-such': 'x' };
+    d.instances.connectors[0]!.label = 'SOURCE';
+    const labels = deriveLabels(d, db);
+    const a = labels.find((l) => l.id === `${seg.id}/a`)!;
+    const b = labels.find((l) => l.id === `${seg.id}/b`)!;
+    expect(a.lines[0]).toBe('FEED-1-A');
+    expect(a.lines.join(' ')).toContain('SOURCE');
+    expect(b.lines).toEqual(['TO AMP', 'rack 2']);
+    const cores = labels.filter((l) => l.core !== undefined);
+    expect(cores.map((l) => l.id)).toEqual([`${seg.id}/a/${core}`, `${seg.id}/b/${core}`].filter((id) => id.includes(core)));
+    expect(cores[0]!.lines[0]).toBe('SYNC');
+    expect(validateDesign(d, db).map((i) => i.code)).toContain('label-unknown-core');
+    expect(deriveLabels(design, db).every((l) => l.core === undefined)).toBe(true);
   });
 
   it('the continuity spec prints its test parameters', () => {
