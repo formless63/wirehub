@@ -45,7 +45,16 @@
       "aliases": [
         "JEITA 21-pin"
       ],
-      "src": "JEITA RC-5202 (the 21-pin connector with the SCART shell and its own pinout)"
+      "src": "JEITA RC-5202 (the 21-pin connector with the SCART shell and its own pinout)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "JEITA RC-5202 (the 21-pin connector with the SCART shell and its own pinout)"
+          }
+        ]
+      }
     },
     {
       "id": "bnc",
