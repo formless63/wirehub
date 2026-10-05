@@ -15,7 +15,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { isSkippedPath } from '@wirehub/catalog/src/codec/index.ts';
+import { contentSha, isBlobRef, isSkippedPath } from '@wirehub/catalog/src/codec/index.ts';
 import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 
 import { commitUnit, publishCatalog, type WorkbenchDeps } from '../api.ts';
@@ -57,6 +57,22 @@ export function pgSetupDeps(workbench: WorkbenchDeps, cache: SnapshotSource, opt
         const docs = uow.deps.docs;
         if (docs === undefined) throw new Error('the database backend has no doc store');
         let changed = false;
+        // an installed pack's artwork: `depictions/<def>/meta.json` and its image files. The images are bytes the
+        // codec holds as blobs: staged as depiction assets, they go to the blob store before the transaction
+        // (`uploadChangeBlobs`) and are served by content address like every other depiction file.
+        const depictions = uow.deps.depictions;
+        for (const [path, content] of after) {
+          const match = /^depictions\/([^/]+)\/([^/]+)$/.exec(path);
+          if (match === null || isBlobRef(content)) continue;
+          const [, def, file] = match as unknown as [string, string, string];
+          if (typeof content === 'string') {
+            if (snapshot.files.get(path) === content) continue;
+          } else if (snapshot.blobOf.get(path) === contentSha(content)) continue;
+          if (depictions === undefined) throw new Error('the database backend has no depiction store');
+          if (file === 'meta.json' && typeof content === 'string') await depictions.writeMeta(def, JSON.parse(content) as Record<string, unknown>);
+          else await depictions.writeAsset(def, file, content as string | Uint8Array);
+          changed = true;
+        }
         for (const [path, content] of after) {
           if (!path.startsWith('data/') || typeof content !== 'string' || before.get(path) === content) continue;
           if (!isDocPath(path)) throw new Error(`setup wrote ${path}, which the catalog cannot hold`);

@@ -19,7 +19,7 @@ import { createStudioAuth, type StudioAuth } from '../../server/auth/studio-auth
 import { adoptFileCatalog } from '../../server/pg/adopt.ts';
 import { openPg, type PgHandle } from '../../server/pg/db.ts';
 import { openPgBackend, type PgBackend } from '../../server/pg/deps.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 const CODE = 'WXYZ-2345-6789';
 
@@ -48,16 +48,16 @@ describePg('adopting a file deployment', () => {
     const deployment = join(work, 'deployment');
     cpSync(dataPath(''), join(deployment, 'data'), { recursive: true });
     const packs = join(work, 'packs');
-    expect((await adoptFileCatalog(pgh.db, { root: deployment, packs, starter: pristine })).kind).toBe('fresh');
+    expect((await adoptFileCatalog(pgh.db, { root: deployment, packs, starter: pristine, blobs: testBlobs() })).kind).toBe('fresh');
     // the hub was used: a design edited, a pack installed
     const path = join(deployment, 'data/designs/de9-crossover.json');
     writeFileSync(path, `${JSON.stringify({ ...JSON.parse(readFileSync(path, 'utf8')), label: 'Edited on files' }, null, 2)}\n`);
     installPackLayer(join(deployment, 'data'), packs, join(dataPath(''), '../../../modules/pc-serial/pack'));
-    const adopted = await adoptFileCatalog(pgh.db, { root: deployment, packs, starter: pristine });
+    const adopted = await adoptFileCatalog(pgh.db, { root: deployment, packs, starter: pristine, blobs: testBlobs() });
     expect(adopted.kind).toBe('adopted');
-    expect((await adoptFileCatalog(pgh.db, { root: deployment, packs, starter: pristine })).kind).toBe('has-org');
+    expect((await adoptFileCatalog(pgh.db, { root: deployment, packs, starter: pristine, blobs: testBlobs() })).kind).toBe('has-org');
 
-    backend = await openPgBackend({ DATABASE_URL: database.appUrl, AUTH_ENABLED: 'true' }, { setupCode: CODE });
+    backend = await openPgBackend({ DATABASE_URL: database.appUrl, AUTH_ENABLED: 'true' }, { setupCode: CODE, blobs: testBlobs() });
     const config = readAuthConfig({ AUTH_ENABLED: 'true', BETTER_AUTH_SECRET: 'test-only-secret-test-only-secret-0123456789', BETTER_AUTH_URL: 'http://studio.test', WIREHUB_BACKEND: 'pg' }) as AuthConfigEnabled;
     auth = await createStudioAuth(config, { pg: { url: database.appUrl, people: pgPeople(pgh.db, backend.orgId), setupMode: backend.setupMode } });
     backend.attachAuth(auth);

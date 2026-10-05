@@ -207,6 +207,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     const events = deliveredEventHub();
     let current: SnapshotCache | undefined;
     let boss: Promise<PgBoss> | undefined;
+    let closing = false;
     let claimPending = false;
     let auth: StudioAuth | undefined;
     const suggested = parseSuggestedModules(env.WIREHUB_SUGGESTED_MODULES);
@@ -226,7 +227,11 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       const notify = notifierFromEnv(env);
       const runner =
         jobMode === 'worker'
-          ? bossJobRunner(() => (boss ??= startBoss(config.url, 'studio')), () => id)
+          ? bossJobRunner(() => {
+              // a job submitted while the backend closes must not open a queue connection nobody will stop
+              if (closing) return Promise.reject(new Error('the studio is shutting down'));
+              return (boss ??= startBoss(config.url, 'studio'));
+            }, () => id)
           : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, notify }));
       const kinds = JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined));
       real.jobs = createJobService({
@@ -309,6 +314,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
         auth = value;
       },
       close: async () => {
+        closing = true;
         if (boss !== undefined) await (await boss.catch(() => undefined))?.stop({ graceful: false }).catch(() => undefined);
         for (const cache of caches) await cache.close();
         await handle.close();
