@@ -1,12 +1,26 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.5 (rev 6 was the first revision in the open base). **Phases A
+Status: **plan**, rev 6.6 (rev 6 was the first revision in the open base). **Phases A
 (schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
 C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.6** — Change history (cs-5k1.4). Migration **0017**: `change.before_body` — each
+  record's state before the change, as the commit read it before applying the set (JSON
+  `null`: there was none; SQL NULL: not recorded — older rows, binary records, moves, and
+  later changes of one record in the same set) — and the indexes a record's and the hub's
+  history read by. A binary record's change keeps its metadata in `after_body` (an
+  upload's mime and name; the bytes are the blob `after_etag` names). **History in the
+  studio** (§3.5, "Change history"): `GET /api/history` (the change sets, filtered by
+  person, date and kind), `GET /api/history/records/:subject`, `GET
+  /api/history/entries/:id` and `POST /api/history/records/:subject/restore` — a restore
+  is a new change set through the design and definition routes, never a rewrite. The
+  file backend answers the same routes from the git log of its catalog. **A new queue,
+  `git-mirror`** (opt-in, `WIREHUB_GIT_MIRROR_*`): every change set as a git commit by its
+  person, replayed onto the mirror's tree through `commitChangeSet` (§2, "The worker
+  process").
 - **rev 6.5** — Phase C built. **Jobs have one shape on every backend** (`server/jobs/`):
   a `JobRun` kept by a store (memory on files, `studio.job_run`/`job_file` on pg) and run
   by a runner — in the studio process, one at a time, on the file backend (and on pg with
@@ -264,6 +278,7 @@ and nothing else.
 | `blob-gc` | daily (04:30) | mark and sweep record blobs; expire derived blobs no live key names; stray objects (§5.4) |
 | `backup` | hourly, and at boot | watches the backup profile's volume (`WIREHUB_BACKUP_DIR`, read-only): marks `blob.backed_up_at`, alerts on a stale dump (§8.4) |
 | `parity` | only while migrating from files (§7.4) | compares every GET route between backends (Phase D) |
+| `git-mirror` | only with `WIREHUB_GIT_MIRROR_URL` or `…_PATH`: at worker boot and on `WIREHUB_GIT_MIRROR_CRON` (`*/5 * * * *`) | writes each change set after the mirror's newest commit (its `WireHub-Catalog-Version` trailer) as one commit — the catalog's text files as the export writes them, binary files named in `.wirehub-blobs.json` — authored by the change set's person; replays through `commitChangeSet` with the bytes from the blob store; a set it cannot replay (or a tree that differs from the export once caught up) commits the current catalog instead and says so; pushes, never forces (cs-5k1.4) |
 
 The dump, the bucket mirror and the weekly restore check are the `backup` profile's
 (`backup-dump`, `backup-mirror`, Backrest; §8.4–8.5), not worker jobs. Modules may register
@@ -536,6 +551,18 @@ BEGIN
   RETURN NULL;
 END $$;
 ```
+
+**Change history** (cs-5k1.4, migration 0017 below). The rows above are what the History
+panel reads: a record's history is every `change` of its parts (a design: `design`,
+`drawing`, its photo and versions; a library record: its element of the `definitions`
+list, or its `wire`, `model-link` and depiction rows), turned into per-change-set steps
+where a missing `before_body` is filled from the previous change's `after_body` of the same
+record, and is otherwise "not recorded" — never guessed. The state right after a change
+set is its own `after_body`, else the next change's `before_body`, else (nothing changed
+since) the record as it is now. A restore stages that state through the ordinary write
+routes in one unit of work: one new change set, by the person who asked, under the
+record's edit lock and the versions they saw. Every read runs as `studio_app` inside
+`inOrg`, so row-level security bounds the history to the org.
 
 ### 3.6 Identity, documents and references — `0003_records`
 

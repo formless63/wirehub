@@ -142,6 +142,7 @@ it waits while the hub is in first-run setup.
 | `derive` | at start and daily | recomputes derived records (the tag tables) only if something bypassed a save |
 | `blob-gc` | daily at 04:30 | removes uploaded files nothing uses any more — only after 30 days, and only once a backup taken after that holds them — and rebuildable models no record shows |
 | `backup` | hourly | looks at the backups (profile `backup`): marks what they hold and alerts when the newest dump is older than 30 hours |
+| `git-mirror` | only when configured: at start and every 5 minutes (`WIREHUB_GIT_MIRROR_CRON`) | writes each new change set as a git commit and pushes it (below, "History and the git mirror") |
 
 `GET /api/jobs` lists recent jobs and the worker's last heartbeat (it beats
 every minute; the container's health check reads it). One conversion runs at
@@ -222,6 +223,7 @@ people set:
 | `WIREHUB_CONVERT_WINDOW` | — | `HH:MM-HH:MM`: build imported models only then |
 | `WIREHUB_MODEL_SOURCES` | — | the folder (mounted into `worker`) imported models are built from |
 | `WIREHUB_WORKER` | on | `off`: the app runs the jobs itself (no `worker` service) |
+| `WIREHUB_GIT_MIRROR_URL` or `…_PATH` | — | the optional git mirror of every change set (below); its credentials as `…_SSH_KEY_FILE` / `…_TOKEN_FILE` |
 | `TZ` | `UTC` | log timestamps, backup and job schedules |
 
 **Sign-in** is on: first-run setup makes the admin's account, and the admin
@@ -304,6 +306,76 @@ its vendor has scaled back the open-source edition.
 - **RustFS** (Apache-2.0) is simpler to start but young — 1.0 release
   candidates as of 2026 — and a hub's uploads are not where to try a new
   storage engine.
+
+## History and the git mirror
+
+**History.** Every save is a change set in the database: who made it, when,
+its message, and every record it changed with its state before and after.
+The studio shows it — **History** in the rail lists the hub's changes
+(filter by person, date and kind), and the History button of a cable (beside
+its revision chip) or a library record lists that record's changes, opens
+each to a field-by-field diff, and **restores** an earlier state. A restore is
+a new change set by the person who asked, checked like any edit (the record's
+edit lock, its validation, and the version they were looking at): history is
+never rewritten, and a restore can itself be restored. The same is under
+`GET /api/history` (`apps/studio/README.md`). Changes saved before this
+version recorded earlier states (migration 0017) show what they changed but
+may lack their "before".
+
+What each backend keeps:
+
+| Backend | History | Diffs | Restore |
+| --- | --- | --- | --- |
+| `pg` (the default) | every change set, with its person | every change since 0017; older ones where neighbouring saves recorded the states | yes |
+| `files`, catalog in a git repository | the git log of the catalog: every save while the git export is on (`WIREHUB_GIT_AUTOCOMMIT=true`), plus any hand commits | yes (from the commits) | yes, as a new save |
+| `files`, no git | nothing — the History page says so | — | — |
+
+**The git mirror** (optional, the database backend). For a trail outside the
+database — on your git host, diffable, readable without WireHub — the worker
+can write each change set as a commit: the catalog's files as the export
+writes them (binary files named by content address in `.wirehub-blobs.json`,
+not copied), authored by the person who saved, at the time they saved, with
+the change set's message and the trailers `WireHub-Change-Set` and
+`WireHub-Catalog-Version`. Its first run commits the catalog as it finds it.
+It never forces: if someone else pushed to its branch while it had commits of
+its own to push, the job fails, alerts (`WIREHUB_NOTIFY_URL`) and waits for
+you; files outside `data/` and `depictions/` (a README) are left alone. The
+mirror is a copy, not the backup — keep the backups below.
+
+```bash
+# .env — a remote over SSH, with a deploy key that may write
+WIREHUB_GIT_MIRROR_URL=ssh://git@git.example.com/workshop/catalog.git
+WIREHUB_GIT_MIRROR_SSH_KEY_FILE=/run/secrets/git-mirror-key
+WIREHUB_GIT_MIRROR_KNOWN_HOSTS_FILE=/run/secrets/git-mirror-known-hosts
+```
+
+```yaml
+# compose.override.yaml — the key and the host's key, mounted into the worker
+services:
+  worker:
+    volumes:
+      - ./git-mirror-key:/run/secrets/git-mirror-key:ro
+      - ./git-mirror-known-hosts:/run/secrets/git-mirror-known-hosts:ro
+```
+
+| Variable | Default | |
+| --- | --- | --- |
+| `WIREHUB_GIT_MIRROR_URL` | — | a remote (`ssh://…`, `https://…`) to push to; never with a password in it |
+| `WIREHUB_GIT_MIRROR_PATH` | — | instead: a repository (or an empty folder) mounted into the worker, committed to directly |
+| `WIREHUB_GIT_MIRROR_BRANCH` | `main` | the branch it writes |
+| `WIREHUB_GIT_MIRROR_CRON` | `*/5 * * * *` | how often it looks for new change sets |
+| `WIREHUB_GIT_MIRROR_SSH_KEY_FILE` | — | an SSH private key (a deploy key with write access) |
+| `WIREHUB_GIT_MIRROR_KNOWN_HOSTS_FILE` | — | the host's key; without it the first key seen is trusted |
+| `WIREHUB_GIT_MIRROR_TOKEN_FILE` | — | instead of a key: an HTTPS access token, handed to git by `GIT_ASKPASS` |
+| `WIREHUB_GIT_MIRROR_USER` | `wirehub` | the user name sent with the token |
+| `WIREHUB_GIT_MIRROR_DIR` | a folder under `/tmp` | the working clone (re-cloned when lost) |
+
+Each secret is read from its file at start (any variable works as `NAME_FILE`).
+The job appears in the Jobs list (`GET /api/jobs`) with what it committed and
+pushed. A change set saved before the database kept what a replay needs (an
+upload's details, before 0017), or whose uploaded bytes are gone, is not
+replayed one by one: the mirror then commits the catalog as it is now and
+says so in the commit message.
 
 ## Backups — recommended (`COMPOSE_PROFILES=backup`)
 
