@@ -30,6 +30,7 @@ function isModulePath(path: string): boolean {
   return path.startsWith('/api/modules/');
 }
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
+import { isImportPath } from './jobs/api.ts';
 import {
   defaultDepictionDeps,
   handleDepictionRequest,
@@ -169,7 +170,7 @@ async function handleJson(
   let text: string;
   try {
     // a model upload (50a.55) is a base64 file, bigger than any document
-    const limit = isModelPath(path) ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BODY_BYTES;
+    const limit = isModelPath(path) || isImportPath(path) ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BODY_BYTES;
     const read = await readLimited(request, limit);
     if (!read.ok) {
       const refusal = tooLargeRefusal(limit);

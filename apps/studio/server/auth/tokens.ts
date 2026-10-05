@@ -180,7 +180,8 @@ export function scopeFor(method: string, path: string): string | undefined {
   // never through a token: tokens themselves, invitations, take-overs, first-run setup
   if (p.startsWith('/api/account') || p.startsWith('/api/invitations') || p === '/api/locks/takeover' || p.startsWith('/api/setup') || p.startsWith('/api/auth')) return undefined;
   if (m === 'GET' || m === 'HEAD') return 'read';
-  if (p.startsWith('/api/docs/')) return 'imports';
+  // a module import and its publish are imports, like the documents a module writes
+  if (p.startsWith('/api/docs/') || /^\/api\/modules\/[^/]+\/importers\/[^/]+$/.test(p) || /^\/api\/jobs\/[^/]+\/publish$/.test(p)) return 'imports';
   return 'catalog:write';
 }
 

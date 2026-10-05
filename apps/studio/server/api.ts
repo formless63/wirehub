@@ -56,6 +56,8 @@ import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
 import { isDocPath, type DocStore } from './storage/doc-store.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
+import type { JobService } from './jobs/types.ts';
+import { handleJobRequest, isJobPath, JOB_ROUTES } from './jobs/api.ts';
 import type { EventHub } from './events.ts';
 
 /* ------------------------------------------------------------------ *
@@ -239,6 +241,14 @@ export interface WorkbenchDeps {
    * and the selection is kept. Absent → `/api/setup` answers 501.
    */
   setup?: SetupDeps;
+  /**
+   * Jobs (`jobs/`, plan §2): module imports, model conversion and builds, and
+   * the worker's housekeeping — run in this process (files) or by the worker
+   * (pg). Absent → `/api/jobs` answers 501.
+   */
+  jobs?: JobService;
+  /** Called after every committed change set (the model-cache trigger, §5.5). Never fails the request. */
+  afterCommit?: (set: ChangeSet) => void | Promise<void>;
 }
 
 /** `GET /api/part-numbers`' file half; `designs` and `drawings` come from the stores. */
@@ -819,6 +829,7 @@ const ROUTES = [
   ...ME_ROUTES,
   'GET    /api/backup',
   'POST   /api/backup/retry',
+  ...JOB_ROUTES,
   'ANY    /api/modules/:module/…',
   'GET    /api/setup',
   'POST   /api/setup',
@@ -896,6 +907,8 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   if (deps.setupMode?.() === true && !isSetupPath(request.path) && !['/api', '/api/me'].includes((request.path.split('?')[0] ?? '').replace(/\/+$/, ''))) {
     return { status: 503, body: { state: 'setup', error: 'This hub is not set up yet.', hint: 'Open /setup to create the organisation, its catalog and the admin.' } };
   }
+  // jobs: an import started, a plan published (§7.5), a job's state
+  if (isJobPath(request.path)) return handleJobRequest(request, deps);
   const moduleRoute = findModuleRoute(request, deps.modules);
   if (moduleRoute !== undefined) return moduleRoute.writes === true ? withWriteLock(moduleRoute.run) : moduleRoute.run();
   // first-run setup installs packs straight into the catalog (journaled by

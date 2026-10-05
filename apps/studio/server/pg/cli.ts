@@ -27,6 +27,7 @@ import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 
 import { ASSET_MIME_EXT } from '@wirehub/catalog/src/codec/index.ts';
 import { blobStoreFromEnv, type BlobStore } from '../blobs.ts';
+import { fileModelCache } from '../models/cache.ts';
 import { defaultWorkbenchDeps } from '../default-deps.ts';
 import { bootstrapDatabase } from './bootstrap.ts';
 import { PgConfigError, pgAppConfigFromEnv, redactUrl, requireEnv } from './config.ts';
@@ -154,7 +155,7 @@ async function exportCommand(args: string[]): Promise<void> {
 }
 
 async function gateCommand(args: string[]): Promise<boolean> {
-  const { values } = parseArgs({ args, options: { from: { type: 'string' }, packs: { type: 'string' } } });
+  const { values } = parseArgs({ args, options: { from: { type: 'string' }, packs: { type: 'string' }, models: { type: 'boolean' } } });
   const root = from(values.from ?? dataPath('..'));
   const packs = values.packs ?? (env.WIREHUB_PACKS_DIR?.trim() || undefined);
   const config = pgAppConfigFromEnv(env);
@@ -170,6 +171,8 @@ async function gateCommand(args: string[]): Promise<boolean> {
       root,
       pg: { db: handle.db, cache: new SnapshotCache(handle.db, orgId), ...(store === undefined ? {} : { blobs: store }) },
       ...(live ? { filesDeps: defaultWorkbenchDeps(store === undefined ? {} : { blobs: store }) } : {}),
+      // --models: after the model-cache job, every live key built (and equal to the file cache's, when there is one)
+      ...(values.models === true ? { models: live ? { fileCache: fileModelCache() } : {} } : {}),
     });
     log(formatGateReport(report));
     return report.ok;

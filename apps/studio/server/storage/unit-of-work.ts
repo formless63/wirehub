@@ -576,7 +576,10 @@ export class UnitOfWork {
     if (this.changes.length === 0 && this.derive.size === 0) return { applied: 0, derived: [] };
     const set: ChangeSet = { changes: this.changes, context };
     // a backend that commits in its own transaction (Postgres) brings `commit`; the file stores apply through themselves
-    return this.base.commit !== undefined ? this.base.commit(set, this.derive) : commitChangeSet(this.base, set, this.derive);
+    const result = this.base.commit !== undefined ? await this.base.commit(set, this.derive) : await commitChangeSet(this.base, set, this.derive);
+    // what follows a commit (a model build to queue) never fails the request that made it
+    if (this.base.afterCommit !== undefined) await Promise.resolve(this.base.afterCommit(set)).catch((error: unknown) => console.warn(`[jobs] after commit: ${error instanceof Error ? error.message : String(error)}`));
+    return result;
   }
 }
 

@@ -29,8 +29,12 @@ export type ModelFormat = 'glb' | 'stl' | 'step';
 
 /** The largest model file the studio takes (the artwork upload limit). */
 export const MAX_MODEL_BYTES = 24 * 1024 * 1024;
-/** Past this resident size the STEP child is stopped and the file refused. */
-export const STEP_RSS_LIMIT_MB = 1400;
+/**
+ * Past this resident size the STEP child is stopped and the file refused.
+ * `WIREHUB_STEP_RSS_LIMIT_MB` lowers it where the process shares a memory
+ * cap with its parent (the compose worker: 1.5 GiB in all, S6).
+ */
+export const STEP_RSS_LIMIT_MB = Number(process.env.WIREHUB_STEP_RSS_LIMIT_MB ?? '') > 0 ? Number(process.env.WIREHUB_STEP_RSS_LIMIT_MB) : 1400;
 /** A STEP that has not finished by now never will on this box. */
 export const STEP_TIMEOUT_MS = 180_000;
 
