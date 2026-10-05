@@ -83,8 +83,7 @@ the `id` of the module's `catalogPacks` entry, and `version`/`license` should ma
 their packs installed by `installPackLayer(catalogDir, packsDir, packDir)`: checked against the
 starter plus the other installed packs, copied to `<packsDir>/<id>/`, recorded in
 `<packsDir>/packs.json`. The packs directory is `WIREHUB_PACKS_DIR` (`/data/packs` in the container,
-the gitignored `data/packs/` in a checkout); the starter catalog is never written. A catalog
-record a person later edits is stored locally and shadows the pack's (`localPartOf`). Tag tables
+the gitignored `data/packs/` in a checkout); the starter catalog is never written. Records from a pack are read-only in the app (fork to edit makes a local copy); a legacy local edit shadows the pack's (`localPartOf`). A hub owner can also install your pack without a module: Modules, Catalog packs, Install pack... takes a zip of the pack directory, a JSON bundle (`{ manifest, files }`) or an https URL, previews the diff and installs it recorded with its id and version, so later versions update through the same door and `DELETE /api/packs/<id>` disables it. Tag tables
 for pack records are derived by the host, so a pack ships none. To try it in the app, start
 `pnpm --filter studio dev`, open `/setup` and tick your module (it must be in
 `apps/studio/modules.config.ts`).

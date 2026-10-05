@@ -37,6 +37,7 @@ import {
   installPackLayer,
   installedPackDir,
   isPlainObject,
+  packFiles,
   readInstalledPacks,
   readPackManifest,
   recordsIn,
@@ -345,7 +346,8 @@ function fileWrites(view: CatalogSource, packDir: string | undefined, drop: Read
 function addedOf(records: Iterable<LocatedRecord>): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const r of records) (out[r.file] ??= []).push(...(r.file.startsWith('designs/') ? [] : [r.id]));
-  return out;
+  // files in the order `packFiles` lists them, as `installPackLayer` records them
+  return Object.fromEntries(Object.entries(out).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)));
 }
 
 /** The installed packs of both places — the packs directory (layers) and the catalog directory (merged). */
@@ -508,3 +510,80 @@ export function applyPackDisable(dataDir: string, packsDir: string | undefined, 
   saveInstalled(dataDir, (packs) => packs.filter((p) => p.id !== id));
 }
 
+
+/* ------------------------------------------------------------------ *
+ * A pack not installed yet (install from a file or a URL)
+ * ------------------------------------------------------------------ */
+
+/**
+ * The source checks of `verify-pack.mjs` that need no catalog: the manifest
+ * reads, every record and vocabulary list cites a `src`. Sentences, empty
+ * when the pack is fine.
+ */
+export function packSourceProblems(packDir: string): string[] {
+  const problems: string[] = [];
+  let manifest: PackManifest;
+  try {
+    manifest = readPackManifest(packDir);
+  } catch (error) {
+    return [error instanceof Error ? error.message : String(error)];
+  }
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(manifest.version)) problems.push(`the manifest's version '${manifest.version}' is not semver (1.2.0)`);
+  const files = packFiles(packDir);
+  if (files.length === 0) problems.push('the pack has no data files');
+  for (const relative of files) {
+    let value: Json;
+    try {
+      value = JSON.parse(readFileSync(join(packDir, relative), 'utf8')) as Json;
+    } catch {
+      problems.push(`${relative} is not valid JSON`);
+      continue;
+    }
+    const records = recordsIn(value);
+    for (const record of records ?? []) {
+      const src = isPlainObject(record) ? record['src'] : undefined;
+      if (typeof src !== 'string' || src.trim() === '') problems.push(`${relative}: record '${idOf(record) ?? '?'}' has no src`);
+    }
+    if (isPlainObject(value) && !Array.isArray(value['entries']) && !value['src'] && !Array.isArray(value)) problems.push(`${relative}: the document has no src`);
+    if (isPlainObject(value) && Array.isArray(value['entries']) && !value['src']) problems.push(`${relative}: the list has no src`);
+  }
+  return problems;
+}
+
+/** What installing a pack that is not installed yet would do. */
+export interface PackInstallPreview {
+  pack: { id: string; name: string; version: string; license: string };
+  diff: PackDiff;
+  conflicts: string[];
+  /** `requires.packs` entries that are not installed (information: the library checks below say what breaks) */
+  unmetRequires: string[];
+  issues: Issue[];
+  ok: boolean;
+  writes: FileWrites;
+  added: Record<string, string[]>;
+}
+
+export function planNewPack(view: CatalogSource, installed: readonly InstalledPack[], packDir: string): PackInstallPreview {
+  const manifest = readPackManifest(packDir);
+  const everything = catalogRecords(view);
+  const conflicts: string[] = [];
+  const next = new Map<string, LocatedRecord>();
+  for (const [key, record] of catalogRecords(fsCatalogSource(packDir))) {
+    const other = everything.get(key);
+    if (other === undefined) next.set(key, record);
+    else if (!same(other.record, record.record)) conflicts.push(`${record.file}: '${record.id}' already exists with different content`);
+  }
+  const writes = fileWrites(view, packDir, new Map(), next);
+  const unmetRequires = Object.keys(manifest.requires?.packs ?? {}).filter((id) => !installed.some((p) => p.id === id));
+  const issues = conflicts.length === 0 ? newErrors(view, overlay(view, writes)) : [];
+  return {
+    pack: { id: manifest.id, name: manifest.name, version: manifest.version, license: manifest.license },
+    diff: diffRecords(new Map(), next),
+    conflicts,
+    unmetRequires,
+    issues,
+    ok: conflicts.length === 0 && issues.length === 0,
+    writes,
+    added: addedOf(next.values()),
+  };
+}

@@ -1,10 +1,13 @@
 # Catalog store
 
-Status: **design**, with the file-backend pieces of phases 1–2 implemented:
-the pack manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over a catalog
-(`layeredCatalogSource`), and install from a directory (`installPack`, used by first-run
-setup for the bundled domain modules — `docs/modules.md`). Signing, the store index,
-updates with diffs and per-record provenance fields are still design. Tracked in beads.
+Status: **design**, with these pieces built on both backends (files and Postgres): the pack
+manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over a catalog
+(`layeredCatalogSource`), install from a directory, an uploaded zip or JSON bundle, or an https
+URL (`installPackLayer`, Library → Modules → Install pack…; first-run setup uses the same for the
+bundled domain modules — `docs/modules.md`), per-record `license` / `provenance` / `derivedFrom`
+fields, and the **pack lifecycle**: update with a record-level diff, disable, read-only marking
+with fork to edit (§3). Signing, the store index, review status and yanking are still design.
+Tracked in beads.
 
 A fresh WireHub has the starter catalog: a few dozen generic records (CC0-1.0). Real work needs
 the connectors, stocks and parts of a domain — XLR and speakON for live audio, M12 and
@@ -120,13 +123,12 @@ forever (a design built on 1.2.0 can always be re-validated against 1.2.0).
 ## 3. Installing and updating
 
 Installed pack records are **read-only** in the deployment and marked with their origin
-(`pack: { id, version }` on the record in the database backend; `data/packs/<id>/` in the
-file backend, merged by the catalog loader under the local records). A shop that needs a
-change to a pack record **forks** it: the editor makes a local copy with a new id and
-`derivedFrom: { pack, id, version }`, and designs move to the copy only when someone
-chooses to.
+(`packs.json` names the pack and version per record id; the pack's files are a layer under the
+catalog in the file backend). A shop that needs a change to a pack record **forks** it: the
+Library makes a local copy with a new id and `derivedFrom: { pack, id, version }`, and designs
+move to the copy only when someone chooses to.
 
-**Implemented today (file backend).** First-run setup installs a pack as a **layer**:
+**Implemented today.** First-run setup installs a pack as a **layer**:
 `installPackLayer(catalogDir, packsDir, packDir)` (`packages/catalog/src/packs.ts`) checks the
 pack against the catalog with the other installed packs under it — a record id already used
 for something different is a conflict, and nothing is written — then copies it to
@@ -158,9 +160,48 @@ catalog with packs over it without writing — what a module's tests use.
 **Update**: the same, plus a **diff preview** — records added, changed (field by field) and
 removed — and the list of designs that use a changed or removed record, each re-validated
 against the new version before anything is applied. A removed record still used by a design
-is kept as `status: "retired"` in the deployment, never deleted under a design. Updates
+is never deleted under it (the idea of keeping it as `status: "retired"` is not built: as built
+the update is refused until the use is moved). Updates
 across a major version are never automatic. Rollback re-installs the previous version
 through the same path.
+
+**The lifecycle, as built** (`packages/catalog/src/pack-lifecycle.ts`, `apps/studio/server/packs.ts`,
+the Library's Modules page). One handler serves both backends: it plans and applies on a catalog
+directory, and the Postgres backend runs it over a scratch copy it commits as **one change set**
+(the same way first-run setup does), so there is nothing backend-specific to keep in step.
+
+- **Which pack a record came from.** `packs.json` (the install record, a file in the packs
+  directory on files and a catalog document in the database) lists per pack the ids it added to
+  each record file (`added`) and its version. That is the origin: no extra column was needed on
+  Postgres, because packs are flattened into ordinary records there and `packs.json` is
+  flattened with them. An identical record that was already in the catalog is not the pack's, and
+  disabling leaves it.
+- **Update with a diff.** `GET /api/packs/:id/update` compares the installed records with the
+  version this build bundles, field by field (`added` / `changed` / `removed` / `unchanged`), and
+  reports conflicts (a new record clashing with a different local one), references (a dropped
+  record that a record outside the pack still uses, which blocks), new library or design errors
+  after the change (only *new* ones block), a licence change and a major version. `POST` applies
+  it as one swap of the pack layer (files) or one change set (Postgres); a major version needs
+  `{ "acceptMajor": true }`. A downgrade goes through the same path. A dropped record that is
+  still used is refused rather than kept as `retired`; move the user first.
+- **Disable.** `DELETE /api/packs/:id` removes the pack's records when nothing outside the pack
+  references them (a record naming a pack id in a non-prose field: a connector's `body`, an
+  interface's `bodies`, a design's instance `def`, a kit line, a vocabulary `deprecatedBy` …).
+  Otherwise it refuses with 409 and lists every reference; nothing is removed.
+- **Read-only and fork.** Records from a pack answer `PUT` and `DELETE` with 409 on the
+  definition routes; the list carries `packs` (id → pack and version) and a single record the
+  `X-WireHub-Pack` header. `POST /api/definitions/:kind/:id/fork` copies the record under a new
+  id with `derivedFrom: { pack, id, version }`. The Library shows "From pack X 1.0.0 —
+  read-only" and a **Fork to edit** action. Records from other places (vocabulary lists, designs
+  of a pack) are removed and updated with the pack but not yet guarded against direct edits.
+- **Install pack… (from a file or URL).** `POST /api/packs/install` takes a zip of the pack
+  directory, a JSON bundle (`{ "manifest": …, "files": { "connectors.json": […] } }`) or an
+  https URL, verifies it as `scripts/verify-pack.mjs` does (manifest, `src` on every record, the
+  library validates with it, no clashes), shows the same diff, and with `apply` installs it as
+  one change set recorded with its id and version, so update and disable work on it. A pack that
+  is installed already is updated through the same door. URLs are fetched by the server: https
+  only, no credentials, public addresses only, redirects re-checked, 8 MB and 15 s limits.
+  Administration only: no API token may write `/api/packs`.
 
 **Offline / air-gapped**: a pack archive can be installed from a file (Library → Packs →
 Install from file) with the same verification; a deployment may run its own mirror of the
@@ -240,19 +281,24 @@ Trademarks (USB, HDMI, product names) appear as plain nominative names.
 - **Catalog (file backend)**: `data/packs/<id>/` with its manifest; the loader merges pack
   records read-only under the local ones and refuses a local record that shadows a pack id
   without forking it.
-- **Postgres backend** (`specs/postgres-backend.md`): pack records live in the same tables
-  with `pack_id`, `pack_version` columns; installs and updates are units of work through the
-  normal write path, so they are audited and versioned like any other change.
+- **Postgres backend** (`specs/postgres-backend.md`): pack records live in the same tables as
+  ordinary records, and `packs.json` (a catalog document) says which pack and version each came
+  from (`pack_id` / `pack_version` columns were considered and not needed); installs, updates
+  and disables are one change set through the normal write path, so they are audited and
+  versioned like any other change.
 - **Modules**: `CatalogPackContribution` packs install at build time through the same
   verification.
-- **UI**: Library → Packs (browse, install, update with diff, fork a record), and a pack
-  badge on every record that came from one.
+- **UI**: Modules → Catalog packs (installed list, update with diff, disable, Install pack…),
+  and in the Library a read-only chip and Fork to edit on a record that came from a pack.
+  Browsing a store index is still to come.
 
 ## 7. Phases
 
-1. Model fields (`license`, `provenance`, `derivedFrom`) and the pack manifest type; a
-   `pack verify` command (hashes, schema, `validateDb`).
-2. File-backend loading of installed packs; install from file; fork a record.
+1. Model fields (`license`, `provenance`, `derivedFrom`; **done**) and the pack manifest type
+   (done); a `pack verify` command (hashes, schema, `validateDb`; the skill's `verify-pack.mjs`
+   covers the last two).
+2. Loading of installed packs; install from file or URL; fork a record; update with a diff and
+   disable (**done**, both backends).
 3. The signed static index, store browsing and install/update with diff in the Library.
 4. First packs: `core-bodies`, `pro-audio`, `fieldbus`, `networking`, each reviewed against
    cited sources; the KiCad model-link pack built reproducibly.
