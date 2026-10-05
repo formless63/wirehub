@@ -10,7 +10,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { catalogWithPacksSource, installedPackSources, packFiles, readInstalledPacks } from '../packs.ts';
+import { catalogWithPacksSource, installedPackSources, packAssetFiles, packFiles, readInstalledPacks } from '../packs.ts';
 import { fsCatalogSource } from '../source.ts';
 import { canonicalJson, codePointCompare, isSkippedPath, isTextPath, type BlobRef, type CatalogFiles } from './index.ts';
 
@@ -53,7 +53,10 @@ export function readFlattenedCatalog(root: string, packsDir: string | undefined)
   const source = catalogWithPacksSource(dataDir, packsDir, { first: () => [fsCatalogSource(derived, 'derived files')] });
   const relatives = new Set<string>();
   for (const path of base.keys()) if (path.startsWith('data/')) relatives.add(path.slice('data/'.length));
-  for (const pack of installedPackSources(packsDir)) for (const relative of packFiles(pack.root as string)) relatives.add(relative);
+  const sources = installedPackSources(packsDir);
+  // a pack's depictions are not catalog documents: they are `depictions/<def>/…` files (below)
+  const isDepiction = (relative: string): boolean => relative.startsWith('depictions/');
+  for (const pack of sources) for (const relative of packFiles(pack.root as string)) if (!isDepiction(relative)) relatives.add(relative);
   if (existsSync(derived)) for (const relative of packFiles(derived)) relatives.add(relative);
   const out = new Map<string, string | Uint8Array | BlobRef>([...base.entries()].filter(([path]) => !path.startsWith('data/')));
   for (const relative of [...relatives].sort(codePointCompare)) {
@@ -64,6 +67,17 @@ export function readFlattenedCatalog(root: string, packsDir: string | undefined)
     }
     const text = source.read(relative);
     if (text !== undefined) out.set(`data/${relative}`, text);
+  }
+  // an installed pack's images and manifests: `depictions/<def>/…` beside the catalog's own (which win),
+  // a pack's other binary art under `data/art/`; bytes, held as blobs by the codec
+  for (const pack of sources) {
+    const root = pack.root as string;
+    const add = (path: string, relative: string): void => {
+      if (out.has(path)) return;
+      out.set(path, isTextPath(path) ? readFileSync(join(root, relative), 'utf8') : new Uint8Array(readFileSync(join(root, relative))));
+    };
+    for (const relative of packFiles(root)) if (isDepiction(relative) && !isSkippedPath(relative)) add(relative, relative);
+    for (const relative of packAssetFiles(root)) add(isDepiction(relative) ? relative : `data/${relative}`, relative);
   }
   // the stored selection and the install record live beside the packs: at the data root, flattened
   const record = readInstalledPacks(dataDir);

@@ -42,7 +42,7 @@ describePg('first-run setup on Postgres', () => {
     const now = () => '2026-10-05T09:00:00.000Z';
     const { orgId } = await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
     const cache = new SnapshotCache(pgh.db, orgId, { reuseMs: 0 });
-    const deps = pgWorkbenchDeps({ cache, db: pgh.db });
+    const deps = pgWorkbenchDeps({ cache, db: pgh.db, blobs: testBlobs() });
     deps.setup = pgSetupDeps(deps, cache, { prompt: true, now });
     deps.modules = registry;
     const before = await cache.version();

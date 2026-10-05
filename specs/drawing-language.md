@@ -197,9 +197,13 @@ of its body.
 depiction's `meta.json` they are checked with `recordMetaIssues`, like a catalog record's, and
 a malformed value refuses the record. The generator writes them on the starter depictions.
 
-**Not yet.** An installed (runtime) pack's SVG files: `installPackLayer` copies `.json`
-files only, and the browser bundle reads the bundled modules' `pack/depictions/` at build
-time. This is tracked in beads.
+**Installed packs.** `installPackLayer` copies a pack's JSON, its `depictions/` and `art/`
+images. The flattened catalog (`readFlattenedCatalog`) holds a pack's depictions as
+`depictions/<def>/…` files (the catalog's own win), so the file backend serves them by content
+address and Postgres setup/install stores the images in the blob store as depiction files.
+**Not yet.** The browser bundle reads the bundled modules' `pack/depictions/` at build time, and
+an update or disable of an installed pack leaves its depictions in place on Postgres. Both are
+tracked in beads.
 
 ## 8. Bench work instructions
 
