@@ -242,8 +242,8 @@ describe('routing a 3-pin connector against a 4-track wire', () => {
  * The second fixture: a discrete part parked in another run's corridor
  * ------------------------------------------------------------------ */
 
-/**
- *. A component is drawn on white fill *after* the wiring
+/**.
+ * A component is drawn on white fill *after* the wiring
  * layer, so a run whose y lands inside a component's body does not read as a
  * crossing — it simply vanishes behind the part, which on a schematic says
  * "this wire goes through the capacitor".

@@ -144,7 +144,7 @@ describe('a rejected edit in host chrome', () => {
 });
 
 /**
- * The Connection tab (e5c.5) dispatches `add-joint`/`delete-joint`/`update-joint`
+ * The Connection tab dispatches `add-joint`/`delete-joint`/`update-joint`
  * — the exact reducer actions `onConnect`/`onEdgesDelete` already use, proven
  * to reject through `commit` (`store.test.ts`) and to reach `onEditRejected`
  * from *any* `state.rejection` in host chrome (the describe block above). What

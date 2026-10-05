@@ -29,8 +29,7 @@
  * `specs/shield-bonding.md`) is drawn as its member braids, each running on
  * its own from its element on the face, through its own port, to the pad the
  * pigtail lands on — they converge at the pad, the way the bench twists them
- * right at the board (owner, 2026-09-25: "they should
- * show separately like they do already on the destination side", not joined
+ * right at the board (shown separately, as on the destination side, not joined
  * at the cable face and split from there). Its members are the pigtail's
  * `members`, or — a mass pigtail on a fully bonded stock — the one element
  * the face draws for the mass. Every member port carries the pigtail's one
@@ -104,7 +103,7 @@ export interface PortMember {
   key: string;
   terminal: string;
   role: WireHandleArt['role'];
-  /** how it reads, when that is not its path — a bonded multi-core mass (e5c.25) */
+  /** how it reads, when that is not its path — a bonded multi-core mass */
   label?: string;
 }
 
@@ -250,8 +249,8 @@ export interface Anchor extends XY {
    */
   clearX?: number;
   /**
-   * A board pad's own wire-approach direction (`BoardHandleArt.approach`,
-   *): degrees, standard math convention, node screen
+   * A board pad's own wire-approach direction (`BoardHandleArt.approach`):
+   * degrees, standard math convention, node screen
    * space — already turned through the board's own quarter-turn and (for a
    * bottom pad) the mirror, exactly as `x`/`y` are, so a "straight-in" board
    * (whose KiCad pads resolve to some cardinal angle) comes out horizontal
@@ -370,7 +369,7 @@ export function anchorOf(node: PlacedNode, handleId: string): Anchor | undefined
             : facing === 'left'
               ? node.position.x
               : node.position.x + node.size.width;
-        // a free face's pin leaves through its own slot on the exit fan (e5c.35)
+        // a free face's pin leaves through its own slot on the exit fan
         const slot = data.dock === undefined ? data.fan?.[terminal] : undefined;
         return {
           x: node.position.x + inset + data.art.ox + pin.x,
@@ -452,7 +451,7 @@ export interface EdgeRoute {
   /**
    * A docked pin's stray-edge lead runs exactly along the board's own edge,
    * so its corners stay square (rounding them would cut into the board);
-   * every other lead corner is rounded (`LEAD_FILLET`, e5c.30).
+   * every other lead corner is rounded (`LEAD_FILLET`).
    */
   squareLeads?: { source?: true; target?: true };
 }
@@ -505,8 +504,7 @@ function along(point: XY, direction: XY, distance: number): XY {
  * *other* edge — where `from`/`to` themselves land — before the bend starts.
  * Never a single diagonal lead straight from the pin, which could cut across
  * the board on the way; never a bend starting right under the board either,
- * whose curve toward a target on the board's far side would still cross it
- * (e5c.10, corrected by e5c.15).
+ * whose curve toward a target on the board's far side would still cross it.
  *
  * A board pad whose row sits at a real angle (`sourceApproach`/`targetApproach`,
  * — never given for a docked pin, which has no pad axis of
@@ -543,7 +541,7 @@ export function edgeRoute(input: RouteInput): EdgeRoute {
     input.targetEntryY === undefined
       ? undefined
       : { x: input.targetEntryX ?? input.target.x, y: input.targetEntryY };
-  // a guided pad (e5c.28): the bend meets the entry column level with the
+  // a guided pad: the bend meets the entry column level with the
   // pad's slot on its row's entry guide, off the board; the slot, then the
   // pad, follow as straight leads
   const sourceSlot: XY | undefined =
@@ -723,7 +721,7 @@ function lastPoint(run: Rounded): XY {
 }
 
 /**
- * The route with its lead corners rounded (e5c.30): the source-side run
+ * The route with its lead corners rounded: the source-side run
  * (`start`, its leads, `from`) and the target-side run (`to`, its leads,
  * `end`). The corner at `from`/`to` is rounded against the bend's own control
  * arm, so the bend starts (ends) a few pixels along it.
@@ -1137,7 +1135,7 @@ export function planBreakouts(input: BreakoutInput): BreakoutPlan {
   const selected = input.selected ?? new Set<number>();
 
   // the board handle a terminal ref lands on: its named pad's own, when the
-  // board draws that pad (e5c.25 — every edge honours `pad`, not only the
+  // board draws that pad (every edge honours `pad`, not only the
   // docked stub), else the terminal's primary handle
   const padHandle = (ref: TerminalRef): string => {
     const key = terminalKey(ref);
@@ -1381,7 +1379,7 @@ export function planBreakouts(input: BreakoutInput): BreakoutPlan {
     const node = nodes.get(mine.instance);
     if (node?.data.kind !== 'connector' || node.data.dock?.board !== other.instance) return undefined;
     // the connector's own pin pads: drawn docked — but a pin wired to another
-    // of the board's own pads (a carrier's slot pad, e5c.36) stubs to it
+    // of the board's own pads (a carrier's slot pad) stubs to it
     const prefixes = node.data.dock.prefixes;
     if (other.terminal.includes('.') && (prefixes === undefined || prefixes.some((prefix) => other.terminal.startsWith(`${prefix}.`)))) {
       return undefined;

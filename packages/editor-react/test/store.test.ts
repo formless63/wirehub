@@ -198,7 +198,7 @@ describe('instances', () => {
     expect(next.selection).toEqual({ kind: 'instance', id });
   });
 
-  describe('add-instance-near (the node picker, e5c.6)', () => {
+  describe('add-instance-near (the node picker)', () => {
     it('places without wiring when no anchor is given — same as a plain add-instance', () => {
       const id = nextInstanceId(state.design, 'connector', 'jst-xh-2-dc');
       const next = editorReducer(state, { type: 'add-instance-near', kind: 'connector', def: 'jst-xh-2-dc' });
@@ -315,7 +315,7 @@ describe('presentation state', () => {
     expect(next.issues).toBe(state.issues);
   });
 
-  it('a drag gesture is one undo step that puts the parts back, the design untouched (udy.10)', () => {
+  it('a drag gesture is one undo step that puts the parts back, the design untouched', () => {
     const state = stateFor('de9-terminal-board');
     const before = state.positions['j1'];
     let next = editorReducer(state, { type: 'begin-move' });

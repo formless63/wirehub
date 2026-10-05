@@ -68,7 +68,7 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     definitions: fileDefinitionStore(),
     drawings: fileDrawingStore(assets),
     assets,
-    // the Library's 3D model links (50a.55): data/models.json, bytes in `assets`
+    // the Library's 3D model links: data/models.json, bytes in `assets`
     modelLinks: fileModelLinkStore(),
     // converted models (gitignored cache)
     modelCache: fileModelCache(),
@@ -81,7 +81,7 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     docs: fileDocStore(),
     versions: fileVersionStore(),
     loadDb,
-    // the unit of work reuses the loaded db until one of its files changes (50a.49)
+    // the unit of work reuses the loaded db until one of its files changes
     // …and the packs directory: an install (packs.json) or regenerated derived tags change it too
     catalogVersion: () => `${fileCatalogVersion(dataPath(''))}:${fileCatalogVersion(packsDir)}:${fileCatalogVersion(derivedDir(packsDir))}`,
     // GET /api/blobs/:sha: the file backend's content-addressed files are its uploads

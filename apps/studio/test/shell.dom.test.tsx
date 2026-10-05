@@ -503,8 +503,8 @@ describe('opening a cable while the workbench is down', () => {
 });
 
 /**
- * The stale-write guard's toast ( absorbing
- *): opening a cable loads it — the real adapter, via
+ * The stale-write guard's toast ( absorbing):
+ * opening a cable loads it — the real adapter, via
  * the real query — which remembers the version answered on `GET`. When that
  * version has moved on disk by the time Save runs, the save is refused 409
  * and the studio has to say so without losing the work in progress.

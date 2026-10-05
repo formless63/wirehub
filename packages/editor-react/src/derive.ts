@@ -261,8 +261,7 @@ export interface ConnectorDock {
    * cable side) — relative to the docked node's x. A stray edge's bend starts
    * here, not at `entryDx`: from the dock bay's own edge, straight down and
    * then along under the whole board to this one, so the bend toward a target
-   * on the board's far side never has to cross back over it
-   *.
+   * on the board's far side never has to cross back over it.
    */
   clearDx: number;
   /**
@@ -564,7 +563,7 @@ export function jointedKeys(joints: Joint[]): Set<string> {
   for (const joint of joints) {
     keys.add(terminalKey(joint.a));
     keys.add(terminalKey(joint.b));
-    // the carrier hole a joint is made through is soldered too (e5c.37)
+    // the carrier hole a joint is made through is soldered too
     if (joint.through !== undefined) keys.add(terminalKey(joint.through));
   }
   return keys;
@@ -701,7 +700,7 @@ function nodeDataOf(
           ? undefined
           : dockOf(instance.id, board.id, boardData, boardData.board, mounts.get(instance.id)?.prefixes);
     const layout = dock === undefined ? connectorArtLayout(instance.id, title, art) : undefined;
-    // a free face fans its wired pins out to their own exit slots (e5c.35)
+    // a free face fans its wired pins out to their own exit slots
     const fan =
       layout === undefined
         ? undefined
@@ -737,7 +736,7 @@ function nodeDataOf(
             .map((entry) => {
               const role = elementRole(entry.element);
               const color = elementPaint(entry.element);
-              // e5c.25: a bonded multi-core mass's representative is all of its shielding
+              // a bonded multi-core mass's representative is all of its shielding
               const label = representativeLabel(def, entry.path) ?? entry.element.label;
               const row = (end: 'a' | 'b', side: 'left' | 'right'): TerminalRow =>
                 makeRow(
@@ -758,7 +757,7 @@ function nodeDataOf(
       kind: 'segment',
       instanceId: instance.id,
       def: instance.def,
-      // never the manufacturer on the canvas (owner 2026-09-25/26) — the
+      // never the manufacturer on the canvas — the
       // maker stays inside the wire's own detail view in the Library
       title: def === undefined ? instance.def : wireDisplayName(db, instance.def),
       subtitle: def?.partNumber ?? def?.specRef ?? 'wire stock',
@@ -817,7 +816,7 @@ function nodeDataOf(
 }
 
 /**
- * A board pad a docked plug's pin lands on through a carrier hole (e5c.37)
+ * A board pad a docked plug's pin lands on through a carrier hole
  * reads landed in its net's paint: nothing is drawn to it, so the pad says it.
  */
 function paintThrough(design: CableDesign, db: Db, entries: NodeEntry[]): NodeEntry[] {
@@ -909,7 +908,7 @@ function pcbaEntries(
   for (const instance of design.instances.pcbas) {
     const def = findPcba(db, instance.def);
     // the cable-side pads face the wire, the integrated connector away from it;
-    // a carrier board (e5c.36) faces the board beyond it, its plug docked on
+    // a carrier board faces the board beyond it, its plug docked on
     // the far edge
     const cableFacing = carrierFacing(design, instance.id, columns) ?? cableFacingOf(design, instance.id, columns, flips);
     const away: Facing = cableFacing === 'left' ? 'right' : 'left';
@@ -1096,7 +1095,7 @@ export function connectorSideFacings(
       [joint.b, joint.a],
     ] as const) {
       if (mine.instance !== boardId || !isConnectorTerminal(mine.terminal)) continue;
-      // a docked pin stubbed to one of the carrier's own slot pads (e5c.36):
+      // a docked pin stubbed to one of the carrier's own slot pads:
       // the stub is drawn straight, so the pad faces the board it T-joins
       const mount = mountsHere.get(other.instance);
       if (mount?.beyond !== undefined && !underPrefix(mine.terminal, mount.prefixes)) continue;
@@ -1179,7 +1178,7 @@ export interface Mount {
  */
 export function mountsOf(design: CableDesign): Map<string, Mount> {
   // the rule lives in layout, shared with the schematic's docked blocks; a
-  // plug soldered into a carrier board docks on the carrier (e5c.36)
+  // plug soldered into a carrier board docks on the carrier
   const out = new Map<string, Mount>(mountedConnectors(design));
   for (const [id, mount] of carriedConnectors(design)) out.set(id, mount);
   return out;
@@ -1193,7 +1192,7 @@ function underPrefix(terminal: string, prefixes: readonly string[]): boolean {
 /**
  * Is this joint a docked connector's own: to its board's connector side, pin
  * to pin, or made through its board's hole onto the pad beneath (a carried
- * plug's J1-4 / J1-5, e5c.37 — the plug docked and the pad landed show it;
+ * plug's J1-4 / J1-5 — the plug docked and the pad landed show it;
  * there is no line to draw)?
  */
 export function isDockedJoint(joint: Joint, mounts: ReadonlyMap<string, Mount>): boolean {
@@ -1470,7 +1469,7 @@ function elkGraphOf(original: CableDesign, db: Db, entries: readonly NodeEntry[]
       list.set(id, {
         id,
         x: anchor.facing === 'left' ? 0 : size.width,
-        // a fanned connector pin's edge leaves at its exit slot's height (e5c.35)
+        // a fanned connector pin's edge leaves at its exit slot's height
         y: Math.min(size.height, Math.max(0, at?.data.kind === 'connector' ? routeY(anchor) : anchor.y)),
         side: anchor.facing === 'left' ? 'WEST' : 'EAST',
       });

@@ -3,9 +3,8 @@
  * overmould — where a trunk segment end meets the ends of its legs, and what
  * becomes of every conductor there.
  *
- * Owner, 2026-09-25: "these 4 wires pass right through the breakout and do not
- * get cut, but these 2 wires are terminated here in the breakout and head to
- * this other connector". A conductor of a participating end is either
+ * Some wires pass right through the breakout and are not cut, while others
+ * are terminated in the breakout and head to another connector. A conductor of a participating end is either
  *
  * - **through** — the same physical conductor continues, uncut, on a leg of
  *   the same stock (the BNC mould's red mini-coax line to its plug): the two

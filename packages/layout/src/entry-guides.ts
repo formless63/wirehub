@@ -291,7 +291,7 @@ export function slotOfPad(
 export { boardOutlineFromSvg, outlineExit };
 
 /* ------------------------------------------------------------------ *
- * Exit slots: unguided pads that cannot run straight in (e5c.29)
+ * Exit slots: unguided pads that cannot run straight in
  * ------------------------------------------------------------------ */
 
 /** How far past the board outline an exit slot sits (mm). */
@@ -314,7 +314,7 @@ function hitsOutline(a: GuideXY, b: GuideXY, outline: readonly GuideXY[]): boole
 /**
  * Where the wire to an unguided cable pad leaves the board, when it cannot
  * simply run straight in toward the wire — the entry
- * guide's slot (e5c.28) without a guide: the router reaches the slot level
+ * guide's slot without a guide: the router reaches the slot level
  * from the wire's side, then runs straight in to the pad. Anchor frame, like
  * everything here; `wire` is the direction (anchor frame, unit) the wire lies
  * in from this face, i.e. the face's turned "toward the wire" undone.

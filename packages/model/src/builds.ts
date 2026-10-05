@@ -68,8 +68,7 @@ export interface SettingRule {
     /**
      * whether the destination build strips sync itself (an active LM1881 on
      * the sync path): an HD15 cable sends the standard build's
-     * attenuated CSync into the stripper build (owner, decisions page
-     * 2026-09-25), while a passive HD15 / BNC end needs TTL
+     * attenuated CSync into the stripper build, while a passive HD15 / BNC end needs TTL
      */
     destinationStrips?: boolean;
   };
@@ -204,7 +203,7 @@ export interface BoardFootprint {
   src?: string;
   /**
    * A carrier board between the plug and this footprint (the DIN-8 perfboard
-   * PCA-00109, owner 2026-09-29): the plug's pins solder
+   * PCA-00109): the plug's pins solder
    * into the carrier, and the carrier's pads T-join this footprint's pads.
    * A pin the carrier does not route lands on this footprint directly.
    */
@@ -226,8 +225,8 @@ export interface BoardCarrier {
    * → that hole's carrier terminal: the pin passes
    * through the hole and one solder point takes the pin, the hole and the
    * board pad beneath (the DIN-8 perfboard's J1-4 "+V" and J1-5 "G", which
-   * have no trace of their own — owner 2026-09-29: "the through-hole is also
-   * the pad"). The design joins the pin to the footprint pad `through` the
+   * have no trace of their own: the through-hole is also
+   * the pad). The design joins the pin to the footprint pad `through` the
    * hole; no carrier → board link is drawn.
    */
   through?: Record<string, string>;
@@ -389,7 +388,7 @@ export function validateBoardBuilds(files: readonly BoardBuilds[], library: Buil
           for (const [pos, t] of Object.entries(fp.carrier.pins ?? {})) {
             if (!carrier.terminals.some((x) => x.id === t)) issues.push(issue('carrier-pad-unknown', `carrier ${carrier.id} has no terminal '${t}' for position ${pos}`, at));
           }
-          // a through hole (e5c.37) is a carrier terminal with no copper of its own to another pad
+          // a through hole is a carrier terminal with no copper of its own to another pad
           for (const [pos, t] of Object.entries(fp.carrier.through ?? {})) {
             if (!carrier.terminals.some((x) => x.id === t)) issues.push(issue('carrier-pad-unknown', `carrier ${carrier.id} has no terminal '${t}' for through position ${pos}`, at));
             else if (carrier.internalLinks.some((l) => l.from === t || l.to === t)) {

@@ -97,8 +97,7 @@ export function reflectApproach(deg: number, axis: 'x' | 'y'): number {
  * = +x, a pad whose row leaves rightward; 180° for one leaving left) and
  * still count as "straight in" — matches editor-react's `board-art.ts`
  * `isNaturalApproach`/`NATURAL_APPROACH_EPSILON` exactly, so the schematic
- * and the canvas agree on which pads are angled enough to draw specially
- *.
+ * and the canvas agree on which pads are angled enough to draw specially.
  */
 const NATURAL_APPROACH_EPSILON = 20;
 
@@ -164,7 +163,7 @@ const CARDINAL_EPSILON = 5;
  *
  * `undefined` — keep the centroid rule — for a face with no oriented cable
  * pad, a tie, or an angled row (the SCART family's chamfered row: its own
- * entry guides, e5c.28, are set against the centroid rule's turn).
+ * entry guides, are set against the centroid rule's turn).
  */
 export function cableRowOutward(approaches: readonly number[]): XY | undefined {
   const counts = new Map<number, number>();
@@ -380,7 +379,7 @@ export function boardFaces(
         const guided =
           isConnectorSideTerminal(terminal) || pad.ref === undefined ? undefined : source.slots?.[side]?.[pad.ref];
         // an unguided cable pad that cannot run straight in leaves the board
-        // off its own end first (e5c.29) — the same slot a guide would give
+        // off its own end first — the same slot a guide would give
         const exit =
           guided !== undefined || isConnectorSideTerminal(terminal)
             ? undefined

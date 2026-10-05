@@ -1,6 +1,5 @@
 /**
- * Detours that share a face, and wires that strike out type
- *.
+ * Detours that share a face, and wires that strike out type.
  *
  * nck.11 taught the router to go round a component keep-out. What it left:
  * every lane blocked by one keep-out was projected onto the same face, so two

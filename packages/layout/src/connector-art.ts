@@ -1,7 +1,7 @@
 /**
  * Connector artwork: a connector drawn as itself, from its definition (spec:
- * ui-redesign, Canvas v2 item 5) — the one home of this geometry
- *. The canvas (`editor-react/src/connector-art.ts`,
+ * ui-redesign, Canvas v2 item 5) — the one home of this geometry.
+ * The canvas (`editor-react/src/connector-art.ts`,
  * re-exported through `@wirehub/render-svg`) and the SVG schematic
  * (`layout.ts`, drawn by `render-svg`) both read it from here; the drawing
  * sheets' solder-side faces (`docs/src/drawing/drawn-faces.ts`) restate it
@@ -990,8 +990,7 @@ function trs(def: ConnectorDefinition, facing: Facing): ConnectorArt | undefined
       'metal',
     );
   } else {
-    // a jack (owner 2026-09-29: "the female TRS is
-    // female" — a socket, not a plug on a shaft): drawn in section like the
+    // a jack (the female TRS is a socket, not a plug on a shaft): drawn in section like the
     // RCA female — the ground shell, the insulator
     // bushing, and the receptacle bore, narrowing toward the opening the
     // plug goes into, with no shaft standing proud

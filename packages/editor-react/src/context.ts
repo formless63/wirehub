@@ -29,7 +29,7 @@ export interface EditorApi {
    * Absent (a bare test harness), callers dispatch `delete-instances` itself.
    */
   requestDelete?: (ids: readonly string[]) => void;
-  /** the bench's strip steps, when the host serves them — the segment 3D view's presets (50a.58) */
+  /** the bench's strip steps, when the host serves them — the segment 3D view's presets */
   stripPractice?: readonly StripPractice[];
 }
 

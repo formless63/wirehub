@@ -45,7 +45,7 @@ export type PartNumberTarget =
   | { kind: 'pcba'; def: PcbaDefinition }
   | { kind: 'mechanical'; def: MechanicalDefinition }
   | { kind: 'kit'; def: KitDefinition }
-  /** a cable (hdy.9): its drawing's PN — `partNumber` is what the drawing form holds now */
+  /** a cable: its drawing's PN — `partNumber` is what the drawing form holds now */
   | { kind: 'design'; def: CableDesign; partNumber?: string };
 
 export interface LabeledSuggestion {

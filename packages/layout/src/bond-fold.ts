@@ -6,9 +6,9 @@
  * members of a set are one copper mass for the whole length of the stock. The
  * data model already knows this — `deriveNets`/`trace` tie the mass together,
  * and a pigtail with no `members` already means "the whole mass". What this
- * module adds is purely how a bonded mass **draws**: the owner (2026-09-24)
- * doesn't want a separate track/ring-key/port for every member of a mass —
- * "the drain stands for the bonded mass" — so every consumer that draws one
+ * module adds is purely how a bonded mass **draws**: there is no separate
+ * track/ring-key/port for every member of a mass — the drain stands for the
+ * bonded mass — so every consumer that draws one
  * line/port per electrical element (the schematic band, `tracks.ts`; the wire
  * end face's ports, `end-face.ts`) picks one **representative** member per set
  * and folds the rest into it. The cutaway's own rings stay untouched (they are
@@ -36,9 +36,8 @@ function isDrain(wire: WireDefinition, path: string): boolean {
 
 /**
  * The one member of `set` that presentation keeps. Never the foil
- * (owner 2026-09-25: "the foil doesn't typically get any
- * indication on our drawings […] we trim it back when we are stripping the
- * wire", "the primary focus is on all of the copper"): a bare drain if the set
+ * (the foil gets no indication on drawings: it is trimmed back when the
+ * wire is stripped, and the copper is what matters): a bare drain if the set
  * has one (mini-coax `overall-shield` + `drain` → `drain`; bonded multi-core → its
  * drain), else the first copper member (`bonded-8core`, which has no
  * drain → its first core's spiral, which then stands for — and is labelled
@@ -73,8 +72,8 @@ export function bondFoldedPaths(wire: WireDefinition): ReadonlySet<string> {
 /**
  * How the representative of a **fully bonded** stock's mass is labelled:
  * all of its shielding as one — "shields · 7 copper spirals + drain, bonded" —
- * never "foil" (e5c.25: "we instead treat all of the shielding material the
- * same on bonded multi-core and would indicate it together"). `undefined` for a set
+ * never "foil" (all the shielding of a bonded multi-core is treated alike and
+ * indicated together). `undefined` for a set
  * that is not the whole stock's screening (mini-coax: the drain keeps its own
  * label).
  */

@@ -42,7 +42,7 @@ export interface ComponentEditorProps {
 /** The kinds whose legs are not interchangeable. */
 const POLARISED: ReadonlySet<ComponentDefinition['kind']> = new Set(['capacitor', 'ic']);
 
-/** a kind added to the list in-app (hdy.9): it starts from the generic two-leg preset */
+/** a kind added to the list in-app: it starts from the generic two-leg preset */
 const NEW_KIND_SAY = 'A kind added to the list: it starts with two legs — add, rename or mark them as the part needs.';
 
 const KIND_SAY: Partial<Record<ComponentDefinition['kind'], string>> = {
@@ -141,7 +141,7 @@ export function ComponentEditor(props: ComponentEditorProps): JSX.Element {
             list="component-kinds"
             value={draft.kind}
             onChange={(value) => {
-              // open list (hdy.9): a kind added here is as good as a built-in one
+              // open list: a kind added here is as good as a built-in one
               if (value !== '') pickKind(value);
             }}
           />

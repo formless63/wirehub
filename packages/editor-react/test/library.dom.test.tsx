@@ -117,7 +117,7 @@ describe('the Library tab', () => {
  * ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ *
- * Controlled kind/selection, and the Artwork tab (3pn.1)
+ * Controlled kind/selection, and the Artwork tab
  * ------------------------------------------------------------------ */
 
 /** A minimal, always-empty artwork adapter — enough to grow the tab and
@@ -185,7 +185,7 @@ function gerberArtworkAdapter(): ArtworkAdapter {
 }
 
 
-describe('the list pane (50a.38)', () => {
+describe('the list pane', () => {
   afterEach(() => {
     try {
       window.localStorage.clear();
@@ -223,11 +223,11 @@ describe('the list pane (50a.38)', () => {
 });
 
 /* ------------------------------------------------------------------ *
- * A board's copper paths (50a.38)
+ * A board's copper paths
  * ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ *
- * The connector journey end to end, kits and "In kits" (pci.6/.7)
+ * The connector journey end to end, kits and "In kits"
  * ------------------------------------------------------------------ */
 
 async function pickOption(name: string, text: string): Promise<void> {

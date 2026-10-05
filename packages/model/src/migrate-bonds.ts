@@ -10,13 +10,13 @@
  * 2. on a **fully bonded stock** (bonded multi-core) each landing becomes one mass
  *    pigtail and one joint — and when the landings are several ground pins of
  *    one bare connector head, the mass lands once and the head's ground pins
- *    are bridged by joints instead (owner, 2026-09-24, open question 4);
+ *    are bridged by joints instead;
  * 3. on any other stock a landing of two or more screens becomes one pigtail
  *    with those members; a single screen keeps its joint. Where the landing is
  *    a board terminal with pads on both faces, the screens split by the face
  *    their signal pads are on — "RGB grounds to the pad on the RGB face, the
  *    S/LA/RA grounds to the pad on their own side", with the foil and drain
- *    landing with S/LA/RA (owner, 2026-09-24, open question 2);
+ *    landing with S/LA/RA;
  * 4. matching joint notes move onto the pigtail; differing ones are joined
  *    and flagged.
  *

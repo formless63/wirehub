@@ -75,7 +75,7 @@ export function LibraryRoute(): JSX.Element {
   const matches = useMatches();
   const params = (matches[matches.length - 1]?.params ?? {}) as { kind?: string; id?: string };
   const kind = kindOfUrl(params.kind);
-  // the wire builder's parts library (pci.17) — only the Library reads it
+  // the wire builder's parts library — only the Library reads it
   const wireLibrary = useMemo(() => workbenchWireLibrary(), []);
   const vendorDocuments = useMemo(() => workbenchDocuments(), []);
   // each record's 3D model
@@ -115,7 +115,7 @@ export function LibraryRoute(): JSX.Element {
   // the tables' Used column and Art flag: every design, and which parts have drawn art
   const art = useMemo(() => new Set(browserDepictions().known()), []);
 
-  // edit locks (50a.51): the selected definition is the record; a new one locks nothing
+  // edit locks: the selected definition is the record; a new one locks nothing
   return (
     <div className="cs-editor">
       <EditLockScope record={selectedId === undefined ? undefined : definitionRecord(kind, selectedId)}>

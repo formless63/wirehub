@@ -628,7 +628,7 @@
   color: var(--cs-ink);
 }
 
-/* one-click fix on a note-silenceable warning (udy.5): a quiet icon at the row's right */
+/* one-click fix on a note-silenceable warning: a quiet icon at the row's right */
 .cs-issue.has-fix {
   grid-template-columns: 1fr auto;
 }
@@ -654,7 +654,7 @@
   color: var(--cs-accent);
 }
 
-/* depiction diagnostics (udy.8) */
+/* depiction diagnostics */
 .cs-issues-artwork h3 {
   margin: 8px 0 4px;
   font-size: 11px;
@@ -669,7 +669,7 @@
   color: var(--cs-dim);
 }
 
-/* design notes (udy.5) */
+/* design notes */
 .cs-notes h2 {
   display: flex;
   align-items: center;
@@ -819,7 +819,7 @@
   gap: 4px;
 }
 
-/* which revision prints (50a.42): a compact select; the working copy reads as a warning */
+/* which revision prints: a compact select; the working copy reads as a warning */
 .cs-doc-tabs .cs-doc-target,
 .cs-doc-tabs .cs-doc-variation {
   width: auto;
@@ -835,7 +835,7 @@
   border-color: var(--warn);
 }
 
-/* the printed sheets' options row (50a.9): one compact line, wraps on phones */
+/* the printed sheets' options row: one compact line, wraps on phones */
 .cs-sheet-options {
   display: flex;
   flex-wrap: wrap;
@@ -1357,7 +1357,7 @@
   pointer-events: none;
 }
 
-/* The build's mounted parts over a face (y1u.17/y1u.18): a real top-down
+/* The build's mounted parts over a face (): a real top-down
    body per part where the importer recognised its package; the fallback for
    one it did not (an unrecognised package, a connector already drawn by the
    gerber art, or an unset solder jumper) is a translucent body in the
@@ -1388,7 +1388,7 @@
   stroke-width: 0.5;
 }
 
-/* Package art (y1u.18): the real top-down colours of the part itself — a
+/* Package art: the real top-down colours of the part itself — a
    black chip resistor prints the same whether the canvas around it is light
    or dark, so these never key off theme. */
 .cs-pt-chip-body { fill: #1c1c1c; stroke: #050505; stroke-width: 0.4; }
@@ -1478,7 +1478,7 @@
   background: #f2f1ed;
 }
 
-/* landed through a carrier hole (e5c.37): no edge comes to it, so the pad
+/* landed through a carrier hole: no edge comes to it, so the pad
    itself reads landed — a filled dot in its net's paint */
 .cs-editor .react-flow__handle.cs-pad-handle.is-through::after {
   width: 9px;
@@ -1993,7 +1993,7 @@ path.cs-art-t-dark {
   background: transparent;
 }
 
-/* ---------- leads: an edge's last stretch over its part (e5c.30) ----------
+/* ---------- leads: an edge's last stretch over its part ----------
    thin, in the conductor's colour, above the art but under pins and labels:
    into the pin of a connector face, from the jacket into the core of a wire */
 .cs-lead path {
@@ -2025,7 +2025,7 @@ path.cs-art-t-dark {
   stroke-dasharray: 2.5 1.8;
 }
 
-/* a pin on no conductor's net: the plain grey of the edge leaving it (e5c.35) */
+/* a pin on no conductor's net: the plain grey of the edge leaving it */
 .cs-lead.is-plain .cs-lead-line {
   stroke: var(--faint);
 }
@@ -2260,7 +2260,7 @@ path.cs-art-t-dark {
   stroke-width: 3;
 }
 
-/* a joint between two parts, in the paint of the net it carries (e5c.35):
+/* a joint between two parts, in the paint of the net it carries:
    its conductor's colour (inline), or ground's dashed style */
 .cs-edge.is-net-conductor .react-flow__edge-path {
   stroke-width: 1.8;
@@ -2307,7 +2307,7 @@ path.cs-art-t-dark {
   stroke-width: 4.8;
 }
 
-/* one braid of a pigtail, on its own from its port to the pad (e5c.25):
+/* one braid of a pigtail, on its own from its port to the pad:
    drawn like the braid stub it continues, not as a dashed ground bundle */
 .cs-edge.is-ground.is-braid .react-flow__edge-path {
   stroke: color-mix(in srgb, var(--copper) 50%, var(--cond-gnd));
@@ -2746,7 +2746,7 @@ path.cs-art-t-dark {
   font-size: 12px;
 }
 
-/* ---- the builder's own drawing of a connector (50a.38) ---- */
+/* ---- the builder's own drawing of a connector ---- */
 
 .cs-chip.is-warn {
   color: var(--cs-warn);
@@ -2914,7 +2914,7 @@ path.cs-art-t-dark {
   }
 }
 
-/* ---- gerber boards: read-only, both faces side by side (3pn.4) ---- */
+/* ---- gerber boards: read-only, both faces side by side ---- */
 
 .cs-artwork-gerber {
   display: flex;
@@ -2981,7 +2981,7 @@ path.cs-art-t-dark {
   background: var(--hover);
 }
 
-/* unplaced but no cable solders here (50a.25): quieter than one a cable needs */
+/* unplaced but no cable solders here: quieter than one a cable needs */
 .cs-editor .cs-artwork-terminal[data-used='false']:not(.is-done) {
   color: var(--cs-dim);
 }
@@ -3154,7 +3154,7 @@ path.cs-art-t-dark {
   flex: 1;
   display: grid;
   /* list · drag strip · detail — the list's width is the viewer's own
-     (`--cs-library-list`, remembered by `library-pane.ts`, 50a.38) */
+     (`--cs-library-list`, remembered by `library-pane.ts`) */
   grid-template-columns: var(--cs-library-list, 320px) 6px minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
@@ -3277,7 +3277,7 @@ path.cs-art-t-dark {
 }
 
 /* each row is its own flex column so the label, the meta line and the id
-   never run together into one paragraph of text (3pn.1) */
+   never run together into one paragraph of text */
 .cs-editor .cs-def-item {
   display: flex;
   flex-direction: column;
@@ -3330,7 +3330,7 @@ path.cs-art-t-dark {
 }
 
 /* label, kind chip, mono id, part number — one row, real gaps, not run
-   together (3pn.1 acceptance) */
+   together */
 .cs-def-head-title {
   display: flex;
   align-items: baseline;
@@ -3348,8 +3348,7 @@ path.cs-art-t-dark {
   border-bottom: 0;
 }
 
-/* the chip that says a definition is shared before anything is typed into it
-   (3pn.2 — replaces a full-width sentence banner); the list of what uses it
+/* the chip that says a definition is shared before anything is typed into it (replaces a full-width sentence banner); the list of what uses it
    is a popover click away */
 .cs-usage-chip {
   border-color: var(--cs-warn);
@@ -3417,7 +3416,7 @@ path.cs-art-t-dark {
 }
 
 /*
- * Edit locks (50a.51): a wrapper that disables every control under it while
+ * Edit locks: a wrapper that disables every control under it while
  * someone else edits the record, without adding a box of its own — the
  * layout is exactly the unlocked one, controls greyed, not hidden.
  */
@@ -3651,7 +3650,7 @@ fieldset.cs-lock-fence {
   white-space: nowrap;
 }
 
-/* ---------- a board's copper paths, read as pad → pin (50a.38) ---------- */
+/* ---------- a board's copper paths, read as pad → pin ---------- */
 
 .cs-paths {
   display: grid;
@@ -3740,7 +3739,7 @@ fieldset.cs-lock-fence {
 
 .cs-wire-editor {
   display: grid;
-  /* the cutaway gets real room (50a.38): it is the thing being checked */
+  /* the cutaway gets real room: it is the thing being checked */
   grid-template-columns: minmax(0, 1fr) minmax(300px, 42%);
   gap: 16px;
   align-items: start;
@@ -4076,8 +4075,8 @@ fieldset.cs-lock-fence {
 /* ---------- the canvas toolbar (top-centre, per the mockup) ---------- */
 
 /* select / pan, auto-arrange, fit view. Zoom stays on React Flow's own
-   bottom-left `<Controls>`; a Parts/Pins level-of-detail toggle is e5c.7's. */
-/* find a pin (udy.6): a floating box under the canvas toolbar */
+   bottom-left `<Controls>`; a Parts/Pins level-of-detail toggle is separate. */
+/* find a pin: a floating box under the canvas toolbar */
 .cs-pin-search {
   position: absolute;
   top: 52px;
@@ -5057,7 +5056,7 @@ fieldset.cs-lock-fence {
   display: block;
 }
 
-/* ---------- trace highlighting on the schematic (e5c.24) ---------- */
+/* ---------- trace highlighting on the schematic ---------- */
 
 .cs-trace-hint {
   margin-left: 8px;
@@ -5165,7 +5164,7 @@ fieldset.cs-lock-fence {
   fill: #c2602a;
 }
 
-/* ---------- level of detail: Parts | Pins (e5c.7) ---------- */
+/* ---------- level of detail: Parts | Pins ---------- */
 
 .cs-lod {
   display: flex;

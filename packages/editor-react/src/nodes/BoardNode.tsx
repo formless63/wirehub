@@ -58,7 +58,7 @@ function PartDetail({ detail }: { detail: BoardPartDetail }): JSX.Element {
 
 /**
  * The build's mounted parts over one face: a real
- * top-down body per part (y1u.18) — or, for a part the importer did not
+ * top-down body per part — or, for a part the importer did not
  * classify, a translucent body in the component tone, so the copper, pads
  * and handles stay visible through it; solder jumpers as bridged / open /
  * unset; and, with `labels`, the ref and value. The card thumbnail (Parts
@@ -172,7 +172,7 @@ function PadHandle({
         style={{
           left: handle.x,
           top: handle.y,
-          // a pad landed through a carrier hole (e5c.37) shows its net's paint
+          // a pad landed through a carrier hole shows its net's paint
           ...(row?.through === undefined || row.through === '' ? {} : { ['--pad-through' as string]: row.through }),
         }}
         data-terminal={handle.key}

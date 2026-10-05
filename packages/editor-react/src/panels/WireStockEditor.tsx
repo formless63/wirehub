@@ -98,7 +98,7 @@ export interface Crop {
  * (tiny beside the circle) is left out and shown as an HTML legend instead.
  */
 export function cutawayCrop(cs: CrossSection): Crop {
-  // a figure-8 (pci.29) is framed by its two lobes, not its bounding circle
+  // a figure-8 is framed by its two lobes, not its bounding circle
   const lobes = cs.outline?.lobes ?? [{ cx: cs.jacket.cx, cy: cs.jacket.cy, r: cs.jacket.r }];
   const xs: number[] = lobes.flatMap((lobe) => [lobe.cx - lobe.r, lobe.cx + lobe.r]);
   const ys: number[] = lobes.flatMap((lobe) => [lobe.cy - lobe.r, lobe.cy + lobe.r]);
@@ -134,7 +134,7 @@ export function croppedSvg(svg: string, crop: Crop | undefined): string {
  *
  * Deliberately the *documentary* renderer and not a second drawing made for
  * this screen: what you see while typing is the picture the build sheet will
- * print, cropped to the cable and scaled to the panel (50a.38 — "the cross
+ * print, cropped to the cable and scaled to the panel ("the cross
  * section is impossible to read"), with its key printed beside it as a real
  * legend: colour chip, callout number, the key's own words. The key already
  * follows the grounding rules (a foil gets no row; bonded multi-core's bonded core

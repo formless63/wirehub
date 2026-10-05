@@ -1,6 +1,5 @@
 /**
- * The controlled lists, as the editor's forms use them (data model v2 §5,
- *).
+ * The controlled lists, as the editor's forms use them (data model v2 §5).
  *
  * The lists themselves arrive with the library (`Db.vocab`); what a host adds
  * is a `VocabAdapter` — how a new entry is appended and how a record's tags

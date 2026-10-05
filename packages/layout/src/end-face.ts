@@ -9,7 +9,7 @@
  *
  * - `layOrder.direction` describes the cut face of the end named in
  *   `layOrder.viewedFrom`; the other end reads the same ring the opposite way
- *   (owner, 2026-09-23: the destination end reads clockwise, the source end
+ *   (the destination end reads clockwise, the source end
  *   counter-clockwise). `crossSectionLayout` draws the `viewedFrom` face, so
  *   the other end is that drawing mirrored about the vertical axis.
  * - Wire end `a` is the source, `b` the destination.

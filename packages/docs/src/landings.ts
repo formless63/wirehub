@@ -62,9 +62,8 @@ export function screensText(members: readonly string[]): string {
 
 /**
  * A fully bonded stock's mass in words — all of its copper as one, never the
- * foil (owner, 2026-09-25: "we instead treat all of the
- * shielding material the same on bonded multi-core and would indicate it together,
- * but the primary focus is on all of the copper"): `shields (all 7 copper
+ * foil (all the shielding of a bonded multi-core is treated alike and
+ * indicated together; the copper is what matters): `shields (all 7 copper
  * screens + drain, bonded)`.
  */
 function massText(wire: WireDefinition, members: readonly string[]): string {

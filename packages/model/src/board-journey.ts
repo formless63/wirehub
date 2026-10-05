@@ -1,6 +1,6 @@
 /**
- * The board journey's pure helpers (data model v2 §8 J3, §9 task 10,
- *): the reads the studio's board page makes of a board's
+ * The board journey's pure helpers (data model v2 §8 J3, §9 task 10):
+ * the reads the studio's board page makes of a board's
  * build file, its definitions and its interface, so the checks it shows are
  * the same ones the catalog runs.
  *
@@ -75,9 +75,8 @@ export interface FootprintPadRow {
 }
 
 /**
- * A conductor landing on a footprint pad's copper (owner, decisions page
- * 2026-09-29, batch 10: "that pad both solders to the perfboard and we also
- * land the brown 5v wire from the wire side to it"): `pad` is the cable-side
+ * A conductor landing on a footprint pad's copper (a pad can both solder to
+ * the carrier board and take a wire from the wire side): `pad` is the cable-side
  * pad a wire lands on — the footprint terminal itself, or a cable pad the
  * netlist links it to with no part between — and `signal` what that
  * conductor carries (the pad's role's signal).
@@ -175,7 +174,7 @@ function agree(a: SignalRef | undefined, b: SignalRef | undefined, vocab: Vocab 
  * `signal-mismatch`; one the interface has no position for is
  * `unknown-position` (the same finding as `validateBoardBuilds`'
  * `footprint-position-unknown`) — unless it is a **double landing**
- * (`dual-landing`, owner 2026-09-29 batch 10): the footprint has a carrier
+ * (`dual-landing`): the footprint has a carrier
  * whose pad T-joins this one, a conductor lands on the same copper
  * (`options.landings`, see `conductorLandings`) carrying what the pad's tag
  * names, and both the tag and the position are DC levels (a rail, RGB
@@ -223,7 +222,7 @@ export function footprintPadMap(
         row.signal = fn.signal;
         if (fn.label !== undefined) row.label = fn.label;
         row.status = padSignal === undefined ? 'untagged' : agree(fn.signal, padSignal, vocab) ? 'ok' : 'signal-mismatch';
-        // a double landing (owner, decisions page 2026-09-29, batch 10): the
+        // a double landing: the
         // pad takes the plug's position through the carrier's T-join AND a
         // conductor from the wire side — its tag names what the conductor
         // carries (the brown's +5 V), the position what the plug delivers

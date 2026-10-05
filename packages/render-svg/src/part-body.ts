@@ -143,8 +143,7 @@ function framePads(frame: Frame, part: BoardPart): FramePad[] {
 }
 
 /**
- * The axis the part's pins run along, read off its pads (owner answers batch
- * 10): the one the pads take more distinct positions
+ * The axis the part's pins run along, read off its pads: the one the pads take more distinct positions
  * along (a SOIC's leads spread along it; its two rows sit across it), and for
  * a two-pad part the one the pads lie apart on — never the body's aspect,
  * which a courtyard or fab box drawn around the leads can turn the other way.
@@ -260,8 +259,7 @@ function icShapesByOutline(frame: Frame, pins: number | undefined): PartDetailSh
 }
 
 /**
- * Gull-wing leads landed on the footprint's own pads (owner answers batch 10,
- *): one lead per pad, centred on it, running out from the
+ * Gull-wing leads landed on the footprint's own pads: one lead per pad, centred on it, running out from the
  * body's edge across the pin axis; the body spans the outline along the pin
  * axis and sits between the pad rows across it. Orientation and position are
  * the KiCad placement's, whatever the outline's aspect.
@@ -356,8 +354,8 @@ export function partBodyShapes(part: BoardPart): PartDetailShape[] {
 
 /* ------------------------------------------------------------------ *
  * Where the drawing puts the part's pins, and whether that is on its pads
- * (owner answers batch 10: "the sync stripper [is] in the
- * wrong orientation in relation to the pads to land the footprint on").
+ * (a part drawn in the wrong orientation relative to
+ * its pads cannot be landed on its footprint).
  * ------------------------------------------------------------------ */
 
 /** A point the drawing puts a pin (or a polarity mark) at, read back off `partBodyShapes`. */

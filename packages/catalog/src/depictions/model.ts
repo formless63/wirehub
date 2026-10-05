@@ -228,15 +228,15 @@ export interface DepictionMeta {
    */
   components?: BoardComponents;
   /**
-   * The board's ordered solder mask / silkscreen colour and copper finish
-   *, baked into `board-top.svg`/`board-bottom.svg` at
+   * The board's ordered solder mask / silkscreen colour and copper finish,
+   * baked into `board-top.svg`/`board-bottom.svg` at
    * generation (`recolorBoardSvg`) — this field is provenance, not a render
    * instruction. Gerber tier only.
    */
   color?: BoardColor;
   /**
-   * Human-set wire entry guides for the board's angled pad rows
-   *. Copied verbatim from the reviewed
+   * Human-set wire entry guides for the board's angled pad rows.
+   * Copied verbatim from the reviewed
    * `data/kicad-maps/<defId>.json` (`entryGuides`) — the hand-authored input
    * that survives regeneration — by `import-gerbers` and by the studio's
    * guide save. Presentation only.
@@ -360,7 +360,7 @@ export interface BoardPart {
   package?: PartPackage;
   /**
    * The footprint's numbered pads — each copper centre in the anchor frame, in
-   * pad-number order (owner answers batch 10): what a
+   * pad-number order: what a
    * drawing lands the part's pins on, so its orientation and position come
    * from the KiCad placement, never from a hand value or the body's aspect.
    */

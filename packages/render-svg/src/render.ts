@@ -72,8 +72,8 @@ export interface RenderOptions {
    */
   depictions?: boolean | DepictionSource;
   /**
-   * Print each populated board's parts' ref/value over the artwork
-   *. Default `false`: a printed build sheet's BOM
+   * Print each populated board's parts' ref/value over the artwork.
+   * Default `false`: a printed build sheet's BOM
    * already lists every part, so a document renders this way unless it asks
    * otherwise; the studio's own schematic panel passes its "Part labels"
    * toggle through here. Every part still carries a `<title>` tooltip with
@@ -1197,7 +1197,7 @@ function renderComponent(component: DiagramComponent): string {
  * ------------------------------------------------------------------ */
 
 function renderJointDots(diagram: Diagram): string {
-  // a guided pad's route ends at its entry-guide slot (e5c.28): its joint
+  // a guided pad's route ends at its entry-guide slot: its joint
   // dot still marks the pad itself
   const slotted = diagram.blocks.flatMap((block) => block.ports.filter((port) => port.slot !== undefined));
   const onPad = (dot: { x: number; y: number }): { x: number; y: number } =>

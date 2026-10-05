@@ -56,7 +56,7 @@ export function CableRoute(): JSX.Element {
   }, [id]);
 
   // the design's board artwork, fetched before the editor mounts so its first
-  // auto-layout sees real board sizes (udy.9); later additions load on use
+  // auto-layout sees real board sizes; later additions load on use
   const [artReady, setArtReady] = useState<string>();
   const draft = studio.cableId === id ? studio.design : undefined;
   const partsKey = draft === undefined ? '' : depictionDefsOf(draft).join(' ');
@@ -135,7 +135,7 @@ export function CableRoute(): JSX.Element {
   const db = studio.db;
   // the build sheet's and BOM's title-block short names, by the cable list's rule
   const documentFacts = useMemo(() => documentFactsFor(), []);
-  // the bench's strip steps: a segment's 3D view in the Inspector strips by them (50a.58)
+  // the bench's strip steps: a segment's 3D view in the Inspector strips by them
   const stripPractice = useMemo(() => workbenchWireLibrary().practice, []);
   const release = useMemo<DocumentRelease | undefined>(
     () =>
@@ -217,7 +217,7 @@ export function CableRoute(): JSX.Element {
     return <div className="flex h-full items-center justify-center text-[12.5px] text-faint">Loading…</div>;
   }
 
-  // edit locks (50a.51): the cable, its drawing and its documents are one record
+  // edit locks: the cable, its drawing and its documents are one record
   return (
     <EditLockScope record={designRecord(id)}>
     <CableEditor

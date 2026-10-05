@@ -194,7 +194,7 @@ describe('the drawing sheet lengths box', () => {
   });
 });
 
-describe('sheet options (50a.9)', () => {
+describe('sheet options', () => {
   const today = (): string => '2026.09.24';
 
   it('the document number defaults to the part number, the revision to the drawing, and no date unless stamped', () => {

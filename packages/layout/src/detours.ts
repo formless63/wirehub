@@ -307,8 +307,7 @@ export function settleLanes(lanes: readonly LanePlan[]): Map<string, number> {
  *
  * `ring` is how far out this route's detour round `item` stands: every other
  * net already detouring round the same keep-out has taken the ring inside
- * it, so two hops round one component nest instead of sharing a line
- *.
+ * it, so two hops round one component nest instead of sharing a line.
  */
 export function detourSegment(
   a: Point,

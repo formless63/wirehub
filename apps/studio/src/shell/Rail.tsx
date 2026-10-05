@@ -65,7 +65,7 @@ export function Rail(): JSX.Element {
           </a>
         </>
       ) : null}
-      {/* with the login off, also where this browser names itself for edit locks (50a.51) */}
+      {/* with the login off, also where this browser names itself for edit locks */}
       <LockNameAvatar user={user} who={who} signedIn={me?.source === 'session'} />
     </nav>
   );

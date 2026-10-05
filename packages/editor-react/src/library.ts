@@ -104,7 +104,7 @@ export interface DefinitionSummary {
   status?: 'development' | 'legacy' | 'retired';
 }
 
-/** Legacy and retired board revisions: kept for reference, hidden unless the list is asked for them (owner 2026-09-25). */
+/** Legacy and retired board revisions: kept for reference, hidden unless the list is asked for them. */
 export function isOldRevision(summary: Pick<DefinitionSummary, 'status'>): boolean {
   return summary.status === 'legacy' || summary.status === 'retired';
 }
@@ -155,7 +155,7 @@ export function definitionDetail(kind: DefinitionKind, record: DefinitionRecord)
       const cores = wire.structure.children.filter(
         (child) => child.kind === 'group' || (child.kind === 'conductor' && child.bare !== true),
       ).length;
-      // never the manufacturer here (owner 2026-09-25/26) — it stays inside
+      // never the manufacturer here — it stays inside
       // the wire's own detail view (`WireStockDetail.tsx`), not this list line
       return [
         wire.partNumber,

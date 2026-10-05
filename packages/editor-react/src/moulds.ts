@@ -67,8 +67,7 @@ export type MouldRow = {
 
 /**
  * A connector the design houses in the mould (`BreakoutInstance.housed`,
- * — the owner, 2026-09-29: "the female TRS is female and
- * inside the breakout"): drawn as part of the mould itself, its opening
+ * — e.g. a female TRS inside the breakout): drawn as part of the mould itself, its opening
  * facing outward, never as a separate plug on a lead. `art`/`layout` are
  * absent only for a connector definition or family the canvas has no
  * drawing for; the mould still lists it, undrawn.

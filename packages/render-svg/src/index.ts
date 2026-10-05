@@ -81,7 +81,7 @@ export type {
   PinForm,
 } from '@wirehub/layout';
 export { inlineVectorAsset, prefixIds, svgBody, usesXlink } from './depiction.ts';
-/** A board's mounted parts over its artwork (y1u.17), for any drawing that depicts a board. */
+/** A board's mounted parts over its artwork, for any drawing that depicts a board. */
 export { placePartLabels, renderBoardParts } from './board-parts.ts';
 export type { BoardPart } from '@wirehub/catalog';
 export { drawnPinPoints, partBodyShapes, partPadMismatches, resistorMarking } from './part-body.ts';

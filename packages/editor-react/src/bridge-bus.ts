@@ -4,10 +4,10 @@
  * A joint between two terminals of one part — the HD15's 6 ↔ 5/7/8/10
  * returns bridged in the head, a SCART's commoned ground returns, a DB-23's
  * 16 ↔ 17 strap, two ground pads of one board — is not a wire run anywhere:
- * it is solder or a short link inside the part. The owner (2026-09-28): "They
- * also don't need to be rendered like wires on top of everything. Couldn't
- * they just be a grid-like structure, a tad faint, behind the other bits that
- * connect the relevant ground pads on that design that need to be?"
+ * it is solder or a short link inside the part. They
+ * need not be rendered like wires on top of everything: they are drawn as a
+ * faint grid-like structure behind the other bits, connecting the relevant
+ * ground pads of the design.
  *
  * So the canvas draws no edge for them (`derive.ts` keeps their edge hidden,
  * unselectable and undeletable), and the part draws this instead: per group

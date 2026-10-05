@@ -524,8 +524,7 @@ function diffJoints(before: readonly Joint[], after: readonly Joint[]): { added:
 
 /**
  * A design-only change log: `diffLines` of two designs with no frozen
- * definitions — what the studio's backup commit lists under a design save
- *.
+ * definitions — what the studio's backup commit lists under a design save.
  */
 export function designChangeLines(before: CableDesign, after: CableDesign): string[] {
   const none: FrozenDefinitions = { connectors: [], bodies: [], interfaces: [], wires: [], components: [], pcbas: [], mechanicals: [] };

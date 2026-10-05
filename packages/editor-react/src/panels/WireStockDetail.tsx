@@ -1,14 +1,12 @@
 /**
- * A wire stock's page in the Library (reordered
- * 50a.62): the visuals — the parametric 3D wire, open on load with no extra
+ * A wire stock's page in the Library: the visuals — the parametric 3D wire, open on load with no extra
  * click, plus the documentary section (cutaway) drawing — sit first and
  * full-width, always shown. Below them are the wire's settings: its
  * properties (handed in by the caller, which owns the table columns) and the
  * builder/edit controls, one tab each (Builder, Spec sheet, Record). "Where
- * used" is the caller's business too, rendered after this component — last,
- * as the owner asked (2026-09-29): "the visuals and settings and such should
- * be at the top" and the owner "didn't find the new 3D wires" when they were
- * behind a tab.
+ * used" is the caller's business too, rendered after this component — last.
+ * The visuals and settings sit at the top: the 3D wires went unnoticed when
+ * they were behind a tab.
  *
  * Holds the draft recipe, the parts library (reloaded after "New part…"),
  * and the save: compile, gate, hand to the host adapter, which validates the
@@ -32,7 +30,7 @@ import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 export type WireDetailTab = 'builder' | 'spec' | 'record';
 
 /**
- * The stock's WireHub Standard sheet (pci.18/pci.29). Every file it
+ * The stock's WireHub Standard sheet (). Every file it
  * leaves as is named `ASS_<part number>`: the download, and the print —
  * a browser names a saved PDF after the page title, so the title is set for
  * the length of the print.
@@ -178,8 +176,7 @@ export function WireStockDetail(props: WireStockDetailProps): JSX.Element {
 
   return (
     <div className="cs-wb-detail">
-      {/* the visuals, first and full-width, open on load with no click needed
-          (owner 2026-09-29: the new 3D wires went unnoticed behind a tab) */}
+      {/* the visuals, first and full-width, open on load with no click needed */}
       <section className="cs-record-section cs-wb-views" aria-label="views">
         <h3 className="cs-record-h">Views</h3>
         <div className="cs-wb-views-3d">

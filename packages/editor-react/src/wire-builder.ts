@@ -1,6 +1,6 @@
 /**
- * The wire builder's state changes, as pure functions of a `WireRecipe`
- *. The panel (`panels/WireBuilder.tsx`) only wires
+ * The wire builder's state changes, as pure functions of a `WireRecipe`.
+ * The panel (`panels/WireBuilder.tsx`) only wires
  * these to controls, so every rule — what a ring swap does, how an
  * arrangement change re-seats the cores, what "duplicate" keeps — is
  * testable without a DOM.

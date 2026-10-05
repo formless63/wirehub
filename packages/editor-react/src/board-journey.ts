@@ -1,6 +1,5 @@
 /**
- * The board journey's host contract and its pure reads (data model v2 §8 J3,
- *).
+ * The board journey's host contract and its pure reads (data model v2 §8 J3).
  *
  * A board page in the Library walks the steps a new PCB takes — Import,
  * Pads, Connector, Builds, Guides — each with a completion state, so nothing
@@ -85,8 +84,7 @@ export function padTags(db: Db, def: PcbaDefinition, terminal: string): { role?:
 /**
  * The conductor landing on each footprint pad's copper (`conductorLandings`
  * with this board's tags): what lets the connector step read a pad that takes
- * both the carrier's T-join and a wire (owner 2026-09-29, batch 10) as a
- * double landing, not a mismatch.
+ * both the carrier's T-join and a wire as a double landing, not a mismatch.
  */
 export function padLandings(db: Db, def: PcbaDefinition): Record<string, ConductorLanding> {
   return conductorLandings(def, (terminal) => padTags(db, def, terminal));

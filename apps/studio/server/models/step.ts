@@ -37,8 +37,8 @@ function loadOcct(): Promise<Occt> {
 
 /**
  * `linearDeflection` as a share of the bounding box; coarser = fewer triangles.
- * `iges`: the file is IGES rather than STEP (a model KiCad embedded as .igs,
- *) — the same reader, the same meshes out.
+ * `iges`: the file is IGES rather than STEP (a model KiCad embedded as .igs)
+ * — the same reader, the same meshes out.
  */
 export async function readStep(bytes: Uint8Array, linearDeflection = 0.001, iges = false): Promise<MeshPart[]> {
   const lib = await loadOcct();
