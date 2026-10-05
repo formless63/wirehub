@@ -255,6 +255,63 @@ describePg('jobs on Postgres', () => {
       expect(stale.result['stale']).toBe(true);
       expect(alerts).toEqual(['backup-dump-stale']);
       expect((await runBackupJob(context, { db: handle.db, orgId, dir: join(work, 'no-backups') })).result).toEqual({ configured: false });
+
+      // failures (urgent): a failed dump, a failed restore check, and a snapshot error newer than the last good one
+      const urgent: string[] = [];
+      const notify = { enabled: true, notify: async (e: { event: string; severity: string }) => void urgent.push(`${e.severity}:${e.event}`) };
+      const iso = new Date().toISOString();
+      writeFileSync(join(backups, 'postgres', 'dump.status'), `ok ${iso}\n`);
+      writeFileSync(join(backups, 'postgres', 'restore-check.status'), `ok ${iso}\n`);
+      await runBackupJob(context, { db: handle.db, orgId, dir: backups, notify });
+      expect(urgent).toEqual([]);
+      writeFileSync(join(backups, 'postgres', 'dump.status'), `failed ${iso}\n`);
+      writeFileSync(join(backups, 'postgres', 'restore-check.status'), `failed ${iso}\n`);
+      const failure = join(backups, '.last-failure');
+      writeFileSync(failure, '');
+      const after = new Date(Date.now() + 120_000);
+      utimesSync(failure, after, after);
+      const failed = await runBackupJob(context, { db: handle.db, orgId, dir: backups, notify });
+      expect(urgent).toEqual(['urgent:backup-failed', 'urgent:backup-failed', 'urgent:restore-check-failed']);
+      expect(failed.result['failed']).toEqual(['backup-failed', 'backup-failed', 'restore-check-failed']);
+
+      // an audit row without a change set: a write that bypassed the application (high)
+      const { watchAudit } = await import('../../server/pg/audit-watch.ts');
+      const sent: string[] = [];
+      const audit = { enabled: true, notify: async (e: { event: string; severity: string }) => void sent.push(`${e.severity}:${e.event}`) };
+      expect(await watchAudit({ db: handle.db, orgId, notify: audit })).toEqual({ unattributed: 0 });
+      await owner.query("INSERT INTO studio.audit_log (org_id, table_name, row_key, op) VALUES ($1, 'record', 'x/y', 'UPDATE')", [orgId]);
+      expect(await watchAudit({ db: handle.db, orgId, notify: audit })).toEqual({ unattributed: 1 });
+      expect(sent).toEqual(['high:unattributed-write']);
+    } finally {
+      await owner.end();
+      await handle.close();
+      await own.drop();
+    }
+  }, 120_000);
+
+  it('counts the pg-boss jobs that failed in the last day for the deep health check', async () => {
+    const own = await freshDatabase();
+    const { startBoss, failedJobCount } = await import('../../server/pg/jobs.ts');
+    const { openPg } = await import('../../server/pg/db.ts');
+    const handle = openPg(own.appUrl, { max: 2 });
+    const owner = new pg.Client({ connectionString: own.ownerUrl });
+    await owner.connect();
+    try {
+      // before the worker made its tables there is nothing to count
+      expect(await failedJobCount(handle.db)).toBe(0);
+      const boss = await startBoss(own.appUrl, 'worker', quiet);
+      try {
+        expect(await failedJobCount(handle.db)).toBe(0);
+        for (let i = 0; i < 2; i += 1) {
+          await boss.send('derive', { org: 'x' });
+        }
+        const jobs = await boss.fetch('derive', { batchSize: 2 });
+        for (const job of jobs) await boss.fail('derive', job.id, { message: 'boom' });
+        await new Promise((r) => setTimeout(r, 500));
+        expect(await failedJobCount(handle.db)).toBe(2);
+      } finally {
+        await boss.stop({ graceful: false, timeout: 5000 });
+      }
     } finally {
       await owner.end();
       await handle.close();

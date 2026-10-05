@@ -24,7 +24,7 @@
  *   commit rolled back, a job's scratch file).
  */
 
-import { existsSync, lstatSync, readlinkSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readlinkSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { sql } from 'kysely';
@@ -43,6 +43,29 @@ export interface BackupState {
   dump?: string;
   /** Backrest's last successful snapshot (`.last-snapshot`) */
   snapshotAt?: Date;
+  /** the last `pg_dump` run's outcome (`postgres/dump.status`, written by backup-dump) */
+  dumpRun?: StatusLine;
+  /** the last restore check's outcome (`postgres/restore-check.status`) */
+  restoreCheck?: StatusLine;
+  /** when the post-snapshot error hook last fired (`.last-failure` beside the marker) */
+  snapshotFailedAt?: Date;
+}
+
+/** `ok <ISO time>` or `failed <ISO time>`, as the backup scripts write them. */
+export interface StatusLine {
+  ok: boolean;
+  at: Date;
+}
+
+export function readStatusLine(file: string): StatusLine | undefined {
+  try {
+    const m = /^(ok|failed)\s+(\S+)/.exec(readFileSync(file, 'utf8'));
+    if (m === null) return undefined;
+    const at = new Date(m[2] as string);
+    return Number.isNaN(at.getTime()) ? undefined : { ok: m[1] === 'ok', at };
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -67,6 +90,12 @@ export function readBackupState(dir: string | undefined, marker?: string): Backu
   }
   const markerPath = marker ?? join(dir, '.last-snapshot');
   if (existsSync(markerPath)) state.snapshotAt = statSync(markerPath).mtime;
+  const dumpRun = readStatusLine(join(dir, 'postgres', 'dump.status'));
+  if (dumpRun !== undefined) state.dumpRun = dumpRun;
+  const restoreCheck = readStatusLine(join(dir, 'postgres', 'restore-check.status'));
+  if (restoreCheck !== undefined) state.restoreCheck = restoreCheck;
+  const failure = join(dirname(markerPath), '.last-failure');
+  if (existsSync(failure)) state.snapshotFailedAt = statSync(failure).mtime;
   return state;
 }
 
@@ -99,6 +128,14 @@ export async function runBackupJob(context: JobContext, options: BackupJobOption
       ),
     );
   }
+  // failures (§8.6, urgent): the last dump or restore check did not succeed, or a snapshot failed after the last good one
+  const failures: { event: string; title: string; message: string }[] = [];
+  if (state.dumpRun?.ok === false) failures.push({ event: 'backup-failed', title: 'Database dump failed', message: `The last pg_dump run (${state.dumpRun.at.toISOString()}) failed; see the backup-dump log.` });
+  if (state.snapshotFailedAt !== undefined && (state.snapshotAt === undefined || state.snapshotFailedAt > state.snapshotAt)) {
+    failures.push({ event: 'backup-failed', title: 'Backup snapshot failed', message: `Backrest's last snapshot failed (${state.snapshotFailedAt.toISOString()}); see its log.` });
+  }
+  if (state.restoreCheck?.ok === false) failures.push({ event: 'restore-check-failed', title: 'Restore check failed', message: `The weekly restore check (${state.restoreCheck.at.toISOString()}) failed: the newest dump does not restore to the counts it was taken with.` });
+  for (const f of failures) await options.notify?.notify({ ...f, severity: 'urgent' });
   const staleMs = (options.staleHours ?? 30) * 3600_000;
   const stale = state.dumpAt === undefined || now.getTime() - state.dumpAt.getTime() > staleMs;
   if (stale) {
@@ -118,6 +155,7 @@ export async function runBackupJob(context: JobContext, options: BackupJobOption
       snapshotAt: state.snapshotAt?.toISOString() ?? null,
       marked,
       stale,
+      failed: failures.map((f) => f.event),
     },
   };
 }

@@ -64,6 +64,25 @@ describe('/healthz', () => {
     expect((await deepHealthCheck({ worker: async () => undefined })()).checks[0]).toMatchObject({ name: 'worker', ok: false, detail: 'missing' });
   });
 
+  it('the backup check is skipped until backups are configured, then waits a day for the first snapshot', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wirehub-health-b-'));
+    const marker = join(dir, '.last-snapshot');
+    // the compose stack always names the marker: with no backup profile nothing writes `.configured`, and nothing is checked
+    expect((await deepHealthCheck({ backupMarker: marker })()).checks).toEqual([]);
+    writeFileSync(join(dir, '.configured'), '');
+    expect((await deepHealthCheck({ backupMarker: marker })()).checks[0]).toMatchObject({ name: 'backup', ok: true });
+    const later = Date.now() + 31 * 3_600_000;
+    expect((await deepHealthCheck({ backupMarker: marker, now: () => later })()).checks[0]).toMatchObject({ name: 'backup', ok: false, detail: 'missing' });
+    writeFileSync(marker, '');
+    expect((await deepHealthCheck({ backupMarker: marker })()).checks[0]).toMatchObject({ name: 'backup', ok: true });
+  });
+
+  it('the jobs check fails when more than two pg-boss jobs failed in a day', async () => {
+    const count = (n: number) => deepHealthCheck({ failedJobs: async () => n, log: () => {} });
+    expect((await count(2)()).checks[0]).toMatchObject({ name: 'jobs', ok: true });
+    expect((await count(3)()).checks[0]).toMatchObject({ name: 'jobs', ok: false, detail: 'failing' });
+  });
+
   it('the monitor alerts on a failing check', async () => {
     const sent: string[] = [];
     const stop = startHealthMonitor(

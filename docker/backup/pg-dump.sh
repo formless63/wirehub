@@ -37,9 +37,11 @@ dump() {
     bash "$(dirname "$0")/pg-counts.sh" "$url" > "$file.counts" || echo "backup-dump: could not count rows" >&2
     ln -sfn "$(basename "$file")" "$out/latest.dump"
     ln -sfn "$(basename "$file").counts" "$out/latest.dump.counts"
+    echo "ok $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$out/dump.status"
     echo "backup-dump: wrote $(basename "$file") ($(stat -c %s "$file") bytes, $(wc -l < "$file.counts") tables counted)"
   else
     rm -f "$file.partial"
+    echo "failed $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$out/dump.status"
     echo "backup-dump: pg_dump failed" >&2
   fi
   # newest first; drop everything after the first $keep
