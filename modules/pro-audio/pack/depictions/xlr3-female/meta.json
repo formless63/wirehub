@@ -8,7 +8,7 @@
       "sourceKind": "hand",
       "widthUnits": 24,
       "heightUnits": 24,
-      "src": "3-pin XLR socket mating face (IEC 61076-2-103), latch at the left; the three contact positions are inferred, not read from the standard drawing — approximate, verify before relying on handedness. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      "src": "3-pin XLR socket mating face (IEC 61076-2-103 interface), latch at the top: contact 2 left, 1 right, 3 below, as in the Neutrik NC3FXX front view (drawing ST-NC3FXX); contact spacing (about 8 mm across, 3.9 mm down) taken from the plug drawing NC3MDL-1 (drawing 3102 St 10 16) and mirrored, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
     },
     "solder-side": {
       "file": "solder-side.svg",
@@ -17,29 +17,29 @@
       "sourceKind": "hand",
       "widthUnits": 24,
       "heightUnits": 24,
-      "src": "3-pin XLR socket mating face (IEC 61076-2-103), latch at the left; the three contact positions are inferred, not read from the standard drawing — approximate, verify before relying on handedness. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "src": "3-pin XLR socket mating face (IEC 61076-2-103 interface), latch at the top: contact 2 left, 1 right, 3 below, as in the Neutrik NC3FXX front view (drawing ST-NC3FXX); contact spacing (about 8 mm across, 3.9 mm down) taken from the plug drawing NC3MDL-1 (drawing 3102 St 10 16) and mirrored, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
       "mirrorOf": "mating-face",
       "mirrorAxis": "x"
     }
   },
   "pinAnchors": {
     "1": {
-      "x": 8.8,
-      "y": 8.4
+      "x": 16,
+      "y": 12
     },
     "2": {
-      "x": 8.8,
-      "y": 15.6
+      "x": 8,
+      "y": 12
     },
     "3": {
-      "x": 15.8,
-      "y": 12
+      "x": 12,
+      "y": 15.9
     },
     "shell": {
-      "x": 2.5,
-      "y": 12
+      "x": 12,
+      "y": 2.5
     }
   },
   "anchorFrame": "mating-face",
-  "src": "3-pin XLR socket mating face (IEC 61076-2-103), latch at the left; the three contact positions are inferred, not read from the standard drawing — approximate, verify before relying on handedness. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "3-pin XLR socket mating face (IEC 61076-2-103 interface), latch at the top: contact 2 left, 1 right, 3 below, as in the Neutrik NC3FXX front view (drawing ST-NC3FXX); contact spacing (about 8 mm across, 3.9 mm down) taken from the plug drawing NC3MDL-1 (drawing 3102 St 10 16) and mirrored, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
 }

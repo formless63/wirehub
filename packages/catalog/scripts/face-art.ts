@@ -13,8 +13,8 @@
  * the catalogs' pinouts.
  *
  * Geometry is millimetres, +x right, +y down, the mating face seen head-on.
- * Where a pin layout is inferred rather than read from a standard it is
- * flagged in the `src` text.
+ * Where a pin layout is inferred rather than read from a standard or a
+ * manufacturer drawing it is flagged in the `src` text.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -182,11 +182,27 @@ function xlr(male: boolean): Face {
   const w = 24;
   const h = 24;
   const c = 12;
-  // latch at the left, so the three contacts sit at different heights (their wires leave level)
-  const items: Item[] = [{ t: 'circle', x: c, y: c, r: 11 }, { t: 'circle', x: c, y: c, r: male ? 9 : 9.6 }, { t: 'rect', x: 1.3, y: c - 1.2, w: 2.4, h: 2.4, rx: 0.4 }];
-  const pos: [string, number, number][] = [['1', c - 3.2, c - 3.6], ['2', c - 3.2, c + 3.6], ['3', c + 3.8, c]];
+  // latch (key) at the top, as in the manufacturer drawings: contacts 1 and 2 on the horizontal centre line, 3 below.
+  // A socket numbers them the other way round (2 left, 1 right) from a plug (1 left, 2 right).
+  const items: Item[] = [{ t: 'circle', x: c, y: c, r: 11 }, { t: 'circle', x: c, y: c, r: male ? 9 : 9.6 }, { t: 'rect', x: c - 1.2, y: 1.3, w: 2.4, h: 2.4, rx: 0.4 }];
+  const pos: [string, number, number][] = [
+    [male ? '1' : '2', c - 4, c],
+    [male ? '2' : '1', c + 4, c],
+    ['3', c, c + 3.9],
+  ];
   for (const [id, x, y] of pos) items.push({ t: 'pin', id, shape: 'circle', x, y, r: male ? 0.8 : 1.2 });
-  return { id: male ? 'xlr3-male' : 'xlr3-female', root: 'modules/pro-audio/pack/depictions', title: `XLR3 ${male ? 'male' : 'female'}`, w, h, items, extraAnchors: { shell: [2.5, c] }, src: `3-pin XLR ${male ? 'plug' : 'socket'} mating face (IEC 61076-2-103), latch at the left; the three contact positions are inferred, not read from the standard drawing — approximate, verify before relying on handedness.` };
+  return {
+    id: male ? 'xlr3-male' : 'xlr3-female',
+    root: 'modules/pro-audio/pack/depictions',
+    title: `XLR3 ${male ? 'male' : 'female'}`,
+    w,
+    h,
+    items,
+    extraAnchors: { shell: [c, 2.5] },
+    src: male
+      ? '3-pin XLR plug mating face (IEC 61076-2-103 interface), latch at the top: contact 1 left, 2 right, 3 below, as in the Neutrik NC3MDL-1 front view (drawing 3102 St 10 16); contact spacing (about 8 mm across, 3.9 mm down) scaled from that drawing, approximate outline.'
+      : '3-pin XLR socket mating face (IEC 61076-2-103 interface), latch at the top: contact 2 left, 1 right, 3 below, as in the Neutrik NC3FXX front view (drawing ST-NC3FXX); contact spacing (about 8 mm across, 3.9 mm down) taken from the plug drawing NC3MDL-1 (drawing 3102 St 10 16) and mirrored, approximate outline.',
+  };
 }
 
 function rcaEnd(): Face {
@@ -205,9 +221,10 @@ function usbA(): Face {
   const w = 16;
   const h = 8.5;
   const items: Item[] = [{ t: 'rect', x: 2, y: 2, w: 12, h: 4.5, rx: 0.4 }, { t: 'rect', x: 3, y: 3, w: 10, h: 2.5 }];
-  const xs = [4.1, 6.4, 8.9, 11.5];
+  // seen head-on the contacts run 4 3 2 1 left to right, centres 3.5 mm (VBUS, GND) and 1.0 mm (D-, D+) either side of the plug's centre line
+  const xs = [11.5, 9, 7, 4.5];
   ['1', '2', '3', '4'].forEach((id, n) => items.push({ t: 'pin', id, shape: 'rect', x: xs[n] ?? 0, y: 4.6, w: 1.2, h: 1.4 }, { t: 'text', x: xs[n] ?? 0, y: 8, text: id }));
-  return { id: 'usb-a-plug', root: 'modules/pc-serial/pack/depictions', title: 'USB Type-A plug', w, h, items, extraAnchors: { shell: [8, 2] }, src: 'USB Standard-A plug mating face, 12.0 x 4.5 mm shell; the four contacts are numbered 1-4 left to right here (inferred order, approximate).' };
+  return { id: 'usb-a-plug', root: 'modules/pc-serial/pack/depictions', title: 'USB Type-A plug', w, h, items, extraAnchors: { shell: [8, 2] }, src: 'USB Standard-A plug mating face, 12.0 x 4.5 mm shell; contacts numbered 4 3 2 1 left to right with centres 3.5 and 1.0 mm either side of the centre line, as in USB 2.0 Specification Figure 6-9 (USB Series "A" Plug Interface Drawing, USB-IF); contact widths and the outline are approximate.' };
 }
 
 function obd2(): Face {
