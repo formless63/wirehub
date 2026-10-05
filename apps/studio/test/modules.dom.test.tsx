@@ -190,10 +190,11 @@ describe('the Library', () => {
   it('shows no Import button (only Browse store) and no panels with no modules', async () => {
     mount('/library/components', EMPTY_REGISTRY);
     await screen.findByTestId('library');
-    // each kind's list actions: [Import… (a module importer's), Browse store]
+    // each kind's list actions: [Import… (a module importer's), Bulk CSV…, Browse store]
     const actions = seen.library?.['listActions'] as Record<string, { props: { children: unknown[] } }>;
     expect(actions['components']?.props.children[0]).toBeNull();
-    expect(actions['components']?.props.children[1]).not.toBeNull();
+    expect(actions['components']?.props.children[1]).toBeNull();
+    expect(actions['components']?.props.children[2]).not.toBeNull();
     // the record's History is the base's own; no module panel beside it
     const detail = await screen.findByTestId('detail');
     expect(within(detail).getByTestId('history-button')).toBeDefined();
