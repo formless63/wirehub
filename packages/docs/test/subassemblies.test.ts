@@ -155,3 +155,11 @@ describe('the cost roll-up', () => {
     expect(cost.notes.join(' ')).toContain('has parts without a price of its own');
   });
 });
+
+describe('the formboard', () => {
+  it('lays the sub-assemblies\' runs out with the design\'s own', async () => {
+    const { deriveFormboard } = await import('../src/formboard.ts');
+    const board = deriveFormboard(y(), db);
+    expect(board.runs.map((r) => (r as { segment?: string }).segment)).toEqual(['lead-1/w1', 'lead-2/w1']);
+  });
+});

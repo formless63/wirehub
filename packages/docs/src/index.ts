@@ -97,6 +97,34 @@ export type { Length } from './units.ts';
 export * from './drawing/index.ts';
 
 export {
+  BRANCH_STEP_DEG,
+  FORMBOARD_PAPER,
+  NOMINAL_LENGTH_MM,
+  TILE_OVERLAP_MM,
+  deriveFormboard,
+  formboardHtml,
+  formboardLayout,
+  formboardPageCount,
+  formboardSvg,
+  formboardSvgPages,
+  parseScale,
+  scaleText,
+} from './formboard.ts';
+export type {
+  Formboard,
+  FormboardJoined,
+  FormboardLayout,
+  FormboardMarker,
+  FormboardMould,
+  FormboardOptions,
+  FormboardPeg,
+  FormboardRun,
+  FormboardSheetOptions,
+  FormboardTerminus,
+  BoardPoint,
+} from './formboard.ts';
+
+export {
   groundingNotes,
   renderWireSpecSheet,
   wireSpecDocNumber,

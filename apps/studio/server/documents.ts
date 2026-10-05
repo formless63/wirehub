@@ -2,8 +2,8 @@
  * Documents and exports without a browser — `/api/designs/:id/documents/:kind`
  * and `/api/designs/:id/exports/:format` (`docs/exports.md`).
  *
- *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&explode=1&quantity=…
- *       kind: schematic · build-sheet · bom · test-spec · drawing · labels
+ *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&quantity=…&scale=…&explode=1
+ *       kind: schematic · build-sheet · bom · test-spec · drawing · labels · formboard
  *       format: html · svg · pdf · csv (which a kind comes in: `render/index.ts`)
  *   GET /api/designs/:id/exports/:format?rev=…&quantity=…
  *       format: bom.csv · wire-list.csv · cut-list.csv · crimp-list.csv · production.xlsx ·
@@ -17,7 +17,7 @@
  */
 
 import { isDesignId } from '@wirehub/catalog';
-import { BASE_EXPORTS, baseExport, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, baseExport, parseScale, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import { releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type VersionSummary } from '@wirehub/model';
 
 import type { ApiResponse } from './api.ts';
@@ -183,6 +183,9 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const variation = query.get('variation') ?? undefined;
   // the BOM lists each sub-assembly's parts instead of one line for it
   const explode = query.get('explode') === '1' || query.get('explode') === 'true';
+  const scaleText = query.get('scale');
+  const scale = scaleText === null || scaleText === '' ? undefined : parseScale(scaleText);
+  if (scaleText !== null && scaleText !== '' && scale === undefined) return fail(400, `scale must be a number or a ratio such as 0.5 or 1:2, between 1:100 and 10:1, not '${scaleText}'.`);
   const meta = releaseMeta(loaded.drawing, loaded.target, loaded.approvals);
   const orgDefaults = await effectiveTestDefaults(deps);
 
@@ -225,6 +228,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(variation === undefined ? {} : { variation }),
     ...(page === undefined ? {} : { page }),
     ...(copies === undefined ? {} : { copies }),
+    ...(scale === undefined ? {} : { scale }),
     ...(quantity === undefined ? {} : { buildQty: quantity }),
     ...(explode ? { explode: true } : {}),
     ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),

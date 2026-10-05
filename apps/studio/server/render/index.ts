@@ -8,6 +8,7 @@
  *   test-spec   html · svg · pdf · csv (the continuity export)
  *   drawing     html · svg · pdf
  *   labels      svg (the label sheet) · pdf · csv
+ *   formboard   svg (the overview, or one tile with ?page=) · pdf (overview then every tile) · html (all pages)
  *
  * `html` is the browser's own render, byte for byte (same functions). `svg` and
  * `pdf` of the three text sheets are a plain page layout of the sheet's text
@@ -21,7 +22,12 @@ import { renderSchematic } from '@wirehub/render-svg';
 import {
   baseExport,
   buildSheetMarkdown,
+  deriveFormboard,
   deriveLabels,
+  formboardHtml,
+  formboardLayout,
+  formboardSvg,
+  formboardSvgPages,
   labelSheetPages,
   labelSheetSvg,
   renderBomMarkdown,
@@ -46,7 +52,7 @@ import { pagesToPdf, type PdfPage } from './pdf.ts';
 import { svgToPdfPage } from './raster.ts';
 import { pagesToSvg } from './svg.ts';
 
-export const DOCUMENT_KINDS = ['schematic', 'build-sheet', 'bom', 'test-spec', 'drawing', 'labels'] as const;
+export const DOCUMENT_KINDS = ['schematic', 'build-sheet', 'bom', 'test-spec', 'drawing', 'labels', 'formboard'] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 export const DOCUMENT_FORMATS = ['html', 'svg', 'pdf', 'csv'] as const;
 export type DocumentFormat = (typeof DOCUMENT_FORMATS)[number];
@@ -58,6 +64,7 @@ const FORMATS: Readonly<Record<DocumentKind, readonly DocumentFormat[]>> = {
   'test-spec': ['html', 'svg', 'pdf', 'csv'],
   drawing: ['html', 'svg', 'pdf'],
   labels: ['svg', 'pdf', 'csv'],
+  formboard: ['html', 'svg', 'pdf'],
 };
 
 /** The format a document is rendered in when none is asked for. */
@@ -68,6 +75,7 @@ export const DEFAULT_FORMAT: Readonly<Record<DocumentKind, DocumentFormat>> = {
   'test-spec': 'html',
   drawing: 'svg',
   labels: 'svg',
+  formboard: 'svg',
 };
 
 export function isDocumentKind(value: string): value is DocumentKind {
@@ -93,6 +101,8 @@ export interface DocumentRequest {
   /** label sheet: 1-based page and copies of each label */
   page?: number;
   copies?: number;
+  /** formboard: paper millimetres per board millimetre (1 = 1:1); page is then a tile, 1-based, and absent is the overview */
+  scale?: number;
   /** cables in the build, for the BOM's quantity breaks */
   buildQty?: number;
   /** the BOM lists each sub-assembly's parts instead of one line for it */
@@ -181,6 +191,22 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
         const svg = renderDrawingSheet(design, db, { ...drawingOptions, fragment: true });
         if (format === 'svg') return out(svg);
         return out(pagesToPdf([await svgToPdfPage({ svg, width: 792, height: 612 })], titleOf(request)));
+      }
+      case 'formboard': {
+        const board = deriveFormboard(design, db, { ...(request.variation === undefined ? {} : { variation: request.variation }), drawing: meta });
+        const sheetOptions = { paper, ...(request.scale === undefined ? {} : { scale: request.scale }), ...(request.revisionNumber === undefined ? {} : { revisionNumber: request.revisionNumber }) };
+        const layout = formboardLayout(board, sheetOptions);
+        if (request.page !== undefined && request.page > layout.tiles) {
+          return refuse(400, `The formboard has ${layout.tiles} tile page${layout.tiles === 1 ? '' : 's'} at ${request.scale === undefined ? '1:1' : `scale ${request.scale}`} on ${paper}, not ${request.page}.`, `Use page=1 to ${layout.tiles}, or leave page out for the overview.`);
+        }
+        if (format === 'html') return out(formboardHtml(board, sheetOptions));
+        if (format === 'svg') return out(formboardSvg(board, request.page ?? 0, sheetOptions));
+        const mm = paper === 'letter' ? { w: 279.4, h: 215.9 } : { w: 297, h: 210 };
+        const pages: PdfPage[] = [];
+        for (const svg of formboardSvgPages(board, sheetOptions)) {
+          pages.push(await svgToPdfPage({ svg, width: (mm.w / 25.4) * 72, height: (mm.h / 25.4) * 72, dpi: 150 }));
+        }
+        return out(pagesToPdf(pages, titleOf(request)));
       }
       case 'labels': {
         const labels = deriveLabels(design, db);

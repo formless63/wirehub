@@ -55,7 +55,7 @@ What was lost is mostly glue around the private parts:
 - part numbers are checked for format but never for duplicates;
 - the 3D board-model path had no way in (it has one now: a `.kicad_pcb` uploaded as a board's model source, cs-5k1.12);
 - the headless document scripts were not carried over;
-- six design specs are still waiting to be rewritten generically.
+- the six dropped design specs are now rewritten generically (cs-5k1.14): `specs/design-versions.md`, `shield-bonding.md`, `schematic.md`, `depictions.md`, `library.md`, `workbench-ux.md`.
 
 ## Feature inventory
 
@@ -260,7 +260,7 @@ What was lost is mostly glue around the private parts:
 | Rendering measurement and raster-check scripts | dropped | development aids for private designs |
 | ERP, lineup and part-number report scripts | missing, private | |
 | Artwork import script | present | replaced by the upload in the UI |
-| Six design specs left out as "re-specify generically later" | missing, generic | only the drawing language was rewritten: cs-5k1.14 |
+| Six design specs left out as "re-specify generically later" | missing, generic | rewritten generically (cs-5k1.14, done) |
 
 ## Missing (generic) and degraded, with beads
 
@@ -291,7 +291,7 @@ phase plan, and what a harness shop expects from a design tool.
 | 5 | cs-5k1.11 | Release approvals on saved versions | M |
 | 6 | cs-5k1.13 | Decision: a public board-import module for open file formats (KiCad, Gerber, fab BOM/CPL) — **decided and built**: `modules/board-import` | XL |
 | 7 | cs-5k1.15 | Electrical rules: conductor gauge, contact rating, voltage drop | M |
-| 8 | cs-5k1.16 | Harness formboard drawing for branched assemblies | XL |
+| 8 | cs-5k1.16 | Harness formboard drawing for branched assemblies (**built**: `specs/formboard.md`) | XL |
 | 9 | cs-5k1.17 | Costing: price breaks and BOM cost roll-up | M |
 | 10 | cs-5k1.18 | Interop: WireViz YAML and connection-list CSV import and export | M |
 | 11 | cs-5k1.19 | Bulk library import from CSV, with provenance | M |

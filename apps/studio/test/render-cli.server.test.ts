@@ -55,7 +55,7 @@ describe('request paths', () => {
     expect(requestPaths(parseRenderArgs(['d', 'labels.csv']))).toEqual(['/api/designs/d/exports/labels.csv']);
     expect(() => requestPaths(parseRenderArgs(['d', 'labels.csv', '--format', 'csv']))).toThrow(RenderCliError);
     const all = requestPaths(parseRenderArgs(['d', 'all']));
-    expect(all).toHaveLength(12);
+    expect(all).toHaveLength(14);
     expect(all).toContain('/api/designs/d/documents/schematic?format=pdf');
   });
 });
@@ -64,11 +64,11 @@ describe('writing files', () => {
   it('renders each document into the directory under the name the answer proposes', async () => {
     const written = await renderToFiles(source, parseRenderArgs([design.id, 'all', '--out', dir]), quiet);
     expect(readdirSync(dir).sort()).toEqual(
-      ['schematic.svg', 'schematic.pdf', 'build-sheet.html', 'build-sheet.pdf', 'bom.html', 'bom.pdf', 'test-spec.html', 'test-spec.pdf', 'drawing.svg', 'drawing.pdf', 'labels.svg', 'labels.pdf']
+      ['schematic.svg', 'schematic.pdf', 'build-sheet.html', 'build-sheet.pdf', 'bom.html', 'bom.pdf', 'test-spec.html', 'test-spec.pdf', 'drawing.svg', 'drawing.pdf', 'labels.svg', 'labels.pdf', 'formboard.svg', 'formboard.pdf']
         .map((name) => `${design.id}-${name}`)
         .sort(),
     );
-    expect(written).toHaveLength(12);
+    expect(written).toHaveLength(14);
     expect(readFileSync(join(dir, `${design.id}-build-sheet.pdf`)).subarray(0, 5).toString()).toBe('%PDF-');
   });
 

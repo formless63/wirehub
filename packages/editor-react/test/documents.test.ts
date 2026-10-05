@@ -45,7 +45,8 @@ describe('renderDocument', () => {
       expect(document.startsWith('<!doctype html>'), kind).toBe(true);
       // the drawing sheet is the owner's ANSI A landscape format; the rest
       // print on the caller's paper, A4 by default
-      expect(document, kind).toContain(kind === 'drawing' ? '@page{size:11in 8.5in;margin:0}' : '@page{size:A4 portrait');
+      // and the formboard is landscape A4 pages in millimetres
+      expect(document, kind).toContain(kind === 'drawing' ? '@page{size:11in 8.5in;margin:0}' : kind === 'formboard' ? '@page{size:297mm 210mm;margin:0}' : '@page{size:A4 portrait');
       // nothing to fetch: an iframe with no network is still a correct sheet.
       // (`xmlns="http://www.w3.org/2000/svg"` is a namespace name, not a fetch)
       const clean = document.replace(/xmlns(:\w+)?="[^"]*"/g, '');
@@ -303,5 +304,15 @@ describe('the drawing photo, resized to fit instead of refused', () => {
     expect(dataUriBytes('data:image/png;base64,AAA=')).toBe(2);
     expect(dataUriBytes('data:image/png;base64,AA==')).toBe(1);
     expect(dataUriBytes(`data:image/jpeg;base64,${Buffer.from('a'.repeat(300)).toString('base64')}`)).toBe(300);
+  });
+});
+
+describe('the formboard document', () => {
+  it('prints every page, at the scale asked, in the paper asked', () => {
+    const one = html(renderDocument('formboard', design, db, { scale: 0.1 }));
+    const many = html(renderDocument('formboard', design, db, { scale: 1, paper: 'letter' }));
+    expect(many).toContain('@page{size:279.4mm 215.9mm;margin:0}');
+    expect(many.match(/cs-formboard-page">/g)?.length).toBeGreaterThan(one.match(/cs-formboard-page">/g)?.length ?? 0);
+    expect(one).toContain('tiles at 1:10');
   });
 });

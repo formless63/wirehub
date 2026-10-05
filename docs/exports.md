@@ -189,13 +189,17 @@ Documents and the formats each comes in (default first):
 | `test-spec` | `html`, `svg`, `pdf`, `csv` (the continuity export) |
 | `drawing` | `svg`, `html`, `pdf` |
 | `labels` | `svg` (the label sheet), `pdf`, `csv` |
+| `formboard` | `svg` (the overview, or one tile with `page=`), `html`, `pdf` (overview then every tile) |
 
 `:format` of an export is one of the ids in the table at the top. A rendered sheet is sent
 with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
 
 - **`html`** is the browser's own render, byte for byte (the same functions); the working
   copy is marked UNRELEASED when the studio keeps saved revisions, exactly as on screen.
-- **`svg` and `pdf` of the schematic, the drawing sheet and the label sheet** are the
+- **`formboard`** is the cable laid flat at true length with pegs, connectors and label
+  positions, at 1:1 or `?scale=` (`0.5` or `1:2`) and tiled across `?paper=` pages with
+  registration marks (`specs/formboard.md`).
+- **`svg` and `pdf` of the schematic, the drawing sheet, the label sheet and the formboard** are the
   drawings themselves. The PDF is a rasterised page (SVG through `@resvg/resvg-js`, which
   the Library's 3D board textures already use, with the Liberation Sans faces in
   `packages/docs/fonts` and no system fonts, so it does not depend on the machine).
