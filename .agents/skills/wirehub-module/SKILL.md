@@ -91,6 +91,7 @@ details"); `modules/example/src/index.ts` has one working instance of each. Quic
 | Rewrite edits | `commitHook(before, proposed, description)` | singleton, pure, cheap |
 | Own files | `documents: [{ path: 'data/<prefix>/', class: 'imported' \| 'report' }]` | written through `PUT /api/docs/*path` |
 | Derived files | `derived: [{ id, label, files, derive({ designs, db }) }]` | written to `data/derived/<module>/<file>` by the commit that changes their inputs |
+| Own tables | `migrations: { dir }` | Postgres backend only: `NNNN_<module_id>_<name>.sql` files applied into schema `mod_<id>` after the base's migrations; tables with `org_id` need forced RLS and an `org_isolation` policy (docs/modules.md, "Module tables") |
 
 Per-design data of your own goes under `CableDesign.extensions[<module id>]`; carry a `schema`
 number inside it and migrate on read (`dataOf` in `modules/example/src/logic.ts`). A module never
