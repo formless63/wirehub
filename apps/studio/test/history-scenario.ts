@@ -292,4 +292,18 @@ export async function photoScenario(backend: HistoryBackend): Promise<void> {
   const back = await call({ method: 'POST', path: restorePath, body: { entry: bobsPhoto.id, current: again.current }, user: carol });
   expect(back.status, JSON.stringify(back.body)).toBe(200);
   expect(await photoNow()).toBe(second);
+
+  // cs-7xb: the photo is quoted like the rest. Carol looks, then Bob replaces the photo: her restore is refused (409), and nothing is written.
+  const third = png('third photo');
+  const looked = await get<HistoryEntryDetail>(`/api/history/entries/${afterFirst.id}?subject=${encodeURIComponent(subject)}`);
+  expect(looked.current).toHaveProperty('photo');
+  await setPhoto(third, bob);
+  const stale = await call({ method: 'POST', path: restorePath, body: { entry: afterFirst.id, current: looked.current }, user: carol });
+  expect(stale.status, JSON.stringify(stale.body)).toBe(409);
+  expect(await photoNow()).toBe(third);
+  // quoting the new version goes through
+  const fresh = await get<HistoryEntryDetail>(`/api/history/entries/${afterFirst.id}?subject=${encodeURIComponent(subject)}`);
+  const ok = await call({ method: 'POST', path: restorePath, body: { entry: afterFirst.id, current: fresh.current }, user: carol });
+  expect(ok.status, JSON.stringify(ok.body)).toBe(200);
+  expect(await photoNow()).toBe(first);
 }

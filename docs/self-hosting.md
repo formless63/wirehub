@@ -549,9 +549,10 @@ docker build -f docker/app.Dockerfile -t wirehub:dev .
 WIREHUB_IMAGE=wirehub:dev docker compose up -d
 ```
 
-`bash scripts/stack-smoke.sh --backup wirehub:dev` is the deploy test CI runs:
-an empty directory with only `compose.yaml`, no `.env`, the default stack and
-then the backup profile, every check a person would make, and everything
+`bash scripts/stack-smoke.sh --pdf --backup wirehub:dev` is the deploy test CI runs:
+an empty directory with only `compose.yaml`, no `.env`, the default stack, the
+`pdf` profile (the engine answers from the app's container and a build sheet
+prints with `X-WireHub-PDF-Renderer: browser`) and then the backup profile, every check a person would make, and everything
 removed afterwards. `node site/check-variants.mjs` validates the config
 generator's variants with `docker compose config`.
 

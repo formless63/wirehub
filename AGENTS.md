@@ -29,7 +29,7 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
   The git hooks in `.githooks/` (enabled by `pnpm install`) run it on every commit; a
   local, gitignored `.privacy-terms` file adds private words without publishing them.
 - The app: `pnpm --filter studio dev`, or the compose stack (deploy test:
-  `bash scripts/stack-smoke.sh --backup <image>`)
+  `bash scripts/stack-smoke.sh --pdf --backup <image>`)
   (`docs/self-hosting.md`, `apps/studio/README.md`).
 
 ## Conventions

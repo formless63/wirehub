@@ -97,7 +97,7 @@ describe('a record\'s History', () => {
     await waitFor(() => expect(restored).toHaveBeenCalled(), { timeout: 8000 });
     const post = calls.find((c) => c.method === 'POST');
     expect(post?.path).toBe('/api/history/records/design%3Adc-led-lead/restore');
-    expect(post?.body).toEqual({ entry: '5', current: { design: contentETag(design), drawing: expect.any(String) } });
+    expect(post?.body).toEqual({ entry: '5', current: { design: contentETag(design), drawing: expect.any(String), photo: null } });
     expect(((await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/dc-led-lead' }, deps)).body as { label: string }).label).toBe('Restored label');
   }, 20_000);
 

@@ -55,7 +55,7 @@ export interface HistorySource {
    * undefined: not recoverable (an older entry, a legacy per-design file, no
    * such entry). The bytes are read by hash (`WorkbenchDeps.blobByHash`).
    */
-  photoAt?(subject: Subject, id: string): Promise<{ sha256: string; mime?: 'image/png' | 'image/jpeg' } | 'none' | undefined>;
+  photoAt?(subject: Subject, id: string): Promise<{ sha256: string; mime?: 'image/png' | 'image/jpeg'; bytes?: Uint8Array } | { unrestorable: string } | 'none' | undefined>;
 }
 
 export const NO_HISTORY: HistoryCapabilities = {

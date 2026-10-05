@@ -24,6 +24,8 @@ export interface GitCall {
   /** extra environment (author/committer identity) */
   env?: Readonly<Record<string, string>>;
   timeoutMs?: number;
+  /** `latin1`: stdout is bytes, one char each (a binary blob), to be read back with `Buffer.from(stdout, 'latin1')`; default utf8 */
+  encoding?: 'utf8' | 'latin1';
 }
 
 export type GitRunner = (args: readonly string[], call: GitCall) => Promise<GitResult>;
@@ -53,7 +55,7 @@ export const execGit: GitRunner = (args, call) =>
       child.kill('SIGKILL');
       done({ code: -1, stdout, stderr: `${stderr}\ngit ${args[0] ?? ''} timed out` });
     }, call.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-    child.stdout.setEncoding('utf8');
+    child.stdout.setEncoding(call.encoding ?? 'utf8');
     child.stderr.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
       stdout += chunk;
