@@ -267,6 +267,8 @@ export type {
   CableOverride,
   UnreasonedOverride,
 } from './body.ts';
+export { duplicatesOf, holdersOfNumber, partNumberHolders, partNumberReport, pnDuplicateIssues } from './part-number-health.ts';
+export type { PartNumberReport, PnDisagreement, PnDrawings, PnDuplicate, PnFormatFinding, PnHolder, PnUnnumbered } from './part-number-health.ts';
 export {
   DEFAULT_PART_NUMBER_SCHEME,
   DEFAULT_PREFIX_SCHEME_CONFIG,

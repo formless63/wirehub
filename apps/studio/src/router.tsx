@@ -32,6 +32,7 @@ import { SetupRoute } from './routes/SetupRoute.tsx';
 import { ModuleRoute, ModulesRoute } from './routes/ModuleRoute.tsx';
 import { JobsRoute } from './routes/JobsRoute.tsx';
 import { SettingsRoute } from './routes/SettingsRoute.tsx';
+import { PartNumbersRoute } from './routes/PartNumbersRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
@@ -195,6 +196,13 @@ export const settingsRoute = createRoute({
   component: SettingsRoute,
 });
 
+/** `/part-numbers`: duplicates, unnumbered parts and cables, and disagreements between a cable's numbers */
+export const partNumbersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/part-numbers',
+  component: PartNumbersRoute,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   setupRoute,
@@ -208,6 +216,7 @@ const routeTree = rootRoute.addChildren([
   modulesRoute,
   jobsRoute,
   settingsRoute,
+  partNumbersRoute,
 ]);
 
 /**

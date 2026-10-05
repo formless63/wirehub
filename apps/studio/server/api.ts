@@ -39,6 +39,7 @@ import { readDrawingMeta, readPhoto, type DrawingStore } from './drawings.ts';
 import type { DesignStore } from './designs.ts';
 import { handleWireLibraryRequest, WIRE_LIBRARY_ROUTES, type WireLibraryStore } from './wire-library.ts';
 import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
+import { refuseTakenDesignNumber } from './part-number-guard.ts';
 import { SETTINGS_ROUTES, handleSettingsRequest } from './settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
@@ -556,6 +557,8 @@ async function putDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMat
 
   const rejection = validated(parsed.design, await deps.loadDb(), deps.modules);
   if (rejection !== undefined) return rejection;
+  const taken = await refuseTakenDesignNumber(deps, id, 'productRef', parsed.design.productRef, current.productRef);
+  if (taken !== undefined) return taken;
 
   await deps.designs.write(id, parsed.design);
   const stored = await deps.designs.read(id);
@@ -709,6 +712,8 @@ async function drawingRequest(
     if (!parsed.ok) {
       return fail(422, 'Those drawing details could not be saved.', `Nothing was changed. ${parsed.problems.join(' ')}`);
     }
+    const taken = await refuseTakenDesignNumber(deps, id, 'drawing', parsed.meta.partNumber, (await drawings.read(id)).meta.partNumber);
+    if (taken !== undefined) return taken;
     await drawings.writeMeta(id, parsed.meta);
     return ok(parsed.meta, 200, await tagOf());
   }

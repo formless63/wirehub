@@ -53,11 +53,14 @@ import {
   type KitDefinition,
   type KitPartKind,
   type MechanicalDefinition,
+  type PartNumberScheme,
   type PcbaDefinition,
   type WireDefinition,
 } from '@wirehub/model';
+import type { ModuleRegistry } from '@wirehub/modules';
 
 import type { InstalledPacks } from '@wirehub/catalog';
+import { partNumberSchemeOf } from './part-number-scheme.ts';
 
 import type { ApiError, ApiResponse } from './api.ts';
 import {
@@ -95,6 +98,9 @@ export interface DefinitionDeps {
    * to a local copy. Absent: no record is a pack's.
    */
   installedPacks?: () => Awaitable<InstalledPacks>;
+  /** where the numbering scheme comes from (`part-number-scheme.ts`); absent: the default scheme */
+  loadPartNumberFiles?: () => Awaitable<{ scheme?: unknown }>;
+  modules?: Pick<ModuleRegistry, 'partNumberScheme'>;
 }
 
 /* ------------------------------------------------------------------ *
@@ -712,9 +718,9 @@ function issueKey(issue: Issue): string {
  * because "this connector no longer has a pin 15" is only actionable once you
  * know which cable was soldering to it.
  */
-export function libraryIssues(db: Db, designs: CableDesign[]): Issue[] {
+export function libraryIssues(db: Db, designs: CableDesign[], scheme?: PartNumberScheme): Issue[] {
   return [
-    ...validateDb(db),
+    ...validateDb(db, scheme === undefined ? {} : { scheme }),
     ...designs.flatMap((design) =>
       validateDesign(design, db).map((issue) => ({
         ...issue,
@@ -742,10 +748,14 @@ async function validatedLibrary(
   baseline: Db,
   designs: CableDesign[],
   what: string,
+  scheme?: PartNumberScheme,
+  /** a save (not a delete) refuses a part number newly taken by two parts, though validation only warns */
+  refuseDuplicateNumbers = false,
 ): Promise<ApiResponse | undefined> {
-  const introduced = errors(libraryIssues(candidate, designs));
+  const blockers = (issues: Issue[]): Issue[] => issues.filter((i) => i.severity === 'error' || (refuseDuplicateNumbers && i.code === 'pn-duplicate'));
+  const introduced = blockers(libraryIssues(candidate, designs, scheme));
   if (introduced.length === 0) return undefined;
-  const before = new Set(errors(libraryIssues(baseline, designs)).map(issueKey));
+  const before = new Set(blockers(libraryIssues(baseline, designs, scheme)).map(issueKey));
   const blocking = introduced.filter((issue) => !before.has(issueKey(issue)));
   if (blocking.length === 0) return undefined;
   return fail(
@@ -753,7 +763,7 @@ async function validatedLibrary(
     blocking.length === 1
       ? `Saving ${what} would break something.`
       : `Saving ${what} would break ${blocking.length} things.`,
-    'Nothing was written — the catalog is untouched. The list below is what this change would have broken; fix it and save again.',
+    'Nothing was written — the catalog is untouched. The list below is what this change would have broken (a part number already on another part counts); fix it and save again.',
     blocking,
   );
 }
@@ -963,6 +973,8 @@ async function putDefinition(
     db,
     designs,
     `this ${KIND_NOUN[kind]}`,
+    await partNumberSchemeOf(deps),
+    true,
   );
   if (rejection !== undefined) return rejection;
 
@@ -1013,6 +1025,8 @@ async function postDefinition(
     db,
     await everyDesign(deps),
     `this ${KIND_NOUN[kind]}`,
+    await partNumberSchemeOf(deps),
+    true,
   );
   if (rejection !== undefined) return rejection;
 

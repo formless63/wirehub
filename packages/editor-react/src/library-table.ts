@@ -108,7 +108,7 @@ export interface LibraryTableContext {
  * Columns
  * ------------------------------------------------------------------ */
 
-const PN: LibraryColumn = { id: 'pn', header: 'PN', title: 'Part number — the record’s, its body’s, or the register’s; never a guess', width: 104, mono: true, fixed: true };
+const PN: LibraryColumn = { id: 'pn', header: 'PN', title: 'Part number — the record’s or its body’s; never a guess', width: 104, mono: true, fixed: true };
 const NAME: LibraryColumn = { id: 'name', header: 'Name', width: 240, fixed: true };
 const USED: LibraryColumn = { id: 'used', header: 'Used', title: 'Designs and other definitions that use it', width: 58, numeric: true };
 const STATUS: LibraryColumn = { id: 'status', header: 'Status', width: 84, facet: true };
