@@ -24,6 +24,8 @@ import type { ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
 import type { DrawingStore } from './drawings.ts';
 import { DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
+import { effectiveTestDefaults } from './settings.ts';
+import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
@@ -38,8 +40,10 @@ export interface DocumentDeps {
   loadDb: () => Awaitable<Db>;
   versions?: VersionStore;
   drawings?: DrawingStore;
-  /** the organisation's default test parameters (`WIREHUB_TEST_DEFAULTS`) */
+  /** the environment's default test parameters (`WIREHUB_TEST_DEFAULTS`): the fallback the engineering settings override */
   testDefaults?: TestParameters;
+  /** catalog documents by path: where the engineering settings live */
+  docs?: DocStore;
 }
 
 function fail(status: number, error: string, hint?: string): ApiResponse {
@@ -151,6 +155,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
   const variation = query.get('variation') ?? undefined;
   const meta = releaseMeta(loaded.drawing, loaded.target);
+  const orgDefaults = await effectiveTestDefaults(deps);
 
   if (section === 'exports') {
     const format = baseExport(name);
@@ -161,7 +166,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
       ...(variation === undefined ? {} : { variation }),
       ...(typeof loaded.target === 'number' ? { revisionNumber: loaded.target } : {}),
       ...(meta.test === undefined ? {} : { testParameters: meta.test }),
-      ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }),
+      ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
       ...(page === undefined ? {} : { page }),
       ...(copies === undefined ? {} : { copies }),
     };
@@ -188,7 +193,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(variation === undefined ? {} : { variation }),
     ...(page === undefined ? {} : { page }),
     ...(copies === undefined ? {} : { copies }),
-    ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }),
+    ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
     today: today(),
   });
   if (!result.ok) return fail(result.status, result.error, result.hint);

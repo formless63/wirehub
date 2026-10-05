@@ -218,6 +218,14 @@ function entryOfBody(listId: string, body: unknown): { entry: VocabEntry } | { r
       if (!isStringList(returnFor)) return { refusal: fail(400, '`returnFor` is not a list of signal ids.') };
       if (returnFor.length > 0) entry['returnFor'] = returnFor;
     }
+    for (const field of ['currentA', 'voltageV'] as const) {
+      const value = body[field];
+      if (value === undefined || value === null) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+        return { refusal: fail(400, `\`${field}\` is not a positive number.`, field === 'currentA' ? 'Amps the signal usually carries — 0.5, 3.' : 'The nominal volts of the signal — 5, 12.') };
+      }
+      entry[field] = value;
+    }
   }
   if (listId === 'pad-roles' && body['lane'] !== undefined) {
     if (!filled(body['lane'])) return { refusal: fail(400, 'The lane is not a lane id.', 'Name a `lanes` entry — `video-r`, `sync`.') };

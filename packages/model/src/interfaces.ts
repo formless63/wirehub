@@ -240,6 +240,8 @@ function canonical(pin: Omit<ConnectorPin, 'signal'>): unknown {
     label: pin.label,
     aliases: pin.aliases,
     note: pin.note,
+    // a declared current makes the pins differ from the composition, so a save keeps them
+    currentA: pin.currentA,
   };
 }
 

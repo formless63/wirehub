@@ -10,6 +10,7 @@ import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { brandingKey, brandingQuery, saveBranding, type BrandingView } from '../settings.browser.ts';
+import { EngineeringSettings } from './EngineeringSettings.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 const FIELDS = [
@@ -124,6 +125,7 @@ export function SettingsRoute(): JSX.Element {
           </div>
         </form>
       )}
+      <EngineeringSettings />
     </div>
   );
 }

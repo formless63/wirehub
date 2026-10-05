@@ -9,6 +9,7 @@
 
 import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
+import type { DbRules } from './electrical.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
 
@@ -26,6 +27,10 @@ export interface ConductorElement {
   /** e.g. "OFC 7x0.12 mm" */
   formation?: string;
   areaMm2?: number;
+  /** the stock's own rated current in amps (a datasheet figure); wins over the area table of the electrical rules */
+  ratedCurrentA?: number;
+  /** DC resistance of the conductor, ohm per km at 20 C (a datasheet figure); else derived from material and area */
+  resistanceOhmPerKm?: number;
   /** outer diameter over the bare copper, mm */
   odMm?: number;
   /**
@@ -243,6 +248,8 @@ export interface ConnectorPin {
    * (`Db.tags`) and then to reading the label.
    */
   signal?: SignalRef;
+  /** the current this pin carries in use, amps; wins over its signal's default (electrical rules) */
+  currentA?: number;
 }
 
 /**
@@ -284,6 +291,8 @@ export interface ConnectorDefinition extends RecordMeta {
    * not known; `connectorConstruction` falls back to the body's.
    */
   construction?: string;
+  /** each contact's rated current, amps (a datasheet figure); the electrical rules compare it with the pin's net */
+  contactRatingA?: number;
   /**
    * Whether the bench terminates this connector at all — a vocab
    * `connector-sourcing` id (`pre-made-lead`;). Absent
@@ -585,6 +594,8 @@ export interface Db {
    * on this board" lists, never the cable BOM.
    */
   boardParts?: BoardPartsEntry[];
+  /** the organisation's rule thresholds (hub settings); absent means the defaults */
+  rules?: DbRules;
 }
 
 /* ------------------------------------------------------------------ *

@@ -170,3 +170,21 @@ describe.each(listDesignIds())('%s', (id) => {
     if (spec.summary.nonDcPaths > 0) expect(markdown).toContain('OPEN');
   });
 });
+
+describe('the electrical section (declared currents only)', () => {
+  it('is absent when no current is declared and printed, with its warnings, when one is', () => {
+    const design = loadDesign('de9-crossover');
+    const plain = deriveTestSpec(design, db);
+    expect(plain.electrical.rows).toEqual([]);
+    expect(testSpecToMarkdown(plain)).not.toContain('Electrical');
+
+    const withCurrent = structuredClone(db);
+    const connector = withCurrent.connectors.find((c) => c.id === 'de9-female')!;
+    connector.pins = connector.pins.map((p) => (p.id === '3' ? { ...p, currentA: 9 } : p));
+    const spec = deriveTestSpec(design, withCurrent);
+    expect(spec.electrical.rows.length).toBeGreaterThan(0);
+    expect(testSpecToMarkdown(spec)).toContain('Electrical — declared currents');
+    expect(testSpecToHtml(spec)).toContain('cs-table--electrical');
+    expect(spec.issues.map((i) => i.code)).toContain('conductor-ampacity');
+  });
+});

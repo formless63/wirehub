@@ -39,6 +39,22 @@ const ISOLATION_HEADERS = ['End', 'Rule', 'A', 'B', 'Expected', 'Why'];
 const COMMONED_HEADERS = ['End', 'A', 'B', 'Expected', 'Commoned by design (source)'];
 const OPEN_HEADERS = ['Kind', 'Terminal', 'Expected', 'Why'];
 const PARAMETER_HEADERS = ['Parameter', 'Value'];
+const ELECTRICAL_HEADERS = ['Segment', 'Conductor', 'Net', 'Current (A)', 'Length (mm)', 'Area (mm2)', 'Rated (A)', 'Drop (V)', 'Drop (%)'];
+const CONTACT_HEADERS = ['Connector', 'Pin', 'Net', 'Current (A)', 'Contact rating (A)'];
+const ELECTRICAL_NOTE = 'Declared currents only: each conductor against its ampacity, each contact against its rating, and the voltage drop over its length (one conductor, at 20 C). Warnings are listed with the design issues.';
+
+function num(value: number | undefined, digits = 3): string {
+  return value === undefined ? '' : String(Math.round(value * 10 ** digits) / 10 ** digits);
+}
+
+function electricalRows(spec: TestSpec): string[][] {
+  return spec.electrical.rows.map((r) => [r.segment, r.conductor, r.net, num(r.currentA), num(r.lengthMm, 0), num(r.areaMm2), num(r.ampacityA), num(r.dropV), num(r.dropPct, 2)]);
+}
+
+function contactRows(spec: TestSpec): string[][] {
+  return spec.electrical.contacts.map((c) => [c.connector, c.pin, c.net, num(c.currentA), num(c.ratingA)]);
+}
+
 const LANDING_HEADERS = ['End', 'Pigtail', 'Screens', 'Lands on', 'Expected', 'Prep'];
 
 function landingRow(check: GroundLandingCheck): string[] {
@@ -197,6 +213,22 @@ export function testSpecToMarkdown(spec: TestSpec, parameters?: ResolvedTestPara
     out.push(markdownTable(LANDING_HEADERS, spec.groundLandings.map(landingRow)));
   }
 
+  if (spec.electrical.rows.length > 0 || spec.electrical.contacts.length > 0) {
+    out.push('');
+    out.push('## Electrical — declared currents');
+    out.push('');
+    out.push(ELECTRICAL_NOTE);
+    if (spec.electrical.rows.length > 0) {
+      out.push('');
+      out.push(markdownTable(ELECTRICAL_HEADERS, electricalRows(spec)));
+    }
+    if (spec.electrical.contacts.length > 0) {
+      out.push('');
+      out.push(markdownTable(CONTACT_HEADERS, contactRows(spec)));
+    }
+    for (const issue of spec.electrical.issues) out.push('', `- WARNING: ${issue.message}`);
+  }
+
   out.push('');
   return out.join('\n');
 }
@@ -262,6 +294,14 @@ export function testSpecToHtml(spec: TestSpec, parameters?: ResolvedTestParamete
     parts.push(
       htmlTable('cs-table cs-table--landings', LANDING_HEADERS, spec.groundLandings.map(landingRow)),
     );
+  }
+
+  if (spec.electrical.rows.length > 0 || spec.electrical.contacts.length > 0) {
+    parts.push('<h3 class="cs-section__h3">Electrical — declared currents</h3>');
+    parts.push(`<p class="cs-caution">${escapeHtml(ELECTRICAL_NOTE)}</p>`);
+    if (spec.electrical.rows.length > 0) parts.push(htmlTable('cs-table cs-table--electrical', ELECTRICAL_HEADERS, electricalRows(spec)));
+    if (spec.electrical.contacts.length > 0) parts.push(htmlTable('cs-table cs-table--contacts', CONTACT_HEADERS, contactRows(spec)));
+    for (const issue of spec.electrical.issues) parts.push(`<p class="cs-caution">${escapeHtml(issue.message)}</p>`);
   }
 
   parts.push('</section>');

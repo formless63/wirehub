@@ -40,7 +40,7 @@ import type { DesignStore } from './designs.ts';
 import { handleWireLibraryRequest, WIRE_LIBRARY_ROUTES, type WireLibraryStore } from './wire-library.ts';
 import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
 import { refuseTakenDesignNumber } from './part-number-guard.ts';
-import { SETTINGS_ROUTES, handleSettingsRequest } from './settings.ts';
+import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
 import { LOCAL_FALLBACK, ME_ROUTES, type StudioUser } from './me.ts';
@@ -710,7 +710,10 @@ async function drawingRequest(
   // one version per sidecar (meta + photo): either save must quote it
   const tagOf = async (): Promise<Record<string, string>> => ({ ETag: contentETag(await drawings.read(id)) });
   if (action === undefined) {
-    if (method === 'GET') return ok({ ...(await drawings.read(id)), ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }) }, 200, await tagOf());
+    if (method === 'GET') {
+      const orgDefaults = await effectiveTestDefaults(deps);
+      return ok({ ...(await drawings.read(id)), ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }) }, 200, await tagOf());
+    }
     if (method !== 'PUT') return methodNotAllowed(method, ['GET', 'PUT']);
     const guard = checkIfMatch(ifMatch, contentETag(await drawings.read(id)), 'drawing', id);
     if (guard !== undefined) return guard;
@@ -938,9 +941,10 @@ async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: Workb
     const query = new URLSearchParams(request.path.split('?')[1] ?? '');
     return runExporter(deps.modules, io, query, async (id) => (isDesignId(id) ? deps.designs.read(id) : undefined), await deps.loadDb(), async (design, db) => {
       const parameters = (await deps.drawings?.read(design.id))?.meta.test;
+      const defaults = await effectiveTestDefaults(deps);
       return deriveContinuityExport(design, db, {
         ...(parameters === undefined ? {} : { parameters }),
-        ...(deps.testDefaults === undefined ? {} : { defaults: deps.testDefaults }),
+        ...(defaults === undefined ? {} : { defaults }),
       });
     });
   }

@@ -5,6 +5,7 @@
  * `Issue`. `resolveTerminal` is the foundation every derived view uses.
  */
 
+import { electricalIssues } from './electrical.ts';
 import {
   findComponent,
   findConnector,
@@ -1092,6 +1093,8 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
   }
 
   issues.push(...compatibilityIssues(design, db));
+  // electrical rules: silent unless currents are declared (electrical.ts)
+  issues.push(...electricalIssues(design, db));
 
   return issues;
 }
