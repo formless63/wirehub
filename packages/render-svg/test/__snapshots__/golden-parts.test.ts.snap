@@ -1,0 +1,1234 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden breakouts > dc-y-splitter matches its depicted breakout mould and wiring 1`] = `
+"<g class="breakouts">
+<g class="breakout" data-breakout="bk1">
+<rect class="mould" x="231.92" y="42" width="22" height="44" rx="3"/>
+<text class="mould-label" x="231.92" y="40.8">bk1 · breakout mould</text>
+<text class="mould-sub" x="231.92" y="88.6">MEC-00001</text>
+</g>
+</g>
+<g class="breakout-wiring">
+<g class="breakout-row breakout-nc" data-row="w1:drain@b">
+<title>cut back with the foil in the mould</title>
+<text class="mould-nc" x="237.12" y="78.6">NC</text>
+</g>
+</g>"
+`;
+
+exports[`golden breakouts > dc-y-splitter matches its plain breakout mould and wiring 1`] = `
+"<g class="breakouts">
+<g class="breakout" data-breakout="bk1">
+<rect class="mould" x="231.92" y="42" width="22" height="44" rx="3"/>
+<text class="mould-label" x="231.92" y="40.8">bk1 · breakout mould</text>
+<text class="mould-sub" x="231.92" y="88.6">MEC-00001</text>
+</g>
+</g>
+<g class="breakout-wiring">
+<g class="breakout-row breakout-nc" data-row="w1:drain@b">
+<title>cut back with the foil in the mould</title>
+<text class="mould-nc" x="237.12" y="78.6">NC</text>
+</g>
+</g>"
+`;
+
+exports[`golden cross-sections > cat5e-utp matches its golden cutaway 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 98.16 68.6" width="98.16mm" height="68.6mm" role="img" aria-label="Category 5e U/UTP, 4 pairs, 24 AWG" data-wire="cat5e-utp">
+<title>Category 5e U/UTP, 4 pairs, 24 AWG</title>
+<desc>Cross-section of Category 5e U/UTP, 4 pairs, 24 AWG (WIR-00001). Ø 5.50 mm over the jacket, drawn at 4:1. Lay order CCW from 12 o'clock: 1 pair-1, 2 pair-2, 3 pair-3, 4 pair-4.</desc>
+<style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
+<rect class="page" x="0" y="0" width="98.16" height="68.6"/>
+<g class="cross-section" data-wire="cat5e-utp" data-arrangement="4 cores" data-direction="ccw" data-scale="4">
+<rect class="xs-panel" x="0" y="0" width="98.16" height="68.6" rx="1.6"/>
+<text class="xs-title" x="3" y="6.8">Category 5e U/UTP, 4 pairs, 24 AWG</text>
+<text class="xs-sub" x="3" y="11.2">WIR-00001 · cross-section · lay order CCW from 12 o'clock</text>
+<g class="xs-ring xs-ring-insulation" data-element="jacket" data-kind="insulation" data-od="5.5">
+<title>jacket · Jacket — Ø 5.50 mm</title>
+<circle class="xs-fill" cx="22" cy="33.2" r="7.91" fill="none" stroke="#2b3138" stroke-width="6.17"/>
+<circle class="xs-outline" cx="22" cy="33.2" r="11"/>
+<circle class="xs-outline" cx="22" cy="33.2" r="4.83"/>
+</g>
+<g class="xs-core" data-core="pair-1" data-tag="1" data-lay="0" data-angle="90">
+<title>pair-1 · Pair 1 (blue)</title>
+<g class="xs-ring xs-ring-conductor" data-element="pair-1.a" data-kind="conductor" data-od="1">
+<title>pair-1.a — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="22" cy="30.37" r="2" fill="#b8763a"/>
+<circle class="xs-outline" cx="22" cy="30.37" r="2"/>
+</g>
+<g class="xs-ring xs-ring-conductor" data-element="pair-1.b" data-kind="conductor" data-od="1">
+<title>pair-1.b — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="22" cy="30.37" r="2" fill="none" stroke="#b8763a" stroke-width="0"/>
+<circle class="xs-outline" cx="22" cy="30.37" r="2"/>
+<circle class="xs-outline" cx="22" cy="30.37" r="2"/>
+</g>
+</g>
+<g class="xs-core" data-core="pair-2" data-tag="2" data-lay="1" data-angle="180">
+<title>pair-2 · Pair 2 (orange)</title>
+<g class="xs-ring xs-ring-conductor" data-element="pair-2.a" data-kind="conductor" data-od="1">
+<title>pair-2.a — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="19.17" cy="33.2" r="2" fill="#b8763a"/>
+<circle class="xs-outline" cx="19.17" cy="33.2" r="2"/>
+</g>
+<g class="xs-ring xs-ring-conductor" data-element="pair-2.b" data-kind="conductor" data-od="1">
+<title>pair-2.b — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="19.17" cy="33.2" r="2" fill="none" stroke="#b8763a" stroke-width="0"/>
+<circle class="xs-outline" cx="19.17" cy="33.2" r="2"/>
+<circle class="xs-outline" cx="19.17" cy="33.2" r="2"/>
+</g>
+</g>
+<g class="xs-core" data-core="pair-3" data-tag="3" data-lay="2" data-angle="270">
+<title>pair-3 · Pair 3 (green)</title>
+<g class="xs-ring xs-ring-conductor" data-element="pair-3.a" data-kind="conductor" data-od="1">
+<title>pair-3.a — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="22" cy="36.03" r="2" fill="#b8763a"/>
+<circle class="xs-outline" cx="22" cy="36.03" r="2"/>
+</g>
+<g class="xs-ring xs-ring-conductor" data-element="pair-3.b" data-kind="conductor" data-od="1">
+<title>pair-3.b — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="22" cy="36.03" r="2" fill="none" stroke="#b8763a" stroke-width="0"/>
+<circle class="xs-outline" cx="22" cy="36.03" r="2"/>
+<circle class="xs-outline" cx="22" cy="36.03" r="2"/>
+</g>
+</g>
+<g class="xs-core" data-core="pair-4" data-tag="4" data-lay="3" data-angle="0">
+<title>pair-4 · Pair 4 (brown)</title>
+<g class="xs-ring xs-ring-conductor" data-element="pair-4.a" data-kind="conductor" data-od="1">
+<title>pair-4.a — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="24.83" cy="33.2" r="2" fill="#b8763a"/>
+<circle class="xs-outline" cx="24.83" cy="33.2" r="2"/>
+</g>
+<g class="xs-ring xs-ring-conductor" data-element="pair-4.b" data-kind="conductor" data-od="1">
+<title>pair-4.b — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="24.83" cy="33.2" r="2" fill="none" stroke="#b8763a" stroke-width="0"/>
+<circle class="xs-outline" cx="24.83" cy="33.2" r="2"/>
+<circle class="xs-outline" cx="24.83" cy="33.2" r="2"/>
+</g>
+</g>
+<g class="xs-callout" data-core="pair-1" data-tag="1">
+<line class="xs-leader-halo" x1="22" y1="30.37" x2="22" y2="18.2"/>
+<line class="xs-leader" x1="22" y1="30.37" x2="22" y2="18.2"/>
+<text class="xs-tag" x="22" y="17.85" text-anchor="middle">1</text>
+</g>
+<g class="xs-callout" data-core="pair-2" data-tag="2">
+<line class="xs-leader-halo" x1="19.17" y1="33.2" x2="7" y2="33.2"/>
+<line class="xs-leader" x1="19.17" y1="33.2" x2="7" y2="33.2"/>
+<text class="xs-tag" x="5.6" y="34.25" text-anchor="end">2</text>
+</g>
+<g class="xs-callout" data-core="pair-3" data-tag="3">
+<line class="xs-leader-halo" x1="22" y1="36.03" x2="22" y2="48.2"/>
+<line class="xs-leader" x1="22" y1="36.03" x2="22" y2="48.2"/>
+<text class="xs-tag" x="22" y="50.65" text-anchor="middle">3</text>
+</g>
+<g class="xs-callout" data-core="pair-4" data-tag="4">
+<line class="xs-leader-halo" x1="24.83" y1="33.2" x2="37" y2="33.2"/>
+<line class="xs-leader" x1="24.83" y1="33.2" x2="37" y2="33.2"/>
+<text class="xs-tag" x="38.4" y="34.25" text-anchor="start">4</text>
+</g>
+<g class="xs-dimension">
+<line class="xs-dim" x1="11" y1="54.2" x2="33" y2="54.2"/>
+<line class="xs-dim" x1="11" y1="53" x2="11" y2="55.4"/>
+<line class="xs-dim" x1="33" y1="53" x2="33" y2="55.4"/>
+<text class="xs-dim-text" x="22" y="58.1" text-anchor="middle">Ø 5.50 mm over the jacket</text>
+</g>
+<g class="xs-ruler" data-span-mm="5">
+<line class="xs-rule" x1="11" y1="62.6" x2="31" y2="62.6"/>
+<line class="xs-rule" x1="11" y1="62.6" x2="11" y2="60.8"/>
+<line class="xs-rule" x1="15" y1="62.6" x2="15" y2="61.6"/>
+<line class="xs-rule" x1="19" y1="62.6" x2="19" y2="61.6"/>
+<line class="xs-rule" x1="23" y1="62.6" x2="23" y2="61.6"/>
+<line class="xs-rule" x1="27" y1="62.6" x2="27" y2="61.6"/>
+<line class="xs-rule" x1="31" y1="62.6" x2="31" y2="60.8"/>
+<text class="xs-rule-text" x="32.5" y="63.62">5 mm</text>
+</g>
+<g class="xs-key-list">
+<g class="xs-key-row" data-tag="1">
+<circle class="xs-swatch" cx="48.3" cy="16.2" r="1.3" fill="#2453c4"/>
+<text class="xs-key-tag" x="51" y="17.22">1</text>
+<text class="xs-key" x="54.4" y="17.22">pair-1 · Pair 1 (blue)</text>
+</g>
+<g class="xs-key-row" data-tag="2">
+<circle class="xs-swatch" cx="48.3" cy="20.4" r="1.3" fill="#d2601a"/>
+<text class="xs-key-tag" x="51" y="21.42">2</text>
+<text class="xs-key" x="54.4" y="21.42">pair-2 · Pair 2 (orange)</text>
+</g>
+<g class="xs-key-row" data-tag="3">
+<circle class="xs-swatch" cx="48.3" cy="24.6" r="1.3" fill="#17864a"/>
+<text class="xs-key-tag" x="51" y="25.62">3</text>
+<text class="xs-key" x="54.4" y="25.62">pair-3 · Pair 3 (green)</text>
+</g>
+<g class="xs-key-row" data-tag="4">
+<circle class="xs-swatch" cx="48.3" cy="28.8" r="1.3" fill="#8a5a2b"/>
+<text class="xs-key-tag" x="51" y="29.82">4</text>
+<text class="xs-key" x="54.4" y="29.82">pair-4 · Pair 4 (brown)</text>
+</g>
+<g class="xs-key-row" data-tag="">
+<circle class="xs-swatch" cx="48.3" cy="33" r="1.3" fill="#2b3138"/>
+<text class="xs-key" x="54.4" y="34.02">jacket · Jacket · Ø 5.50 mm</text>
+</g>
+</g>
+</g>
+</svg>"
+`;
+
+exports[`golden cross-sections > dc-2core-24awg matches its golden cutaway 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 93.45 60.6" width="93.45mm" height="60.6mm" role="img" aria-label="DC power cable, 2 × 24 AWG, red/black" data-wire="dc-2core-24awg">
+<title>DC power cable, 2 × 24 AWG, red/black</title>
+<desc>Cross-section of DC power cable, 2 × 24 AWG, red/black (WIR-00005). Ø 3.50 mm over the jacket, drawn at 4:1. Lay order CW from 12 o'clock: 1 red, 2 black.</desc>
+<style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
+<rect class="page" x="0" y="0" width="93.45" height="60.6"/>
+<g class="cross-section" data-wire="dc-2core-24awg" data-arrangement="pair" data-direction="cw" data-scale="4">
+<rect class="xs-panel" x="0" y="0" width="93.45" height="60.6" rx="1.6"/>
+<text class="xs-title" x="3" y="6.8">DC power cable, 2 × 24 AWG, red/black</text>
+<text class="xs-sub" x="3" y="11.2">WIR-00005 · cross-section · lay order CW from 12 o'clock</text>
+<g class="xs-ring xs-ring-insulation" data-element="jacket" data-kind="insulation" data-od="3.5">
+<title>jacket · Jacket — Ø 3.50 mm</title>
+<circle class="xs-fill" cx="18" cy="29.2" r="5.9" fill="none" stroke="#2b3138" stroke-width="2.2"/>
+<circle class="xs-outline" cx="18" cy="29.2" r="7"/>
+<circle class="xs-outline" cx="18" cy="29.2" r="4.8"/>
+</g>
+<g class="xs-core" data-core="red" data-tag="1" data-lay="0" data-angle="90">
+<title>red · +V</title>
+<g class="xs-ring xs-ring-insulation" data-element="red" data-kind="insulation" data-od="1.2">
+<title>red · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="18" cy="26.8" r="2.4" fill="#cc2b2b"/>
+<circle class="xs-outline" cx="18" cy="26.8" r="2.4"/>
+</g>
+</g>
+<g class="xs-core" data-core="black" data-tag="2" data-lay="1" data-angle="270">
+<title>black · 0 V</title>
+<g class="xs-ring xs-ring-insulation" data-element="black" data-kind="insulation" data-od="1.2">
+<title>black · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="18" cy="31.6" r="2.4" fill="#17191c"/>
+<circle class="xs-outline" cx="18" cy="31.6" r="2.4"/>
+</g>
+</g>
+<g class="xs-callout" data-core="red" data-tag="1">
+<line class="xs-leader-halo" x1="18" y1="26.8" x2="18" y2="18.2"/>
+<line class="xs-leader" x1="18" y1="26.8" x2="18" y2="18.2"/>
+<text class="xs-tag" x="18" y="17.85" text-anchor="middle">1</text>
+</g>
+<g class="xs-callout" data-core="black" data-tag="2">
+<line class="xs-leader-halo" x1="18" y1="31.6" x2="18" y2="40.2"/>
+<line class="xs-leader" x1="18" y1="31.6" x2="18" y2="40.2"/>
+<text class="xs-tag" x="18" y="42.65" text-anchor="middle">2</text>
+</g>
+<g class="xs-dimension">
+<line class="xs-dim" x1="11" y1="46.2" x2="25" y2="46.2"/>
+<line class="xs-dim" x1="11" y1="45" x2="11" y2="47.4"/>
+<line class="xs-dim" x1="25" y1="45" x2="25" y2="47.4"/>
+<text class="xs-dim-text" x="18" y="50.1" text-anchor="middle">Ø 3.50 mm over the jacket</text>
+</g>
+<g class="xs-ruler" data-span-mm="2">
+<line class="xs-rule" x1="11" y1="54.6" x2="19" y2="54.6"/>
+<line class="xs-rule" x1="11" y1="54.6" x2="11" y2="52.8"/>
+<line class="xs-rule" x1="15" y1="54.6" x2="15" y2="53.6"/>
+<line class="xs-rule" x1="19" y1="54.6" x2="19" y2="52.8"/>
+<text class="xs-rule-text" x="20.5" y="55.62">2 mm</text>
+</g>
+<g class="xs-key-list">
+<g class="xs-key-row" data-tag="1">
+<circle class="xs-swatch" cx="40.3" cy="16.2" r="1.3" fill="#cc2b2b"/>
+<text class="xs-key-tag" x="43" y="17.22">1</text>
+<text class="xs-key" x="46.4" y="17.22">red · +V</text>
+</g>
+<g class="xs-key-row" data-tag="2">
+<circle class="xs-swatch" cx="40.3" cy="20.4" r="1.3" fill="#17191c"/>
+<text class="xs-key-tag" x="43" y="21.42">2</text>
+<text class="xs-key" x="46.4" y="21.42">black · 0 V</text>
+</g>
+<g class="xs-key-row" data-tag="">
+<circle class="xs-swatch" cx="40.3" cy="24.6" r="1.3" fill="#2b3138"/>
+<text class="xs-key" x="46.4" y="25.62">jacket · Jacket · Ø 3.50 mm</text>
+</g>
+</g>
+</g>
+</svg>"
+`;
+
+exports[`golden cross-sections > multicore-3coax-4core matches its golden cutaway 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140.03 78.6" width="140.03mm" height="78.6mm" role="img" aria-label="Multicore, 3 × 75 Ω mini-coax + 4 cores, foil + drain" data-wire="multicore-3coax-4core">
+<title>Multicore, 3 × 75 Ω mini-coax + 4 cores, foil + drain</title>
+<desc>Cross-section of Multicore, 3 × 75 Ω mini-coax + 4 cores, foil + drain (WIR-00006). Ø 8.00 mm over the jacket, drawn at 4:1. Lay order CCW from 12 o'clock: 1 core-red, 2 core-green, 3 core-blue, 4 yellow, 5 white, 6 brown.</desc>
+<style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
+<rect class="page" x="0" y="0" width="140.03" height="78.6"/>
+<g class="cross-section" data-wire="multicore-3coax-4core" data-arrangement="6-around-1" data-direction="ccw" data-scale="4">
+<rect class="xs-panel" x="0" y="0" width="140.03" height="78.6" rx="1.6"/>
+<text class="xs-title" x="3" y="6.8">Multicore, 3 × 75 Ω mini-coax + 4 cores, foil + drain</text>
+<text class="xs-sub" x="3" y="11.2">WIR-00006 · cross-section · lay order CCW from 12 o'clock</text>
+<g class="xs-ring xs-ring-insulation" data-element="jacket" data-kind="insulation" data-od="8">
+<title>jacket · Jacket — Ø 8.00 mm</title>
+<circle class="xs-fill" cx="27" cy="38.2" r="15.2" fill="none" stroke="#2b3138" stroke-width="1.6"/>
+<circle class="xs-outline" cx="27" cy="38.2" r="16"/>
+<circle class="xs-outline" cx="27" cy="38.2" r="14.4"/>
+</g>
+<g class="xs-ring xs-ring-shield" data-element="foil" data-kind="shield" data-construction="foil" data-od="7.2">
+<circle class="xs-fill" cx="27" cy="38.2" r="13.2" fill="none" stroke="#a7aeb5" stroke-width="2.4"/>
+<circle class="xs-outline" cx="27" cy="38.2" r="14.4"/>
+<circle class="xs-outline" cx="27" cy="38.2" r="12"/>
+</g>
+<g class="xs-core" data-core="core-red" data-tag="1" data-lay="0" data-angle="90">
+<title>core-red · Coax 1 (red)</title>
+<g class="xs-ring xs-ring-conductor" data-element="core-red.center" data-kind="conductor" data-od="0.32">
+<title>core-red.center — Ø 0.32 mm</title>
+<circle class="xs-fill" cx="27" cy="30.2" r="0.64" fill="#b8763a"/>
+<circle class="xs-outline" cx="27" cy="30.2" r="0.64"/>
+</g>
+<g class="xs-ring xs-ring-insulation" data-element="core-red.dielectric" data-kind="insulation" data-od="1.3">
+<title>core-red.dielectric — Ø 1.30 mm</title>
+<circle class="xs-fill" cx="27" cy="30.2" r="1.62" fill="none" stroke="#e9edf1" stroke-width="1.96"/>
+<circle class="xs-outline" cx="27" cy="30.2" r="2.6"/>
+<circle class="xs-outline" cx="27" cy="30.2" r="0.64"/>
+</g>
+<g class="xs-ring xs-ring-shield" data-element="core-red.shield" data-kind="shield" data-construction="braid" data-od="1.6">
+<title>core-red.shield — Ø 1.60 mm</title>
+<circle class="xs-fill" cx="27" cy="30.2" r="2.9" fill="none" stroke="#a7aeb5" stroke-width="0.6"/>
+<path class="xs-hatch" d="M29.51 30.88 L30.09 29.37 M29.51 29.52 L30.09 31.03 M29.43 29.27 L29.01 27.71 M28.63 28.18 L29.99 29.06 M28.42 28.02 L27.16 27 M27.13 27.6 L28.75 27.52 M26.87 27.6 L25.25 27.52 M25.58 28.02 L26.84 27 M25.37 28.18 L24.01 29.06 M24.57 29.27 L24.99 27.71 M24.49 29.52 L23.91 31.03 M24.49 30.88 L23.91 29.37 M24.57 31.13 L24.99 32.69 M25.37 32.22 L24.01 31.34 M25.58 32.38 L26.84 33.4 M26.87 32.8 L25.25 32.88 M27.13 32.8 L28.75 32.88 M28.42 32.38 L27.16 33.4 M28.63 32.22 L29.99 31.34 M29.43 31.13 L29.01 32.69"/>
+<circle class="xs-outline" cx="27" cy="30.2" r="3.2"/>
+<circle class="xs-outline" cx="27" cy="30.2" r="2.6"/>
+</g>
+<g class="xs-ring xs-ring-insulation" data-element="core-red.sheath" data-kind="insulation" data-od="2">
+<title>core-red.sheath — Ø 2.00 mm</title>
+<circle class="xs-fill" cx="27" cy="30.2" r="3.6" fill="none" stroke="#cc2b2b" stroke-width="0.8"/>
+<circle class="xs-outline" cx="27" cy="30.2" r="4"/>
+<circle class="xs-outline" cx="27" cy="30.2" r="3.2"/>
+</g>
+</g>
+<g class="xs-core" data-core="core-green" data-tag="2" data-lay="1" data-angle="150">
+<title>core-green · Coax 2 (green)</title>
+<g class="xs-ring xs-ring-conductor" data-element="core-green.center" data-kind="conductor" data-od="0.32">
+<title>core-green.center — Ø 0.32 mm</title>
+<circle class="xs-fill" cx="20.07" cy="34.2" r="0.64" fill="#b8763a"/>
+<circle class="xs-outline" cx="20.07" cy="34.2" r="0.64"/>
+</g>
+<g class="xs-ring xs-ring-insulation" data-element="core-green.dielectric" data-kind="insulation" data-od="1.3">
+<title>core-green.dielectric — Ø 1.30 mm</title>
+<circle class="xs-fill" cx="20.07" cy="34.2" r="1.62" fill="none" stroke="#e9edf1" stroke-width="1.96"/>
+<circle class="xs-outline" cx="20.07" cy="34.2" r="2.6"/>
+<circle class="xs-outline" cx="20.07" cy="34.2" r="0.64"/>
+</g>
+<g class="xs-ring xs-ring-shield" data-element="core-green.shield" data-kind="shield" data-construction="braid" data-od="1.6">
+<title>core-green.shield — Ø 1.60 mm</title>
+<circle class="xs-fill" cx="20.07" cy="34.2" r="2.9" fill="none" stroke="#a7aeb5" stroke-width="0.6"/>
+<path class="xs-hatch" d="M22.58 34.88 L23.16 33.37 M22.58 33.52 L23.16 35.03 M22.5 33.27 L22.08 31.71 M21.7 32.18 L23.06 33.06 M21.49 32.02 L20.23 31 M20.2 31.6 L21.82 31.52 M19.94 31.6 L18.32 31.52 M18.65 32.02 L19.91 31 M18.44 32.18 L17.08 33.06 M17.64 33.27 L18.06 31.71 M17.56 33.52 L16.98 35.03 M17.56 34.88 L16.98 33.37 M17.64 35.13 L18.06 36.69 M18.44 36.22 L17.08 35.34 M18.65 36.38 L19.91 37.4 M19.94 36.8 L18.32 36.88 M20.2 36.8 L21.82 36.88 M21.49 36.38 L20.23 37.4 M21.7 36.22 L23.06 35.34 M22.5 35.13 L22.08 36.69"/>
+<circle class="xs-outline" cx="20.07" cy="34.2" r="3.2"/>
+<circle class="xs-outline" cx="20.07" cy="34.2" r="2.6"/>
+</g>
+<g class="xs-ring xs-ring-insulation" data-element="core-green.sheath" data-kind="insulation" data-od="2">
+<title>core-green.sheath — Ø 2.00 mm</title>
+<circle class="xs-fill" cx="20.07" cy="34.2" r="3.6" fill="none" stroke="#17864a" stroke-width="0.8"/>
+<circle class="xs-outline" cx="20.07" cy="34.2" r="4"/>
+<circle class="xs-outline" cx="20.07" cy="34.2" r="3.2"/>
+</g>
+</g>
+<g class="xs-core" data-core="core-blue" data-tag="3" data-lay="2" data-angle="210">
+<title>core-blue · Coax 3 (blue)</title>
+<g class="xs-ring xs-ring-conductor" data-element="core-blue.center" data-kind="conductor" data-od="0.32">
+<title>core-blue.center — Ø 0.32 mm</title>
+<circle class="xs-fill" cx="20.07" cy="42.2" r="0.64" fill="#b8763a"/>
+<circle class="xs-outline" cx="20.07" cy="42.2" r="0.64"/>
+</g>
+<g class="xs-ring xs-ring-insulation" data-element="core-blue.dielectric" data-kind="insulation" data-od="1.3">
+<title>core-blue.dielectric — Ø 1.30 mm</title>
+<circle class="xs-fill" cx="20.07" cy="42.2" r="1.62" fill="none" stroke="#e9edf1" stroke-width="1.96"/>
+<circle class="xs-outline" cx="20.07" cy="42.2" r="2.6"/>
+<circle class="xs-outline" cx="20.07" cy="42.2" r="0.64"/>
+</g>
+<g class="xs-ring xs-ring-shield" data-element="core-blue.shield" data-kind="shield" data-construction="braid" data-od="1.6">
+<title>core-blue.shield — Ø 1.60 mm</title>
+<circle class="xs-fill" cx="20.07" cy="42.2" r="2.9" fill="none" stroke="#a7aeb5" stroke-width="0.6"/>
+<path class="xs-hatch" d="M22.58 42.88 L23.16 41.37 M22.58 41.52 L23.16 43.03 M22.5 41.27 L22.08 39.71 M21.7 40.18 L23.06 41.06 M21.49 40.02 L20.23 39 M20.2 39.6 L21.82 39.52 M19.94 39.6 L18.32 39.52 M18.65 40.02 L19.91 39 M18.44 40.18 L17.08 41.06 M17.64 41.27 L18.06 39.71 M17.56 41.52 L16.98 43.03 M17.56 42.88 L16.98 41.37 M17.64 43.13 L18.06 44.69 M18.44 44.22 L17.08 43.34 M18.65 44.38 L19.91 45.4 M19.94 44.8 L18.32 44.88 M20.2 44.8 L21.82 44.88 M21.49 44.38 L20.23 45.4 M21.7 44.22 L23.06 43.34 M22.5 43.13 L22.08 44.69"/>
+<circle class="xs-outline" cx="20.07" cy="42.2" r="3.2"/>
+<circle class="xs-outline" cx="20.07" cy="42.2" r="2.6"/>
+</g>
+<g class="xs-ring xs-ring-insulation" data-element="core-blue.sheath" data-kind="insulation" data-od="2">
+<title>core-blue.sheath — Ø 2.00 mm</title>
+<circle class="xs-fill" cx="20.07" cy="42.2" r="3.6" fill="none" stroke="#2453c4" stroke-width="0.8"/>
+<circle class="xs-outline" cx="20.07" cy="42.2" r="4"/>
+<circle class="xs-outline" cx="20.07" cy="42.2" r="3.2"/>
+</g>
+</g>
+<g class="xs-core" data-core="yellow" data-tag="4" data-lay="3" data-angle="270">
+<title>yellow · Core 4 (yellow)</title>
+<g class="xs-ring xs-ring-insulation" data-element="yellow" data-kind="insulation" data-od="1">
+<title>yellow · insulation — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="27" cy="46.2" r="2" fill="#d8a400"/>
+<circle class="xs-outline" cx="27" cy="46.2" r="2"/>
+</g>
+</g>
+<g class="xs-core" data-core="white" data-tag="5" data-lay="4" data-angle="330">
+<title>white · Core 5 (white)</title>
+<g class="xs-ring xs-ring-insulation" data-element="white" data-kind="insulation" data-od="1">
+<title>white · insulation — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="33.93" cy="42.2" r="2" fill="#ffffff"/>
+<circle class="xs-outline" cx="33.93" cy="42.2" r="2"/>
+</g>
+</g>
+<g class="xs-core" data-core="brown" data-tag="6" data-lay="5" data-angle="30">
+<title>brown · Core 6 (brown)</title>
+<g class="xs-ring xs-ring-insulation" data-element="brown" data-kind="insulation" data-od="1">
+<title>brown · insulation — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="33.93" cy="34.2" r="2" fill="#8a5a2b"/>
+<circle class="xs-outline" cx="33.93" cy="34.2" r="2"/>
+</g>
+</g>
+<g class="xs-core" data-core="orange" data-tag="C" data-lay="-1" data-angle="240">
+<title>orange · Core 7 (orange)</title>
+<g class="xs-ring xs-ring-insulation" data-element="orange" data-kind="insulation" data-od="1">
+<title>orange · insulation — Ø 1.00 mm</title>
+<circle class="xs-fill" cx="27" cy="38.2" r="2" fill="#d2601a"/>
+<circle class="xs-outline" cx="27" cy="38.2" r="2"/>
+</g>
+</g>
+<g class="xs-core" data-core="drain" data-tag="D" data-lay="-2" data-angle="60">
+<title>drain · Drain</title>
+<g class="xs-ring xs-ring-conductor" data-element="drain" data-kind="conductor" data-od="0.5">
+<title>drain · Drain — Ø 0.50 mm</title>
+<circle class="xs-fill" cx="32.5" cy="28.67" r="1" fill="#b8763a"/>
+<circle class="xs-outline" cx="32.5" cy="28.67" r="1"/>
+</g>
+</g>
+<g class="xs-callout" data-core="core-red" data-tag="1">
+<line class="xs-leader-halo" x1="27" y1="30.2" x2="27" y2="18.2"/>
+<line class="xs-leader" x1="27" y1="30.2" x2="27" y2="18.2"/>
+<text class="xs-tag" x="27" y="17.85" text-anchor="middle">1</text>
+</g>
+<g class="xs-callout" data-core="core-green" data-tag="2">
+<line class="xs-leader-halo" x1="20.07" y1="34.2" x2="9.68" y2="28.2"/>
+<line class="xs-leader" x1="20.07" y1="34.2" x2="9.68" y2="28.2"/>
+<text class="xs-tag" x="8.47" y="28.55" text-anchor="end">2</text>
+</g>
+<g class="xs-callout" data-core="core-blue" data-tag="3">
+<line class="xs-leader-halo" x1="20.07" y1="42.2" x2="9.68" y2="48.2"/>
+<line class="xs-leader" x1="20.07" y1="42.2" x2="9.68" y2="48.2"/>
+<text class="xs-tag" x="8.47" y="49.95" text-anchor="end">3</text>
+</g>
+<g class="xs-callout" data-core="yellow" data-tag="4">
+<line class="xs-leader-halo" x1="27" y1="46.2" x2="27" y2="58.2"/>
+<line class="xs-leader" x1="27" y1="46.2" x2="27" y2="58.2"/>
+<text class="xs-tag" x="27" y="60.65" text-anchor="middle">4</text>
+</g>
+<g class="xs-callout" data-core="white" data-tag="5">
+<line class="xs-leader-halo" x1="33.93" y1="42.2" x2="44.32" y2="48.2"/>
+<line class="xs-leader" x1="33.93" y1="42.2" x2="44.32" y2="48.2"/>
+<text class="xs-tag" x="45.53" y="49.95" text-anchor="start">5</text>
+</g>
+<g class="xs-callout" data-core="brown" data-tag="6">
+<line class="xs-leader-halo" x1="33.93" y1="34.2" x2="44.32" y2="28.2"/>
+<line class="xs-leader" x1="33.93" y1="34.2" x2="44.32" y2="28.2"/>
+<text class="xs-tag" x="45.53" y="28.55" text-anchor="start">6</text>
+</g>
+<g class="xs-callout" data-core="orange" data-tag="C">
+<line class="xs-leader-halo" x1="26" y1="39.93" x2="17" y2="55.52"/>
+<line class="xs-leader" x1="26" y1="39.93" x2="17" y2="55.52"/>
+<text class="xs-tag" x="16.3" y="57.78" text-anchor="end">C</text>
+</g>
+<g class="xs-callout" data-core="drain" data-tag="D">
+<line class="xs-leader-halo" x1="33" y1="27.81" x2="37" y2="20.88"/>
+<line class="xs-leader" x1="33" y1="27.81" x2="37" y2="20.88"/>
+<text class="xs-tag" x="37.7" y="20.72" text-anchor="start">D</text>
+</g>
+<g class="xs-dimension">
+<line class="xs-dim" x1="11" y1="64.2" x2="43" y2="64.2"/>
+<line class="xs-dim" x1="11" y1="63" x2="11" y2="65.4"/>
+<line class="xs-dim" x1="43" y1="63" x2="43" y2="65.4"/>
+<text class="xs-dim-text" x="27" y="68.1" text-anchor="middle">Ø 8.00 mm over the jacket</text>
+</g>
+<g class="xs-ruler" data-span-mm="5">
+<line class="xs-rule" x1="11" y1="72.6" x2="31" y2="72.6"/>
+<line class="xs-rule" x1="11" y1="72.6" x2="11" y2="70.8"/>
+<line class="xs-rule" x1="15" y1="72.6" x2="15" y2="71.6"/>
+<line class="xs-rule" x1="19" y1="72.6" x2="19" y2="71.6"/>
+<line class="xs-rule" x1="23" y1="72.6" x2="23" y2="71.6"/>
+<line class="xs-rule" x1="27" y1="72.6" x2="27" y2="71.6"/>
+<line class="xs-rule" x1="31" y1="72.6" x2="31" y2="70.8"/>
+<text class="xs-rule-text" x="32.5" y="73.62">5 mm</text>
+</g>
+<g class="xs-key-list">
+<g class="xs-key-row" data-tag="1">
+<circle class="xs-swatch" cx="58.3" cy="16.2" r="1.3" fill="#cc2b2b"/>
+<text class="xs-key-tag" x="61" y="17.22">1</text>
+<text class="xs-key" x="64.4" y="17.22">core-red · Coax 1 (red)</text>
+</g>
+<g class="xs-key-row" data-tag="2">
+<circle class="xs-swatch" cx="58.3" cy="20.4" r="1.3" fill="#17864a"/>
+<text class="xs-key-tag" x="61" y="21.42">2</text>
+<text class="xs-key" x="64.4" y="21.42">core-green · Coax 2 (green)</text>
+</g>
+<g class="xs-key-row" data-tag="3">
+<circle class="xs-swatch" cx="58.3" cy="24.6" r="1.3" fill="#2453c4"/>
+<text class="xs-key-tag" x="61" y="25.62">3</text>
+<text class="xs-key" x="64.4" y="25.62">core-blue · Coax 3 (blue)</text>
+</g>
+<g class="xs-key-row" data-tag="4">
+<circle class="xs-swatch" cx="58.3" cy="28.8" r="1.3" fill="#d8a400"/>
+<text class="xs-key-tag" x="61" y="29.82">4</text>
+<text class="xs-key" x="64.4" y="29.82">yellow · Core 4 (yellow)</text>
+</g>
+<g class="xs-key-row" data-tag="5">
+<circle class="xs-swatch" cx="58.3" cy="33" r="1.3" fill="#ffffff"/>
+<text class="xs-key-tag" x="61" y="34.02">5</text>
+<text class="xs-key" x="64.4" y="34.02">white · Core 5 (white)</text>
+</g>
+<g class="xs-key-row" data-tag="6">
+<circle class="xs-swatch" cx="58.3" cy="37.2" r="1.3" fill="#8a5a2b"/>
+<text class="xs-key-tag" x="61" y="38.22">6</text>
+<text class="xs-key" x="64.4" y="38.22">brown · Core 6 (brown)</text>
+</g>
+<g class="xs-key-row" data-tag="C">
+<circle class="xs-swatch" cx="58.3" cy="41.4" r="1.3" fill="#d2601a"/>
+<text class="xs-key-tag" x="61" y="42.42">C</text>
+<text class="xs-key" x="64.4" y="42.42">orange · Core 7 (orange) — centre of the lay</text>
+</g>
+<g class="xs-key-row" data-tag="D">
+<circle class="xs-swatch" cx="58.3" cy="45.6" r="1.3" fill="#e9edf1"/>
+<text class="xs-key-tag" x="61" y="46.62">D</text>
+<text class="xs-key" x="64.4" y="46.62">drain · Drain — interstitial, not on the pitch circle</text>
+</g>
+<g class="xs-key-row" data-tag="" data-construction="braid">
+<circle class="xs-swatch" cx="58.3" cy="49.8" r="1.3" fill="#a7aeb5"/>
+<text class="xs-key" x="64.4" y="50.82">core shields · tinned-copper braid, 90</text>
+</g>
+<g class="xs-key-row" data-tag="">
+<circle class="xs-swatch" cx="58.3" cy="54" r="1.3" fill="#2b3138"/>
+<text class="xs-key" x="64.4" y="55.02">jacket · Jacket · Ø 8.00 mm</text>
+</g>
+</g>
+</g>
+</svg>"
+`;
+
+exports[`golden cross-sections > shielded-2pair-24awg matches its golden cutaway 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128.03 66.6" width="128.03mm" height="66.6mm" role="img" aria-label="2-pair shielded data cable, 24 AWG, foil + drain" data-wire="shielded-2pair-24awg">
+<title>2-pair shielded data cable, 24 AWG, foil + drain</title>
+<desc>Cross-section of 2-pair shielded data cable, 24 AWG, foil + drain (WIR-00002). Ø 5.00 mm over the jacket, drawn at 4:1. Lay order CCW from 12 o'clock: 1 pair-1, 2 pair-2.</desc>
+<style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
+<rect class="page" x="0" y="0" width="128.03" height="66.6"/>
+<g class="cross-section" data-wire="shielded-2pair-24awg" data-arrangement="2 cores" data-direction="ccw" data-scale="4">
+<rect class="xs-panel" x="0" y="0" width="128.03" height="66.6" rx="1.6"/>
+<text class="xs-title" x="3" y="6.8">2-pair shielded data cable, 24 AWG, foil + drain</text>
+<text class="xs-sub" x="3" y="11.2">WIR-00002 · cross-section · lay order CCW from 12 o'clock</text>
+<g class="xs-ring xs-ring-insulation" data-element="jacket" data-kind="insulation" data-od="5">
+<title>jacket · Jacket — Ø 5.00 mm</title>
+<circle class="xs-fill" cx="21" cy="32.2" r="9.4" fill="none" stroke="#2b3138" stroke-width="1.2"/>
+<circle class="xs-outline" cx="21" cy="32.2" r="10"/>
+<circle class="xs-outline" cx="21" cy="32.2" r="8.8"/>
+</g>
+<g class="xs-ring xs-ring-shield" data-element="foil" data-kind="shield" data-construction="foil" data-od="4.4">
+<circle class="xs-fill" cx="21" cy="32.2" r="6.6" fill="none" stroke="#a7aeb5" stroke-width="4.4"/>
+<circle class="xs-outline" cx="21" cy="32.2" r="8.8"/>
+<circle class="xs-outline" cx="21" cy="32.2" r="4.4"/>
+</g>
+<g class="xs-core" data-core="pair-1" data-tag="1" data-lay="0" data-angle="90">
+<title>pair-1 · Pair 1</title>
+<g class="xs-ring xs-ring-conductor" data-element="pair-1.a" data-kind="conductor" data-od="1.1">
+<title>pair-1.a — Ø 1.10 mm</title>
+<circle class="xs-fill" cx="21" cy="30" r="2.2" fill="#b8763a"/>
+<circle class="xs-outline" cx="21" cy="30" r="2.2"/>
+</g>
+<g class="xs-ring xs-ring-conductor" data-element="pair-1.b" data-kind="conductor" data-od="1.1">
+<title>pair-1.b — Ø 1.10 mm</title>
+<circle class="xs-fill" cx="21" cy="30" r="2.2" fill="none" stroke="#b8763a" stroke-width="0"/>
+<circle class="xs-outline" cx="21" cy="30" r="2.2"/>
+<circle class="xs-outline" cx="21" cy="30" r="2.2"/>
+</g>
+</g>
+<g class="xs-core" data-core="pair-2" data-tag="2" data-lay="1" data-angle="270">
+<title>pair-2 · Pair 2</title>
+<g class="xs-ring xs-ring-conductor" data-element="pair-2.a" data-kind="conductor" data-od="1.1">
+<title>pair-2.a — Ø 1.10 mm</title>
+<circle class="xs-fill" cx="21" cy="34.4" r="2.2" fill="#b8763a"/>
+<circle class="xs-outline" cx="21" cy="34.4" r="2.2"/>
+</g>
+<g class="xs-ring xs-ring-conductor" data-element="pair-2.b" data-kind="conductor" data-od="1.1">
+<title>pair-2.b — Ø 1.10 mm</title>
+<circle class="xs-fill" cx="21" cy="34.4" r="2.2" fill="none" stroke="#b8763a" stroke-width="0"/>
+<circle class="xs-outline" cx="21" cy="34.4" r="2.2"/>
+<circle class="xs-outline" cx="21" cy="34.4" r="2.2"/>
+</g>
+</g>
+<g class="xs-core" data-core="drain" data-tag="D" data-lay="-2" data-angle="0">
+<title>drain · Drain</title>
+<g class="xs-ring xs-ring-conductor" data-element="drain" data-kind="conductor" data-od="0.55">
+<title>drain · Drain — Ø 0.55 mm</title>
+<circle class="xs-fill" cx="24.3" cy="32.2" r="1.1" fill="#b8763a"/>
+<circle class="xs-outline" cx="24.3" cy="32.2" r="1.1"/>
+</g>
+</g>
+<g class="xs-callout" data-core="pair-1" data-tag="1">
+<line class="xs-leader-halo" x1="21" y1="30" x2="21" y2="18.2"/>
+<line class="xs-leader" x1="21" y1="30" x2="21" y2="18.2"/>
+<text class="xs-tag" x="21" y="17.85" text-anchor="middle">1</text>
+</g>
+<g class="xs-callout" data-core="pair-2" data-tag="2">
+<line class="xs-leader-halo" x1="21" y1="34.4" x2="21" y2="46.2"/>
+<line class="xs-leader" x1="21" y1="34.4" x2="21" y2="46.2"/>
+<text class="xs-tag" x="21" y="48.65" text-anchor="middle">2</text>
+</g>
+<g class="xs-callout" data-core="drain" data-tag="D">
+<line class="xs-leader-halo" x1="25.4" y1="32.2" x2="35" y2="32.2"/>
+<line class="xs-leader" x1="25.4" y1="32.2" x2="35" y2="32.2"/>
+<text class="xs-tag" x="36.4" y="33.25" text-anchor="start">D</text>
+</g>
+<g class="xs-dimension">
+<line class="xs-dim" x1="11" y1="52.2" x2="31" y2="52.2"/>
+<line class="xs-dim" x1="11" y1="51" x2="11" y2="53.4"/>
+<line class="xs-dim" x1="31" y1="51" x2="31" y2="53.4"/>
+<text class="xs-dim-text" x="21" y="56.1" text-anchor="middle">Ø 5.00 mm over the jacket</text>
+</g>
+<g class="xs-ruler" data-span-mm="5">
+<line class="xs-rule" x1="11" y1="60.6" x2="31" y2="60.6"/>
+<line class="xs-rule" x1="11" y1="60.6" x2="11" y2="58.8"/>
+<line class="xs-rule" x1="15" y1="60.6" x2="15" y2="59.6"/>
+<line class="xs-rule" x1="19" y1="60.6" x2="19" y2="59.6"/>
+<line class="xs-rule" x1="23" y1="60.6" x2="23" y2="59.6"/>
+<line class="xs-rule" x1="27" y1="60.6" x2="27" y2="59.6"/>
+<line class="xs-rule" x1="31" y1="60.6" x2="31" y2="58.8"/>
+<text class="xs-rule-text" x="32.5" y="61.62">5 mm</text>
+</g>
+<g class="xs-key-list">
+<g class="xs-key-row" data-tag="1">
+<circle class="xs-swatch" cx="46.3" cy="16.2" r="1.3" fill="#ffffff"/>
+<text class="xs-key-tag" x="49" y="17.22">1</text>
+<text class="xs-key" x="52.4" y="17.22">pair-1 · Pair 1</text>
+</g>
+<g class="xs-key-row" data-tag="2">
+<circle class="xs-swatch" cx="46.3" cy="20.4" r="1.3" fill="#ffffff"/>
+<text class="xs-key-tag" x="49" y="21.42">2</text>
+<text class="xs-key" x="52.4" y="21.42">pair-2 · Pair 2</text>
+</g>
+<g class="xs-key-row" data-tag="D">
+<circle class="xs-swatch" cx="46.3" cy="24.6" r="1.3" fill="#e9edf1"/>
+<text class="xs-key-tag" x="49" y="25.62">D</text>
+<text class="xs-key" x="52.4" y="25.62">drain · Drain — interstitial, not on the pitch circle</text>
+</g>
+<g class="xs-key-row" data-tag="">
+<circle class="xs-swatch" cx="46.3" cy="28.8" r="1.3" fill="#2b3138"/>
+<text class="xs-key" x="52.4" y="29.82">jacket · Jacket · Ø 5.00 mm</text>
+</g>
+</g>
+</g>
+</svg>"
+`;
+
+exports[`golden structure > dc-led-lead matches its structure digest 1`] = `
+"{
+ "blocks": [
+  {
+   "id": "j1",
+   "kind": "connector",
+   "def": "terminal-block-4",
+   "ports": 2,
+   "side": "right"
+  },
+  {
+   "id": "j2",
+   "kind": "connector",
+   "def": "jst-xh-2-dc",
+   "ports": 2,
+   "side": "left"
+  }
+ ],
+ "bands": [
+  {
+   "segment": "w1",
+   "def": "dc-2core-24awg",
+   "label": "DC power cable, 2 × 24 AWG, red/black · 1000 mm",
+   "zone": "source",
+   "leftEnd": "a",
+   "tracks": [
+    [
+     "w1:red",
+     "conductor",
+     "plain",
+     "red"
+    ],
+    [
+     "w1:black",
+     "conductor",
+     "plain",
+     "black"
+    ]
+   ],
+   "groups": 0,
+   "pigtails": 0
+  }
+ ],
+ "joints": [
+  [
+   "j1:1",
+   1
+  ],
+  [
+   "j1:2",
+   1
+  ],
+  [
+   "j2:1",
+   1
+  ],
+  [
+   "j2:2",
+   1
+  ],
+  [
+   "r1:a",
+   1
+  ],
+  [
+   "r1:b",
+   1
+  ],
+  [
+   "w1:black@a",
+   1
+  ],
+  [
+   "w1:black@b",
+   1
+  ],
+  [
+   "w1:red@a",
+   1
+  ],
+  [
+   "w1:red@b",
+   1
+  ]
+ ],
+ "cutEnds": 0,
+ "edges": 5,
+ "components": 1,
+ "crossSection": "WIR-00005 · cross-section · lay order CW from 12 o'clock",
+ "issues": []
+}"
+`;
+
+exports[`golden structure > dc-y-splitter matches its structure digest 1`] = `
+"{
+ "blocks": [
+  {
+   "id": "j1",
+   "kind": "connector",
+   "def": "terminal-block-4",
+   "ports": 4,
+   "side": "right"
+  },
+  {
+   "id": "j2",
+   "kind": "connector",
+   "def": "jst-xh-2-dc",
+   "ports": 2,
+   "side": "left"
+  },
+  {
+   "id": "j3",
+   "kind": "connector",
+   "def": "jst-xh-2-dc",
+   "ports": 2,
+   "side": "left"
+  }
+ ],
+ "bands": [
+  {
+   "segment": "w1",
+   "def": "shielded-2pair-24awg",
+   "label": "2-pair shielded data cable, 24 AWG, foil + drain · 1500 mm …",
+   "zone": "source",
+   "leftEnd": "a",
+   "tracks": [
+    [
+     "w1:pair-1.a",
+     "conductor",
+     "center",
+     "white"
+    ],
+    [
+     "w1:pair-1.b",
+     "conductor",
+     "center",
+     "blue"
+    ],
+    [
+     "w1:pair-2.a",
+     "conductor",
+     "center",
+     "white"
+    ],
+    [
+     "w1:pair-2.b",
+     "conductor",
+     "center",
+     "orange"
+    ],
+    [
+     "w1:drain",
+     "conductor",
+     "drain",
+     null
+    ]
+   ],
+   "groups": 2,
+   "pigtails": 0
+  },
+  {
+   "segment": "w2",
+   "def": "dc-2core-24awg",
+   "label": "DC power cable, 2 × 24 …",
+   "zone": "branch",
+   "leftEnd": "a",
+   "tracks": [
+    [
+     "w2:red",
+     "conductor",
+     "plain",
+     "red"
+    ],
+    [
+     "w2:black",
+     "conductor",
+     "plain",
+     "black"
+    ]
+   ],
+   "groups": 0,
+   "pigtails": 0
+  },
+  {
+   "segment": "w3",
+   "def": "dc-2core-24awg",
+   "label": "DC power cable, 2 × 24 …",
+   "zone": "branch",
+   "leftEnd": "a",
+   "tracks": [
+    [
+     "w3:red",
+     "conductor",
+     "plain",
+     "red"
+    ],
+    [
+     "w3:black",
+     "conductor",
+     "plain",
+     "black"
+    ]
+   ],
+   "groups": 0,
+   "pigtails": 0
+  }
+ ],
+ "joints": [
+  [
+   "j1:1",
+   1
+  ],
+  [
+   "j1:2",
+   1
+  ],
+  [
+   "j1:3",
+   1
+  ],
+  [
+   "j1:4",
+   1
+  ],
+  [
+   "j2:1",
+   1
+  ],
+  [
+   "j2:2",
+   1
+  ],
+  [
+   "j3:1",
+   1
+  ],
+  [
+   "j3:2",
+   1
+  ],
+  [
+   "w1:pair-1.a@a",
+   1
+  ],
+  [
+   "w1:pair-1.a@b",
+   1
+  ],
+  [
+   "w1:pair-1.b@a",
+   1
+  ],
+  [
+   "w1:pair-1.b@b",
+   1
+  ],
+  [
+   "w1:pair-2.a@a",
+   1
+  ],
+  [
+   "w1:pair-2.a@b",
+   1
+  ],
+  [
+   "w1:pair-2.b@a",
+   1
+  ],
+  [
+   "w1:pair-2.b@b",
+   1
+  ],
+  [
+   "w2:black@a",
+   1
+  ],
+  [
+   "w2:black@b",
+   1
+  ],
+  [
+   "w2:red@a",
+   1
+  ],
+  [
+   "w2:red@b",
+   1
+  ],
+  [
+   "w3:black@a",
+   1
+  ],
+  [
+   "w3:black@b",
+   1
+  ],
+  [
+   "w3:red@a",
+   1
+  ],
+  [
+   "w3:red@b",
+   1
+  ]
+ ],
+ "cutEnds": 0,
+ "edges": 12,
+ "components": 0,
+ "crossSection": "WIR-00002 · cross-section · lay order CCW from 12 o'clock",
+ "issues": []
+}"
+`;
+
+exports[`golden structure > de9-crossover matches its structure digest 1`] = `
+"{
+ "blocks": [
+  {
+   "id": "j1",
+   "kind": "connector",
+   "def": "de9-female",
+   "ports": 9,
+   "side": "right"
+  },
+  {
+   "id": "j2",
+   "kind": "connector",
+   "def": "de9-female",
+   "ports": 8,
+   "side": "left"
+  }
+ ],
+ "bands": [
+  {
+   "segment": "w1",
+   "def": "shielded-2pair-24awg",
+   "label": "2-pair shielded data cable, 24 AWG, foil + drain · 1830 mm",
+   "zone": "source",
+   "leftEnd": "a",
+   "tracks": [
+    [
+     "w1:pair-1.a",
+     "conductor",
+     "center",
+     "white"
+    ],
+    [
+     "w1:pair-1.b",
+     "conductor",
+     "center",
+     "blue"
+    ],
+    [
+     "w1:pair-2.a",
+     "conductor",
+     "center",
+     "white"
+    ],
+    [
+     "w1:pair-2.b",
+     "conductor",
+     "center",
+     "orange"
+    ],
+    [
+     "w1:drain",
+     "conductor",
+     "drain",
+     null
+    ]
+   ],
+   "groups": 2,
+   "pigtails": 1
+  }
+ ],
+ "joints": [
+  [
+   "j1:1",
+   1
+  ],
+  [
+   "j1:2",
+   1
+  ],
+  [
+   "j1:3",
+   1
+  ],
+  [
+   "j1:4",
+   2
+  ],
+  [
+   "j1:5",
+   1
+  ],
+  [
+   "j1:6",
+   1
+  ],
+  [
+   "j1:7",
+   1
+  ],
+  [
+   "j1:8",
+   1
+  ],
+  [
+   "j1:shell",
+   1
+  ],
+  [
+   "j2:1",
+   1
+  ],
+  [
+   "j2:2",
+   1
+  ],
+  [
+   "j2:3",
+   1
+  ],
+  [
+   "j2:4",
+   2
+  ],
+  [
+   "j2:5",
+   1
+  ],
+  [
+   "j2:6",
+   1
+  ],
+  [
+   "j2:7",
+   1
+  ],
+  [
+   "j2:8",
+   1
+  ],
+  [
+   "w1:pair-1.a@a",
+   1
+  ],
+  [
+   "w1:pair-1.a@b",
+   1
+  ],
+  [
+   "w1:pair-1.b@a",
+   1
+  ],
+  [
+   "w1:pair-1.b@b",
+   1
+  ],
+  [
+   "w1:pair-2.a@a",
+   1
+  ],
+  [
+   "w1:pair-2.a@b",
+   1
+  ],
+  [
+   "w1:pigtail:shield@a",
+   1
+  ]
+ ],
+ "cutEnds": 1,
+ "edges": 13,
+ "components": 0,
+ "crossSection": "WIR-00002 · cross-section · lay order CCW from 12 o'clock",
+ "issues": []
+}"
+`;
+
+exports[`golden structure > de9-terminal-board matches its structure digest 1`] = `
+"{
+ "blocks": [
+  {
+   "id": "j1",
+   "kind": "connector",
+   "def": "de9-male",
+   "ports": 5,
+   "side": "right"
+  },
+  {
+   "id": "u1",
+   "kind": "pcba",
+   "def": "pair-terminal-board",
+   "ports": 8,
+   "side": "left"
+  }
+ ],
+ "bands": [
+  {
+   "segment": "w1",
+   "def": "shielded-2pair-24awg",
+   "label": "2-pair shielded data cable, 24 AWG, foil + drain · 1000 mm",
+   "zone": "source",
+   "leftEnd": "a",
+   "tracks": [
+    [
+     "w1:pair-1.a",
+     "conductor",
+     "center",
+     "white"
+    ],
+    [
+     "w1:pair-1.b",
+     "conductor",
+     "center",
+     "blue"
+    ],
+    [
+     "w1:pair-2.a",
+     "conductor",
+     "center",
+     "white"
+    ],
+    [
+     "w1:pair-2.b",
+     "conductor",
+     "center",
+     "orange"
+    ],
+    [
+     "w1:drain",
+     "conductor",
+     "drain",
+     null
+    ]
+   ],
+   "groups": 2,
+   "pigtails": 2
+  }
+ ],
+ "joints": [
+  [
+   "j1:3",
+   1
+  ],
+  [
+   "j1:5",
+   1
+  ],
+  [
+   "j1:6",
+   1
+  ],
+  [
+   "j1:8",
+   1
+  ],
+  [
+   "j1:shell",
+   1
+  ],
+  [
+   "u1:A",
+   1
+  ],
+  [
+   "u1:B",
+   1
+  ],
+  [
+   "u1:GND",
+   1
+  ],
+  [
+   "u1:SHLD",
+   1
+  ],
+  [
+   "w1:pair-1.a@a",
+   1
+  ],
+  [
+   "w1:pair-1.a@b",
+   1
+  ],
+  [
+   "w1:pair-1.b@a",
+   1
+  ],
+  [
+   "w1:pair-1.b@b",
+   1
+  ],
+  [
+   "w1:pair-2.a@a",
+   1
+  ],
+  [
+   "w1:pair-2.a@b",
+   1
+  ],
+  [
+   "w1:pair-2.b@a",
+   1
+  ],
+  [
+   "w1:pigtail:shield@a",
+   1
+  ],
+  [
+   "w1:pigtail:shield@b",
+   1
+  ]
+ ],
+ "cutEnds": 1,
+ "edges": 9,
+ "components": 0,
+ "crossSection": "WIR-00002 · cross-section · lay order CCW from 12 o'clock",
+ "issues": []
+}"
+`;
