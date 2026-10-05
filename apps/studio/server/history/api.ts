@@ -74,8 +74,11 @@ function badSubject(text: string): ApiResponse {
 async function currentParts(subject: Subject, deps: WorkbenchDeps): Promise<Record<string, unknown>> {
   if (subject.type === 'design') {
     const design = await deps.designs.read(subject.id);
-    const drawing = deps.drawings === undefined || design === undefined ? undefined : (await deps.drawings.read(subject.id)).meta;
-    return { design, drawing };
+    const sheet = deps.drawings === undefined || design === undefined ? undefined : await deps.drawings.read(subject.id);
+    // the photo's version is the hash of its bytes (what the history names it by); no photo: absent
+    const decoded = sheet?.photo === undefined ? undefined : decodeImageDataUri(sheet.photo);
+    const photo = decoded === undefined ? undefined : `sha256:${createHash('sha256').update(decoded.bytes).digest('hex')}`;
+    return { design, drawing: sheet?.meta, photo };
   }
   if (subject.type === 'definition') {
     const record = (await deps.definitions?.list(subject.kind as DefinitionKind))?.find((r) => r.id === subject.id);
@@ -84,6 +87,9 @@ async function currentParts(subject: Subject, deps: WorkbenchDeps): Promise<Reco
   if (subject.type === 'vocab') return { record: await deps.vocab?.read(subject.list) };
   return { record: await deps.builds?.read(subject.name) };
 }
+
+/** The parts a restore quotes the version of: the restorable ones, and for a design its photo (restored with it, by hash). */
+const quotedParts = (subject: Subject): string[] => (subject.type === 'design' ? [...restorableParts(subject), 'photo'] : restorableParts(subject));
 
 const etagOf = (value: unknown): string | null => (value === undefined ? null : contentETag(value));
 
@@ -154,7 +160,7 @@ export async function handleHistoryRequest(request: ApiRequest, deps: WorkbenchD
     const detail: HistoryEntryDetail = { capabilities, ...found };
     if (subject !== undefined && capabilities.restore) {
       const current = await currentParts(subject, deps);
-      detail.current = Object.fromEntries(restorableParts(subject).map((part) => [part, etagOf(current[part])]));
+      detail.current = Object.fromEntries(quotedParts(subject).map((part) => [part, etagOf(current[part])]));
     }
     return ok(detail);
   }
@@ -187,7 +193,7 @@ async function restore(subject: Subject, request: ApiRequest, deps: WorkbenchDep
   const parts = restorableParts(subject);
   const main = parts[0] as string;
   // nothing moved since the person looked: every quoted part still has the version they saw
-  for (const part of parts) {
+  for (const part of quotedParts(subject)) {
     const now = etagOf(current[part]);
     const saw = quoted?.[part];
     if (quoted !== undefined && saw !== undefined && saw !== now) return staleWriteResponse(subject.type === 'design' ? 'design' : 'record', key);
@@ -272,7 +278,8 @@ function imageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' | undefined {
 async function restorePhoto(id: string, entry: string, subject: Subject, deps: WorkbenchDeps, source: HistorySource): Promise<{ restored: boolean; skipped?: string }> {
   if (deps.drawings === undefined || source.photoAt === undefined) return { restored: false };
   const wanted = await source.photoAt(subject, entry);
-  if (wanted === undefined) return { restored: false };
+  if (wanted === undefined) return { restored: false, skipped: 'The drawing photo was left as it is: the history did not record which photo that change left.' };
+  if (wanted !== 'none' && 'unrestorable' in wanted) return { restored: false, skipped: wanted.unrestorable };
   const stored = await deps.drawings.read(id);
   const decoded = stored.photo === undefined ? undefined : decodeImageDataUri(stored.photo);
   const have = decoded === undefined ? 'none' : createHash('sha256').update(decoded.bytes).digest('hex');
@@ -282,9 +289,10 @@ async function restorePhoto(id: string, entry: string, subject: Subject, deps: W
     return { restored: true };
   }
   if (wanted.sha256 === have) return { restored: false };
-  const bytes = await deps.blobByHash?.(wanted.sha256);
+  // a legacy per-design file comes with its bytes (read from git); the others are read by hash
+  const bytes = wanted.bytes ?? (await deps.blobByHash?.(wanted.sha256));
   const mime = bytes === undefined ? undefined : (wanted.mime ?? imageMime(bytes));
-  if (bytes === undefined || mime === undefined) return { restored: false, skipped: 'The drawing photo was not brought back: its file is no longer stored.' };
+  if (bytes === undefined || mime === undefined) return { restored: false, skipped: 'The drawing photo was not brought back: its file is no longer stored (the upload was removed from the hub), so only the rest of the design was restored.' };
   await deps.drawings.writePhoto(id, { mime, bytes: Buffer.from(bytes) });
   return { restored: true };
 }

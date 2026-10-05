@@ -11,6 +11,7 @@
  * `builds/<name>.json`.
  */
 
+import { createHash } from 'node:crypto';
 import { changedFields } from '../../src/history/diff.ts';
 import {
   definitionNoun,
@@ -41,6 +42,13 @@ export const GIT_HISTORY: HistoryCapabilities = {
   restore: true,
   filters: { person: true, date: true, kind: true },
 };
+
+/** PNG or JPEG, told by the first bytes of a legacy photo file. */
+function legacyMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' | undefined {
+  if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  return undefined;
+}
 
 const SEP = '\u001f';
 const END = '\u001e';
@@ -390,9 +398,17 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
         const entry = index.known && Array.isArray(index.value) ? (index.value as { id?: unknown; mime?: unknown }[]).find((a) => a.id === assetId) : undefined;
         return { sha256: assetId, ...(entry?.mime === 'image/png' || entry?.mime === 'image/jpeg' ? { mime: entry.mime } : {}) };
       }
-      // a legacy per-design file keeps its bytes only in git: shown, not restorable
+      // a legacy per-design file keeps its bytes only in git: read them from that commit
       for (const ext of ['png', 'jpg']) {
-        if ((await run(['cat-file', '-e', `${id}:./drawings/${named.id}.photo.${ext}`])).code === 0) return undefined;
+        const path = `drawings/${named.id}.photo.${ext}`;
+        if ((await run(['cat-file', '-e', `${id}:./${path}`])).code !== 0) continue;
+        const blob = await git(['show', `${id}:./${path}`], { cwd, timeoutMs: 30_000, encoding: 'latin1' });
+        const bytes = blob.code === 0 ? Buffer.from(blob.stdout, 'latin1') : undefined;
+        const mime = bytes === undefined ? undefined : legacyMime(bytes);
+        if (bytes === undefined || bytes.length === 0 || mime === undefined) {
+          return { unrestorable: `The drawing photo was not brought back: its file (${path}) is in git at that change but is not a readable PNG or JPEG (a pointer file, or a shallow clone without the blob).` };
+        }
+        return { sha256: createHash('sha256').update(bytes).digest('hex'), mime, bytes };
       }
       return 'none';
     },

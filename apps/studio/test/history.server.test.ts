@@ -11,7 +11,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,6 +67,62 @@ describe('change history on the file backend (git)', () => {
     expect(last).toMatch(/^studio: restore component r-120 to change [0-9a-f]{12}$/);
     expect(subjects[0]).toMatch(/^Carol Example studio: restore list families to change [0-9a-f]{12}$/);
     expect(subjects[subjects.length - 1]).toBe('Setup The starter catalog');
+  }, 60_000);
+
+  it('a legacy per-design photo file comes back from git history (cs-7xb)', async () => {
+    const { defaultWorkbenchDeps } = await import('../server/default-deps.ts');
+    const { handleWorkbenchRequest } = await import('../server/api.ts');
+    const deps = defaultWorkbenchDeps();
+    const id = 'dc-y-splitter';
+    const subject = `design:${id}`;
+    const user: StudioUser = { name: 'Dana Example', email: 'dana@example.com', source: 'session' };
+    const commit = (message: string): string => {
+      git(work, ['add', '-A']);
+      git(work, ['commit', '-q', '--allow-empty', '-m', message], as(user.name, 'dana@example.com'));
+      return git(work, ['rev-parse', 'HEAD']).trim();
+    };
+    const png = (text: string): Buffer => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(text), Buffer.from([0xff, 0x00, 0xfe, 0x80])]);
+    const legacy = join(work, 'data', 'drawings', `${id}.photo.png`);
+    // a photo only as a file in git (as before the shared asset store), then a photo set the current way
+    const bytes = png('legacy photo');
+    writeFileSync(legacy, bytes);
+    const atLegacy = commit('studio: legacy photo file');
+    rmSync(legacy);
+    const sheet = await handleWorkbenchRequest({ method: 'GET', path: `/api/drawings/${id}` }, deps);
+    const current = `data:image/png;base64,${png('current photo').toString('base64')}`;
+    const put = await handleWorkbenchRequest({ method: 'PUT', path: `/api/drawings/${id}/photo`, body: { photo: current }, headers: { 'if-match': sheet.headers?.ETag as string }, user }, deps);
+    expect(put.status, JSON.stringify(put.body)).toBe(200);
+    commit('studio: photo set');
+
+    const detail = await handleWorkbenchRequest({ method: 'GET', path: `/api/history/entries/${atLegacy}?subject=${encodeURIComponent(subject)}` }, deps);
+    expect(detail.status, JSON.stringify(detail.body)).toBe(200);
+    const restored = await handleWorkbenchRequest({ method: 'POST', path: `/api/history/records/${encodeURIComponent(subject)}/restore`, body: { entry: atLegacy, current: (detail.body as { current: unknown }).current }, user }, deps);
+    expect(restored.status, JSON.stringify(restored.body)).toBe(200);
+    expect((restored.body as { restored: { parts: string[] }; skipped?: string[] }).restored.parts).toContain('photo');
+    expect((restored.body as { skipped?: string[] }).skipped).toBeUndefined();
+    const after = (await handleWorkbenchRequest({ method: 'GET', path: `/api/drawings/${id}` }, deps)).body as { photo?: string };
+    expect(Buffer.from(after.photo!.split(',')[1]!, 'base64').equals(bytes)).toBe(true);
+  }, 60_000);
+
+  it('a legacy photo file that is not an image says why it was not brought back (cs-7xb)', async () => {
+    const { defaultWorkbenchDeps } = await import('../server/default-deps.ts');
+    const { handleWorkbenchRequest } = await import('../server/api.ts');
+    const deps = defaultWorkbenchDeps();
+    const id = 'de9-crossover';
+    const subject = `design:${id}`;
+    const user: StudioUser = { name: 'Dana Example', email: 'dana@example.com', source: 'session' };
+    const legacy = join(work, 'data', 'drawings', `${id}.photo.png`);
+    writeFileSync(legacy, 'version https://git-lfs.github.com/spec/v1\n');
+    git(work, ['add', '-A']);
+    git(work, ['commit', '-q', '-m', 'studio: pointer file'], as(user.name, 'dana@example.com'));
+    const at = git(work, ['rev-parse', 'HEAD']).trim();
+    rmSync(legacy);
+    git(work, ['add', '-A']);
+    git(work, ['commit', '-q', '--allow-empty', '-m', 'studio: gone'], as(user.name, 'dana@example.com'));
+    const detail = await handleWorkbenchRequest({ method: 'GET', path: `/api/history/entries/${at}?subject=${encodeURIComponent(subject)}` }, deps);
+    const restored = await handleWorkbenchRequest({ method: 'POST', path: `/api/history/records/${encodeURIComponent(subject)}/restore`, body: { entry: at, current: (detail.body as { current: unknown }).current }, user }, deps);
+    expect(restored.status, JSON.stringify(restored.body)).toBe(200);
+    expect((restored.body as { skipped?: string[] }).skipped?.[0]).toMatch(/not a readable PNG or JPEG/);
   }, 60_000);
 
   it('a catalog outside git keeps no history, and says so', async () => {
