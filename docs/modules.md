@@ -90,6 +90,28 @@ Enabling is additive.
 | `modules/av-video` (`@wirehub/module-av-video`) | video R/G/B, H/V and composite sync, composite, S-Video, component, DDC, SCART switching signals and their returns; lanes and levels; HD15, SCART and BNC families; the VGA and SCART connectors; a VGA monitor cable (and identical copies of the audio signals SCART carries, so it installs with or without `pro-audio`) |
 | `modules/automotive` (`@wirehub/module-automotive`) | CAN, K/L-line, J1850 and battery-positive signals; the OBD-II (SAE J1962) plug with its mandated pins |
 
+### Interop modules
+
+Two bundled modules are always on, are not domain modules (no `setup`, no pack) and exist to
+move records and designs in and out of other tools. Both are MIT; neither adds a table or a route.
+
+| Bundled module | Adds |
+| --- | --- |
+| `modules/wireviz` (`@wirehub/module-wireviz`) | an importer for WireViz YAML (`.yml`, `.yaml`) and a **WireViz (YAML)** exporter in the Documents toolbar. The mapping is written from WireViz's public syntax documentation; none of WireViz's GPL-3.0 code is used or copied (the one dependency is the MIT-compatible `yaml` parser). |
+| `modules/csv-library` (`@wirehub/module-csv-library`) | an importer for CSV files of connectors, wire stocks, components and mechanicals, and the pure column-mapping, validation and dry-run functions behind the Library's **Bulk CSV…** dialog |
+
+**WireViz import** (`docs/interop.md`) runs through the importer and job flow, so the person reviews a plan and publishes
+one change set. A connector or cable is matched to the library only by an identity the file names (`pn`,
+`mpn` or `type` equal to a part number, id, alias or label); otherwise a new record is **proposed** and
+flagged INFERRED in its `src`, never forced onto a lookalike. The review lists what WireViz can say and the
+model cannot as `Not carried over: …` notes.
+
+**Bulk CSV** (`docs/interop.md`): a template per kind, a column-mapping step, a dry run (new, already in the
+library with the fields that differ, invalid with reasons) and the same job review. Every record needs a `src`.
+
+An importer may return designs together with the definitions they use: inside one change set (a batch, a job's
+publish) a design is validated against the definitions staged before it.
+
 `/setup` also mentions domains that have no module yet (fieldbus today) as plain
 suggestions, not installable.
 

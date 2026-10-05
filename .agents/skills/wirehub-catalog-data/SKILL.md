@@ -25,6 +25,11 @@ the validators run. Write a record, then validate it (section 6).
 | vocabulary list | `vocab/<list>.json` | `{ id, label, src, entries[] }`; each entry `id`, `label`, `src` |
 | design | `designs/<id>.json` | the `CableDesign` (SPEC.md), `src` |
 
+Any definition may also carry an optional `cost` (`unit`, `currency`, `per`, `breaks[]`, `moq`; a price
+per piece, or per metre for a wire stock). Pack data does not need prices; see `docs/interop.md`.
+Many records at once can come from a CSV through the Library's **Bulk CSV…** (`modules/csv-library`: a
+`src` on every row, a template per kind, one change set on publish).
+
 Only `connectors.json`, `wires.json` and `components.json` must exist; the rest are optional.
 There is **no data file for rules**: design rules are module code (`validationRules`, see
 `wirehub-module`), and a shop's own rule data was deliberately left out of the base

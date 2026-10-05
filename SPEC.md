@@ -190,7 +190,11 @@ jumper settings of one board revision.
 
 A **mechanical** is a non-electrical physical part: a shell/housing/boot, a fastener, a mould,
 heat-shrink. `{ id, label, partNumber?, revision?, kind: 'shell' | 'fastener' | 'other', src }`.
-It has **no terminals**, so it lives outside the joint/net/trace graph. A **kit** is an
+It has **no terminals**, so it lives outside the joint/net/trace graph.
+
+Every definition record may carry an optional `cost` (`{ unit, currency?, per?, breaks?, moq?, src? }`,
+`docs/interop.md`, "Costing"), and a design an optional `labourMinutes`: additive fields that feed the
+BOM's cost roll-up and change nothing else. A **kit** is an
 orderable bundle of parts (`{ id, label, sku, contents: { part: { kind, def }, qty }[], src }`) —
 a backshell with its jackscrews, say.
 

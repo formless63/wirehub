@@ -33,6 +33,10 @@ column order.
 - **BOM:** `section, part_number, description, quantity, unit, location, instances,
   variation_pn, notes`. Quantity is a number; `unit` is `ea` or `ft` (wire). A length
   family's trunk has one row per orderable length, with its `variation_pn`.
+- **BOM cost columns:** when some part has a price (`cost`, `docs/interop.md` "Costing"), `unit_cost,
+  extended_cost, currency` follow the BOM columns, and `Labour`, `Total` and (for a build quantity above 1)
+  `Total x N` rows close the file, with the amount in `extended_cost`. A BOM with no prices has none of this.
+  The API takes `?quantity=N` for the build quantity quantity breaks are read at.
 - **Wire list:** `segment, stock_part_number, stock, element, kind, colour, a_landing,
   a_pad, b_landing, b_pad, length_mm, notes`. `element` is the element path in the stock
   (`pair-1.a`) or `pigtail:<id>`; `kind` is `core`, `screen`, `drain` or `pigtail`; a

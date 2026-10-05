@@ -107,7 +107,7 @@ emails out of commits (`CONTRIBUTING.md`).
 | `@wirehub/editor-react` | the editor |
 | `apps/studio` | the app: Vite SPA and Hono server; `stack/` the compose stack's one-shots |
 | `site` | the config generator, published to GitHub Pages |
-| `modules/*` | bundled, optional domain modules: `pc-serial`, `networking`, `pro-audio`, `av-video`, `automotive` |
+| `modules/*` | bundled modules: optional domain modules (`pc-serial`, `networking`, `pro-audio`, `av-video`, `automotive`) and the always-on interop modules `wireviz` (WireViz YAML in and out) and `csv-library` (bulk CSV library import) |
 
 ## Read next
 
@@ -115,6 +115,7 @@ emails out of commits (`CONTRIBUTING.md`).
 - `docs/modules.md` — extension points, domain modules, and how a private module lives
   in its own repository.
 - `docs/exports.md` — CSV/XLSX exports, the continuity tester export, wire labels, and rendering documents without a browser.
+- `docs/interop.md` — WireViz YAML import and export, bulk CSV library import, and part costing.
 - `docs/catalog-store.md` — catalog packs: format, provenance, install and update.
 - `docs/self-hosting.md` — install, the compose stack, secrets, storage, backups, development.
 - `specs/postgres-backend.md` — the database backend (Phase A built).
