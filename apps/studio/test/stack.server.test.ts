@@ -290,6 +290,20 @@ describe('compose.yaml', () => {
     }
   });
 
+  it('runs the worker after migrate, inside its memory budget (S6: 1.5 GiB, one STEP conversion below it)', () => {
+    const service = /\n  worker:\n([\s\S]*?)\n\n/.exec(compose)?.[1] ?? '';
+    expect(service).toContain('server/worker.ts');
+    expect(service).toMatch(/\n    mem_limit: 1536m\n/);
+    expect(service).toMatch(/migrate:\n        condition: service_completed_successfully/);
+    expect(service).toContain('DATABASE_URL_FILE: /run/wirehub/database_url');
+    expect(service).toContain('- backups:/backups:ro');
+    const stepLimit = Number(/WIREHUB_STEP_RSS_LIMIT_MB: \$\{WIREHUB_STEP_RSS_LIMIT_MB:-(\d+)\}/.exec(service)?.[1]);
+    expect(stepLimit).toBeGreaterThan(1100);
+    expect(stepLimit).toBeLessThan(1536 - 200);
+    // the app's own budget stays what it was: STEP conversion is the worker's
+    expect(/\n  wirehub:\n[\s\S]*?\n    mem_limit: (\d+m)\n/.exec(compose)?.[1]).toBe('768m');
+  });
+
   it('pairs every bundled-service marker', () => {
     for (const block of ['bundled-postgres', 'bundled-s3']) {
       const opens = compose.split('\n').filter((line) => line.trim().startsWith(`# >>> ${block}`)).length;

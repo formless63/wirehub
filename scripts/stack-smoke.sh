@@ -5,8 +5,11 @@
 # checks: the secrets were generated, the app answers, the setup code is in its
 # log, /setup refuses without it and with it creates the organisation, the
 # starter catalog and the admin, the admin signs in and saves a design, an
-# upload lands in the bucket, Postgres runs with the generated passwords, and
-# the database's export is the starter catalog plus exactly that save.
+# upload lands in the bucket, Postgres runs with the generated passwords, the
+# worker (which waited for setup) converts a STEP upload and runs a job end to
+# end inside its memory cap, a dump as studio_ro restores into a scratch
+# database, and the database's export is the starter catalog plus exactly
+# that save and that model.
 #
 #   bash scripts/stack-smoke.sh [--upgrade] [--backup] [--restore] [image]
 #
@@ -81,6 +84,54 @@ admin_email="admin@example.com"
 admin_password="smoke-test admin password"
 jar="$scratch/cookies"
 
+mib() { awk '{ printf "%d", $1 / 1048576 }'; }
+
+check_worker() { # $1: the app's origin; the admin is signed in ($jar)
+  local origin="$1" job="" state="" i
+  log_has worker 'working .*import' || fail "the worker did not start working after setup"
+  echo "smoke: worker — $(compose logs --no-log-prefix worker | grep -oE 'working [a-z, -]+ for org' | tail -1)"
+  # a person's STEP upload converts in the worker (the convert job); the request and its answer are unchanged
+  printf '{"name":"cube.step","data":"%s"}' "$(base64 -w0 "$repo/apps/studio/test/fixtures/models/cube-colours.stp")" > "$scratch/upload.json"
+  curl -sS -b "$jar" -X POST -H 'content-type: application/json' -H "origin: $origin" -H 'if-match: *' --data-binary @"$scratch/upload.json" \
+    "$origin/api/models/connectors/de9-male/upload" > "$scratch/upload.out" || true
+  contains '"triangles"' < "$scratch/upload.out" || fail "the STEP upload: $(head -c 300 "$scratch/upload.out")"
+  log_has worker 'convert [0-9a-f-]+ done' || fail "the STEP upload did not convert in the worker"
+  echo "smoke: a STEP upload converted in the worker ($(grep -oE '"peakRssMb": *[0-9]+' "$scratch/upload.out" | head -1 | tr -d ' "') in the conversion child) and is linked"
+  # a job by request, end to end: queued, run by the worker, done
+  job="$(curl -fsS -b "$jar" -X POST -H 'content-type: application/json' -H "origin: $origin" -d '{"kind":"model-cache"}' "$origin/api/jobs" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)"
+  [ -n "$job" ] || fail "POST /api/jobs did not queue a job"
+  for i in $(seq 1 60); do
+    state="$(curl -fsS -b "$jar" "$origin/api/jobs/$job" | grep -oE '"status": *"[a-z]+"' | head -1 | grep -oE '[a-z]+"$' | tr -d '"')"
+    [ "$state" = done ] || [ "$state" = failed ] && break
+    sleep 1
+  done
+  [ "$state" = done ] || fail "the model-cache job ended '$state'"
+  curl -fsS -b "$jar" "$origin/api/jobs" | contains '"beatAt"' || fail "GET /api/jobs shows no worker heartbeat"
+  compose exec -T worker sh -c 'find /tmp/wirehub-worker.beat -mmin -3' | contains 'beat' || fail "the worker's heartbeat file is stale"
+  echo "smoke: a model-cache job ran end to end in the worker ($job); the heartbeat is fresh"
+  # a backup restores: pg_dump as studio_ro (which must read the queue tables the worker made), into a scratch database
+  docker run --rm --network "${project}_internal" -v "${project}_secrets:/run/wirehub:ro" postgres:18.6-bookworm sh -c '
+    set -e; admin="$(cat /run/wirehub/database_admin_url)"
+    maint="$(printf %s "$admin" | sed -E "s#(postgres(ql)?://[^/]+)/[^?]*#\1/postgres#")"
+    target="$(printf %s "$admin" | sed -E "s#(postgres(ql)?://[^/]+)/[^?]*#\1/smoke_restore#")"
+    pg_dump -Fc -d "$(cat /run/wirehub/database_ro_url)" -f /tmp/smoke.dump
+    psql -d "$maint" -XAtq -c "CREATE DATABASE smoke_restore TEMPLATE template0"
+    pg_restore -d "$target" --no-owner --no-acl --exit-on-error /tmp/smoke.dump
+    echo "restored: $(psql -d "$target" -XAt -c "select count(*) from studio.job_run") jobs, $(psql -d "$target" -XAt -c "select count(*) from pgboss.job") queue rows"
+    psql -d "$maint" -XAtq -c "DROP DATABASE smoke_restore WITH (FORCE)"' > "$scratch/restore.out" 2>&1 || fail "dump and restore: $(cat "$scratch/restore.out")"
+  echo "smoke: a dump as studio_ro restores into a scratch database ($(grep restored: "$scratch/restore.out"))"
+  # S6: memory, against the caps
+  local worker_peak worker_now app_now
+  worker_peak="$(compose exec -T worker cat /sys/fs/cgroup/memory.peak 2>/dev/null | mib || true)"
+  worker_now="$(compose exec -T worker cat /sys/fs/cgroup/memory.current | mib)"
+  app_now="$(compose exec -T wirehub cat /sys/fs/cgroup/memory.current | mib)"
+  echo "smoke: memory — worker ${worker_now} MiB now, peak ${worker_peak:-?} MiB (cap 1536); app ${app_now} MiB (cap 768)"
+  [ "${worker_peak:-0}" -lt 1536 ] || fail "the worker's peak reached its cap"
+  wait_for "$origin/healthz" 10 || fail "the app stopped answering after the jobs"
+  [ "$(docker inspect -f '{{.State.Running}} {{.RestartCount}}' "$(compose ps -q wirehub)")" = "true 0" ] || fail "the app restarted"
+  echo "smoke: the app stays healthy"
+}
+
 check_stack() { # $1: modules to enable at setup (JSON array)
   local modules="$1"
   echo "smoke: $(ls -A | tr '\n' ' ')— no .env; up -d${COMPOSE_PROFILES:+ with COMPOSE_PROFILES=$COMPOSE_PROFILES}"
@@ -130,6 +181,7 @@ check_stack() { # $1: modules to enable at setup (JSON array)
   docker run --rm --network "${project}_internal" -v "${project}_secrets:/run/wirehub:ro" postgres:18.6-bookworm \
     sh -c 'psql "$(cat /run/wirehub/database_url)" -tAc "select studio.org_count()"' | contains '^1$' || fail "Postgres did not take the generated password"
   echo "smoke: Postgres is up; studio_app connects with its generated password"
+  check_worker "$origin"
   if [ "$modules" = "[]" ]; then
     # S8: the database's export is the starter catalog plus exactly the save (and the setup record)
     cli export --out /tmp/smoke-export >/dev/null || fail "pg:export"
@@ -139,9 +191,10 @@ check_stack() { # $1: modules to enable at setup (JSON array)
       'Files /tmp/smoke-export/data/designs/dc-y-splitter.json and /app/starter-catalog/designs/dc-y-splitter.json differ' \
       'Only in /tmp/smoke-export/data/drawings: dc-y-splitter.photo-ref.json' \
       'Only in /tmp/smoke-export/data: assets' \
+      'Only in /tmp/smoke-export/data: models.json' \
       'Only in /tmp/smoke-export/data: setup.json' | sort)"
     [ "$diff" = "$expected" ] || fail "the export is not the starter plus the save: $diff"
-    echo "smoke: the export is the starter catalog plus the save, the photo and the setup record — nothing else"
+    echo "smoke: the export is the starter catalog plus the save, the photo, the model link and the setup record — nothing else"
   fi
 }
 
