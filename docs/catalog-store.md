@@ -242,6 +242,18 @@ directory, and the Postgres backend runs it over a scratch copy it commits as **
   is installed already is updated through the same door. URLs are fetched by the server: https
   only, no credentials, public addresses only, redirects re-checked, 8 MB and 15 s limits.
   Administration only: no API token may write `/api/packs`.
+  **Preview, files and Postgres agree.** A pack that previews as applicable applies on both
+  backends, and `adopt` / `pg:import` take what the API installed. The preview runs the database
+  codec over the catalog with the pack in it and lists what it would refuse in `problems`
+  (`applicable: false`; applying answers 422). Documents are installed in canonical JSON
+  (`JSON.stringify(v, null, 2) + "\n"`; `models.json` links and `assets/index.json` entries in the
+  store's order) whatever form they were shipped in. `src` is asked of every record, of a board's
+  builds (each build) and of documents; not of a drawing's sidecars (`drawings/<id>.json`, the photo
+  pointer `drawings/<id>.photo-ref.json` = exactly `{ "assetId" }`) nor of saved versions
+  (`designs/_versions/…`). `models.json` links are keyed `<kind>/<id>` of the eight Library kinds, or
+  `revisions/<part>/<revision>` for the model of a part revision no record shows. When `adopt` or
+  `pg:import` still refuses a file (a pack installed by an earlier version, say), the error names the
+  file and whether it came from the catalog or from which pack.
   **Images travel with the pack.** Besides `.json`, a zip or bundle carries the images under
   `depictions/**` and `art/**` (`svg`, `png`, `jpg`/`jpeg`, `webp`, lowercase extensions; in a JSON
   bundle a `files` entry for an image is the file, base64). Anything else is ignored in a zip and

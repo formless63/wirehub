@@ -23,6 +23,19 @@ import { boardAssemblyPlan, boardLibraryRefs, modelMatrix, type AssemblyPlan } f
 import type { BoardArt } from './board-texture.ts';
 import { isArtFile, sha256Hex, sourceKey, type ModelBuild, type SourceFile } from './cache.ts';
 import { convertAssembly, convertModel, convertModelFiles, ModelRefusal, type ConvertedModel } from './convert.ts';
+
+/**
+ * A source file this studio cannot read because the sources are not mounted here (`WIREHUB_MODEL_SOURCES`).
+ * Not a fault of the model: a studio without the sources simply cannot build it, and a sweep says so as
+ * information, not as an alert (`jobs/model-cache.ts`).
+ */
+export class ModelSourceUnavailable extends ModelRefusal {
+  readonly path: string;
+  constructor(path: string) {
+    super(`${path} is not readable here.`, 'Mount the model sources (WIREHUB_MODEL_SOURCES) on this studio.');
+    this.path = path;
+  }
+}
 import { MAX_MODEL_TRIANGLES } from './finish.ts';
 import { embeddedFile, parseKicadPcb } from './kicad-pcb.ts';
 import { KICAD_ROOT } from './kicad-library.ts';
@@ -101,7 +114,7 @@ export async function buildLinkedModel(
   const bytes = new Map<string, Uint8Array>();
   for (const file of files) {
     const got = await read(file.path);
-    if (got === undefined) throw new ModelRefusal(`${file.path} is not readable here.`, 'Mount the model sources (WIREHUB_MODEL_SOURCES) on this studio.');
+    if (got === undefined) throw new ModelSourceUnavailable(file.path);
     if (sha256Hex(got) !== file.sha256) throw new ModelRefusal(`${file.path} has changed since the model was imported.`, 'Run the importer again: the link names the old file.');
     bytes.set(file.path, got);
   }

@@ -42,6 +42,7 @@ import { defaultDepictionDeps, fileDepictionStore, type DepictionDeps } from './
 import { fileDocStore } from './storage/doc-store.ts';
 import { checkoutPacksDir } from './env.ts';
 import { parseSuggestedModules } from './setup.ts';
+import { mediaTypeOf } from '@wirehub/catalog/src/codec/index.ts';
 import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 import { createHash } from 'node:crypto';
 import { exportTree } from './pg/export.ts';
@@ -90,19 +91,16 @@ export function fileRuntimeSettings(deps: WorkbenchDeps, env: Env, secrets: Secr
   return settings;
 }
 
-const DEPICTION_MEDIA: Readonly<Record<string, string>> = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
-
 /**
- * A depiction file (the base's `depictions/`, a pack's) by content address:
- * the database backend serves every binary file of the catalog from its blob
- * store, so the file backend answers for the same set (S1).
+ * A binary file of the catalog (a depiction, a pack's art, an asset) by content address: the database
+ * backend serves every binary file of the catalog from its blob store, so the file backend answers for the
+ * same set (S1) — the packs' files included, as the flattened catalog holds them.
  */
-function depictionBlob(sha: string, packsDir: string | undefined): { bytes: Uint8Array; mediaType: string } | undefined {
+function catalogBlob(sha: string, packsDir: string | undefined): { bytes: Uint8Array; mediaType: string } | undefined {
   for (const [path, content] of readFlattenedCatalog(dataPath('..'), packsDir)) {
-    if (typeof content === 'string' || !path.startsWith('depictions/')) continue;
-    const bytes = content as Uint8Array;
-    if (createHash('sha256').update(bytes).digest('hex') !== sha) continue;
-    return { bytes: new Uint8Array(bytes), mediaType: DEPICTION_MEDIA[path.slice(path.lastIndexOf('.') + 1)] ?? 'application/octet-stream' };
+    if (typeof content === 'string' || !(content instanceof Uint8Array)) continue;
+    if (createHash('sha256').update(content).digest('hex') !== sha) continue;
+    return { bytes: new Uint8Array(content), mediaType: mediaTypeOf(path) };
   }
   return undefined;
 }
@@ -151,7 +149,7 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     blob: async (sha) => {
       const found = await assets.get(sha);
       if (found !== undefined) return { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime };
-      return depictionBlob(sha, livePacksDir());
+      return catalogBlob(sha, livePacksDir());
     },
     // a restore reads an earlier drawing photo by its hash: uploads are never removed
     blobByHash: async (sha) => {

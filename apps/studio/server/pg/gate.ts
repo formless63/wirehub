@@ -138,6 +138,12 @@ export function directorySnapshot(root: string, rows: CatalogRows, tree: Catalog
   return { version: 'files', rows, files: tree, source, catalog: createCatalog(source), blobOf, loadMs: 0 };
 }
 
+/** The snapshot stores over a directory's tree: the catalog as the database would hold it, read from the files. */
+export function directoryWorkbenchDeps(root: string, tree: CatalogFiles, rows: CatalogRows): WorkbenchDeps {
+  const snapshot = directorySnapshot(root, rows, tree);
+  return pgWorkbenchDeps({ cache: { orgId: 'files', get: async () => snapshot, version: async () => 'files' }, blobs: treeBlobStore(tree, 'files') });
+}
+
 /** Every GET route of the workbench API, with every id the catalog has. */
 export function gateRoutes(catalog: Catalog, rows: CatalogRows): string[] {
   const enc = encodeURIComponent;
@@ -169,7 +175,7 @@ function responseText(response: ApiResponse): string {
   return `${response.status} etag=${response.headers?.etag ?? response.headers?.ETag ?? '-'} ${body}`;
 }
 
-async function apiParity(routes: string[], a: WorkbenchDeps, b: WorkbenchDeps, label: string, diff: (line: string) => void): Promise<number> {
+export async function apiParity(routes: string[], a: WorkbenchDeps, b: WorkbenchDeps, label: string, diff: (line: string) => void): Promise<number> {
   for (const path of routes) {
     const answer = async (deps: WorkbenchDeps): Promise<string> => {
       try {
@@ -310,8 +316,7 @@ export async function runGate(options: GateOptions): Promise<GateReport> {
 
   routes = gateRoutes(fileCatalog, exploded.rows).sort(codePointCompare);
   const pgDeps = pgWorkbenchDeps({ cache: options.pg.cache, ...(pgBlobs === undefined ? {} : { blobs: pgBlobs }) });
-  const dirSnapshot = directorySnapshot(root, exploded.rows, tree);
-  const dirDeps = pgWorkbenchDeps({ cache: { orgId: 'files', get: async () => dirSnapshot, version: async () => 'files' }, blobs: treeBlobStore(tree, 'files') });
+  const dirDeps = directoryWorkbenchDeps(root, tree, exploded.rows);
   checks.push(await check('api-parity', (diff) => apiParity(routes, dirDeps, pgDeps, 'directory vs pg', diff)));
   if (options.filesDeps !== undefined) {
     const filesDeps = options.filesDeps;

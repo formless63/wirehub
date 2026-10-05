@@ -12,7 +12,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ASSET_MIME_EXT } from '@wirehub/catalog/src/codec/index.ts';
-import { readCatalogTree, readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
+import { annotateErrors, readCatalogTree, readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 
 import type { BlobStore } from '../blobs.ts';
 import { orgCount, type Db } from './db.ts';
@@ -57,6 +57,8 @@ export async function adoptFileCatalog(db: Db, options: AdoptOptions): Promise<A
       const bytes = await store.get(`assets/${blob.sha256}.${ext}`);
       return bytes === undefined ? undefined : new Uint8Array(bytes);
     },
+    // a file the codec refuses is named with where it came from: the catalog, or a pack
+    annotate: (errors) => annotateErrors(errors, options.root, options.packs),
     message: 'Adopt the file catalog into the database',
   });
   return { kind: 'adopted', orgId: report.orgId, message: `imported the file deployment's catalog (${files.size} files) as org '${org}', version ${report.version}` };

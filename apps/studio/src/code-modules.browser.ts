@@ -213,7 +213,7 @@ export const setCodeAllowed = (allow: boolean, base = '/api'): Promise<Answer<{ 
 export const pinKey = (key: string, label: string, base = '/api'): Promise<Answer<unknown>> => request('POST', `${base}/code-modules/keys`, { key, ...(label.trim() === '' ? {} : { label: label.trim() }) });
 export const unpinKey = (keyId: string, base = '/api'): Promise<Answer<unknown>> => request('DELETE', `${base}/code-modules/keys/${encodeURIComponent(keyId)}`);
 export const fetchBoot = (base = '/api'): Promise<Answer<{ bootId: string; restarting: boolean; supervised: boolean }>> => request('GET', `${base}/system/boot`);
-export const requestRestart = (base = '/api'): Promise<Answer<{ restarting: boolean; bootId: string; supervised: boolean; hint?: string }>> => request('POST', `${base}/system/restart`, {});
+export const requestRestart = (base = '/api'): Promise<Answer<{ restarting: boolean; bootId: string; supervised: boolean; poll?: string; hint?: string }>> => request('POST', `${base}/system/restart`, {});
 
 /**
  * Wait for the server to come back with another boot id (Restart WireHub): `true`

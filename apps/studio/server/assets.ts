@@ -33,6 +33,7 @@ import { dataPath } from '@wirehub/catalog';
 import { writeFileAtomic } from './atomic-write.ts';
 import type { BlobStore } from './blobs.ts';
 import type { Awaitable } from './storage/change-set.ts';
+import { hubCatalogSource } from './catalog-files.ts';
 
 /**
  * What the store holds: images (drawing photos) and, since
@@ -85,9 +86,18 @@ function sha256Of(bytes: Buffer): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function readIndex(): AssetSummary[] {
+/** The catalog's own index: what a write adds to. */
+function readOwnIndex(): AssetSummary[] {
   const path = indexPath();
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as AssetSummary[]) : [];
+}
+
+/** The index as the hub sees it: the catalog's own entries with the installed packs' under them (one per id, by id). */
+function readIndex(): AssetSummary[] {
+  const text = hubCatalogSource().read('assets/index.json');
+  const all = text === undefined ? [] : (JSON.parse(text) as AssetSummary[]);
+  // the store's order (the database's too): by id, in code-point order
+  return [...all].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 function writeIndex(records: AssetSummary[]): void {
@@ -133,8 +143,8 @@ export function fileAssetStore(blobs?: BlobStore): AssetStore {
     },
     async put(bytes, mime, originalName, src) {
       const id = sha256Of(bytes);
-      const records = readIndex();
-      const existing = records.find((r) => r.id === id);
+      const records = readOwnIndex();
+      const existing = readIndex().find((r) => r.id === id);
       if (existing !== undefined) return existing;
       const record: AssetSummary = { id, mime, originalName, src, bytes: bytes.length };
       if (blobs !== undefined) {

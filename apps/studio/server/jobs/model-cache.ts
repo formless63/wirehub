@@ -14,7 +14,7 @@
  */
 
 import type { WorkbenchDeps } from '../api.ts';
-import { buildLinkedModel, chainSources, folderSources, type Converter, type SourceReader } from '../models/build.ts';
+import { buildLinkedModel, chainSources, folderSources, ModelSourceUnavailable, type Converter, type SourceReader } from '../models/build.ts';
 import type { ModelCache } from '../models/cache.ts';
 import { ModelRefusal } from '../models/convert.ts';
 import { kicadLibrarySource } from '../models/library-source.ts';
@@ -135,6 +135,8 @@ export async function runModelCacheJob(context: JobContext, options: ModelCacheJ
   const live = liveModelLinks(await deps.modelLinks.list());
   const built: { key: string; record: string; triangles: number; ms: number; peakRssMb?: number }[] = [];
   const failed: { key: string; record: string; error: string; hint?: string }[] = [];
+  // models whose source files are not mounted here: this studio cannot build them, which is not a failure
+  const unavailable: { key: string; record: string; path: string; hint: string }[] = [];
   const libraryLog: string[] = [];
   const library = options.library ?? ((commit: string) => kicadLibrarySource({ commit, log: (line) => libraryLog.push(line) }));
   const deferred: string[] = [];
@@ -163,6 +165,10 @@ export async function runModelCacheJob(context: JobContext, options: ModelCacheJ
       });
     } catch (error) {
       if (!(error instanceof ModelRefusal) && !(error instanceof Error)) throw error;
+      if (error instanceof ModelSourceUnavailable) {
+        unavailable.push({ key: link.asset, record: link.record, path: error.path, hint: error.hint });
+        continue;
+      }
       failed.push({ key: link.asset, record: link.record, error: error.message, ...(error instanceof ModelRefusal ? { hint: error.hint } : {}) });
     }
   }
@@ -170,7 +176,12 @@ export async function runModelCacheJob(context: JobContext, options: ModelCacheJ
   const graceDays = typeof context.job.request['graceDays'] === 'number' ? (context.job.request['graceDays'] as number) : undefined;
   const sweep = await sweepModelCache(cache, await deps.modelLinks.list(), { now: (options.now ?? (() => new Date()))(), ...(graceDays === undefined ? {} : { graceDays }) });
   if (sweep.swept.length > 0) await context.step(`swept ${sweep.swept.length} model(s) no link names`);
-  return { result: { reason: context.job.request['reason'] ?? null, live: live.length, present, built, failed, deferred, swept: sweep.swept, ...(sweep.young === 0 ? {} : { sweptWaiting: sweep.young }), ...(libraryLog.length === 0 ? {} : { library: libraryLog }) } };
+  const note =
+    unavailable.length === 0
+      ? undefined
+      : `${unavailable.length} model(s) were not built because their source files are not available here (${unavailable.length === 1 ? 'one source is' : 'the sources are'} not mounted: WIREHUB_MODEL_SOURCES). That is information, not a failure: they build on a studio that has the sources, and are built here once the sources are mounted.`;
+  if (note !== undefined) await context.step(note);
+  return { result: { reason: context.job.request['reason'] ?? null, live: live.length, present, built, failed, ...(unavailable.length === 0 ? {} : { unavailable, note }), deferred, swept: sweep.swept, ...(sweep.young === 0 ? {} : { sweptWaiting: sweep.young }), ...(libraryLog.length === 0 ? {} : { library: libraryLog }) } };
 }
 
 /**

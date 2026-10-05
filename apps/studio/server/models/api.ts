@@ -3,6 +3,7 @@
  *
  *   GET    /api/models                     every link + every stored model (the "pick imported" list)
  *   GET    /api/models/:kind/:id           this record's link (or null), with its ETag
+ *   GET    /api/models/revisions/:part/:rev  a part revision's model link (read-only), with its ETag
  *   PUT    /api/models/:kind/:id           { asset, sourceKind?, src? } — link a stored model
  *   POST   /api/models/:kind/:id/upload    { name, data (base64), sourceKind? } — convert, store, link;
  *                                           a board's `.kicad_pcb` is kept as its model source and built by the model-cache job
@@ -41,6 +42,7 @@ import { isModelSourceKind, MODEL_SOURCES_DIR, type ModelLink, type ModelLinkSto
 export const MODEL_ROUTES = [
   'GET    /api/models',
   'GET    /api/models/:kind/:id',
+  'GET    /api/models/revisions/:part/:rev',
   'PUT    /api/models/:kind/:id',
   'POST   /api/models/:kind/:id/upload',
   'DELETE /api/models/:kind/:id',
@@ -112,6 +114,7 @@ function ok(body: unknown, status = 200, headers?: Record<string, string>): ApiR
 
 const RECORD_ID = /^[a-z0-9]+(?:-[a-z0-9]+|(?<=\d)\.\d[a-z0-9]*)*$/;
 const ASSET_ID = /^[0-9a-f]{64}$/;
+const REVISION_KEY = /^[a-z0-9][a-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 function recordExists(db: Db, kind: DefinitionKind, id: string): boolean {
   const list = (db as unknown as Record<string, { id: string }[] | undefined>)[kind] ?? [];
@@ -172,6 +175,13 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
       models.push({ id: link.asset, mime: 'model/gltf-binary', originalName: `${link.name ?? link.record}.glb`, src: link.src, bytes: bytes?.byteLength ?? 0, built: bytes !== undefined });
     }
     return ok({ links: all, models });
+  }
+  // a part revision's own model (`models.json` key `revisions/<part>/<revision>`): read-only here; a model importer writes it
+  if (kind === 'revisions') {
+    if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'A revision model is written by the importer that made it; this address answers GET.');
+    if (id === undefined || action === undefined || extra !== undefined || !REVISION_KEY.test(`${id}/${action}`)) return fail(404, 'There is nothing at that address.', 'GET /api/models/revisions/<part>/<revision>.');
+    const link = await links.get(`revisions/${id}/${action}`);
+    return ok({ link: link ?? null, ...(link === undefined ? {} : { built: await isBuilt(deps, link) }) }, 200, { ETag: linkETag(link) });
   }
   if (!isDefinitionKind(kind)) return fail(400, `'${kind}' is not a Library kind.`, `One of: ${DEFINITION_KINDS.join(', ')}.`);
   if (id === undefined || !RECORD_ID.test(id) || id.length > 100) return fail(400, `${JSON.stringify(id ?? '')} is not a record id.`, 'Ids are lowercase words joined by hyphens.');

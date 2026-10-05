@@ -69,6 +69,7 @@ import type { DocStore } from './storage/doc-store.ts';
 import { approvalPolicy } from './settings.ts';
 import { withDesignLibrary } from './assemblies.ts';
 import type { DomainEvent } from './webhooks/events.ts';
+import { hubCatalogSource } from './catalog-files.ts';
 
 export const VERSION_ROUTES = [
   'GET    /api/designs/:id/versions',
@@ -227,16 +228,44 @@ function checkRev(rev: number): void {
   if (!Number.isInteger(rev) || rev < 0) throw new Error(`'${rev}' is not a revision number`);
 }
 
-/** The catalog directory as the store: `data/designs/_versions/<id>/…`. */
+/**
+ * The catalog directory as the store: `data/designs/_versions/<id>/…`. Given no `root`, what it reads is the
+ * live catalog with its installed packs under it (a pack can supply saved versions, so the next revision
+ * number counts them) and what it writes is the catalog's own; given a `root`, that directory alone.
+ */
 export function fileVersionStore(
-  root: (id: string) => string = (id) => dataPath(designVersionsDir(id)),
+  root?: (id: string) => string,
   depictionsDir: string | undefined = dataPath('../depictions'),
 ): VersionStore {
   const dir = (id: string): string => {
     if (!isDesignId(id)) throw new Error(`'${id}' is not a usable design id`);
-    return root(id);
+    return root === undefined ? dataPath(designVersionsDir(id)) : root(id);
   };
-  const numbered = (path: string): number[] => {
+  const layered = root === undefined ? hubCatalogSource() : undefined;
+  /** a file of `_versions/<id>/` as the hub sees it (pack layers under the catalog's own) */
+  const textOf = (id: string, relative: string): string | undefined => {
+    if (layered !== undefined) {
+      dir(id);
+      return layered.read(`${designVersionsDir(id)}/${relative}`);
+    }
+    const path = join(dir(id), relative);
+    return existsSync(path) ? readFileSync(path, 'utf8') : undefined;
+  };
+  const namesIn = (id: string, relative: string): string[] => {
+    if (layered !== undefined) {
+      dir(id);
+      return layered.list(relative === '' ? designVersionsDir(id) : `${designVersionsDir(id)}/${relative}`);
+    }
+    const path = relative === '' ? dir(id) : join(dir(id), relative);
+    return existsSync(path) ? readdirSync(path) : [];
+  };
+  const numbered = (id: string, relative: string): number[] =>
+    namesIn(id, relative)
+      .map((name) => /^(\d+)\.json$/.exec(name)?.[1])
+      .filter((n): n is string => n !== undefined)
+      .map(Number)
+      .sort((a, b) => a - b);
+  const ownNumbered = (path: string): number[] => {
     if (!existsSync(path)) return [];
     return readdirSync(path)
       .map((name) => /^(\d+)\.json$/.exec(name)?.[1])
@@ -245,37 +274,36 @@ export function fileVersionStore(
       .sort((a, b) => a - b);
   };
   return {
-    revisions: (id) => numbered(dir(id)),
+    revisions: (id) => numbered(id, ''),
     read(id, rev) {
       checkRev(rev);
-      const path = join(dir(id), `${rev}.json`);
-      return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as DesignVersionFile) : undefined;
+      const text = textOf(id, `${rev}.json`);
+      return text === undefined ? undefined : (JSON.parse(text) as DesignVersionFile);
     },
     write(file) {
       checkRev(file.rev);
       writeIfChanged(join(dir(file.designId), `${file.rev}.json`), formatVersionJson(file));
     },
     working(id) {
-      const path = join(dir(id), 'working.json');
-      return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as WorkingState) : {};
+      const text = textOf(id, 'working.json');
+      return text === undefined ? {} : (JSON.parse(text) as WorkingState);
     },
     setWorking(id, state) {
       writeIfChanged(join(dir(id), 'working.json'), json(state.basedOnRev === undefined ? {} : { basedOnRev: state.basedOnRev }));
     },
     drafts(id) {
-      const path = join(dir(id), 'drafts');
-      return numbered(path).map((n) => {
-        const { design: _design, ...rest } = JSON.parse(readFileSync(join(path, `${n}.json`), 'utf8')) as DraftFile;
+      return numbered(id, 'drafts').map((n) => {
+        const { design: _design, ...rest } = JSON.parse(textOf(id, `drafts/${n}.json`) as string) as DraftFile;
         return { n, ...rest };
       });
     },
     readDraft(id, n) {
       checkRev(n);
-      const path = join(dir(id), 'drafts', `${n}.json`);
-      return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as DraftFile) : undefined;
+      const text = textOf(id, `drafts/${n}.json`);
+      return text === undefined ? undefined : (JSON.parse(text) as DraftFile);
     },
     addDraft(id, draft) {
-      const taken = numbered(join(dir(id), 'drafts'));
+      const taken = [...new Set([...numbered(id, 'drafts'), ...ownNumbered(join(dir(id), 'drafts'))])];
       const n = taken.length === 0 ? 1 : Math.max(...taken) + 1;
       writeIfChanged(join(dir(id), 'drafts', `${n}.json`), json(draft));
       return n;
@@ -296,7 +324,7 @@ export function fileVersionStore(
       mkdirSync(dirname(target), { recursive: true });
       renameSync(source, target);
       // the snapshots name their design; a renamed cable's history follows it
-      for (const rev of numbered(target)) {
+      for (const rev of ownNumbered(target)) {
         const path = join(target, `${rev}.json`);
         const file = JSON.parse(readFileSync(path, 'utf8')) as DesignVersionFile;
         writeFileAtomic(path, formatVersionJson({ ...file, designId: to, design: { ...file.design, id: to } }), 'utf8');

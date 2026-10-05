@@ -10,7 +10,10 @@
  *   POST   /api/code-modules/keys            owner: pin a publisher key { key, label? }
  *   DELETE /api/code-modules/keys/<keyId>    owner
  *   GET    /api/system/boot                  { bootId, startedAt, restarting, supervised }
- *   POST   /api/system/restart               owner: drain and exit with the restart code
+ *   POST   /api/system/restart               owner: 202 at once, then drain and exit with the restart code. The answer is
+ *                                            { restarting, bootId, supervised, poll }: `bootId` is the process being replaced.
+ *                                            Draining and the exit come after the answer, so a client polls `poll`
+ *                                            (`GET /api/system/boot`) until `bootId` differs from this one and `restarting` is false
  *
  * Installing and updating a code module is installing a pack (`packs.ts`,
  * `store.ts`, with `trust.ts`'s gate); removing it is disabling the pack.
@@ -92,8 +95,10 @@ export async function handleCodeModulesRequest(request: { method: string; path: 
       system.restart(by);
       return json(202, {
         restarting: true,
+        // the process being replaced: the restart is done when `GET /api/system/boot` answers another id
         bootId: system.bootId,
         supervised: system.supervised,
+        poll: '/api/system/boot',
         ...(system.supervised ? {} : { hint: 'No supervisor is declared (WIREHUB_RESTART_SUPERVISED): the process exits, and comes back only if something restarts it.' }),
       });
     }

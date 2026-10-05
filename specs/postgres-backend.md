@@ -1,12 +1,14 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.8 (rev 6 was the first revision in the open base). **Phases A
+Status: **plan**, rev 6.9 (rev 6 was the first revision in the open base). **Phases A
 (schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
 C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.9** — Revision model links (cs-s97). Migration **0020**: `studio.model_link.record_key`
+  also admits `revisions/<part>/<revision>`, the key of a part revision's own model.
 - **rev 6.8** — Runtime settings (cs-gm8, `specs/runtime-settings.md`). Migration **0019**:
   `studio.settings_secret` — the secrets an owner enters in Settings (SMTP password, OIDC
   client secret, webhook URL and token, git mirror credentials), AES-256-GCM ciphertext under
@@ -1433,6 +1435,20 @@ ALTER TABLE studio.settings_secret ENABLE ROW LEVEL SECURITY;
 ALTER TABLE studio.settings_secret FORCE ROW LEVEL SECURITY;
 CREATE POLICY org_isolation ON studio.settings_secret USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
 GRANT SELECT, INSERT, UPDATE, DELETE ON studio.settings_secret TO studio_app;
+```
+
+A part's revision can have a 3D model of its own (cs-s97): `models.json` links are keyed by a Library
+record or by `revisions/<part>/<revision>`, so the key check admits both:
+
+```sql ddl
+-- 0020_model_link_revision_keys — a revision's model link (cs-s97)
+-- A link of `models.json` is keyed by its Library record (`<kind>/<id>`) or, for the
+-- model of a part's revision no record shows (a WIP or superseded one),
+-- `revisions/<part>/<revision>`. It names no entity, so `entity_id` stays null.
+ALTER TABLE studio.model_link DROP CONSTRAINT model_link_record_key_check;
+ALTER TABLE studio.model_link ADD CONSTRAINT model_link_record_key_check CHECK (
+  record_key ~ '^(connectors|components|wires|pcbas|bodies|interfaces|mechanicals|kits)/[a-z0-9][a-z0-9._-]*$'
+  OR record_key ~ '^revisions/[a-z0-9][a-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$');
 ```
 
 ---

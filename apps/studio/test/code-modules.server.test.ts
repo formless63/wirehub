@@ -142,7 +142,7 @@ describe('Restart WireHub', () => {
     expect((await handleWorkbenchRequest({ method: 'POST', path: '/api/system/restart', user: EDITOR }, deps)).status).toBe(403);
     expect((await handleWorkbenchRequest({ method: 'POST', path: '/api/system/restart', user: { ...OWNER, apiTokenId: 't1' } }, deps)).status).toBe(403);
     const answer = await handleWorkbenchRequest({ method: 'POST', path: '/api/system/restart', user: OWNER }, deps);
-    expect(answer).toMatchObject({ status: 202, body: { restarting: true, bootId: 'boot-2' } });
+    expect(answer).toMatchObject({ status: 202, body: { restarting: true, bootId: 'boot-2', poll: '/api/system/boot' } });
     expect(exitCode).toBeUndefined();
     const dist = mkdtempSync(join(tmpdir(), 'wirehub-dist-'));
     roots.push(dist);
