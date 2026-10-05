@@ -106,7 +106,12 @@ export function tableOf(text: string, kind: 'bom' | 'cpl', mapped: readonly stri
   // the row naming every mapped column, else the first naming two known ones
   let at = mapped.length === 0 ? -1 : rows.findIndex((r) => mapped.every((m) => r.includes(m)));
   if (at < 0) at = rows.findIndex((r) => r.filter((cell) => names.some((re) => re.test(cell))).length >= 2);
-  if (at < 0) at = 0;
+  if (at < 0) {
+    // no known names: the first of the widest rows near the top (a title line is narrower than the header)
+    const head = rows.slice(0, 20);
+    const widest = Math.max(0, ...head.map((r) => r.length));
+    at = Math.max(0, head.findIndex((r) => r.length === widest));
+  }
   const header = rows[at] ?? [];
   return { header, rows: rows.slice(at + 1).map((cells, k) => ({ cells, line: at + 2 + k })) };
 }

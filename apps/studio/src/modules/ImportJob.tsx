@@ -31,6 +31,8 @@ export function PlanSummary({ proposal, notes }: { proposal: ImportProposal | un
           {proposal.designs.length} new designs: {proposal.designs.map((d) => d.id).join(', ')}
         </div>
       )}
+      {(proposal?.boardParts ?? []).length === 0 ? null : <div>Placed parts of: {proposal!.boardParts!.join(', ')}</div>}
+      {(proposal?.depictions ?? []).length === 0 ? null : <div>Board art for: {proposal!.depictions!.join(', ')}</div>}
       {proposal === undefined || proposal.existing.length + proposal.existingDesigns.length === 0 ? null : (
         <div>Already in the library, skipped: {[...proposal.existing, ...proposal.existingDesigns].join(', ')}</div>
       )}
@@ -42,7 +44,7 @@ export function PlanSummary({ proposal, notes }: { proposal: ImportProposal | un
 }
 
 export function addedCount(proposal: ImportProposal | undefined): number {
-  return proposal === undefined ? 0 : Object.values(proposal.definitions).reduce((n, list) => n + list.length, 0) + proposal.designs.length;
+  return proposal === undefined ? 0 : Object.values(proposal.definitions).reduce((n, list) => n + list.length, 0) + proposal.designs.length + (proposal.boardParts?.length ?? 0) + (proposal.depictions?.length ?? 0);
 }
 
 /** The job's own words for where it is. */

@@ -15,6 +15,10 @@ export interface ImportProposal {
   existing: string[];
   designs: { id: string; label: string }[];
   existingDesigns: string[];
+  /** board revisions whose placed parts are proposed, `<board>@<revision>` */
+  boardParts?: string[];
+  /** definitions whose board art is proposed */
+  depictions?: string[];
   notes: string[];
 }
 

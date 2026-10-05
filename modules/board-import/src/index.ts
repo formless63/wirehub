@@ -36,7 +36,7 @@ export { BOARD_BOM_FORMAT, fabBomImporter, gerberImporter, kicadBoardImporter, r
 export { parseKicadNetlist, parseKicadPcb } from './kicad.ts';
 export type { BoardSource, FootprintSource, PadSource } from './kicad.ts';
 export { readZip, writeZip } from './zip.ts';
-export { MODULE_ID };
+export { BoardImportPage, MODULE_ID };
 
 export const boardImport = defineModule({
   id: MODULE_ID,
