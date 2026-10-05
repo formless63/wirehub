@@ -33,7 +33,7 @@ describe('a pack is installed in canonical form', () => {
       expect(isCanonicalJson(readFileSync(join(dir, relative), 'utf8')), relative).toBe(true);
     }
     const links = (JSON.parse(readFileSync(join(dir, 'models.json'), 'utf8')) as { links: { record: string }[] }).links;
-    expect(links.map((l) => l.record)).toEqual(['revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
+    expect(links.map((l) => l.record)).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
   });
 
   it('canonicalPackText sorts an asset index and leaves other text alone', () => {
@@ -60,7 +60,7 @@ describe('the flattened catalog is what Postgres would import', () => {
   it('explodes without a problem, revision link keys included', () => {
     const { errors, rows } = explode(tree);
     expect(errors).toEqual([]);
-    expect(rows.modelLinks.map((l) => l.recordKey)).toEqual(['revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
+    expect(rows.modelLinks.map((l) => l.recordKey)).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
     expect(rows.drawingPhotos).toEqual([{ design: hub.designId, sha256: hub.photo }]);
   });
 
@@ -95,6 +95,35 @@ describe('the flattened catalog is what Postgres would import', () => {
     expect((await get(`/api/designs/${hub.designId}/versions`)).body.working.nextRev).toBeGreaterThan(3);
     expect((await get('/api/models/revisions/parity-board/rev1')).body.link.status).toBe('superseded');
     expect((await handleWorkbenchRequest({ method: 'GET', path: `/api/blobs/${hub.art}` }, filesDeps)).status).toBe(200);
+    // the wire library the pack supplies (cs-kqy)
+    expect(routes).toEqual(expect.arrayContaining(['/api/wire-library', '/api/wire-library/strip-practice']));
+    const library = (await get('/api/wire-library')).body;
+    expect(library.parts.map((p: { id: string }) => p.id)).toContain('parity-conductor');
+    expect(library.recipes.map((r: { id: string }) => r.id)).toContain('parity-stock');
+    expect((await get('/api/wire-library/strip-practice')).body.map((p: { id: string }) => p.id)).toContain('parity-practice');
+  });
+});
+
+describe('the other file stores layer the pack too (cs-kqy)', () => {
+  it('the depiction store lists, reads and serves a pack\'s depiction beside the catalog\'s own', async () => {
+    const { fileDepictionStore } = await import('../server/depictions.ts');
+    const store = fileDepictionStore();
+    expect(await store.listDefIds()).toContain('parity-part');
+    expect((await store.readMeta('parity-part'))?.['src']).toBe('synthetic example: parity pack');
+    expect(Buffer.from((await store.readAsset('parity-part', 'face.svg')) as Uint8Array).toString()).toContain('<svg');
+    expect(await store.readAsset('parity-part', 'missing.svg')).toBeUndefined();
+    expect(await store.readMeta('no-such-def')).toBeUndefined();
+  });
+
+  it('the strip-practice, wire-part and recipe writes keep the pack\'s records in the pack', async () => {
+    const { fileWireLibraryStore } = await import('../server/wire-library.ts');
+    const store = fileWireLibraryStore();
+    const library = await store.read();
+    await store.writeParts([...library.parts, { id: 'local-part', kind: 'conductor', label: 'Local', src: 'synthetic example' } as never]);
+    const own = JSON.parse(readFileSync(join(hub.data, 'wire-parts.json'), 'utf8')) as { id: string }[];
+    expect(own.map((p) => p.id)).toEqual(['local-part']);
+    expect((await store.read()).parts.map((p) => p.id).sort()).toEqual(['local-part', 'parity-conductor']);
+    rmSync(join(hub.data, 'wire-parts.json'));
   });
 });
 

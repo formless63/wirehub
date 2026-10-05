@@ -34,7 +34,7 @@ import {
 import { buildTags, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import type { SignalTags, VocabList } from '@wirehub/model';
 import { writeFileAtomic } from './atomic-write.ts';
-import { derivedPath, localValueFor } from './catalog-files.ts';
+import { derivedPath, localValueFor, readCatalogJson } from './catalog-files.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
 const LIST_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -99,6 +99,13 @@ export function fileVocabStore(): VocabStore {
   };
 }
 
+/** The review decisions: the catalog's own `tags/review.json` with the installed packs' under it (as on pg). */
+function reviewOf(): TagReview {
+  const review = readCatalogJson<TagReview>('tags/review.json');
+  if (review === undefined) throw new Error('the catalog has no tags/review.json');
+  return review;
+}
+
 export function fileTagStore(): TagStore {
   const build = (review: TagReview): ReturnType<typeof buildTags> =>
     buildTags({
@@ -111,7 +118,7 @@ export function fileTagStore(): TagStore {
     });
   return {
     tags: () => loadSignalTags(),
-    review: () => JSON.parse(readFileSync(dataPath('tags/review.json'), 'utf8')) as TagReview,
+    review: () => reviewOf(),
     writeReview(review) {
       writeIfChanged('tags/review.json', formatJson(review));
     },
@@ -119,7 +126,7 @@ export function fileTagStore(): TagStore {
       return build(review).tags;
     },
     regenerate() {
-      const review = JSON.parse(readFileSync(dataPath('tags/review.json'), 'utf8')) as TagReview;
+      const review = reviewOf();
       const out = build(review);
       const a = writeDerivedIfChanged('tags/signal-tags.json', formatJson(out.tags));
       const b = writeDerivedIfChanged('tags/instance-slots.json', formatJson(out.slots));

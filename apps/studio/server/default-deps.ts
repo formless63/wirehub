@@ -13,7 +13,6 @@
  * parts list. Four JSON files is a cheap read.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
 
 import type { CableDesign } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
@@ -22,6 +21,7 @@ import { dataPath, derivedDir, installedAcross, livePacksDir, loadDb } from '@wi
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';
 import type { BlobStore } from './blobs.ts';
+import { readCatalogJson } from './catalog-files.ts';
 import { rekeyBoardLinks } from './models/board-art.ts';
 import { fileModelLinkStore } from './models/links.ts';
 import { fileModelCache } from './models/cache.ts';
@@ -60,10 +60,9 @@ import { createRuntimeSettings, type RuntimeSettings } from './runtime-settings.
 import { fileSecretStore, settingsCipherFromEnv, type SecretStore } from './settings-secrets.ts';
 import type { Env } from './env.ts';
 
-/** A catalog data file, parsed; `undefined` when it is not there. */
+/** A catalog data file, parsed, with the installed packs' layers under it; `undefined` when no layer has it. */
 function rawJson(relative: string): unknown {
-  const path = dataPath(relative);
-  return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as unknown) : undefined;
+  return readCatalogJson<unknown>(relative);
 }
 
 export interface DefaultDepsOptions {

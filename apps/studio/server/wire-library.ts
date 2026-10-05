@@ -67,12 +67,17 @@ const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
  * hand formatting byte-for-byte alone.
  */
 export function fileWireLibraryStore(): WireLibraryStore {
-  const read = <T>(name: string): T[] =>
-    existsSync(dataPath(name)) ? (JSON.parse(readFileSync(dataPath(name), 'utf8')) as T[]) : [];
+  // parts, recipes and strip practice: the catalog's own with the installed packs' under them (`catalog-files.ts`), as on pg
+  const read = <T>(name: string): T[] => readCatalogJson<T[]>(name) ?? [];
+  // a pack's records stay in the pack; only local and edited ones are stored here
+  const writeLocal = (name: string, merged: unknown[]): void => {
+    const next = localValueFor(name, merged);
+    if (next !== undefined) writeFileAtomic(dataPath(name), json(next), 'utf8');
+  };
   return {
     read: () => ({ parts: read<WirePart>('wire-parts.json'), recipes: read<WireRecipe>('wire-recipes.json') }),
-    writeParts: (parts) => writeFileAtomic(dataPath('wire-parts.json'), json(parts), 'utf8'),
-    writeRecipes: (recipes) => writeFileAtomic(dataPath('wire-recipes.json'), json(recipes), 'utf8'),
+    writeParts: (parts) => writeLocal('wire-parts.json', parts),
+    writeRecipes: (recipes) => writeLocal('wire-recipes.json', recipes),
     // stocks: the catalog's own with the installed packs' under them
     wires: () => readCatalogJson<WireDefinition[]>('wires.json') ?? [],
     practice: () => read<StripPractice>('strip-practice.json'),

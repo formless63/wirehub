@@ -62,7 +62,7 @@ describePg('pack parity on Postgres', () => {
       // the revision links are rows, with no Library record behind them
       await inOrg(pgh.db, report.orgId, async (tx) => {
         const rows = (await tx.selectFrom('studio.model_link' as never).select(['record_key', 'entity_id'] as never).execute()) as unknown as { record_key: string; entity_id: string | null }[];
-        expect(rows.map((r) => r.record_key).sort()).toEqual(['revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
+        expect(rows.map((r) => r.record_key).sort()).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
         expect(rows.every((r) => r.entity_id === null)).toBe(true);
       });
     } finally {

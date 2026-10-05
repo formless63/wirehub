@@ -32,7 +32,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { loadDb, loadDesigns } from '@wirehub/catalog';
+import { installedPackSources, livePacksDir, loadDb, loadDesigns } from '@wirehub/catalog';
 import {
   ANCHOR_SIDES,
   DEPICTION_VIEWS,
@@ -241,17 +241,33 @@ export function formatMetaJson(meta: Record<string, unknown>): string {
   return `${JSON.stringify(meta, null, 2)}\n`;
 }
 
-export function fileDepictionStore(root: string = depictionsRoot()): DepictionStore {
+/** The roots of the installed packs' layers (`<packs>/<id>/`), the catalog's own first: where a pack's depictions and board maps are. */
+function packLayerRoots(): string[] {
+  const packs = livePacksDir();
+  return packs === undefined ? [] : installedPackSources(packs).flatMap((source) => (source.root === undefined ? [] : [source.root]));
+}
+
+/**
+ * The depictions of the catalog (`root`, default the live one) **with the installed packs' under them**: reads see the
+ * catalog's own definition first, then the packs' (a pack's face, its manifest, its reviewed board map), as the database
+ * backend's snapshot does; writes go to the catalog's own directory only. An explicit `root` (a test's) is read alone.
+ */
+export function fileDepictionStore(rootArg?: string): DepictionStore {
+  const root = rootArg ?? depictionsRoot();
+  const layers = (): string[] => (rootArg === undefined ? packLayerRoots() : []);
   // the reviewed kicad-maps sit beside the depictions, in the catalog's data
   const maps = join(root, '..', 'data', 'kicad-maps');
+  /** a pack's own copy of `<root-relative>`, the first layer that has it */
+  const inPacks = (relative: string): string | undefined => layers().map((dir) => join(dir, relative)).find((path) => existsSync(path));
   const mapPath = (defId: string): string => {
     if (!isDepictionDefId(defId)) throw new Error(`'${defId}' is not a usable definition id`);
     return join(maps, `${defId}.json`);
   };
   return {
     readBoardMap(defId): Record<string, unknown> | undefined {
-      const path = mapPath(defId);
-      if (!existsSync(path)) return undefined;
+      mapPath(defId);
+      const path = existsSync(mapPath(defId)) ? mapPath(defId) : inPacks(`kicad-maps/${defId}.json`);
+      if (path === undefined) return undefined;
       try {
         const value: unknown = JSON.parse(readFileSync(path, 'utf8'));
         return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -267,17 +283,20 @@ export function fileDepictionStore(root: string = depictionsRoot()): DepictionSt
     },
 
     listDefIds(): string[] {
-      if (!existsSync(root)) return [];
-      return readdirSync(root, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name)
-        .filter((name) => isDepictionDefId(name) && existsSync(join(root, name, 'meta.json')))
-        .sort();
+      const ids = new Set<string>();
+      for (const dir of [root, ...layers().map((layer) => join(layer, 'depictions'))]) {
+        if (!existsSync(dir)) continue;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          if (entry.isDirectory() && isDepictionDefId(entry.name) && existsSync(join(dir, entry.name, 'meta.json'))) ids.add(entry.name);
+        }
+      }
+      return [...ids].sort();
     },
 
     readMeta(defId): Record<string, unknown> | undefined {
-      const path = depictionPaths(defId, root).meta;
-      if (!existsSync(path)) return undefined;
+      const own = depictionPaths(defId, root).meta;
+      const path = existsSync(own) ? own : inPacks(`depictions/${defId}/meta.json`);
+      if (path === undefined) return undefined;
       try {
         const value: unknown = JSON.parse(readFileSync(path, 'utf8'));
         return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -303,7 +322,9 @@ export function fileDepictionStore(root: string = depictionsRoot()): DepictionSt
       } catch {
         return undefined;
       }
-      return existsSync(path) ? new Uint8Array(readFileSync(path)) : undefined;
+      if (existsSync(path)) return new Uint8Array(readFileSync(path));
+      const packed = inPacks(`depictions/${defId}/${file}`);
+      return packed === undefined ? undefined : new Uint8Array(readFileSync(packed));
     },
 
     writeAsset(defId, file, content): void {

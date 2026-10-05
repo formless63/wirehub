@@ -193,6 +193,12 @@ pack's. Derived tag tables, which cover pack records too, are written beside the
 a pack into a catalog directory (records appended, `packs.json` beside them) for a tool that
 builds a catalog copy with a pack in it; `layeredCatalogSource([local, pack…])` reads a
 catalog with packs over it without writing — what a module's tests use.
+The file backend's stores read every kind of file through those layers, so a hub shows what a
+pack supplies exactly as the Postgres backend does (the S1 gate's `api-parity-file-stores`):
+records, designs, builds, drawing sidecars, versions, model links, the shared asset index, the
+wire library (`wire-parts.json`, `wire-recipes.json`, `strip-practice.json`), the tag review, the
+part-number configuration and the depictions with their reviewed board maps. A write goes to the
+catalog's own file only, and keeps a pack's unchanged records in the pack.
 
 **Install** (Library → Browse store; built as described in §4, "As built"):
 
@@ -265,7 +271,9 @@ directory, and the Postgres backend runs it over a scratch copy it commits as **
   builds (each build) and of documents; not of a drawing's sidecars (`drawings/<id>.json`, the photo
   pointer `drawings/<id>.photo-ref.json` = exactly `{ "assetId" }`) nor of saved versions
   (`designs/_versions/…`). `models.json` links are keyed `<kind>/<id>` of the eight Library kinds, or
-  `revisions/<part>/<revision>` for the model of a part revision no record shows. When `adopt` or
+  `revisions/<part>/<revision>` for the model of a part revision no record shows (`<part>` is a record id or a part
+  number such as `ABC-123456-00`, upper case allowed; `GET /api/models/revisions/<part>/<rev>` answers for either
+  spelling of the same record). When `adopt` or
   `pg:import` still refuses a file (a pack installed by an earlier version, say), the error names the
   file and whether it came from the catalog or from which pack.
   **Vendor PDFs and fonts travel with the pack too.** A PDF under `docs/**` or `assets/**` (a
@@ -299,6 +307,16 @@ directory, and the Postgres backend runs it over a scratch copy it commits as **
   (`reconcileAssets`). On Postgres they go to the blob store with the same change set and are
   served by content address at `GET /api/blobs/<sha256>`; on the file backend they live in the
   pack's layer and are served at the same address.
+
+  **A drawing's photo travels with the pack.** A pack adds an image to the shared asset library as
+  `assets/<sha256>.png` (or `.jpg`; named by the hash of its bytes, which is checked) together with its entry in
+  the pack's `assets/index.json` (`{ id, mime, originalName, src, bytes }`, a pack's entries are layered and
+  installed in the store's order). The photo pointer `drawings/<id>.photo-ref.json` stays exactly
+  `{ "assetId" }` and names that entry. The image is owned by the pack in `packs.json` like its other files:
+  an update replaces it (and the pointer), a disable removes the image, its entry and a pointer at it; a
+  file or entry the catalog holds of its own is never overwritten. On the file backend the bytes stay in the
+  pack's layer and `GET /api/assets/<sha256>` serves them; on Postgres they become an `asset` row and blob
+  with the same change set (no migration: the asset table already holds them).
 
 **Offline / air-gapped**: a pack archive can be installed from a file (Library → Packs →
 Install from file) with the same verification; a deployment may run its own mirror of the
