@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 4,
+  "id": "dc-pigtail-lead",
+  "label": "JST XH 2-pin → flying leads, DC pigtail lead",
+  "instances": {
+    "connectors": [
+      {
+        "id": "j1",
+        "def": "jst-xh-2-dc",
+        "role": "device connector",
+        "cavities": [
+          {
+            "pin": "1",
+            "contact": "xh-contact-socket"
+          },
+          {
+            "pin": "2",
+            "contact": "xh-contact-socket"
+          }
+        ]
+      }
+    ],
+    "segments": [
+      {
+        "id": "w1",
+        "def": "dc-2core-24awg",
+        "lengthMm": 300
+      }
+    ],
+    "components": [],
+    "pcbas": []
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "1"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "red",
+        "end": "a"
+      },
+      "note": "+V"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "black",
+        "end": "a"
+      },
+      "note": "0 V"
+    }
+  ],
+  "notes": [
+    "Flying end: w1:red@b and w1:black@b are stripped and tinned, left free — the design that places this lead as a sub-assembly lands them."
+  ],
+  "src": "synthetic example: a 300 mm 2 × 24 AWG lead with a 2-pin JST XH socket housing at one end and stripped, tinned flying leads at the other, made to be placed as a sub-assembly"
+}

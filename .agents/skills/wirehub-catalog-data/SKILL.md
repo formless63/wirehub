@@ -139,6 +139,15 @@ See `references/record-types.md` for fields. The decisions that matter:
   segments and forbidden elsewhere. Every conductor end either lands or is explained by a design
   note that names the terminal. Use `schemaVersion` 4 for breakouts, else the current one in the
   examples (`packages/catalog/data/designs/`). Start from a working design and edit.
+- **Sub-assemblies** (a design placed in another, SPEC.md "Sub-assemblies"): list them in
+  `instances.subassemblies` as `{ id, def: <design id>, rev?: <saved version>, role?, label?, note? }`
+  and write the design at `schemaVersion` 5. The placed design's free ends are its ports: every
+  connector pin (`j1:3`) and each conductor of a wire end nothing is soldered to (`w1@b:red`, a
+  flying lead); joints land on them as `{ instance: <sub id>, terminal: <port id> }`, never with an
+  `end`. A design made to be placed with flying leads names them in a design note
+  (`w1:red@b and w1:black@b are left free …`) so its own floating-end warnings are explained. Place
+  only designs of the same catalog or pack, never one that places the design back (a cycle). Example:
+  `packages/catalog/data/designs/dc-y-from-leads.json` placing `dc-pigtail-lead.json` twice.
 - **Do not hand-edit generated files**: `packages/catalog/data/tags/` (signal tags, instance slots, report) is built
   from the catalog by `packages/catalog/src/tags/build.ts` and checked by a test; `fixtures/v1/` is a
   frozen copy for snapshot tests (refresh deliberately, SPEC.md). Packs never ship tag tables: the
@@ -148,7 +157,8 @@ See `references/record-types.md` for fields. The decisions that matter:
 
 1. Starter catalog edits: `pnpm --filter @wirehub/catalog test` (loads every design, runs
    `validateDb` / `validateDesign`, canonical JSON, tag tables), then
-   `pnpm --filter @wirehub/model test`.
+   `pnpm --filter @wirehub/model test`. A design placing sub-assemblies is checked against the
+   designs it places only when they are given: `validateDesign(design, withAssemblies(db, { working: loadDesigns() }))`.
 2. Pack edits: `node .agents/skills/wirehub-catalog-pack/scripts/verify-pack.mjs modules/<id>/pack`
    (validateDb + validateDesign over the starter with the pack laid over it, install into a copy,
    `src` on every record), then `pnpm --filter @wirehub/module-<id> exec vitest run --maxWorkers=2`.

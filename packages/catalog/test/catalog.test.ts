@@ -30,7 +30,7 @@ import { buildTags, type TagReview } from '../src/tags/build.ts';
 
 describe('the starter catalog', () => {
   it('ships the example designs, each valid against the definitions', () => {
-    expect(listDesignIds()).toEqual(['dc-led-lead', 'dc-y-splitter', 'de9-crossover', 'de9-terminal-board']);
+    expect(listDesignIds()).toEqual(['dc-led-lead', 'dc-pigtail-lead', 'dc-y-from-leads', 'dc-y-splitter', 'de9-crossover', 'de9-terminal-board']);
     const db = loadDb();
     for (const design of loadDesigns()) expect(errors(validateDesign(design, db)), design.id).toEqual([]);
   });
