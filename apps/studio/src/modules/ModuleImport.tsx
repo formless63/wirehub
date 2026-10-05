@@ -15,7 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { ModuleRegistry } from '@wirehub/modules';
 import { useRef, useState, type JSX } from 'react';
 
-import { startImportJob } from '../jobs.browser.ts';
+import { startImportJob, uploadImportJob } from '../jobs.browser.ts';
 import { designsKey } from '../queries.ts';
 import { ImportJob } from './ImportJob.tsx';
 
@@ -71,8 +71,13 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
     setBusy(true);
     setMessage(undefined);
     try {
-      const base64 = toBase64(new Uint8Array(await file.arrayBuffer()));
-      const queued = await startImportJob(importer.module, importer.id, file.name, base64);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      // raw bytes first (no base64, and room for a big file); a host that takes only JSON gets the base64 form
+      let queued = await uploadImportJob(importer.module, importer.id, file.name, bytes);
+      // (the base64 copy is made only when a host needs it)
+      let encoded: string | undefined;
+      const base64Of = (): string => (encoded ??= toBase64(bytes));
+      if (!queued.ok && (queued.status === 415 || queued.status === 405)) queued = await startImportJob(importer.module, importer.id, file.name, base64Of());
       if (queued.ok) {
         setJobId(queued.value.job.id);
         return;
@@ -82,6 +87,7 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
         setMessage(`${queued.error}${queued.hint === undefined ? '' : ` ${queued.hint}`}`);
         return;
       }
+      const base64 = base64Of();
       const out = await call(importer.module, importer.id, { fileName: file.name, base64 });
       if (out.status >= 400 || out.body.proposal === undefined) setMessage(`${out.body.error ?? 'The import failed.'} ${out.body.hint ?? ''}`.trim());
       else setPending({ module: importer.module, importer: importer.id, importerLabel: importer.label, fileName: file.name, base64, proposal: out.body.proposal });

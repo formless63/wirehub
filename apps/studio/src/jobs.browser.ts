@@ -50,9 +50,10 @@ export type JobAnswer<T> = { ok: true; status: number; value: T } | { ok: false;
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<JobAnswer<T>> {
   try {
+    const raw = body instanceof Uint8Array;
     const response = await fetch(path, {
       method,
-      ...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : raw ? { headers: { 'content-type': 'application/octet-stream' }, body: body as unknown as BodyInit } : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
     });
     const parsed = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     if (response.status >= 400) {
@@ -62,6 +63,14 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Jo
   } catch {
     return { ok: false, status: 0, error: 'The studio could not be reached.' };
   }
+}
+
+/**
+ * Queue an import from a file's raw bytes (`PUT …?fileName=`, no base64, no JSON size limit).
+ * 415 or 405: this host takes only the JSON form (the development server) — `startImportJob`.
+ */
+export function uploadImportJob(module: string, importer: string, fileName: string, bytes: Uint8Array): Promise<JobAnswer<{ job: JobView }>> {
+  return call('PUT', `/api/modules/${encodeURIComponent(module)}/_import/${encodeURIComponent(importer)}?fileName=${encodeURIComponent(fileName)}`, bytes);
 }
 
 /** Queue an import: the file is kept for the job and the importer runs there (202). 501: this studio runs no import jobs. */
