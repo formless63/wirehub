@@ -1,6 +1,6 @@
 ---
 name: wirehub-module
-description: Create or change a WireHub module package (modules/<id> in this repo, or a private module in its own repo) - scaffold from modules/example, write the manifest with defineModule, add extension points (catalog packs, setup, importers, exporters, part-number scheme, validation rules, integrations, panels, routes, auth providers, commit hook, documents, derived records), register it in apps/studio/modules.config.ts, choose a licence, test it, and run it behind the dev flag. Load when asked to add a module, a domain module, or any extension point.
+description: Create or change a WireHub module package (modules/<id> in this repo, or a private module in its own repo) - scaffold from modules/example, write the manifest with defineModule, add extension points (catalog packs, setup, importers, exporters, part-number scheme, validation rules, integrations, panels, compare views, routes, auth providers, commit hook, documents, derived records), register it in apps/studio/modules.config.ts, choose a licence, test it, and run it behind the dev flag. Load when asked to add a module, a domain module, or any extension point.
 ---
 
 # Authoring a WireHub module
@@ -87,6 +87,7 @@ details"); `modules/example/src/index.ts` has one working instance of each. Quic
 | Server routes | `integrations: [{ id, label, env?, routes: [{ method, path, writes?, handle }] }]` | served at `/api/modules/<module>/<path>`; `writes: true` takes the write lock |
 | Job queues | `integrations: [{ …, queues: [{ id, label, schedule?, run({ request, step, db }) }] }]` | kind `<module>:<queue>`; run by the worker (Postgres) or the studio process (files), never retried; routes enqueue and read them through `request.jobs` (own queues only); `modules/example` has `example:recount` (docs/modules.md, "Job queues") |
 | UI panel | `panels: [{ id, label, slot, component }]` | slots: `cable-inspector`, `cable-documents`, `library-detail`, `settings`; component takes `PanelProps` |
+| Compare view | `compareViews: [{ id, label, kinds?, component }]` | the Library's Compare for those kinds (`pcbas`, `mechanicals` …; none = every kind) opens it with `CompareProps`; where no module has one the base shows a field diff |
 | UI page | `routes: [{ path, label, icon?, component }]` | rendered at `/m/<module>/<path>` with `RouteProps` |
 | Sign-in | `authProviders: [{ id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }]` | a config key ending `Env` names an environment variable (secrets never sit in source) |
 | Rewrite edits | `commitHook(before, proposed, description)` | singleton, pure, cheap |

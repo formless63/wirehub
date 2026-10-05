@@ -38,6 +38,14 @@ export interface TitleBlockText {
   tolerances?: readonly (readonly [string, string])[];
   /** the SIZE cell (default `A`) */
   size?: string;
+  /** the organisation the documents are issued by (wire spec mark, bench header); unset = the generic text */
+  organisation?: string;
+  /** the name of the document standard on the wire spec (default `WIRE_SPEC_STANDARD`) */
+  standard?: string;
+  /** a rights / confidentiality line: the drawing's title block, the wire spec's footer; unset = none */
+  rights?: string;
+  /** the designer printed when a design's drawing sidecar names none */
+  designer?: string;
 }
 
 export interface DrawingArt {
@@ -100,8 +108,19 @@ export function registeredTitleBlock(): TitleBlockText {
   const blocks = registered.map((art) => art.titleBlock).filter((t): t is TitleBlockText => t !== undefined);
   const notes = blocks.find((t) => t.notes !== undefined)?.notes;
   const tolerances = blocks.find((t) => t.tolerances !== undefined)?.tolerances;
-  const size = blocks.find((t) => t.size !== undefined)?.size;
-  return { ...(notes === undefined ? {} : { notes }), ...(tolerances === undefined ? {} : { tolerances }), ...(size === undefined ? {} : { size }) };
+  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer'>(key: K): Partial<Record<K, string>> => {
+    const found = blocks.find((t) => t[key] !== undefined && t[key] !== '')?.[key];
+    return found === undefined ? {} : ({ [key]: found } as Record<K, string>);
+  };
+  return {
+    ...(notes === undefined ? {} : { notes }),
+    ...(tolerances === undefined ? {} : { tolerances }),
+    ...first('size'),
+    ...first('organisation'),
+    ...first('standard'),
+    ...first('rights'),
+    ...first('designer'),
+  };
 }
 
 /** The depiction sources registered for the sheet, layered in registration order. */

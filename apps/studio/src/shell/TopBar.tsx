@@ -26,6 +26,7 @@ import {
   IconMenu2,
   IconMoon,
   IconPencil,
+  IconPlug,
   IconPlugOff,
   IconRotate2,
   IconSearch,
@@ -41,6 +42,7 @@ import { formatShortcut } from '../commands/shortcuts.ts';
 import { StudioMark, Wordmark } from './Wordmark.tsx';
 import { BackupIndicator } from './BackupIndicator.tsx';
 import { cableRoute, libraryIndexRoute, libraryItemRoute, libraryKindRoute, type CableSearch, type CableView } from '../router.tsx';
+import { swappableStocks } from '@wirehub/editor-react';
 import { useStudio } from '../studio-context.tsx';
 import { useEditorChrome } from './editor-chrome.tsx';
 import { StatusChip } from './StatusChip.tsx';
@@ -80,6 +82,8 @@ function IconButton(props: {
 
 export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
   const studio = useStudio();
+  // Make variant is offered only where some other stock accepts this cable's trunk
+  const canMakeVariant = studio.design !== undefined && swappableStocks(studio.design, studio.db).length > 0;
   const matches = useMatches();
   const navigate = useNavigate();
   const registry = useCommandRegistry();
@@ -188,6 +192,23 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
                 >
                   <IconCopy size={14} />
                   Duplicate…
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className={MENU_ITEM}
+                  disabled={!canMakeVariant}
+                  title="Copy this cable onto another wire stock"
+                  onSelect={() => handle?.openLifecycle('variant')}
+                >
+                  <IconGitBranch size={14} />
+                  Make variant…
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className={MENU_ITEM}
+                  title="Add the joints the signal tags settle, after you review them"
+                  onSelect={() => handle?.connectKnownPins()}
+                >
+                  <IconPlug size={14} />
+                  Connect known pins…
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className={MENU_ITEM}
@@ -391,6 +412,13 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
                   onSelect={() => handle?.openLifecycle('duplicate')}
                 >
                   Duplicate…
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className={MENU_ITEM}
+                  disabled={!canMakeVariant}
+                  onSelect={() => handle?.openLifecycle('variant')}
+                >
+                  Make variant…
                 </DropdownMenu.Item>
                 <DropdownMenu.Separator className="my-1 h-px bg-line" />
                 <DropdownMenu.Item

@@ -21,6 +21,7 @@ import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
 import type { ModuleRegistry } from '@wirehub/modules';
 import { expect } from 'vitest';
 
+import { makePng, pngDataUri } from '../png-fixture.ts';
 import { exportTree } from '../../server/pg/export.ts';
 import { snapshotOf } from '../../server/pg/snapshot.ts';
 import { CatalogTree, treeWorkbenchDeps } from '../../server/pg/tree.ts';
@@ -92,6 +93,10 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
   const sheetSaved = await call('drawing', { method: 'PUT', path: '/api/drawings/dc-led-lead', body: { title: 'LED lead', partNumber: 'CAB-01000', src: 'contract test' }, headers: { 'if-match': etag(sheet) } }, 200);
   await call('photo', { method: 'PUT', path: '/api/drawings/dc-led-lead/photo', body: { photo: PNG }, headers: { 'if-match': etag(sheetSaved) } }, 200);
   await call('rename', { method: 'POST', path: '/api/designs/dc-led-lead/rename', body: { newId: 'dc-led-lead-renamed', newLabel: 'DC LED lead (renamed)' }, headers: { 'if-match': etag(await call('read before rename', { method: 'GET', path: '/api/designs/dc-led-lead' }, 200)) } }, 200);
+  // hub branding: a catalog document and a sanitised logo asset, on every backend
+  const brand = await call('read branding', { method: 'GET', path: '/api/settings/branding' }, 200);
+  await call('save branding', { method: 'PUT', path: '/api/settings/branding', body: { organisation: 'Contract Cables', rights: 'Confidential', logo: pngDataUri(makePng(4)) }, headers: { 'if-match': etag(brand) } }, 200);
+  await call('stale branding', { method: 'PUT', path: '/api/settings/branding', body: { organisation: 'Stale' }, headers: { 'if-match': etag(brand) } }, 409);
   await call('renamed drawing', { method: 'GET', path: '/api/drawings/dc-led-lead-renamed' }, 200);
   await call('old id gone', { method: 'GET', path: '/api/designs/dc-led-lead' }, 404);
 

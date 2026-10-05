@@ -173,3 +173,22 @@ describe('art contributions', () => {
     expect(problems).toMatch(/queue 'when' schedule must be a five-field cron/);
   });
 });
+
+describe('compare views', () => {
+  const view = (id: string, kinds?: string[]) => ({ id, label: id, ...(kinds === undefined ? {} : { kinds }), component: () => null });
+
+  it('are found by the Library kind they declare, the first registration winning; none declared = every kind', () => {
+    const registry = createRegistry([
+      defineModule({ id: 'one', label: 'One', version: '1.0.0', compareViews: [view('boards', ['pcbas'])] }),
+      defineModule({ id: 'two', label: 'Two', version: '1.0.0', compareViews: [view('any')] }),
+    ]);
+    expect(registry.compareViews().map((v) => `${v.module}/${v.id}`)).toEqual(['one/boards', 'two/any']);
+    expect(registry.compareViewFor('pcbas')?.module).toBe('one');
+    expect(registry.compareViewFor('wires')?.module).toBe('two');
+    expect(createRegistry([]).compareViewFor('pcbas')).toBeUndefined();
+  });
+
+  it('refuse two views with one id in a module', () => {
+    expect(() => createRegistry([defineModule({ id: 'one', label: 'One', version: '1.0.0', compareViews: [view('x'), view('x')] })])).toThrow(/two compare views with id 'x'/);
+  });
+});

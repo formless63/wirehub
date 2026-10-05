@@ -273,3 +273,36 @@ export function canSwapTrunkStock(design: CableDesign, db: Db, wireId: string): 
   const trunk = trunkSegment(design, db);
   return trunk !== undefined && trunk.def !== wireId && findWire(db, wireId) !== undefined;
 }
+
+/** The stocks "Make variant" offers: every other stock in the catalog `canSwapTrunkStock` accepts, in catalog order. */
+export function swappableStocks(design: CableDesign, db: Db): WireDefinition[] {
+  return db.wires.filter((w) => canSwapTrunkStock(design, db, w.id));
+}
+
+/** One conductor colour of the trunk and where it lands on the new stock. */
+export interface TrunkMove {
+  colour: string;
+  from: string;
+  /** the new stock's path for that colour; `undefined`: the new stock has no such core */
+  to?: string;
+}
+
+/**
+ * What moving the trunk to `wireId` would do, without doing it: the swapped design, what could
+ * not carry across, and the conductor colours with their old and new paths — the preview the
+ * Make-variant dialog shows before anything is created.
+ */
+export function previewTrunkStock(design: CableDesign, db: Db, wireId: string): StockSwapResult & { moves: TrunkMove[]; spare: string[] } {
+  const result = withTrunkStock(design, db, wireId);
+  const trunk = trunkSegment(design, db);
+  const from = trunk === undefined ? undefined : findWire(db, trunk.def);
+  const to = findWire(db, wireId);
+  if (from === undefined || to === undefined) return { ...result, moves: [], spare: [] };
+  const a = mapOf(from);
+  const b = mapOf(to);
+  const moves: TrunkMove[] = [...a.conductor].map(([colour, path]) => {
+    const target = b.conductor.get(colour);
+    return { colour, from: path, ...(target === undefined ? {} : { to: target }) };
+  });
+  return { ...result, moves, spare: [...b.conductor.keys()].filter((c) => !a.conductor.has(c)) };
+}

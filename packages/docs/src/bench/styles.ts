@@ -14,6 +14,7 @@ export const BENCH_STYLESHEET = `@layer wirehub.docs{
 .cs-tb__kind{writing-mode:vertical-rl;transform:rotate(180deg);font-size:6.4pt;font-weight:700;letter-spacing:0.14em;padding:1mm 0.8mm;border-right:0.6pt solid #000;background:#000;color:#fff;text-align:center}
 .cs-tb__cell{flex:1 1 0;min-width:0;padding:0.9mm 1.6mm 1.1mm;border-left:0.6pt solid #000;display:flex;flex-direction:column;gap:0.3mm}
 .cs-tb__row .cs-tb__cell:first-child,.cs-tb__kind+.cs-tb__cell{border-left:0}
+.cs-tb__rights{border-top:0.6pt solid #000;padding:0.6mm 1.6mm;font-size:6pt;letter-spacing:0.04em}
 .cs-tb__title{flex:3 1 0}
 .cs-tb__pncell{flex:1.6 1 0}
 .cs-tb__rev{flex:0.9 1 0}

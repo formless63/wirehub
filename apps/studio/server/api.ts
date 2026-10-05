@@ -39,6 +39,8 @@ import { readDrawingMeta, readPhoto, type DrawingStore } from './drawings.ts';
 import type { DesignStore } from './designs.ts';
 import { handleWireLibraryRequest, WIRE_LIBRARY_ROUTES, type WireLibraryStore } from './wire-library.ts';
 import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
+import { refuseTakenDesignNumber } from './part-number-guard.ts';
+import { SETTINGS_ROUTES, handleSettingsRequest } from './settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
 import { LOCAL_FALLBACK, ME_ROUTES, type StudioUser } from './me.ts';
@@ -555,6 +557,8 @@ async function putDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMat
 
   const rejection = validated(parsed.design, await deps.loadDb(), deps.modules);
   if (rejection !== undefined) return rejection;
+  const taken = await refuseTakenDesignNumber(deps, id, 'productRef', parsed.design.productRef, current.productRef);
+  if (taken !== undefined) return taken;
 
   await deps.designs.write(id, parsed.design);
   const stored = await deps.designs.read(id);
@@ -586,8 +590,10 @@ async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown)
   if (!move.ok) return move.response;
   if (await deps.designs.has(move.newId)) return alreadyExists(move.newId);
 
+  // a copy is a new part: it does not inherit the original's product reference (a number is never reused)
+  const { productRef: _original, ...inherited } = source;
   const copy: CableDesign = {
-    ...source,
+    ...inherited,
     id: move.newId,
     label: move.newLabel ?? `${source.label} (copy)`,
     // provenance travels with the facts: the copy states its own descent so a
@@ -708,6 +714,8 @@ async function drawingRequest(
     if (!parsed.ok) {
       return fail(422, 'Those drawing details could not be saved.', `Nothing was changed. ${parsed.problems.join(' ')}`);
     }
+    const taken = await refuseTakenDesignNumber(deps, id, 'drawing', parsed.meta.partNumber, (await drawings.read(id)).meta.partNumber);
+    if (taken !== undefined) return taken;
     await drawings.writeMeta(id, parsed.meta);
     return ok(parsed.meta, 200, await tagOf());
   }
@@ -846,6 +854,7 @@ const ROUTES = [
   'GET    /api/assets/:id',
   ...DEFINITION_ROUTES,
   ...MODEL_ROUTES,
+  ...SETTINGS_ROUTES,
   ...VOCAB_ROUTES,
   ...WIRE_LIBRARY_ROUTES,
   ...BUILDS_ROUTES,
@@ -1213,6 +1222,9 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     // the commit rebuilds the table with the save (unit-of-work.ts, derivedFor)
     return definitions;
   }
+
+  const settings = await handleSettingsRequest(method, parts, request.body, deps, ifMatch);
+  if (settings !== undefined) return settings;
 
   const vocab = await handleVocabRequest(method, parts, request.body, deps, ifMatch);
   if (vocab !== undefined) return vocab;

@@ -7,7 +7,7 @@
  * imports, or builds it to JavaScript first.
  */
 
-import type { PanelProps, RouteProps } from '@wirehub/modules';
+import type { CompareProps, PanelProps, RouteProps } from '@wirehub/modules';
 import { createElement as h, useEffect, useState, type ReactElement } from 'react';
 
 import { dataOf } from './logic.ts';
@@ -66,5 +66,16 @@ export function StatusPage(props: RouteProps): ReactElement {
     h('h2', null, 'Example module status'),
     h('pre', null, JSON.stringify(body ?? null)),
     h('div', null, `${props.db.connectors.length} connectors in the library`),
+  );
+}
+
+/** A compare view for Library records: it says which two it was given, and has a way back. */
+export function CompareView(props: CompareProps): ReactElement {
+  return h(
+    'div',
+    { 'data-testid': 'example-compare' },
+    h('strong', null, 'Example compare view'),
+    h('div', null, `${props.a.kind}/${props.a.id} with ${props.b === undefined ? 'nothing chosen yet' : `${props.b.kind}/${props.b.id}`}`),
+    h('button', { type: 'button', onClick: props.onClose }, 'Close'),
   );
 }

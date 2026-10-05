@@ -194,6 +194,34 @@ export interface PanelProps {
   api: ModuleApi;
 }
 
+/**
+ * A compare view for Library records: two records of one kind side by side (a board's artwork
+ * and 3D model revisions, two shells' dimensions …). The base ships a generic field diff
+ * (`RecordCompare`); a module that registers a view for a kind replaces it for that kind.
+ */
+export interface CompareViewContribution {
+  id: string;
+  label: string;
+  /** the Library kinds it compares (`pcbas`, `mechanicals`, …); absent = every kind */
+  kinds?: readonly string[];
+  /** a React component taking `CompareProps` (`unknown` here, so this package needs no React) */
+  component: unknown;
+}
+
+/** What the Library hands a compare view: the record(s) by kind and id, the library, and a way back. */
+export interface CompareProps {
+  /** the module that contributed the view */
+  module: string;
+  db: Db;
+  /** the record the Compare action was pressed on, or the first one ticked */
+  a: { kind: string; id: string };
+  /** the second record, once chosen; absent: the view asks for it */
+  b?: { kind: string; id: string };
+  api: ModuleApi;
+  /** close the compare view and go back to the Library */
+  onClose: () => void;
+}
+
 export interface UiRouteContribution {
   /** path below `/m/<module id>/`: `status`, or `reports/summary` (static segments only) */
   path: string;
@@ -326,6 +354,8 @@ export interface WireHubModule {
   validationRules?: readonly ValidationRuleContribution[];
   integrations?: readonly IntegrationContribution[];
   panels?: readonly PanelContribution[];
+  /** compare views for Library records (the base's generic field diff stands in where none is registered) */
+  compareViews?: readonly CompareViewContribution[];
   routes?: readonly UiRouteContribution[];
   authProviders?: readonly AuthProviderContribution[];
   /** at most one module in a deployment may set this */
@@ -376,6 +406,10 @@ export interface ModuleRegistry {
   importersFor(fileName: string): readonly (ImporterContribution & { module: string })[];
   exporters(): readonly (ExporterContribution & { module: string })[];
   panels(slot: PanelContribution['slot']): readonly (PanelContribution & { module: string })[];
+  /** every module's compare view, in manifest order */
+  compareViews(): readonly (CompareViewContribution & { module: string })[];
+  /** the first compare view that takes Library `kind`, or `undefined` (the host then uses the generic field diff) */
+  compareViewFor(kind: string): (CompareViewContribution & { module: string }) | undefined;
   routes(): readonly (UiRouteContribution & { module: string })[];
   integrations(): readonly (IntegrationContribution & { module: string })[];
   /** every module's job queues, with the job kind each runs as (`<module>:<queue>`) */
@@ -450,6 +484,11 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
       if (!ROUTE_PATH.test(route.path)) problems.push(`module '${m.id}' UI route '${route.path}' must be lowercase kebab segments joined by '/'`);
       if (paths.has(route.path)) problems.push(`module '${m.id}' has two UI routes at '${route.path}'`);
       paths.add(route.path);
+    }
+    const compares = new Set<string>();
+    for (const view of m.compareViews ?? []) {
+      if (compares.has(view.id)) problems.push(`module '${m.id}' has two compare views with id '${view.id}'`);
+      compares.add(view.id);
     }
     const panels = new Set<string>();
     for (const panel of m.panels ?? []) {
@@ -526,6 +565,8 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     },
     exporters: () => list.flatMap((m) => tag(m, m.exporters)),
     panels: (slot) => list.flatMap((m) => tag(m, m.panels)).filter((p) => p.slot === slot),
+    compareViews: () => list.flatMap((m) => tag(m, m.compareViews)),
+    compareViewFor: (kind) => list.flatMap((m) => tag(m, m.compareViews)).find((v) => v.kinds === undefined || v.kinds.includes(kind)),
     routes: () => list.flatMap((m) => tag(m, m.routes)),
     integrations: () => list.flatMap((m) => tag(m, m.integrations)),
     queues: () => list.flatMap((m) => (m.integrations ?? []).flatMap((i) => (i.queues ?? []).map((q) => ({ ...q, module: m.id, kind: `${m.id}:${q.id}` })))),

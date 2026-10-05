@@ -50,7 +50,15 @@ export function PartNumberField(props: PartNumberFieldProps): JSX.Element {
     />
   );
   if (scope === undefined) return field;
-  const warnings = scope.check(props.value, props.kind);
+  const warnings = scope.check(props.value, props.kind).map((w) => w.message);
+  // a number another part already carries: only a warning here, the save itself is refused
+  let taken: string[] = [];
+  try {
+    taken = scope.taken(props.value, props.target());
+  } catch {
+    // a half-filled draft may not convert yet
+  }
+  if (taken.length > 0) warnings.push(`'${props.value.trim()}' is already on ${taken.slice(0, 3).join(', ')}${taken.length > 3 ? ` and ${taken.length - 3} more` : ''} — saving will be refused`);
   // a half-filled draft may not convert yet; a suggestion is never worth a crash
   const suggestSafely = (): SuggestResult => {
     try {
@@ -80,7 +88,7 @@ export function PartNumberField(props: PartNumberFieldProps): JSX.Element {
       {warnings.length === 0 ? null : (
         <ul className="cs-pn-warn" role="status">
           {warnings.map((w, i) => (
-            <li key={i}>{w.message}</li>
+            <li key={i}>{w}</li>
           ))}
         </ul>
       )}

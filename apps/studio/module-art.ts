@@ -43,3 +43,45 @@ export function installModuleArt(registry: ModuleRegistry, extra: (layouts: read
   }
   return () => offs.forEach((off) => off());
 }
+
+/** Where the title block's logo cell is, on the drawing sheet (points: x, y, width, height). */
+export const BRANDING_LOGO_BOX = [20, 543, 210, 54] as const;
+
+/** The hub's branding settings as `GET /api/settings/branding` answers them. */
+export interface BrandingSettings {
+  organisation?: string;
+  standard?: string;
+  rights?: string;
+  designer?: string;
+  notes?: [string, string, string];
+  logoDataUri?: string;
+}
+
+/** The drawing art a branding setting stands for; `undefined` when nothing is set (the generic text stays). */
+export function brandingArt(settings: BrandingSettings | undefined): DrawingArt | undefined {
+  if (settings === undefined) return undefined;
+  const { organisation, standard, rights, designer, notes, logoDataUri } = settings;
+  const png = logoDataUri === undefined ? undefined : /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(logoDataUri)?.[1];
+  const titleBlock = {
+    ...(organisation === undefined ? {} : { organisation }),
+    ...(standard === undefined ? {} : { standard }),
+    ...(rights === undefined ? {} : { rights }),
+    ...(designer === undefined ? {} : { designer }),
+    ...(notes === undefined ? {} : { notes }),
+  };
+  if (png === undefined && Object.keys(titleBlock).length === 0) return undefined;
+  return {
+    ...(Object.keys(titleBlock).length === 0 ? {} : { titleBlock }),
+    ...(png === undefined ? {} : { logo: { pngBase64: png, box: BRANDING_LOGO_BOX } }),
+  };
+}
+
+/**
+ * Register the hub's branding as drawing art and return the function that
+ * removes it. Call it after `installModuleArt`: the earliest registration to
+ * set a part wins, so a module's art still beats the setting.
+ */
+export function installBranding(settings: BrandingSettings | undefined): () => void {
+  const art = brandingArt(settings);
+  return art === undefined ? () => {} : registerDrawingArt(art);
+}

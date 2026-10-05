@@ -27,6 +27,8 @@ import {
   type WireDefinition,
 } from './model.ts';
 import { compatibilityIssues } from './compat.ts';
+import { pnDuplicateIssues } from './part-number-health.ts';
+import type { PartNumberScheme } from './part-numbers.ts';
 import { breakoutFates, breakoutIssues, inScope, segmentElectricalPaths } from './breakouts.ts';
 import { viaText } from './link-elements.ts';
 import { recordMetaIssues } from './provenance.ts';
@@ -593,8 +595,10 @@ export function validateWireLayOrder(wire: WireDefinition): Issue[] {
 }
 
 /** Structural validation of the definition library. */
-export function validateDb(db: Db): Issue[] {
+export function validateDb(db: Db, options: { scheme?: PartNumberScheme } = {}): Issue[] {
   const issues: Issue[] = [];
+  // the same number on two different parts (a connector and its own body are one part)
+  issues.push(...pnDuplicateIssues(db, options.scheme));
 
   const groups: { label: string; ids: string[] }[] = [
     { label: 'connectors', ids: db.connectors.map((r) => r.id) },
