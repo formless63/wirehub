@@ -75,6 +75,8 @@ export type { DocumentFacts, SheetHeader, Variation } from './bench/header.ts';
 export { benchSheetBody } from './bench/render.ts';
 export { suppliedEnds, type SuppliedEnd } from './supplied.ts';
 export { breakoutSection } from './bench/breakouts.ts';
+export { costLineOf, deriveCost, formatMoney } from './cost.ts';
+export type { CostLine, CostOptions, CostSummary } from './cost.ts';
 export { BOM_SECTIONS, bomSheetBody, bomSheetMarkdown, deriveBomSheet } from './bom-sheet.ts';
 export type { BomSection, BomSheet, BomSheetLine, BomSheetOptions } from './bom-sheet.ts';
 export type { BuildSheetOptions, DocumentIdentity, SheetOptions } from './build-sheet.ts';

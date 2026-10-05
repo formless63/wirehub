@@ -11,6 +11,8 @@
 export * from './model.ts';
 export { AMPACITY_SRC, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, ampacityOfArea, electricalIssues, electricalReport, electricalRulesProblems } from './electrical.ts';
 export type { AmpacityRow, ContactRow, DbRules, ElectricalReport, ElectricalRow, ElectricalRules } from './electrical.ts';
+export { costIssues, costingRulesProblems, costUnit, isCurrencyCode, unitPriceAt } from './cost.ts';
+export type { CostingRules, PartCost, PriceBreak } from './cost.ts';
 export { PROVENANCE_METHODS, isSourceUrl, isSpdxLike, recordMetaIssues } from './provenance.ts';
 export type { DerivedFrom, ProvenanceMethod, ProvenanceReview, ProvenanceSource, RecordMeta, RecordProvenance } from './provenance.ts';
 export {

@@ -102,6 +102,16 @@ describe('engineering settings (testing defaults, electrical thresholds, approva
     expect(docs.docs.has(ENGINEERING_PATH)).toBe(false);
   });
 
+  it('keeps the organisation currency and labour rate, and refuses a bad code or rate', async () => {
+    const { deps: d, docs } = deps();
+    const first = await eng(d, 'GET');
+    const saved = await eng(d, 'PUT', { costing: { currency: 'EUR', labourRatePerHour: 42.5 } }, first.headers!.ETag!);
+    expect(saved.status).toBe(200);
+    expect(docs.docs.get(ENGINEERING_PATH)).toMatchObject({ costing: { currency: 'EUR', labourRatePerHour: 42.5 } });
+    expect((await eng(d, 'PUT', { costing: { currency: 'euro' } }, saved.headers!.ETag!)).status).toBe(400);
+    expect((await eng(d, 'PUT', { costing: { labourRatePerHour: -2 } }, saved.headers!.ETag!)).status).toBe(400);
+  });
+
   it('the settings override the environment fallback per parameter', async () => {
     const { docs } = deps();
     const env = { isolationVolts: 100, hipotVolts: 1500 };

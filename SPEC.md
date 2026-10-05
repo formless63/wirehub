@@ -215,6 +215,10 @@ exports the same rows. A **kit** is an
 orderable bundle of parts (`{ id, label, sku, contents: { part: { kind, def }, qty }[], src }`) —
 a backshell with its jackscrews, say.
 
+Every definition record may carry an optional `cost` (`{ unit, currency?, per?, breaks?, moq?, src? }`,
+`docs/interop.md`, "Costing"), and a design an optional `labourMinutes`: additive fields that feed the
+BOM's cost roll-up and change nothing else.
+
 ### The design document
 
 ```ts

@@ -25,6 +25,7 @@ import type {
   ConnectorDefinition,
   ConnectorRecord,
   DbRules,
+  CostingRules,
   ElectricalRules,
   Db,
   DesignVersionFile,
@@ -174,8 +175,10 @@ export function createCatalog(source: CatalogSource) {
   const loadBoardPartsFile = (): BoardPartsEntry[] | undefined => readOptional<{ boards: BoardPartsEntry[] }>('board-parts.json')?.boards;
   /** the organisation's rule thresholds, kept in the hub's engineering settings (`settings/engineering.json`) */
   const loadRules = (): DbRules | undefined => {
-    const electrical = readOptional<{ electrical?: ElectricalRules }>('settings/engineering.json')?.electrical;
-    return electrical === undefined ? undefined : { electrical };
+    const settings = readOptional<{ electrical?: ElectricalRules; costing?: CostingRules }>('settings/engineering.json');
+    const electrical = settings?.electrical;
+    const costing = settings?.costing;
+    return electrical === undefined && costing === undefined ? undefined : { ...(electrical === undefined ? {} : { electrical }), ...(costing === undefined ? {} : { costing }) };
   };
   function loadDb(): Db {
     const pcbas = loadPcbas();

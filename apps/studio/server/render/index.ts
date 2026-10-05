@@ -103,6 +103,8 @@ export interface DocumentRequest {
   copies?: number;
   /** formboard: paper millimetres per board millimetre (1 = 1:1); page is then a tile, 1-based, and absent is the overview */
   scale?: number;
+  /** cables in the build, for the BOM's quantity breaks */
+  buildQty?: number;
   /** the organisation's default test parameters */
   testDefaults?: TestParameters;
   /** print the working copy marked UNRELEASED (html) — set when the studio keeps saved revisions */
@@ -152,6 +154,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     ...(request.testDefaults === undefined ? {} : { testDefaults: request.testDefaults }),
     ...(request.page === undefined ? {} : { page: request.page }),
     ...(request.copies === undefined ? {} : { copies: request.copies }),
+    ...(request.buildQty === undefined ? {} : { buildQty: request.buildQty }),
     depictions: true,
   };
   const out = (body: string | Uint8Array, fileFormat: DocumentFormat = format): DocumentResult => ({

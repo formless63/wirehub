@@ -19,6 +19,7 @@ import {
 } from '../library.ts';
 import { slugify } from '../persistence.ts';
 import { Choice, Field, FormSection, SrcField } from './fields.tsx';
+import { CostFields, costOfExtra, withExtraCost } from './CostFields.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
 
 export interface MechanicalEditorProps {
@@ -80,6 +81,17 @@ export function MechanicalEditor(props: MechanicalEditorProps): JSX.Element {
         <Field label="Revision" say="The released revision this record tracks." value={draft.revision} onChange={(value) => set('revision', value)} placeholder="Rev 3" />
       </div>
       <SrcField value={draft.src} onChange={(value) => set('src', value)} />
+    </FormSection>
+    <FormSection title="Cost" say="Optional. The BOM shows a cost only where parts are priced.">
+      <CostFields
+        key={draft.id}
+        cost={costOfExtra(draft.extra)}
+        onChange={(cost) => {
+          const extra = withExtraCost(draft.extra, cost);
+          const { extra: _drop, ...rest } = draft;
+          onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
+        }}
+      />
     </FormSection>
     {termination === undefined ? null : (
       <TerminationSection

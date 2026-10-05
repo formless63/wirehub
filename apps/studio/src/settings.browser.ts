@@ -59,6 +59,7 @@ export const engineeringKey = ['settings', 'engineering'] as const;
 export interface EngineeringSettings {
   testDefaults?: Record<string, number>;
   electrical?: { enabled?: boolean; ampacityDerate?: number; contactDerate?: number; maxDropV?: number; maxDropPct?: number };
+  costing?: { currency?: string; labourRatePerHour?: number };
   approvals?: { enabled: boolean; approverRoles?: ('owner' | 'editor')[] };
   /** read-only context from the server */
   env?: { testDefaults: Record<string, number> | null };
@@ -77,7 +78,7 @@ export async function fetchEngineering(base = '/api'): Promise<Outcome<Engineeri
   return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
 }
 
-export async function saveEngineering(input: Pick<EngineeringSettings, 'testDefaults' | 'electrical' | 'approvals'>, etag: string, base = '/api'): Promise<Outcome<EngineeringView>> {
+export async function saveEngineering(input: Pick<EngineeringSettings, 'testDefaults' | 'electrical' | 'approvals' | 'costing'>, etag: string, base = '/api'): Promise<Outcome<EngineeringView>> {
   let next = '';
   const out = await request<EngineeringSettings>(`${base}/settings/engineering`, { method: 'PUT', body: input, headers: { 'if-match': etag } }, (r) => {
     next = r.headers.get('etag') ?? '';

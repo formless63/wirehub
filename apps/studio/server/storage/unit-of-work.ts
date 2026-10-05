@@ -82,7 +82,7 @@ export class UnitOfWork {
     this.base = base;
     const staged: WorkbenchDeps = {
       ...base,
-      loadDb: () => (this.db ??= snapshotDb(base)),
+      loadDb: async () => this.withStagedDefinitions(await (this.db ??= snapshotDb(base))),
     };
     if (base.designs !== undefined) staged.designs = this.designs(base.designs);
     if (base.definitions !== undefined) staged.definitions = this.definitions(base.definitions);
@@ -98,6 +98,26 @@ export class UnitOfWork {
     if (base.files !== undefined) staged.files = this.files();
     if (base.depictions !== undefined) staged.depictions = this.depictions(base.depictions, staged.docs);
     this.deps = staged;
+  }
+
+  /**
+   * The request's db with the definitions this unit has staged laid in, so a later
+   * request of one batch (an import's design after its new connectors and stocks)
+   * validates against them. Records new in this unit are appended as written; a
+   * record the snapshot already has keeps its (composed) snapshot form.
+   */
+  private withStagedDefinitions(db: Db): Db {
+    let out: Db | undefined;
+    for (const kind of ['connectors', 'wires', 'components', 'pcbas', 'mechanicals'] as const) {
+      const s = this.staged<{ id: string }[]>('definitions', kind);
+      if (!s.found || s.value === undefined) continue;
+      const have = new Set((db[kind] ?? []).map((r) => r.id));
+      const added = s.value.filter((r) => !have.has(r.id));
+      if (added.length === 0) continue;
+      out ??= { ...db };
+      (out as unknown as Record<string, unknown>)[kind] = [...(db[kind] ?? []), ...added];
+    }
+    return out ?? db;
   }
 
   /* ----------------------------- staging ----------------------------- */

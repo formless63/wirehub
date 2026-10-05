@@ -147,6 +147,15 @@ the deployment's single part-number scheme and commit hook, so use a scratch che
 own module the same way, list it in the manifest behind a similar flag while developing, and
 remove the flag before you contribute it. `WIREHUB_SUGGESTED_MODULES=<id>,<id>` pre-ticks modules at `/setup`.
 
+## Interop modules
+
+`modules/wireviz` (importer for `.yml`/`.yaml` plus an exporter) and `modules/csv-library` (importer for
+`.csv`) are small always-on modules without a pack: copy them when a module only moves data in or out. An
+importer returns `definitions` and `designs` together (a design may use the definitions it proposes), plus
+`notes` that say what is lossy or inferred; the review step shows them. Keep importers deterministic and
+write their mapping from the format's public documentation (WireViz is GPL-3.0: never copy its code). See
+`docs/interop.md`.
+
 ## Checklist
 
 - [ ] id kebab-case, unique; version semver; licence consistent in three places
