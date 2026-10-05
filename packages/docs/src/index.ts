@@ -34,7 +34,7 @@ export type {
 export { bomToHtml, bomToMarkdown } from './bom-render.ts';
 
 export { deriveTestSpec, designPorts, SIDE_WORD } from './test-spec.ts';
-export { deriveGroundLandings, screensText } from './landings.ts';
+export { deriveGroundLandings, massText, screensText } from './landings.ts';
 export type { GroundLanding } from './landings.ts';
 export type {
   GroundLandingCheck,
