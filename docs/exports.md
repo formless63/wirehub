@@ -181,6 +181,12 @@ Documents and the formats each comes in (default first):
 | `drawing` | `svg`, `html`, `pdf` |
 | `labels` | `svg` (the label sheet), `pdf`, `csv` |
 
+A wire stock's spec sheet (the Library's Spec tab) has its own route:
+`GET /api/definitions/wires/:id/wire-spec?format=html|svg|pdf&paper=A4|letter`, named
+`WSS_<document number>`. Its `html` is the browser's sheet byte for byte; `svg` and `pdf` set
+the same sheet's text (facts, colour and signal map, notes) as plain pages, without the
+cross-section figure.
+
 `:format` of an export is one of the ids in the table at the top. A rendered sheet is sent
 with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
 
@@ -207,6 +213,7 @@ pnpm --filter studio render de9-crossover bom --format csv
 pnpm --filter studio render de9-crossover build-sheet --format pdf --rev latest --out ./out
 pnpm --filter studio render de9-crossover all --out ./out         # every document, default format and PDF
 pnpm --filter studio render de9-crossover continuity.json --out -  # to stdout
+pnpm --filter studio render dc-2core-24awg wire-spec --format pdf  # a wire stock's spec sheet (<design> is the stock id)
 ```
 
 `<what>` is a document kind, an export id, or `all`; options are `--format`, `--rev`, `--out`

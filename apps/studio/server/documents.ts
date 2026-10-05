@@ -8,6 +8,8 @@
  *   GET /api/designs/:id/exports/:format?rev=…&quantity=…
  *       format: bom.csv · wire-list.csv · cut-list.csv · crimp-list.csv · production.xlsx ·
  *       continuity.csv · continuity.json · labels.csv · labels.svg
+ *   GET /api/definitions/wires/:id/wire-spec?format=html|svg|pdf&paper=…
+ *       a wire stock's spec sheet (the Library's Spec tab), named WSS_<document number>
  *   GET /api/exports   the list of export formats
  *
  * `rev` is a saved revision number, or `latest`; without it the working copy is
@@ -27,11 +29,14 @@ import { type ApprovalFacts, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, i
 import { approvalPolicy, effectiveTestDefaults } from './settings.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
+import { isWireSpecFormat, renderWireSpec, WIRE_SPEC_FORMATS } from './render/wire-spec.ts';
+import type { WireLibraryStore } from './wire-library.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
 export const DOCUMENT_ROUTES = [
   'GET    /api/designs/:id/documents/:kind',
   'GET    /api/designs/:id/exports/:format',
+  'GET    /api/definitions/wires/:id/wire-spec',
   'GET    /api/exports',
 ] as const;
 
@@ -44,6 +49,8 @@ export interface DocumentDeps {
   testDefaults?: TestParameters;
   /** catalog documents by path: where the engineering settings live */
   docs?: DocStore;
+  /** the wire stock recipes and parts the spec sheet reads */
+  wireLibrary?: WireLibraryStore;
 }
 
 function fail(status: number, error: string, hint?: string): ApiResponse {
@@ -147,9 +154,35 @@ function file(output: { mimeType: string; fileName: string; body: string | Uint8
   };
 }
 
+async function wireSpec(method: string, id: string, query: URLSearchParams, deps: DocumentDeps): Promise<ApiResponse> {
+  if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
+  const db = await deps.loadDb();
+  const wire = db.wires.find((w) => w.id === id);
+  if (wire === undefined) return fail(404, `There is no wire stock called '${id}'.`, 'Pick one from GET /api/definitions/wires.');
+  const asked = query.get('format') ?? 'html';
+  if (!isWireSpecFormat(asked)) return fail(400, `'${asked}' is not a format for a spec sheet.`, `Formats: ${WIRE_SPEC_FORMATS.join(', ')}.`);
+  const paper = query.get('paper');
+  if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
+  const library = await deps.wireLibrary?.read();
+  const recipe = library?.recipes.find((r) => r.id === id);
+  const manufacturers = db.vocab?.['manufacturers']?.entries;
+  try {
+    const out = renderWireSpec(wire, asked, {
+      ...(recipe === undefined ? {} : { recipe }),
+      ...(library === undefined ? {} : { parts: library.parts }),
+      ...(manufacturers === undefined ? {} : { manufacturers }),
+      ...(paper === null ? {} : { paper }),
+    });
+    return file(out, true);
+  } catch (error) {
+    return fail(422, `The spec sheet of ${id} could not be rendered.`, error instanceof Error ? error.message : String(error));
+  }
+}
+
 /** `undefined` when the path is not one of the document routes. */
 export async function handleDocumentRequest(method: string, parts: string[], query: URLSearchParams, deps: DocumentDeps): Promise<ApiResponse | undefined> {
   const [, head, id, section, name, ...rest] = parts;
+  if (head === 'definitions' && id === 'wires' && parts.length === 5 && rest.length === 0 && parts[4] === 'wire-spec') return wireSpec(method, parts[3] as string, query, deps);
   if (head === 'exports' && id === undefined) {
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     return {

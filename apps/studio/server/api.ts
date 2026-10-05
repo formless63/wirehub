@@ -1251,7 +1251,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     return method === 'GET' ? ok(await deps.loadDb()) : methodNotAllowed(method, ['GET']);
   }
 
-  if ((head === 'exports' && id === undefined) || (head === 'designs' && (action === 'documents' || action === 'exports'))) {
+  if ((head === 'exports' && id === undefined) || (head === 'designs' && (action === 'documents' || action === 'exports')) || (head === 'definitions' && id === 'wires' && parts[4] === 'wire-spec')) {
     const documents = await handleDocumentRequest(method, parts, new URLSearchParams(request.path.split('?')[1] ?? ''), deps);
     if (documents !== undefined) return documents;
   }

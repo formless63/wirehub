@@ -225,3 +225,43 @@ describe('test parameters in the sidecar and the environment', () => {
     expect(() => testDefaultsFromEnv({ WIREHUB_TEST_DEFAULTS: '{"isolationVolts":-5}' })).toThrow('positive number');
   });
 });
+
+describe('GET /api/definitions/wires/:id/wire-spec (cs-5k1.22)', () => {
+  const wire = db.wires.find((w) => w.structure.children.length > 3) ?? db.wires[0]!;
+  const withLibrary = async (): Promise<WorkbenchDeps> => {
+    const { loadWireLibrary } = await import('@wirehub/catalog');
+    const { memoryWireLibraryStore } = await import('../server/wire-library.ts');
+    return { ...deps, wireLibrary: memoryWireLibraryStore(loadWireLibrary(), db.wires) };
+  };
+
+  it('is the browser sheet as html, named after the document number', async () => {
+    const { renderWireSpecSheet, wireSpecFileName } = await import('@wirehub/docs');
+    const d = await withLibrary();
+    const r = await get(`/api/definitions/wires/${wire.id}/wire-spec`, d);
+    expect(r.status).toBe(200);
+    expect(r.contentType).toBe('text/html; charset=utf-8');
+    expect(r.headers?.['Content-Disposition']).toContain(wireSpecFileName(wire, 'html'));
+    expect(text(r)).toContain('<title>WSS_');
+    const library = (await import('@wirehub/catalog')).loadWireLibrary();
+    const recipe = library.recipes.find((x) => x.id === wire.id);
+    expect(text(r)).toBe(renderWireSpecSheet(wire, { ...(recipe === undefined ? {} : { recipe }), parts: library.parts, manufacturers: db.vocab?.['manufacturers']?.entries ?? [], paper: 'A4' }));
+  });
+
+  it('is the same sheet as a text-set svg and pdf', async () => {
+    const d = await withLibrary();
+    const svg = await get(`/api/definitions/wires/${wire.id}/wire-spec?format=svg`, d);
+    expect(svg.status).toBe(200);
+    expect(svg.contentType).toBe('image/svg+xml');
+    expect(text(svg)).toContain('<svg');
+    expect(text(svg)).toContain(wire.label.split(' ')[0]!);
+    const pdf = await get(`/api/definitions/wires/${wire.id}/wire-spec?format=pdf&paper=letter`, d);
+    expect(pdf.status).toBe(200);
+    expect(readPdf(pdf.bytes!).pages).toBeGreaterThanOrEqual(1);
+  });
+
+  it('refuses a stock that is not there and a format it does not come in', async () => {
+    expect((await get('/api/definitions/wires/no-such-stock/wire-spec')).status).toBe(404);
+    expect((await get(`/api/definitions/wires/${wire.id}/wire-spec?format=csv`)).status).toBe(400);
+    expect((await get(`/api/definitions/wires/${wire.id}/wire-spec?paper=B5`)).status).toBe(400);
+  });
+});
