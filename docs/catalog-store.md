@@ -63,8 +63,13 @@ fieldbus-1.4.0/
   vocab/signals.json …                           (vocabulary additions)
   designs/*.json                                 (example designs, optional)
   validation-rules.json                          (declarative design rules, optional; docs/validation-rules.md)
+  bench-rules.json                               (the shop's work instructions as data, optional; docs/modules.md "Bench work instructions")
+  pcba-pads.json                                 (pads per board terminal, optional; { src, boards: { <board id>: { src, terminals } } })
   depictions/<id>/…                              (artwork, optional: <id> a connector, body or wire id)
   art/connectors/<id>.json, art/body-layouts.json   (connector drawings and body layouts, optional; specs/drawing-language.md §7)
+  drawing-art.json                               (traced faces, plugs and cutaways by definition id, optional; docs/modules.md "The hub's own identity")
+  docs/**/*.pdf, assets/**/*.pdf                 (vendor datasheets, optional; linked from records by sha256)
+  fonts/<name>.ttf|otf|woff2 + fonts/<name>.json (a licensed typeface and the licence it comes under, optional)
   wirehub-pack.sig      the publisher's signature over the manifest (§4, phase 5)
 ```
 
@@ -135,6 +140,15 @@ know. Each record keeps the mandatory `src`, and a pack record adds two optional
 - **A pack may carry configuration as data**, not only records. `validation-rules.json` is an array
   of rule records (each with `src`, merged by id like any record file): the rules install with the
   pack, run inside the validators, and an install that would add errors to the library is refused.
+  `bench-rules.json` (the shop's work instructions, `docs/modules.md`) works the same way: read from the
+  catalog at runtime, so the build sheet prints a pack's steps the moment it is installed and the generic
+  steps return when it is disabled. `drawing-art.json` (faces, plugs and cutaways by definition id, the
+  shape a module's `art.drawing` has) is kept key by key like the pad table, so a pack owns its art; a
+  cutaway's SVG is stripped of scripts and external references on install. `pcba-pads.json` (the pads of a board's terminals) is kept board by
+  board, so a pack owns the pads of its boards: an update replaces them, a disable removes them, and a
+  board the catalog already has with different pads is a conflict. The install **preview** reads every
+  such data file the way the installed catalog will (the pad table, rules, bench rules, drawing art, tag tables), so
+  the errors it shows are the errors the library will have afterwards, not a different set.
   The manifest's `partNumberScheme` is a numbering scheme the pack **offers**: installing the pack
   never switches the hub's scheme; Settings lists the offer and an owner confirms the switch
   (`docs/part-numbers.md`). The manifest is covered by the publisher's signature, so a signed pack's
@@ -254,6 +268,22 @@ directory, and the Postgres backend runs it over a scratch copy it commits as **
   `revisions/<part>/<revision>` for the model of a part revision no record shows. When `adopt` or
   `pg:import` still refuses a file (a pack installed by an earlier version, say), the error names the
   file and whether it came from the catalog or from which pack.
+  **Vendor PDFs and fonts travel with the pack too.** A PDF under `docs/**` or `assets/**` (a
+  datasheet; `.pdf`, lowercase) and a font under `fonts/**` (`.ttf`, `.otf`, `.woff2`) are kept like
+  images: pinned by the manifest's `files` and covered by the signature, owned by the pack in
+  `packs.json` (an update replaces or removes them, a disable deletes them), installed beside the
+  catalog's data (`data/docs/…`, `data/fonts/…`; a pack's `assets/…` goes to `data/pack-assets/…`
+  because `data/assets/` is the shared library, named by hash) and served by content address from
+  `GET /api/blobs/<sha256>`. A PDF is at most 4 MiB (6 MiB for a pack's PDFs together), starts with
+  `%PDF-` and is refused if it holds a script, launch action, embedded file, rich media or form
+  submission (a best-effort scan: it is served as an attachment regardless). A font is at most
+  2 MiB (6 MiB together), its header must match its extension, and it ships with
+  `fonts/<name>.json`, `{ "family"?, "license", "src" }`, naming the terms that let documents embed it;
+  a pack that ships a font without that is refused. A record links a PDF with
+  `"vendorDocs": [{ "asset": "<sha256 of the PDF>", "label": "…", "src": "…" }]` (any record
+  kind; `validateDb` checks the shape), which opens in the app at `/api/assets/<sha256>`. A served
+  PDF or font carries `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` and
+  `Content-Security-Policy: default-src 'none'; sandbox`: nothing in it can run in the app's origin.
   **Images travel with the pack.** Besides `.json`, a zip or bundle carries the images under
   `depictions/**` and `art/**` (`svg`, `png`, `jpg`/`jpeg`, `webp`, lowercase extensions; in a JSON
   bundle a `files` entry for an image is the file, base64). Anything else is ignored in a zip and
@@ -341,8 +371,9 @@ AGPL-3.0-only. Third-party packs carry the licence their authors chose.
 
 A bundle is what Install pack… takes: a zip of the pack directory or a JSON bundle. `bundle` zips
 every file of the pack directory in sorted order (so `depictions/**` and `art/**` images are in
-it) and refuses a pack whose images a studio would not install (wrong type or extension case, a
-name outside the allowed characters, too large, not the type its name says).
+it, with the PDFs under `docs/`/`assets/` and the fonts under `fonts/`) and refuses a pack whose images,
+PDFs or fonts a studio would not install (wrong type or extension case, a name outside the allowed
+characters, too large, not the type its name says).
 
 **The signature** is `index.json.minisig` beside the index: a minisign signature (the prehashed
 `ED` algorithm: ed25519 over the BLAKE2b-512 of the file, plus the global signature over the

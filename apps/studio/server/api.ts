@@ -27,7 +27,7 @@ import { designChangeLines, errors, isReadableSchemaVersion, MAX_SCHEMA_VERSION,
 import type { ModuleRegistry } from '@wirehub/modules';
 
 import { cableListEntry, usedInFeature, type CableListContext, type CableListEntry, type CableListPnContext } from '../src/cable-list.ts';
-import { assetSummaryWithDataUri, isImageAsset, isModelAsset, type AssetStore } from './assets.ts';
+import { assetSummaryWithDataUri, isFontAsset, isImageAsset, isModelAsset, type AssetStore } from './assets.ts';
 import type { ConvertedModel } from './models/convert.ts';
 import type { ModelLinkStore } from './models/links.ts';
 import type { ModelCache } from './models/cache.ts';
@@ -157,7 +157,7 @@ export interface WorkbenchDeps {
    * Bytes by content address (`GET /api/blobs/:sha`, plan §5.3): any blob the
    * catalog names — uploads, saved artwork, depiction files. Absent → 501.
    */
-  blob?: (sha256: string) => Promise<{ bytes: Uint8Array; mediaType: string } | undefined>;
+  blob?: (sha256: string) => Promise<{ bytes: Uint8Array; mediaType: string; /** the file's own name, when the backend knows it (a pack's PDF) */ filename?: string } | undefined>;
   /**
    * The bytes stored under a content hash, whether or not the catalog names
    * them any more — a restore from the history brings an earlier photo back
@@ -910,7 +910,7 @@ async function getAssetIndex(deps: WorkbenchDeps): Promise<ApiResponse> {
     return fail(501, 'This studio does not keep a shared asset library.', 'There are no stored files to link.');
   }
   // models are listed by `/api/models`: a GLB is not a vendor document
-  return ok({ assets: (await deps.assets.list()).filter((asset) => !isModelAsset(asset)) });
+  return ok({ assets: (await deps.assets.list()).filter((asset) => !isModelAsset(asset) && !isFontAsset(asset)) });
 }
 
 const ASSET_ID = /^[0-9a-f]{64}$/;
@@ -925,7 +925,11 @@ async function getAssetFile(deps: WorkbenchDeps, id: string): Promise<ApiRespons
   if (found === undefined) {
     // an imported 3D model lives in the generated cache, not the asset store
     const model = await cachedModelFile(modelDepsOf(deps), id);
-    return model ?? fail(404, `No stored file ${id}.`, 'It may have been removed from data/assets/.');
+    if (model !== undefined) return model;
+    // a vendor PDF a data pack shipped (`docs/`, `assets/`) is held by content address, not in the asset library: it opens in the app the same way
+    const packed = deps.blob === undefined ? undefined : await deps.blob(id);
+    if (packed?.mediaType === 'application/pdf') return { status: 200, body: null, bytes: packed.bytes, contentType: 'application/pdf', headers: { 'x-content-type-options': 'nosniff' } };
+    return fail(404, `No stored file ${id}.`, 'It may have been removed from data/assets/.');
   }
   return { status: 200, body: null, bytes: new Uint8Array(found.bytes), contentType: found.record.mime };
 }
@@ -1365,6 +1369,27 @@ export async function commitUnit(uow: UnitOfWork, request: Pick<ApiRequest, 'met
  * The router. `request.path` may carry a query string; only module routes
  * read it — every other endpoint ignores it.
  */
+/**
+ * Headers that make a stored file safe to serve from the app's own origin. An SVG is sandboxed. A
+ * document or a font (a vendor PDF, a pack's font) is an attachment — saved, not rendered in
+ * the page — with no sniffing and an empty content policy, so nothing in it can run here.
+ * Images stay as they are.
+ */
+export function blobSafetyHeaders(mediaType: string, sha256: string, filename?: string): Record<string, string> {
+  if (mediaType === 'image/svg+xml') return { 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" };
+  if (mediaType === 'application/pdf' || mediaType.startsWith('font/') || mediaType === 'application/zip' || mediaType === 'application/octet-stream') {
+    const ext = mediaType === 'application/pdf' ? 'pdf' : mediaType === 'font/ttf' ? 'ttf' : mediaType === 'font/otf' ? 'otf' : mediaType === 'font/woff2' ? 'woff2' : mediaType === 'application/zip' ? 'zip' : 'bin';
+    const safe = (filename ?? `${sha256.slice(0, 12)}.${ext}`).replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || `${sha256.slice(0, 12)}.${ext}`;
+    return {
+      'content-disposition': `attachment; filename="${safe}"`,
+      'x-content-type-options': 'nosniff',
+      'content-security-policy': "default-src 'none'; sandbox",
+      'cross-origin-resource-policy': 'same-origin',
+    };
+  }
+  return { 'x-content-type-options': 'nosniff' };
+}
+
 export async function routeWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiResponse> {
   const method = request.method.toUpperCase();
   const path = request.path.split('?')[0] ?? '';
@@ -1410,7 +1435,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
       headers: {
         ETag: `"${id}"`,
         'cache-control': 'private, max-age=31536000, immutable',
-        ...(found.mediaType === 'image/svg+xml' ? { 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" } : {}),
+        ...blobSafetyHeaders(found.mediaType, id, found.filename),
       },
     };
   }
@@ -1482,7 +1507,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   if (isProposalsPath(parts)) return await handleProposalsRequest(method, parts, request.path, request.body, deps, request.user);
   if (isPnSettingsPath(parts)) return await handlePartNumberSettings(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
 
-  const settings = await handleSettingsRequest(method, parts, request.body, { ...deps, store: storeDepsOf(deps) }, ifMatch);
+  const settings = await handleSettingsRequest(method, parts, request.body, { ...deps, store: storeDepsOf(deps) }, ifMatch, request.user ?? deps.localUser);
   if (settings !== undefined) return settings;
 
   const vocab = await handleVocabRequest(method, parts, request.body, deps, ifMatch);

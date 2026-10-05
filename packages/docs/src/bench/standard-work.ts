@@ -10,6 +10,8 @@
  */
 
 import {
+  benchRuleProblems,
+  benchRulesProvider,
   findMechanical,
   type BenchEnd,
   type BenchStepsProvider,
@@ -33,8 +35,33 @@ export function registerBenchSteps(provider: BenchStepsProvider): () => void {
   };
 }
 
-function supplied<T>(ask: (p: BenchStepsProvider) => T | undefined): T | undefined {
-  for (const provider of providers) {
+/**
+ * The provider the catalog's own rules stand for (`Db.benchRules`, the catalog's
+ * `bench-rules.json`: this hub's, plus those of installed data packs), built once per
+ * rules list. It sits after the providers a module registered (an operator's code wins,
+ * as a module's drawing art beats a setting) and before the generic steps. Reading the
+ * db at each render means an install or removal of a pack takes effect at once.
+ */
+const dataProviders = new WeakMap<object, BenchStepsProvider>();
+function dataProvider(db: Db | undefined): BenchStepsProvider | undefined {
+  const rules = db?.benchRules;
+  if (!Array.isArray(rules) || rules.length === 0) return undefined;
+  let provider = dataProviders.get(rules);
+  if (provider === undefined) {
+    // an unusable rule is skipped here (validateDb reports it): the sheet still prints
+    provider = benchRulesProvider(rules.filter((r) => benchRuleProblems([r]).length === 0));
+    dataProviders.set(rules, provider);
+  }
+  return provider;
+}
+
+function all(db: Db | undefined): BenchStepsProvider[] {
+  const data = dataProvider(db);
+  return data === undefined ? providers : [...providers, data];
+}
+
+function supplied<T>(db: Db | undefined, ask: (p: BenchStepsProvider) => T | undefined): T | undefined {
+  for (const provider of all(db)) {
     const answer = ask(provider);
     if (answer !== undefined) return answer;
   }
@@ -56,8 +83,8 @@ function hasOverallShield(wire: WireDefinition): boolean {
 }
 
 /** Preparing one piece of stock at both ends, before anything is soldered. */
-export function prepSteps(wire: WireDefinition, bonded: boolean): Step[] {
-  const own = supplied((p) => p.prep?.(wire, bonded));
+export function prepSteps(wire: WireDefinition, bonded: boolean, db?: Db): Step[] {
+  const own = supplied(db, (p) => p.prep?.(wire, bonded));
   if (own !== undefined) return own;
   const steps: Step[] = [{ text: 'Cut to length; strip the outer jacket at both ends to the strip lengths shown.', src: GENERIC }];
   if (hasOverallShield(wire)) {
@@ -77,13 +104,13 @@ export function prepSteps(wire: WireDefinition, bonded: boolean): Step[] {
 const GENERIC_SOLDER: Step = { text: 'Solder each landing with a fillet that wets both surfaces; no cold or disturbed joints.', src: GENERIC };
 
 /** The soldering step: a provider's, else the generic one. */
-export function solderStep(): Step {
-  return providers.find((p) => p.solder !== undefined)?.solder ?? GENERIC_SOLDER;
+export function solderStep(db?: Db): Step {
+  return all(db).find((p) => p.solder !== undefined)?.solder ?? GENERIC_SOLDER;
 }
 
 /** What to do at an end before the first landing. The base adds nothing board-specific; a provider may. */
 export function endSteps(end: BenchEnd, db: Db, other?: BenchEnd): Step[] {
-  return supplied((p) => p.end?.(end, db, other)) ?? [];
+  return supplied(db, (p) => p.end?.(end, db, other)) ?? [];
 }
 
 export function shellSets(design: CableDesign, db: Db, instances: ReadonlySet<string>): ShellSet[] {
@@ -109,7 +136,7 @@ export function shellSets(design: CableDesign, db: Db, instances: ReadonlySet<st
 
 /** Closing one end: strain relief and housing, per the shell at that end. */
 export function assemblySteps(design: CableDesign, db: Db, end: BenchEnd, sets: readonly ShellSet[], trunkWire: WireDefinition | undefined): Step[] {
-  const own = supplied((p) => p.assembly?.(design, db, end, sets, trunkWire));
+  const own = supplied(db, (p) => p.assembly?.(design, db, end, sets, trunkWire));
   if (own !== undefined) return own;
   const steps: Step[] = [];
   const moulded = sets.some((s) => /overmo?uld/i.test(s.shell?.id ?? '') || /overmo?uld/i.test(s.shell?.label ?? ''));
@@ -127,6 +154,6 @@ const GENERIC_QA: readonly Step[] = [
   { text: 'Run the continuity and isolation checks on the test page; then a functional check with the equipment the cable is for.', src: GENERIC },
 ];
 
-export function qaSteps(): readonly Step[] {
-  return providers.find((p) => p.qa !== undefined)?.qa ?? GENERIC_QA;
+export function qaSteps(db?: Db): readonly Step[] {
+  return all(db).find((p) => p.qa !== undefined)?.qa ?? GENERIC_QA;
 }

@@ -10,12 +10,13 @@ import { join } from 'node:path';
 import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { registerDrawingArt } from '@wirehub/docs';
-import { registeredLogo, registeredTitleBlock } from '@wirehub/docs/src/drawing/assets.ts';
+import { registeredBrandFont, registeredLogo, registeredTitleBlock } from '@wirehub/docs/src/drawing/assets.ts';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { clearOfflineCache } from '../src/offline-cache.browser.ts';
+import { brandmark } from './migration-gaps-flow.ts';
 import { makePng } from './png-fixture.ts';
 import { memoryWriteBackend } from './storage-contract/writes.ts';
 
@@ -125,5 +126,48 @@ describe('Engineering settings', () => {
       const stored = await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/engineering' }, deps);
       expect(stored.body).toMatchObject({ testDefaults: { isolationVolts: 250 }, electrical: { maxDropV: 0.3 }, approvals: { enabled: true, approverRoles: ['editor', 'owner'] } });
     });
+  });
+
+  it('uploads a licensed font only once the licence is confirmed, and the documents are set in it after Save', async () => {
+    mount();
+    const upload = (await screen.findByRole('button', { name: 'Upload font' })) as HTMLButtonElement;
+    expect(upload.disabled).toBe(true);
+    const file = new File([new Uint8Array(brandmark(false))], 'Brandmark-Regular.ttf', { type: 'font/ttf' });
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Font file'), { target: { files: [file] } });
+    });
+    // a file alone is not enough: the licence checkbox gates the upload
+    expect(upload.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText('I hold a licence for this font'));
+    await waitFor(() => expect(upload.disabled).toBe(false));
+    await act(async () => {
+      fireEvent.click(upload);
+    });
+    const regular = (await screen.findByLabelText('Regular typeface')) as HTMLSelectElement;
+    await waitFor(() => expect(regular.value).not.toBe(''));
+    expect(screen.getByText(/TrueType: set on every sheet and in every PDF/)).toBeTruthy();
+    expect(registeredBrandFont()).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(registeredBrandFont()?.regular.family).toBe('Brandmark Sans1'));
+    const stored = await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/branding' }, deps);
+    expect((stored.body as { font: { regular: { family: string } } }).font.regular.family).toBe('Brandmark Sans1');
+    // back to the standard sans
+    fireEvent.change(await screen.findByLabelText('Regular typeface'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(registeredBrandFont()).toBeUndefined());
+  });
+
+  it('takes drawing art as JSON, refuses what is not JSON, and the art is in force after Save', async () => {
+    mount();
+    const box = (await screen.findByLabelText('Drawing art (JSON)')) as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: '{ not json' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByText(/In force now:/).textContent).toContain('0 cutaways'));
+    const cutaway = { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525 131"><rect id="dom-art" width="4" height="4"/></svg>', width: 525, height: 131 };
+    fireEvent.change(box, { target: { value: JSON.stringify({ cutaways: { 'shielded-2pair-24awg': cutaway } }) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByText(/In force now:/).textContent).toContain('1 cutaways'));
+    const { registeredCutaway } = await import('@wirehub/docs/src/drawing/assets.ts');
+    expect(registeredCutaway('shielded-2pair-24awg')?.svg).toContain('dom-art');
   });
 });

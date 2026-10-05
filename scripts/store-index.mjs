@@ -258,6 +258,9 @@ export function bundlePack(packDir, out) {
     if (/^(depictions|art)\//.test(path) && /\.(svg|png|jpe?g|webp|JPE?G|PNG|SVG|WEBP)$/.test(path) && !read.has(path)) {
       die(`${packDir}: '${path}' is an image a studio would not install (lowercase svg/png/jpg/jpeg/webp, safe file names under depictions/ or art/).`);
     }
+    if (/^(docs|assets|fonts)\//.test(path) && /\.(pdf|ttf|otf|woff2)$/i.test(path) && !read.has(path)) {
+      die(`${packDir}: '${path}' is a PDF or font a studio would not install (lowercase .pdf under docs/ or assets/, .ttf/.otf/.woff2 under fonts/, safe file names).`);
+    }
   }
   mkdirSync(out, { recursive: true });
   const file = join(out, `${folder}.zip`);

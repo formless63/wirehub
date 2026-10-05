@@ -10,7 +10,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { canonicalPackText, catalogWithPacksSource, installedPackDir, installedPackSources, mergeCatalogFile, packAssetFiles, packFiles, readInstalledPacks } from '../packs.ts';
+import { canonicalPackText, catalogWithPacksSource, flatAssetPath, installedPackDir, installedPackSources, mergeCatalogFile, packAssetFiles, packFiles, readInstalledPacks } from '../packs.ts';
 import { fsCatalogSource } from '../source.ts';
 import { canonicalJson, codePointCompare, explode, isSkippedPath, isTextPath, type BlobRef, type CatalogFiles } from './index.ts';
 
@@ -78,7 +78,7 @@ export function readFlattenedCatalog(root: string, packsDir: string | undefined)
       out.set(path, isTextPath(path) ? canonicalPackText(relative, readFileSync(join(root, relative), 'utf8')) : new Uint8Array(readFileSync(join(root, relative))));
     };
     for (const relative of packFiles(root)) if (isDepiction(relative) && !isSkippedPath(relative)) add(relative, relative);
-    for (const relative of packAssetFiles(root)) add(isDepiction(relative) ? relative : `data/${relative}`, relative);
+    for (const relative of packAssetFiles(root)) add(flatAssetPath(relative), relative);
   }
   // the stored selection and the install record live beside the packs: at the data root, flattened
   const record = readInstalledPacks(dataDir);
@@ -100,7 +100,7 @@ export function packOrigins(packsDir: string | undefined): Map<string, string[]>
     const dir = installedPackDir(packsDir, pack.id);
     if (!existsSync(dir)) continue;
     for (const relative of [...packFiles(dir), ...packAssetFiles(dir)]) {
-      const flat = relative.startsWith('depictions/') ? relative : `data/${relative}`;
+      const flat = flatAssetPath(relative);
       out.set(flat, [...(out.get(flat) ?? []), pack.id]);
     }
   }
@@ -146,7 +146,7 @@ export function packCodecProblems(root: string, packsDir: string | undefined, pa
   const next = new Map(current);
   const alone = new Map<string, string>();
   for (const relative of packFiles(packDir)) {
-    const flat = relative.startsWith('depictions/') ? relative : `data/${relative}`;
+    const flat = flatAssetPath(relative);
     const packText = canonicalPackText(relative, readFileSync(join(packDir, relative), 'utf8'));
     alone.set(flat, packText);
     const have = next.get(flat);

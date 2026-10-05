@@ -12,6 +12,40 @@ export const brandingKey = ['settings', 'branding'] as const;
 export interface BrandingView extends BrandingSettings {
   /** the entity tag to quote when saving */
   etag: string;
+  /** this hub's own drawing art, apart from what its packs add */
+  ownArt?: Record<string, unknown>;
+}
+
+/** One font this hub may choose (`GET /api/settings/branding/fonts`). */
+export interface FontChoice {
+  id: string;
+  name: string;
+  family: string;
+  subfamily?: string;
+  format: 'ttf' | 'otf' | 'woff2';
+  source: 'upload' | 'pack';
+  pack?: string;
+  bytes: number;
+  embeddable: boolean;
+  rasterizable: boolean;
+}
+
+export interface FontList {
+  fonts: FontChoice[];
+  limits: { bytes: number; formats: string[] };
+  /** what the uploader confirms */
+  licence: string;
+}
+
+export const fontsKey = ['settings', 'branding', 'fonts'] as const;
+
+export async function fetchFonts(base = '/api'): Promise<Outcome<FontList>> {
+  return request<FontList>(`${base}/settings/branding/fonts`, { method: 'GET' });
+}
+
+/** Upload a font file; `licence` is the confirmation that its licence lets documents embed it. */
+export async function uploadFont(input: { name: string; data: string; licence: boolean }, base = '/api'): Promise<Outcome<{ font: FontChoice }>> {
+  return request<{ font: FontChoice }>(`${base}/settings/branding/fonts`, { method: 'POST', body: input });
 }
 
 export interface BrandingInput {
@@ -27,6 +61,10 @@ export interface BrandingInput {
   tolerances?: [string, string][];
   /** a PNG or SVG data URI sets the logo (an SVG is drawn to a PNG on the server), `null` removes it, absent keeps it */
   logo?: string | null;
+  /** the typeface: font ids from `fetchFonts`; `null` returns to the standard sans, absent keeps it */
+  font?: { regular: string; bold?: string } | null;
+  /** this hub's own drawing art (faces, plugs, cutaways by definition id); `null` removes it, absent keeps it */
+  art?: Record<string, unknown> | null;
 }
 
 export async function fetchBranding(base = '/api'): Promise<Outcome<BrandingView>> {

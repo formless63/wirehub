@@ -1,6 +1,6 @@
--- Generated from specs/postgres-backend.md §3 (rev 6.9). Never edit after release:
+-- Generated from specs/postgres-backend.md §3 (rev 6.10). Never edit after release:
 -- a change is a new migration (§6; migrations/CHECKSUMS).
--- 0020_model_link_revision_keys — a revision's model link (cs-s97)
+-- 0021_model_link_revision_keys — a revision's model link (cs-s97)
 -- A link of `models.json` is keyed by its Library record (`<kind>/<id>`) or, for the
 -- model of a part's revision no record shows (a WIP or superseded one),
 -- `revisions/<part>/<revision>`. It names no entity, so `entity_id` stays null.

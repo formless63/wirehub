@@ -29,7 +29,7 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { declarativeSchemeProblems, errors, ruleListProblems, validateDb, validateDesign, type Issue } from '@wirehub/model';
+import { benchRuleProblems, declarativeSchemeProblems, errors, ruleListProblems, validateDb, validateDesign, type Issue } from '@wirehub/model';
 
 import { createCatalog } from './catalog.ts';
 import {
@@ -42,7 +42,13 @@ import {
   installedRecordOf,
   installedPackDir,
   applyPackAssets,
+  isAuxiliaryFile,
+  mergeCatalogFile,
+  KEYED_FILES,
+  RECORD_FILES,
+  keyedRecords,
   isPlainObject,
+  packAssetFiles,
   packFiles,
   packOwnedAssets,
   readInstalledPacks,
@@ -61,7 +67,17 @@ import { fsCatalogSource, type CatalogSource } from './source.ts';
  * ------------------------------------------------------------------ */
 
 /** The record files of a catalog; vocabulary lists and designs are found by listing. */
-const RECORD_FILES = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'devices', 'conditioning-recipes', 'hazards', 'products'].map((n) => `${n}.json`);
+/** The record files whose records are parts with a licence (a retired one keeps its licence and origin); the rule files hold the shop's own rules. */
+const PART_RECORD_FILES = RECORD_FILES.filter((f) => f !== 'validation-rules.json' && f !== 'bench-rules.json');
+
+/** The keyed files (the pad table, the drawing art) are kept as records too, one per key (`packs.ts`, `KEYED_FILES`), so a pack owns its boards' pads and its art. */
+const keyedFiles = Object.keys(KEYED_FILES);
+
+/** The records of a file's parsed value: a list's or an entry list's items, a keyed file's keys (each with its id). */
+function recordsOfFile(file: string, value: Json): Json[] {
+  if (file in KEYED_FILES) return keyedRecords(file, value).map((r) => r.record);
+  return recordsIn(value) ?? [];
+}
 
 /** One record, with the file it sits in. A design is a file of its own: its id is the file's name. */
 export interface LocatedRecord {
@@ -90,6 +106,7 @@ export function catalogRecords(source: CatalogSource): Map<string, LocatedRecord
   const out = new Map<string, LocatedRecord>();
   const files = [
     ...RECORD_FILES,
+    ...keyedFiles,
     ...source.list('vocab').filter((n) => n.endsWith('.json')).map((n) => `vocab/${n}`),
     ...source.list('designs').filter((n) => n.endsWith('.json')).map((n) => `designs/${n}`),
   ];
@@ -101,7 +118,7 @@ export function catalogRecords(source: CatalogSource): Map<string, LocatedRecord
       out.set(recordKey(file, stemOf(file)), { file, id: stemOf(file), record: value });
       continue;
     }
-    for (const record of recordsIn(value) ?? []) {
+    for (const record of recordsOfFile(file, value)) {
       const id = idOf(record);
       if (id !== undefined) out.set(recordKey(file, id), { file, id, record });
     }
@@ -285,6 +302,38 @@ function overlay(view: CatalogSource, writes: FileWrites): CatalogSource {
   };
 }
 
+/**
+ * What a catalog reads after a pack's auxiliary files (tag tables, other data
+ * files) are layered in: the same merge the runtime does (`mergeCatalogFile`),
+ * so a preview validates what will run. `base` is the catalog as it will stand
+ * without this pack's own layer (an update passes the view with the installed
+ * version left out). Record files (and the pad table) are the plan's own.
+ */
+function withPackAuxiliary(planned: CatalogSource, base: CatalogSource, packDir: string, packFirst = false): CatalogSource {
+  const pack = fsCatalogSource(packDir);
+  const dirsOf = new Map<string, Set<string>>();
+  for (const f of packFiles(packDir).filter(isAuxiliaryFile)) {
+    const i = f.lastIndexOf('/');
+    if (i < 0) continue;
+    const set = dirsOf.get(f.slice(0, i)) ?? new Set<string>();
+    set.add(f.slice(i + 1));
+    dirsOf.set(f.slice(0, i), set);
+  }
+  return {
+    name: `${planned.name} (with the pack's own data files)`,
+    read(relative) {
+      if (!isAuxiliaryFile(relative)) return planned.read(relative);
+      const both = packFirst ? [pack.read(relative), base.read(relative)] : [base.read(relative), pack.read(relative)];
+      const texts = both.filter((t): t is string => t !== undefined);
+      return texts.length === 0 ? undefined : mergeCatalogFile(relative, texts);
+    },
+    list(relativeDir) {
+      const dir = relativeDir.replace(/\/+$/, '');
+      return [...new Set([...planned.list(relativeDir), ...(dirsOf.get(dir) ?? [])])].sort();
+    },
+  };
+}
+
 const issueKey = (i: Issue): string => `${i.code}|${i.where ?? ''}|${i.message}`;
 
 /** Library and design errors of a catalog, or the one error that stopped it loading. */
@@ -306,6 +355,39 @@ export function newErrors(before: CatalogSource, after: CatalogSource): Issue[] 
   return libraryErrors(after).filter((i) => !known.has(issueKey(i)));
 }
 
+/** A keyed file with the given records put in place (or dropped), whatever else the file holds kept. */
+function mergeKeyedFile(file: string, currentText: string | undefined, drop: ReadonlySet<string>, put: ReadonlyMap<string, Json>, packText: string | undefined): string | null | undefined {
+  const current = currentText === undefined ? undefined : (JSON.parse(currentText) as Record<string, Json>);
+  const pack = packText === undefined ? undefined : (JSON.parse(packText) as Record<string, Json>);
+  const sections = KEYED_FILES[file] ?? [];
+  const base: Record<string, Json> = { ...(current ?? (pack === undefined ? {} : Object.fromEntries(Object.entries(pack).filter(([k]) => !sections.includes(k))))) };
+  const bySection = new Map<string, Record<string, Json>>(sections.map((s) => [s, isPlainObject(base[s]) ? { ...(base[s] as Record<string, Json>) } : {}] as const));
+  const place = (id: string): { section: string; key: string } => {
+    const slash = id.indexOf('/');
+    return sections.length === 1 || slash < 0 ? { section: sections[0] as string, key: id } : { section: id.slice(0, slash), key: id.slice(slash + 1) };
+  };
+  for (const id of drop) {
+    if (put.has(id)) continue;
+    const { section, key } = place(id);
+    delete bySection.get(section)?.[key];
+  }
+  for (const [id, record] of put) {
+    const { section, key } = place(id);
+    const { id: _id, ...entry } = record as Record<string, Json>;
+    const target = bySection.get(section);
+    if (target !== undefined) target[key] = entry;
+  }
+  const empty = [...bySection.values()].every((m) => Object.keys(m).length === 0);
+  if (empty && drop.size > 0) return null;
+  const next: Record<string, Json> = { ...base };
+  for (const [section, m] of bySection) {
+    if (Object.keys(m).length > 0) next[section] = m;
+    else delete next[section];
+  }
+  const text = canonical(next);
+  return text === currentText ? undefined : text;
+}
+
 /** The pack's section of a data file: list records in place, new ones appended, dropped ones gone. */
 function mergeFile(file: string, currentText: string | undefined, drop: ReadonlySet<string>, put: ReadonlyMap<string, Json>, packText: string | undefined): string | null | undefined {
   if (file.startsWith('designs/')) {
@@ -313,6 +395,7 @@ function mergeFile(file: string, currentText: string | undefined, drop: Readonly
     if (put.has(id)) return packText === undefined ? undefined : packText;
     return drop.has(id) ? null : undefined;
   }
+  if (file in KEYED_FILES) return mergeKeyedFile(file, currentText, drop, put, packText);
   const current = currentText === undefined ? undefined : (JSON.parse(currentText) as Json);
   const pack = packText === undefined ? undefined : (JSON.parse(packText) as Json);
   const base = current ?? (pack !== undefined ? (Array.isArray(pack) ? [] : { ...(pack as Record<string, Json>), entries: [] }) : undefined);
@@ -413,15 +496,19 @@ export interface PackUpdatePlan {
 
 /** A retired record as the deployment keeps it: its licence stays what it was, and it says where it began. */
 function retiredAs(record: LocatedRecord, pack: { id: string; version: string; license: string }): LocatedRecord {
-  if (!isPlainObject(record.record) || !RECORD_FILES.includes(record.file)) return record;
+  if (!isPlainObject(record.record) || !PART_RECORD_FILES.includes(record.file)) return record;
   const kept: Record<string, Json> = { ...record.record };
   if (kept['license'] === undefined) kept['license'] = pack.license;
   if (kept['derivedFrom'] === undefined) kept['derivedFrom'] = { pack: pack.id, id: record.id, version: pack.version };
   return { ...record, record: kept };
 }
 
-/** Plan `installed`'s pack `<manifest.id>` replaced by the pack in `packDir`. Throws when it is not installed. */
-export function planPackUpdate(view: CatalogSource, installed: readonly InstalledPack[], packDir: string): PackUpdatePlan {
+/**
+ * Plan `installed`'s pack `<manifest.id>` replaced by the pack in `packDir`. Throws when it is not installed.
+ * `without` is the catalog read with the installed version's layer left out, so the new version's
+ * auxiliary files replace the old ones in the check; absent, they are layered over `view`.
+ */
+export function planPackUpdate(view: CatalogSource, installed: readonly InstalledPack[], packDir: string, options: { without?: CatalogSource } = {}): PackUpdatePlan {
   const manifest: PackManifest = readPackManifest(packDir);
   const entry = installed.find((p) => p.id === manifest.id);
   if (entry === undefined) throw new Error(`Pack '${manifest.id}' is not installed.`);
@@ -441,14 +528,14 @@ export function planPackUpdate(view: CatalogSource, installed: readonly Installe
   const diff = diffRecords(owned, next);
   const gone = new Map([...owned].filter(([key]) => !next.has(key)));
   // a dropped record something outside the pack still uses is kept (retired), not removed under its users
-  const references = referencesTo(others, new Set([...gone.values()].filter((r) => !r.file.startsWith('designs/')).map((r) => r.id)));
+  const references = referencesTo(others, new Set([...gone.values()].filter((r) => !r.file.startsWith('designs/') && !(r.file in KEYED_FILES)).map((r) => r.id)));
   const used = new Set(references.map((r) => r.to));
-  const retiring = new Map([...gone].filter(([, r]) => !r.file.startsWith('designs/') && used.has(r.id)));
+  const retiring = new Map([...gone].filter(([, r]) => !r.file.startsWith('designs/') && !(r.file in KEYED_FILES) && used.has(r.id)));
   const dropped = new Map([...gone].filter(([key]) => !retiring.has(key)));
   const retiredMarked = new Map([...retiring].map(([key, r]) => [key, retiredAs(r, { id: entry.id, version: entry.version, license: entry.license })] as const));
   const puts = new Map([...next].filter(([key, r]) => !owned.has(key) || !same(owned.get(key)!.record, r.record)));
   const writes = fileWrites(view, packDir, dropped, new Map([...puts, ...retiredMarked]));
-  const issues = conflicts.length === 0 ? newErrors(view, overlay(view, writes)) : [];
+  const issues = conflicts.length === 0 ? newErrors(view, withPackAuxiliary(overlay(view, writes), options.without ?? view, packDir, options.without === undefined)) : [];
   const cmp = compareVersions(manifest.version, entry.version);
   return {
     pack: { id: manifest.id, name: manifest.name, license: manifest.license, from: entry.version, to: manifest.version, fromLicense: entry.license },
@@ -486,7 +573,7 @@ export function planPackDisable(view: CatalogSource, installed: readonly Install
   if (entry === undefined) throw new Error(`Pack '${id}' is not installed.`);
   const owned = ownedRecords(view, entry);
   const others = [...catalogRecords(view)].filter(([key]) => !owned.has(key)).map(([, r]) => r);
-  const references = referencesTo(others, new Set([...owned.values()].filter((r) => !r.file.startsWith('designs/')).map((r) => r.id)));
+  const references = referencesTo(others, new Set([...owned.values()].filter((r) => !r.file.startsWith('designs/') && !(r.file in KEYED_FILES)).map((r) => r.id)));
   return {
     pack: { id, version: entry.version },
     records: [...owned.values()].map(refOf),
@@ -593,6 +680,30 @@ export function packSourceProblems(packDir: string): string[] {
       // not JSON: reported with the other files below
     }
   }
+  const benchPath = join(packDir, 'bench-rules.json');
+  if (existsSync(benchPath)) {
+    try {
+      const rules = JSON.parse(readFileSync(benchPath, 'utf8')) as unknown;
+      if (!Array.isArray(rules)) problems.push('bench-rules.json: the rules are a list');
+      else for (const p of benchRuleProblems(rules, 'bench-rules.json')) problems.push(p);
+    } catch {
+      // not JSON: reported with the other files below
+    }
+  }
+  // a font a pack ships says whose it is and under what licence: `fonts/<name>.json` beside it, `{ family?, license, src }`
+  for (const font of packAssetFiles(packDir).filter((f) => f.startsWith('fonts/'))) {
+    const sidecar = join(packDir, font.replace(/\.[^./]+$/, '.json'));
+    let meta: unknown;
+    try {
+      meta = existsSync(sidecar) ? JSON.parse(readFileSync(sidecar, 'utf8')) : undefined;
+    } catch {
+      meta = undefined;
+    }
+    const m = meta as { license?: unknown; src?: unknown } | undefined;
+    if (m === undefined || typeof m.license !== 'string' || m.license.trim() === '' || typeof m.src !== 'string' || m.src.trim() === '') {
+      problems.push(`${font}: a font needs ${font.replace(/\.[^./]+$/, '.json')} beside it naming its "license" (the terms that let documents embed it) and its "src"`);
+    }
+  }
   const files = packFiles(packDir);
   // a pack that carries a code module may have no records of its own
   if (files.length === 0 && manifest.module === undefined) problems.push('the pack has no data files');
@@ -635,7 +746,7 @@ export function planNewPack(view: CatalogSource, installed: readonly InstalledPa
   }
   const writes = fileWrites(view, packDir, new Map(), next);
   const unmetRequires = Object.keys(manifest.requires?.packs ?? {}).filter((id) => !installed.some((p) => p.id === id));
-  const issues = conflicts.length === 0 ? newErrors(view, overlay(view, writes)) : [];
+  const issues = conflicts.length === 0 ? newErrors(view, withPackAuxiliary(overlay(view, writes), view, packDir)) : [];
   return {
     pack: { id: manifest.id, name: manifest.name, version: manifest.version, license: manifest.license },
     diff: diffRecords(new Map(), next),

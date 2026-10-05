@@ -216,6 +216,8 @@ with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
   sheet is sent with its images and fonts inline; the sans stack is set in the Liberation Sans
   faces the drawings embed (metric-compatible with Helvetica and Arial), so the file is the
   same whichever machine runs the engine. Code is `apps/studio/server/render/browser-pdf.ts`.
+  When the hub set its own typeface (Settings, Branding; `docs/modules.md`) that font travels inline as
+  well and is first in the stacks, so the PDF is set in it.
 - **Without an engine** (or when it fails), those PDFs are the headless ones below, and the
   response says so: `X-WireHub-PDF-Fallback` gives the reason and the `render` command prints
   it as a note. Every PDF carries `X-WireHub-PDF-Renderer`: `browser`, `text-layout`, `raster`
@@ -226,7 +228,9 @@ with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
   `packages/docs/fonts` and no system fonts, so it does not depend on the machine); the
   formboard's is vector, so a 1:1 tile prints crisp. With an engine, the drawing sheet's PDF
   is its HTML printed (above) instead; the schematic, the label sheet and the formboard keep
-  theirs.
+  theirs. A hub's own typeface (Settings, Branding) is used by the drawing's raster PDF (a TrueType or
+  OpenType file) and embedded as a subset in the formboard's vector PDF (TrueType outlines: `.ttf`, or an
+  `.otf` that has them); a CFF `.otf` or a WOFF2 keeps the Liberation Sans on those two.
 - **`svg` (and, without an engine, `pdf`) of the build sheet, BOM and continuity spec** are a
   plain page layout of the sheet's text (tables and notes, no figures): laying out the HTML
   sheets needs a browser engine, which the WireHub image does not ship. The PDF is written by

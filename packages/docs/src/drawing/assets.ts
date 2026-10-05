@@ -59,11 +59,42 @@ export interface DrawingArt {
   cutaways?: Readonly<Record<string, CutawayArt>>;
   logo?: LogoArt;
   titleBlock?: TitleBlockText;
+  /** the typeface the documents are set in (the first registration to set one wins) */
+  font?: BrandFont;
   /**
    * Where depictions come from for faces and cutaways (a catalog's own tree,
    * a pack's). Several registrations layer, the earliest first.
    */
   depictions?: DepictionSource;
+}
+
+/**
+ * A licensed typeface the hub sets its documents in, as the branding settings supply it: one
+ * face for regular text and, when it has one, a bold. The bytes are the font as uploaded
+ * (`mime` says which kind), so an HTML sheet can carry it inline and the browser engine
+ * can print it; `widths` are its advance widths per character (1/1000 em), so layout
+ * measures the face that prints; `embeddable` says the vector PDF can embed it (a TrueType-outline
+ * font: `.ttf`, or an `.otf` with TrueType outlines). The base ships none: with nothing registered
+ * the bundled sans is used, exactly as before.
+ */
+export interface BrandFace {
+  /** the family name the font declares (shown in Settings; the sheets use their own alias) */
+  family: string;
+  mime: 'font/ttf' | 'font/otf' | 'font/woff2';
+  /** the font file, base64 */
+  base64: string;
+  /** advance widths by character, 1/1000 em */
+  widths: Readonly<Record<string, number>>;
+  embeddable: boolean;
+  /** the TrueType font program the vector PDF embeds when it is not the file itself (a WOFF2 whose outlines are plain), base64 */
+  pdfBase64?: string;
+  /** the rasteriser (the drawing's PDF without a browser engine) can read the file as uploaded */
+  rasterizable: boolean;
+}
+
+export interface BrandFont {
+  regular: BrandFace;
+  bold?: BrandFace;
 }
 
 const registered: DrawingArt[] = [];
@@ -99,6 +130,11 @@ export function registeredPlugIds(): string[] {
 export function registeredCutaway(wireId: string): CutawayArt | undefined {
   for (const art of registered) if (art.cutaways?.[wireId] !== undefined) return art.cutaways[wireId];
   return undefined;
+}
+
+/** The registered brand typeface, if any (the first registration to set one). */
+export function registeredBrandFont(): BrandFont | undefined {
+  return registered.find((art) => art.font !== undefined)?.font;
 }
 
 export function registeredLogo(): LogoArt | undefined {
@@ -144,8 +180,8 @@ export function drawingArtProblems(raw: unknown): string[] {
   const art = raw as DrawingArt;
   const problems: string[] = [];
   const face = (what: string, id: string, f: FaceArt | undefined): void => {
-    if (f === undefined || typeof f.width !== 'number' || typeof f.height !== 'number' || !Array.isArray(f.art) || !Array.isArray(f.pins) || typeof f.src !== 'string' || f.src === '') {
-      problems.push(`${what} '${id}' needs width, height, art, pins and a src`);
+    if (f === undefined || typeof f.width !== 'number' || typeof f.height !== 'number' || !Array.isArray(f.art) || !Array.isArray(f.pins) || !Array.isArray(f.labels) || typeof f.src !== 'string' || f.src === '') {
+      problems.push(`${what} '${id}' needs width, height, art, pins, labels and a src`);
     }
   };
   for (const [id, f] of Object.entries(art.faces ?? {})) face('face', id, f);
@@ -154,5 +190,11 @@ export function drawingArtProblems(raw: unknown): string[] {
     if (typeof c?.svg !== 'string' || typeof c.width !== 'number' || typeof c.height !== 'number') problems.push(`cutaway '${id}' needs svg, width and height`);
   }
   if (art.titleBlock?.notes !== undefined && art.titleBlock.notes.length !== 3) problems.push('title block notes are three lines');
+  if (art.font !== undefined) {
+    for (const [slot, f] of [['regular', art.font.regular], ['bold', art.font.bold]] as const) {
+      if (f === undefined && slot === 'bold') continue;
+      if (typeof f?.base64 !== 'string' || typeof f.family !== 'string' || typeof f.widths !== 'object' || f.widths === null || typeof f.embeddable !== 'boolean' || !['font/ttf', 'font/otf', 'font/woff2'].includes(f.mime)) problems.push(`the ${slot} font needs family, mime, base64 and widths`);
+    }
+  }
   return problems;
 }

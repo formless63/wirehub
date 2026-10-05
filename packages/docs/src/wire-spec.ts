@@ -45,6 +45,7 @@ import {
 import { renderCrossSection } from '@wirehub/render-svg';
 
 import { registeredTitleBlock } from './drawing/assets.ts';
+import { brandSheetCss } from './drawing/brand-font.ts';
 import { escapeHtml } from './text.ts';
 
 export interface WireSpecOptions {
@@ -533,7 +534,7 @@ export function renderWireSpecSheet(wire: WireDefinition, options: WireSpecOptio
 
   const body = [
     '<div class="cs-root cs-ws">',
-    `<style>${WIRE_SPEC_STYLESHEET}</style>`,
+    `<style>${WIRE_SPEC_STYLESHEET}${brandSheetCss()}</style>`,
     '<header class="cs-ws-head">',
     '<div class="cs-ws-bar" aria-hidden="true"></div>',
     `<div class="cs-ws-brand"><span class="cs-ws-mark">${e(organisation.toUpperCase())}</span><span class="cs-ws-kind">${e(standard)} · Wire specification</span></div>`,

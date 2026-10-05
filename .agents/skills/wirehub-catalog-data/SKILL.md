@@ -24,6 +24,7 @@ the validators run. Write a record, then validate it (section 6).
 | PCBA | `pcbas.json` | `id`, `label`, `partNumber`, `revision`, `terminals[]`, `internalLinks[]`, `src` |
 | vocabulary list | `vocab/<list>.json` | `{ id, label, src, entries[] }`; each entry `id`, `label`, `src` |
 | design | `designs/<id>.json` | the `CableDesign` (SPEC.md), `src` |
+| bench rule | `bench-rules.json` (array) | `id`, `phase`, `src`, `when?`, `steps[]` (each with `text`, `src`); `docs/modules.md` |
 | validation rule | `validation-rules.json` (array) | `id`, `severity`, `each`, `require`, `message`, `src` (below) |
 | numbering scheme | `part-numbers.json` (one object) | the prefix config, or a declarative definition (below) |
 | device profile | `devices.json` | `id`, `label`, `ports[]` (each `id` and an `interface` or `pins`), `src` (below) |
@@ -57,18 +58,23 @@ A rule record, for example (a rule cites its `src` like any record; no shop name
 ```
 
 `each` is `design`, `connector`, `segment`, `conductor`, `component`, `pcba`, `mechanical`,
-`signal-path` or a library subject (`connector-def` …); a condition has exactly one key (`all`,
+`signal-path`, `cable-end` (each end of a wire run: its shells, boards, connectors) or a library subject (`connector-def` …); a condition has exactly one key (`all`,
 `any`, `not`, `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `startsWith`, `endsWith`,
 `exists`, `empty`, `some`, `every`, `none`); a missing value makes a comparison false. Rule ids are
 kebab-case, the issue code is `rule:<id>`. Check a rule with `ruleProblems` / `ruleListProblems`
 (`@wirehub/model`) and run it: `validateDesign(design, { ...db, validationRules: [rule] })`.
+Any record may carry `vendorDocs: [{ asset: "<sha256 of the PDF>", label, src }]`, links to a manufacturer's PDFs
+held by content address (a pack ships them under `docs/`, `wirehub-catalog-pack`). Work instructions are
+`bench-rules.json` records and `cable-end` is a rule subject (`docs/validation-rules.md`).
+
 A design may carry `tags` (`["shielded"]`) for a rule's `where` to select by; a mechanical may be of
 kind `boot`.
 
 A numbering scheme in `part-numbers.json` is either `{ prefixes, digits?, separator?, … }` or
 `{ "type": "declarative", "template": "{level}{type}-{seq}-{variant}", "segments": [ … ],
 "validation"?, "immutable"? }` (segments `choice`, `counter`, `variant`; allowed values per record
-kind, counters per combination with ranges). Check one with `declarativeSchemeProblems`. The starter
+kind, counters per combination with ranges, `exclude` lists, `spans` unions and `match` lists of combinations;
+`docs/part-numbers.md`). Check one with `declarativeSchemeProblems`. The starter
 and bundled packs carry no shop numbering, so do not add a `part-numbers.json` to a pack: a pack
 **offers** a scheme in its manifest (`wirehub-catalog-pack`).
 

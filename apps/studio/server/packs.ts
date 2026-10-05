@@ -26,7 +26,7 @@
  * deployment administration, like `/api/setup`).
  */
 
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -54,6 +54,7 @@ import {
   type PackUpdatePlan,
 } from '@wirehub/catalog';
 import { packCodecProblems } from '@wirehub/catalog/src/codec/tree.ts';
+import { drawingArtProblems } from '@wirehub/docs';
 import type { CodeModuleManifest, ModuleRegistry } from '@wirehub/modules';
 
 import type { ApiResponse } from './api.ts';
@@ -88,6 +89,17 @@ function shown<T extends { writes: unknown }>(plan: T): Omit<T, 'writes' | 'reti
   return rest;
 }
 
+/** What the sheets cannot use in a pack's `drawing-art.json` (faces, plugs, cutaways), named; empty when there is none or it is fine. */
+function drawingArtFileProblems(dir: string): string[] {
+  const path = join(dir, 'drawing-art.json');
+  if (!existsSync(path)) return [];
+  try {
+    return drawingArtProblems(JSON.parse(readFileSync(path, 'utf8'))).map((p) => `drawing-art.json: ${p}`);
+  } catch {
+    return ['drawing-art.json is not valid JSON'];
+  }
+}
+
 /** The directory of the version of pack `id` this build bundles (a module's `catalogPacks`), if any. */
 function bundledPack(modules: ModuleRegistry | undefined, id: string): { dir: string; module: string; version: string } | undefined {
   for (const module of modules?.domains() ?? []) {
@@ -98,6 +110,12 @@ function bundledPack(modules: ModuleRegistry | undefined, id: string): { dir: st
     }
   }
   return undefined;
+}
+
+/** The catalog read without the layer of pack `id` (an update's new files replace that layer's in the check). */
+function viewWithout(deps: SetupDeps, id: string): CatalogSource | undefined {
+  const packsDir = packsDirOf(deps);
+  return packsDir === deps.dataDir ? undefined : catalogWithPacksSource(deps.dataDir, packsDir, { except: [id] });
 }
 
 function viewOf(deps: SetupDeps): CatalogSource {
@@ -215,7 +233,8 @@ export async function handlePacksRequest(
     } catch (error) {
       return refuse(500, error instanceof Error ? error.message : String(error));
     }
-    const plan = planPackUpdate(view, installed.packs, bundled.dir);
+    const without = where === 'layer' ? viewWithout(deps, id) : undefined;
+    const plan = planPackUpdate(view, installed.packs, bundled.dir, without === undefined ? {} : { without });
     if (method === 'GET') return json(200, { ...shown(plan), applicable: plan.ok && plan.direction !== 'same' });
     if (plan.direction === 'same') return json(200, { updated: false, reason: 'already at this version', plan: shown(plan) });
     if (!plan.ok) return updateRefusal(plan);
@@ -285,7 +304,7 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
       throw error;
     }
     const digest = sha256(bytes);
-    const problems = [...pinProblems, ...packSourceProblems(dir)];
+    const problems = [...pinProblems, ...packSourceProblems(dir), ...drawingArtFileProblems(dir)];
     if (problems.length > 0) {
       return refuse(422, `That is not a usable pack: ${problems[0]}${problems.length > 1 ? ` (and ${problems.length - 1} more)` : ''}.`, 'Nothing was installed. The problems are listed.', { verified: false, problems });
     }
@@ -319,7 +338,8 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
     const layered = packsDir !== deps.dataDir;
     let plan: PackUpdatePlan | PackInstallPreview;
     try {
-      plan = existing === undefined ? planNewPack(view, installed, dir) : planPackUpdate(view, installed, dir);
+      const without = existing === undefined || where.get(manifest.id) !== 'layer' ? undefined : viewWithout(deps, manifest.id);
+      plan = existing === undefined ? planNewPack(view, installed, dir) : planPackUpdate(view, installed, dir, without === undefined ? {} : { without });
     } catch (error) {
       return refuse(422, error instanceof Error ? error.message : String(error));
     }

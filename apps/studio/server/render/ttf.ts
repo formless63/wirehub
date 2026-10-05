@@ -48,6 +48,53 @@ function checksum(bytes: Uint8Array): number {
   return sum;
 }
 
+/**
+ * The Unicode character map of a font as a lookup (code point to glyph, 0 for none): format 12
+ * when there is one, else format 4. Throws when there is neither.
+ */
+export function cmapLookup(view: DataView, cmapOffset: number): (codePoint: number) => number {
+  let lookup: ((cp: number) => number) | undefined;
+  const subtables: { platform: number; encoding: number; offset: number }[] = [];
+  for (let i = 0; i < u16(view, cmapOffset + 2); i += 1) {
+    const at = cmapOffset + 4 + i * 8;
+    subtables.push({ platform: u16(view, at), encoding: u16(view, at + 2), offset: cmapOffset + u32(view, at + 4) });
+  }
+  const wide = subtables.find((s) => s.platform === 3 && s.encoding === 10 && u16(view, s.offset) === 12);
+  const narrow = subtables.find((s) => ((s.platform === 3 && s.encoding === 1) || s.platform === 0) && u16(view, s.offset) === 4);
+  if (wide !== undefined) {
+    const groups = u32(view, wide.offset + 12);
+    lookup = (cp) => {
+      for (let g = 0; g < groups; g += 1) {
+        const at = wide.offset + 16 + g * 12;
+        const start = u32(view, at);
+        if (cp < start) return 0;
+        if (cp <= u32(view, at + 4)) return u32(view, at + 8) + (cp - start);
+      }
+      return 0;
+    };
+  } else if (narrow !== undefined) {
+    const segs = u16(view, narrow.offset + 6) / 2;
+    const ends = narrow.offset + 14;
+    const starts = ends + segs * 2 + 2;
+    const deltas = starts + segs * 2;
+    const ranges = deltas + segs * 2;
+    lookup = (cp) => {
+      if (cp > 0xffff) return 0;
+      for (let s = 0; s < segs; s += 1) {
+        if (cp > u16(view, ends + s * 2)) continue;
+        const start = u16(view, starts + s * 2);
+        if (cp < start) return 0;
+        const offset = u16(view, ranges + s * 2);
+        if (offset === 0) return (cp + i16(view, deltas + s * 2)) & 0xffff;
+        const glyph = u16(view, ranges + s * 2 + offset + (cp - start) * 2);
+        return glyph === 0 ? 0 : (glyph + i16(view, deltas + s * 2)) & 0xffff;
+      }
+      return 0;
+    };
+  } else throw new Error('ttf: no Unicode character map (format 4 or 12)');
+  return lookup;
+}
+
 export function loadTrueType(bytes: Uint8Array): TrueTypeFont {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = u32(view, 0);
@@ -82,46 +129,7 @@ export function loadTrueType(bytes: Uint8Array): TrueTypeFont {
       ? [u32(view, loca.offset + glyph * 4), u32(view, loca.offset + glyph * 4 + 4)]
       : [u16(view, loca.offset + glyph * 2) * 2, u16(view, loca.offset + glyph * 2 + 2) * 2];
 
-  // the Unicode character map: format 12 when there is one, else format 4
-  let lookup: ((cp: number) => number) | undefined;
-  const subtables: { platform: number; encoding: number; offset: number }[] = [];
-  for (let i = 0; i < u16(view, cmap.offset + 2); i += 1) {
-    const at = cmap.offset + 4 + i * 8;
-    subtables.push({ platform: u16(view, at), encoding: u16(view, at + 2), offset: cmap.offset + u32(view, at + 4) });
-  }
-  const wide = subtables.find((s) => s.platform === 3 && s.encoding === 10 && u16(view, s.offset) === 12);
-  const narrow = subtables.find((s) => (s.platform === 3 && s.encoding === 1) || s.platform === 0);
-  if (wide !== undefined) {
-    const groups = u32(view, wide.offset + 12);
-    lookup = (cp) => {
-      for (let g = 0; g < groups; g += 1) {
-        const at = wide.offset + 16 + g * 12;
-        const start = u32(view, at);
-        if (cp < start) return 0;
-        if (cp <= u32(view, at + 4)) return u32(view, at + 8) + (cp - start);
-      }
-      return 0;
-    };
-  } else if (narrow !== undefined && u16(view, narrow.offset) === 4) {
-    const segs = u16(view, narrow.offset + 6) / 2;
-    const ends = narrow.offset + 14;
-    const starts = ends + segs * 2 + 2;
-    const deltas = starts + segs * 2;
-    const ranges = deltas + segs * 2;
-    lookup = (cp) => {
-      if (cp > 0xffff) return 0;
-      for (let s = 0; s < segs; s += 1) {
-        if (cp > u16(view, ends + s * 2)) continue;
-        const start = u16(view, starts + s * 2);
-        if (cp < start) return 0;
-        const offset = u16(view, ranges + s * 2);
-        if (offset === 0) return (cp + i16(view, deltas + s * 2)) & 0xffff;
-        const glyph = u16(view, ranges + s * 2 + offset + (cp - start) * 2);
-        return glyph === 0 ? 0 : (glyph + i16(view, deltas + s * 2)) & 0xffff;
-      }
-      return 0;
-    };
-  } else throw new Error('ttf: no Unicode character map (format 4 or 12)');
+  const lookup = cmapLookup(view, cmap.offset);
 
   const os2 = tables.get('OS/2');
   const post = tables.get('post');

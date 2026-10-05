@@ -255,23 +255,26 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
         if (format === 'html') return out(sheetHtml());
         const svg = withBranding(request.branding, () => renderDrawingSheet(design, db, { ...drawingOptions, fragment: true }));
         if (format === 'svg') return out(svg);
-        return out(pagesToPdf([await svgToPdfPage({ svg, width: 792, height: 612 })], titleOf(request)), 'pdf', 'raster');
+        return out(pagesToPdf([await svgToPdfPage({ svg, width: 792, height: 612, ...(request.branding?.font === undefined ? {} : { brand: request.branding.font }) })], titleOf(request)), 'pdf', 'raster');
       }
       case 'formboard': {
-        const board = deriveFormboard(design, db, { ...(request.variation === undefined ? {} : { variation: request.variation }), drawing: meta });
-        const sheetOptions = { paper, ...(request.scale === undefined ? {} : { scale: request.scale }), ...(request.revisionNumber === undefined ? {} : { revisionNumber: request.revisionNumber }) };
-        const layout = formboardLayout(board, sheetOptions);
-        if (request.page !== undefined && request.page > layout.tiles) {
-          return refuse(400, `The formboard has ${layout.tiles} tile page${layout.tiles === 1 ? '' : 's'} at ${request.scale === undefined ? '1:1' : `scale ${request.scale}`} on ${paper}, not ${request.page}.`, `Use page=1 to ${layout.tiles}, or leave page out for the overview.`);
-        }
-        if (format === 'html') return out(formboardHtml(board, sheetOptions));
-        if (format === 'svg') return out(formboardSvg(board, request.page ?? 0, sheetOptions));
-        const mm = paper === 'letter' ? { w: 279.4, h: 215.9 } : { w: 297, h: 210 };
-        const pages: PdfPage[] = [];
-        for (const svg of formboardSvgPages(board, sheetOptions)) {
-          pages.push(svgToVectorPdfPage(svg, { width: (mm.w / 25.4) * 72, height: (mm.h / 25.4) * 72 }));
-        }
-        return out(pagesToPdf(pages, titleOf(request)), 'pdf', 'vector');
+        // the hub's own typeface (branding) is registered while the board is drawn and its PDF text is chosen
+        return withBranding(request.branding, () => {
+          const board = deriveFormboard(design, db, { ...(request.variation === undefined ? {} : { variation: request.variation }), drawing: meta });
+          const sheetOptions = { paper, ...(request.scale === undefined ? {} : { scale: request.scale }), ...(request.revisionNumber === undefined ? {} : { revisionNumber: request.revisionNumber }) };
+          const layout = formboardLayout(board, sheetOptions);
+          if (request.page !== undefined && request.page > layout.tiles) {
+            return refuse(400, `The formboard has ${layout.tiles} tile page${layout.tiles === 1 ? '' : 's'} at ${request.scale === undefined ? '1:1' : `scale ${request.scale}`} on ${paper}, not ${request.page}.`, `Use page=1 to ${layout.tiles}, or leave page out for the overview.`);
+          }
+          if (format === 'html') return out(formboardHtml(board, sheetOptions));
+          if (format === 'svg') return out(formboardSvg(board, request.page ?? 0, sheetOptions));
+          const mm = paper === 'letter' ? { w: 279.4, h: 215.9 } : { w: 297, h: 210 };
+          const pages: PdfPage[] = [];
+          for (const svg of formboardSvgPages(board, sheetOptions)) {
+            pages.push(svgToVectorPdfPage(svg, { width: (mm.w / 25.4) * 72, height: (mm.h / 25.4) * 72 }));
+          }
+          return out(pagesToPdf(pages, titleOf(request)), 'pdf', 'vector');
+        });
       }
       case 'labels': {
         const labels = deriveLabels(design, db);

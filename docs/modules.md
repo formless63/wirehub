@@ -66,6 +66,7 @@ pack can ship:
 | You want | Use | Where |
 | --- | --- | --- |
 | a numbering convention (`<Level><Type>-NNNNNN-VV`, prefixes, ranges, variants) | a **declarative part-number scheme** | Settings, Part numbers; a pack's manifest (`docs/part-numbers.md`) |
+| shop work instructions (steps on the build sheet per phase) | **bench rules** | a pack's or the hub's `bench-rules.json` (below, "Bench work instructions") |
 | design rules ("a boot on every connector of family F", "power conductors at least 0.5 mm²") | **validation rules** | Settings, Validation rules; a pack's `validation-rules.json` (`docs/validation-rules.md`) |
 | another system told when something happens (an ERP, a chat channel) | **event webhooks**, and the API with a token | Settings, Webhooks (`docs/webhooks.md`) |
 | your catalog: connectors, wires, signals, example cables | a **catalog pack** | `docs/catalog-store.md` |
@@ -308,7 +309,13 @@ generic ones, per phase (`prep`, `end`, `assembly`, `solder`, `qa`). The types (
 `BenchEnd`, `ShellSet`, `BenchStepsProvider`, `BenchStepRule`) live in `@wirehub/model`
 (`bench-types.ts`), so a module names them without importing `@wirehub/docs`.
 
-- **As data**: `rules` is plain JSON a module or pack ships (import it with `with { type: 'json' }`):
+- **As catalog data**: the same records in `bench-rules.json` (the hub's own, or a data pack's: it merges by
+  id like any record file, each with a `src`). No module and no restart: the catalog loader puts them on
+  `Db.benchRules`, the build sheet reads them at each render, so installing, updating or disabling a pack
+  takes effect at once and follows the pack's ownership. They answer after a module's own provider and
+  before the generic steps. A rule that cannot be printed is skipped and reported as a
+  `bench-rule-invalid` warning by `validateDb`; a pack that ships one is refused.
+- **As data in a module**: `rules` is plain JSON a module or pack ships (import it with `with { type: 'json' }`):
   `{ id, phase, when?: { connector?, family?, wire?, stockFamily? }, steps: [{ text, src, images?, tools?, checks? }] }`.
   `when` matches the connector definitions or families at the end, or the stock; a rule with no
   `when` always applies; the steps of all matching rules, in order, replace the generic steps of
@@ -332,6 +339,23 @@ the server, the same rasteriser the PDF exports use). The app registers them as 
 wins, so a module's `art.drawing` still beats the setting, and an unset field keeps the generic
 text. The drawing sheet's title block, the wire spec, and the bench build sheet / BOM header read
 it; no renderer is branded by hand.
+
+**A typeface and drawing art, as data.** Settings, Branding also takes a licensed font and drawing art, both stored
+with the hub and used wherever a document is drawn. **Typeface**: upload a TrueType, OpenType or WOFF2 file (static, not
+a variable font; up to 1.5 MiB) after ticking that you hold a licence that lets documents embed it; it is kept as an asset
+(the uploader's name goes in its `src`), and Regular (and optionally Bold) are chosen from the fonts the hub holds, which
+include any a data pack ships under `fonts/` (`docs/catalog-store.md`). The drawing, the HTML sheets (build sheet, BOM,
+test spec, wire spec, formboard) and the browser engine's PDFs carry the font inline, first in their font stacks, so a
+glyph it lacks falls through to the standard sans; layout measures the font's own advance widths. The PDFs the server
+draws itself use it where they can: the drawing's raster PDF reads a TrueType or OpenType file, and the formboard's vector
+PDF embeds a subset of a font with TrueType outlines (`.ttf`, or an `.otf` that has them); a CFF `.otf` or a WOFF2 keeps the
+standard sans there, and the page says which. The plain-text fallback PDFs (no browser engine configured) stay in the standard
+Helvetica. **Drawing art**: faces, plugs and cutaways by definition id, in the shape a module's `art.drawing` has, as JSON
+in Settings (this hub's own file, `data/drawing-art.json`); a data pack may ship a `drawing-art.json` too, the two layer
+key by key with this hub's winning, and a cutaway's SVG is cleaned of scripts and external references on the way in.
+A module's own `art.drawing` (its font too) still wins, as with the logo. The API: `GET`/`POST
+/api/settings/branding/fonts` (the fonts you may choose; upload with `"licence": true`), and `font` and `art` on `PUT
+/api/settings/branding` (`null` removes them).
 
 ### Job queues
 
