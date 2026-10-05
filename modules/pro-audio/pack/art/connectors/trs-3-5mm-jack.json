@@ -11,7 +11,7 @@
   "short": "3.5 mm",
   "width": 146,
   "height": 28,
-  "approximate": false,
+  "approximate": true,
   "shapes": [
     {
       "el": "rect",
@@ -20,7 +20,8 @@
       "width": 12,
       "height": 2.2,
       "tone": "copper",
-      "rx": 0.6
+      "rx": 0.6,
+      "ifDefined": "tip"
     },
     {
       "el": "rect",
@@ -29,7 +30,8 @@
       "width": 12,
       "height": 2.2,
       "tone": "copper",
-      "rx": 0.6
+      "rx": 0.6,
+      "ifDefined": "ring"
     },
     {
       "el": "rect",
@@ -38,7 +40,8 @@
       "width": 12,
       "height": 2.2,
       "tone": "metal",
-      "rx": 0.6
+      "rx": 0.6,
+      "ifDefined": "sleeve"
     },
     {
       "el": "path",
@@ -106,7 +109,11 @@
       "width": 6,
       "height": 21,
       "tone": "band",
-      "band": "tip"
+      "band": "tip",
+      "bandFallback": [
+        "ring",
+        "sleeve"
+      ]
     },
     {
       "el": "rect",

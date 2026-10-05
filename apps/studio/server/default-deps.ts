@@ -46,6 +46,7 @@ import { createHash } from 'node:crypto';
 import { exportTree } from './pg/export.ts';
 import { backendFromEnv, type Backend } from './pg/config.ts';
 import { baseJobHandlers } from './jobs/handlers.ts';
+import { moduleJobHandlers, moduleJobKinds } from './jobs/module-queues.ts';
 import { modelCacheTrigger } from './jobs/model-cache.ts';
 import { createJobService, inlineJobRunner, memoryJobStore } from './jobs/service.ts';
 
@@ -158,8 +159,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
   const jobStore = memoryJobStore();
   deps.jobs = createJobService({
     store: jobStore,
-    runner: inlineJobRunner(jobStore, () => baseJobHandlers({ deps, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) })),
-    kinds: ['import', 'model-cache'],
+    runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps) })),
+    kinds: ['import', 'model-cache', ...moduleJobKinds(deps.modules)],
   });
   deps.afterCommit = modelCacheTrigger(() => deps.jobs);
   return deps;

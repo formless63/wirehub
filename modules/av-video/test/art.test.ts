@@ -45,8 +45,28 @@ describe('the module carries its drawings', () => {
     const off = registerConnectorArt(records);
     try {
       const art = connectorArt({ def: bnc, facing: 'right' })!;
-      expect(art).toMatchObject({ view: 'profile', short: 'BNC', facing: 'right', approximate: false });
+      expect(art).toMatchObject({ view: 'profile', short: 'BNC', facing: 'right', approximate: true });
       expect(art.pins.every((p) => p.x > art.width / 2)).toBe(true);
+    } finally {
+      off();
+    }
+  });
+
+  it('draws the pack\'s own BNC connector with the pack art, and leaves out what it does not have', () => {
+    const bnc = db.connectors.find((c) => c.id === 'bnc-male')!;
+    const body = db.bodies?.find((b) => b.id === bnc.body);
+    expect(bnc).toMatchObject({ license: 'CC0-1.0', family: 'bnc', interface: 'bnc-coax' });
+    expect(bnc.src).toContain('IEC 61169-8');
+    expect(body).toBeDefined();
+    const off = registerConnectorArt(records);
+    try {
+      const art = connectorArt({ def: bnc, facing: 'left', ...(body === undefined ? {} : { body }) })!;
+      expect(art).toMatchObject({ view: 'profile', short: 'BNC', facing: 'left', approximate: true });
+      expect(art.pins.map((p) => p.terminal)).toEqual(['tip', 'shell']);
+      // a plug that has only a shell: its centre lug tag is not drawn, the other still is
+      const shellOnly = { ...bnc, pins: bnc.pins.filter((p) => p.id === 'shell') };
+      const bare = connectorArt({ def: shellOnly, facing: 'left' })!;
+      expect(bare.shapes.length).toBe(art.shapes.length - 1);
     } finally {
       off();
     }

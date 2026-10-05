@@ -217,5 +217,34 @@
         }
       ]
     }
+  },
+  {
+    "id": "bnc-coax",
+    "label": "BNC, one signal + shield",
+    "short": "BNC",
+    "bodies": [
+      "bnc-male"
+    ],
+    "pins": {
+      "tip": {
+        "signal": "any",
+        "label": "Signal"
+      },
+      "shell": {
+        "signal": "gnd",
+        "label": "Shield / return"
+      }
+    },
+    "confidence": "documented",
+    "src": "IEC 61169-8: centre contact carries the signal, outer conductor (shell) the return and screen",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 61169-8: centre contact carries the signal, outer conductor (shell) the return and screen"
+        }
+      ]
+    }
   }
 ]

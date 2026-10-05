@@ -40,8 +40,8 @@ export const ART_PIN_FORMS = ['pin', 'socket', 'blade', 'finger', 'lug', 'shell'
 export type ArtPinFormName = (typeof ART_PIN_FORMS)[number];
 
 export type ArtShapeRecord =
-  | { el: 'path'; d: string; tone: ArtToneName }
-  | { el: 'circle'; cx: number; cy: number; r: number; tone: ArtToneName }
+  | { el: 'path'; d: string; tone: ArtToneName; ifDefined?: string }
+  | { el: 'circle'; cx: number; cy: number; r: number; tone: ArtToneName; ifDefined?: string }
   | {
       el: 'rect';
       x: number;
@@ -52,6 +52,10 @@ export type ArtShapeRecord =
       tone: ArtToneName;
       /** painted the colour of this terminal's conductor, when the connector's wiring knows it (a colour band on a grip) */
       band?: string;
+      /** the terminals whose colour the band takes, in turn, when the connector has no `band` terminal (a tip-less plug's band is its ring's, else its sleeve's) */
+      bandFallback?: string[];
+      /** any shape: drawn only when the connector has this terminal (the lug tag of a conductor it omits is not on the part) */
+      ifDefined?: string;
     };
 
 export interface ArtPinRecord {
@@ -161,6 +165,7 @@ const MIRRORABLE_PATH = /^\s*(?:[MLHVZ]\s*(?:-?\d*\.?\d+(?:\s*,?\s*-?\d*\.?\d+)*
 function shapeIssue(shape: unknown, where: string, profile = false): string | undefined {
   if (!isObject(shape)) return 'a shape is not an object';
   if (!(ART_TONES as readonly string[]).includes(shape['tone'] as string)) return `shape tone '${String(shape['tone'])}' is not one of ${ART_TONES.join(', ')}`;
+  if (shape['ifDefined'] !== undefined && !isString(shape['ifDefined'])) return 'ifDefined must name a terminal';
   switch (shape['el']) {
     case 'path':
       if (!isString(shape['d'])) return `${where}: a path has no d`;
@@ -169,6 +174,7 @@ function shapeIssue(shape: unknown, where: string, profile = false): string | un
       return isNumber(shape['cx']) && isNumber(shape['cy']) && isNumber(shape['r']) ? undefined : 'a circle needs cx, cy, r';
     case 'rect':
       if (shape['band'] !== undefined && !isString(shape['band'])) return 'a rect band must name a terminal';
+      if (shape['bandFallback'] !== undefined && (strings(shape['bandFallback']) === undefined || shape['band'] === undefined)) return 'bandFallback must be a list of terminals, and needs a band';
       return isNumber(shape['x']) && isNumber(shape['y']) && isNumber(shape['width']) && isNumber(shape['height']) && (shape['rx'] === undefined || isNumber(shape['rx']))
         ? undefined
         : 'a rect needs x, y, width, height';

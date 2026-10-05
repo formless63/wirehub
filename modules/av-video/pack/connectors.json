@@ -36,5 +36,24 @@
         }
       ]
     }
+  },
+  {
+    "id": "bnc-male",
+    "label": "BNC male (coax plug)",
+    "family": "bnc",
+    "gender": "male",
+    "construction": "solder-cup",
+    "body": "bnc-male",
+    "interface": "bnc-coax",
+    "src": "IEC 61169-8 BNC plug, generic solder/crimp cable plug",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 61169-8 BNC plug, generic solder/crimp cable plug"
+        }
+      ]
+    }
   }
 ]

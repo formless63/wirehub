@@ -149,7 +149,9 @@ with `layeredDepictions(...)`, a catalog's own first.
 `bodies`, `drawings` (a body's `drawing` name) and `families` it draws, `short` (caption),
 frame `width`/`height`, `view` (`face`, the default, or `profile`), `gender` (draws only
 connectors of that gender), `shapes` (`path`, `circle`, `rect`, each with a `tone`; a rect may
-name a terminal as its colour `band`), `pins`
+name a terminal as its colour `band`, with `bandFallback` terminals to take the colour from when
+the connector lacks it; any shape may carry `ifDefined: <terminal>` to be drawn only when the connector has
+that terminal), `pins`
 (`terminal`, `form`, centre, size, `ifDefined` for a contact a pinout may omit), `labels`,
 `approximate`, `src`, `license` and `provenance`. Host registers them with `registerConnectorArt`
 (`layout/src/connector-art.ts`); a pack match wins over a built-in drawing, and nothing
@@ -160,8 +162,10 @@ A **profile** record is facing-aware: it is authored once with the cable end on 
 (`registerConnectorArt`'s `artOfRecord`: rect x, circle cx, path numbers, pin x, label x and
 anchor) when the node's wires leave from the right, so the lugs face the wire; the art
 carries `facing`. Its paths may use only absolute `M L H V Z`, which the parser enforces.
-Lugs are always drawn (an unused lug is still on the plug); a lug *pin* is `ifDefined`, so a
-connector that omits a conductor leaves its handle out. A record that lacks a pin the
+A lug's tag (its shape) and its handle (its pin) are both `ifDefined`, so a connector that omits
+a conductor draws neither: the tag of a conductor it does not have is not on the part. A colour band
+that names a terminal the connector lacks takes the first of its `bandFallback` terminals that it
+has (a tip-less plug's band takes its ring's, else its sleeve's), else it stays the plain band. A record that lacks a pin the
 connector has draws nothing (the pin table), as for a face. RCA and 3.5 mm TRS ship in
 `pro-audio` (`rca-plug`, `rca-jack`, `trs-3-5mm-plug`, `trs-3-5mm-jack`, split by `gender`
 because a plug and a jack differ), BNC in `av-video` (`bnc`). Without them the base draws a

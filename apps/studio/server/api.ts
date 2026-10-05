@@ -57,6 +57,7 @@ import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
 import { isDocPath, type DocStore } from './storage/doc-store.ts';
+import { moduleJobsFor } from './jobs/module-queues.ts';
 import { parseModuleIoPath, proposalOf, runExporter, runImporter, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { JobService } from './jobs/types.ts';
@@ -879,7 +880,7 @@ function methodNotAllowed(method: string, allowed: string[]): ApiResponse {
  * A module integration's route for `request` (`/api/modules/<module>/<path>`),
  * ready to run, or `undefined` when the path is not one.
  */
-function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefined): { writes?: boolean; run: () => Promise<ApiResponse> } | undefined {
+function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefined, jobs?: WorkbenchDeps['jobs']): { writes?: boolean; run: () => Promise<ApiResponse> } | undefined {
   const [pathPart, query = ''] = request.path.split('?');
   const parts = (pathPart ?? '').split('/').filter((p) => p !== '').map(decodeSegment);
   if (parts[0] !== 'api' || parts[1] !== 'modules' || parts[2] === undefined) return undefined;
@@ -891,6 +892,7 @@ function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefine
   if (route === undefined) {
     return { run: async () => fail(404, `${pathPart ?? ''} is not a route any module answers.`, 'Check the deployment\'s modules.config.ts.') };
   }
+  const moduleJobs = moduleJobsFor(moduleId, jobs, modules, request.user);
   return {
     ...(route.writes === undefined ? {} : { writes: route.writes }),
     run: async () => {
@@ -898,6 +900,7 @@ function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefine
         ...(request.body === undefined ? {} : { body: request.body }),
         query: new URLSearchParams(query),
         ...(request.user === undefined ? {} : { user: request.user }),
+        ...(moduleJobs === undefined ? {} : { jobs: moduleJobs }),
       });
       return { status: out.status, body: out.body };
     },
@@ -952,7 +955,7 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   if (isJobPath(request.path)) return handleJobRequest(request, deps);
   const io = parseModuleIoPath(request.path);
   if (io !== undefined) return handleModuleIo(request, io, deps);
-  const moduleRoute = findModuleRoute(request, deps.modules);
+  const moduleRoute = findModuleRoute(request, deps.modules, deps.jobs);
   if (moduleRoute !== undefined) return moduleRoute.writes === true ? withWriteLock(moduleRoute.run) : moduleRoute.run();
   // first-run setup installs packs straight into the catalog (journaled by
   // the installer), outside the unit of work, under the write lock

@@ -13,13 +13,15 @@
  *   and one plan — `/sources`, on `BACKUP_SCHEDULE` (cron, default daily at
  *   03:00), keeping 7 daily, 4 weekly and 12 monthly snapshots, with a weekly
  *   prune and check, and a post-snapshot hook that touches the marker
- *   (`/marker/.last-snapshot`, read by the app and the worker). After that Backrest's UI owns its configuration, and this
- *   never touches it again.
+ *   (`/marker/.last-snapshot`, read by the app and the worker). After that Backrest's UI owns its configuration;
+ *   the one thing this still does is add those two hooks (success marker, failure marker) to a `/sources` plan of an
+ *   existing configuration that lacks them (installs configured before the hooks existed), idempotently, and
+ *   touches nothing else in it.
  *
  *   node --experimental-strip-types stack/backup-init.ts
  */
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -81,6 +83,47 @@ export function backrestConfig(options: { repository: string; password: string; 
   };
 }
 
+interface Hook {
+  conditions?: unknown;
+  actionCommand?: { command?: unknown };
+}
+
+/**
+ * An existing Backrest configuration with the marker hooks added to every plan
+ * of `/sources` that has none for them. Returns the same text when nothing
+ * needed adding (or it is not a configuration this understands), so it is safe
+ * to run at every start; a hook is recognised by the marker file in its command,
+ * so one the owner edited or moved is left as it is.
+ */
+export function withMarkerHooks(text: string): { text: string; added: string[] } {
+  let config: { plans?: unknown; modno?: unknown };
+  try {
+    config = JSON.parse(text) as typeof config;
+  } catch {
+    return { text, added: [] };
+  }
+  if (typeof config !== 'object' || config === null || !Array.isArray(config.plans)) return { text, added: [] };
+  const wanted: { condition: string; file: string }[] = [
+    { condition: 'CONDITION_SNAPSHOT_SUCCESS', file: MARKER_FILE },
+    { condition: 'CONDITION_SNAPSHOT_ERROR', file: FAILURE_FILE },
+  ];
+  const added: string[] = [];
+  for (const plan of config.plans as { id?: unknown; paths?: unknown; hooks?: unknown }[]) {
+    if (typeof plan !== 'object' || plan === null || !Array.isArray(plan.paths) || !plan.paths.includes('/sources')) continue;
+    const hooks: Hook[] = Array.isArray(plan.hooks) ? (plan.hooks as Hook[]) : [];
+    for (const { condition, file } of wanted) {
+      if (hooks.some((hook) => typeof hook?.actionCommand?.command === 'string' && hook.actionCommand.command.includes(file))) continue;
+      hooks.push({ conditions: [condition], actionCommand: { command: `touch ${file}` } });
+      added.push(`${String(plan.id ?? 'plan')}: touch ${file}`);
+    }
+    plan.hooks = hooks;
+  }
+  if (added.length === 0) return { text, added };
+  // Backrest counts its own writes in modno; a changed file should look changed
+  if (typeof config.modno === 'number') config.modno += 1;
+  return { text: `${JSON.stringify(config, null, 2)}\n`, added };
+}
+
 /** Where the staging scripts are in the image (this checkout's `docker/backup/`). */
 export function scriptsSource(): string {
   return fileURLToPath(new URL('../../../docker/backup/', import.meta.url));
@@ -105,6 +148,19 @@ export function backupInit(env: Env, log: (line: string) => void = console.log):
 
   const configPath = env['BACKREST_CONFIG'] ?? '/config/config.json';
   if (existsSync(configPath)) {
+    try {
+      const patched = withMarkerHooks(readFileSync(configPath, 'utf8'));
+      if (patched.added.length > 0) {
+        // written beside and renamed over, so a stop in the middle leaves the old file whole
+        const temp = `${configPath}.tmp`;
+        writeFileSync(temp, patched.text, { mode: 0o600 });
+        renameSync(temp, configPath);
+        log(`backup-init: Backrest is configured already — added the snapshot marker hooks (${patched.added.join('; ')})`);
+        return;
+      }
+    } catch (error) {
+      log(`backup-init: could not check Backrest's hooks (${error instanceof Error ? error.message : String(error)}); add them in its UI`);
+    }
     log('backup-init: Backrest is configured already — change repositories and plans in its UI');
     return;
   }

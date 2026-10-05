@@ -5,7 +5,7 @@
  */
 
 import type { CableDesign, ComponentDefinition, Db, Issue } from '@wirehub/model';
-import type { ExportOutput, ImportResult } from '@wirehub/modules';
+import type { ExportOutput, ImportResult, JobQueueContext } from '@wirehub/modules';
 
 export const MODULE_ID = 'example';
 
@@ -87,4 +87,21 @@ export function deriveSummary(input: { designs: readonly CableDesign[]; db: Db }
   };
   const lines = ['# Example summary', '', `${summary.designs} designs, ${summary.joints} joints.`, '', ...connectors.map((c) => `- ${c.def}: ${c.count}`)];
   return { 'summary.json': summary, 'summary.md': `${lines.join('\n')}\n` };
+}
+
+/**
+ * Queue job: count what the catalog holds. A stand-in for work too long for a
+ * request (a nightly re-index, a push to another system): it reports a step
+ * per kind and returns the counts as the job's result. `request.only` limits it.
+ */
+export async function recountCatalog(context: JobQueueContext): Promise<Record<string, unknown>> {
+  const db = await context.db();
+  const only = typeof context.request['only'] === 'string' ? context.request['only'] : undefined;
+  const counts: Record<string, number> = {};
+  for (const kind of ['connectors', 'wires', 'components', 'pcbas', 'mechanicals'] as const) {
+    if (only !== undefined && only !== kind) continue;
+    counts[kind] = db[kind].length;
+    await context.step(`${kind}: ${counts[kind]}`);
+  }
+  return { counts };
 }

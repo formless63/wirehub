@@ -14,6 +14,7 @@
  * | importer           | `id,label,value` CSV lines to proposed resistors              |
  * | exporter           | a design's joints as CSV                                      |
  * | integration        | `GET status`, `POST echo` (a route that takes the write lock) |
+ * | job queue          | `example:recount`, started by `POST recount`, read by `GET recount` |
  * | panels             | all four slots                                                |
  * | UI route           | `/m/example/status`, with a rail icon                         |
  * | auth provider      | a demo OAuth 2 sign-in button (it does not sign anyone in)    |
@@ -27,10 +28,10 @@
 import { prefixPartNumberScheme } from '@wirehub/model';
 import { defineModule } from '@wirehub/modules';
 
-import { deriveSummary, importResistors, jointsCsv, MODULE_ID, recordEdit, todoLabelRule } from './logic.ts';
+import { deriveSummary, importResistors, jointsCsv, MODULE_ID, recordEdit, recountCatalog, todoLabelRule } from './logic.ts';
 import { DocumentsPanel, InspectorPanel, LibraryPanel, SettingsPanel, StatusPage } from './ui.ts';
 
-export { dataOf, deriveSummary, importResistors, jointsCsv, recordEdit, todoLabelRule } from './logic.ts';
+export { dataOf, deriveSummary, importResistors, jointsCsv, recordEdit, recountCatalog, todoLabelRule } from './logic.ts';
 export type { ExampleData } from './logic.ts';
 
 /** the pack directory, as a `file:` URL (a variable so bundlers leave it alone) */
@@ -59,8 +60,29 @@ export const example = defineModule({
     {
       id: 'status',
       label: 'Example status',
+      // a queue of the module's own: the worker runs it (Postgres) or this process does (files); recorded as kind `example:recount`
+      queues: [{ id: 'recount', label: 'Recount the catalog', run: recountCatalog }],
       routes: [
         { method: 'GET', path: 'status', handle: async () => ({ status: 200, body: { module: MODULE_ID, ok: true } }) },
+        // start a recount: 202 and the job id; poll it with GET recount?id=…
+        {
+          method: 'POST',
+          path: 'recount',
+          handle: async (request) => {
+            if (request.jobs === undefined) return { status: 501, body: { error: 'This studio runs no jobs.' } };
+            const only = (request.body as { only?: unknown } | undefined)?.only;
+            const job = await request.jobs.enqueue('recount', typeof only === 'string' ? { only } : {});
+            return { status: 202, body: { job } };
+          },
+        },
+        {
+          method: 'GET',
+          path: 'recount',
+          handle: async (request) => {
+            const job = await request.jobs?.get(request.query.get('id') ?? '');
+            return job === undefined ? { status: 404, body: { error: 'No such recount.' } } : { status: 200, body: { job } };
+          },
+        },
         { method: 'POST', path: 'echo', writes: true, handle: async (request) => ({ status: 200, body: { echo: request.body ?? null, by: request.user?.name ?? null } }) },
       ],
     },

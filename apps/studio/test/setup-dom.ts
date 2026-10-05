@@ -1,3 +1,5 @@
+import { configure } from "@testing-library/react";
+
 /**
  * jsdom does no layout — every element's `offsetWidth`/`offsetHeight` (and
  * `getBoundingClientRect()`) report 0, which starves `@tanstack/react-virtual`
@@ -21,3 +23,17 @@ class NoopResizeObserver implements ResizeObserver {
   disconnect(): void {}
 }
 globalThis.ResizeObserver ??= NoopResizeObserver;
+
+/**
+ * Testing Library's `waitFor`/`findBy*` give up after 1000 ms by default, a
+ * budget unrelated to this suite's per-test budget (15 s, `vitest.config.ts`).
+ * The first mount in a file pays the cold costs (route modules, the depiction
+ * glob, the first render of the whole shell), which a loaded shared box
+ * stretches past a second: the assertion then fails with "Unable to find
+ * [data-testid=open-id]" after ~1 s while the app was merely still mounting
+ * (cs-az3; reproduced under 8 busy-loop processes on 4 cores, failing 2.7 s
+ * into a 15 s test). The wait is on an element or state, never a sleep, so a
+ * long ceiling costs nothing when things are fast; a real failure still ends
+ * at the test timeout.
+ */
+configure({ asyncUtilTimeout: 10_000 });

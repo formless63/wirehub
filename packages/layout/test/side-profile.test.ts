@@ -69,6 +69,44 @@ describe('a profile record', () => {
     }
   });
 
+  it('draws a lug tag only for a conductor the connector has, and a band falls back to the next terminal it has', () => {
+    const record: ConnectorArtRecord = {
+      ...toy,
+      shapes: [
+        { el: 'rect', x: 6, y: 4, width: 12, height: 3, tone: 'copper', ifDefined: 'tip' },
+        { el: 'rect', x: 6, y: 14, width: 12, height: 3, tone: 'metal', ifDefined: 'sleeve' },
+        { el: 'rect', x: 50, y: 2, width: 6, height: 16, tone: 'band', band: 'tip', bandFallback: ['ring', 'sleeve'] },
+      ],
+    };
+    const off = registerConnectorArt([record]);
+    try {
+      const both = connectorArt({ def: def('p', 'rca', ['tip', 'sleeve']), facing: 'left' })!;
+      expect(both.shapes).toEqual([
+        { el: 'rect', x: 6, y: 4, width: 12, height: 3, tone: 'copper' },
+        { el: 'rect', x: 6, y: 14, width: 12, height: 3, tone: 'metal' },
+        { el: 'rect', x: 50, y: 2, width: 6, height: 16, tone: 'band', band: 'tip' },
+      ]);
+      const tipless = connectorArt({ def: def('p', 'rca', ['sleeve']), facing: 'left' })!;
+      expect(tipless.shapes).toEqual([
+        { el: 'rect', x: 6, y: 14, width: 12, height: 3, tone: 'metal' },
+        { el: 'rect', x: 50, y: 2, width: 6, height: 16, tone: 'band', band: 'sleeve' },
+      ]);
+      // mirrored, the same shapes
+      expect(connectorArt({ def: def('p', 'rca', ['sleeve']), facing: 'right' })!.shapes).toHaveLength(2);
+    } finally {
+      off();
+    }
+  });
+
+  it('refuses a malformed ifDefined or bandFallback', () => {
+    const rect = { el: 'rect', x: 0, y: 0, width: 1, height: 1, tone: 'band' };
+    const parse = (shape: Record<string, unknown>) => parseConnectorArt({ ...toy, shapes: [shape] }, 'x').issues.length;
+    expect(parse({ ...rect, ifDefined: 'tip', band: 'tip', bandFallback: ['sleeve'] })).toBe(0);
+    expect(parse({ ...rect, ifDefined: 3 })).toBeGreaterThan(0);
+    expect(parse({ ...rect, band: 'tip', bandFallback: 'sleeve' })).toBeGreaterThan(0);
+    expect(parse({ ...rect, bandFallback: ['sleeve'] })).toBeGreaterThan(0);
+  });
+
   it('matches by gender', () => {
     const off = registerConnectorArt([toy]);
     try {

@@ -11,7 +11,7 @@
 # database, and the database's export is the starter catalog plus exactly
 # that save and that model.
 #
-#   bash scripts/stack-smoke.sh [--upgrade] [--backup] [--restore] [image]
+#   bash scripts/stack-smoke.sh [--upgrade] [--backup] [--restore] [--old-backrest-config] [image]
 #
 # --upgrade  first, a hub on the file backend (as before v0.1.0) set up and
 #            edited, then started with this compose.yaml's defaults: migrate
@@ -21,6 +21,10 @@
 #            setup this time): the dump (as studio_ro, with row counts), the
 #            restore check, a Backrest snapshot and its post-snapshot hook
 #            (the marker the deep health check and blob GC read).
+# --old-backrest-config  (with --backup) the backup stack starts with a Backrest
+#            configuration made before the post-snapshot hooks existed (a plan
+#            with none); backup-init must add them, and the snapshot must
+#            still touch the marker.
 # --restore  (with --backup) the restore drill: a second stack, as on another
 #            machine, gets the first one's backups and restores the database
 #            and the uploaded files; the first admin signs in there and finds
@@ -34,7 +38,9 @@ set -euo pipefail
 backup=0
 restore=0
 upgrade=0
-while [ "${1:-}" = "--backup" ] || [ "${1:-}" = "--restore" ] || [ "${1:-}" = "--upgrade" ]; do
+old_config=0
+while [ "${1:-}" = "--backup" ] || [ "${1:-}" = "--restore" ] || [ "${1:-}" = "--upgrade" ] || [ "${1:-}" = "--old-backrest-config" ]; do
+  [ "$1" = "--old-backrest-config" ] && old_config=1
   [ "$1" = "--backup" ] && backup=1
   [ "$1" = "--restore" ] && restore=1
   [ "$1" = "--upgrade" ] && upgrade=1
@@ -238,6 +244,14 @@ check_stack '[]'
 if [ "$backup" = 1 ]; then
   compose down -v >/dev/null 2>&1
   export COMPOSE_PROFILES=backup
+  if [ "$old_config" = 1 ]; then
+    # a hub configured before the hooks: Backrest's config volume already holds a plan with none
+    export BACKUP_REPOSITORY_PASSWORD="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d " \n")"
+    docker volume create --label "com.docker.compose.project=$project" --label com.docker.compose.volume=backrest_config "${project}_backrest_config" >/dev/null
+    docker run --rm -i -v "${project}_backrest_config:/config" alpine sh -c 'cat > /config/config.json' <<EOF || fail "seeding the old Backrest config"
+{"modno":3,"version":6,"instance":"wirehub","repos":[{"id":"wirehub","uri":"/repos/wirehub","password":"$BACKUP_REPOSITORY_PASSWORD","autoInitialize":true,"autoUnlock":true}],"plans":[{"id":"wirehub","repo":"wirehub","paths":["/sources"],"schedule":{"cron":"0 3 * * *","clock":"CLOCK_LOCAL"},"retention":{"policyTimeBucketed":{"daily":7,"weekly":4,"monthly":12}}}]}
+EOF
+  fi
   check_stack '["pc-serial"]'
   curl -fsS -b "$jar" "http://127.0.0.1:$port/api/designs/db9-null-modem" -o /dev/null || fail "the pc-serial pack's design is not there"
   echo "smoke: the pc-serial pack installed at setup"
@@ -270,6 +284,10 @@ if [ "$backup" = 1 ]; then
   curl -fsS "http://127.0.0.1:$port/healthz?deep=1" > "$scratch/deep.json" || fail "the deep health check failed after the snapshot: $(cat "$scratch/deep.json")"
   tr -d ' \n' < "$scratch/deep.json" | contains '"name":"backup","ok":true' || fail "the deep health check has no passing backup check: $(cat "$scratch/deep.json")"
   tr -d ' \n' < "$scratch/deep.json" | contains '"name":"jobs","ok":true' || fail "the deep health check has no passing jobs check: $(cat "$scratch/deep.json")"
+  if [ "$old_config" = 1 ]; then
+    compose logs --no-log-prefix backup-init | contains 'added the snapshot marker hooks' || fail "backup-init did not patch the old Backrest config: $(compose logs --no-log-prefix backup-init | tail -5)"
+    echo "smoke: backup-init added the marker hooks to the pre-existing Backrest config"
+  fi
   echo "smoke: the hook touched the backup marker (read-only in the app and the worker); /healthz?deep=1 passes its backup and jobs checks"
 
   if [ "$restore" = 1 ]; then

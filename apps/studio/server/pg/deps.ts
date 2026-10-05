@@ -41,6 +41,7 @@ import { modelCacheTrigger } from '../jobs/model-cache.ts';
 import { notifierFromEnv } from '../notify.ts';
 import { createJobService, inlineJobRunner } from '../jobs/service.ts';
 import { JOB_KINDS } from '../jobs/types.ts';
+import { moduleJobKinds } from '../jobs/module-queues.ts';
 import { bossJobRunner, lastBeat, pgJobHandlers, pgJobStore, startBoss } from './jobs.ts';
 import { deliveredEventHub, type EventHub } from '../events.ts';
 import { blobObjectKey } from './keys.ts';
@@ -230,10 +231,10 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
           ? bossJobRunner(() => {
               // a job submitted while the backend closes must not open a queue connection nobody will stop
               if (closing) return Promise.reject(new Error('the studio is shutting down'));
-              return (boss ??= startBoss(config.url, 'studio'));
+              return (boss ??= startBoss(config.url, 'studio', undefined, moduleJobKinds(real.modules)));
             }, () => id)
           : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, notify }));
-      const kinds = JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined));
+      const kinds = [...JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)), ...moduleJobKinds(real.modules)];
       real.jobs = createJobService({
         store,
         runner,

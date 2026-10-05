@@ -67,7 +67,7 @@ describe('the pack over the starter catalog', () => {
       cpSync(dataPath(''), work, { recursive: true });
       const plan = installPack(work, packDir);
       expect(plan.conflicts).toEqual([]);
-      expect(plan.added['connectors.json']).toEqual(['hd15-male-vga', 'scart-male']);
+      expect(plan.added['connectors.json']).toEqual(['hd15-male-vga', 'scart-male', 'bnc-male']);
       expect(plan.added['designs/vga-monitor-cable.json']).toEqual([]);
       const installed = createCatalog(fsCatalogSource(work));
       expect(errors(validateDesign(installed.loadDesign('vga-monitor-cable'), installed.loadDb()))).toEqual([]);
