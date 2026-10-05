@@ -1,0 +1,65 @@
+{
+  "defId": "rj45-8p8c-plug",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 14,
+      "heightUnits": 18,
+      "src": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 14,
+      "heightUnits": 18,
+      "src": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 3.43,
+      "y": 5
+    },
+    "2": {
+      "x": 4.45,
+      "y": 5
+    },
+    "3": {
+      "x": 5.47,
+      "y": 5
+    },
+    "4": {
+      "x": 6.49,
+      "y": 5
+    },
+    "5": {
+      "x": 7.51,
+      "y": 5
+    },
+    "6": {
+      "x": 8.53,
+      "y": 5
+    },
+    "7": {
+      "x": 9.55,
+      "y": 5
+    },
+    "8": {
+      "x": 10.57,
+      "y": 5
+    },
+    "shell": {
+      "x": 7,
+      "y": 14.8
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}

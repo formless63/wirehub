@@ -279,6 +279,8 @@ export {
   updateJointNote,
   HISTORY_LIMIT,
 } from './store.ts';
+export { registerBodyLayouts, templatesFor } from './body-templates.ts';
+export type { BodyTemplate } from './body-templates.ts';
 export type {
   CommitHook,
   EditorAction,

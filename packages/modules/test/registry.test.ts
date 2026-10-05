@@ -132,3 +132,15 @@ describe('derived records, owned files and reserved names', () => {
     expect(problems.join('\n')).toMatch(/two panels/);
   });
 });
+
+describe('art contributions', () => {
+  const mod = (id: string, art: object) => defineModule({ id, label: id, version: '1.0.0', art });
+  it('lists each module\'s art in manifest order', () => {
+    const registry = createRegistry([mod('a-mod', { connectors: [{ id: 'one' }] }), mod('b-mod', { bodyLayouts: [{ id: 'two' }] })]);
+    expect(registry.art().map((a) => a.module)).toEqual(['a-mod', 'b-mod']);
+  });
+  it('refuses a record without a kebab id and an id two modules both draw', () => {
+    expect(() => createRegistry([mod('a-mod', { connectors: [{ short: 'x' }] })])).toThrow(/without a kebab-case id/);
+    expect(() => createRegistry([mod('a-mod', { connectors: [{ id: 'one' }] }), mod('b-mod', { connectors: [{ id: 'one' }] })])).toThrow(/'one' is contributed by both/);
+  });
+});

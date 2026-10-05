@@ -206,6 +206,9 @@ importers:
       '@wirehub/modules':
         specifier: workspace:*
         version: link:../../packages/modules
+      '@wirehub/render-svg':
+        specifier: workspace:*
+        version: link:../../packages/render-svg
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -263,6 +266,9 @@ importers:
       '@wirehub/modules':
         specifier: workspace:*
         version: link:../../packages/modules
+      '@wirehub/render-svg':
+        specifier: workspace:*
+        version: link:../../packages/render-svg
       typescript:
         specifier: 7.0.2
         version: 7.0.2

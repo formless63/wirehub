@@ -3,7 +3,7 @@
  *
  * A face is presentation, not truth: outline artwork plus where each pin sits,
  * keyed by connector definition id. Traced faces (hand-drawn artwork a
- * deployment may supply, `assets.ts`) win; otherwise a connector is drawn from
+ * deployment may supply, `assets.ts`) win, then depictions (`depiction-art.ts`); otherwise a connector is drawn from
  * the canvas's reviewed connector geometry (`drawn-faces.ts`), in the same
  * visual language, and marked where that geometry is approximate. One nobody
  * has drawn at all still gets a face — a plain pin grid — because a drawing
@@ -18,7 +18,8 @@
 
 import type { ConnectorDefinition } from '@wirehub/model';
 
-import { TRACED_FACES, TRACED_PLUGS } from './assets.ts';
+import { registeredDepictions, registeredFace, registeredFaceIds, registeredPlug, registeredPlugIds } from './assets.ts';
+import { depictedFace } from './depiction-art.ts';
 import { drawnFace } from './drawn-faces.ts';
 
 export interface FaceArtPath {
@@ -135,15 +136,6 @@ export function genericFace(def: ConnectorDefinition, pinIds: readonly string[])
   };
 }
 
-/**
- * Connectors that share another connector's traced shell with a different
- * pinout: same physical face, same pin positions, different signals.
- */
-const SAME_SHELL: Readonly<Record<string, string>> = {
-  // the Peritel plug with the JP21 signal layout: one traced face serves both
-  'jp21-male': 'scart-male',
-};
-
 export type FaceSource = 'traced' | 'drawn' | 'generic';
 
 /**
@@ -152,13 +144,9 @@ export type FaceSource = 'traced' | 'drawn' | 'generic';
  * numbered grid. `traced` is true for the first two — a real face.
  */
 export function faceFor(def: ConnectorDefinition, pinIds: readonly string[]): { face: FaceArt; traced: boolean; source: FaceSource } {
-  const shell = SAME_SHELL[def.id];
-  const traced = TRACED_FACES[def.id] ?? (shell === undefined ? undefined : TRACED_FACES[shell]);
-  if (traced !== undefined) {
-    // same shell, own name: the BOM line is this connector's
-    const face = shell === undefined ? traced : { ...traced, material: materialFromLabel(def), src: `${traced.src}, same shell as ${shell}` };
-    return { face, traced: true, source: 'traced' };
-  }
+  // supplied art wins; then a depiction (a catalog's or a pack's SVG face)
+  const traced = registeredFace(def.id) ?? depictedFace(registeredDepictions(), def);
+  if (traced !== undefined) return { face: traced, traced: true, source: 'traced' };
   const drawn = drawnFace(def);
   if (drawn !== undefined) return { face: drawn, traced: true, source: 'drawn' };
   return { face: genericFace(def, pinIds), traced: false, source: 'generic' };
@@ -166,7 +154,7 @@ export function faceFor(def: ConnectorDefinition, pinIds: readonly string[]): { 
 
 /** Connector definition ids that have a traced face. */
 export function tracedFaceIds(): string[] {
-  return Object.keys(TRACED_FACES).sort();
+  return registeredFaceIds();
 }
 
 /**
@@ -176,15 +164,15 @@ export function tracedFaceIds(): string[] {
  */
 export function plugFor(defId: string, options: { angled?: boolean } = {}): FaceArt | undefined {
   if (options.angled === true) {
-    const angled = TRACED_PLUGS[`${defId}-ra`];
+    const angled = registeredPlug(`${defId}-ra`);
     if (angled !== undefined) return angled;
   }
-  return TRACED_PLUGS[defId];
+  return registeredPlug(defId);
 }
 
 /** Connector definition ids with a side-view plug (the `-ra` ones are the 90° versions). */
 export function tracedPlugIds(): string[] {
-  return Object.keys(TRACED_PLUGS).sort();
+  return registeredPlugIds();
 }
 
 /* ------------------------------------------------------------------ *

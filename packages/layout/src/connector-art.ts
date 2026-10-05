@@ -15,8 +15,8 @@
  *
  * Two kinds of drawing:
  *
- *  - **mating face** (D-Sub, HD15, SCART, JP21, mini-DIN, DIN, console
- *    multi-outs): the face the shop sees when it plugs the part in, long
+ *  - **mating face** (D-Sub, HD15, mini-DIN, DIN, and any a catalog pack
+ *    draws as data — `registerConnectorArt`): the face the shop sees when it plugs the part in, long
  *    axis vertical, a handle on every drawn pin;
  *  - **side profile** (RCA, 3.5 mm TRS, BNC): strain relief, grip, the
  *    business end — with the solder lugs at the cable end carrying the
@@ -30,6 +30,7 @@
  * comment and the art carries `approximate: true` (shown in the tooltip).
  */
 
+import type { ConnectorArtRecord } from '@wirehub/catalog';
 import type { ConnectorBody, ConnectorDefinition } from '@wirehub/model';
 
 /** The side a drawing's wire leaves toward (the canvas's board-art `Facing`). */
@@ -135,8 +136,6 @@ export const BODY_DRAWINGS = [
   'mini-din',
   'd-sub',
   'hd15',
-  'scart',
-  'jp21',
   'rca',
   'trs',
   'bnc',
@@ -163,8 +162,6 @@ export function bodyDrawing(body: Pick<ConnectorBody, 'id' | 'label' | 'family'>
     case 'mini-din':
     case 'd-sub':
     case 'hd15':
-    case 'scart':
-    case 'jp21':
     case 'rca':
     case 'trs':
     case 'bnc':
@@ -172,6 +169,71 @@ export function bodyDrawing(body: Pick<ConnectorBody, 'id' | 'label' | 'family'>
     default:
       return undefined;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Drawings a catalog pack ships (specs/drawing-language.md §7)
+ * ------------------------------------------------------------------ */
+
+/**
+ * The connector drawings registered by packs and modules, by record id. The
+ * built-in drawings below are the base's own shapes; a registered record
+ * draws the bodies, `drawing` names and families it names, and wins over a
+ * built-in drawing of the same body. Registration is the host's job (the
+ * studio does it from the module manifest at start); nothing registered means
+ * the base alone, and a family nobody draws keeps its pin table.
+ */
+const registered = new Map<string, ConnectorArtRecord>();
+
+/**
+ * Register connector drawings (a pack's `art/connectors/*.json`); a record
+ * with a known id replaces the earlier one. Returns the function that takes
+ * these records out again — tests that must see the base alone use it.
+ */
+export function registerConnectorArt(records: readonly ConnectorArtRecord[]): () => void {
+  for (const record of records) registered.set(record.id, record);
+  return () => {
+    for (const record of records) if (registered.get(record.id) === record) registered.delete(record.id);
+  };
+}
+
+/** Every registered connector drawing, in registration order. */
+export function registeredConnectorArt(): ConnectorArtRecord[] {
+  return [...registered.values()];
+}
+
+/** The registered record that draws this connector: its body id, then its body's `drawing` name, then its family. */
+function packArtFor(def: ConnectorDefinition, body: ConnectorBody | undefined): ConnectorArtRecord | undefined {
+  if (registered.size === 0) return undefined;
+  const records = [...registered.values()];
+  const bodyIds = [body?.id, def.body].filter((id): id is string => id !== undefined);
+  const family = normalFamily(body?.family ?? def.family ?? '');
+  return (
+    records.find((r) => bodyIds.some((id) => (r.bodies ?? []).includes(id))) ??
+    (body?.drawing === undefined ? undefined : records.find((r) => (r.drawings ?? []).includes(body.drawing as string))) ??
+    (family === '' ? undefined : records.find((r) => (r.families ?? []).includes(family)))
+  );
+}
+
+/** A record as the art a renderer paints, or `undefined` when the connector has a pin it does not draw. */
+function artOfRecord(def: ConnectorDefinition, record: ConnectorArtRecord): ConnectorArt | undefined {
+  const has = new Set(def.pins.map((pin) => pin.id));
+  const pins: ConnectorPinArt[] = record.pins
+    .filter((pin) => pin.ifDefined !== true || has.has(pin.terminal))
+    .map(({ ifDefined: _ifDefined, ...pin }) => pin);
+  const drawn = new Set(pins.map((pin) => pin.terminal));
+  if (!def.pins.every((pin) => drawn.has(pin.id))) return undefined;
+  return {
+    defId: def.id,
+    view: 'face',
+    short: record.short,
+    width: record.width,
+    height: record.height,
+    shapes: record.shapes.map((shape) => ({ ...shape })),
+    pins,
+    labels: record.labels.map((item) => ({ ...item })),
+    approximate: record.approximate,
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -462,91 +524,6 @@ function dsub(def: ConnectorDefinition, highDensity: boolean, positions?: number
 
   const short = highDensity ? 'HD15' : `D-${count}`;
   return face.art(def, def.label.startsWith('DB-') ? `DB-${count}` : short, def.id === 'db23-male');
-}
-
-/* ------------------------------------------------------------------ *
- * SCART and JP21 (the same Peritel plug)
- * ------------------------------------------------------------------ */
-
-/**
- * The Peritel plug: 48 × 15.5 mm shell with one chamfered corner, two
- * staggered rows of flat blades — the even pins in one row, the odd in the
- * other — and the shell itself as pin 21. JP21 uses the same plug with a
- * different signal layout, so it draws identically. The blade pitch and the
- * chamfer's corner size are still approximate (no mechanical spec / caliper
- * measurement cited yet) but the row/column assignment below is now settled.
- *
- * **Which column is odd and which is even** (* 2026-09-24): fixed from a mirror-image bug. Two independent front-view
- * mating-face references agree once put in the same orientation:
- *
- *  - a published photograph of a real male SCART plug (a cable-mount male plug,
- *    contacts visible, its mating face facing the camera, long axis vertical
- *    like this canvas draws it): the shell's own moulded-in numbers read,
- *    left column top-to-bottom 20-18-16-...-2 (even), right column
- *    top-to-bottom 19-17-...-1 (odd);
- *  - Wikipedia's `SCART.svg` (https://commons.wikimedia.org/wiki/File:SCART.svg,
- *    a wide, un-rotated front-view line drawing, odd row on top / even row on
- *    the bottom, ascending left→right, pin 21 and the shell's chamfer at the
- *    high-numbered end) gives, once turned the same quarter-turn this file's
- *    `Face` class turns every mating face and read against a reference
- *    photograph's up/down choice: the same left=even / right=odd column split.
- *
- * The previous code had this mirrored (it matched the *solder* side, not the
- * mating face this canvas is documented to draw) — swapped below. The
- * chamfer/pin-21 corner's own left-right side did not need to change: it was
- * already coded on the same edge the even row ends up on after the fix,
- * which is where both references show it (the SCART.svg outline is wider on
- * the even row's edge at the 19/20/21 end).
- */
-function peritel(def: ConnectorDefinition, short: string): ConnectorArt | undefined {
-  if (!numbered(def, 21, ['shell'])) return undefined;
-  const k = 3.8;
-  const long = 48;
-  const across = 15.5;
-  const face = new Face(long + 1, across + 1, k);
-  const hl = long / 2;
-  const ha = across / 2;
-  const ch = 3.2;
-  // front view: even row on top, odd row below; the chamfer bottom-left
-  face.poly(
-    [
-      [-hl, -ha],
-      [hl, -ha],
-      [hl, ha],
-      [-hl + ch, ha],
-      [-hl, ha - ch],
-    ],
-    'shell',
-  );
-  const i = 1.3;
-  face.poly(
-    [
-      [-hl + i, -ha + i],
-      [hl - i, -ha + i],
-      [hl - i, ha - i],
-      [-hl + ch + i * 0.6, ha - i],
-      [-hl + i, ha - ch - i * 0.6],
-    ],
-    'insert',
-  );
-  const pitch = 4;
-  // blades lie across the plug's long axis
-  const blade = { w: 0.9, h: 2.6 };
-  for (let index = 0; index < 10; index += 1) {
-    const even = 20 - index * 2;
-    const odd = 19 - index * 2;
-    const u = -18 + index * pitch;
-    // v sign fixed: even now on the same side as the
-    // chamfer/pin-21 edge, matching the mating-face references above
-    face.pin(String(even), u, 2.4, 'blade', blade);
-    face.pin(String(odd), u + pitch / 2, -2.4, 'blade', blade);
-  }
-  face.text(-18 - 3.3, 2.4, '20');
-  face.text(-18 + 9 * pitch + pitch / 2 + 3.3, -2.4, '1');
-  // the shell: 21 on one long edge, the plug's own shell on the other end
-  face.pin('21', -hl + 7, ha, 'shell', {});
-  if (def.pins.some((pin) => pin.id === 'shell')) face.pin('shell', hl - 7, ha, 'shell', {});
-  return face.art(def, short, true);
 }
 
 /* ------------------------------------------------------------------ *
@@ -1062,6 +1039,8 @@ function numberedOf(body: ConnectorBody | undefined): number | undefined {
 
 export function connectorArt(input: ConnectorArtInput): ConnectorArt | undefined {
   const { def, facing, body } = input;
+  const fromPack = packArtFor(def, body);
+  if (fromPack !== undefined) return artOfRecord(def, fromPack);
   const drawing =
     body !== undefined
       ? bodyDrawing(body)
@@ -1071,11 +1050,6 @@ export function connectorArt(input: ConnectorArtInput): ConnectorArt | undefined
       return dsub(def, false, numberedOf(body));
     case 'hd15':
       return dsub(def, true, numberedOf(body));
-    case 'scart':
-    case 'jp21':
-      // one 21-pin body, two pinouts: the caption follows the connector
-      // (sinks.md §2: "physically identical … electrically incompatible")
-      return peritel(def, drawing === 'jp21' || normalFamily(def.family ?? '') === 'jp21' ? 'JP21' : 'SCART');
     case 'mini-din': {
       const count = def.pins.filter((pin) => /^\d+$/.test(pin.id)).length;
       const positions = body === undefined ? count : body.positions.filter((p) => /^\d+$/.test(p.id)).length;

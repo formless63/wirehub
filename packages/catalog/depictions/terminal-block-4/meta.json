@@ -1,0 +1,45 @@
+{
+  "defId": "terminal-block-4",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 22.32,
+      "heightUnits": 12,
+      "src": "4-way screw terminal block, 5.08 mm pitch: screw heads above, wire entries below (approximate generic outline); positions numbered left to right. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 22.32,
+      "heightUnits": 12,
+      "src": "4-way screw terminal block, 5.08 mm pitch: screw heads above, wire entries below (approximate generic outline); positions numbered left to right. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 3.54,
+      "y": 6.4
+    },
+    "2": {
+      "x": 8.62,
+      "y": 6.4
+    },
+    "3": {
+      "x": 13.7,
+      "y": 6.4
+    },
+    "4": {
+      "x": 18.78,
+      "y": 6.4
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "4-way screw terminal block, 5.08 mm pitch: screw heads above, wire entries below (approximate generic outline); positions numbered left to right. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}

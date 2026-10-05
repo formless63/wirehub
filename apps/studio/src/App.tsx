@@ -38,7 +38,10 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useState, type JSX } from 'react';
-import { setCommitHook } from '@wirehub/editor-react';
+import { registerBodyLayouts, setCommitHook } from '@wirehub/editor-react';
+import { registerDrawingArt } from '@wirehub/docs';
+import { installModuleArt } from '../module-art.ts';
+import { browserDepictions } from './depictions.browser.ts';
 import type { ModuleRegistry } from '@wirehub/modules';
 import { Toaster } from 'sonner';
 
@@ -97,6 +100,13 @@ export function App({
     setCommitHook(modules.commitHook());
     return () => setCommitHook(undefined);
   }, [modules]);
+  // the drawings the modules carry: connector faces, body layouts, sheet art
+  useEffect(() => installModuleArt(modules, registerBodyLayouts), [modules]);
+  // the drawing sheet reads connector faces and cutaways from the same depiction tree as the schematic
+  useEffect(() => {
+    const live = browserDepictions();
+    return registerDrawingArt({ depictions: { meta: (id) => live.current().meta(id), artwork: (id, view) => live.current().artwork(id, view) } });
+  }, []);
   return (
     <ModulesContext.Provider value={modules}>
     <QueryClientProvider client={queryClient}>

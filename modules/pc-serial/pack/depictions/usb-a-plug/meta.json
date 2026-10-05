@@ -1,0 +1,49 @@
+{
+  "defId": "usb-a-plug",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 16,
+      "heightUnits": 8.5,
+      "src": "USB Standard-A plug mating face, 12.0 x 4.5 mm shell; the four contacts are numbered 1-4 left to right here (inferred order, approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 16,
+      "heightUnits": 8.5,
+      "src": "USB Standard-A plug mating face, 12.0 x 4.5 mm shell; the four contacts are numbered 1-4 left to right here (inferred order, approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 4.1,
+      "y": 4.6
+    },
+    "2": {
+      "x": 6.4,
+      "y": 4.6
+    },
+    "3": {
+      "x": 8.9,
+      "y": 4.6
+    },
+    "4": {
+      "x": 11.5,
+      "y": 4.6
+    },
+    "shell": {
+      "x": 8,
+      "y": 2
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "USB Standard-A plug mating face, 12.0 x 4.5 mm shell; the four contacts are numbered 1-4 left to right here (inferred order, approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}

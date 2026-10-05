@@ -1,0 +1,37 @@
+{
+  "defId": "rca-male",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 14,
+      "heightUnits": 14,
+      "src": "RCA (phono) plug end-on: centre pin (tip) inside the outer sleeve; approximate generic outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 14,
+      "heightUnits": 14,
+      "src": "RCA (phono) plug end-on: centre pin (tip) inside the outer sleeve; approximate generic outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "sleeve": {
+      "x": 12.2,
+      "y": 7
+    },
+    "tip": {
+      "x": 7,
+      "y": 7
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "RCA (phono) plug end-on: centre pin (tip) inside the outer sleeve; approximate generic outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}
