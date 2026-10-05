@@ -13,7 +13,7 @@
  * so a module still wins and an empty setting leaves the generic text.
  */
 
-import { electricalRulesProblems, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, type ElectricalRules } from '@wirehub/model';
+import { costingRulesProblems, electricalRulesProblems, type CostingRules, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, type ElectricalRules } from '@wirehub/model';
 import { readTestParameters, type TestParameters } from '@wirehub/docs';
 
 import type { ApiResponse } from './api.ts';
@@ -46,6 +46,8 @@ export interface EngineeringRecord {
   testDefaults?: TestParameters;
   /** thresholds of the electrical rules (`@wirehub/model` electrical.ts) */
   electrical?: ElectricalRules;
+  /** the organisation's currency and labour rate for the BOM cost roll-up (cs-5k1.17) */
+  costing?: CostingRules;
   /** release approvals on saved versions */
   approvals?: { enabled: boolean; approverRoles?: ApproverRole[] };
   src: string;
@@ -158,6 +160,12 @@ async function handleEngineering(method: string, body: unknown, deps: SettingsDe
     const problems = electricalRulesProblems(el);
     if (problems.length > 0) return fail(400, `The electrical rules are not valid: ${problems.join(' ')}`);
     if (Object.keys(el as object).length > 0) next.electrical = el as ElectricalRules;
+  }
+  const co = input['costing'];
+  if (co !== undefined && co !== null) {
+    const problems = costingRulesProblems(co);
+    if (problems.length > 0) return fail(400, `The costing settings are not valid: ${problems.join(' ')}`);
+    if (Object.keys(co as object).length > 0) next.costing = co as CostingRules;
   }
   const ap = input['approvals'];
   if (ap !== undefined && ap !== null) {

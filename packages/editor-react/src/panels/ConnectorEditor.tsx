@@ -27,6 +27,7 @@ import { resolveVocab } from '@wirehub/model';
 
 import { signalRefOf, useVocab } from '../vocab.ts';
 import { Field, FormSection, RowTools, SrcField } from './fields.tsx';
+import { CostFields, costOfExtra, withExtraCost } from './CostFields.tsx';
 import { Pick } from './Pick.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
 
@@ -113,6 +114,18 @@ export function ConnectorEditor(props: ConnectorEditorProps): JSX.Element {
           />
         </div>
         <SrcField value={draft.src} onChange={(value) => set('src', value)} />
+      </FormSection>
+
+      <FormSection title="Cost" say="Optional. The BOM shows a cost only where parts are priced.">
+        <CostFields
+          key={draft.id}
+          cost={costOfExtra(draft.extra)}
+          onChange={(cost) => {
+            const extra = withExtraCost(draft.extra, cost);
+            const { extra: _drop, ...rest } = draft;
+            onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
+          }}
+        />
       </FormSection>
 
       <FormSection

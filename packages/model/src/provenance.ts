@@ -17,6 +17,7 @@
  * shape, never fetched).
  */
 
+import { costIssues, type PartCost } from './cost.ts';
 import type { Issue } from './model.ts';
 
 /** How a record's values were obtained. */
@@ -58,6 +59,8 @@ export interface RecordMeta {
   license?: string;
   provenance?: RecordProvenance;
   derivedFrom?: DerivedFrom;
+  /** optional price (`cost.ts`); absent = unpriced */
+  cost?: PartCost;
 }
 
 const SPDX_ID = /^(?:LicenseRef-[A-Za-z0-9.-]+|[A-Za-z0-9][A-Za-z0-9.-]*\+?)$/;
@@ -170,5 +173,6 @@ export function recordMetaIssues(record: object, where: string): Issue[] {
       bad('record-derived-from', 'derivedFrom must be { pack (kebab-case), id, version (semver) }');
     }
   }
+  issues.push(...costIssues(record, where));
   return issues;
 }

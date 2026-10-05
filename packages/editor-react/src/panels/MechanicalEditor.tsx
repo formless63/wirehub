@@ -9,6 +9,7 @@ import type { JSX } from 'react';
 import { MECHANICAL_KINDS, mechanicalOf, type MechanicalDraft } from '../library.ts';
 import { slugify } from '../persistence.ts';
 import { Choice, Field, FormSection, SrcField } from './fields.tsx';
+import { CostFields, costOfExtra, withExtraCost } from './CostFields.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
 
 export interface MechanicalEditorProps {
@@ -32,6 +33,7 @@ export function MechanicalEditor(props: MechanicalEditorProps): JSX.Element {
     onChange({ ...draft, label, ...(follows ? { id: slugify(label) } : {}) });
   };
   return (
+    <>
     <FormSection title="What this part is">
       <div className="cs-form-grid">
         <Field label="Name" value={draft.label} onChange={setLabel} placeholder="Part name" autoFocus wide />
@@ -60,5 +62,17 @@ export function MechanicalEditor(props: MechanicalEditorProps): JSX.Element {
       </div>
       <SrcField value={draft.src} onChange={(value) => set('src', value)} />
     </FormSection>
+    <FormSection title="Cost" say="Optional. The BOM shows a cost only where parts are priced.">
+      <CostFields
+        key={draft.id}
+        cost={costOfExtra(draft.extra)}
+        onChange={(cost) => {
+          const extra = withExtraCost(draft.extra, cost);
+          const { extra: _drop, ...rest } = draft;
+          onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
+        }}
+      />
+    </FormSection>
+    </>
   );
 }

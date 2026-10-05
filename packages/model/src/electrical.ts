@@ -21,6 +21,7 @@
  * here. Pure: definitions in, numbers and issues out.
  */
 
+import type { CostingRules } from './cost.ts';
 import { deriveNets, type Net } from './nets.ts';
 import {
   findConnector,
@@ -69,6 +70,8 @@ export const DEFAULT_ELECTRICAL_RULES = {
 /** The rules a db carries (organisation settings), as an object `Db` can hold. */
 export interface DbRules {
   electrical?: ElectricalRules;
+  /** currency and labour rate for the BOM cost roll-up (`cost.ts`) */
+  costing?: CostingRules;
 }
 
 /**
