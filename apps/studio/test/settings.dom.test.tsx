@@ -64,6 +64,22 @@ describe('Hub settings', () => {
     expect((stored.body as { organisation: string }).organisation).toBe('Acme Cable Co');
   });
 
+  it('takes an SVG logo and a wire spec file prefix; the file names pick the prefix up (cs-vzv)', async () => {
+    mount();
+    fireEvent.change(await screen.findByLabelText('Wire spec file prefix'), { target: { value: 'ACME-WS-' } });
+    const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#c2602a"/></svg>'], 'logo.svg', { type: 'image/svg+xml' });
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Logo file'), { target: { files: [svg] } });
+    });
+    await screen.findByAltText('Logo preview');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(registeredTitleBlock().filePrefix).toBe('ACME-WS-'));
+    // saved as a PNG, whatever was uploaded
+    await waitFor(() => expect(registeredLogo()?.pngBase64).toMatch(/^iVBOR/));
+    const { wireSpecFileName } = await import('@wirehub/docs');
+    expect(wireSpecFileName({ id: 'x', partNumber: 'WIR-00001' } as never)).toMatch(/^ACME-WS-/);
+  });
+
   it('a module\'s title-block art still wins over the setting', async () => {
     const off = registerDrawingArt({ titleBlock: { organisation: 'Module Org' } });
     try {

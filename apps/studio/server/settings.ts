@@ -8,18 +8,22 @@
  * the unit of work like every other record, so both backends keep it with the
  * catalog (and in the export). The logo is a PNG, sanitised on the way in
  * (`png-sanitize.ts`) and kept as a content-addressed asset; the document names it
- * by id. Nothing here is a document renderer: the browser registers what this
+ * by id. An SVG logo is cleaned of anything active (`stripUnsafeSvg`) and
+ * rasterised to a PNG here (the same resvg the PDF pages use), so what is kept
+ * is always a PNG. Nothing here is a document renderer: the browser registers what this
  * returns as drawing art (`installBranding`, `module-art.ts`), after a module's art,
  * so a module still wins and an empty setting leaves the generic text.
  */
 
 import { costingRulesProblems, electricalRulesProblems, type CostingRules, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, type ElectricalRules } from '@wirehub/model';
-import { readTestParameters, type TestParameters } from '@wirehub/docs';
+import { FILE_PREFIX_PATTERN, readTestParameters, type TestParameters } from '@wirehub/docs';
+import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
 
 import type { ApiResponse } from './api.ts';
 import { assetDataUri, decodeImageDataUri, type AssetStore } from './assets.ts';
 import { checkIfMatch, contentETag } from './etag.ts';
-import { sanitizePng } from './png-sanitize.ts';
+import { MAX_LOGO_BYTES, sanitizePng } from './png-sanitize.ts';
+import { svgToPng } from './render/raster.ts';
 import type { DocStore } from './storage/doc-store.ts';
 
 export const BRANDING_PATH = 'data/settings/branding.json';
@@ -79,6 +83,8 @@ export interface BrandingRecord {
   standard?: string;
   rights?: string;
   designer?: string;
+  /** the prefix of exported wire spec files (default `WSS_`) */
+  filePrefix?: string;
   /** the title block's three-line general note */
   notes?: [string, string, string];
   /** an asset id (sha256) of the sanitised PNG */
@@ -94,6 +100,7 @@ export interface BrandingView extends Omit<BrandingRecord, 'logo'> {
 
 const TEXT_FIELDS = [
   ['organisation', 80],
+  ['filePrefix', 16],
   ['standard', 80],
   ['rights', 160],
   ['designer', 80],
@@ -200,6 +207,9 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
     if (got.error !== undefined) return fail(400, got.error);
     if (got.value !== undefined) next[field] = got.value;
   }
+  if (next.filePrefix !== undefined && !FILE_PREFIX_PATTERN.test(next.filePrefix)) {
+    return fail(400, 'filePrefix may use letters, digits, dot, dash and underscore, up to 16 characters.', 'For example WSS_ or ACME-WS-.');
+  }
   if (input['notes'] !== undefined && input['notes'] !== null) {
     const notes = input['notes'];
     if (!Array.isArray(notes) || notes.length !== 3) return fail(400, 'notes are three lines of text.');
@@ -216,13 +226,36 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
   if (logo === undefined) {
     if (current?.logo !== undefined) next.logo = current.logo;
   } else if (logo !== null) {
-    if (typeof logo !== 'string') return fail(400, 'logo is a PNG data URI, or null to remove it.');
-    const decoded = decodeImageDataUri(logo);
-    if (decoded === undefined || decoded.mime !== 'image/png') return fail(400, 'The logo must be a PNG.', 'SVG and JPEG are not accepted: the drawing sheet embeds a raster logo.');
-    const clear = sanitizePng(decoded.bytes);
+    if (typeof logo !== 'string') return fail(400, 'logo is a PNG or SVG data URI, or null to remove it.');
+    let pngBytes: Uint8Array | undefined;
+    let how = 'sanitised to its pixel chunks';
+    const svg = /^data:image\/svg\+xml(?:;charset=[\w-]+)?(;base64)?,([\s\S]*)$/i.exec(logo);
+    if (svg !== null) {
+      // an SVG is cleaned of scripts and external references, then drawn to a PNG: the sheets embed a raster logo
+      let source: string;
+      try {
+        source = svg[1] === undefined ? decodeURIComponent(svg[2] as string) : Buffer.from(svg[2] as string, 'base64').toString('utf8');
+      } catch {
+        return fail(400, 'The SVG logo could not be read.');
+      }
+      if (source.length > MAX_LOGO_BYTES) return fail(400, `The logo is larger than ${MAX_LOGO_BYTES / 1024} KiB.`);
+      const stripped = stripUnsafeSvg(source);
+      if (stripped.svg === undefined) return fail(400, `The SVG logo cannot be used: ${stripped.error ?? 'it is not an SVG'}.`);
+      try {
+        pngBytes = await svgToPng(stripped.svg, 1024);
+      } catch (error) {
+        return fail(400, error instanceof Error ? error.message : 'That SVG could not be drawn.');
+      }
+      how = 'rasterised from an SVG upload';
+    } else {
+      const decoded = decodeImageDataUri(logo);
+      if (decoded === undefined || decoded.mime !== 'image/png') return fail(400, 'The logo must be a PNG or an SVG.', 'JPEG is not accepted: the drawing sheet embeds a raster logo.');
+      pngBytes = decoded.bytes;
+    }
+    const clear = sanitizePng(pngBytes);
     if (!clear.ok) return fail(400, clear.reason);
     if (deps.assets === undefined) return fail(501, 'This studio does not keep a shared asset library.', 'There is nowhere to keep the logo.');
-    next.logo = (await deps.assets.put(clear.bytes, 'image/png', 'logo.png', 'Organisation logo (hub settings), sanitised to its pixel chunks.')).id;
+    next.logo = (await deps.assets.put(clear.bytes, 'image/png', 'logo.png', `Organisation logo (hub settings), ${how}.`)).id;
   }
   const empty = Object.keys(next).every((k) => k === 'src');
   if (empty) await deps.docs.remove(BRANDING_PATH);

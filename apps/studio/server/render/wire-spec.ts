@@ -80,8 +80,8 @@ export interface WireSpecFile {
 
 /** One stock's spec sheet in `format`, named `<WIRE_SPEC_FILE_PREFIX><doc number>.<ext>`. */
 export function renderWireSpec(wire: WireDefinition, format: WireSpecFormat, options: Omit<WireSpecOptions, 'paper'> & { paper?: 'A4' | 'letter' } = {}): WireSpecFile {
-  const stem = wireSpecFileStem(wire);
   const { paper = 'A4', ...sheet } = options;
+  const stem = wireSpecFileStem(wire, sheet.filePrefix);
   if (format === 'html') return { mimeType: 'text/html; charset=utf-8', fileName: `${stem}.html`, body: renderWireSpecSheet(wire, { ...sheet, paper: paper === 'letter' ? 'Letter' : 'A4' }) };
   const markdown = wireSpecMarkdown(renderWireSpecSheet(wire, { ...sheet, fragment: true }));
   const pages = layoutMarkdown(markdown, { paper: PAPER[paper], footer: stem });

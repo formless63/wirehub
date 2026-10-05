@@ -7,7 +7,7 @@
 import { loadDb, loadDesign, listDesignIds } from '@wirehub/catalog';
 import { describe, expect, it } from 'vitest';
 
-import { headerHtml, registerDrawingArt, renderDrawingSheet, renderWireSpecSheet, sheetHeader } from '../src/index.ts';
+import { headerHtml, registerDrawingArt, renderDrawingSheet, renderWireSpecSheet, sheetHeader, wireSpecFileName, wireSpecFileStem } from '../src/index.ts';
 import { registeredTitleBlock } from '../src/drawing/assets.ts';
 
 const db = loadDb();
@@ -43,5 +43,24 @@ describe('title-block branding', () => {
     } finally {
       offs.forEach((off) => off());
     }
+  });
+});
+
+describe('the wire spec file prefix (cs-vzv)', () => {
+  const w = { id: 'x', partNumber: 'WIR-00001' } as Parameters<typeof wireSpecFileStem>[0];
+
+  it('is WSS_ unless branding or the caller says otherwise, and an unusable prefix falls back', () => {
+    expect(wireSpecFileStem(w)).toBe('WSS_WIR-00001');
+    expect(wireSpecFileStem(w, 'ACME-')).toBe('ACME-WIR-00001');
+    expect(wireSpecFileStem(w, 'bad prefix/')).toBe('WSS_WIR-00001');
+    const off = registerDrawingArt({ titleBlock: { filePrefix: 'HUB_' } });
+    try {
+      expect(wireSpecFileStem(w)).toBe('HUB_WIR-00001');
+      expect(wireSpecFileName(w, 'pdf')).toBe('HUB_WIR-00001.pdf');
+      expect(wireSpecFileStem(w, 'ACME-')).toBe('ACME-WIR-00001');
+    } finally {
+      off();
+    }
+    expect(wireSpecFileStem(w)).toBe('WSS_WIR-00001');
   });
 });

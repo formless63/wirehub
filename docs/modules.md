@@ -263,10 +263,11 @@ step that makes it a module point; the bead stays open for it.
 
 
 **The hub's own identity.** A hub with no branding module still sets its organisation name,
-standard name, rights line, default designer and a PNG logo on `/settings` (an owner or an
+standard name, rights line, default designer, the prefix of its wire spec files (default `WSS_`) and a PNG or SVG logo on `/settings` (an owner or an
 editor; stored as `data/settings/branding.json` plus a sanitised asset, so both backends keep it
-with the catalog). The app registers them as drawing art (`titleBlock.organisation / standard /
-rights / designer`, and `logo`) **after** the modules' art. The first registration to set a part
+with the catalog; an SVG logo is cleaned of scripts and external references and drawn to a PNG on
+the server, the same rasteriser the PDF exports use). The app registers them as drawing art
+(`titleBlock.organisation / standard / rights / designer / filePrefix`, and `logo`) **after** the modules' art. The first registration to set a part
 wins, so a module's `art.drawing` still beats the setting, and an unset field keeps the generic
 text. The drawing sheet's title block, the wire spec, and the bench build sheet / BOM header read
 it; no renderer is branded by hand.

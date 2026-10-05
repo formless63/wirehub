@@ -31,7 +31,7 @@ export type WireDetailTab = 'builder' | 'spec' | 'record';
 
 /**
  * The stock's WireHub Standard sheet (). Every file it
- * leaves as is named `ASS_<part number>`: the download, and the print —
+ * leaves as is named `<prefix><part number>` (WSS_ unless the hub's settings say otherwise): the download, and the print —
  * a browser names a saved PDF after the page title, so the title is set for
  * the length of the print.
  */

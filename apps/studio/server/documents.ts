@@ -27,7 +27,7 @@ import type { ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
 import type { DrawingStore } from './drawings.ts';
 import { type ApprovalFacts, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
-import { approvalPolicy, effectiveTestDefaults } from './settings.ts';
+import { approvalPolicy, BRANDING_PATH, effectiveTestDefaults, type BrandingRecord } from './settings.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
 import type { DepictionStore } from './depictions.ts';
@@ -206,8 +206,14 @@ async function wireSpec(method: string, id: string, query: URLSearchParams, deps
   const library = await deps.wireLibrary?.read();
   const recipe = library?.recipes.find((r) => r.id === id);
   const manufacturers = db.vocab?.['manufacturers']?.entries;
+  // the hub's branding (settings): who issues it and what its files are called; the browser registers the same
+  const branding = (await deps.docs?.read(BRANDING_PATH)) as BrandingRecord | undefined;
   try {
     const out = renderWireSpec(wire, asked, {
+      ...(branding?.organisation === undefined ? {} : { organisation: branding.organisation }),
+      ...(branding?.standard === undefined ? {} : { standard: branding.standard }),
+      ...(branding?.rights === undefined ? {} : { rightsNotice: branding.rights }),
+      ...(branding?.filePrefix === undefined ? {} : { filePrefix: branding.filePrefix }),
       ...(recipe === undefined ? {} : { recipe }),
       ...(library === undefined ? {} : { parts: library.parts }),
       ...(manufacturers === undefined ? {} : { manufacturers }),

@@ -19,7 +19,9 @@ export interface BrandingInput {
   standard?: string;
   rights?: string;
   designer?: string;
-  /** a PNG data URI sets the logo, `null` removes it, absent keeps it */
+  /** the prefix of exported wire spec files */
+  filePrefix?: string;
+  /** a PNG or SVG data URI sets the logo (an SVG is drawn to a PNG on the server), `null` removes it, absent keeps it */
   logo?: string | null;
 }
 
