@@ -22,6 +22,7 @@ import { dataPath, derivedDir, installedAcross, livePacksDir, loadDb } from '@wi
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';
 import type { BlobStore } from './blobs.ts';
+import { rekeyBoardLinks } from './models/board-art.ts';
 import { fileModelLinkStore } from './models/links.ts';
 import { fileModelCache } from './models/cache.ts';
 import { fileBuildsStore } from './builds.ts';
@@ -162,7 +163,11 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
       ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
       ...(suggested === undefined ? {} : { suggested }),
       // the tag tables cover every record: rebuild them over the new packs
-      afterInstall: () => tags.regenerate(),
+      // …and a board's model link is keyed to its art, which a pack update or disable may have changed (cs-d97)
+      afterInstall: async () => {
+        await tags.regenerate();
+        await rekeyBoardLinks(deps.depictions, deps.modelLinks);
+      },
     },
   };
   // jobs (imports, model builds) run in this process, one at a time, and are remembered in memory

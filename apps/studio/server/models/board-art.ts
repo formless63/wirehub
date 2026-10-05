@@ -15,7 +15,7 @@ import type { DepictionStore } from '../depictions.ts';
 import { isArtFile, sha256Hex, sourceKey, type SourceFile } from './cache.ts';
 import { MAX_MODEL_TRIANGLES } from './finish.ts';
 import { budgetOf } from './build.ts';
-import type { ModelLink } from './links.ts';
+import type { ModelLink, ModelLinkStore } from './links.ts';
 
 const TOP = 'board-top.svg';
 const BOTTOM = 'board-bottom.svg';
@@ -49,4 +49,23 @@ export function relinkWithArt(link: ModelLink, art: readonly SourceFile[]): Mode
   const budget = budgetOf(link) ?? MAX_MODEL_TRIANGLES;
   const files = [...link.files.filter((f) => !isArtFile(f.path)), ...art];
   return { ...link, files, asset: sourceKey(files, budget, link.build) };
+}
+
+/**
+ * Re-key every board link (`pcbas/<id>`) whose art no longer matches the
+ * depiction store: artwork that came or went outside an upload (a pack
+ * update or disable, a version put back) leaves the link keyed to art that
+ * is gone. Returns the links it re-keyed.
+ */
+export async function rekeyBoardLinks(depictions: DepictionStore | undefined, links: ModelLinkStore | undefined): Promise<string[]> {
+  if (depictions === undefined || links === undefined) return [];
+  const done: string[] = [];
+  for (const link of await links.list()) {
+    if (!link.record.startsWith('pcbas/')) continue;
+    const next = relinkWithArt(link, await boardArtFiles(depictions, link.record.slice('pcbas/'.length)));
+    if (next === undefined) continue;
+    await links.put(next);
+    done.push(link.record);
+  }
+  return done;
 }

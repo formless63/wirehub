@@ -22,6 +22,7 @@ import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 import { commitUnit, publishCatalog, type WorkbenchDeps } from '../api.ts';
 import type { SetupDeps } from '../setup.ts';
 import { isDocPath, parseDoc } from '../storage/doc-store.ts';
+import { rekeyBoardLinks } from '../models/board-art.ts';
 import { UnitOfWork } from '../storage/unit-of-work.ts';
 import type { SnapshotSource } from './deps.ts';
 
@@ -159,6 +160,8 @@ export function pgSetupDeps(workbench: WorkbenchDeps, cache: SnapshotSource, opt
         }
         // the tag tables cover every record, the packs' included
         if (changed) await uow.deps.tags?.regenerate();
+        // artwork that came or went with a pack: a board's model link is keyed to its art (cs-d97)
+        if (changed) await rekeyBoardLinks(uow.deps.depictions, uow.deps.modelLinks);
         const committed = await commitUnit(uow, { method: 'POST', path: '/api/setup' }, response);
         if (committed.status < 400 && changed) await publishCatalog(workbench);
         return committed;
