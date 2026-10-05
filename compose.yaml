@@ -107,6 +107,8 @@ services:
       # encrypts the secrets entered in Settings (SMTP password, OIDC client secret, webhook)
       WIREHUB_SETTINGS_KEY:
       WIREHUB_SETTINGS_KEY_FILE: /run/wirehub/settings_key
+      # while rotating the key: the old one(s), comma separated (the volume's settings_key_previous is read too)
+      WIREHUB_SETTINGS_KEY_PREVIOUS:
       WIREHUB_SETUP_CODE:
       WIREHUB_SETUP_CODE_FILE: /run/wirehub/setup_code
       S3_ACCESS_KEY_ID:
@@ -212,6 +214,8 @@ services:
       # reads the secrets entered in Settings (the webhook, the git mirror's credentials)
       WIREHUB_SETTINGS_KEY:
       WIREHUB_SETTINGS_KEY_FILE: /run/wirehub/settings_key
+      # while rotating the key: the old one(s), comma separated (the volume's settings_key_previous is read too)
+      WIREHUB_SETTINGS_KEY_PREVIOUS:
       # the backup profile's volume, read-only: GC deletes an orphan only after a later backup
       WIREHUB_BACKUP_DIR: /backups
       # one STEP conversion at a time, stopped past this size (MB) to stay inside mem_limit

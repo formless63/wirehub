@@ -17,7 +17,7 @@ import { memoryEventHub } from './events.ts';
 import { liveNotifier } from './notify.ts';
 import { pgSecretStore } from './pg/settings-secrets.ts';
 import { createRuntimeSettings, type RuntimeSettings } from './runtime-settings.ts';
-import { settingsCipher, settingsKeyFromEnv } from './settings-secrets.ts';
+import { settingsCipherFromEnv } from './settings-secrets.ts';
 import { createJobService, executeJob } from './jobs/service.ts';
 import { moduleJobKinds, moduleSchedules } from './jobs/module-queues.ts';
 import type { JobKind, JobService } from './jobs/types.ts';
@@ -123,8 +123,8 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     cache = new SnapshotCache(handle.db, org);
     const deps = pgWorkbenchDeps({ cache, db: handle.db, ...(blobs === undefined ? {} : { blobs }), ...(options.modules === undefined ? {} : { modules: options.modules }) });
     // the runtime settings (specs/runtime-settings.md): the environment wins, else what was saved in Settings
-    const key = settingsKeyFromEnv(env);
-    const settings = createRuntimeSettings({ env, docs: () => deps.docs, secrets: () => pgSecretStore(handle.db, org), org: () => org, ...(key === undefined ? {} : { cipher: settingsCipher(key) }), log: (line) => log(line) });
+    const cipher = settingsCipherFromEnv(env);
+    const settings = createRuntimeSettings({ env, docs: () => deps.docs, secrets: () => pgSecretStore(handle.db, org), org: () => org, ...(cipher === undefined ? {} : { cipher }), log: (line) => log(line) });
     await settings.refresh();
     // a save in the studio reaches the worker through the catalog's NOTIFY (and the heartbeat, below, as a fallback)
     const events = memoryEventHub();

@@ -247,7 +247,8 @@ export interface RuntimeGroupView {
 
 export interface RuntimeSettingsView {
   groups: RuntimeGroupView[];
-  secrets: { available: boolean; note?: string };
+  /** `keyRing` (owners only): previous keys the server still reads with, and the stored secrets not yet under the current key */
+  secrets: { available: boolean; note?: string; keyRing?: { previousKeys: number; stale: number; unreadable: number } };
   /** owners only: the settings the server's environment sets that Settings does not yet hold the same value for */
   adoptable?: { key: string; env: string; label: string }[];
   problems: string[];
@@ -260,6 +261,18 @@ export interface AdoptResult {
 
 /** Copy the server's values (its environment's runtime settings) into Settings, secrets into the encrypted store. */
 export const adoptServerValues = (base = '/api'): Promise<Outcome<AdoptResult>> => request<AdoptResult>(`${base}/settings/adopt`, { method: 'POST', body: {} });
+
+export interface RotateKeyResult {
+  total: number;
+  rotated: string[];
+  current: number;
+  skipped: string[];
+  unreadable: string[];
+  previousKeys: number;
+}
+
+/** Re-encrypt every stored secret under the server's current settings key (owner, signed in). */
+export const rotateSettingsKey = (base = '/api'): Promise<Outcome<RotateKeyResult>> => request<RotateKeyResult>(`${base}/settings/rotate-key`, { method: 'POST', body: {} });
 
 export const fetchRuntimeSettings = (base = '/api'): Promise<Outcome<RuntimeSettingsView>> => request<RuntimeSettingsView>(`${base}/settings/runtime`, { method: 'GET' });
 

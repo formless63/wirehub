@@ -40,31 +40,27 @@ import {
   type TerminalRef,
   type WireDefinition, stripMakerSuffix } from '@wirehub/model';
 
+import type {
+  Bench,
+  BenchEnd,
+  BoardFace,
+  Bridge,
+  EndSide,
+  Landing,
+  LandingElement,
+  LandingTarget,
+  SegmentEnd,
+  StockElement,
+  StripRow,
+  StripTreatment,
+  Termination,
+} from '@wirehub/model';
+
 import { trunkSegment } from '../drawing/model.ts';
 import { compareStrings } from '../text.ts';
 
-export type EndSide = 'a' | 'b';
-export type BoardFace = 'top' | 'bottom';
-
-/* ------------------------------------------------------------------ *
- * The stock's elements
- * ------------------------------------------------------------------ */
-
-/** One element of a stock the bench handles at an end (never the foil). */
-export interface StockElement {
-  path: string;
-  kind: 'core' | 'screen' | 'drain';
-  /** catalog colour name of the core (or its coax jacket): `red`, `white` */
-  colour?: string;
-  /** `Red`, `Red braid`, `Drain` */
-  name: string;
-  /** the definition's own words: `Video R centre conductor` */
-  label?: string;
-  /** a core inside a coax / shielded-core group */
-  shielded: boolean;
-  /** the group a core or its braid belongs to (`core-red`) */
-  group?: string;
-}
+// the bench types live in `@wirehub/model` (`bench-types.ts`) so a module can name them; re-exported here
+export type { Bench, BenchEnd, BoardFace, Bridge, EndSide, Landing, LandingElement, LandingTarget, SegmentEnd, StockElement, StripRow, StripTreatment, Termination };
 
 const COLOUR_ORDER = ['red', 'green', 'blue', 'yellow', 'white', 'black', 'brown', 'purple', 'violet', 'orange', 'grey', 'gray'];
 
@@ -128,122 +124,6 @@ function colourRank(colour: string | undefined): number {
   return index < 0 ? COLOUR_ORDER.length : index;
 }
 
-/* ------------------------------------------------------------------ *
- * Landings
- * ------------------------------------------------------------------ */
-
-export type LandingElement =
-  | { kind: 'core'; path: string; name: string; colour?: string; label?: string; shielded: boolean }
-  /** one screen landed on its own (a BNC's braid to the shell) */
-  | { kind: 'screen'; path: string; name: string; colour?: string }
-  | {
-      kind: 'pigtail';
-      id: string;
-      /** screen paths twisted into it (never the foil) */
-      members: string[];
-      /** a fully bonded stock's whole copper mass (bonded multi-core) */
-      mass: boolean;
-      /** `R, G, B braids + drain` / `Shield mass` */
-      name: string;
-    };
-
-export interface LandingTarget {
-  instance: string;
-  kind: 'pcba' | 'connector' | 'component';
-  def: string;
-  terminal: string;
-  /** the pin/pad label the definition gives it: `R`, `Blue`, `Audio L` */
-  label?: string;
-  /** the physical pad ref (`GND2`, `H9`) — named by the joint, else the terminal's primary pad */
-  pad?: string;
-  /** copper side of that pad */
-  copper?: 'top' | 'bottom' | 'both';
-  /** a board terminal carried for its mounted connector (`j.2`) rather than a cable pad */
-  connectorSide?: boolean;
-}
-
-export interface Landing {
-  /** soldering order at this end, 1-based */
-  n: number;
-  segment: string;
-  segEnd: EndSide;
-  element: LandingElement;
-  target: LandingTarget;
-  /** the board face it is soldered on (boards only) */
-  face?: BoardFace;
-  note?: string;
-}
-
-/* ------------------------------------------------------------------ *
- * The strip plan
- * ------------------------------------------------------------------ */
-
-export type StripTreatment =
-  /** lands on its own: see landing `n` */
-  | { kind: 'land'; n: number }
-  /** twisted into a pigtail, which lands as `n` (undefined: not landed) */
-  | { kind: 'twist'; pigtail: string; n?: number }
-  /** cut back at the jacket and left (the destination drain, a spare core) */
-  | { kind: 'cut'; why: string }
-  /** runs on uncut through a breakout mould onto its leg */
-  | { kind: 'through'; to: string };
-
-export interface StripRow {
-  element: StockElement;
-  /** one row standing for a whole bonded mass (bonded multi-core): its member count */
-  mass?: number;
-  treatment: StripTreatment;
-}
-
-export interface SegmentEnd {
-  segment: string;
-  end: EndSide;
-  def: string;
-  stock: string;
-  /** a segment's role: `trunk (6 ft)`, `audio whip …` */
-  role?: string;
-  lengthMm?: number;
-  /** the stock's screens are one copper mass (bonded multi-core) */
-  bonded: boolean;
-  rows: StripRow[];
-}
-
-/* ------------------------------------------------------------------ *
- * An end of the assembly
- * ------------------------------------------------------------------ */
-
-export interface Termination {
-  instance: string;
-  kind: 'pcba' | 'connector' | 'component';
-  def: string;
-  label: string;
-  partNumber?: string;
-  landings: Landing[];
-  /** connectors mounted on this board (`j1` Mini-DIN 9), which solder to its pads */
-  mounted: { instance: string; label: string }[];
-}
-
-/** A non-wire joint at an end: a pin bridge, a bodge, a hand-fitted part's leg. */
-export interface Bridge {
-  from: string;
-  to: string;
-  /** a hand-fitted part in it: `r1 180 Ω` */
-  part?: string;
-  note?: string;
-}
-
-export interface BenchEnd {
-  side: EndSide;
-  terminations: Termination[];
-  /** the segment ends prepared at this end (trunk end, whip ends) */
-  segmentEnds: SegmentEnd[];
-  bridges: Bridge[];
-}
-
-export interface Bench {
-  designId: string;
-  ends: BenchEnd[];
-}
 
 /* ------------------------------------------------------------------ *
  * deriveBench

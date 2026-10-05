@@ -1,6 +1,6 @@
 ---
 name: wirehub-module
-description: Create or change a WireHub module package (modules/<id> in this repo, or a private module in its own repo) - scaffold from modules/example, write the manifest with defineModule, add extension points (catalog packs, setup, importers, exporters, part-number scheme, validation rules, integrations, panels, compare views, routes, auth providers, commit hook, documents, derived records), register it in apps/studio/modules.config.ts, choose a licence, test it, and run it behind the dev flag. Load when asked to add a module, a domain module, or any extension point.
+description: Create or change a WireHub module package (modules/<id> in this repo, or a private module in its own repo) - scaffold from modules/example, write the manifest with defineModule, add extension points (catalog packs, setup, importers, exporters, part-number scheme, validation rules, integrations, panels, compare views, routes, auth providers, commit hook, documents, derived records, bench steps), register it in apps/studio/modules.config.ts, choose a licence, test it, and run it behind the dev flag. Load when asked to add a module, a domain module, or any extension point.
 ---
 
 # Authoring a WireHub module
@@ -93,6 +93,7 @@ details"); `modules/example/src/index.ts` has one working instance of each. Quic
 | Rewrite edits | `commitHook(before, proposed, description)` | singleton, pure, cheap |
 | Own files | `documents: [{ path: 'data/<prefix>/', class: 'imported' \| 'report' }]` | written through `PUT /api/docs/*path` |
 | Derived files | `derived: [{ id, label, files, derive({ designs, db }) }]` | written to `data/derived/<module>/<file>` by the commit that changes their inputs |
+| Bench steps | `bench: { rules?, provider? }` | the shop's work instructions on the build sheet: `rules` is JSON (`{ id, phase: prep\|end\|assembly\|solder\|qa, when?: { connector, family, wire, stockFamily }, steps: [{ text, src, images?, tools?, checks? }] }`, every step needs a `src`), `provider` is a `BenchStepsProvider` (types in `@wirehub/model`); validated at start; `modules/example` shows both |
 | Art | `art: { connectors, bodyLayouts, drawing }` | parsed JSON of the pack's `art/` files (import with `with { type: 'json' }`); SVG faces go in `pack/depictions/<id>/`; formats and rules in `specs/drawing-language.md` §7 |
 | Own tables | `migrations: { dir }` | Postgres backend only: `NNNN_<module_id>_<name>.sql` files applied into schema `mod_<id>` after the base's migrations; tables with `org_id` need forced RLS and an `org_isolation` policy (docs/modules.md, "Module tables") |
 
