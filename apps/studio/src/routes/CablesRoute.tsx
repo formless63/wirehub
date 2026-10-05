@@ -48,6 +48,7 @@ import {
   IconChevronDown,
   IconFilter,
   IconPlus,
+  IconStack2,
 } from '@tabler/icons-react';
 import { DESIGN_STATUSES } from '@wirehub/model';
 
@@ -158,6 +159,72 @@ function MobileRow({ entry, dirty }: { entry: CableListEntry; dirty: boolean }):
         <span className="ml-auto min-w-0 truncate font-mono text-[10.5px]">{entry.boardLabels.join(' · ') || entry.id}</span>
       </span>
     </div>
+  );
+}
+
+/**
+ * "Place in…": start from a lead and put it into a harness as a sub-assembly.
+ * A popover of the other designs; choosing one opens it with `place=<lead>`,
+ * which the workspace turns into the sub-assembly (`CableRoute.tsx`).
+ */
+function PlaceInMenu({ entry, targets }: { entry: CableListEntry; targets: readonly CableListEntry[] }): JSX.Element {
+  const navigate = useNavigate();
+  const [needle, setNeedle] = useState('');
+  const shown = targets.filter((t) => t.id !== entry.id && t.status !== 'retired' && entryMatches(t, needle)).slice(0, 40);
+  return (
+    // the row is a link: nothing in here may follow it
+    <span
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
+      <Popover.Root onOpenChange={(open) => (open ? undefined : setNeedle(''))}>
+        <Popover.Trigger asChild>
+          <button
+            type="button"
+            title={`Place ${entry.id} in another cable as a sub-assembly`}
+            aria-label={`Place ${entry.id} in…`}
+            className="flex h-[22px] items-center gap-1 rounded-sm border border-line2 bg-panel px-1.5 text-[11px] text-dim opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+          >
+            <IconStack2 size={12} />
+            Place in…
+          </button>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content
+            align="end"
+            sideOffset={4}
+            className="z-20 flex max-h-72 w-72 flex-col overflow-hidden rounded-md border border-line2 bg-panel text-[12.5px] shadow-lg"
+          >
+            <input
+              autoFocus
+              aria-label="find a cable to place it in"
+              placeholder="find a cable…"
+              value={needle}
+              onChange={(event) => setNeedle(event.target.value)}
+              className="m-1 rounded-sm border border-line2 bg-raised px-2 py-1 text-[12px] text-ink"
+            />
+            <div role="listbox" aria-label="cables to place it in" className="min-h-0 overflow-auto p-1">
+              {shown.length === 0 ? <p className="px-2 py-1 text-faint">No cables match.</p> : null}
+              {shown.map((target) => (
+                <button
+                  key={target.id}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => void navigate({ to: '/cables/$id', params: { id: target.id }, search: { view: 'build', place: entry.id } })}
+                  className="flex w-full flex-col items-start rounded-sm border-0 bg-transparent px-2 py-1 text-left text-ink hover:bg-hover"
+                >
+                  <span className="max-w-full truncate">{target.label}</span>
+                  <span className="font-mono text-[10.5px] text-faint">{target.id}</span>
+                </button>
+              ))}
+            </div>
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
+    </span>
   );
 }
 
@@ -711,6 +778,11 @@ export function CablesRoute(): JSX.Element {
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </span>
                     ))}
+                    {listOffline ? null : (
+                      <span className="absolute top-1/2 right-2 -translate-y-1/2">
+                        <PlaceInMenu entry={entry} targets={entries} />
+                      </span>
+                    )}
                   </Link>
                 );
               })}

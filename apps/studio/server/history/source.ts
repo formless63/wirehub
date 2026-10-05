@@ -49,6 +49,13 @@ export interface HistorySource {
    * goes back through the definition routes.
    */
   stateAt(subject: Subject, id: string): Promise<{ parts: SubjectState; stored?: boolean } | undefined>;
+  /**
+   * A design's drawing photo right after entry `id`, by the content hash its
+   * bytes are stored under; `'none'`: the drawing had no photo then;
+   * undefined: not recoverable (an older entry, a legacy per-design file, no
+   * such entry). The bytes are read by hash (`WorkbenchDeps.blobByHash`).
+   */
+  photoAt?(subject: Subject, id: string): Promise<{ sha256: string; mime?: 'image/png' | 'image/jpeg' } | 'none' | undefined>;
 }
 
 export const NO_HISTORY: HistoryCapabilities = {

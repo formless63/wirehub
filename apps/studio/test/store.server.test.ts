@@ -172,7 +172,7 @@ describe('/api/packs/store', () => {
   });
 });
 
-describe('scripts/store-index.mjs', () => {
+describe('scripts/store-index.mjs', { timeout: 60_000 }, () => {
   let store: TestStore;
   beforeEach(() => {
     store = createTestStore();

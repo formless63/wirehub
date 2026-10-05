@@ -87,6 +87,8 @@ export interface BrandingRecord {
   filePrefix?: string;
   /** the title block's three-line general note */
   notes?: [string, string, string];
+  /** the title block's tolerance table: up to five label/value rows */
+  tolerances?: [string, string][];
   /** an asset id (sha256) of the sanitised PNG */
   logo?: string;
   src: string;
@@ -107,6 +109,9 @@ const TEXT_FIELDS = [
 ] as const;
 
 const SRC = 'Hub settings (entered in the app)';
+
+/** the title block's tolerance box holds this many rows */
+const MAX_TOLERANCE_ROWS = 5;
 
 interface SettingsDeps {
   docs?: DocStore;
@@ -221,6 +226,21 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
       lines.push(got.value ?? '');
     }
     if (lines.some((l) => l !== '')) next.notes = lines as [string, string, string];
+  }
+  if (input['tolerances'] !== undefined && input['tolerances'] !== null) {
+    const rows = input['tolerances'];
+    if (!Array.isArray(rows) || rows.length > MAX_TOLERANCE_ROWS) return fail(400, `tolerances are at most ${MAX_TOLERANCE_ROWS} rows of a label and a value.`);
+    const kept: [string, string][] = [];
+    for (const [i, row] of rows.entries()) {
+      if (!Array.isArray(row) || row.length !== 2) return fail(400, `tolerances row ${i + 1} is a label and a value.`);
+      const label = clean(row[0], `tolerances row ${i + 1} label`, 12);
+      if (label.error !== undefined) return fail(400, label.error);
+      const value = clean(row[1], `tolerances row ${i + 1} value`, 10);
+      if (value.error !== undefined) return fail(400, value.error);
+      if (label.value === undefined && value.value === undefined) continue;
+      kept.push([label.value ?? '', value.value ?? '']);
+    }
+    if (kept.length > 0) next.tolerances = kept;
   }
   // logo: a data URI sets it, null removes it, absent keeps what is there
   const logo = input['logo'];

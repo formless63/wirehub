@@ -81,6 +81,7 @@ services:
       WIREHUB_NOTIFY_URL:
       WIREHUB_NOTIFY_FORMAT:
       WIREHUB_STORE_INDEXES:
+      WIREHUB_STORE_HIDE_UNREVIEWED:
       # the browser PDF engine (profile `pdf`): http://pdf:3000; unset = the headless PDFs
       WIREHUB_PDF_ENGINE_URL:
       WIREHUB_PDF_ENGINE_TIMEOUT_MS:

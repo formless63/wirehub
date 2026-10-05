@@ -245,7 +245,8 @@ function recordDiffs(subject: Subject, steps: readonly PartStep[]): RecordDiff[]
     op: diffOp(step),
     before: step.before,
     after: step.after,
-    restorable: restorable.has(step.part) && !step.binary,
+    // a photo is restored with the rest of the design, by the bytes' hash
+    restorable: step.part === 'photo' ? subject.type === 'design' : restorable.has(step.part) && !step.binary,
   }));
 }
 
@@ -371,6 +372,24 @@ export function pgHistorySource(db: Db, orgId: string): HistorySource {
       });
     },
 
+    async photoAt(subject, id) {
+      if (subject.type !== 'design') return undefined;
+      return run(async (tx) => {
+        if ((await setRow(tx, id)) === undefined) return undefined;
+        const q = subjectSql(subject, await designIds(tx, subject.id));
+        // the newest photo change at or before the entry: a put names the bytes by hash, a delete is no photo
+        const row = (
+          await sql<{ op: string; after_etag: string | null; mime: string | null }>`
+            SELECT c.op, c.after_etag, c.after_body ->> 'mime' AS mime FROM studio.change c
+             WHERE ${q.where} AND c.kind = 'drawing-photo' AND c.change_set_id <= ${id}::bigint
+             ORDER BY c.change_set_id DESC, c.seq DESC LIMIT 1`.execute(tx)
+        ).rows[0];
+        if (row === undefined || row.op === 'delete') return 'none';
+        const hash = /^"?sha256:([0-9a-f]{64})"?$/.exec(row.after_etag ?? '');
+        return hash === null ? undefined : { sha256: hash[1] as string, ...(row.mime === 'image/png' || row.mime === 'image/jpeg' ? { mime: row.mime } : {}) };
+      });
+    },
+
     async stateAt(subject, id) {
       return run(async (tx) => {
         if ((await setRow(tx, id)) === undefined) return undefined;
@@ -427,7 +446,7 @@ async function setDiffs(tx: Tx, id: string): Promise<RecordDiff[]> {
     const part = touch.part ?? 'record';
     const restorable = (subject.startsWith('design:') && (part === 'design' || part === 'drawing')) || ((subject.startsWith('definition:') || subject.startsWith('vocab:') || subject.startsWith('build:')) && part === 'record');
     const step: PartStep = { part, before: binary ? UNKNOWN : before, after: binary ? UNKNOWN : after, binary };
-    out.push({ subject, label: touch.label, part, op: diffOp(step), before: step.before, after: step.after, restorable: restorable && !binary });
+    out.push({ subject, label: touch.label, part, op: diffOp(step), before: step.before, after: step.after, restorable: (restorable && !binary) || (part === 'photo' && subject.startsWith('design:')) });
   }
   return out;
 }

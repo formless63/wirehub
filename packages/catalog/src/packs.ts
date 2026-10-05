@@ -53,6 +53,12 @@ export interface PackManifest {
   source?: string;
   /** the field it serves (`pro-audio`, `fieldbus` …), for the store index; the id when absent */
   domain?: string;
+  /**
+   * Every other file of the pack pinned by sha256 (lowercase hex; JSON in canonical
+   * form), so a signature over the manifest (`wirehub-pack.sig`) covers the whole
+   * pack (`pack-signature.ts`). Written by `store-index.mjs sign-pack`.
+   */
+  files?: Record<string, string>;
 }
 
 export const PACK_MANIFEST = 'wirehub-pack.json';
@@ -72,6 +78,13 @@ export interface InstalledPack {
    * of the files and none is removed.
    */
   assets?: Record<string, string>;
+  /**
+   * Where it was installed from, when that was a store index (phase 5): the index,
+   * the publisher whose key signed it and the keys whose signature verified, so a
+   * later revocation of those keys flags the installed pack. Absent for a pack
+   * installed from a file, a URL or a module.
+   */
+  origin?: { index: string; publisher?: string; signedBy?: string[] };
 }
 
 /** `packs.json`: the packs installed into this catalog. */
@@ -506,4 +519,18 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(packsDir, PACKS_FILE), canonical(installed));
   return { manifest, added: plan.added, alreadyInstalled: false };
+}
+
+/**
+ * Record (or, with `undefined`, forget) where an installed pack came from
+ * (`InstalledPack.origin`) in the `packs.json` of `dir`. Nothing happens when
+ * the pack is not recorded there.
+ */
+export function setInstalledPackOrigin(dir: string, id: string, origin: InstalledPack['origin']): void {
+  const installed = readInstalledPacks(dir);
+  const entry = installed.packs.find((p) => p.id === id);
+  if (entry === undefined) return;
+  if (origin === undefined) delete entry.origin;
+  else entry.origin = origin;
+  writeFileReplacing(join(dir, PACKS_FILE), canonical(installed));
 }

@@ -149,8 +149,11 @@ minisign-compatible ed25519 signature. A hub trusts an index by URL and public k
 (`WIREHUB_STORE_INDEXES`), refuses one whose signature does not match, refuses a bundle whose size or
 sha256 differs from the index, and installs through the same lifecycle as Install pack... (diff, then
 one change set; Library, Browse store). Built too: manifest, layered reading, install from a
-directory, per-record provenance, update with a diff, disable, read-only marking with fork to edit.
-Not built: manifest signatures, publisher keys, review status, yanking.
+directory, per-record provenance, update with a diff, disable, read-only marking with fork to edit,
+and phase 5: the publisher's signature over the manifest (`wirehub-pack.sig`, the manifest pinning
+every file by sha256 in `files`), publishers and their keys in the index, review status per version
+(`unreviewed`, `reviewed`, `flagged`: information the index publisher sets, not a gate), yanked
+versions and revoked keys (`docs/catalog-store.md`, "As built (phase 5)").
 
 1. Keep the pack a standalone directory that passes `verify-pack.mjs` with the manifest fields
    above (give it a `domain`).
@@ -172,6 +175,22 @@ Not built: manifest signatures, publisher keys, review status, yanking.
    Serve `my-store/` over https, keep old bundles in it, re-run `build` and `sign` after each release, and
    publish the index URL and the `RW...` public key (`pubkey --key ...` prints it) for hubs to add to
    `WIREHUB_STORE_INDEXES`.
+
+   To sign the packs as their publisher (hubs then verify it on top of the index), name the publisher
+   in the manifest (`"publisher": { "id", "name" }`), make a publisher key once, sign the pack after
+   every change (before `bundle`, which refuses a pack changed since signing), and list the publisher
+   in the store's metadata:
+
+   ```
+   node scripts/store-index.mjs publisher-keygen --out ~/my-publisher-keys --id my-shop --name "My shop"
+   node scripts/store-index.mjs sign-pack path/to/pack --key ~/my-publisher-keys/wirehub-publisher.key
+   node scripts/store-index.mjs verify-pack-signature path/to/pack --pubkey ~/my-publisher-keys/wirehub-publisher.pub
+   node scripts/store-index.mjs publisher my-store/ --id my-shop --name "My shop" --pubkey RW...
+   ```
+
+   Review status, yanking and revocation are store metadata too (`review`, `yank`, `unyank`,
+   `revoke`, all editing `my-store/store-meta.json`); run `build` and `sign` after each. Yank a
+   broken version rather than deleting its bundle: designs built on it can still be re-validated.
 4. A pack is organised by domain, named `<domain>` (a shop or maker may publish `vendor-...` or
    `community-...`), reproducible when generated (name the converter version and the pinned upstream
    commit in the manifest's `source`), and every cited source passes the notes in

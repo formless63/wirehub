@@ -223,6 +223,7 @@ people set:
 | `WIREHUB_BACKEND` | `pg` | `files` keeps the catalog as JSON files (with `WIREHUB_ALLOW_FILES_IN_PROD=1`) |
 | `WIREHUB_NOTIFY_URL`, `WIREHUB_NOTIFY_FORMAT` | — | alerts to a webhook (`json`, `ntfy` or `slack` body; below) |
 | `WIREHUB_STORE_INDEXES` | the official index, once its key is published | catalog store indexes to trust (Library → Browse store): `<https url> <public key>`, comma separated; `none` for no store (below) |
+| `WIREHUB_STORE_HIDE_UNREVIEWED` | — | `true`: Browse store lists and installs only pack versions an index marks reviewed (or flagged); default shows all |
 | `WIREHUB_CONVERT_WINDOW` | — | `HH:MM-HH:MM`: build imported models only then |
 | `WIREHUB_MODEL_SOURCES` | — | the folder (mounted into `worker`) imported models are built from |
 | `WIREHUB_WORKER` | on | `off`: the app runs the jobs itself (no `worker` service) |
@@ -275,6 +276,16 @@ the hub trusts WireHub's official index once this release carries its key (the w
 by their authors, who are responsible for their content and licensing; the licence shown
 is information, not checked. An air-gapped hub leaves this off and installs pack files
 (Modules → Install pack…). To publish your own index, see `docs/catalog-store.md` §4.
+
+When an index lists a pack's **publisher**, the hub also checks the publisher's signature
+over the pack's manifest (`wirehub-pack.sig`) and every file the manifest pins, and
+refuses the pack otherwise. The index publisher can mark a version **reviewed** or
+**flagged** (shown beside it, as information), **yank** a version (Browse store warns,
+never offers it, and only an owner can install it anyway; an installed yanked version gets
+a warning badge in the Packs panel with the version to update to), and **revoke** a key (a
+pack signed only by that key is refused, and flagged where installed).
+`WIREHUB_STORE_HIDE_UNREVIEWED=true` makes the hub list and install only versions the index
+marks reviewed or flagged; by default every version is shown, with its status.
 
 ### Your own PostgreSQL or S3
 

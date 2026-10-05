@@ -130,6 +130,11 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
       if (found !== undefined) return { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime };
       return depictionBlob(sha, livePacksDir());
     },
+    // a restore reads an earlier drawing photo by its hash: uploads are never removed
+    blobByHash: async (sha) => {
+      const found = await assets.get(sha);
+      return found === undefined ? undefined : new Uint8Array(found.bytes);
+    },
     // GET /api/export: the catalog's text files, the same shape the database backend answers
     exportCatalog: async () => exportTree(readFlattenedCatalog(dataPath('..'), livePacksDir()), fileCatalogVersion(dataPath(''))),
     // change history: the git log of the catalog directory, when it is in a git work tree (cs-5k1.4)

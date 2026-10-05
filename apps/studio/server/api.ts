@@ -136,6 +136,12 @@ export interface WorkbenchDeps {
    */
   blob?: (sha256: string) => Promise<{ bytes: Uint8Array; mediaType: string } | undefined>;
   /**
+   * The bytes stored under a content hash, whether or not the catalog names
+   * them any more — a restore from the history brings an earlier photo back
+   * (`history/api.ts`). Absent: photos are not restored.
+   */
+  blobByHash?: (sha256: string) => Promise<Uint8Array | undefined>;
+  /**
    * The on-demand export (`GET /api/export`): the catalog as file text, the
    * same on every backend (`pg/export.ts`). Absent → 501.
    */
@@ -1056,7 +1062,7 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   }
   // the store: verified indexes, and install through the pack lifecycle below
   if (isStorePath(request.path, request.method)) {
-    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, deps.store);
+    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, deps.store, request.user);
     return isWriteMethod(request.method) ? withWriteLock(run) : run();
   }
   // the pack lifecycle: the same direct-write handler shape, on files and (through `setup.transact`) on Postgres

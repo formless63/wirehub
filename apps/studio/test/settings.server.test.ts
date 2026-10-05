@@ -126,6 +126,18 @@ describe('branding settings', () => {
     expect((await put(d, { organisation: 'x'.repeat(200) }, now)).status).toBe(400);
     expect((await put(d, { rights: 'a\nb' }, now)).status).toBe(400);
     expect((await put(d, { notes: ['one', 'two'] }, now)).status).toBe(400);
+    expect((await put(d, { tolerances: [['a', '1'], ['b', '2'], ['c', '3'], ['d', '4'], ['e', '5'], ['f', '6']] }, now)).status).toBe(400);
+    expect((await put(d, { tolerances: [['x.xx']] }, now)).status).toBe(400);
+    expect((await put(d, { tolerances: [['a label too long', '1']] }, now)).status).toBe(400);
+  });
+
+  it('keeps the general note and tolerance rows, dropping empty rows', async () => {
+    const { deps: d } = deps();
+    const tag = (await get(d)).headers!.ETag!;
+    const saved = await put(d, { notes: ['DIMS IN MM', '', 'UNLESS NOTED'], tolerances: [['x.x', '± 0.2'], ['', ''], ['ANGLE', '± 2°']] }, tag);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect(saved.body).toMatchObject({ notes: ['DIMS IN MM', '', 'UNLESS NOTED'], tolerances: [['x.x', '± 0.2'], ['ANGLE', '± 2°']] });
+    expect(((await get(d)).body as { tolerances: unknown[] }).tolerances).toHaveLength(2);
   });
 });
 

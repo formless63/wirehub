@@ -38,8 +38,10 @@ import {
   installPack,
   installPackLayer,
   installedAcross,
+  packFileProblems,
   packSourceProblems,
   planNewPack,
+  setInstalledPackOrigin,
   ownedRecords,
   planPackDisable,
   planPackUpdate,
@@ -105,6 +107,11 @@ function updateRefusal(plan: PackUpdatePlan): ApiResponse {
   return refuse(409, `Pack '${plan.pack.id}' was not updated: ${why}. Nothing was changed.`, hint, { plan: shown(plan) });
 }
 
+/** What only the server passes to an install (never the request body): where the pack came from, recorded in `packs.json`. */
+export interface InstallInternal {
+  origin?: InstalledPack['origin'];
+}
+
 /**
  * `/api/packs…`. Writes change files directly (the file backend) or the
  * scratch copy (`deps.transact`, Postgres), so the caller runs them under the
@@ -114,13 +121,14 @@ export async function handlePacksRequest(
   request: { method: string; path: string; body?: unknown },
   deps: SetupDeps | undefined,
   modules: ModuleRegistry | undefined,
+  internal: InstallInternal = {},
 ): Promise<ApiResponse> {
   if (deps === undefined) return refuse(501, 'This host has no pack management.', 'Catalog packs are installed by the deployment here.');
   const method = request.method.toUpperCase();
   const write = method !== 'GET' && method !== 'HEAD';
   if (deps.transact !== undefined) {
     const { transact, ...rest } = deps;
-    return transact((dataDir, packsDir) => handlePacksRequest(request, { ...rest, dataDir, packsDir }, modules), write);
+    return transact((dataDir, packsDir) => handlePacksRequest(request, { ...rest, dataDir, packsDir }, modules, internal), write);
   }
   const parts = (request.path.split('?')[0] ?? '').split('/').filter((p) => p !== '').map((p) => decodeURIComponent(p));
   const id = parts[2];
@@ -133,7 +141,7 @@ export async function handlePacksRequest(
 
   if (id === 'install' && action === undefined) {
     if (method !== 'POST') return refuse(405, `${method} is not something this address accepts.`, 'It answers POST.');
-    return installFromSource(request.body, deps, view, installed.packs, installed.where);
+    return installFromSource(request.body, deps, view, installed.packs, installed.where, internal);
   }
 
   if (id === undefined) {
@@ -147,6 +155,7 @@ export async function handlePacksRequest(
           version: pack.version,
           license: pack.license,
           records: ownedRecords(view, pack).size,
+          ...(pack.origin === undefined ? {} : { origin: pack.origin }),
           ...(bundled === undefined ? {} : { module: bundled.module }),
           ...(bundledVersion === undefined || bundledVersion === pack.version ? {} : { available: bundledVersion }),
         };
@@ -222,12 +231,14 @@ async function packBytesOf(body: { url?: unknown; zip?: unknown; bundle?: unknow
  * and with `apply` install it as one change set — a new layer, or an update when the
  * pack is installed already (so `/api/packs/:id` update and disable work on it).
  */
-async function installFromSource(rawBody: unknown, deps: SetupDeps, view: CatalogSource, installed: readonly InstalledPack[], where: ReadonlyMap<string, 'layer' | 'merged'>): Promise<ApiResponse> {
+async function installFromSource(rawBody: unknown, deps: SetupDeps, view: CatalogSource, installed: readonly InstalledPack[], where: ReadonlyMap<string, 'layer' | 'merged'>, internal: InstallInternal): Promise<ApiResponse> {
   const body = (typeof rawBody === 'object' && rawBody !== null ? rawBody : {}) as { url?: unknown; zip?: unknown; bundle?: unknown; apply?: unknown; sha256?: unknown; acceptMajor?: unknown };
   const dir = mkdtempSync(join(tmpdir(), 'wirehub-pack-'));
   try {
     let bytes: Uint8Array;
     let format: 'zip' | 'bundle';
+    let pinProblems: string[] = [];
+    let signed = false;
     try {
       bytes = await packBytesOf(body, deps);
       const digest = sha256(bytes);
@@ -236,13 +247,23 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
       }
       const read = readPackBytes(bytes);
       format = read.format;
+      signed = read.signature !== undefined;
+      // a manifest that pins its files by sha256 (a signed pack's does) must agree with them
+      const manifestBytes = read.shipped.get('wirehub-pack.json');
+      if (manifestBytes !== undefined) {
+        try {
+          pinProblems = packFileProblems(JSON.parse(new TextDecoder().decode(manifestBytes)) as { files?: unknown }, read.shipped);
+        } catch {
+          // an unreadable manifest is reported by packSourceProblems below
+        }
+      }
       writePackFiles(dir, read.files);
     } catch (error) {
       if (error instanceof PackArchiveError) return refuse(error.status, error.message, 'A pack is a zip of its directory, or a JSON bundle ({ "manifest", "files" }); see the catalog-pack skill.');
       throw error;
     }
     const digest = sha256(bytes);
-    const problems = packSourceProblems(dir);
+    const problems = [...pinProblems, ...packSourceProblems(dir)];
     if (problems.length > 0) {
       return refuse(422, `That is not a usable pack: ${problems[0]}${problems.length > 1 ? ` (and ${problems.length - 1} more)` : ''}.`, 'Nothing was installed. The problems are listed.', { verified: false, problems });
     }
@@ -259,7 +280,7 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
     const kind = existing === undefined ? 'install' : 'update';
     const same = 'direction' in plan && plan.direction === 'same';
     const major = 'major' in plan && plan.major;
-    const preview = { kind, source: format, sha256: digest, size: bytes.length, verified: true, problems: [], plan: shown(plan), applicable: plan.ok && !same };
+    const preview = { kind, source: format, sha256: digest, size: bytes.length, verified: true, signed, problems: [], plan: shown(plan), applicable: plan.ok && !same };
     if (body.apply !== true) return json(200, preview);
     if (same) return json(200, { ...preview, installed: false, reason: 'already at this version' });
     if (!plan.ok) {
@@ -275,6 +296,9 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
     } else {
       applyPackUpdate(deps.dataDir, layered ? packsDir : undefined, dir, plan as PackUpdatePlan, where.get(manifest.id) ?? 'merged');
     }
+    // where it came from: a store install records its index and signers; anything else leaves no origin
+    const recordedIn = existing === undefined ? (layered ? packsDir : deps.dataDir) : (where.get(manifest.id) ?? 'merged') === 'layer' ? packsDir : deps.dataDir;
+    setInstalledPackOrigin(recordedIn, manifest.id, internal.origin);
     if (deps.afterInstall !== undefined) await deps.afterInstall();
     return json(200, { ...preview, installed: true, id: manifest.id, version: manifest.version });
   } finally {

@@ -24,9 +24,11 @@
 
 import { breakoutAt, findComponent, findConnector, findMechanical, findPcba, findWire, flattenSubassemblies, hasSubassemblies, type CableDesign, type Db, type SegmentInstance } from '@wirehub/model';
 
+import { textWidth } from './drawing/render.ts';
 import { trunkSegment } from './drawing/model.ts';
 import type { DrawingMeta } from './drawing/model.ts';
 import { deriveLabels } from './exports/labels.ts';
+import { Occupied, placeFirstFree, rotatedRect, shiftIntoView, thickLine, type Poly, type Pt, type View } from './formboard-labels.ts';
 import { suppliedEnds } from './supplied.ts';
 import { compareStrings, escapeHtml } from './text.ts';
 
@@ -463,6 +465,8 @@ interface Frame {
   x(board: number): number;
   y(board: number): number;
   scale: number;
+  /** the part of the page this drawing is visible in (a tile's cell): a caption is kept whole inside it where it fits */
+  view?: View;
 }
 
 function rotate(angleDeg: number): string {
@@ -480,12 +484,289 @@ function text(x: number, y: number, size: number, body: string, extra = ''): str
   return `<text x="${n2(x)}" y="${n2(y)}" font-size="${n2(size)}" ${extra.includes(' fill=') ? '' : ` fill="${INK}"`}${extra}>${escapeHtml(body)}</text>`;
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Caption placement: keep captions off glyphs, pegs, ticks and each other
+ * ------------------------------------------------------------------ */
+
+interface RunGeometry {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  ux: number;
+  uy: number;
+  /** unit normal: the side the dimension line is on */
+  nx: number;
+  ny: number;
+  /** the dimension line's midpoint */
+  mx: number;
+  my: number;
+  /** the angle text reads at, upright */
+  flat: number;
+}
+
+/** The dimension line sits this far (paper mm) to the left of the direction of travel. */
+const DIMENSION_OFFSET = 7;
+
+function runGeometry(run: FormboardRun, frame: Frame): RunGeometry {
+  const x1 = frame.x(run.from.x);
+  const y1 = frame.y(run.from.y);
+  const x2 = frame.x(run.to.x);
+  const y2 = frame.y(run.to.y);
+  const ang = rad(run.angleDeg);
+  const ux = Math.cos(ang);
+  const uy = Math.sin(ang);
+  const nx = uy;
+  const ny = -ux;
+  return {
+    x1,
+    y1,
+    x2,
+    y2,
+    ux,
+    uy,
+    nx,
+    ny,
+    mx: (x1 + x2) / 2 + nx * DIMENSION_OFFSET,
+    my: (y1 + y2) / 2 + ny * DIMENSION_OFFSET,
+    flat: uprightAngle(run.angleDeg),
+  };
+}
+
+interface TextBox {
+  size: number;
+  bold?: boolean;
+  anchor?: 'start' | 'middle' | 'end';
+  /** `dominant-baseline="middle"`: y is the text's middle, not its baseline */
+  middle?: boolean;
+  /** turned this many degrees about `pivot` (the text's own position when absent) */
+  angle?: number;
+  pivot?: Pt;
+}
+
+/** The rectangle a one-line caption occupies, from the face's glyph widths. */
+function textPoly(at: Pt, body: string, box: TextBox, pad = 0.25): Poly {
+  const w = textWidth(body, box.size, box.bold === true);
+  const x0 = box.anchor === 'middle' ? -w / 2 : box.anchor === 'end' ? -w : 0;
+  const top = box.middle === true ? -box.size * 0.5 : -box.size * 0.78;
+  const bottom = box.middle === true ? box.size * 0.5 : box.size * 0.22;
+  const pivot = box.pivot ?? at;
+  const a = ((box.angle ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  return ([
+    [x0 - pad, top - pad],
+    [x0 + w + pad, top - pad],
+    [x0 + w + pad, bottom + pad],
+    [x0 - pad, bottom + pad],
+  ] as const).map(([lx, ly]) => {
+    const dx = at.x + lx - pivot.x;
+    const dy = at.y + ly - pivot.y;
+    return { x: pivot.x + dx * cos - dy * sin, y: pivot.y + dx * sin + dy * cos };
+  });
+}
+
+/** A block of caption lines (one anchor, one x, a line pitch) as one rectangle. */
+function blockPoly(x: number, y: number, lines: readonly { body: string; size: number; bold: boolean }[], pitch: number, anchor: 'start' | 'middle' | 'end'): Poly {
+  const w = Math.max(0, ...lines.map((l) => textWidth(l.body, l.size, l.bold)));
+  const x0 = anchor === 'middle' ? x - w / 2 : anchor === 'end' ? x - w : x;
+  const first = lines[0];
+  const last = lines[lines.length - 1];
+  if (first === undefined || last === undefined) return [];
+  const top = y - first.size * 0.78 - 0.25;
+  const bottom = y + (lines.length - 1) * pitch + last.size * 0.22 + 0.25;
+  return [
+    { x: x0 - 0.25, y: top },
+    { x: x0 + w + 0.25, y: top },
+    { x: x0 + w + 0.25, y: bottom },
+    { x: x0 - 0.25, y: bottom },
+  ];
+}
+
+const translated = (poly: Poly, dx: number, dy: number): Poly => poly.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+const bounds = (poly: Poly): { x0: number; x1: number } => ({ x0: Math.min(...poly.map((p) => p.x)), x1: Math.max(...poly.map((p) => p.x)) });
+
+interface Captions {
+  /** how far a mould's or a terminus's whole caption moves from its home place */
+  mould: Map<string, Pt>;
+  terminus: Map<string, Pt>;
+  peg: Map<string, { x: number; y: number; anchor: 'start' | 'middle' | 'end' }>;
+  tick: Map<string, Pt>;
+}
+
+/**
+ * Where each caption goes. Every caption has a home place (the one the sheet
+ * always used); it keeps it unless something else is there, and then takes the
+ * first free spot of a fixed list — nudged away from the glyph, flipped to the
+ * other side, or slid along the run. A caption the tile edge would cut is
+ * pulled inside it when it fits whole. The fixed things are the glyphs, pegs,
+ * ticks, runs, dimension lines and the texts that are not moved; captions are
+ * placed in this order: pegs (whose labels may sit inside a mould), moulds, connectors, ticks.
+ */
+function planCaptions(board: Formboard, frame: Frame, compact: boolean): Captions {
+  const S = frame.scale;
+  const view = frame.view;
+  const occupied = new Occupied();
+  const plan: Captions = { mould: new Map(), terminus: new Map(), peg: new Map(), tick: new Map() };
+  const px = (p: BoardPoint): Pt => ({ x: frame.x(p.x), y: frame.y(p.y) });
+  const byRun = new Map(board.runs.map((r) => [r.segment, r]));
+
+  for (const t of board.termini) {
+    const at = px(t.at);
+    const dir = rad(t.angleDeg);
+    const mid = { x: at.x + Math.cos(dir) * CONNECTOR_LENGTH * S * 0.5, y: at.y + Math.sin(dir) * CONNECTOR_LENGTH * S * 0.5 };
+    occupied.add(rotatedRect(mid, CONNECTOR_LENGTH * S, CONNECTOR_WIDTH * S, t.angleDeg, 0.2));
+  }
+  for (const peg of board.pegs) {
+    const c = px(peg.at);
+    occupied.add(rotatedRect(c, 4.4, 4.4, 0));
+    occupied.add(thickLine({ x: c.x - 3.4, y: c.y }, { x: c.x + 3.4, y: c.y }, 0.4));
+    occupied.add(thickLine({ x: c.x, y: c.y - 3.4 }, { x: c.x, y: c.y + 3.4 }, 0.4));
+  }
+  for (const run of board.runs) {
+    const g = runGeometry(run, frame);
+    occupied.add(thickLine({ x: g.x1, y: g.y1 }, { x: g.x2, y: g.y2 }, run.scoped ? 0.8 : 1.3));
+    const dim = (a: number, b: number): Pt => ({ x: g.x1 + g.nx * a + g.ux * b, y: g.y1 + g.ny * a + g.uy * b });
+    const length = Math.hypot(g.x2 - g.x1, g.y2 - g.y1);
+    occupied.add(thickLine(dim(DIMENSION_OFFSET, 0), dim(DIMENSION_OFFSET, length), 0.3));
+    occupied.add(thickLine(dim(2, 0), dim(DIMENSION_OFFSET + 1.5, 0), 0.3));
+    occupied.add(thickLine(dim(2, length), dim(DIMENSION_OFFSET + 1.5, length), 0.3));
+    const dimText = `${run.lengthKnown ? '' : '~'}${n2(run.lengthMm)} mm`;
+    occupied.add(textPoly({ x: g.mx, y: g.my - 0.8 }, dimText, { size: 3, anchor: 'middle', angle: g.flat, pivot: { x: g.mx, y: g.my } }));
+    if (compact) continue;
+    const tx = (g.x1 + g.x2) / 2 - g.nx * 3.4;
+    const ty = (g.y1 + g.y2) / 2 - g.ny * 3.4;
+    occupied.add(textPoly({ x: tx, y: ty }, `${run.designation} · ${run.stock}`, { size: 3, anchor: 'middle', middle: true, angle: g.flat }));
+    if (run.branchDeg !== undefined && run.parent !== undefined && byRun.has(run.parent)) {
+      const sign = run.branchDeg > 0 ? '+' : run.branchDeg < 0 ? '−' : '';
+      occupied.add(textPoly({ x: g.x1 + g.ux * 9 - g.nx * 2, y: g.y1 + g.uy * 9 - g.ny * 2 }, `${sign}${n2(Math.abs(run.branchDeg))}°`, { size: 2.6, anchor: 'middle', middle: true }));
+    }
+  }
+  // sleeves and tape are fixed; the label ticks' lines are fixed and their texts are placed below
+  const ticks: { key: string; centre: Pt; home: Pt; along: Pt; flat: number; text: string }[] = [];
+  for (const marker of board.markers) {
+    const run = byRun.get(marker.segment);
+    if (run === undefined) continue;
+    const g = runGeometry(run, frame);
+    const fromStart = marker.end === run.fromEnd;
+    const sx = fromStart ? g.x1 : g.x2;
+    const sy = fromStart ? g.y1 : g.y2;
+    const dir = rad(fromStart ? run.angleDeg : run.angleDeg + 180);
+    const ux = Math.cos(dir);
+    const uy = Math.sin(dir);
+    if (marker.kind === 'label') {
+      if (compact) continue;
+      const d = marker.offsetMm * S;
+      const cx = sx + ux * d;
+      const cy = sy + uy * d;
+      occupied.add(thickLine({ x: cx - uy * 2.6, y: cy + ux * 2.6 }, { x: cx + uy * 2.6, y: cy - ux * 2.6 }, 0.9));
+      ticks.push({ key: `${marker.segment}/${marker.end}`, centre: { x: cx, y: cy }, home: { x: cx - uy * 5.2, y: cy + ux * 5.2 }, along: { x: ux, y: uy }, flat: uprightAngle(fromStart ? run.angleDeg : run.angleDeg + 180), text: marker.text });
+    } else {
+      const len = (marker.lengthMm ?? SLEEVE_DEFAULT_MM) * S;
+      const ex = sx + ux * len;
+      const ey = sy + uy * len;
+      occupied.add(thickLine({ x: sx, y: sy }, { x: ex, y: ey }, 3.4));
+      occupied.add(textPoly({ x: (sx + ex) / 2 + uy * 5.6, y: (sy + ey) / 2 - ux * 5.6 }, marker.text, { size: 2.6, anchor: 'middle', middle: true }));
+    }
+  }
+
+  // peg names first, beside the peg, on the first corner nothing is in (a breakout's peg sits inside its mould, so the mould's glyph is not in the way yet)
+  for (const peg of board.pegs) {
+    const c = px(peg.at);
+    const spots: { x: number; y: number; anchor: 'start' | 'middle' | 'end' }[] = [
+      { x: c.x + 2.6, y: c.y - 2.6, anchor: 'start' },
+      { x: c.x + 2.6, y: c.y + 5.2, anchor: 'start' },
+      { x: c.x - 2.6, y: c.y - 2.6, anchor: 'end' },
+      { x: c.x - 2.6, y: c.y + 5.2, anchor: 'end' },
+      { x: c.x, y: c.y - 6, anchor: 'middle' },
+      { x: c.x, y: c.y + 8.6, anchor: 'middle' },
+      { x: c.x + 6, y: c.y - 2.6, anchor: 'start' },
+      { x: c.x - 6, y: c.y - 2.6, anchor: 'end' },
+    ];
+    plan.peg.set(peg.id, placeFirstFree(occupied, spots, (s) => textPoly({ x: s.x, y: s.y }, peg.id, { size: 2.8, bold: true, anchor: s.anchor }), view));
+  }
+
+  for (const m of board.moulds) occupied.add(rotatedRect(px(m.at), MOULD_LENGTH * S, MOULD_WIDTH * S, m.angleDeg, 0.2));
+
+  // moulds: centred over the glyph; lifted clear or moved under it, and held whole inside the tile
+  for (const m of board.moulds) {
+    const c = px(m.at);
+    const lines = (compact ? [m.breakout] : [`${m.breakout} · ${m.label}`, ...(m.housed.length === 0 ? [] : [`houses ${m.housed.join(', ')}`])]).map((body) => ({ body, size: 3, bold: true }));
+    const baseY = c.y - (MOULD_WIDTH * S) / 2 - 2.6 - (lines.length - 1) * 3.4;
+    const home = blockPoly(c.x, baseY, lines, 3.4, 'middle');
+    const inside = view !== undefined && c.x >= view.x0 && c.x <= view.x1;
+    // lifted clear, or — when legs and dimension lines crowd the top — under the glyph
+    const below = c.y + (MOULD_WIDTH * S) / 2 + 5.4 - baseY;
+    const candidates = [0, -3.4, -6.8, below, below + 3.4].map((dy) => {
+      const b = bounds(home);
+      const dx = inside ? shiftIntoView(b.x0, b.x1, view) : 0;
+      return { x: dx, y: dy };
+    });
+    const at = placeFirstFree(occupied, candidates, (shift) => translated(home, shift.x, shift.y), view);
+    plan.mould.set(m.breakout, at);
+  }
+
+  // connector names: under the glyph, pushed away from it, flipped to its other side, or slid out
+  for (const t of board.termini) {
+    const at = px(t.at);
+    const dir = rad(t.angleDeg);
+    const sgn = Math.cos(dir) >= 0 ? 1 : -1;
+    const nxp = -Math.sin(dir) * sgn;
+    const nyp = Math.cos(dir) * sgn;
+    const outerX = at.x + Math.cos(dir) * CONNECTOR_LENGTH * S;
+    const outerY = at.y + Math.sin(dir) * CONNECTOR_LENGTH * S;
+    const lx = outerX + nxp * (CONNECTOR_WIDTH * S * 0.5 + 3.4);
+    const ly = outerY + nyp * (CONNECTOR_WIDTH * S * 0.5 + 3.4);
+    const anchor = Math.cos(dir) > 0.3 ? 'end' : Math.cos(dir) < -0.3 ? 'start' : 'middle';
+    const lines = compact
+      ? [{ body: t.joined.length === 0 ? 'open' : t.joined.map((j) => j.label).join(', '), size: 3, bold: true }]
+      : t.joined.length === 0
+        ? [{ body: 'open end', size: 3, bold: true }]
+        : t.joined.flatMap((j) => [
+            { body: j.label, size: 3, bold: true },
+            { body: clip(j.def, 38), size: 2.5, bold: false },
+          ]);
+    const home = blockPoly(lx, ly + 1, lines, 3.3, anchor);
+    const blockHeight = (lines.length - 1) * 3.3 + 3;
+    const side = CONNECTOR_WIDTH * S + 6.8;
+    const flipped = { x: -nxp * side, y: -nyp * side - (-nyp * side < 0 ? blockHeight : 0) };
+    const raw: Pt[] = [{ x: 0, y: 0 }];
+    for (let k = 1; k <= 6; k += 1) raw.push({ x: nxp * 1.6 * k, y: nyp * 1.6 * k });
+    for (let k = 1; k <= 4; k += 1) raw.push({ x: Math.cos(dir) * 3 * k, y: Math.sin(dir) * 3 * k });
+    raw.push(flipped);
+    for (let k = 1; k <= 4; k += 1) raw.push({ x: flipped.x - nxp * 1.6 * k, y: flipped.y - nyp * 1.6 * k });
+    const inside = view !== undefined && lx >= view.x0 && lx <= view.x1;
+    const candidates = raw.map((shift) => {
+      const b = bounds(translated(home, shift.x, shift.y));
+      return { x: shift.x + (inside ? shiftIntoView(b.x0, b.x1, view) : 0), y: shift.y };
+    });
+    const at2 = placeFirstFree(occupied, candidates, (shift) => translated(home, shift.x, shift.y), view);
+    plan.terminus.set(`${t.segment}/${t.end}`, at2);
+  }
+
+  // label tick names: home beside the tick; slid along the run, then the same across it
+  for (const tick of ticks) {
+    const other = { x: 2 * tick.centre.x - tick.home.x, y: 2 * tick.centre.y - tick.home.y };
+    const spots: Pt[] = [];
+    for (const side of [tick.home, other]) {
+      for (const k of [0, 1, -1, 2, -2, 3, -3]) spots.push({ x: side.x + tick.along.x * 3 * k, y: side.y + tick.along.y * 3 * k });
+    }
+    plan.tick.set(
+      tick.key,
+      placeFirstFree(occupied, spots, (at) => textPoly(at, tick.text, { size: 2.8, anchor: 'middle', middle: true, angle: tick.flat }), view),
+    );
+  }
+  return plan;
+}
+
 /** The drawing of the board in one frame: runs, glyphs, pegs, dimensions. No page furniture. */
 function drawBoard(board: Formboard, frame: Frame, compact = false): string {
   const out: string[] = [];
   const S = frame.scale;
   const px = (p: BoardPoint): [number, number] => [frame.x(p.x), frame.y(p.y)];
   const byRun = new Map(board.runs.map((r) => [r.segment, r]));
+  const plan = planCaptions(board, frame, compact);
 
   // moulds, under the runs
   for (const m of board.moulds) {
@@ -496,7 +777,8 @@ function drawBoard(board: Formboard, frame: Frame, compact = false): string {
         `</g>`,
     );
     const lines = compact ? [m.breakout] : [`${m.breakout} · ${m.label}`, ...(m.housed.length === 0 ? [] : [`houses ${m.housed.join(', ')}`])];
-    lines.forEach((line, i) => out.push(text(cx, cy - (MOULD_WIDTH * S) / 2 - 2.6 - (lines.length - 1 - i) * 3.4, 3, line, ' text-anchor="middle" font-weight="bold"')));
+    const lift = plan.mould.get(m.breakout) ?? { x: 0, y: 0 };
+    lines.forEach((line, i) => out.push(text(cx + lift.x, cy + lift.y - (MOULD_WIDTH * S) / 2 - 2.6 - (lines.length - 1 - i) * 3.4, 3, line, ` text-anchor="middle" font-weight="bold" data-caption="${escapeHtml(`mould:${m.breakout}`)}"`)));
   }
 
   // runs, their dimensions and markers
@@ -562,9 +844,10 @@ function drawBoard(board: Formboard, frame: Frame, compact = false): string {
       const d = marker.offsetMm * S;
       const cx = sx + ux * d;
       const cy = sy + uy * d;
+      const name = plan.tick.get(`${marker.segment}/${marker.end}`) ?? { x: cx - uy * 5.2, y: cy + ux * 5.2 };
       out.push(
         `<g data-marker="${escapeHtml(`${marker.segment}/${marker.end}`)}"><line x1="${n2(cx - uy * 2.6)}" y1="${n2(cy + ux * 2.6)}" x2="${n2(cx + uy * 2.6)}" y2="${n2(cy - ux * 2.6)}" stroke="${INK}" stroke-width="0.7"/>` +
-          `<text x="${n2(cx - uy * 5.2)}" y="${n2(cy + ux * 5.2)}" font-size="2.8" fill="${INK}" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rotate(uprightAngle(fromStart ? run.angleDeg : run.angleDeg + 180))} ${n2(cx - uy * 5.2)} ${n2(cy + ux * 5.2)})">${escapeHtml(marker.text)}</text></g>`,
+          `<text x="${n2(name.x)}" y="${n2(name.y)}" font-size="2.8" fill="${INK}" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rotate(uprightAngle(fromStart ? run.angleDeg : run.angleDeg + 180))} ${n2(name.x)} ${n2(name.y)})">${escapeHtml(marker.text)}</text></g>`,
       );
     } else {
       const len = (marker.lengthMm ?? SLEEVE_DEFAULT_MM) * S;
@@ -596,27 +879,29 @@ function drawBoard(board: Formboard, frame: Frame, compact = false): string {
     // anchored at the glyph's outer end and reading back toward the run, so it stays on the board
     const outerX = cx + Math.cos(dir) * CONNECTOR_LENGTH * S;
     const outerY = cy + Math.sin(dir) * CONNECTOR_LENGTH * S;
-    const lx = outerX + nxp * (CONNECTOR_WIDTH * S * 0.5 + 3.4);
-    const ly = outerY + nyp * (CONNECTOR_WIDTH * S * 0.5 + 3.4);
+    const moved = plan.terminus.get(`${t.segment}/${t.end}`) ?? { x: 0, y: 0 };
+    const lx = outerX + nxp * (CONNECTOR_WIDTH * S * 0.5 + 3.4) + moved.x;
+    const ly = outerY + nyp * (CONNECTOR_WIDTH * S * 0.5 + 3.4) + moved.y;
     const anchor = Math.cos(dir) > 0.3 ? 'end' : Math.cos(dir) < -0.3 ? 'start' : 'middle';
     const lines = t.joined.length === 0 ? [name] : t.joined.flatMap((j) => [j.label, clip(j.def, 38)]);
     if (compact) {
-      out.push(text(lx, ly + 1, 3, t.joined.length === 0 ? 'open' : t.joined.map((j) => j.label).join(', '), ` text-anchor="${anchor}" font-weight="bold"`));
+      out.push(text(lx, ly + 1, 3, t.joined.length === 0 ? 'open' : t.joined.map((j) => j.label).join(', '), ` text-anchor="${anchor}" font-weight="bold" data-caption="${escapeHtml(`terminus:${t.segment}/${t.end}`)}"`));
       continue;
     }
     lines.forEach((line, i) => {
       const head = i % 2 === 0 || t.joined.length === 0;
-      out.push(text(lx, ly + 1 + i * 3.3 * down, head ? 3 : 2.5, line, ` text-anchor="${anchor}"${head ? ' font-weight="bold"' : ''}`));
+      out.push(text(lx, ly + 1 + i * 3.3 * down, head ? 3 : 2.5, line, ` text-anchor="${anchor}"${head ? ' font-weight="bold"' : ''} data-caption="${escapeHtml(`terminus:${t.segment}/${t.end}`)}"`));
     });
   }
 
   // pegs, on top
   for (const peg of board.pegs) {
     const [cx, cy] = px(peg.at);
+    const label = plan.peg.get(peg.id) ?? { x: cx + 2.6, y: cy - 2.6, anchor: 'start' as const };
     out.push(
       `<g data-peg="${peg.id}"><circle cx="${n2(cx)}" cy="${n2(cy)}" r="2" fill="#ffffff" stroke="${INK}" stroke-width="0.5"/>` +
         `<line x1="${n2(cx - 3.4)}" y1="${n2(cy)}" x2="${n2(cx + 3.4)}" y2="${n2(cy)}" stroke="${INK}" stroke-width="0.25"/><line x1="${n2(cx)}" y1="${n2(cy - 3.4)}" x2="${n2(cx)}" y2="${n2(cy + 3.4)}" stroke="${INK}" stroke-width="0.25"/>` +
-        `<text x="${n2(cx + 2.6)}" y="${n2(cy - 2.6)}" font-size="2.8" fill="${INK}" font-weight="bold">${peg.id}</text></g>`,
+        `<text x="${n2(label.x)}" y="${n2(label.y)}" font-size="2.8" fill="${INK}" font-weight="bold"${label.anchor === 'start' ? '' : ` text-anchor="${label.anchor}"`}>${peg.id}</text></g>`,
     );
   }
   return out.join('');
@@ -649,7 +934,7 @@ function tileSvg(board: Formboard, layout: FormboardLayout, page: number, option
   const ox = col * layout.step.x;
   const oy = row * layout.step.y;
   const S = layout.scale;
-  const frame: Frame = { x: (v) => MARGIN + PAD + v * S - ox, y: (v) => MARGIN + PAD + v * S - oy, scale: S };
+  const frame: Frame = { x: (v) => MARGIN + PAD + v * S - ox, y: (v) => MARGIN + PAD + v * S - oy, scale: S, view: { x0: MARGIN, y0: MARGIN, x1: MARGIN + layout.content.width, y1: MARGIN + layout.content.height } };
   const compact = S < 0.3;
   const out = [svgOpen(size.width, size.height, page, layout.tiles, 'tile')];
   out.push(`<clipPath id="tile-clip"><rect x="${MARGIN}" y="${MARGIN}" width="${n2(layout.content.width)}" height="${n2(layout.content.height)}"/></clipPath>`);
@@ -697,7 +982,7 @@ function overviewSvg(board: Formboard, layout: FormboardLayout, options: Formboa
   const tableHeight = Math.min(66, 9 + (tableRows + 1) * 3.5 + notes.length * 3.2);
   const area = { x: MARGIN, y: MARGIN + 7, width: size.width - 2 * MARGIN, height: size.height - 2 * MARGIN - FOOTER - tableHeight - 7 };
   const fit = Math.min((area.width - 2 * PAD) / board.width, (area.height - 2 * PAD) / board.height);
-  const frame: Frame = { x: (v) => area.x + PAD + v * fit, y: (v) => area.y + PAD + v * fit, scale: fit };
+  const frame: Frame = { x: (v) => area.x + PAD + v * fit, y: (v) => area.y + PAD + v * fit, scale: fit, view: { x0: area.x, y0: area.y, x1: area.x + area.width, y1: area.y + area.height } };
   out.push(text(MARGIN, MARGIN + 3.5, 4.2, board.title, ' font-weight="bold"'));
   out.push(
     text(size.width - MARGIN, MARGIN + 3.5, 3, `overview, fitted ${scaleText(fit)} · tiles at ${scaleText(layout.scale)}: ${layout.tiles} page${layout.tiles === 1 ? '' : 's'} (${layout.cols} × ${layout.rows})`, ` text-anchor="end" fill="${MUTED}"`),

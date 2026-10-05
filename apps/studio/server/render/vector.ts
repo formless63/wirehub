@@ -6,13 +6,15 @@
  * `translate`/`rotate` transforms; fill, stroke, width, dash, cap, opacity,
  * text-anchor, bold) and refuses an element outside it, so a drawing that
  * grows a new primitive fails a test instead of printing without it.
- * Text is set in the PDF's standard Helvetica faces. Pure and deterministic.
+ * Text is set in the bundled Liberation Sans, which the PDF embeds as a
+ * TrueType font (subset to the glyphs used), so it looks the same wherever it
+ * is opened: it is drawn as glyph ids, and the page names the glyphs it used.
+ * Pure and deterministic.
  */
 
-import { textWidth } from '@wirehub/docs';
-
 import { latin } from './layout.ts';
-import { pdfString, type PdfPage } from './pdf.ts';
+import { liberation, type Face } from './fonts.ts';
+import type { PdfPage } from './pdf.ts';
 
 const n = (v: number): string => String(Math.round(v * 1000) / 1000);
 
@@ -97,6 +99,8 @@ export function svgToVectorPdfPage(svg: string, page: { width: number; height: n
   const vb = (parseAttrs(root[1] as string)['viewBox'] ?? '').split(/\s+/).map(Number);
   if (vb.length !== 4 || vb.some((v) => !Number.isFinite(v))) throw new Error('vector pdf: the svg has no viewBox');
   const alphas = new Map<string, [number, number]>();
+  /** the glyphs the page's text uses, by face and glyph id, with the character each stands for */
+  const glyphs = new Map<string, { face: Face; gid: number; cp: number }>();
   const clips = new Map<string, { x: number; y: number; w: number; h: number }>();
   const out: string[] = [];
   const sx = page.width / (vb[2] as number);
@@ -227,19 +231,37 @@ export function svgToVectorPdfPage(svg: string, page: { width: number; height: n
       } else throw new Error(`vector pdf: <${name}> is outside the supported subset`);
       out.push('Q');
     }
-    return { kind: 'vector', width: page.width, height: page.height, content: out.join('\n'), alphas: [...alphas].sort(([a], [b]) => (a < b ? -1 : 1)).map(([key, [ca, CA]]) => ({ key, ca, CA })) };
+    return {
+      kind: 'vector',
+      width: page.width,
+      height: page.height,
+      content: out.join('\n'),
+      alphas: [...alphas].sort(([a], [b]) => (a < b ? -1 : 1)).map(([key, [ca, CA]]) => ({ key, ca, CA })),
+      glyphs: [...glyphs].sort(([a], [b]) => (a < b ? -1 : 1)).map(([, g]) => g),
+    };
   }
 
   function emitText(attrs: Attrs, style: Style, raw: string): void {
     if (style.fill === 'none' || style.fillOpacity === 0) return;
-    const body = latin(raw);
+    const face: Face = style.bold ? 'bold' : 'regular';
+    const font = liberation(face);
+    // a character the face has no glyph for is shown as the standard-font text would show it
+    let body = '';
+    for (const ch of raw) body += font.glyphFor(ch.codePointAt(0) as number) === 0 ? latin(ch) : ch;
     const size = num(attrs, 'font-size', 16);
-    const width = textWidth(body, size, style.bold);
+    const width = font.width(body, size);
     const x = num(attrs, 'x') - (style.anchor === 'middle' ? width / 2 : style.anchor === 'end' ? width : 0);
     const y = num(attrs, 'y') + (attrs['dominant-baseline'] === 'middle' ? size * 0.35 : 0);
+    let hex = '';
+    for (const ch of body) {
+      const cp = ch.codePointAt(0) as number;
+      const gid = font.glyphFor(cp);
+      glyphs.set(`${face}:${String(gid).padStart(5, '0')}`, { face, gid, cp });
+      hex += gid.toString(16).padStart(4, '0');
+    }
     out.push('q');
     if (style.fillOpacity !== 1) alphaOp(style.fillOpacity, 1);
     if (attrs['transform'] !== undefined) out.push(...transformOps(attrs['transform']));
-    out.push(`${rgb(style.fill)} rg BT /${style.bold ? 'F2' : 'F1'} ${n(size)} Tf 1 0 0 -1 ${n(x)} ${n(y)} Tm ${pdfString(body)} Tj ET`, 'Q');
+    out.push(`${rgb(style.fill)} rg BT /${style.bold ? 'E2' : 'E1'} ${n(size)} Tf 1 0 0 -1 ${n(x)} ${n(y)} Tm <${hex}> Tj ET`, 'Q');
   }
 }
