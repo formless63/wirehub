@@ -76,8 +76,9 @@ describePg('auth on Postgres', () => {
     call = async (path, init = {}, jar) => {
       const headers = new Headers(init.headers);
       if (jar !== undefined) headers.set('cookie', jar.header());
-      if (init.method !== undefined && init.method !== 'GET') headers.set('origin', BASE);
-      const res = await app.request(`${BASE}${path}`, { ...init, headers });
+      if (init.method !== undefined && init.method !== 'GET' && !headers.has('origin')) headers.set('origin', BASE);
+      const host = headers.get('host');
+      const res = await app.request(`${host === null ? BASE : `http://${host}`}${path}`, { ...init, headers });
       jar?.take(res);
       return res;
     };
@@ -138,6 +139,17 @@ describePg('auth on Postgres', () => {
     // only the token's hash is stored
     const stored = (await sql<{ token_sha256: string }>`SELECT token_sha256 FROM auth.invitation`.execute(pgh.db)).rows.map((r) => r.token_sha256);
     expect(stored.some((s) => s.includes(token))).toBe(false);
+  });
+
+  it('accepts a sign-in made to the address the hub was opened at; refuses another site', async () => {
+    // browsers say where a request comes from (Sec-Fetch-Site) as well as Origin
+    const at = (origin: string, host: string, site: string) =>
+      call('/api/auth/sign-in/email', { method: 'POST', headers: { 'content-type': 'application/json', origin, host, 'sec-fetch-site': site }, body: JSON.stringify({ email: OWNER, password: 'correct horse battery' }) });
+    // the LAN address, not the configured public URL: same origin, fine
+    const lan = await at('http://nas.local:5183', 'nas.local:5183', 'same-origin');
+    expect(lan.status).toBe(200);
+    const evil = await at('https://evil.example', 'nas.local:5183', 'cross-site');
+    expect(evil.status).toBeGreaterThanOrEqual(400);
   });
 
   it("attributes a signed-in person's save to them", async () => {

@@ -20,6 +20,8 @@
 import type { Context, Hono } from 'hono';
 
 import { sessionStudioUser, type StudioUser } from '../me.ts';
+import { clientAddress } from '../env.ts';
+import { crossSiteRefusal } from '../request-guard.ts';
 import { renderInvitePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
 import { ROLES, type PeopleStore, type Person, type Role } from './people.ts';
 import { parseToken, READ_LIMITS, scopeFor, TOKEN_DAYS, TOKEN_SCOPES, WRITE_LIMITS, type TokenEnv, type TokenStore } from './tokens.ts';
@@ -106,7 +108,8 @@ function tokenRefused(): Response {
 
 /** The client's address, for the failed-attempt budget. */
 function addressOf(c: Context): string {
-  return (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress ?? 'unknown';
+  // behind a trusted reverse proxy (WIREHUB_TRUST_PROXY) the client is X-Forwarded-For's first entry
+  return clientAddress(c.req.raw.headers, (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress);
 }
 
 /** Check a bearer token and let the request through as its person, or answer the refusal. */
@@ -178,7 +181,17 @@ async function tokensRoute(c: Context, tokens: TokenStore, person: Person | unde
 export function mountAuth(app: Hono, auth: StudioAuth): void {
   const { config } = auth;
 
-  app.on(['GET', 'POST'], [AUTH_BASE_PATH, `${AUTH_BASE_PATH}/*`], (c) => auth.handler(c.req.raw));
+  app.on(['GET', 'POST'], [AUTH_BASE_PATH, `${AUTH_BASE_PATH}/*`], (c) => {
+    // a sign-in, sign-up or sign-out only from the studio's own pages (the API's cross-site rule)
+    const crossSite = crossSiteRefusal({
+      method: c.req.method,
+      origin: c.req.header('origin'),
+      secFetchSite: c.req.header('sec-fetch-site'),
+      host: c.req.header('x-forwarded-host') ?? c.req.header('host') ?? new URL(c.req.url).host,
+    });
+    if (crossSite !== undefined) return json(crossSite.status, crossSite.body);
+    return auth.handler(c.req.raw);
+  });
 
   app.get(SIGN_IN_PATH, async (c) => {
     const user = await auth.sessionUser(c.req.raw.headers);

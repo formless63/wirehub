@@ -129,3 +129,30 @@ export function prepareHostEnv(env: Record<string, string | undefined> = process
   if (env['WIREHUB_PACKS_DIR'] === undefined || env['WIREHUB_PACKS_DIR'] === '') env['WIREHUB_PACKS_DIR'] = checkoutPacksDir();
   return result;
 }
+
+/**
+ * `WIREHUB_TRUST_PROXY=1`: the studio sits behind a reverse proxy it trusts,
+ * so `X-Forwarded-For` / `-Proto` / `-Host` say who the client is and which
+ * address it opened. Off by default: a client could otherwise claim any address.
+ */
+export function trustProxy(env: Env = process.env): boolean {
+  return /^(1|true|yes|on)$/i.test((env['WIREHUB_TRUST_PROXY'] ?? '').trim());
+}
+
+/** The origin a request was made to, as the browser saw it (forwarded headers only with a trusted proxy). */
+export function requestOrigin(request: Request, env: Env = process.env): string {
+  const url = new URL(request.url);
+  if (!trustProxy(env)) return url.origin;
+  const proto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || url.protocol.replace(/:$/, '');
+  const host = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || url.host;
+  return `${proto}://${host}`;
+}
+
+/** The client's address: the socket's, or with a trusted proxy the first `X-Forwarded-For` entry. */
+export function clientAddress(headers: Headers, socketAddress: string | undefined, env: Env = process.env): string {
+  if (trustProxy(env)) {
+    const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+    if (forwarded !== undefined && forwarded !== '') return forwarded;
+  }
+  return socketAddress ?? 'unknown';
+}

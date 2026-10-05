@@ -39,6 +39,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 import pg from 'pg';
 
+import { requestOrigin } from '../env.ts';
 import { readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
 import type { PeopleStore, Role } from './people.ts';
 import { RateLimiter, type TokenEnv, type TokenStore } from './tokens.ts';
@@ -236,7 +237,9 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
     secret: config.secret,
     database,
     telemetry: { enabled: false },
-    trustedOrigins: [new URL(config.baseURL).origin],
+    // the public origin, and the origin the request itself was made to (same-origin is never cross-site):
+    // a hub opened by its LAN address works without WIREHUB_PUBLIC_URL naming it
+    trustedOrigins: (request?: Request) => [new URL(config.baseURL).origin, ...(request === undefined ? [] : [requestOrigin(request)])],
     session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 },
     account: {
       accountLinking: {
