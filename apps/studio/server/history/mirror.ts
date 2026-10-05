@@ -8,6 +8,10 @@
  *   writes them (`data/…`, `depictions/…`, `GET /api/export`); binary files
  *   (uploads, artwork, photos) are named in `.wirehub-blobs.json` by content
  *   address, not copied.
+ * - **Left out.** The owner-only settings documents (sign-in & accounts,
+ *   notifications, integrations: `data/settings/…`), which name identity
+ *   providers, mail servers, webhooks and remotes. A mirror kept before this
+ *   rule drops them at its next commit; they stay in its earlier commits.
  * - **Who.** The change set's person is the commit's author (its name and
  *   email; `studio@localhost` for a save with the login off), at the change
  *   set's time; WireHub is the committer. The message is the change set's,
@@ -44,6 +48,7 @@ import { blobObjectKey } from '../pg/keys.ts';
 import type { SnapshotCache } from '../pg/snapshot.ts';
 import { CatalogTree, treeWorkbenchDeps } from '../pg/tree.ts';
 import type { ChangeSet, RecordChange, RecordKind } from '../storage/change-set.ts';
+import { isOwnerOnlySettingsPath } from '../runtime-settings.ts';
 import { commitChangeSet } from '../storage/unit-of-work.ts';
 
 export const BLOB_MANIFEST = '.wirehub-blobs.json';
@@ -166,6 +171,8 @@ function splitTree(tree: CatalogTree): { text: Map<string, string>; blobs: Recor
   const text = new Map<string, string>();
   const blobs: Record<string, BlobRef> = {};
   for (const [path, content] of tree.contents()) {
+    // the owner-only settings documents (sign-in, notifications, integrations) are not mirrored
+    if (isOwnerOnlySettingsPath(path)) continue;
     if (typeof content === 'string') text.set(path, content);
     else if (isBlobRef(content)) blobs[path] = { blob: content.blob, size: content.size };
   }
@@ -398,6 +405,8 @@ export async function runGitMirrorJob(context: JobContext, options: GitMirrorOpt
 async function replay(tree: CatalogTree, set: SetRow, rows: readonly ChangeRow[], options: GitMirrorOptions): Promise<void> {
   const changes: RecordChange[] = [];
   for (const r of rows) {
+    // the mirror's tree never holds the owner-only settings documents, so their changes are not replayed
+    if (r.kind === 'doc' && (isOwnerOnlySettingsPath(r.key) || (r.to_key !== null && isOwnerOnlySettingsPath(r.to_key)))) continue;
     const change: RecordChange = { kind: r.kind as RecordKind, key: r.key, op: r.op };
     if (r.op === 'move') {
       if (r.to_key === null) throw new CannotReplay(`a move of ${r.kind} ${r.key} names no target`);

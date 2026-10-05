@@ -8,6 +8,7 @@
  *   pnpm --filter studio pg:export --out <dir> [--with-blobs]
  *   cli.ts adopt --from <dir> --packs <dir> --starter <pristine data dir>   the compose migrate step
  *   pnpm --filter studio pg:gate --from <dir>         the S1 gate: files vs the database
+ *   cli.ts owner-password [--email <owner>] [--org <slug>]   set an owner's email + password login (the password on stdin or a hidden prompt); a hub nobody can sign in to
  *
  * `--packs <dir>` (default WIREHUB_PACKS_DIR): a file deployment's installed
  * packs, flattened into the catalog on import and in the gate.
@@ -37,6 +38,7 @@ import { formatGateReport, runGate } from './gate.ts';
 import { ImportError, importCatalog } from './import.ts';
 import { adoptFileCatalog } from './adopt.ts';
 import { migrateToLatest } from './migrate.ts';
+import { OwnerPasswordError, setOwnerPassword } from './owner-password.ts';
 import { notifierFromEnv } from '../notify.ts';
 import { migrateModules } from './module-migrations.ts';
 import { registry } from '../modules.ts';
@@ -113,6 +115,52 @@ async function importCommand(args: string[]): Promise<void> {
     await handle.close();
   }
 }
+async function readPassword(): Promise<string> {
+  if (!process.stdin.isTTY) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+    return Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+  }
+  const { createInterface } = await import('node:readline');
+  const { Writable } = await import('node:stream');
+  let muted = false;
+  // the prompt is written by hand; what is typed is not echoed
+  const out = new Writable({ write(chunk, _encoding, done) { if (!muted) process.stdout.write(chunk); done(); } });
+  const rl = createInterface({ input: process.stdin, output: out, terminal: true });
+  process.stdout.write('New password: ');
+  muted = true;
+  const first = await new Promise<string>((done) => rl.question('', (a) => { process.stdout.write('\n'); done(a); }));
+  process.stdout.write('Again: ');
+  const second = await new Promise<string>((done) => rl.question('', (a) => { process.stdout.write('\n'); done(a); }));
+  rl.close();
+  if (first !== second) throw new PgConfigError('The two passwords differ; nothing was changed.');
+  return first;
+}
+
+/**
+ * `owner-password`: the escape hatch for a hub nobody can sign in to — an owner's email + password
+ * login, set from the server's shell (`server/pg/owner-password.ts`).
+ */
+async function ownerPasswordCommand(args: string[]): Promise<void> {
+  const { values } = parseArgs({ args, options: { email: { type: 'string' }, org: { type: 'string' } } });
+  const password = await readPassword();
+  const handle = openPg(pgAppConfigFromEnv(env).url, { max: 1, applicationName: 'wirehub-owner-password' });
+  try {
+    const orgId = await resolveOrgId(handle.db, values.org);
+    if (orgId === undefined) throw new PgConfigError(values.org === undefined ? 'This hub has no organisation yet: finish first-run setup in the browser.' : `There is no organisation '${values.org}'.`);
+    try {
+      const done = await setOwnerPassword(handle.db, orgId, { ...(values.email === undefined ? {} : { email: values.email }), password });
+      log(`${done.action === 'created' ? 'made the email + password login of' : 'replaced the password of'} ${done.name} <${done.email}>; sign in at the hub's address with it.`);
+      log('Email + password sign-in must be on (Settings > Sign-in & accounts, or AUTH_LOCAL_ACCOUNTS=true on the server).');
+    } catch (error) {
+      if (error instanceof OwnerPasswordError) throw new PgConfigError(error.message);
+      throw error;
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
 /**
  * `adopt`: the compose stack's migrate step. On a database with no org yet,
  * a file deployment that was in use (its first-run setup completed, or its
@@ -206,11 +254,14 @@ try {
     case 'adopt':
       await adoptCommand(rest);
       break;
+    case 'owner-password':
+      await ownerPasswordCommand(rest);
+      break;
     case 'gate':
       if (!(await gateCommand(rest))) process.exitCode = 1;
       break;
     default:
-      console.error('usage: cli.ts bootstrap | migrate | import --from <dir> --org <slug> | export --out <dir> | gate --from <dir>');
+      console.error('usage: cli.ts bootstrap | migrate | import --from <dir> --org <slug> | export --out <dir> | gate --from <dir> | owner-password [--email <owner>] [--org <slug>]');
       process.exitCode = 2;
   }
 } catch (error) {

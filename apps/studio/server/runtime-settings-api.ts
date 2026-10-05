@@ -7,6 +7,7 @@
  *   PUT    /api/settings/runtime/<group>     replace the group's values (If-Match: the group's ETag)
  *   PUT    /api/settings/secrets/<key>       set a secret: { "value": "…" } — write-only
  *   DELETE /api/settings/secrets/<key>       clear it
+ *   POST   /api/settings/adopt               copy the server's values (the environment's) into Settings
  *
  * Owner-only groups (sign-in, notifications, integrations) refuse everyone else, and API
  * tokens: they are changed in a signed-in session. Their values are not shown to editors or
@@ -39,6 +40,7 @@ import {
   type SettingValue,
   type SettingsDoc,
 } from './runtime-settings.ts';
+import { ENGINEERING_PATH, readEngineering } from './settings.ts';
 import { UnitOfWork } from './storage/unit-of-work.ts';
 
 export const RUNTIME_SETTINGS_ROUTES = [
@@ -46,6 +48,7 @@ export const RUNTIME_SETTINGS_ROUTES = [
   'PUT    /api/settings/runtime/:group',
   'PUT    /api/settings/secrets/:key',
   'DELETE /api/settings/secrets/:key',
+  'POST   /api/settings/adopt',
 ] as const;
 
 const MAX_TEXT = 500;
@@ -235,9 +238,31 @@ async function groupsView(deps: WorkbenchDeps, settings: RuntimeSettings, user: 
     secrets: settings.cipher === undefined
       ? { available: false, note: 'This server has no settings key (WIREHUB_SETTINGS_KEY), so secrets cannot be saved here; set them on the server instead. The compose stack generates the key.' }
       : { available: true },
+    ...(isOwner(user) && user?.apiTokenId === undefined ? { adoptable: await adoptable(deps, settings) } : {}),
     problems: settings.problems(),
     src: SETTINGS_SRC,
   };
+}
+
+/** The settings the server's environment sets that Settings does not yet hold the same value for (labels, for the page). */
+async function adoptable(deps: WorkbenchDeps, settings: RuntimeSettings): Promise<{ key: string; env: string; label: string }[]> {
+  const out: { key: string; env: string; label: string }[] = [];
+  const states = settings.secretStates();
+  for (const group of SETTING_GROUPS) {
+    const doc = await readSettingsDoc(deps.docs, group);
+    for (const field of group.fields) {
+      if (!envIsSet(settings.base, field.env)) continue;
+      const held = field.secret === true ? states[field.key] === 'set' : JSON.stringify(doc?.values?.[field.key]) === JSON.stringify(shownEnvValue(field, settings.base[field.env] as string));
+      // a secret already stored is not compared (it is write-only): it counts as held
+      if (!held) out.push({ key: field.key, env: field.env, label: field.label });
+    }
+  }
+  const fromServer = deps.testDefaults;
+  if (fromServer !== undefined) {
+    const saved = (await readEngineering(deps.docs))?.testDefaults as Record<string, number> | undefined;
+    if (Object.entries(fromServer).some(([k, v]) => saved?.[k] !== v)) out.push({ key: 'testDefaults', env: 'WIREHUB_TEST_DEFAULTS', label: 'Continuity test defaults' });
+  }
+  return out;
 }
 
 const noSettings = (): ApiResponse => fail(501, 'This studio keeps no runtime settings.', 'They are set on the server, in its environment.');
@@ -365,6 +390,102 @@ export async function handleSettingsSecret(
     if (before === undefined) await store.remove(field.key);
     else await store.put(field.key, before);
   }
+  await settings.refresh();
+  return committed;
+}
+
+/** `POST /api/settings/adopt` */
+export const isSettingsAdoptPath = (path: string): boolean => (path.split('?')[0] ?? '').replace(/\/+$/, '') === '/api/settings/adopt';
+
+/**
+ * "Adopt the server's values": for an upgraded hub whose runtime settings are still given by
+ * the environment. Every setting the environment sets is copied into Settings — plain values
+ * into their group's document, secrets (encrypted) into the secret store — in one change set,
+ * so the variables can then be dropped from the deployment and nothing changes. The variables
+ * keep winning while they are set. Owner only, in a signed-in session. The response names
+ * what was copied, never a value; the secrets are never handed to the commit.
+ */
+export async function handleSettingsAdopt(
+  request: { method: string; path: string; user?: StudioUser },
+  deps: WorkbenchDeps,
+  commit: (uow: UnitOfWork, request: { method: string; path: string; user?: StudioUser }, response: ApiResponse) => Promise<ApiResponse>,
+  now: () => string = () => new Date().toISOString(),
+): Promise<ApiResponse> {
+  if (request.method.toUpperCase() !== 'POST') return fail(405, `${request.method} is not something this address accepts.`, 'It answers POST.');
+  const settings = deps.runtimeSettings;
+  if (settings === undefined || deps.docs === undefined) return noSettings();
+  const user = request.user;
+  if (user?.role === 'viewer' || !isOwner(user)) return fail(403, 'Adopting the server’s values is done by an owner.', 'Ask an owner of this hub.');
+  if (user?.apiTokenId !== undefined) return fail(403, 'Adopting the server’s values is done in a signed-in session, not with an API token.');
+  const store = settings.options.secrets();
+  const cipher = settings.cipher;
+  const uow = new UnitOfWork(deps);
+  const adopted: string[] = [];
+  const skipped: { key: string; label: string; why: string }[] = [];
+  const restore: (() => Promise<void>)[] = [];
+  const secretsNeeded = SETTING_FIELDS.some((f) => f.secret === true && envIsSet(settings.base, f.env));
+  if (secretsNeeded && store === undefined) return fail(503, 'This hub has no secret store yet.', 'Finish first-run setup first.');
+  if (secretsNeeded && cipher === undefined) return fail(409, 'This server has no settings key (WIREHUB_SETTINGS_KEY), so it cannot keep the secrets entered here.', 'Give the server a settings key (the compose stack generates one), then adopt again.');
+  const before = store === undefined ? {} : await store.all();
+  try {
+    for (const group of SETTING_GROUPS) {
+      const doc = (await readSettingsDoc(uow.deps.docs, group)) ?? { src: SETTINGS_SRC };
+      const values: Record<string, SettingValue> = { ...(doc.values ?? {}) };
+      const secrets: Record<string, string> = { ...(doc.secrets ?? {}) };
+      let changed = false;
+      for (const field of group.fields) {
+        if (!envIsSet(settings.base, field.env)) continue;
+        const raw = settings.base[field.env] as string;
+        if (field.secret === true) {
+          const got = readValue(field, raw);
+          if (got.error !== undefined || got.value === undefined) {
+            skipped.push({ key: field.key, label: field.label, why: got.error ?? 'is empty' });
+            continue;
+          }
+          const name = field.key;
+          await (store as NonNullable<typeof store>).put(name, (cipher as NonNullable<typeof cipher>).encrypt(settings.options.org(), name, String(got.value)));
+          restore.push(async () => {
+            if (before[name] === undefined) await (store as NonNullable<typeof store>).remove(name);
+            else await (store as NonNullable<typeof store>).put(name, before[name] as string);
+          });
+          secrets[name] = now();
+          adopted.push(name);
+          changed = true;
+        } else {
+          const got = readValue(field, shownEnvValue(field, raw));
+          if (got.error !== undefined || got.value === undefined) {
+            skipped.push({ key: field.key, label: field.label, why: got.error ?? 'is empty' });
+            continue;
+          }
+          if (JSON.stringify(values[field.key]) === JSON.stringify(got.value)) continue;
+          values[field.key] = got.value;
+          adopted.push(field.key);
+          changed = true;
+        }
+      }
+      if (!changed) continue;
+      const next: SettingsDoc = { ...(Object.keys(values).length === 0 ? {} : { values: sortKeys(values) }), ...(Object.keys(secrets).length === 0 ? {} : { secrets: sortKeys(secrets) }), src: SETTINGS_SRC };
+      await uow.deps.docs!.write(group.path, next);
+    }
+  } catch (error) {
+    for (const undo of restore) await undo().catch(() => {});
+    throw error;
+  }
+  // WIREHUB_TEST_DEFAULTS: the parameters it sets, into the engineering settings' test defaults
+  if (deps.testDefaults !== undefined) {
+    const eng = await readEngineering(uow.deps.docs);
+    const saved = (eng?.testDefaults ?? {}) as Record<string, number>;
+    const merged = { ...saved, ...deps.testDefaults } as Record<string, number>;
+    if (JSON.stringify(Object.entries(merged).sort()) !== JSON.stringify(Object.entries(saved).sort())) {
+      await uow.deps.docs!.write(ENGINEERING_PATH, { ...(eng ?? { src: SETTINGS_SRC }), testDefaults: merged });
+      adopted.push('testDefaults');
+    }
+  }
+  const answer: ApiResponse = { status: 200, body: { adopted: adopted.sort(), skipped } };
+  if (adopted.length === 0) return answer;
+  // the secrets' values are not in the answer or the change set; only the keys and the time they were set
+  const committed = await commit(uow, { method: 'POST', path: '/api/settings/adopt', ...(user === undefined ? {} : { user }) }, answer);
+  if (committed.status >= 400) for (const undo of restore) await undo().catch(() => {});
   await settings.refresh();
   return committed;
 }

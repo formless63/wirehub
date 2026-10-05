@@ -26,6 +26,8 @@ export interface CatalogExport {
   files: Record<string, string>;
   /** binary files left out, path → sha256 */
   blobs: Record<string, string>;
+  /** an owner's export only: the files in `files` that only owners may see (sign-in, notifications and integrations settings) */
+  owner_only?: string[];
 }
 
 export function exportSnapshot(snapshot: Snapshot): CatalogExport {

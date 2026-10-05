@@ -151,4 +151,95 @@ describePg('runtime settings on Postgres', () => {
       await a.close();
     }
   }, 120_000);
+
+  it('adopts the server’s values, and keeps owner-only documents out of the export, the history and the git mirror for everyone else', async () => {
+    const { runGitMirrorJob } = await import('../../server/history/mirror.ts');
+    const { SnapshotCache } = await import('../../server/pg/snapshot.ts');
+    const { execFileSync } = await import('node:child_process');
+    const { existsSync, readFileSync } = await import('node:fs');
+    const secret = 'oidc-pa55-from-the-env';
+    const server = { AUTH_OIDC_ISSUER: 'https://id.example.com', AUTH_OIDC_CLIENT_ID: 'wirehub-pg', AUTH_OIDC_CLIENT_SECRET: secret, AUTH_ALLOWED_EMAILS: 'boss@example.com', AUTH_ENABLED: 'false' };
+    const a = await studio(server);
+    try {
+      expect((await a.call('POST', '/api/settings/adopt', {}, EDITOR)).status).toBe(403);
+      const view = (await a.call('GET', '/api/settings/runtime')).body;
+      expect(view.adoptable.map((x: { env: string }) => x.env).sort()).toEqual(['AUTH_ALLOWED_EMAILS', 'AUTH_OIDC_CLIENT_ID', 'AUTH_OIDC_CLIENT_SECRET', 'AUTH_OIDC_ISSUER']);
+      const done = await a.call('POST', '/api/settings/adopt', {});
+      expect(done.status, JSON.stringify(done.body)).toBe(200);
+      expect(done.body.adopted).toEqual(['auth.allowedEmails', 'oidc.clientId', 'oidc.clientSecret', 'oidc.issuer']);
+      expect(JSON.stringify(done.body)).not.toContain(secret);
+
+      // Settings now holds them: another process without the variables reads the same values
+      const b = await studio();
+      try {
+        expect(b.settings.env()).toMatchObject({ AUTH_OIDC_ISSUER: 'https://id.example.com', AUTH_OIDC_CLIENT_ID: 'wirehub-pg', AUTH_OIDC_CLIENT_SECRET: secret, AUTH_ALLOWED_EMAILS: 'boss@example.com' });
+        expect((await b.call('GET', '/api/settings/runtime')).body.adoptable).toEqual([]);
+      } finally {
+        await b.close();
+      }
+      // the secret is ciphertext in its own table, and in no catalog row, change or message
+      const rows = await inOrg(pgh.db, orgId, async (tx) => (await sql<{ name: string; ciphertext: string }>`SELECT name, ciphertext FROM studio.settings_secret WHERE name = 'oidc.clientSecret'`.execute(tx)).rows);
+      expect(settingsCipher(KEY).decrypt(orgId, 'oidc.clientSecret', rows[0]!.ciphertext)).toBe(secret);
+      const everywhere = await inOrg(pgh.db, orgId, async (tx) => JSON.stringify([(await sql`SELECT body FROM studio.catalog_doc`.execute(tx)).rows, (await sql`SELECT after_body, before_body FROM studio.change`.execute(tx)).rows, (await sql`SELECT message, path FROM studio.change_set`.execute(tx)).rows]));
+      expect(everywhere).not.toContain(secret);
+
+      // the export: the owner's has the owner-only documents, marked; nobody else's has them
+      const SIGN_IN = 'data/settings/sign-in.json';
+      const owner = (await a.call('GET', '/api/export')).body;
+      expect(owner.files[SIGN_IN]).toContain('boss@example.com');
+      expect(owner.owner_only).toContain(SIGN_IN);
+      const editor = (await a.call('GET', '/api/export', undefined, EDITOR)).body;
+      expect(Object.keys(editor.files).some((p) => p.startsWith('data/settings/') && p !== 'data/settings/jobs.json' && p !== 'data/settings/engineering.json')).toBe(false);
+      expect(JSON.stringify(editor)).not.toContain('boss@example.com');
+
+      // the history: an editor sees that the document changed, never what it held
+      const list = (await a.call('GET', '/api/history?limit=5', undefined, EDITOR)).body;
+      const entry = list.entries.find((e: { touches: { label: string }[] }) => e.touches.some((t) => t.label.includes('settings/sign-in.json')));
+      expect(entry, JSON.stringify(list.entries.map((e: { message: string }) => e.message))).toBeDefined();
+      const asOwner = (await a.call('GET', `/api/history/entries/${entry.id}`)).body;
+      expect(JSON.stringify(asOwner.records)).toContain('boss@example.com');
+      const asEditor = (await a.call('GET', `/api/history/entries/${entry.id}`, undefined, EDITOR)).body;
+      expect(JSON.stringify(asEditor)).not.toContain('boss@example.com');
+      expect(asEditor.records.find((r: { label: string }) => r.label.includes('sign-in.json'))).toMatchObject({ before: { known: false }, after: { known: false }, restorable: false });
+
+      // the git mirror: a first run and a replayed change leave them out
+      const { fsBlobStore } = await import('../../server/blobs.ts');
+      const dir = join(work, 'mirror');
+      const blobs = fsBlobStore(join(work, 'mirror-blobs'));
+      const cache = new SnapshotCache(pgh.db, orgId);
+      const config = { target: { path: dir }, dir, branch: 'main', user: 'wirehub', cron: '* * * * *' };
+      const ctx = () => ({ job: { id: 't', kind: 'git-mirror', status: 'running', request: {}, steps: [], createdAt: new Date().toISOString() }, step: async () => undefined }) as never;
+      const first = await runGitMirrorJob(ctx(), { db: pgh.db, orgId, cache, blobs, config });
+      expect(first.result).toMatchObject({ resynced: 'first run' });
+      expect(existsSync(join(dir, SIGN_IN))).toBe(false);
+      expect(existsSync(join(dir, 'data/designs/dc-led-lead.json'))).toBe(true);
+      expect((await a.save('integrations', { 'pdf.url': 'http://pdf-mirror-secret:3000' })).status).toBe(200);
+      expect((await a.save('jobs', { 'jobs.importMaxMb': 33 }, EDITOR)).status).toBe(200);
+      const second = await runGitMirrorJob(ctx(), { db: pgh.db, orgId, cache, blobs, config });
+      expect(second.result['resynced'], JSON.stringify(second.result)).toBeUndefined();
+      expect(existsSync(join(dir, 'data/settings/integrations.json'))).toBe(false);
+      expect(readFileSync(join(dir, 'data/settings/jobs.json'), 'utf8')).toContain('33');
+      const tracked = execFileSync('git', ['ls-files'], { cwd: dir, encoding: 'utf8' });
+      expect(tracked).not.toMatch(/settings\/(sign-in|notifications|integrations)\.json/);
+      expect(execFileSync('git', ['log', '-p', '--all'], { cwd: dir, encoding: 'utf8', maxBuffer: 1 << 28 })).not.toContain('pdf-mirror-secret');
+    } finally {
+      await a.close();
+    }
+  }, 120_000);
+
+  it('WIREHUB_TEST_DEFAULTS wins parameter by parameter, shows as set by the server, and can be adopted', async () => {
+    const a = await studio({ WIREHUB_TEST_DEFAULTS: '{"isolationVolts":100}' });
+    try {
+      const get = async () => (await a.call('GET', '/api/settings/engineering')).body;
+      const put = async (body: unknown) => a.call('PUT', '/api/settings/engineering', body, OWNER, { 'if-match': ((await a.call('GET', '/api/settings/engineering')) as { headers?: Record<string, string> }).headers?.ETag ?? '' });
+      expect((await get()).env.testDefaults).toEqual({ isolationVolts: 100 });
+      expect((await put({ testDefaults: { isolationVolts: 250, hipotVolts: 1200 } })).status).toBe(409);
+      expect((await put({ testDefaults: { hipotVolts: 1200 } })).status).toBe(200);
+      expect((await a.call('GET', '/api/settings/runtime')).body.adoptable).toEqual([{ key: 'testDefaults', env: 'WIREHUB_TEST_DEFAULTS', label: 'Continuity test defaults' }]);
+      expect((await a.call('POST', '/api/settings/adopt', {})).body.adopted).toContain('testDefaults');
+      expect((await get()).testDefaults).toEqual({ hipotVolts: 1200, isolationVolts: 100 });
+    } finally {
+      await a.close();
+    }
+  }, 60_000);
 });

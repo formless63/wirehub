@@ -295,6 +295,136 @@ describe('the file backend', () => {
   });
 });
 
+describe('adopting the server’s values (an upgraded hub)', () => {
+  const SERVER = { AUTH_OIDC_ISSUER: 'https://id.example.com', AUTH_OIDC_CLIENT_ID: 'wirehub', AUTH_OIDC_CLIENT_SECRET: 'oidc-s3cr3t-value', AUTH_ALLOWED_EMAILS: 'a@x.org, b@x.org', WIREHUB_NOTIFY_URL: 'https://ntfy.example.com/t0pic-s3cr3t', WIREHUB_CONVERT_WINDOW: '01:00-05:00', WIREHUB_IMPORT_MAX_MB: '12' };
+
+  it('honours the environment as before, and offers to copy it into Settings (owners only)', async () => {
+    const { call, settings, deps } = hub(SERVER);
+    // no click needed: the environment is in force, shown "set by the server"
+    expect(settings.env().AUTH_OIDC_ISSUER).toBe('https://id.example.com');
+    const view = (await call('GET', '/api/settings/runtime')).body;
+    expect(view.adoptable.map((a: any) => a.env).sort()).toEqual(['AUTH_ALLOWED_EMAILS', 'AUTH_OIDC_CLIENT_ID', 'AUTH_OIDC_CLIENT_SECRET', 'AUTH_OIDC_ISSUER', 'WIREHUB_CONVERT_WINDOW', 'WIREHUB_IMPORT_MAX_MB', 'WIREHUB_NOTIFY_URL']);
+    expect(JSON.stringify(view)).not.toContain('s3cr3t');
+    expect((await call('GET', '/api/settings/runtime', undefined, EDITOR)).body.adoptable).toBeUndefined();
+    for (const who of [EDITOR, VIEWER, { ...OWNER, apiTokenId: 'tok-1', apiTokenScopes: ['read', 'catalog:write'] } as StudioUser]) expect((await call('POST', '/api/settings/adopt', {}, who)).status).toBe(403);
+    expect(await deps.docs!.read('data/settings/sign-in.json')).toBeUndefined();
+  });
+
+  it('copies plain values into the group documents and secrets (encrypted) into the secret store, in one change set', async () => {
+    const { call, settings, deps, secrets } = hub(SERVER);
+    const sets: any[] = [];
+    deps.afterCommit = (set) => void sets.push(set);
+    const done = await call('POST', '/api/settings/adopt', {});
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    expect(done.body.adopted).toEqual(['auth.allowedEmails', 'jobs.convertWindow', 'jobs.importMaxMb', 'notify.url', 'oidc.clientId', 'oidc.clientSecret', 'oidc.issuer']);
+    expect(done.body.skipped).toEqual([]);
+    expect(sets).toHaveLength(1);
+    expect(JSON.stringify(sets[0])).not.toContain('s3cr3t');
+    expect(await deps.docs!.read('data/settings/sign-in.json')).toMatchObject({ values: { 'auth.allowedEmails': ['a@x.org', 'b@x.org'], 'oidc.issuer': 'https://id.example.com', 'oidc.clientId': 'wirehub' }, secrets: { 'oidc.clientSecret': expect.any(String) } });
+    expect(await deps.docs!.read('data/settings/jobs.json')).toMatchObject({ values: { 'jobs.convertWindow': '01:00-05:00', 'jobs.importMaxMb': 12 } });
+    const stored = await (secrets as ReturnType<typeof memorySecretStore>).all();
+    expect(Object.keys(stored).sort()).toEqual(['notify.url', 'oidc.clientSecret']);
+    expect(settingsCipher(KEY).decrypt('files', 'oidc.clientSecret', stored['oidc.clientSecret']!)).toBe('oidc-s3cr3t-value');
+    expect(JSON.stringify(Object.values((await deps.exportCatalog!()).files))).not.toContain('s3cr3t');
+    // nothing left to adopt; the environment still wins while it is set
+    expect((await call('GET', '/api/settings/runtime')).body.adoptable).toEqual([]);
+    expect(settings.env().WIREHUB_IMPORT_MAX_MB).toBe('12');
+    // dropping the variables changes nothing: Settings holds the same values
+    const after = createRuntimeSettings({ env: {}, docs: () => deps.docs, secrets: () => secrets, org: () => 'files', cipher: settingsCipher(KEY), log: () => {} });
+    await after.refresh();
+    for (const name of Object.keys(SERVER)) expect(after.env()[name]?.replace(/, /g, ',')).toBe(SERVER[name as keyof typeof SERVER].replace(/, /g, ','));
+  });
+
+  it('says so without a settings key, and skips a value the server would not accept', async () => {
+    const keyless = hub({ AUTH_SMTP_PASS: 'x-pass' }, { key: null });
+    const refused = await keyless.call('POST', '/api/settings/adopt', {});
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/no settings key/);
+    const odd = hub({ WIREHUB_IMPORT_MAX_MB: '99999', WIREHUB_BACKUP_MAX_AGE_HOURS: '48' });
+    const done = await odd.call('POST', '/api/settings/adopt', {});
+    expect(done.body.adopted).toEqual(['jobs.backupMaxAgeHours']);
+    expect(done.body.skipped).toEqual([expect.objectContaining({ key: 'jobs.importMaxMb', why: expect.stringMatching(/whole number from 1 to 2048/) })]);
+  });
+
+  it('copies WIREHUB_TEST_DEFAULTS into the engineering settings too', async () => {
+    const { call, deps } = hub();
+    deps.testDefaults = { isolationVolts: 250 };
+    expect((await call('GET', '/api/settings/runtime')).body.adoptable).toEqual([{ key: 'testDefaults', env: 'WIREHUB_TEST_DEFAULTS', label: 'Continuity test defaults' }]);
+    expect((await call('POST', '/api/settings/adopt', {})).body.adopted).toEqual(['testDefaults']);
+    expect(await deps.docs!.read('data/settings/engineering.json')).toMatchObject({ testDefaults: { isolationVolts: 250 } });
+    expect((await call('GET', '/api/settings/runtime')).body.adoptable).toEqual([]);
+  });
+});
+
+describe('owner-only settings documents stay with owners', () => {
+  const PATHS = ['data/settings/sign-in.json', 'data/settings/notifications.json', 'data/settings/integrations.json'];
+
+  it('leaves them out of the export for everyone but an owner, whose export marks them', async () => {
+    const { call, save } = hub();
+    await save('sign-in', { 'auth.allowedEmails': ['boss@example.com'] });
+    await save('notifications', { 'notify.format': 'slack' });
+    await save('integrations', { 'pdf.url': 'http://pdf:3000' });
+    await save('jobs', { 'jobs.importMaxMb': 20 });
+    const owner = (await call('GET', '/api/export')).body;
+    for (const path of PATHS) expect(owner.files[path]).toBeDefined();
+    expect(owner.owner_only).toEqual(PATHS.slice().sort());
+    expect(owner.files['data/settings/jobs.json']).toBeDefined();
+    const editor = (await call('GET', '/api/export', undefined, EDITOR)).body;
+    expect(Object.keys(editor.files).filter((p) => p.startsWith('data/settings/')).sort()).toEqual(['data/settings/jobs.json']);
+    expect(editor.owner_only).toBeUndefined();
+    expect(JSON.stringify(editor)).not.toContain('boss@example.com');
+    expect((await call('GET', '/api/export', undefined, VIEWER)).status).toBe(200);
+    expect(JSON.stringify((await call('GET', '/api/export', undefined, VIEWER)).body)).not.toContain('boss@example.com');
+  });
+
+  it('shows their history bodies to owners only', async () => {
+    const { deps, call, save } = hub();
+    await save('sign-in', { 'auth.allowedEmails': ['boss@example.com'] });
+    const records = [
+      { subject: 'other:doc:data/settings/sign-in.json', label: 'doc data/settings/sign-in.json', part: 'record', op: 'added', before: { known: true }, after: { known: true, value: { values: { 'auth.allowedEmails': ['boss@example.com'] } } }, restorable: false },
+      { subject: 'design:x', label: 'design x', part: 'design', op: 'added', before: { known: true }, after: { known: true, value: { name: 'x' } }, restorable: true },
+    ];
+    deps.history = {
+      capabilities: async () => ({ backend: 'database', note: '', perRecord: true, diff: true, restore: true, filters: { person: true, date: true, kind: true } }),
+      list: async () => ({ entries: [] }),
+      record: async () => ({ entries: [] }),
+      detail: async () => ({ entry: { id: '1', at: '2026-10-05T00:00:00Z', by: { name: 'Olive' }, source: 'studio', message: 'm', touches: [] }, records: structuredClone(records) as never }),
+      stateAt: async () => undefined,
+    };
+    const asOwner = (await call('GET', '/api/history/entries/1')).body;
+    expect(JSON.stringify(asOwner)).toContain('boss@example.com');
+    for (const who of [EDITOR, VIEWER]) {
+      const seen = (await call('GET', '/api/history/entries/1', undefined, who)).body;
+      expect(JSON.stringify(seen)).not.toContain('boss@example.com');
+      expect(seen.records[0]).toMatchObject({ label: 'doc data/settings/sign-in.json', before: { known: false }, after: { known: false }, restorable: false });
+      expect(seen.records[1].after).toEqual({ known: true, value: { name: 'x' } });
+    }
+  });
+
+  it('knows the paths, with or without the data/ prefix', async () => {
+    const { isOwnerOnlySettingsPath, namesOwnerOnlySettings } = await import('../server/runtime-settings.ts');
+    for (const path of PATHS) expect(isOwnerOnlySettingsPath(path)).toBe(true);
+    expect(isOwnerOnlySettingsPath('settings/integrations.json')).toBe(true);
+    for (const path of ['data/settings/jobs.json', 'data/settings/engineering.json', 'data/settings/branding.json', 'data/connectors.json']) expect(isOwnerOnlySettingsPath(path)).toBe(false);
+    expect(namesOwnerOnlySettings('packages/catalog/data/settings/notifications.json')).toBe(true);
+    expect(namesOwnerOnlySettings('other:doc:data/settings/jobs.json')).toBe(false);
+  });
+});
+
+describe('the sign-in page with no way in', () => {
+  it('says so, and how to get back in, instead of a password form nobody can use', async () => {
+    const { renderSignInPage } = await import('../server/auth/sign-in-page.ts');
+    const stuck = renderSignInPage({ magicLink: false, localAccounts: true, noMethod: true, next: '/' });
+    expect(stuck).toContain('There is no way to sign in to this hub right now');
+    expect(stuck).toContain('compose.override.yaml');
+    expect(stuck).toContain('owner-password');
+    expect(stuck).not.toContain('id="password"');
+    const fine = renderSignInPage({ magicLink: false, localAccounts: true, next: '/' });
+    expect(fine).toContain('id="password"');
+    expect(fine).not.toContain('no-method');
+  });
+});
+
 async function vi_waitFor(check: () => boolean, ms = 2000): Promise<void> {
   const until = Date.now() + ms;
   while (!check()) {

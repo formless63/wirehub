@@ -42,7 +42,8 @@ import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
 import { refuseTakenDesignNumber } from './part-number-guard.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
-import { RUNTIME_SETTINGS_ROUTES, handleRuntimeSettingsRequest, handleSettingsSecret, isSettingsSecretPath } from './runtime-settings-api.ts';
+import { RUNTIME_SETTINGS_ROUTES, handleRuntimeSettingsRequest, handleSettingsAdopt, handleSettingsSecret, isSettingsAdoptPath, isSettingsSecretPath } from './runtime-settings-api.ts';
+import { isOwnerOnlySettingsPath } from './runtime-settings.ts';
 import { SETTING_GROUPS, runtimeEnv, type RuntimeSettings } from './runtime-settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
@@ -1117,6 +1118,16 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
       }),
     );
   }
+  // "adopt the server's values": the environment's runtime settings copied into Settings, one change set
+  if (isSettingsAdoptPath(request.path)) {
+    return withWriteLock(() =>
+      handleSettingsAdopt(request, deps, async (uow, context, answered) => {
+        const response = await commitUnit(uow, context, answered);
+        if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
+        return response;
+      }),
+    );
+  }
   if ((request.path.split('?')[0] ?? '') === '/api/batch') {
     if (request.method.toUpperCase() !== 'POST') return methodNotAllowed(request.method.toUpperCase(), ['POST']);
     return withWriteLock(() => runBatch(request, deps));
@@ -1315,7 +1326,12 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   if (head === 'export' && id === undefined) {
     if (method !== 'GET') return methodNotAllowed(method, ['GET']);
     if (deps.exportCatalog === undefined) return fail(501, 'This studio does not offer a catalog export.', 'Export the catalog files from the host instead.');
-    return ok(await deps.exportCatalog());
+    const full = await deps.exportCatalog();
+    const ownerOnly = Object.keys(full.files).filter(isOwnerOnlySettingsPath);
+    if (ownerOnly.length === 0) return ok(full);
+    // sign-in, notifications and integrations settings: an owner's export has them, marked; nobody else's does
+    if (user.role === undefined || user.role === 'owner') return ok({ ...full, owner_only: ownerOnly });
+    return ok({ ...full, files: Object.fromEntries(Object.entries(full.files).filter(([path]) => !isOwnerOnlySettingsPath(path))) });
   }
 
   if (head === 'db' && id === undefined) {
