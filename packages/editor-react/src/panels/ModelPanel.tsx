@@ -58,13 +58,13 @@ function writeOpen(open: boolean): void {
 }
 
 /** A depiction as an `<img>` source — an SVG stays inert inside `<img>`. */
-function artSrc(art: { kind: 'vector' | 'raster'; source?: string; dataUri?: string }): string | undefined {
+export function artSrc(art: { kind: 'vector' | 'raster'; source?: string; dataUri?: string }): string | undefined {
   if (art.kind === 'raster') return art.dataUri;
   return art.source === undefined ? undefined : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(art.source)}`;
 }
 
 /** The 2D view to show: board top / mating face / illustration, never a mirrored or photo one. */
-function pick2d(views: readonly ArtworkView[]): ArtworkView | undefined {
+export function pick2d(views: readonly ArtworkView[]): ArtworkView | undefined {
   const drawn = views.filter((v) => !v.derived && v.sourceKind !== 'photo' && v.view !== 'schematic-symbol');
   const order = ['board-top', 'mating-face', 'illustration'];
   return [...drawn].sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view))[0];

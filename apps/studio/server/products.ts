@@ -67,7 +67,7 @@ async function packOwners(deps: WorkbenchDeps): Promise<Map<string, string>> {
 }
 
 /** Each design's released revision: the approved one when approvals are on, else the latest saved. */
-async function releasedOf(deps: WorkbenchDeps, designs: readonly CableDesign[]): Promise<Map<string, number | undefined>> {
+export async function releasedOf(deps: WorkbenchDeps, designs: readonly CableDesign[]): Promise<Map<string, number | undefined>> {
   const out = new Map<string, number | undefined>();
   for (const d of designs) {
     const status = await workingStatus(deps, d.id, d);
