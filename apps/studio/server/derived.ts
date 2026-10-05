@@ -7,7 +7,9 @@
  * The base keeps one derived record itself — the signal-tag table, owned by
  * `TagStore.regenerate` (`vocab-store.ts`). A module that keeps reports or
  * export bundles of its own (a part-number reconciliation, a configurator
- * export) supplies a `DerivedStore` through the deps (`docs/modules.md`).
+ * export) declares them as `DerivedContribution`s (`docs/modules.md`), and
+ * `moduleDerivedStore` (`module-derived.ts`) is the `DerivedStore` the hosts
+ * build from the registry.
  */
 
 import type { Awaitable, DerivedKind } from './storage/change-set.ts';

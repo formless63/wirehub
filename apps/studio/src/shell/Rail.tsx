@@ -6,10 +6,11 @@
  */
 
 import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconKey, IconList, IconUsers } from '@tabler/icons-react';
+import { IconBox, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { LockNameAvatar } from '../locks/LockNameAvatar.tsx';
+import { useModules } from '../modules/ModulesContext.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 type Section = 'cables' | 'library';
@@ -18,6 +19,9 @@ const SECTIONS: readonly { to: '/cables' | '/library'; label: string; icon: type
   { to: '/cables', label: 'Cables', icon: IconList, section: 'cables' },
   { to: '/library', label: 'Library — connectors, boards, wire, components', icon: IconBox, section: 'library' },
 ];
+
+/** the Tabler icons a module route may name (`UiRouteContribution.icon`); anything else is a puzzle piece */
+const MODULE_ICONS: Readonly<Record<string, typeof IconList>> = { IconPlug, IconPuzzle, IconReport, IconSettings, IconTool, IconBox, IconList };
 
 const railIcon = (active: boolean): string =>
   active
@@ -29,6 +33,9 @@ export function Rail(): JSX.Element {
   // `GET /api/me`: the session user with the login on, else the local user
   const { user, me } = useStudio();
   const who = me?.email === undefined ? user : `${user} <${me.email}>`;
+  const registry = useModules();
+  const moduleRoutes = registry.routes().filter((r) => r.icon !== undefined);
+  const hasSettings = registry.panels('settings').length > 0;
   const pathname = matches[matches.length - 1]?.pathname ?? '';
   const active: Section | undefined = pathname.startsWith('/library')
     ? 'library'
@@ -49,7 +56,20 @@ export function Rail(): JSX.Element {
           <Icon size={18} />
         </Link>
       ))}
+      {moduleRoutes.map((r) => {
+        const Icon = MODULE_ICONS[r.icon ?? ''] ?? IconPuzzle;
+        return (
+          <Link key={`${r.module}/${r.path}`} to="/m/$module/$" params={{ module: r.module, _splat: r.path }} aria-label={r.label} title={r.label} className={railIcon(pathname === `/m/${r.module}/${r.path}`)}>
+            <Icon size={18} />
+          </Link>
+        );
+      })}
       <span className="grow" />
+      {hasSettings ? (
+        <Link to="/modules" aria-label="Modules" title="Modules and their settings" className={railIcon(pathname === '/modules')}>
+          <IconSettings size={18} />
+        </Link>
+      ) : null}
       {me?.instance?.env === 'dev' ? (
         <span title="A development instance: its data is a copy, not production" className="rounded bg-warn px-1 text-[9px] font-bold uppercase tracking-wide text-accent-ink">
           dev

@@ -604,3 +604,6 @@ export type { ModelLinkView, ModelsAdapter, ModelSourceKind, ModelUploadStats, S
 
 export { BoardComponentsSection } from './panels/BoardComponentsSection.tsx';
 export type { BoardComponentsSectionProps } from './panels/BoardComponentsSection.tsx';
+
+export { downloadOutput } from './extensions.ts';
+export type { EditorExtensions, EditorSlotContext, ExtraDocumentOutput, ExtraExporter } from './extensions.ts';

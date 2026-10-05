@@ -86,3 +86,49 @@ describe('domain modules', () => {
     expect(manifestProblems([empty])).toEqual(["domain module 'video' ships no catalog pack for setup to install"]);
   });
 });
+
+describe('derived records, owned files and reserved names', () => {
+  const withDerived = defineModule({
+    id: 'reports',
+    label: 'Reports',
+    version: '1.0.0',
+    documents: [{ path: 'data/reports/', class: 'report' }, { path: 'data/shared-register.json', class: 'imported' }, { path: 'data/imports/pins.json', class: 'imported' }],
+    derived: [{ id: 'summary', label: 'Summary', files: ['summary.json', 'notes.md'], derive: () => ({ 'summary.json': {}, 'notes.md': '' }) }],
+  });
+
+  it('lists the catalog directories modules own, derived ones included', () => {
+    expect(createRegistry([withDerived]).catalogDirs()).toEqual(['', 'derived/reports', 'imports', 'reports']);
+    expect(EMPTY_REGISTRY.catalogDirs()).toEqual([]);
+  });
+
+  it('looks importers and exporters up by module and id', () => {
+    const registry = createRegistry([example]);
+    expect(registry.importer('example', 'csv-pins')?.label).toBe('Pin table (CSV)');
+    expect(registry.importer('example', 'nope')).toBeUndefined();
+    expect(registry.exporter('example', 'x')).toBeUndefined();
+  });
+
+  it('refuses bad derived files, documents under data/derived/, reserved route names and duplicate panels', () => {
+    const bad = defineModule({
+      id: 'bad',
+      label: 'Bad',
+      version: '1.0.0',
+      derived: [{ id: 'x', label: 'X', files: ['Report.txt', 'a.json', 'a.json'], derive: () => ({}) }],
+      documents: [{ path: 'data/derived/bad/', class: 'report' }],
+      integrations: [{ id: 'i', label: 'I', routes: [{ method: 'GET', path: '_import/x', handle: async () => ({ status: 200, body: null }) }] }],
+      routes: [{ path: 'Has Spaces', label: 'R', component: null }],
+      panels: [
+        { id: 'p', label: 'P', slot: 'settings', component: null },
+        { id: 'p', label: 'P2', slot: 'settings', component: null },
+      ],
+    });
+    const problems = manifestProblems([bad]);
+    expect(problems).toHaveLength(6);
+    expect(problems.join('\n')).toMatch(/Report\.txt.*\.json or \.md/);
+    expect(problems.join('\n')).toMatch(/'a\.json' twice/);
+    expect(problems.join('\n')).toMatch(/data\/derived\//);
+    expect(problems.join('\n')).toMatch(/reserves|reserved/);
+    expect(problems.join('\n')).toMatch(/UI route 'Has Spaces'/);
+    expect(problems.join('\n')).toMatch(/two panels/);
+  });
+});

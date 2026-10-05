@@ -1,0 +1,16 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "src": "example module pack: synthetic, for demonstration only",
+  "entries": [
+    {
+      "id": "example-tick",
+      "label": "Example tick",
+      "kind": "data",
+      "aliases": [
+        "EX TICK"
+      ],
+      "src": "synthetic example"
+    }
+  ]
+}

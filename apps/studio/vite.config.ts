@@ -18,6 +18,8 @@ const nodeShim = fileURLToPath(new URL('./src/node-shim.ts', import.meta.url));
 const workspaceRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 export default defineConfig({
+  // the example module's dev flag, for the browser half of the manifest (`modules.config.ts`)
+  define: { 'import.meta.env.VITE_WIREHUB_EXAMPLE_MODULE': JSON.stringify(process.env.WIREHUB_EXAMPLE_MODULE ?? '') },
   // `workbenchApi` serves /api/* from the same dev server: the studio's saves
   // are validated server-side and land as JSON files in
   // `packages/catalog/data/designs/`. Dev only — see `server/plugin.ts`.

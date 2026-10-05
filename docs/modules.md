@@ -9,8 +9,9 @@ The skeleton exists today: `@wirehub/modules` (`packages/modules/src/index.ts`) 
 the module shape and the registry; `apps/studio/modules.config.ts` is the manifest; the
 server and browser each build the registry from it. The base bundles five optional **domain
 modules** there (`modules/pc-serial`, `modules/networking`, `modules/pro-audio`,
-`modules/av-video`, `modules/automotive`, below). Not every extension point is mounted in the
-app yet — the table below says which.
+`modules/av-video`, `modules/automotive`, below), and an **example module**
+(`modules/example`) that contributes to every extension point, off unless a dev flag is set
+(see "The example module"). Every extension point below is mounted in the app.
 
 **Licensing.** `@wirehub/modules` is **MIT**, so a module can depend on it whatever its own
 licence. WireHub itself is AGPL-3.0-only with the **WireHub Module Exception**
@@ -105,6 +106,32 @@ Connector face drawings (`packages/layout/src/connector-art.ts`) and body layout
 they appear only for a family a catalog actually has; letting a pack contribute its own is
 a follow-up.
 
+## The example module
+
+`modules/example` (`@wirehub/module-example`, MIT, README inside) contributes once to **every**
+extension point and is the template to copy for a module of your own: `src/index.ts` is the table,
+`src/logic.ts` the pure parts, `src/ui.ts` the panels and page. It is **not for production** and is
+labelled so in its name and its setup description. It is in the manifest only when the dev flag
+`WIREHUB_EXAMPLE_MODULE=1` is set (at bundle time for the browser, at start for the server —
+`apps/studio/modules.config.ts`), so it is never offered at `/setup`, and adds no panel, route, rule
+or hook, on a hub that did not ask for it. When flagged it also sets the deployment's one
+part-number scheme and one commit hook, so use it on a scratch checkout:
+
+```
+WIREHUB_EXAMPLE_MODULE=1 pnpm --filter studio dev
+```
+
+A module's UI is imported by the server too (through Node's type stripping, which does not read
+`.tsx`), so write panels with `createElement` in `.ts` files, or build them to JavaScript first.
+
+Its tests prove each point works through the app: `apps/studio/test/storage-contract/modules.ts` drives
+the server points (routes, rule, importer, exporter, documents, derived records) against the file
+backend and the commit tree the database uses, and `test/pg/modules.server.test.ts` runs the same
+session on Postgres, comparing every answer and the final catalog byte for byte;
+`test/modules.dom.test.tsx` mounts the panels, route, importer review, exporters and commit hook in
+the SPA; `test/module-auth.server.test.ts` signs in through contributed providers;
+`modules/example/test` checks the module's own logic and that it touches every point.
+
 ## The module object
 
 ```ts
@@ -126,6 +153,8 @@ export const acme = defineModule({
   routes: [...],
   authProviders: [...],
   commitHook,                    // optional, singleton
+  documents: [...],              // catalog documents the module owns
+  derived: [...],                // derived records kept beside the catalog
 });
 ```
 
@@ -135,17 +164,18 @@ export const acme = defineModule({
 | --- | --- | --- | --- |
 | **Catalog packs** | `CatalogPackContribution { id, label, version, root?, license? }` — a data directory laid out like `packages/catalog/data` plus `wirehub-pack.json`; `root` a path or `file:` URL | server, at install | **yes** — installed by first-run setup for domain modules (`/setup`); `layeredCatalogSource` reads one without installing |
 | **Setup (domain)** | `SetupContribution { kind: 'domain', description, suggested? }` | server + browser | **yes** — `/setup` lists `registry.domains()` |
-| **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import(input, db) → { definitions?, designs?, notes } }` — proposes records, never writes | server (may run in the browser if pure) | registry + `importersFor(fileName)`; UI not yet |
-| **Exporters / document types** | `ExporterContribution { id, label, description?, render(design, db, options) → { mimeType, fileName, body } }` | browser and server | registry only; Documents view not yet |
+| **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import(input, db) → { definitions?, designs?, notes } }` — proposes records, never writes | server | **yes** — the Library's **Import…** button (every kind's list) offers the importers that take the file; the person reviews the proposal and accepts it; `POST /api/modules/<module>/_import/<importer>` (below) |
+| **Exporters / document types** | `ExporterContribution { id, label, description?, render(design, db, options) → { mimeType, fileName, body } }` | browser and server | **yes** — one download button per exporter in the cable's Documents toolbar; `GET /api/modules/<module>/_export/<exporter>?design=<id>` (below) |
 | **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@wirehub/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
 | **Validation rules** | `ValidationRuleContribution { id, label, check(design, db) → Issue[] }` | everywhere | **yes** — every design save runs them after `validateDesign` |
-| **Integrations** | `IntegrationContribution { id, label, env?, routes?: { method, path, writes?, handle(request) }[] }` | server only | **yes** — `/api/modules/<module>/<path>`; `writes: true` routes take the write lock |
-| **UI panels** | `PanelContribution { id, label, slot: 'cable-inspector' \| 'cable-documents' \| 'library-detail' \| 'settings', component }` | browser | registry only |
-| **UI routes** | `UiRouteContribution { path, label, icon?, component }` under `/m/<module>/` | browser | registry only |
-| **Auth providers** | `AuthProviderContribution { id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }` | server | registry only; the base's own OIDC is configured by environment |
-| **Documents** | `DocumentContribution { path: 'data/<prefix>/' \| 'data/<file>', class: 'imported' \| 'report' }` — catalog documents the module owns | server | **yes** — `PUT /api/docs/*path` writes only these (scope `imports` for an API token) |
+| **Integrations** | `IntegrationContribution { id, label, env?, routes?: { method, path, writes?, handle(request) }[] }` | server only | **yes** — `/api/modules/<module>/<path>`; `writes: true` routes take the write lock; a route path may not start with `_` |
+| **UI panels** | `PanelContribution { id, label, slot: 'cable-inspector' \| 'cable-documents' \| 'library-detail' \| 'settings', component }`; the component takes `PanelProps` | browser | **yes** — below |
+| **UI routes** | `UiRouteContribution { path, label, icon?, component }` under `/m/<module>/`; the component takes `RouteProps` | browser | **yes** — below |
+| **Auth providers** | `AuthProviderContribution { id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }` | server | **yes** — below; the base's own OIDC is still configured by environment |
+| **Documents** | `DocumentContribution { path: 'data/<prefix>/' \| 'data/<file>', class: 'imported' \| 'report' }` — catalog documents the module owns | server | **yes** — `PUT /api/docs/*path` writes only these (scope `imports` for an API token); the file backend's catalog version covers their directories |
+| **Derived records** | `DerivedContribution { id, label, files, derive({ designs, db }) → { [file]: data \| text } }` — files recomputed when a save changes their inputs | server (the commit) | **yes** — below; on files and on Postgres |
 | **Migrations** | `ModuleMigrationsContribution { dir }` — forward-only SQL for the module's own tables, Postgres backend only | server, `db:migrate` | **yes** — applied after the base's, into schema `mod_<id>` (below) |
-| **Commit hook** | `(before, proposed, description) → CableDesign` — rewrite an edit as it is committed (e.g. record it as an override in module data) | browser (editor) | `setCommitHook` exists in the editor store; wiring from the registry not yet |
+| **Commit hook** | `(before, proposed, description) → CableDesign` — rewrite an edit as it is committed (e.g. record it as an override in module data) | browser (editor) | **yes** — the app installs `registry.commitHook()` into the editor store (`setCommitHook`) when it starts |
 
 ### Module tables (Postgres backend)
 
@@ -173,6 +203,65 @@ base's migrations, as the schema owner, into the schema `mod_<module_id>` (`pc-s
 
 UI contributions carry their component as an opaque value (`unknown` in the registry
 package, so it needs no React); the app renders it as a React component.
+
+### Mounting details (the stable contract)
+
+**Panels.** `registry.panels(slot)` are rendered in manifest order, each in a labelled
+`<section data-module data-panel>` and its own error boundary (a panel that throws shows one
+error line, the page stays up). The component receives `PanelProps`:
+`{ slot, module, db, design?, record?, readOnly, api }`. `cable-inspector` is appended to the
+inspector column with the **live** design; `cable-documents` sits under the Documents tabs with
+the design being printed (a saved revision when one is chosen, with `readOnly: true`);
+`library-detail` sits under the open Library record with `record: { kind, id }`; `settings`
+panels are listed per module on `/modules`, which the rail links to only when some module has
+one. `api(method, path, body?)` calls the module's own routes
+(`/api/modules/<module>/<path>`) and resolves `{ status, body }`.
+
+**UI routes.** `/m/<module>/<path>` renders the route's component with `RouteProps`
+(`{ module, path, db, api }`) inside the shell. A route with an `icon` (a Tabler icon name from
+`IconPlug`, `IconPuzzle`, `IconReport`, `IconSettings`, `IconTool`, `IconBox`, `IconList`; anything
+else is a puzzle piece) gets a rail entry and a place in the mobile menu. Paths are lowercase
+kebab segments joined by `/`, with no parameters.
+
+**Importers.** The server runs them (`POST /api/modules/<module>/_import/<importer>` with
+`{ fileName, base64, accept? }`, a JSON body, so files up to about 3 MB). Without `accept` the
+answer is the proposal — new definitions by kind, ids the library already has (skipped, never
+overwritten), designs, and the importer's notes — and nothing is written. With `accept: true` the
+file is read again and the proposal is written as **one change set** (the batch machinery:
+definition and design validation apply, nothing lands if one record is refused). Importers must
+be deterministic in their input. The sub-path prefix `_` is reserved for the host: an integration
+route may not use it.
+
+**Exporters.** The Documents toolbar renders the design on screen in the browser (so drafts
+export too) and downloads the file; `GET /api/modules/<module>/_export/<exporter>?design=<id>`
+renders a *stored* design on the server, with the other query parameters as `options`.
+
+**Auth providers.** `kind: 'oidc'` takes `{ issuer, clientId, clientSecret?, scopes?, emailClaim?, name? }`;
+`'oauth2'` takes `{ authorizationUrl, tokenUrl, userInfoUrl, clientId, clientSecret?, scopes?, emailClaim?, name? }`;
+`'other'` takes `{ plugin }`, a Better Auth plugin object mounted as it is. The provider's `id` is its
+sign-in id (`/api/auth/callback/<id>`), and it gets a "Sign in with …" button on the sign-in page. Any
+config key ending in `Env` names an environment variable whose value becomes the key without the suffix
+(`clientSecretEnv: 'ACME_SSO_SECRET'` → `clientSecret`), so a secret never sits in a module's source; a
+variable that is not set stops the server at startup, naming it. A provider only proves who someone is:
+the allow-list (`AUTH_ALLOWED_EMAILS`, or the hub's people) still decides who may sign in, and a
+deployment whose only sign-in is module-contributed starts without `AUTH_OIDC_*` or SMTP.
+
+**Derived records.** A module lists the files it keeps (`files: ['summary.json', 'report.md']`, lowercase,
+`.json` or `.md`) and a pure `derive({ designs, db })` returning one entry per file (data for `.json`, text for
+`.md`). The commit that changes a design, drawing, definition, vocabulary or build file recomputes them,
+so they are never stale and travel with the change that moved them: on files they are
+`data/derived/<module>/<file>` in the catalog (and in the git export); on Postgres they are
+`studio.derived_doc` rows (`derived_kind 'module'`, `module_id`) written in the same transaction, and the
+export and the S1 gate see the same bytes. Nobody writes them by hand: `PUT /api/docs/…` refuses
+`data/derived/`, and a module may not claim it as a document.
+
+**Owned files and the catalog version.** The file backend's catalog version (what the unit of work caches
+the loaded definitions under) hashes the base's directories plus the ones modules own, from
+`registry.catalogDirs()`: the directories of their `documents` and `data/derived/<module>/`. The
+base no longer hard-codes a module's directory names.
+
+**The commit hook** is a singleton and runs on every committed edit in the editor; keep it cheap and pure.
+It is installed once by `<App>` and removed when the app unmounts.
 
 ### What each point is for — worked examples
 
@@ -257,7 +346,5 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 ## Next steps
 
-Tracked in beads: mount panels and UI routes in the app; mount importers and exporters in
-the Library and Documents views; wire the commit hook from the registry into the editor;
-an `examples/hello-module` package exercising every point in tests; let a pack contribute
-connector drawings and body layouts.
+Tracked in beads: let a pack contribute connector drawings and body layouts; an upload route for importers
+larger than a JSON body; panels in the saved-revision view.

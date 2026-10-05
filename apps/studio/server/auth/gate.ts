@@ -254,6 +254,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
         ...(config.oidc === undefined
           ? {}
           : { oidc: { providerId: config.oidc.providerId, name: config.oidc.name, emailClaim: config.oidc.emailClaim } }),
+        ...((auth.providers ?? []).length === 0 ? {} : { providers: auth.providers }),
         magicLink: config.smtp !== undefined,
         localAccounts: config.localAccounts,
         next: safeNext(c.req.query('next')),

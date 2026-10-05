@@ -33,6 +33,8 @@ import { VersionView } from '../versions/VersionView.tsx';
 import { EditLockScope } from '../locks/EditLockScope.tsx';
 import { designRecord } from '../locks/records.ts';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';
+import { useModules } from '../modules/ModulesContext.tsx';
+import { editorExtensions } from '../modules/slots.tsx';
 
 function editorViewOf(routeView: CableView): EditorView {
   if (routeView === 'documents') return 'documents';
@@ -47,6 +49,8 @@ export function CableRoute(): JSX.Element {
   const studio = useStudio();
   const queryClient = useQueryClient();
   const chrome = useEditorChrome();
+  const modules = useModules();
+  const extensions = useMemo(() => editorExtensions(modules), [modules]);
 
   useEffect(() => {
     studio.openCable(id);
@@ -202,6 +206,7 @@ export function CableRoute(): JSX.Element {
               depictionSource={studio.depictions}
               {...(studio.partNumbers === undefined ? {} : { partNumbers: studio.partNumbers })}
               documentFacts={documentFacts}
+              {...(extensions === undefined ? {} : { extensions })}
               layout={studio.layout}
               view={editorViewOf(search.view)}
               onViewChange={onViewChange}
@@ -242,6 +247,7 @@ export function CableRoute(): JSX.Element {
       documentFacts={documentFacts}
       {...(stripPractice === undefined ? {} : { stripPractice })}
       {...(release === undefined ? {} : { release })}
+      {...(extensions === undefined ? {} : { extensions })}
       definitions={studio.definitions}
       onDefinitionsChange={studio.onDefinitionsChange}
       // artwork uploaded or re-anchored here is layered over `depictions` by

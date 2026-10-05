@@ -12,6 +12,7 @@ import { Link, useMatches } from '@tanstack/react-router';
 import { IconBox, IconList, IconX } from '@tabler/icons-react';
 import { useEffect, type JSX } from 'react';
 
+import { useModules } from '../modules/ModulesContext.tsx';
 import { Wordmark } from './Wordmark.tsx';
 
 const LINKS = [
@@ -22,6 +23,7 @@ const LINKS = [
 export function MobileNavSheet(props: { open: boolean; onClose: () => void }): JSX.Element | null {
   const { open, onClose } = props;
   const matches = useMatches();
+  const moduleRoutes = useModules().routes().filter((r) => r.icon !== undefined);
   const pathname = matches[matches.length - 1]?.pathname ?? '';
 
   useEffect(() => {
@@ -71,6 +73,19 @@ export function MobileNavSheet(props: { open: boolean; onClose: () => void }): J
             </Link>
           );
         })}
+        {moduleRoutes.map((r) => (
+          <Link
+            key={`${r.module}/${r.path}`}
+            to="/m/$module/$"
+            params={{ module: r.module, _splat: r.path }}
+            onClick={onClose}
+            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] no-underline ${
+              pathname === `/m/${r.module}/${r.path}` ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-hover'
+            }`}
+          >
+            {r.label}
+          </Link>
+        ))}
       </nav>
     </div>
   );

@@ -29,6 +29,7 @@ import { NotFoundView } from './shell/NotFoundView.tsx';
 import { CablesRoute } from './routes/CablesRoute.tsx';
 import { CableRoute } from './routes/CableRoute.tsx';
 import { SetupRoute } from './routes/SetupRoute.tsx';
+import { ModuleRoute, ModulesRoute } from './routes/ModuleRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
@@ -156,6 +157,20 @@ export const libraryItemRoute = createRoute({
   component: LibraryRoute,
 });
 
+/** `/m/<module>/<path>`: a page a module contributes (`docs/modules.md`) */
+export const moduleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/m/$module/$',
+  component: ModuleRoute,
+});
+
+/** `/modules`: the deployment's modules and their settings panels */
+export const modulesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/modules',
+  component: ModulesRoute,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   setupRoute,
@@ -164,6 +179,8 @@ const routeTree = rootRoute.addChildren([
   libraryIndexRoute,
   libraryKindRoute,
   libraryItemRoute,
+  moduleRoute,
+  modulesRoute,
 ]);
 
 /**

@@ -24,8 +24,10 @@
 
 import { contentETag } from '../etag.ts';
 import { commitMessage } from '../backup/commit-message.ts';
-import { entitiesOf, explode, sha256Hex, type CatalogRows, type EntityKind } from '@wirehub/catalog/src/codec/index.ts';
+import { derivedModuleOf, entitiesOf, explode, sha256Hex, type CatalogRows, type EntityKind } from '@wirehub/catalog/src/codec/index.ts';
 import { sql } from 'kysely';
+
+import type { ModuleRegistry } from '@wirehub/modules';
 
 import type { BlobStore } from '../blobs.ts';
 import { CommitRefusedError, type ChangeSet, type CommitResult, type DerivedKind } from '../storage/change-set.ts';
@@ -43,6 +45,8 @@ export interface PgCommitOptions {
   blobs?: BlobStore;
   /** re-read every blob after its PUT (§5.2; `WIREHUB_BLOB_VERIFY=off` turns it off) */
   verify?: boolean;
+  /** the deployment's modules: their derived records are recomputed in the commit (`module-derived.ts`) */
+  modules?: ModuleRegistry;
   /** `change_set.source` */
   source?: 'studio' | 'worker' | 'script' | 'migration';
 }
@@ -102,7 +106,7 @@ export function pgCommit(options: PgCommitOptions): (set: ChangeSet, derive: Rea
           const cached = cache.peek();
           const base = cached?.version === head.version ? cached : snapshotOf(head.version, await readRows(tx));
           const tree = CatalogTree.fromSnapshot(base);
-          const deps = treeWorkbenchDeps(tree, { orgId, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) });
+          const deps = treeWorkbenchDeps(tree, { orgId, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.modules === undefined ? {} : { modules: options.modules }) });
           const applied = await commitChangeSet(deps, set, derive);
 
           const { rows, errors } = explode(tree.contents());
@@ -123,6 +127,7 @@ export function pgCommit(options: PgCommitOptions): (set: ChangeSet, derive: Rea
           const touched = await writeDiff(tx, orgId, base.rows, rows, renames, actor.id, version);
           // the derived docs are computed over this version's inputs, changed or not (§4.4)
           if (applied.derived.includes('tags')) await sql`UPDATE studio.derived_doc SET inputs_version = ${version}::bigint WHERE derived_kind = 'tags'`.execute(tx);
+          if (applied.derived.includes('module')) await sql`UPDATE studio.derived_doc SET inputs_version = ${version}::bigint WHERE derived_kind = 'module'`.execute(tx);
           await insertChanges(tx, changeSet, set, touched.derivedPaths);
           await sql`UPDATE studio.catalog_head SET version = ${version}::bigint, updated_at = now()`.execute(tx);
           await sql`SELECT pg_notify('studio_catalog', ${JSON.stringify({ org: orgId, version, changeSet })})`.execute(tx);
@@ -350,8 +355,8 @@ async function writeDiff(
   const derivedPaths = [...derived.added, ...derived.changed, ...derived.removed].map((r) => r.path);
   for (const r of [...derived.added, ...derived.changed]) {
     await sql`
-      INSERT INTO studio.derived_doc (org_id, path, derived_kind, media_type, body, inputs_version)
-      VALUES (${org}::uuid, ${r.path}, ${r.derivedKind}, ${r.mediaType}, ${r.body}, ${version}::bigint)
+      INSERT INTO studio.derived_doc (org_id, path, derived_kind, module_id, media_type, body, inputs_version)
+      VALUES (${org}::uuid, ${r.path}, ${r.derivedKind}, ${derivedModuleOf(r.path) ?? null}, ${r.mediaType}, ${r.body}, ${version}::bigint)
       ON CONFLICT (org_id, path) DO UPDATE SET media_type = EXCLUDED.media_type, body = EXCLUDED.body,
         inputs_version = EXCLUDED.inputs_version, computed_at = now()`.execute(tx);
   }
