@@ -56,7 +56,7 @@ reverse proxy) and `WIREHUB_PUBLIC_URL` to the address people open.
 
 ### The config generator
 
-**<https://formless63.github.io/wirehub/>** writes a `compose.yaml` and a
+**<https://formless63.github.io/wirehub/generator/>** writes a `compose.yaml` and a
 `.env` from a few choices: the public URL and ports, your own PostgreSQL or
 S3 instead of the bundled ones, backups, OIDC sign-in, the image tag, and the
 domain modules to suggest at setup. It runs entirely in your browser — the

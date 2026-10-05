@@ -96,19 +96,9 @@ if [ -n "$pack_key" ]; then
   fi
 fi
 
-# a human-readable landing page beside the index
-esc() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
-cat > "$out/index.html" <<HTML
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>$(esc "$store_name")</title></head>
-<body style="font-family:system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem">
-<h1>$(esc "$store_name")</h1>
-<p>A WireHub module store. In WireHub open Settings, Store sources, and add this store with its index URL and public key.</p>
-<ul><li><a href="index.json">index.json</a> (signed: <a href="index.json.minisig">index.json.minisig</a>)</li>
-<li>Public key (<a href="wirehub-store.pub">wirehub-store.pub</a>): <code>$pub</code></li></ul>
-</body></html>
-HTML
+# a human-readable page beside the index: the same browsable page the official store uses
+# (site/src/store*.js), reading this store's own index.json, signature and public key
+node "$repo/site/build.mjs" store-page "$out/index.html" --name "$store_name"
 
 echo "store: $out ($(ls "$out"/*.zip | wc -l) bundle(s)); public key $pub"
 if [ -n "${GITHUB_OUTPUT:-}" ]; then

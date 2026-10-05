@@ -85,8 +85,9 @@ Commit and push to `main`: the **Publish store** workflow runs.
 https://<your-user>.github.io/<this-repository>/index.json
 ```
 
-(the workflow summary prints the public key too). Open that site's root to see a small landing
-page. A custom domain works as usual.
+(the workflow summary prints the public key too). Open that site's root to browse your packs (the page
+reads your `index.json`, shows the store URL, key and fingerprint to add to a hub, and each pack's versions
+with download links). A custom domain works as usual.
 
 ## 6. Share it
 
