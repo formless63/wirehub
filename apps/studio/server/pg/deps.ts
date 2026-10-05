@@ -25,6 +25,7 @@ import { migrationFiles, MIGRATION_SCHEMA } from './migrate.ts';
 import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
 import { pgModelCache } from './model-cache.ts';
+import { pgSetupDeps } from './setup.ts';
 import { pgLockStore } from './locks.ts';
 import { deliveredEventHub, type EventHub } from '../events.ts';
 import { blobObjectKey } from './keys.ts';
@@ -157,6 +158,8 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     const events = deliveredEventHub();
     if (options.listen !== false) await cache.listen(config.url, events).catch((error: unknown) => console.warn(`[pg] LISTEN unavailable: ${error instanceof Error ? error.message : String(error)}`));
     const deps = pgWorkbenchDeps({ cache, db: handle.db, events, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
+    // first-run setup installs the domain modules' packs into the database (WIREHUB_SETUP_PROMPT as on files)
+    deps.setup = pgSetupDeps(deps, cache, { prompt: env.WIREHUB_SETUP_PROMPT === '1', now: () => new Date().toISOString() });
     return {
       handle,
       cache,

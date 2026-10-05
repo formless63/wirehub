@@ -38,6 +38,12 @@ export interface SetupDeps {
   prompt: boolean;
   /** now, ISO 8601 (injected by tests) */
   now: () => string;
+  /**
+   * A backend whose catalog is not a directory (Postgres): hands the handler
+   * a directory holding the catalog and commits what the handler changed in
+   * it as one change set (`pg/setup.ts`). Absent: `dataDir` is the catalog.
+   */
+  transact?: (run: (dataDir: string) => Promise<ApiResponse>, write: boolean) => Promise<ApiResponse>;
 }
 
 /** `setup.json`: the stored selection. */
@@ -133,6 +139,10 @@ export async function handleSetupRequest(
   modules: ModuleRegistry | undefined,
 ): Promise<ApiResponse> {
   if (deps === undefined) return refuse(501, 'This host has no first-run setup.', 'Domain modules are installed by the deployment here.');
+  if (deps.transact !== undefined) {
+    const { transact, ...rest } = deps;
+    return transact((dataDir) => handleSetupRequest(request, { ...rest, dataDir }, modules), request.method.toUpperCase() === 'POST');
+  }
   const method = request.method.toUpperCase();
   if (method === 'GET') return json(200, view(deps, modules));
   if (method !== 'POST') return refuse(405, `${method} is not something this address accepts.`, 'It answers GET and POST.');

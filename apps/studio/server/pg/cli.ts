@@ -4,7 +4,7 @@
  *
  *   pnpm --filter studio db:bootstrap                 roles + database (DATABASE_ADMIN_URL, WIREHUB_*_PASSWORD)
  *   pnpm --filter studio db:migrate                   every pending migration (DATABASE_OWNER_URL)
- *   pnpm --filter studio pg:import --from <dir> --org <slug> [--create-org] [--name <org name>] [--dry-run]
+ *   pnpm --filter studio pg:import --from <dir> --org <slug> [--create-org] [--name <org name>] [--dry-run] [--if-empty]
  *   pnpm --filter studio pg:export --out <dir> [--with-blobs]
  *   pnpm --filter studio pg:gate --from <dir>         the S1 gate: files vs the database
  *
@@ -26,7 +26,7 @@ import { blobStoreFromEnv, type BlobStore } from '../blobs.ts';
 import { defaultWorkbenchDeps } from '../default-deps.ts';
 import { bootstrapDatabase } from './bootstrap.ts';
 import { PgConfigError, pgAppConfigFromEnv, redactUrl, requireEnv } from './config.ts';
-import { openPg, resolveOrgId } from './db.ts';
+import { catalogHeadVersion, openPg, resolveOrgId } from './db.ts';
 import { writeExport } from './export.ts';
 import { formatGateReport, runGate } from './gate.ts';
 import { ImportError, importCatalog } from './import.ts';
@@ -65,7 +65,7 @@ async function migrate(): Promise<void> {
 }
 
 async function importCommand(args: string[]): Promise<void> {
-  const { values } = parseArgs({ args, options: { from: { type: 'string' }, org: { type: 'string' }, name: { type: 'string' }, 'create-org': { type: 'boolean' }, 'dry-run': { type: 'boolean' } } });
+  const { values } = parseArgs({ args, options: { from: { type: 'string' }, org: { type: 'string' }, name: { type: 'string' }, 'create-org': { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'if-empty': { type: 'boolean' } } });
   if (values.from === undefined || values.org === undefined) throw new PgConfigError('pg:import needs --from <catalog dir> and --org <slug>.');
   const root = from(values.from);
   if (!existsSync(resolve(root, 'data'))) throw new PgConfigError(`${root} has no data/ directory.`);
@@ -73,6 +73,15 @@ async function importCommand(args: string[]): Promise<void> {
   const store = blobs();
   const handle = openPg(pgAppConfigFromEnv(env).url, { max: 2, applicationName: 'wirehub-import' });
   try {
+    // a deployment's first start: load the catalog once, then never again (the compose stack's migrate step)
+    if (values['if-empty'] === true) {
+      const existing = await resolveOrgId(handle.db, values.org);
+      const version = existing === undefined ? undefined : await catalogHeadVersion(handle.db, existing);
+      if (version !== undefined && version !== '0') {
+        log(`org '${values.org}' already holds a catalog (version ${version}); nothing imported`);
+        return;
+      }
+    }
     const report = await importCatalog(handle.db, {
       org: { slug: values.org, name: values.name ?? values.org, create: values['create-org'] === true },
       files,
