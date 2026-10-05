@@ -20,7 +20,11 @@ export const DEFAULTS = Object.freeze({
   s3: { mode: 'bundled', endpoint: '', region: '', bucket: '', accessKeyId: '', secretAccessKey: '', backupAccessKeyId: '', backupSecretAccessKey: '' },
   backups: { mode: 'off', repository: '', password: '', awsAccessKeyId: '', awsSecretAccessKey: '', schedule: '0 3 * * *', bind: '127.0.0.1', port: '9898' },
   oidc: { enabled: false, issuer: '', clientId: '', clientSecret: '', name: '', providerId: '', allowedEmails: '' },
+  pdf: { enabled: false },
 });
+
+/** Where the app reaches the `pdf` profile's engine, inside the stack. */
+export const PDF_ENGINE_URL = 'http://pdf:3000';
 
 /** Options with every field present: `DEFAULTS` overlaid with what was given. */
 export function withDefaults(options = {}) {
@@ -32,6 +36,7 @@ export function withDefaults(options = {}) {
     s3: { ...DEFAULTS.s3, ...(options.s3 ?? {}) },
     backups: { ...DEFAULTS.backups, ...(options.backups ?? {}) },
     oidc: { ...DEFAULTS.oidc, ...(options.oidc ?? {}) },
+    pdf: { ...DEFAULTS.pdf, ...(options.pdf ?? {}) },
   };
 }
 
@@ -141,7 +146,8 @@ export function generateEnv(templates, options, secrets = {}) {
   const tag = trim(o.imageTag);
   const imageBase = image.replace(/:[^:/]+$/, '');
   const pinned = image.slice(imageBase.length + 1);
-  group('optional parts', [['COMPOSE_PROFILES', o.backups.mode === 'off' ? '' : 'backup']]);
+  const profiles = [...(o.backups.mode === 'off' ? [] : ['backup']), ...(o.pdf.enabled ? ['pdf'] : [])];
+  group('optional parts', [['COMPOSE_PROFILES', profiles.join(',')]]);
   group('the app', [
     ['WIREHUB_IMAGE', tag === '' || tag === pinned ? '' : `${imageBase}:${tag}`],
     ['WIREHUB_PUBLIC_URL', trim(o.publicUrl).replace(/\/+$/, '')],
@@ -204,6 +210,9 @@ export function generateEnv(templates, options, secrets = {}) {
       ['BACKREST_BIND', trim(o.backups.bind) === DEFAULTS.backups.bind ? '' : trim(o.backups.bind)],
       ['BACKREST_PORT', trim(o.backups.port) === DEFAULTS.backups.port ? '' : trim(o.backups.port)],
     ]);
+  }
+  if (o.pdf.enabled) {
+    group('the browser PDF engine (profile pdf)', [['WIREHUB_PDF_ENGINE_URL', PDF_ENGINE_URL]]);
   }
   group('secrets, generated in this browser', Object.entries(secrets));
   if (trim(o.bind) === '0.0.0.0' && !o.oidc.enabled) {

@@ -108,6 +108,7 @@ kept in the `secrets` volume; set `WIREHUB_SETUP_CODE` to choose your own.
 | `garage-init` | the app image | one-shot: Garage's layout, the bucket, and the app's and the backup's keys — **created by Garage** and written to the `secrets` volume |
 | `wirehub` | `ghcr.io/formless63/wirehub` | the app: UI and API, the only published port |
 | `worker` | the app image | background jobs ("Jobs" below): module imports, converting a STEP upload to a 3D model, building imported models, and housekeeping |
+| `pdf` (profile `pdf`) | `gotenberg/gotenberg:8.37.0-chromium` | optional: the browser PDF engine that prints the HTML sheets to PDF ("Printed PDFs" below), internal only |
 
 Every service waits for the ones it needs (`depends_on` with
 `service_completed_successfully` / `service_healthy`), so one `up` brings the
@@ -210,9 +211,10 @@ people set:
 | --- | --- | --- |
 | `WIREHUB_PUBLIC_URL` | `http://localhost:<port>` | the address people open (sign-in links, the setup banner) |
 | `WIREHUB_BIND`, `WIREHUB_PORT` | `127.0.0.1`, `5183` | where the app is published |
-| `COMPOSE_PROFILES` | — | optional parts: `backup` |
+| `COMPOSE_PROFILES` | — | optional parts: `backup`, `pdf` (comma separated) |
 | `WIREHUB_IMAGE` | the release `compose.yaml` came from | another tag, or a locally built image |
 | `WIREHUB_SUGGESTED_MODULES` | — | modules pre-ticked at `/setup` |
+| `WIREHUB_PDF_ENGINE_URL` | — | the browser PDF engine: `http://pdf:3000` with the `pdf` profile; unset = the headless PDFs ("Printed PDFs" below) |
 | `WIREHUB_TEST_DEFAULTS` | — | fallback JSON of default continuity test parameters, e.g. `{"isolationVolts":250}`; the Settings page's Testing section overrides it (`docs/exports.md`) |
 | `AUTH_ENABLED` | `true` | sign-in; `false` lets anyone who reaches the port edit |
 | `AUTH_LOCAL_ACCOUNTS`, `AUTH_OIDC_*`, `AUTH_ALLOWED_EMAILS` | email + password on | sign-in methods (`apps/studio/README.md`) |
@@ -377,6 +379,40 @@ pushed. A change set saved before the database kept what a replay needs (an
 upload's details, before 0017), or whose uploaded bytes are gone, is not
 replayed one by one: the mirror then commits the catalog as it is now and
 says so in the commit message.
+
+## Printed PDFs (`COMPOSE_PROFILES=pdf`)
+
+By default the PDF of the build sheet, the BOM, the continuity spec and a wire
+stock's spec sheet is a plain text layout of the sheet (tables and notes, no
+figures), and the drawing sheet's is a rasterised page, because laying out
+HTML takes a browser engine and the WireHub image does not carry one. The
+`pdf` profile adds one beside the app, so `?format=pdf` (and the `render`
+command) gives the sheet exactly as a browser prints it — page size and
+margins, figures, the UNRELEASED / UNAPPROVED mark, the branding:
+
+```
+COMPOSE_PROFILES=pdf
+WIREHUB_PDF_ENGINE_URL=http://pdf:3000
+```
+
+(With backups too: `COMPOSE_PROFILES=backup,pdf`. The config generator sets
+both lines.) The service is **Gotenberg** (Apache-2.0), an HTTP API around
+headless Chromium, in its Chromium-only image. It is on the internal network
+only, publishes no port, and runs with JavaScript off and every outbound
+address refused: WireHub posts the sheet as one self-contained HTML file
+(images and fonts inline) and gets the PDF back, so a sheet can fetch
+nothing. Its memory cap is 1 GiB (it idles near 170 MiB; it converts two
+sheets at a time and restarts Chromium every 50); a conversion has 30 s
+(`WIREHUB_PDF_ENGINE_TIMEOUT_MS`, and Gotenberg's own `--api-timeout`).
+
+When the variable is unset, or the engine is down, slow or refuses a sheet,
+the app still answers with the headless PDF and says why in the
+`X-WireHub-PDF-Fallback` response header (the `render` command prints it as
+a note; the app's log has a line too). `X-WireHub-PDF-Renderer` names what
+made every PDF: `browser`, `text-layout`, `raster` or `vector`. The
+schematic, the label sheet and the formboard keep their own PDFs either way
+(`docs/exports.md`). An engine elsewhere works too: any Gotenberg 8 the app
+can reach, at its base URL.
 
 ## Backups — recommended (`COMPOSE_PROFILES=backup`)
 

@@ -3,9 +3,10 @@
  * browser's own render (`renderWireSpecSheet`); `svg` and `pdf` set the same
  * sheet's text as plain pages (`layout.ts`) — headings, the facts, the
  * colour and signal map, the notes — without the cross-section figure and the
- * page styling, because laying out HTML needs a browser engine this
- * repository does not ship (the same trade the text sheets of a design make,
- * `render/index.ts`).
+ * page styling, because laying out HTML needs a browser engine the WireHub
+ * image does not ship (the same trade the text sheets of a design make,
+ * `render/index.ts`). With a browser PDF engine configured the documents
+ * route prints the `html` sheet instead (`browser-pdf.ts`, `documents.ts`).
  */
 
 import { renderWireSpecSheet, wireSpecFileStem, type WireSpecOptions } from '@wirehub/docs';

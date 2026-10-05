@@ -193,27 +193,45 @@ Documents and the formats each comes in (default first):
 
 A wire stock's spec sheet (the Library's Spec tab) has its own route:
 `GET /api/definitions/wires/:id/wire-spec?format=html|svg|pdf&paper=A4|letter`, named
-`WSS_<document number>`. Its `html` is the browser's sheet byte for byte; `svg` and `pdf` set
-the same sheet's text (facts, colour and signal map, notes) as plain pages, without the
-cross-section figure.
+`WSS_<document number>`. Its `html` is the browser's sheet byte for byte; its `pdf` is that
+sheet printed by the browser PDF engine when one is configured (below). Otherwise `svg` and
+`pdf` set the same sheet's text (facts, colour and signal map, notes) as plain pages, without
+the cross-section figure.
 
 `:format` of an export is one of the ids in the table at the top. A rendered sheet is sent
 with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
 
 - **`html`** is the browser's own render, byte for byte (the same functions); the working
-  copy is marked UNRELEASED when the studio keeps saved revisions, exactly as on screen.
+  copy is marked UNRELEASED when the studio keeps saved revisions, exactly as on screen, and
+  the hub's branding (Settings) is on the drawing sheet and the build sheet as the browser
+  draws it.
 - **`formboard`** is the cable laid flat at true length with pegs, connectors and label
   positions, at 1:1 or `?scale=` (`0.5` or `1:2`) and tiled across `?paper=` pages with
   registration marks (`specs/formboard.md`).
+- **`pdf` of the build sheet, BOM, continuity spec, drawing sheet and a wire stock's spec
+  sheet, with a browser PDF engine** (`WIREHUB_PDF_ENGINE_URL`; the compose profile `pdf`,
+  `docs/self-hosting.md` "Printed PDFs") is the `html` sheet printed by Chromium, exactly as a
+  browser's Print → Save as PDF prints it: the sheet's own `@page` size and margins (`paper=`),
+  the figures, the UNRELEASED / UNAPPROVED mark, the hub's branding, selectable text. The
+  sheet is sent with its images and fonts inline; the sans stack is set in the Liberation Sans
+  faces the drawings embed (metric-compatible with Helvetica and Arial), so the file is the
+  same whichever machine runs the engine. Code is `apps/studio/server/render/browser-pdf.ts`.
+- **Without an engine** (or when it fails), those PDFs are the headless ones below, and the
+  response says so: `X-WireHub-PDF-Fallback` gives the reason and the `render` command prints
+  it as a note. Every PDF carries `X-WireHub-PDF-Renderer`: `browser`, `text-layout`, `raster`
+  or `vector`.
 - **`svg` and `pdf` of the schematic, the drawing sheet, the label sheet and the formboard** are the
   drawings themselves. The PDF is a rasterised page (SVG through `@resvg/resvg-js`, which
   the Library's 3D board textures already use, with the Liberation Sans faces in
-  `packages/docs/fonts` and no system fonts, so it does not depend on the machine).
-- **`svg` and `pdf` of the build sheet, BOM and continuity spec** are a plain page layout of
-  the sheet's text (tables and notes, no figures): laying out the HTML sheets needs a
-  browser engine, which this repository does not ship. For the full sheet use `html` and
-  print to PDF in a browser. The PDF is written by `apps/studio/server/render/pdf.ts` with
-  no dependency, in Helvetica; characters outside Latin-1 are transliterated (`Ω` as `ohm`).
+  `packages/docs/fonts` and no system fonts, so it does not depend on the machine); the
+  formboard's is vector, so a 1:1 tile prints crisp. With an engine, the drawing sheet's PDF
+  is its HTML printed (above) instead; the schematic, the label sheet and the formboard keep
+  theirs.
+- **`svg` (and, without an engine, `pdf`) of the build sheet, BOM and continuity spec** are a
+  plain page layout of the sheet's text (tables and notes, no figures): laying out the HTML
+  sheets needs a browser engine, which the WireHub image does not ship. The PDF is written by
+  `apps/studio/server/render/pdf.ts` with no dependency, in Helvetica; characters outside
+  Latin-1 are transliterated (`Ω` as `ohm`).
 - Board artwork on the headless schematic, build sheet and BOM comes from the hub's artwork
   store — on the database backend that includes uploaded artwork — over the catalog's own
   tree, and a saved revision draws the artwork it was saved with (as the browser does). The
@@ -233,5 +251,9 @@ pnpm --filter studio render dc-2core-24awg wire-spec --format pdf  # a wire stoc
 (a directory, or `-` for stdout), `--paper`, `--variation`, `--page`, `--copies`. By
 default it renders from the catalog this checkout (or `WIREHUB_BACKEND`) points at; with
 `WIREHUB_API_URL` and `WIREHUB_API_TOKEN` set (as for `studio-api`) it asks the studio over
-HTTP, so it works from any machine with a token. Not built: the wire stock's spec sheet
+HTTP, so it works from any machine with a token. Run locally, it prints the HTML sheets
+through a browser PDF engine when `WIREHUB_PDF_ENGINE_URL` is set (for example a Gotenberg
+started with `docker run --rm -p 127.0.0.1:3000:3000 gotenberg/gotenberg:8.37.0-chromium`, and
+`WIREHUB_PDF_ENGINE_URL=http://127.0.0.1:3000`); over HTTP the studio's own setting applies.
+A PDF that fell back to the headless one is reported as a `note:` line. Not built: the wire stock's spec sheet
 (`/api/definitions/wires/:id/wire-spec`) is still browser-only.

@@ -48,6 +48,16 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      # the compose profile `pdf`'s engine (same image), for the browser PDF tests
+      pdf:
+        image: gotenberg/gotenberg:8.37.0-chromium
+        ports:
+          - 3000:3000
+        options: >-
+          --health-cmd "curl -fsS http://localhost:3000/health"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     env:
       WIREHUB_TEST_PG_URL: postgres://postgres:ci-only@localhost:5432/postgres
     steps:
@@ -59,6 +69,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r build
+      # every HTML sheet of every starter design printed by the real engine (skipped without it)
+      - name: Browser PDF engine
+        env:
+          WIREHUB_TEST_PDF_ENGINE_URL: http://localhost:3000
+        run: pnpm --filter studio exec vitest run --project workbench-api test/browser-pdf.server.test.ts
       # each workspace in turn; git is needed by the export-of-saves tests
       - run: |
           git config --global user.name ci

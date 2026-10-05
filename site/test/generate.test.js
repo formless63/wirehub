@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { buildPage, readTemplates } from '../build.mjs';
-import { browserSecrets, DEFAULTS, defaultImage, envValue, generate, generateCompose, generateEnv, setupCode, stripBlocks } from '../src/generate.js';
+import { browserSecrets, DEFAULTS, defaultImage, envValue, generate, generateCompose, generateEnv, PDF_ENGINE_URL, setupCode, stripBlocks } from '../src/generate.js';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const templates = readTemplates(root);
@@ -81,6 +81,20 @@ describe('choices', () => {
     expect(remote.env).toContain('BACKUP_SCHEDULE="15 2 * * *"');
     expect(remote.env).toContain('BACKREST_PORT=9899');
     expect(remote.compose).toBe(repoCompose);
+  });
+
+  it('the browser PDF engine turns the pdf profile on and points the app at it', () => {
+    const pdf = generate(templates, { pdf: { enabled: true } });
+    expect(pdf.env).toContain('COMPOSE_PROFILES=pdf\n');
+    expect(pdf.env).toContain(`WIREHUB_PDF_ENGINE_URL=${PDF_ENGINE_URL}\n`);
+    expect(pdf.compose).toBe(repoCompose);
+    expect(pdf.notes).toEqual([]);
+    // the service the profile starts is the one the URL names
+    const host = new URL(PDF_ENGINE_URL).hostname;
+    expect(services(repoCompose)).toContain(host);
+    expect(repoCompose).toMatch(new RegExp(`\\n  ${host}:\\n    profiles: \\[pdf\\]`));
+    expect(generate(templates, { pdf: { enabled: true }, backups: { mode: 'local' } }).env).toContain('COMPOSE_PROFILES=backup,pdf\n');
+    expect(generate(templates, {}).env).not.toContain('WIREHUB_PDF_ENGINE_URL');
   });
 
   it('address, image, modules and OIDC', () => {
