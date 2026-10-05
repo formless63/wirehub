@@ -1,8 +1,8 @@
 /**
  * The job endpoints (`specs/postgres-backend.md` §2, §7.5):
  *
- *   POST /api/modules/:module/_import/:importer      { fileName, base64, job: true } — start an import (202, the job)
- *   PUT  /api/modules/:module/_import/:importer?fileName=…   the file's bytes (application/octet-stream), as a job (202):
+ *   POST /api/modules/:module/_import/:importer      { fileName, base64, job: true, options? } — start an import (202, the job)
+ *   PUT  /api/modules/:module/_import/:importer?fileName=…[&option.<name>=…]   the file's bytes (application/octet-stream), as a job (202):
  *                                                    no base64, and room for a file bigger than a JSON document
  *                                                    (`WIREHUB_IMPORT_MAX_MB`, default 100)
  *   GET  /api/jobs                                   recent jobs (`?kind=`), and the worker's heartbeat
@@ -19,7 +19,7 @@ import type { ApiRequest, ApiResponse, WorkbenchDeps } from '../api.ts';
 import { staleWriteResponse } from '../etag.ts';
 import { CommitRefusedError, ReadOnlyBackendError, StaleRecordError } from '../storage/change-set.ts';
 import { withWriteLock } from '../storage/write-lock.ts';
-import { parseModuleIoPath, type ModuleIoPath } from '../module-io.ts';
+import { importOptionsOfQuery, parseModuleIoPath, readImportOptions, type ModuleIoPath } from '../module-io.ts';
 import { commitPlan, MAX_IMPORT_BYTES, planChanges, readImportRequest } from './import.ts';
 import { isJobKind, isModuleJobKind, type JobKind, type JobRun } from './types.ts';
 
@@ -95,8 +95,10 @@ export async function startImportJob(request: ApiRequest, io: ModuleIoPath, deps
   const bytes = new Uint8Array(Buffer.from(data, 'base64'));
   if (bytes.byteLength === 0) return fail(400, 'That file is empty.');
   if (bytes.byteLength > MAX_IMPORT_BYTES) return fail(413, `That file is ${(bytes.byteLength / 1048576).toFixed(1)} MB; an import takes up to ${MAX_IMPORT_BYTES / 1048576} MB.`, 'A bigger file goes up as raw bytes: PUT the same address with ?fileName=… and application/octet-stream.');
+  const options = readImportOptions(body['options']);
+  if (typeof options === 'string') return fail(400, options, 'Options are names and text values: { "options": { "board": "…" } }.');
   const input = await jobs.stageInput(bytes);
-  const job = await jobs.enqueue('import', { module: io.module, importer: io.id, fileName: fileName.trim(), input }, request.user);
+  const job = await jobs.enqueue('import', { module: io.module, importer: io.id, fileName: fileName.trim(), input, ...(options === undefined ? {} : { options }) }, request.user);
   return { status: 202, body: { job: jobView(job) }, headers: { Location: `/api/jobs/${job.id}` } };
 }
 
@@ -115,13 +117,15 @@ export function importUploadRefusal(deps: WorkbenchDeps, io: ModuleIoPath, fileN
  * (read by the transport, up to `importUploadLimit`) kept for an import job. The
  * answer is `startImportJob`'s: 202 and the job.
  */
-export async function startImportUpload(request: ApiRequest & { fileName: string | null; bytes: Uint8Array }, io: ModuleIoPath, deps: WorkbenchDeps): Promise<ApiResponse> {
+export async function startImportUpload(request: ApiRequest & { fileName: string | null; bytes: Uint8Array; query?: URLSearchParams }, io: ModuleIoPath, deps: WorkbenchDeps): Promise<ApiResponse> {
   const refused = importUploadRefusal(deps, io, request.fileName);
   if (refused !== undefined) return refused;
   if (request.bytes.byteLength === 0) return fail(400, 'That file is empty.');
+  const options = importOptionsOfQuery(request.query ?? new URLSearchParams(request.path.split('?')[1] ?? ''));
+  if (typeof options === 'string') return fail(400, options, 'Options go in the query as option.<name>=<text>.');
   const jobs = deps.jobs!;
   const input = await jobs.stageInput(request.bytes);
-  const job = await jobs.enqueue('import', { module: io.module, importer: io.id, fileName: (request.fileName as string).trim(), input }, request.user);
+  const job = await jobs.enqueue('import', { module: io.module, importer: io.id, fileName: (request.fileName as string).trim(), input, ...(options === undefined ? {} : { options }) }, request.user);
   return { status: 202, body: { job: jobView(job) }, headers: { Location: `/api/jobs/${job.id}` } };
 }
 

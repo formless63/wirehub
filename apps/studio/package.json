@@ -37,6 +37,7 @@
     "@wirehub/model": "workspace:*",
     "@wirehub/module-automotive": "workspace:*",
     "@wirehub/module-av-video": "workspace:*",
+    "@wirehub/module-board-import": "workspace:*",
     "@wirehub/module-example": "workspace:*",
     "@wirehub/module-networking": "workspace:*",
     "@wirehub/module-pc-serial": "workspace:*",

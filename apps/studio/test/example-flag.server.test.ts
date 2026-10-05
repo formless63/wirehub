@@ -30,7 +30,7 @@ describe('the example module flag', () => {
 
   it('puts it last in the manifest, and the manifest stays valid, with WIREHUB_EXAMPLE_MODULE=1', async () => {
     const modules = await manifestWith('1');
-    expect(modules.map((m) => m.id)).toEqual(['pc-serial', 'networking', 'pro-audio', 'av-video', 'automotive', 'example']);
+    expect(modules.map((m) => m.id)).toEqual(['pc-serial', 'networking', 'pro-audio', 'av-video', 'automotive', 'board-import', 'example']);
     expect(() => createRegistry(modules)).not.toThrow();
   });
 });

@@ -3,19 +3,25 @@
  * models alongside the shop's own).
  *
  * The library is gitlab.com/kicad/libraries/kicad-packages3D, CC-BY-SA 4.0
- * with an exception for use in designs (see /NOTICE). Only the files a link
- * needs are fetched, by the import tooling (`scripts/kicad-fetch.ts`), from
- * one pinned tag, over https, into a gitignored cache under the repo; the
- * studio itself never touches the network. This module is pure: which tag,
+ * with an exception for use in designs. Its models are never committed: only
+ * the files a board names are fetched, from one pinned commit, over https, by
+ * the `model-cache` job (`library-source.ts`) into the gitignored model cache,
+ * when it builds the model of a `.kicad_pcb` uploaded in the Library
+ * (`POST /api/models/pcbas/:id/upload`). This module is pure: which commit,
  * how a board's `${KICAD9_3DMODEL_DIR}/…` path names a library file, where
- * that file lives upstream, and what the committed mapping table says.
+ * that file lives upstream, and what a mapping table says.
  *
- *   packages/catalog/data/kicad-models.json   record → library (or embedded) model
+ * A mapping table (`KicadModelTable`, record → library or embedded model) is
+ * what a model importer module keeps; the base ships none.
  */
 
 import type { Vec3 } from './kicad-pcb.ts';
 
-/** The pinned library release. Bump both together and re-run `import-models`. */
+/**
+ * The pinned library release. Bump tag and commit together: a board model's
+ * cache key names the commit (`ModelBuild.library`), so links made at the old
+ * one keep building from it, and a new upload uses the new one.
+ */
 export const KICAD_LIBRARY = {
   name: 'kicad-packages3D',
   project: 'https://gitlab.com/kicad/libraries/kicad-packages3D',
@@ -68,7 +74,7 @@ export function kicadSourcePath(libraryPath: string): string {
 
 /** The citation every library-sourced link carries. */
 export function kicadCitation(libraryPath: string): string {
-  return `KiCad 3D library ${KICAD_LIBRARY.name} ${KICAD_LIBRARY.tag} (commit ${KICAD_LIBRARY.commit.slice(0, 12)}), ${libraryPath} — ${KICAD_LIBRARY.licence}; attribution in /NOTICE`;
+  return `KiCad 3D library ${KICAD_LIBRARY.name} ${KICAD_LIBRARY.tag} (commit ${KICAD_LIBRARY.commit.slice(0, 12)}), ${libraryPath} — ${KICAD_LIBRARY.licence}; fetched, never committed`;
 }
 
 /* ------------------------------------------------------------------ *
