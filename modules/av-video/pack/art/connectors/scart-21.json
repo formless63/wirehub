@@ -1,0 +1,218 @@
+{
+  "id": "scart-21",
+  "bodies": [
+    "scart-21-male"
+  ],
+  "drawings": [
+    "scart"
+  ],
+  "families": [
+    "scart"
+  ],
+  "short": "SCART",
+  "width": 71,
+  "height": 195,
+  "approximate": true,
+  "shapes": [
+    {
+      "el": "path",
+      "d": "M64.95 6.3 L64.95 188.7 L6.05 188.7 L6.05 18.46 L18.21 6.3 Z",
+      "tone": "shell"
+    },
+    {
+      "el": "path",
+      "d": "M60.01 11.24 L60.01 183.76 L10.99 183.76 L10.99 21.42 L21.17 11.24 Z",
+      "tone": "insert"
+    }
+  ],
+  "pins": [
+    {
+      "terminal": "20",
+      "form": "blade",
+      "x": 26.38,
+      "y": 29.1,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "19",
+      "form": "blade",
+      "x": 44.62,
+      "y": 36.7,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "18",
+      "form": "blade",
+      "x": 26.38,
+      "y": 44.3,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "17",
+      "form": "blade",
+      "x": 44.62,
+      "y": 51.9,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "16",
+      "form": "blade",
+      "x": 26.38,
+      "y": 59.5,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "15",
+      "form": "blade",
+      "x": 44.62,
+      "y": 67.1,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "14",
+      "form": "blade",
+      "x": 26.38,
+      "y": 74.7,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "13",
+      "form": "blade",
+      "x": 44.62,
+      "y": 82.3,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "12",
+      "form": "blade",
+      "x": 26.38,
+      "y": 89.9,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "11",
+      "form": "blade",
+      "x": 44.62,
+      "y": 97.5,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "10",
+      "form": "blade",
+      "x": 26.38,
+      "y": 105.1,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "9",
+      "form": "blade",
+      "x": 44.62,
+      "y": 112.7,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "8",
+      "form": "blade",
+      "x": 26.38,
+      "y": 120.3,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "7",
+      "form": "blade",
+      "x": 44.62,
+      "y": 127.9,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "6",
+      "form": "blade",
+      "x": 26.38,
+      "y": 135.5,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "5",
+      "form": "blade",
+      "x": 44.62,
+      "y": 143.1,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "4",
+      "form": "blade",
+      "x": 26.38,
+      "y": 150.7,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "3",
+      "form": "blade",
+      "x": 44.62,
+      "y": 158.3,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "2",
+      "form": "blade",
+      "x": 26.38,
+      "y": 165.9,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "1",
+      "form": "blade",
+      "x": 44.62,
+      "y": 173.5,
+      "width": 9.88,
+      "height": 3.42
+    },
+    {
+      "terminal": "21",
+      "form": "shell",
+      "x": 6.05,
+      "y": 32.9
+    },
+    {
+      "terminal": "shell",
+      "form": "shell",
+      "x": 6.05,
+      "y": 162.1,
+      "ifDefined": true
+    }
+  ],
+  "labels": [
+    {
+      "x": 26.38,
+      "y": 19.56,
+      "text": "20",
+      "anchor": "middle"
+    },
+    {
+      "x": 44.62,
+      "y": 189.04,
+      "text": "1",
+      "anchor": "middle"
+    }
+  ],
+  "src": "SCART / Peritel 21-pin mating face (EN 50049-1, IEC 60933-1): two rows of ten blades at 4 mm pitch, the 21st contact on the metal shell, chamfered corner at the 21 end; outline from the published connector dimensions, drawn for WireHub and approximate. CC0-1.0."
+}

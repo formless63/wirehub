@@ -68,7 +68,7 @@ export type {
  * connector blocks with; re-exported so the canvas's connector node draws the
  * very same drawing without depending on layout directly.
  */
-export { BODY_DRAWINGS, bodyDrawing, connectorArt } from '@wirehub/layout';
+export { BODY_DRAWINGS, bodyDrawing, connectorArt, registerConnectorArt, registeredConnectorArt } from '@wirehub/layout';
 export type {
   ArtLabel,
   ArtShape,

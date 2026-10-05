@@ -184,6 +184,13 @@ export interface DiagramDepiction {
   widthUnits: number;
   heightUnits: number;
   /**
+   * A connector face whose pins spread across it more than down it is **turned**
+   * a quarter clockwise so its long axis runs down the page, as the built-in faces are
+   * (their pins then sit level with their wires). `widthUnits`/`heightUnits`
+   * are of the turned frame; the renderer applies the same turn to the asset.
+   */
+  turn?: 90;
+  /**
    * The build's mounted parts seen in this view, in artwork units (catalog
    * `componentsFor`;) — absent when the board has none.
    */
@@ -282,7 +289,7 @@ export interface DepictionDiagnostic {
   instance: string;
   def: string;
   kind: 'connector' | 'pcba';
-  status: 'drawn' | 'no-depiction' | 'no-usable-view' | 'unreadable-asset' | 'unanchored-pin';
+  status: 'drawn' | 'no-depiction' | 'no-usable-view' | 'unreadable-asset' | 'unanchored-pin' | 'crowded-anchors';
   view?: string;
   /** used pin ids the artwork has no anchor for */
   missing?: string[];

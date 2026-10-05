@@ -241,18 +241,19 @@ export function depictionDefsOf(design: CableDesign): string[] {
 }
 
 // non-eager: every file is its own chunk, fetched on first use
-const META = import.meta.glob('../../../packages/catalog/depictions/*/meta.json', {
+// the base's tree, and the art the bundled modules' packs ship (`pack/depictions/`)
+const META = import.meta.glob(['../../../packages/catalog/depictions/*/meta.json', '../../../modules/*/pack/depictions/*/meta.json'], {
   import: 'default',
 }) as Record<string, () => Promise<unknown>>;
 
-const VECTOR = import.meta.glob('../../../packages/catalog/depictions/*/*.svg', {
+const VECTOR = import.meta.glob(['../../../packages/catalog/depictions/*/*.svg', '../../../modules/*/pack/depictions/*/*.svg'], {
   query: '?raw',
   import: 'default',
 }) as Record<string, () => Promise<string>>;
 
 // none committed today; the tier exists so a photographed or rendered board
 // works the day one lands, without this file changing
-const RASTER = import.meta.glob('../../../packages/catalog/depictions/*/*.{png,jpg,jpeg,webp}', {
+const RASTER = import.meta.glob(['../../../packages/catalog/depictions/*/*.{png,jpg,jpeg,webp}', '../../../modules/*/pack/depictions/*/*.{png,jpg,jpeg,webp}'], {
   query: '?inline',
   import: 'default',
 }) as Record<string, () => Promise<string>>;

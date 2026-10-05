@@ -28,7 +28,7 @@ export { orderLanes, crossingsLeftOf } from './lanes.ts';
 export type { LaneRun } from './lanes.ts';
 export { optimiseTrackOrder, orderCost } from './track-order.ts';
 export type { TrackLanding, TrackUnits } from './track-order.ts';
-export { BODY_DRAWINGS, DSUB_SHELLS, bodyDrawing, connectorArt } from './connector-art.ts';
+export { BODY_DRAWINGS, DSUB_SHELLS, bodyDrawing, connectorArt, registerConnectorArt, registeredConnectorArt } from './connector-art.ts';
 export type {
   ArtLabel,
   ArtShape,
@@ -75,6 +75,7 @@ export {
   DEPICTION_VIEW_PREFERENCE,
   catalogDepictions,
   depictionsFromRoot,
+  layeredDepictions,
   pickDepictionView,
   resetDepictionCache,
   resolveDepiction,

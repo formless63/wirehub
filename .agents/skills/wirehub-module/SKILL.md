@@ -91,6 +91,7 @@ details"); `modules/example/src/index.ts` has one working instance of each. Quic
 | Rewrite edits | `commitHook(before, proposed, description)` | singleton, pure, cheap |
 | Own files | `documents: [{ path: 'data/<prefix>/', class: 'imported' \| 'report' }]` | written through `PUT /api/docs/*path` |
 | Derived files | `derived: [{ id, label, files, derive({ designs, db }) }]` | written to `data/derived/<module>/<file>` by the commit that changes their inputs |
+| Art | `art: { connectors, bodyLayouts, drawing }` | parsed JSON of the pack's `art/` files (import with `with { type: 'json' }`); SVG faces go in `pack/depictions/<id>/`; formats and rules in `specs/drawing-language.md` §7 |
 | Own tables | `migrations: { dir }` | Postgres backend only: `NNNN_<module_id>_<name>.sql` files applied into schema `mod_<id>` after the base's migrations; tables with `org_id` need forced RLS and an `org_isolation` policy (docs/modules.md, "Module tables") |
 
 Per-design data of your own goes under `CableDesign.extensions[<module id>]`; carry a `schema`

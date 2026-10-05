@@ -24,6 +24,17 @@ import { createCatalog, type Catalog } from './catalog.ts';
 import { catalogWithPacksSource } from './packs.ts';
 import { fsCatalogSource, type CatalogSource } from './source.ts';
 
+export { ART_PIN_FORMS, ART_TONES, loadPackArt, parseBodyLayouts, parseConnectorArt } from './art.ts';
+export type {
+  ArtLabelRecord,
+  ArtPinFormName,
+  ArtPinRecord,
+  ArtShapeRecord,
+  ArtToneName,
+  BodyLayoutRecord,
+  ConnectorArtRecord,
+  PackArt,
+} from './art.ts';
 export { createCatalog, designVersionsDir, isDesignId } from './catalog.ts';
 export type { Catalog, DesignId } from './catalog.ts';
 export { fsCatalogSource, memoryCatalogSource } from './source.ts';

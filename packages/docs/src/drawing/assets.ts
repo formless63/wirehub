@@ -1,22 +1,136 @@
 /**
- * Hand-drawn artwork for the drawing sheet, keyed by definition id: traced
- * connector faces, side views of secondary plugs, a stock's cutaway art and
- * the title block's logo.
+ * Art for the drawing sheet, supplied by whoever hosts it
+ * (`specs/drawing-language.md` §6, §7).
  *
- * The base ships none — every face, plug and cutaway is drawn from the
- * definitions (`drawn-faces.ts`, `cutaway.ts`), and the title block has no
- * logo. A deployment's branding module may supply its own (`docs/modules.md`,
- * extension point "documents"); these tables are where it lands.
+ * The base ships none of its own here: every face, plug and cutaway the
+ * sheet shows comes from the definitions (`drawn-faces.ts`, `cutaway.ts`),
+ * from **depictions** — SVG faces and cutaway illustrations a catalog or a
+ * pack ships, read through a `DepictionSource` (`depiction-art.ts`) — or from
+ * the records registered here: traced faces and side-view plugs keyed by
+ * connector id, a cutaway per wire stock, the title block's logo and its
+ * fixed text. A deployment's module registers them at start
+ * (`registerDrawingArt`); with nothing registered the sheet draws exactly
+ * what the base always drew.
  */
+
+import type { DepictionSource } from '@wirehub/layout';
 
 import type { FaceArt } from './faces.ts';
 
-export const TRACED_FACES: Readonly<Record<string, FaceArt>> = {};
-
-export const TRACED_PLUGS: Readonly<Record<string, FaceArt>> = {};
-
-/** Cutaway art per wire id: an SVG document and its frame size. */
-export const CUTAWAY_ART: Readonly<Record<string, { svg: string; width: number; height: number }>> = {};
+/** A cutaway as an SVG document and its frame size. */
+export interface CutawayArt {
+  svg: string;
+  width: number;
+  height: number;
+}
 
 /** The title block's logo: a PNG (base64) and the box it is fitted into, in points. */
-export const LOGO: { pngBase64: string; box: readonly [number, number, number, number] } | undefined = undefined;
+export interface LogoArt {
+  pngBase64: string;
+  box: readonly [number, number, number, number];
+}
+
+/** The title block's fixed wording; every part optional, the generic text stands in. */
+export interface TitleBlockText {
+  /** the three-line general note beside the tolerances (default "ALL DIMENSIONS ARE / IN MM UNLESS / OTHERWISE SPECIFIED") */
+  notes?: readonly [string, string, string];
+  /** the tolerance table: label/value pairs */
+  tolerances?: readonly (readonly [string, string])[];
+  /** the SIZE cell (default `A`) */
+  size?: string;
+}
+
+export interface DrawingArt {
+  /** traced solder-side faces, by connector definition id */
+  faces?: Readonly<Record<string, FaceArt>>;
+  /** side-view plugs, by connector definition id (`<id>-ra` is the 90° version) */
+  plugs?: Readonly<Record<string, FaceArt>>;
+  /** cutaway art per wire stock id */
+  cutaways?: Readonly<Record<string, CutawayArt>>;
+  logo?: LogoArt;
+  titleBlock?: TitleBlockText;
+  /**
+   * Where depictions come from for faces and cutaways (a catalog's own tree,
+   * a pack's). Several registrations layer, the earliest first.
+   */
+  depictions?: DepictionSource;
+}
+
+const registered: DrawingArt[] = [];
+
+/** Register drawing art; returns the function that takes it out again. */
+export function registerDrawingArt(art: DrawingArt): () => void {
+  registered.push(art);
+  return () => {
+    const at = registered.indexOf(art);
+    if (at !== -1) registered.splice(at, 1);
+  };
+}
+
+/** The registered traced face for a connector id (the first registration to have one). */
+export function registeredFace(id: string): FaceArt | undefined {
+  for (const art of registered) if (art.faces?.[id] !== undefined) return art.faces[id];
+  return undefined;
+}
+
+export function registeredFaceIds(): string[] {
+  return [...new Set(registered.flatMap((art) => Object.keys(art.faces ?? {})))].sort();
+}
+
+export function registeredPlug(id: string): FaceArt | undefined {
+  for (const art of registered) if (art.plugs?.[id] !== undefined) return art.plugs[id];
+  return undefined;
+}
+
+export function registeredPlugIds(): string[] {
+  return [...new Set(registered.flatMap((art) => Object.keys(art.plugs ?? {})))].sort();
+}
+
+export function registeredCutaway(wireId: string): CutawayArt | undefined {
+  for (const art of registered) if (art.cutaways?.[wireId] !== undefined) return art.cutaways[wireId];
+  return undefined;
+}
+
+export function registeredLogo(): LogoArt | undefined {
+  return registered.find((art) => art.logo !== undefined)?.logo;
+}
+
+/** The title block's wording: the first registration to set each part. */
+export function registeredTitleBlock(): TitleBlockText {
+  const blocks = registered.map((art) => art.titleBlock).filter((t): t is TitleBlockText => t !== undefined);
+  const notes = blocks.find((t) => t.notes !== undefined)?.notes;
+  const tolerances = blocks.find((t) => t.tolerances !== undefined)?.tolerances;
+  const size = blocks.find((t) => t.size !== undefined)?.size;
+  return { ...(notes === undefined ? {} : { notes }), ...(tolerances === undefined ? {} : { tolerances }), ...(size === undefined ? {} : { size }) };
+}
+
+/** The depiction sources registered for the sheet, layered in registration order. */
+export function registeredDepictions(): DepictionSource | undefined {
+  const sources = registered.map((art) => art.depictions).filter((s): s is DepictionSource => s !== undefined);
+  if (sources.length === 0) return undefined;
+  const owner = (id: string): DepictionSource | undefined => sources.find((s) => s.meta(id) !== undefined);
+  return { meta: (id) => owner(id)?.meta(id), artwork: (id, view) => owner(id)?.artwork(id, view) };
+}
+
+/**
+ * Check a parsed `DrawingArt` (a module's `art.drawing`) before it is
+ * registered: what a sheet cannot use is named, never thrown.
+ */
+export function drawingArtProblems(raw: unknown): string[] {
+  if (raw === undefined) return [];
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return ['drawing art is not an object'];
+  const art = raw as DrawingArt;
+  const problems: string[] = [];
+  const face = (what: string, id: string, f: FaceArt | undefined): void => {
+    if (f === undefined || typeof f.width !== 'number' || typeof f.height !== 'number' || !Array.isArray(f.art) || !Array.isArray(f.pins) || typeof f.src !== 'string' || f.src === '') {
+      problems.push(`${what} '${id}' needs width, height, art, pins and a src`);
+    }
+  };
+  for (const [id, f] of Object.entries(art.faces ?? {})) face('face', id, f);
+  for (const [id, f] of Object.entries(art.plugs ?? {})) face('plug', id, f);
+  for (const [id, c] of Object.entries(art.cutaways ?? {})) {
+    if (typeof c?.svg !== 'string' || typeof c.width !== 'number' || typeof c.height !== 'number') problems.push(`cutaway '${id}' needs svg, width and height`);
+  }
+  if (art.titleBlock?.notes !== undefined && art.titleBlock.notes.length !== 3) problems.push('title block notes are three lines');
+  return problems;
+}

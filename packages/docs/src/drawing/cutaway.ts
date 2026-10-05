@@ -1,7 +1,7 @@
 /**
  * The cable cutaway at the top of the drawing sheet.
  *
- * A stock with supplied art (`CUTAWAY_ART`, `assets.ts`) uses it; every
+ * A stock with supplied art (`registerDrawingArt`, `assets.ts`, or a depiction's `illustration`) uses it; every
  * other stock gets one *drawn from its element tree*: one core pulled out of the bundle and stepped down layer by layer
  * (conductor → insulation → shield → sheath), the bundle's cut face showing
  * the cores in their stated lay order and colours, the overall foil, and the
@@ -21,7 +21,8 @@
 
 import { resolveElementPath, type ConductorElement, type Element, type GroupElement, type WireDefinition } from '@wirehub/model';
 
-import { CUTAWAY_ART } from './assets.ts';
+import { registeredCutaway, registeredDepictions } from './assets.ts';
+import { depictedCutaway } from './depiction-art.ts';
 import { sans } from './fonts.generated.ts';
 
 export interface Cutaway {
@@ -485,9 +486,14 @@ function drawFigure8Cutaway(wire: WireDefinition): Cutaway {
   return { body: [...out, callouts(labels)].join(''), width: WIDTH, height: HEIGHT, source: 'drawn' };
 }
 
+/** Supplied art: a registered cutaway, else a depiction's illustration of the stock. */
+function suppliedCutaway(wire: WireDefinition): { svg: string; width: number; height: number } | undefined {
+  return registeredCutaway(wire.id) ?? depictedCutaway(registeredDepictions(), wire);
+}
+
 /** Whether supplied art exists for this stock. */
 export function hasCutawayArt(wire: WireDefinition): boolean {
-  return CUTAWAY_ART[wire.id] !== undefined;
+  return suppliedCutaway(wire) !== undefined;
 }
 
 /**
@@ -495,7 +501,7 @@ export function hasCutawayArt(wire: WireDefinition): boolean {
  * one), a cutaway drawn from the element tree for everything else.
  */
 export function cutawayFor(wire: WireDefinition, style: 'art' | 'drawn' = 'art'): Cutaway {
-  const art = CUTAWAY_ART[wire.id];
+  const art = suppliedCutaway(wire);
   if (style === 'art' && art !== undefined) {
     const body = art.svg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
     return { body, width: art.width, height: art.height, source: 'art' };

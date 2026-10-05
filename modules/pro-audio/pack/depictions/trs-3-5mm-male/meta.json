@@ -1,0 +1,41 @@
+{
+  "defId": "trs-3-5mm-male",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 10,
+      "heightUnits": 10,
+      "src": "3.5 mm stereo (TRS) plug end-on: tip at the centre, ring and sleeve bands outward; end-on markers for the ring and sleeve are placed on their bands (approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 10,
+      "heightUnits": 10,
+      "src": "3.5 mm stereo (TRS) plug end-on: tip at the centre, ring and sleeve bands outward; end-on markers for the ring and sleeve are placed on their bands (approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "ring": {
+      "x": 6.4,
+      "y": 5
+    },
+    "sleeve": {
+      "x": 7.6,
+      "y": 5
+    },
+    "tip": {
+      "x": 5,
+      "y": 5
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "3.5 mm stereo (TRS) plug end-on: tip at the centre, ring and sleeve bands outward; end-on markers for the ring and sleeve are placed on their bands (approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}
