@@ -221,10 +221,12 @@ bad,J2.1,
     expect(() => importConnectionList({ fileName: 'x.csv', bytes: bytes(LIST), options: { parts: '{oops' } }, db)).toThrow(/not JSON/);
   });
 
-  it('is a second importer of the module, beside the library CSV', () => {
-    expect(csvLibrary.importers?.map((i) => i.id)).toEqual(['library-csv', 'connection-list']);
+  it('is an importer of the module, beside the library CSV ones', () => {
+    expect(csvLibrary.importers?.map((i) => i.id)).toEqual(['library-csv', 'library-csv-update', 'connection-list']);
     const registry = createRegistry([csvLibrary]);
-    expect(registry.importers().map((i) => `${i.module}/${i.id}`)).toEqual(['csv-library/library-csv', 'csv-library/connection-list']);
+    expect(registry.importers().map((i) => `${i.module}/${i.id}`)).toEqual(['csv-library/library-csv', 'csv-library/library-csv-update', 'csv-library/connection-list']);
+  });
+});
 
 const HEAD_COMPONENT = 'type,id,label,kind,value,package,terminals,src,unit_cost';
 
