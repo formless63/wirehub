@@ -26,9 +26,9 @@
  */
 
 import { prefixPartNumberScheme } from '@wirehub/model';
-import { defineModule } from '@wirehub/modules';
+import { defineModule, type ContinuityData } from '@wirehub/modules';
 
-import { deriveSummary, importResistors, jointsCsv, MODULE_ID, recordEdit, recountCatalog, todoLabelRule } from './logic.ts';
+import { deriveSummary, importResistors, jointsCsv, MODULE_ID, recordEdit, recountCatalog, testerNetlist, todoLabelRule } from './logic.ts';
 import { DocumentsPanel, InspectorPanel, LibraryPanel, SettingsPanel, StatusPage } from './ui.ts';
 
 export { dataOf, deriveSummary, importResistors, jointsCsv, recordEdit, recountCatalog, todoLabelRule } from './logic.ts';
@@ -55,7 +55,17 @@ export const example = defineModule({
   }),
   validationRules: [{ id: 'todo-label', label: 'A label must not say TODO', check: todoLabelRule }],
   importers: [{ id: 'resistor-csv', label: 'Resistors (CSV)', accepts: ['.csv'], import: (input) => importResistors(input.fileName, input.bytes) }],
-  exporters: [{ id: 'joints-csv', label: 'Joints (CSV)', description: 'Every joint of the design, one row each', render: (design) => jointsCsv(design) }],
+  exporters: [
+    { id: 'joints-csv', label: 'Joints (CSV)', description: 'Every joint of the design, one row each', render: (design) => jointsCsv(design) },
+    // a continuity tester's format, from the neutral continuity data the host derives (docs/exports.md)
+    {
+      id: 'tester-netlist',
+      label: 'Tester netlist',
+      description: 'Nets and isolation pairs in a made-up tester format',
+      source: 'continuity',
+      render: (design, _db, options) => testerNetlist(design, options?.['continuity'] as ContinuityData | undefined),
+    },
+  ],
   integrations: [
     {
       id: 'status',

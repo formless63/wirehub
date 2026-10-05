@@ -28,6 +28,7 @@ import type { Outcome } from './persistence.ts';
 import {
   deriveTestSpec,
   resolveTestParameters,
+  sheetRenderOptions,
   baseExport,
   type FormatOptions,
   type FormatOutput,
@@ -110,32 +111,7 @@ function benchInput(options: DocumentOptions): Record<string, unknown> {
   };
 }
 
-/**
- * The sheet options a design's drawing sidecar asks for
- * as renderer options. The document number defaults to the part number — the
- * owners use part numbers as document numbers — and the revision to the
- * drawing's. `today` is only read when the stamp is on, so the renderers stay
- * deterministic unless someone asked for a date.
- */
-export function sheetRenderOptions(
-  meta: DrawingMeta,
-  design: CableDesign,
-  today: () => string,
-): Pick<DocumentOptions, 'paper' | 'generatedAt' | 'document'> {
-  const sheet: SheetSettings = meta.sheet ?? {};
-  const number = sheet.number ?? meta.partNumber ?? design.productRef;
-  const revision = sheet.revision ?? meta.revision;
-  const document: DocumentIdentity = {
-    ...(number === undefined ? {} : { number }),
-    ...(revision === undefined ? {} : { revision }),
-    ...(sheet.status === undefined ? {} : { status: sheet.status }),
-  };
-  return {
-    ...(sheet.paper === undefined ? {} : { paper: sheet.paper }),
-    ...(sheet.stampDate === true ? { generatedAt: today() } : {}),
-    ...(Object.keys(document).length === 0 ? {} : { document }),
-  };
-}
+export { sheetRenderOptions };
 
 export type DocumentResult = { html: string } | { error: string };
 
@@ -354,6 +330,8 @@ export interface DrawingSidecar {
   meta: DrawingMeta;
   /** a `data:image/…` URI */
   photo?: string;
+  /** the organisation's default test parameters, when the server has any (`WIREHUB_TEST_DEFAULTS`) */
+  testDefaults?: TestParameters;
 }
 
 /**

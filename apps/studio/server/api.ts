@@ -59,6 +59,8 @@ import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
 import { isDocPath, type CatalogFileStore, type DocStore } from './storage/doc-store.ts';
 import { moduleJobsFor } from './jobs/module-queues.ts';
+import { deriveContinuityExport, type TestParameters } from '@wirehub/docs';
+import { handleDocumentRequest, DOCUMENT_ROUTES } from './documents.ts';
 import { parseModuleIoPath, proposalOf, runExporter, runImporter, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { JobService } from './jobs/types.ts';
@@ -157,6 +159,8 @@ export interface WorkbenchDeps {
    * suggest reads today's file.
    */
   loadPartNumberFiles?: () => Awaitable<PartNumberFiles>;
+  /** the organisation's default continuity test parameters (`WIREHUB_TEST_DEFAULTS`) */
+  testDefaults?: TestParameters;
   /**
    * The shared, content-addressed image asset store
    * — what the drawing photo picker lists and dedupes against. Optional so a
@@ -700,7 +704,7 @@ async function drawingRequest(
   // one version per sidecar (meta + photo): either save must quote it
   const tagOf = async (): Promise<Record<string, string>> => ({ ETag: contentETag(await drawings.read(id)) });
   if (action === undefined) {
-    if (method === 'GET') return ok(await drawings.read(id), 200, await tagOf());
+    if (method === 'GET') return ok({ ...(await drawings.read(id)), ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }) }, 200, await tagOf());
     if (method !== 'PUT') return methodNotAllowed(method, ['GET', 'PUT']);
     const guard = checkIfMatch(ifMatch, contentETag(await drawings.read(id)), 'drawing', id);
     if (guard !== undefined) return guard;
@@ -837,6 +841,7 @@ const ROUTES = [
   'PUT    /api/docs/*path',
   'DELETE /api/docs/*path',
   'GET    /api/part-numbers',
+  ...DOCUMENT_ROUTES,
   'GET    /api/drawings',
   'GET    /api/drawings/:id',
   'PUT    /api/drawings/:id',
@@ -922,7 +927,13 @@ async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: Workb
   if (io.kind === 'export') {
     if (method !== 'GET') return methodNotAllowed(method, ['GET']);
     const query = new URLSearchParams(request.path.split('?')[1] ?? '');
-    return runExporter(deps.modules, io, query, async (id) => (isDesignId(id) ? deps.designs.read(id) : undefined), await deps.loadDb());
+    return runExporter(deps.modules, io, query, async (id) => (isDesignId(id) ? deps.designs.read(id) : undefined), await deps.loadDb(), async (design, db) => {
+      const parameters = (await deps.drawings?.read(design.id))?.meta.test;
+      return deriveContinuityExport(design, db, {
+        ...(parameters === undefined ? {} : { parameters }),
+        ...(deps.testDefaults === undefined ? {} : { defaults: deps.testDefaults }),
+      });
+    });
   }
   if (method !== 'POST') return methodNotAllowed(method, ['POST']);
   // `job: true`: the importer runs as a job (the worker on Postgres) and keeps a plan to publish (§7.5)
@@ -1194,6 +1205,11 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
 
   if (head === 'db' && id === undefined) {
     return method === 'GET' ? ok(await deps.loadDb()) : methodNotAllowed(method, ['GET']);
+  }
+
+  if ((head === 'exports' && id === undefined) || (head === 'designs' && (action === 'documents' || action === 'exports'))) {
+    const documents = await handleDocumentRequest(method, parts, new URLSearchParams(request.path.split('?')[1] ?? ''), deps);
+    if (documents !== undefined) return documents;
   }
 
   if (head === 'part-numbers' && id === undefined) {

@@ -14,83 +14,24 @@
  */
 
 import type { CableDesign, Db } from '@wirehub/model';
+import type { ContinuityData } from '@wirehub/modules';
 
 import type { PathVerdict } from '../passages.ts';
 import { deriveTestSpec, type Port, type TestSpec } from '../test-spec.ts';
 import { compareStrings } from '../text.ts';
-import { resolveTestParameters, type ResolvedTestParameters, type TestParameters } from './test-params.ts';
+import { resolveTestParameters, type TestParameters } from './test-params.ts';
 import { toCsv, type Table } from './table.ts';
 
-export const CONTINUITY_FORMAT = 'wirehub.continuity';
-export const CONTINUITY_VERSION = 1;
+export const CONTINUITY_FORMAT = 'wirehub.continuity' as const;
+export const CONTINUITY_VERSION = 1 as const;
 
-export interface ContinuityPoint {
-  /** `j1.7` */
-  id: string;
-  instance: string;
-  terminal: string;
-  label?: string;
-  /** which end of the assembly the probe point is on: `a`, `b`, `both` or `unassigned` */
-  end: string;
-  signal: string;
-  net?: string;
-}
-
-export interface ContinuityNet {
-  net: string;
-  signal: string;
-  points: string[];
-}
-
-export interface ContinuityConnection {
-  id: string;
-  /** `net`: two points of one net · `path`: through something · `commoned`: one net on purpose */
-  kind: 'path' | 'commoned';
-  from: string;
-  to: string;
-  /**
-   * `continuity`: plain copper, reads at or below the threshold · `resistance`: through series
-   * resistance, reads about `ohms` · `open-dc`: connected through a part that blocks DC (a
-   * capacitor, active silicon), reads open · `conditional`: depends on the fitted build option ·
-   * `unverified`: an unclassified part or an impossible path; no reading is claimed
-   */
-  expect: 'continuity' | 'resistance' | 'open-dc' | 'conditional' | 'unverified';
-  /** the series resistance, for `resistance`, when every resistor has a value (Ω) */
-  ohms?: number;
-  through?: string;
-}
-
-export interface ContinuityIsolation {
-  id: string;
-  a: string;
-  b: string;
-  end: string;
-  rule: string;
-  netA?: string;
-  netB?: string;
-}
-
-export interface ContinuityOpen {
-  id: string;
-  kind: string;
-  /** printable terminal */
-  point: string;
-  why: string;
-}
-
-export interface ContinuityExport {
-  format: typeof CONTINUITY_FORMAT;
-  version: typeof CONTINUITY_VERSION;
-  design: { id: string; label: string; productRef?: string };
-  parameters: ResolvedTestParameters;
-  points: ContinuityPoint[];
-  /** the net-to-pin pairs, grouped by net */
-  nets: ContinuityNet[];
-  connections: ContinuityConnection[];
-  /** pairs that must read open (isolation) */
-  isolation: ContinuityIsolation[];
-  opens: ContinuityOpen[];
-}
+/** The neutral shape, declared in the module API so modules can name it without importing this package. */
+export type ContinuityExport = ContinuityData;
+export type ContinuityPoint = ContinuityData['points'][number];
+export type ContinuityNet = ContinuityData['nets'][number];
+export type ContinuityConnection = ContinuityData['connections'][number];
+export type ContinuityIsolation = ContinuityData['isolation'][number];
+export type ContinuityOpen = ContinuityData['opens'][number];
 
 function expectOf(verdict: PathVerdict): ContinuityConnection['expect'] {
   switch (verdict) {

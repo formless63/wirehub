@@ -168,7 +168,7 @@ export const acme = defineModule({
 | **Catalog packs** | `CatalogPackContribution { id, label, version, root?, license? }` — a data directory laid out like `packages/catalog/data` plus `wirehub-pack.json`; `root` a path or `file:` URL | server, at install | **yes** — installed by first-run setup for domain modules (`/setup`); `layeredCatalogSource` reads one without installing |
 | **Setup (domain)** | `SetupContribution { kind: 'domain', description, suggested? }` | server + browser | **yes** — `/setup` lists `registry.domains()` |
 | **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import(input, db) → { definitions?, designs?, notes } }` — proposes records, never writes | server | **yes** — the Library's **Import…** button (every kind's list) offers the importers that take the file; the person reviews the proposal and accepts it; `POST /api/modules/<module>/_import/<importer>` (below); with `job: true` it runs as a job instead (the worker on Postgres) and its plan is published with `POST /api/jobs/<job>/publish` (`specs/postgres-backend.md` §7.5) |
-| **Exporters / document types** | `ExporterContribution { id, label, description?, render(design, db, options) → { mimeType, fileName, body } }` | browser and server | **yes** — one download button per exporter in the cable's Documents toolbar; `GET /api/modules/<module>/_export/<exporter>?design=<id>` (below) |
+| **Exporters / document types** | `ExporterContribution { id, label, description?, source?, render(design, db, options) → { mimeType, fileName, body } }` — `source: 'continuity'` makes the host pass the neutral continuity data as `options.continuity`, for a tester's own format (`docs/exports.md`) | browser and server | **yes** — one download button per exporter in the cable's Documents toolbar; `GET /api/modules/<module>/_export/<exporter>?design=<id>` (below) |
 | **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@wirehub/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
 | **Validation rules** | `ValidationRuleContribution { id, label, check(design, db) → Issue[] }` | everywhere | **yes** — every design save runs them after `validateDesign` |
 | **Integrations** | `IntegrationContribution { id, label, env?, routes?: { method, path, writes?, handle(request) }[], queues?: JobQueueContribution[] }` | server only | **yes** — `/api/modules/<module>/<path>`; `writes: true` routes take the write lock; a route path may not start with `_`; `queues` are job queues (below) |
@@ -310,7 +310,8 @@ route may not use it.
 
 **Exporters.** The Documents toolbar renders the design on screen in the browser (so drafts
 export too) and downloads the file; `GET /api/modules/<module>/_export/<exporter>?design=<id>`
-renders a *stored* design on the server, with the other query parameters as `options`.
+renders a *stored* design on the server, with the other query parameters as `options`. The base's own
+exports (BOM, wire and cut lists, continuity, labels) and the headless rendering are in `docs/exports.md`.
 
 **Auth providers.** `kind: 'oidc'` takes `{ issuer, clientId, clientSecret?, scopes?, emailClaim?, name? }`;
 `'oauth2'` takes `{ authorizationUrl, tokenUrl, userInfoUrl, clientId, clientSecret?, scopes?, emailClaim?, name? }`;

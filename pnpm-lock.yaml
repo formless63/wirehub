@@ -366,6 +366,9 @@ importers:
       '@wirehub/model':
         specifier: workspace:*
         version: link:../model
+      '@wirehub/modules':
+        specifier: workspace:*
+        version: link:../modules
       '@wirehub/render-svg':
         specifier: workspace:*
         version: link:../render-svg

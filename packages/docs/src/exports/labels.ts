@@ -183,10 +183,10 @@ export function labelSheetSvg(labels: readonly WireLabel[], options: LabelSheetO
     out.push(`<rect x="${n3(x)}" y="${n3(y)}" width="${n3(layout.labelWidth)}" height="${n3(layout.labelHeight)}" rx="1.5" fill="none" stroke="#cfcfcf" stroke-width="0.15"/>`);
     // the headline scales with the label's height; the detail lines sit under it
     const head = Math.min(layout.labelHeight * 0.34, 7);
-    const detail = Math.min(layout.labelHeight * 0.17, 3.4);
+    const detail = Math.min(layout.labelHeight * 0.2, 3.8);
     out.push(`<text x="${n3(x + 2.5)}" y="${n3(y + 2.5 + head * 0.85)}" font-size="${n3(head)}" font-weight="bold" fill="#000000">${escapeHtml(label.lines[0] ?? '')}</text>`);
     label.lines.slice(1).forEach((line, i) => {
-      out.push(`<text x="${n3(x + 2.5)}" y="${n3(y + 2.5 + head + detail * (i + 1.15))}" font-size="${n3(detail)}" fill="#000000">${escapeHtml(line)}</text>`);
+      out.push(`<text x="${n3(x + 2.5)}" y="${n3(y + 2.5 + head + detail * (i * 1.25 + 1.3))}" font-size="${n3(detail)}" fill="#000000">${escapeHtml(line)}</text>`);
     });
     out.push('</g>');
   });

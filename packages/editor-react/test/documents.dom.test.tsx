@@ -271,11 +271,12 @@ describe('<CableEditor> — Canvas | Documents', () => {
     const derive = spyRender();
     const save = vi.fn(async (_id: string, meta: DrawingMeta) => ({ ok: true as const, value: meta }));
     const drawings: DrawingAdapter = {
-      load: async () => ({ ok: true, value: { meta: {} } }),
+      // the server's organisation defaults ride on the sidecar it answers
+      load: async () => ({ ok: true, value: { meta: {}, testDefaults: { isolationVolts: 250 } } }),
       save,
       savePhoto: async () => ({ ok: true, value: {} }),
     };
-    render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} render={derive} drawings={drawings} testDefaults={{ isolationVolts: 250 }} />);
+    render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} render={derive} drawings={drawings} />);
     await act(async () => void (await vi.advanceTimersByTimeAsync(10)));
     expect(screen.queryByRole('group', { name: 'Test parameters' })).toBeNull();
 

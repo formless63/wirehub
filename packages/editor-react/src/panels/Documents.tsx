@@ -28,7 +28,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 
 import type { AssetsAdapter } from '../assets.ts';
 import { classes } from '../context.ts';
-import { downloadOutput, type EditorExtensions, type ExtraExporter } from '../extensions.ts';
+import { downloadOutput, type EditorExtensions, type ExtraExportContext, type ExtraExporter } from '../extensions.ts';
 import {
   DOCUMENT_BLURBS,
   DOCUMENT_KINDS,
@@ -141,6 +141,8 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
   const [draft, setDraft] = useState<DrawingSidecar>(EMPTY_SIDECAR);
   const [saved, setSaved] = useState<DrawingSidecar>(EMPTY_SIDECAR);
   const [status, setStatus] = useState<string>();
+  // the organisation's test-parameter defaults, as the server's last answer carried them
+  const [orgDefaults, setOrgDefaults] = useState<TestParameters>();
   // a failure worth a banner, not the small print — a load or save that did
   // not go through at all (unreachable, refused, not a stale write, or a
   // stale write whose re-fetch itself failed)
@@ -166,6 +168,7 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
       if (result.ok) {
         setDraft(result.value);
         setSaved(result.value);
+        setOrgDefaults(result.value.testDefaults);
         setGeneration((g) => g + 1);
       } else {
         setError(`${result.message}${result.hint === undefined ? '' : ` ${result.hint}`}`);
@@ -291,6 +294,7 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
     resolveField,
     resolvePhoto,
     generation,
+    orgDefaults,
     setMeta: (meta: DrawingMeta) => setDraft((d) => ({ ...d, meta })),
     setPhoto: (photo: string | undefined) =>
       setDraft((d) => (photo === undefined ? { meta: d.meta } : { ...d, photo })),
@@ -345,11 +349,12 @@ export function DocumentsPane({
   release,
   partNumbers,
   facts,
-  testDefaults,
+  testDefaults: testDefaultsProp,
   extensions,
   readOnly = false,
 }: DocumentsProps): JSX.Element {
   const sidecar = useDrawingSidecar(design.id, drawings);
+  const testDefaults = testDefaultsProp ?? sidecar.orgDefaults;
   // someone else holds this cable's edit lock: the forms stay, disabled
   const editLocked = useEditLocked();
   // which revision prints: the viewed rev, else the latest saved one
@@ -517,13 +522,18 @@ export function DocumentsPane({
   const runExporter = useCallback(
     async (exporter: ExtraExporter): Promise<void> => {
       try {
-        downloadOutput(await exporter.render(docDesign, docDb));
+        const context: ExtraExportContext = {
+          ...(sidecar.draft.meta.test === undefined ? {} : { testParameters: sidecar.draft.meta.test }),
+          ...(testDefaults === undefined ? {} : { testDefaults }),
+        };
+        // an exporter that wants no test parameters is called as it always was
+        downloadOutput(await (Object.keys(context).length === 0 ? exporter.render(docDesign, docDb) : exporter.render(docDesign, docDb, context)));
         setCopyNote(undefined);
       } catch (error) {
         setCopyNote(`${exporter.label}: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
-    [docDesign, docDb],
+    [docDesign, docDb, sidecar.draft.meta.test, testDefaults],
   );
   const downloadExport = useCallback(
     (id: string): void => {

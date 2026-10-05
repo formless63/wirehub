@@ -83,7 +83,7 @@ details"); `modules/example/src/index.ts` has one working instance of each. Quic
 | Part numbers | `partNumberScheme` | build with `prefixPartNumberScheme` from `@wirehub/model`, or implement `PartNumberScheme` (`packages/model/src/part-numbers.ts`); singleton |
 | House rules | `validationRules: [{ id, label, check(design, db) }]` | returns `Issue[]`; code is namespaced `<module>/<code>` by the host; runs on every save, in browser and server |
 | Read a file | `importers: [{ id, label, accepts: ['.csv'], import(input, db) }]` | returns `{ definitions?, designs?, notes }`; proposes, never writes; deterministic; ids the library has are skipped, never overwritten |
-| Write a file | `exporters: [{ id, label, render(design, db, options) }]` | returns `{ mimeType, fileName, body }` |
+| Write a file | `exporters: [{ id, label, source?, render(design, db, options) }]` | returns `{ mimeType, fileName, body }`; `source: 'continuity'` passes the neutral `ContinuityData` as `options.continuity` for a tester's format (`docs/exports.md`) |
 | Server routes | `integrations: [{ id, label, env?, routes: [{ method, path, writes?, handle }] }]` | served at `/api/modules/<module>/<path>`; `writes: true` takes the write lock |
 | Job queues | `integrations: [{ …, queues: [{ id, label, schedule?, run({ request, step, db }) }] }]` | kind `<module>:<queue>`; run by the worker (Postgres) or the studio process (files), never retried; routes enqueue and read them through `request.jobs` (own queues only); `modules/example` has `example:recount` (docs/modules.md, "Job queues") |
 | UI panel | `panels: [{ id, label, slot, component }]` | slots: `cable-inspector`, `cable-documents`, `library-detail`, `settings`; component takes `PanelProps` |

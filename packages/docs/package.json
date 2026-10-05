@@ -14,6 +14,7 @@
     "@wirehub/catalog": "workspace:*",
     "@wirehub/layout": "workspace:*",
     "@wirehub/model": "workspace:*",
+    "@wirehub/modules": "workspace:*",
     "@wirehub/render-svg": "workspace:*"
   },
   "devDependencies": {

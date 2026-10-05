@@ -138,6 +138,15 @@ batch is refused and nothing is retried. `--lock` holds edit leases for the run.
 (`WIREHUB_API_ENV` can say which one the URL is; the server's `/api/me` does too).
 `specs/postgres-backend.md` §4.5.
 
+**Documents without a browser: `render`.** The same documents and exports the Documents tab makes,
+from a terminal or a script (`docs/exports.md`):
+
+```bash
+pnpm --filter studio render de9-crossover bom --format csv
+pnpm --filter studio render de9-crossover build-sheet --format pdf --rev latest --out ./out
+curl -H "authorization: Bearer $WIREHUB_API_TOKEN" "$WIREHUB_API_URL/api/designs/de9-crossover/documents/schematic?format=pdf" -o schematic.pdf
+```
+
 | Variable | Default | |
 |---|---|---|
 | `AUTH_ENABLED` | `false` | `true` turns the login on |
