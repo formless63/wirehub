@@ -218,7 +218,61 @@ were dropped. Dropped whole files:
 
 In the files that were kept, individual cases asserting private designs were
 removed (editor 170 cases across 29 files, studio 70 across 14, docs 32 across
-2). Re-covering what they covered on starter data is a follow-up (beads).
+2).
+
+### Re-covered on the starter catalog
+
+The behaviour of the dropped files that still exists in WireHub is covered again by new
+files that use the starter catalog, the bundled module packs or small synthetic
+fixtures (no private design, part number or device pinout is copied):
+
+| Package | New file | Behaviour re-covered (the dropped tests it stands in for) |
+| --- | --- | --- |
+| model | `test/starter-behaviour.test.ts` | assembly sides and wire ends (`assembly`), screen terminations and screen paths (`bonds`, `ground-faces`), kit validation and coverage (`kits`), definition usage (`products`, `lineup`), compatibility on every starter design (`compat`), reference-designator sorting, wire display names, strip-practice validation (`recipe`) |
+| layout | `test/geometry.test.ts` | lane ordering and crossings, text metrics, board-face rotation and approach angles (`board-faces`), bonded-screen folding (`wire-model`, `branches`), cross-section for every stock (`cross-section`), end faces (`end-face`), pin leads (`connector-art`, `connector-leads`), entry-guide geometry, topology of every starter design (`carrier-dock`) |
+| render-svg | `test/pieces.test.ts` | cross-section drawing for every stock, paint, inlined artwork safety (`depictions`), resistor markings (`part-pads`); the schematic goldens already run on the frozen fixture catalog |
+| docs | `test/derivations.test.ts` | BOM folding, order, consumption and rendering (`bom`, `bom-sheet`), bench landings and numbering (`build-sheet`, `breakouts`), ground landings, the test spec, build-sheet identifiers, length units (`standalone`, `drawing`) |
+| editor-react | `test/editing-logic.test.ts` | the wire builder's recipe and lay edits and its library adapter (`wire-builder`), trunk stock swap (`stock-swap`), pigtail edits (`pigtail-edit`, `pigtail-hand-edits`) |
+| editor-react | `test/naming-and-flow.test.ts` | connector naming rules, canvas derivation of every starter design (`derive`, `connection-rows`), re-pin gestures (`repin`) |
+| studio | `test/builds-and-list.server.test.ts` | the cable list row derivation and part-number resolution (`cables-list`, `cable-list-sync`, `pn-agreement`), the board-build routes (`builds`) |
+
+The domain-specific behaviour (a signal family's pinouts, a recipe, a console's wiring)
+is covered by the domain modules' own tests (`modules/*/test/`).
+
+### Skipped on purpose
+
+These existed only for the private catalog, a private integration, or a feature the
+base does not contain, so there is nothing generic to test:
+
+- **catalog**, all 24 files: the board importers (`kicad`, `kicad-direct`, `easyeda`,
+  `gerber`, `board-pipeline`, `importer`, `pcba-pads`, `readme`), the private product
+  and device resolvers (`devices`, `resolver-designs`, `recipes`, `recipe-storage`,
+  `wire-recipes`, `builds`, `kits`, `legacy`) and the data-shape tests of private
+  records (`components`, `interfaces`, `tags`, `pin-tables`, `depictions`,
+  `board-components`, `board-revisions`, `carrier-through`). The generic record loading
+  is covered by `catalog.test.ts`, `codec.test.ts` and `packs.test.ts`.
+- **model**: `devices`, `products`, `resolve`, `production-route`, `recipe`, `lineup`,
+  `signals` (the private signal tables), `board-proposal`, `designs-extended`,
+  the light-gun lead and the device-specific shell rule. Their behaviour belongs to
+  a module that brings the device data.
+- **docs**: the three ERP tests (`contract`, `export`, `transport`), `lineup-export`,
+  `library-pn`, `products`, `part-numbers` (the numbering scheme is tested in
+  `model/test/part-numbers.test.ts`).
+- **editor-react**: the ERP export test, the board-image flow (`board-art`,
+  `board-journey` DOM, `board-diff`, `board-node`, `board-to-board`, `artwork`),
+  the compare view (`compare-view`, `compare-diff`) and the part-revision pipeline,
+  `bare-scart`, `ground-bus`, `carrier-dock`, `carrier-through`, `cable-journey`,
+  `moulds`, `connector-leads`: each asserts a private board, device or console.
+  Their generic parts (carrier docking, moulds, breakouts) are exercised through
+  `naming-and-flow`, `arrange` and `landings`.
+- **studio**: the two ERP link tests, `lineup`, `lineup-push`, `products`, `proposals`,
+  `board-import`, `board-texture`, `kicad-models`, `revisions`, `compare-route`
+  and `derived`: importer, ERP or private-data routes.
+
+Still without a generic equivalent, and filed as follow-ups: the editor's DOM
+journeys for the library table, the trace highlight and the signal tags, and
+render-svg goldens for the cross-section, structure and breakout drawings on the
+starter designs (the existing goldens use the frozen fixture catalog).
 
 ## 7. Features — summary
 
