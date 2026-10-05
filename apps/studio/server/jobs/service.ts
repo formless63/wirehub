@@ -228,8 +228,13 @@ export function inlineJobRunner(
       timers.add(timer);
     },
     idle: async () => {
-      while (timers.size > 0) await new Promise((done) => setTimeout(done, 5));
-      await queue;
+      // a job may queue another (a webhook's retry): wait until nothing is waiting or queued behind
+      for (;;) {
+        const seen = queue;
+        await seen;
+        if (seen === queue && timers.size === 0) return;
+        if (timers.size > 0) await new Promise((done) => setTimeout(done, 5));
+      }
     },
   };
 }

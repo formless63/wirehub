@@ -147,7 +147,7 @@ export function PartNumberSettings(): JSX.Element {
             {readOnly ? null : (
               <>
                 <button type="button" className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50" disabled={busy} onClick={() => { const s = parse(); if (s !== undefined) void save(s); }}>
-                  Save
+                  Save scheme
                 </button>
                 <button type="button" className="rounded border border-line px-3 py-1" disabled={busy} onClick={() => setText(pretty(EXAMPLE_SCHEME))}>
                   Insert the generic example

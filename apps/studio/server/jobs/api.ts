@@ -144,7 +144,9 @@ export async function handleJobRequest(request: ApiRequest, deps: WorkbenchDeps)
       const kind = query.get('kind') ?? undefined;
       if (kind !== undefined && !isJobKind(kind)) return fail(400, `'${kind}' is not a job kind.`);
       const limit = Math.min(Math.max(Number(query.get('limit') ?? 50) || 50, 1), 200);
-      const list = await jobs.list({ ...(kind === undefined ? {} : { kind: kind as JobKind }), limit });
+      // a webhook delivery's attempts have their own log (Settings, Webhooks) and would crowd this list: only `?kind=webhook` shows them
+      const found = await jobs.list({ ...(kind === undefined ? {} : { kind: kind as JobKind }), limit: kind === undefined ? Math.min(limit * 4, 200) : limit });
+      const list = kind === undefined ? found.filter((j) => j.kind !== 'webhook').slice(0, limit) : found;
       const worker = await jobs.worker?.();
       return { status: 200, body: { runner: jobs.describe, kinds: jobs.kinds, jobs: list.map(jobView), ...(jobs.worker === undefined ? {} : { worker: worker ?? null }) } };
     }

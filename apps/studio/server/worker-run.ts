@@ -152,7 +152,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
 
     const afterJob = (line: string): void => log(`${line} (worker rss ${Math.round(process.memoryUsage().rss / 1048576)} MiB)`);
     for (const kind of kinds) {
-      await boss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' ? 1 : 5 }, async ([job]) => {
+      await boss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' || kind === 'webhook' ? 1 : 5 }, async ([job]) => {
         if (job === undefined) return;
         const payload = job.data;
         if (payload.org !== org) {

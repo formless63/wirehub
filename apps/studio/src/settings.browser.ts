@@ -423,3 +423,88 @@ export const rulesQuery = {
   },
   retry: false,
 } as const;
+
+/* ------------------------------------------------------------------ *
+ * Outbound event webhooks (`server/webhooks/api.ts`): owners only
+ * ------------------------------------------------------------------ */
+
+export const webhooksKey = ['settings', 'webhooks'] as const;
+export const webhookDeliveriesKey = ['settings', 'webhooks', 'deliveries'] as const;
+
+export interface WebhookSubscriptionView {
+  id: string;
+  label?: string;
+  url: string;
+  events: string[];
+  enabled: boolean;
+  createdAt?: string;
+  secret: 'set' | 'unset' | 'unreadable';
+}
+
+export interface WebhooksView {
+  subscriptions: WebhookSubscriptionView[];
+  events: { type: string; label: string; description: string }[];
+  limits: { subscriptions: number; attempts: number };
+  signature: { header: string; scheme: string; payloadSchema: string };
+  secrets: { available: boolean; note?: string };
+  etag: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  deliveryId: string;
+  subscription: string;
+  type: string;
+  attempt: number;
+  state: 'queued' | 'running' | 'delivered' | 'retrying' | 'failed' | 'skipped';
+  status?: number;
+  error?: string;
+  createdAt: string;
+  finishedAt?: string;
+  retryAt?: string;
+  redeliveredFrom?: string;
+  test?: boolean;
+}
+
+export async function fetchWebhooks(base = '/api'): Promise<Outcome<WebhooksView>> {
+  let etag = '';
+  const out = await request<Omit<WebhooksView, 'etag'>>(`${base}/settings/webhooks`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function saveWebhooks(subscriptions: Pick<WebhookSubscriptionView, 'id' | 'label' | 'url' | 'events' | 'enabled'>[] | Omit<WebhookSubscriptionView, 'secret' | 'createdAt'>[], etag: string, base = '/api'): Promise<Outcome<WebhooksView>> {
+  let next = '';
+  const out = await request<Omit<WebhooksView, 'etag'>>(`${base}/settings/webhooks`, { method: 'PUT', body: { subscriptions }, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+export const setWebhookSecret = (id: string, value?: string, base = '/api'): Promise<Outcome<{ id: string; set: boolean; generated?: string }>> =>
+  request(`${base}/settings/webhooks/${id}/secret`, { method: 'PUT', body: value === undefined ? {} : { value } });
+export const clearWebhookSecret = (id: string, base = '/api'): Promise<Outcome<{ id: string; set: boolean }>> => request(`${base}/settings/webhooks/${id}/secret`, { method: 'DELETE' });
+export const testWebhook = (id: string, base = '/api'): Promise<Outcome<{ job?: string }>> => request(`${base}/settings/webhooks/${id}/test`, { method: 'POST' });
+export const redeliverWebhook = (job: string, base = '/api'): Promise<Outcome<{ job?: string }>> => request(`${base}/settings/webhooks/deliveries/${job}/redeliver`, { method: 'POST' });
+
+export const webhooksQuery = {
+  queryKey: webhooksKey,
+  queryFn: async (): Promise<WebhooksView> => {
+    const out = await fetchWebhooks();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;
+
+export const webhookDeliveriesQuery = {
+  queryKey: webhookDeliveriesKey,
+  queryFn: async (): Promise<WebhookDelivery[]> => {
+    const out = await request<{ deliveries: WebhookDelivery[] }>('/api/settings/webhooks/deliveries?limit=100', { method: 'GET' });
+    if (!out.ok) throw new Error(out.message);
+    return out.value.deliveries;
+  },
+  retry: false,
+  refetchInterval: 5000,
+} as const;

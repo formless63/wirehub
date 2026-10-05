@@ -14,6 +14,7 @@ import { EngineeringSettings } from './EngineeringSettings.tsx';
 import { PartNumberSettings } from './PartNumberSettings.tsx';
 import { RulesSettings } from './RulesSettings.tsx';
 import { RuntimeSettings } from './RuntimeSettings.tsx';
+import { WebhookSettings } from './WebhookSettings.tsx';
 import { StoreSourcesSettings } from './StoreSourcesSettings.tsx';
 import { useStudio } from '../studio-context.tsx';
 
@@ -191,6 +192,7 @@ export function SettingsRoute(): JSX.Element {
       <EngineeringSettings />
       <PartNumberSettings />
       <RulesSettings />
+      <WebhookSettings />
       <StoreSourcesSettings />
       <RuntimeSettings />
     </div>

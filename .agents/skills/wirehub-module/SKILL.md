@@ -9,13 +9,19 @@ A module is an npm package that calls `defineModule` from `@wirehub/modules` and
 deployment's manifest at build time. There is no runtime plugin loading. Read `docs/modules.md`
 first (principles, extension point table, mounting details); this skill is the procedure.
 
-Decide first whether you need a module at all:
+Decide first whether you need a module at all. **Configuration comes before code**
+(`docs/modules.md`, "Configuration or code?"): a numbering convention is a declarative part-number
+scheme (`docs/part-numbers.md`), a design rule is a declarative validation rule
+(`docs/validation-rules.md`), and an integration with another system is an event webhook plus the
+API with a token (`docs/webhooks.md`) - none of these needs a module. Write a code
+`partNumberScheme` or `validationRules` only for what those cannot express (a lookup, a check digit,
+a calculation).
 
 - Only **catalog data** (signals, connectors, stocks, example cables of a field)? That is a
   **domain module whose main contribution is a pack**; use this skill for the shell and
   `wirehub-catalog-pack` for the data.
-- Something one shop needs (ERP link, numbering scheme, house rules, a file importer)? A module,
-  normally in its own private repository (`docs/modules.md`, "A private module in its own repository").
+- Something one shop needs that data cannot say (a file importer, a custom screen, a rule or number
+  that needs code)? A module, normally in its own private repository (`docs/modules.md`, "A private module in its own repository").
 - A change to how the model, validator or editor works for everyone? That is a base change, not
   a module; `wirehub-contribute`.
 

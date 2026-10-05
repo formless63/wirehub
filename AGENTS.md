@@ -48,7 +48,11 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
 - Deterministic library code: no `Date.now()`, no randomness, no network.
 - IDs kebab-case. Wire ends: `a` = source side, `b` = destination side.
 - Part numbers go through the `PartNumberScheme` interface
-  (`packages/model/src/part-numbers.ts`); never hard-code a numbering pattern.
+  (`packages/model/src/part-numbers.ts`); never hard-code a numbering pattern. Most schemes are
+  data (`part-numbers.json`, a declarative definition, `docs/part-numbers.md`), not code.
+- Prefer configuration to a module: design rules as data (`validation-rules.json`,
+  `docs/validation-rules.md`), integrations as event webhooks plus the API
+  (`docs/webhooks.md`); a module is for what data cannot say (`docs/modules.md`).
 - Nothing shop-specific in the base: no customer, supplier or person names, no
   hosts, addresses or private paths. A feature that only makes sense for one shop
   is a module.

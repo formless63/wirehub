@@ -2,7 +2,7 @@
  * Webhook subscriptions (`data/settings/webhooks.json`): where each event goes. The
  * document names the URL and the events; the signing secret is never in it — it is
  * kept encrypted in the settings secrets store (`settings-secrets.ts`) under
- * `webhook.<id>.secret`, write-only, so neither the catalog, its history, the
+ * `webhook.wh<id>`, write-only, so neither the catalog, its history, the
  * export nor the git mirror can carry one. The document is owner-only like the
  * other settings that name outside systems.
  */
@@ -33,7 +33,8 @@ export interface WebhooksDoc {
   src: string;
 }
 
-export const secretName = (id: string): string => `webhook.${id}.secret`;
+/** the secrets table allows `<area>.<name>` of letters and digits only: `webhook.wh1a2b3c4d` for subscription `wh-1a2b3c4d` */
+export const secretName = (id: string): string => `webhook.${id.replace('-', '')}`;
 export const isSubscriptionId = (id: unknown): id is string => typeof id === 'string' && /^wh-[0-9a-f]{8}$/.test(id);
 
 export async function readSubscriptions(docs: DocStore | undefined): Promise<WebhookSubscription[]> {
@@ -118,8 +119,8 @@ export async function subscriptionsWithSecret(settings: RuntimeSettings | undefi
   const store = settings?.options.secrets();
   const names = store === undefined ? [] : Object.keys(await store.all());
   return new Set(names.flatMap((n) => {
-    const m = /^webhook\.(wh-[0-9a-f]{8})\.secret$/.exec(n);
-    return m === null ? [] : [m[1] as string];
+    const m = /^webhook\.wh([0-9a-f]{8})$/.exec(n);
+    return m === null ? [] : [`wh-${m[1] as string}`];
   }));
 }
 

@@ -7,8 +7,8 @@
  *
  * The hub's own rules are `data/validation-rules.json` (an array of rule records, written through
  * the unit of work like every other document, so both backends keep it with the catalog). A data
- * pack ships the same file; its records are read-only here, and a local rule with the same id
- * shadows (switches off, or replaces) one of the pack's. They run inside `validateDesign` and
+ * pack ships the same file (merged into it, or layered under it); a rule with the same id as the
+ * pack's, saved here, replaces it (switch one off, or tighten it). They run inside `validateDesign` and
  * `validateDb` (`Db.validationRules`), so they appear in the issues panel and block a save when
  * their severity is `error`.
  */
@@ -55,10 +55,10 @@ async function packOwners(deps: WorkbenchDeps): Promise<Map<string, string>> {
 async function view(deps: WorkbenchDeps, local: ValidationRule[]): Promise<Record<string, unknown>> {
   const db = await deps.loadDb();
   const inForce = db.validationRules ?? [];
-  const localIds = new Set(local.map((r) => r.id));
   const owners = await packOwners(deps);
   const rules = inForce.map((r) => {
-    const fromPack = !localIds.has(r.id) ? owners.get(r.id) : undefined;
+    // a rule a pack's install record lists is the pack's, whether the pack is a layer or merged into the catalog; a local record of the same id shadows (or, merged, edits) it
+    const fromPack = owners.get(r.id);
     return { ...r, origin: fromPack === undefined ? 'local' : 'pack', ...(fromPack === undefined ? {} : { pack: fromPack }), problems: ruleProblems(r) };
   });
   return {
