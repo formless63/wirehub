@@ -55,8 +55,8 @@ export interface DeepHealthOptions {
   failedJobsMax?: number;
   /** the oldest an acceptable heartbeat is, ms (default 5 min) */
   workerMaxAgeMs?: number;
-  /** the oldest an acceptable backup is, ms (default 30 h) */
-  backupMaxAgeMs?: number;
+  /** the oldest an acceptable backup is, ms (default 30 h); a function reads the live setting (`WIREHUB_BACKUP_MAX_AGE_HOURS`) */
+  backupMaxAgeMs?: number | (() => number);
   env?: string;
   version?: string;
   /** per-check budget, ms (default 3000) */
@@ -124,7 +124,7 @@ export function deepHealthCheck(options: DeepHealthOptions): () => Promise<DeepH
     // `.configured` beside it: no marker and no `.configured` means backups are not on, so nothing to check
     if (options.backupMarker !== undefined && (existsSync(options.backupMarker) || existsSync(join(dirname(options.backupMarker), '.configured')))) {
       const marker = options.backupMarker;
-      const maxAge = options.backupMaxAgeMs ?? 30 * 3_600_000;
+      const maxAge = (typeof options.backupMaxAgeMs === 'function' ? options.backupMaxAgeMs() : options.backupMaxAgeMs) ?? 30 * 3_600_000;
       checks.push(
         timed('backup', budget, log, async () => {
           let at: number;
@@ -189,6 +189,8 @@ export function startHealthMonitor(
 ): () => void {
   const alerts = throttled(notifier, options.repeatMs ?? 6 * 3_600_000);
   const tick = async (): Promise<void> => {
+    // the webhook may be set (or unset) in Settings at any time: no checks while there is none
+    if (!notifier.enabled) return;
     const result = await check();
     for (const failed of result.checks.filter((c) => !c.ok)) {
       const spec = EVENT_FOR[failed.name];

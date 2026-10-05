@@ -182,7 +182,8 @@ async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefi
   // the person's current role still applies: a viewer's token only reads
   if (holder.person.role === 'viewer' && scope !== 'read') return json(403, { error: 'The token lacks scope catalog:write.' });
   if (holder.person.role === 'viewer' && c.req.path === '/api/export') return json(403, { error: 'The catalog export is for owners and editors.' });
-  const budget = limiter.take(`token:${holder.token.id}`, scope === 'read' ? READ_LIMITS : WRITE_LIMITS);
+  const limits = auth.limits?.() ?? { read: READ_LIMITS, write: WRITE_LIMITS };
+  const budget = limiter.take(`token:${holder.token.id}`, scope === 'read' ? limits.read : limits.write);
   if (budget > 0) return retryLater(budget);
   await tokens.touch(holder.token.id);
   signedIn.set(c.req.raw, { ...sessionStudioUser({ name: holder.person.name, email: holder.person.email }), ...((ROLES as readonly string[]).includes(holder.person.role) ? { role: holder.person.role as Role } : {}), apiTokenId: holder.token.id, apiTokenScopes: holder.token.scopes });
@@ -232,7 +233,8 @@ async function tokensRoute(c: Context, tokens: TokenStore, person: Person | unde
 }
 
 export function mountAuth(app: Hono, auth: StudioAuth): void {
-  const { config } = auth;
+  // read at each request: the sign-in methods may change in Settings (`liveStudioAuth`)
+  const config = (): StudioAuth['config'] => auth.config;
 
   app.on(['GET', 'POST'], [AUTH_BASE_PATH, `${AUTH_BASE_PATH}/*`], (c) => {
     // a sign-in, sign-up or sign-out only from the studio's own pages (the API's cross-site rule)
@@ -251,12 +253,12 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
     const error = c.req.query('error');
     return html(
       renderSignInPage({
-        ...(config.oidc === undefined
+        ...(config().oidc === undefined
           ? {}
-          : { oidc: { providerId: config.oidc.providerId, name: config.oidc.name, emailClaim: config.oidc.emailClaim } }),
+          : { oidc: { providerId: config().oidc!.providerId, name: config().oidc!.name, emailClaim: config().oidc!.emailClaim } }),
         ...((auth.providers ?? []).length === 0 ? {} : { providers: auth.providers }),
-        magicLink: config.smtp !== undefined,
-        localAccounts: config.localAccounts,
+        magicLink: config().smtp !== undefined,
+        localAccounts: config().localAccounts,
         next: safeNext(c.req.query('next')),
         ...(error === undefined || error === '' ? {} : { error }),
         ...(user === null ? {} : { signedInAs: { email: user.email, allowed: await auth.isAllowed(user.email) } }),
@@ -267,8 +269,9 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
   // invitations (database backend, B8): an owner invites by email with a role; the link's page makes the account
   const people = auth.people;
   if (people !== undefined && auth.acceptInvitation !== undefined) {
-    const accept = auth.acceptInvitation;
-    app.get(INVITE_PATH, (c) => html(renderInvitePage({ token: c.req.query('token') ?? '', localAccounts: config.localAccounts })));
+    // the sign-in in force when the link is followed (it may have been rebuilt from Settings since)
+    const accept = (token: string, name: string, password: string): Promise<Response> => auth.acceptInvitation!(token, name, password);
+    app.get(INVITE_PATH, (c) => html(renderInvitePage({ token: c.req.query('token') ?? '', localAccounts: config().localAccounts })));
     app.post(`${INVITATIONS_PATH}/accept`, async (c) => {
       const body = (await c.req.json().catch(() => ({}))) as { token?: unknown; name?: unknown; password?: unknown };
       if (typeof body.token !== 'string' || typeof body.password !== 'string') return json(400, { error: 'Send the invitation token and a password.' });
@@ -309,7 +312,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       if (api) {
         return json(403, {
           error: `${user.email} is not allowed to use the studio.`,
-          hint: 'Ask an administrator to add it to AUTH_ALLOWED_EMAILS, or sign out and use another account.',
+          hint: 'Ask an owner to invite it or add it to the allowed emails (Settings, Sign-in & accounts), or sign out and use another account.',
           code: EMAIL_NOT_ALLOWED,
         });
       }
@@ -336,7 +339,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       if (person?.role === 'viewer' && WRITE_METHODS.has(c.req.method) && !path.startsWith('/api/locks') && !path.startsWith(TOKENS_PATH)) {
         return json(403, { error: `${user.email} can view this hub but not change it.`, hint: 'Nothing was changed. Ask an owner for the editor role.' });
       }
-      if (path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`)) return invitationsRoute(c, people, person, config.baseURL);
+      if (path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`)) return invitationsRoute(c, people, person, config().baseURL);
       if (auth.tokens !== undefined && (path === TOKENS_PATH || path.startsWith(`${TOKENS_PATH}/`))) return tokensRoute(c, auth.tokens, person, auth.tokenEnv ?? 'dev', auth.notifier);
     }
     if (people !== undefined && path === PEOPLE_PAGE && c.req.method === 'GET') return html(renderPeoplePage());

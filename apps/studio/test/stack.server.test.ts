@@ -40,6 +40,7 @@ describe('bootstrap', () => {
       database_url: 'derived',
       database_ro_url: 'derived',
       better_auth_secret: 'generated',
+      settings_key: 'generated',
       garage_rpc_secret: 'generated',
       garage_admin_token: 'generated',
       setup_code: 'generated',
@@ -48,6 +49,8 @@ describe('bootstrap', () => {
     expect(read('postgres_password')).toMatch(/^[0-9a-f]{48}\n$/);
     expect(read('garage_rpc_secret')).toMatch(/^[0-9a-f]{64}\n$/);
     expect(read('better_auth_secret').trim().length).toBeGreaterThanOrEqual(43);
+    // the runtime settings' key: long enough for settingsKeyFromEnv
+    expect(read('settings_key').trim().length).toBeGreaterThanOrEqual(43);
     expect(read('setup_code')).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}\n$/);
     expect(read('database_admin_url').trim()).toBe(bundledDatabaseUrl(read('postgres_password').trim()));
     expect(read('database_owner_url').trim()).toBe(`postgres://studio_owner:${read('wirehub_owner_password').trim()}@postgres:5432/wirehub`);
@@ -58,7 +61,7 @@ describe('bootstrap', () => {
 
   it('keeps what it generated: a second run changes nothing', () => {
     bootstrap(env());
-    const names = ['postgres_password', 'wirehub_owner_password', 'wirehub_app_password', 'wirehub_ro_password', 'better_auth_secret', 'garage_rpc_secret', 'garage_admin_token', 'setup_code', 'database_url', 'database_owner_url', 'database_admin_url'];
+    const names = ['postgres_password', 'wirehub_owner_password', 'wirehub_app_password', 'wirehub_ro_password', 'better_auth_secret', 'settings_key', 'garage_rpc_secret', 'garage_admin_token', 'setup_code', 'database_url', 'database_owner_url', 'database_admin_url'];
     const before = names.map(read);
     const report = bootstrap(env());
     expect(report.postgres_password).toBe('kept');
@@ -319,6 +322,7 @@ describe('compose.yaml', () => {
       'database_url',
       'database_ro_url',
       'better_auth_secret',
+      'settings_key',
       'garage_rpc_secret',
       'garage_admin_token',
       'setup_code',

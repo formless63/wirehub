@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
 
 import { AuthConfigError } from './auth/config.ts';
-import { studioAuthFromEnv, type StudioAuth } from './auth/studio-auth.ts';
+import { liveStudioAuth, type StudioAuth } from './auth/studio-auth.ts';
 import { pgPeople } from './auth/people.ts';
 import { pgTokens, tokenEnvOf } from './auth/tokens.ts';
 import { studioBackupFromEnv } from './backup/backup.ts';
@@ -40,7 +40,9 @@ import { envVar, legacyEnvWarning } from './env.ts';
 import { environmentRefusal, wirehubEnv } from './env-guard.ts';
 import { registry } from './modules.ts';
 import { deepHealthCheck, startHealthMonitor } from './health.ts';
-import { notifierFromEnv } from './notify.ts';
+import { liveNotifier, notifierFromEnv } from './notify.ts';
+import { backupMaxAgeHours } from './runtime-settings.ts';
+import { settingsKeyFromEnv } from './settings-secrets.ts';
 import { generateSetupCode, parseSuggestedModules, setupBanner, setupNeeded } from './setup.ts';
 
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
@@ -126,10 +128,10 @@ if (unknownSuggested.length > 0) {
   console.warn(`[setup] WIREHUB_SUGGESTED_MODULES names no domain module of this build: ${unknownSuggested.join(', ')} (offered: ${registry.domains().map((m) => m.id).join(', ')}).`);
 }
 
-// the monitoring webhook (WIREHUB_NOTIFY_URL, plan §8.6): optional; events are logged either way
-let notifier: ReturnType<typeof notifierFromEnv>;
+// values the server's environment sets that it would refuse stop the start, with one line naming them
 try {
-  notifier = notifierFromEnv(process.env);
+  notifierFromEnv(process.env);
+  settingsKeyFromEnv(process.env);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
@@ -144,12 +146,21 @@ try {
   process.exit(1);
 }
 const deps = workbench.deps;
+// the runtime settings (specs/runtime-settings.md): the environment wins, else what was saved in
+// Settings; they follow every catalog change, and look again each minute in case one was missed
+const settings = workbench.settings;
+setInterval(() => void settings.refresh().catch((error: unknown) => console.warn(`[settings] ${error instanceof Error ? error.message : String(error)}`)), 60_000).unref();
+if (settings.cipher === undefined) console.log('[settings] no settings key (WIREHUB_SETTINGS_KEY): secrets cannot be saved in Settings; set them in the environment');
+
+// the monitoring webhook (WIREHUB_NOTIFY_URL, or Settings → Notifications; plan §8.6): events are logged either way
+const notifier = liveNotifier(() => settings.env());
 
 // the studio's own login — off unless AUTH_ENABLED=true (see "Auth" in the README);
-// on the database backend its accounts, people and invitations are in Postgres
+// on the database backend its accounts, people and invitations are in Postgres. Its
+// methods follow Settings → Sign-in (liveStudioAuth): a change there rebuilds it here.
 let auth: StudioAuth | undefined;
 try {
-  auth = await studioAuthFromEnv(process.env, {
+  const live = await liveStudioAuth(settings, {
       // sign-in methods the deployment's modules add (docs/modules.md)
       providers: registry.authProviders(),
       ...(workbench.pg === undefined
@@ -165,6 +176,8 @@ try {
           },
         }),
     });
+  if (live !== undefined) settings.reportFrom(() => live.problem());
+  auth = live;
 } catch (error) {
   if (!(error instanceof AuthConfigError)) throw error;
   console.error(error.message);
@@ -183,13 +196,15 @@ const deepHealth = deepHealthCheck({
   ...(blobs === undefined ? {} : { blobs }),
   modules: registry.modules,
   ...((process.env.WIREHUB_BACKUP_MARKER ?? '').trim() === '' ? {} : { backupMarker: (process.env.WIREHUB_BACKUP_MARKER as string).trim() }),
+  backupMaxAgeMs: () => backupMaxAgeHours(settings.env()) * 3_600_000,
   ...(workbench.pg === undefined ? {} : { failedJobs: async () => (await import('./pg/jobs.ts')).failedJobCount(workbench.pg!.db) }),
   // the worker's heartbeat, once the hub has an organisation and a worker to beat (WIREHUB_WORKER unset)
   ...(workbench.pg === undefined || process.env.WIREHUB_WORKER === 'off' ? {} : { worker: async () => (deps.jobs?.worker === undefined ? { beatAt: new Date().toISOString() } : await deps.jobs.worker()) }),
   ...(instanceEnv === undefined ? {} : { env: instanceEnv }),
   ...((process.env.WIREHUB_VERSION ?? '') === '' ? {} : { version: process.env.WIREHUB_VERSION as string }),
 });
-if (notifier.enabled) startHealthMonitor(deepHealth, notifier);
+// runs while a webhook is set (it may be set in Settings later)
+startHealthMonitor(deepHealth, notifier);
 
 const app = createStandaloneApp({ distDir, deps, depictionDeps: workbench.depictionDeps, deepHealth, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 

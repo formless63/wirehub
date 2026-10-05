@@ -72,9 +72,12 @@ it is done) asks for:
 
 1. the **setup code** from the log;
 2. the **organisation**: its name and a short name;
-3. the **admin**: your name, email and a password (12 characters or more) —
-   with sign-in through an identity provider only (`AUTH_LOCAL_ACCOUNTS=false`
-   and `AUTH_OIDC_*`), just the email it knows you by;
+3. the **admin**: your name, email and a password (12 characters or more).
+   Single sign-on is usually added afterwards, under Settings > Sign-in &
+   accounts. A hub that must never have a password from the start sets
+   `AUTH_LOCAL_ACCOUNTS=false` and `AUTH_OIDC_*` on the server for its first
+   start (in a `compose.override.yaml`); setup then asks only for the email
+   the identity provider knows you by;
 4. the **catalog**: the starter catalog (example cables and the parts they
    use) or an empty one (the base vocabulary only);
 5. the **domain modules** (below).
@@ -142,15 +145,16 @@ it waits while the hub is in first-run setup.
 | `model-cache` | at start, after a save that links an imported model, on request (`POST /api/jobs`) | builds every imported 3D model that is not built yet, from its source files (`WIREHUB_MODEL_SOURCES`, a folder you mount read-only, or a board's `.kicad_pcb` uploaded in the Library); a board's KiCad library models are fetched from kicad-packages3D at a pinned commit into the model cache (`WIREHUB_KICAD_LIBRARY_DIR` moves that copy; `WIREHUB_KICAD_LIBRARY_FETCH=0` keeps the worker offline, and a model it does not have is left off the board) |
 | `derive` | at start and daily | recomputes derived records (the tag tables) only if something bypassed a save |
 | `blob-gc` | daily at 04:30 | removes uploaded files nothing uses any more — only after 30 days, and only once a backup taken after that holds them — and rebuildable models no record shows |
-| `backup` | hourly | looks at the backups (profile `backup`): marks what they hold and alerts when the newest dump is older than 30 hours |
-| `git-mirror` | only when configured: at start and every 5 minutes (`WIREHUB_GIT_MIRROR_CRON`) | writes each new change set as a git commit and pushes it (below, "History and the git mirror"); with `WIREHUB_WORKER=off` the studio runs it on a timer of its own, and a scheduled run that committed nothing leaves no row in the Jobs list |
+| `backup` | hourly | looks at the backups (profile `backup`): marks what they hold and alerts when the newest dump is older than 30 hours (Settings > Jobs & limits) |
+| `git-mirror` | only when configured (Settings > Integrations): at start and every 5 minutes, or its own schedule | writes each new change set as a git commit and pushes it (below, "History and the git mirror"); with `WIREHUB_WORKER=off` the studio runs it on a timer of its own, and a scheduled run that committed nothing leaves no row in the Jobs list |
 
 `GET /api/jobs` lists recent jobs and the worker's last heartbeat (it beats
 every minute; the container's health check reads it). One conversion runs at
-a time; `WIREHUB_CONVERT_WINDOW=01:00-06:00` keeps the model builds (not a
-person's upload) to a night window on a small machine. Alerts (a stale
-backup, models that could not be built, a GC error) go to the log, and to
-`WIREHUB_NOTIFY_URL` when you set one (below).
+a time; a model build window (Settings > Jobs & limits, for example
+`01:00-06:00`) keeps the model builds (not a person's upload) to the night on
+a small machine. Alerts (a stale backup, models that could not be built, a GC
+error) go to the log, and to the webhook when one is set (Settings >
+Notifications).
 
 Without a worker, set `WIREHUB_WORKER=off` on the app and remove the
 `worker` service: the app then runs the jobs itself, one at a time, and
@@ -168,6 +172,7 @@ it in the `secrets` volume (mounted at `/run/wirehub`):
 | `wirehub_owner_password`, `wirehub_app_password`, `wirehub_ro_password` | the database roles |
 | `database_admin_url`, `database_owner_url`, `database_url`, `database_ro_url` | the connections, derived from the passwords on every start |
 | `better_auth_secret` | the sign-in session secret |
+| `settings_key` | encrypts the secrets entered in Settings (`WIREHUB_SETTINGS_KEY_FILE`); generated on the first start after an upgrade too |
 | `garage_rpc_secret`, `garage_admin_token` | Garage's |
 | `s3_access_key_id`, `s3_secret_access_key`, `s3_backup_*` | the S3 keys Garage created (`garage-init`) |
 | `setup_code` | the first-run setup code |
@@ -204,8 +209,34 @@ bash setup-env.sh
 
 ### Settings
 
-Every variable is optional and explained in `.env.example`. The ones most
-people set:
+**Most settings are in the app.** How the hub behaves — sign-in methods,
+allowed emails, alerts, the git mirror, the PDF engine, job and size limits —
+is changed under **Settings** by an owner (Jobs & limits also by an editor)
+and applies at once, in every process of the hub, with no restart and no
+redeploy. A redeploy is only for the install itself: where the database and
+the files are, the secrets, ports, the public address, which services run.
+The design is `specs/runtime-settings.md`.
+
+Every runtime setting still has its variable, and **a variable that is set
+wins**: Settings shows it read-only, "set by the server (`NAME`)". So a
+deployment can still pin anything, and an owner who locks themselves out with
+a sign-in setting recovers by setting the variable (for example
+`AUTH_LOCAL_ACCOUNTS=true`). The default `compose.yaml` passes only the
+install-level variables; to pin a runtime one, add it under the service's
+`environment:` in a `compose.override.yaml` (the app's for sign-in, store and
+PDF settings; the app's **and** the worker's for alerts, the git mirror and
+job settings).
+
+**Secrets entered in Settings** (the SMTP password, the OIDC client secret,
+the webhook URL and token, the git mirror's token or key) are write-only:
+the page shows "set" or "not set", never the value. They are kept encrypted
+(AES-256-GCM) with the install's `settings_key` from the `secrets` volume,
+apart from the catalog: never in the export, the git mirror or the change
+history, which record only when one was set. Keep a copy of `settings_key`
+with your backup password, or re-enter those secrets after a restore onto
+fresh volumes.
+
+The variables most people set in `.env` (every one is explained in `.env.example`):
 
 | Variable | Default | |
 | --- | --- | --- |
@@ -213,27 +244,84 @@ people set:
 | `WIREHUB_BIND`, `WIREHUB_PORT` | `127.0.0.1`, `5183` | where the app is published |
 | `COMPOSE_PROFILES` | — | optional parts: `backup`, `pdf` (comma separated) |
 | `WIREHUB_IMAGE` | the release `compose.yaml` came from | another tag, or a locally built image |
-| `WIREHUB_SUGGESTED_MODULES` | — | modules pre-ticked at `/setup` |
-| `WIREHUB_PDF_ENGINE_URL` | — | the browser PDF engine: `http://pdf:3000` with the `pdf` profile; unset = the headless PDFs ("Printed PDFs" below) |
-| `WIREHUB_TEST_DEFAULTS` | — | fallback JSON of default continuity test parameters, e.g. `{"isolationVolts":250}`; the Settings page's Testing section overrides it (`docs/exports.md`) |
-| `AUTH_ENABLED` | `true` | sign-in; `false` lets anyone who reaches the port edit |
-| `AUTH_LOCAL_ACCOUNTS`, `AUTH_OIDC_*`, `AUTH_ALLOWED_EMAILS` | email + password on | sign-in methods (`apps/studio/README.md`) |
 | `WIREHUB_TRUST_PROXY` | — | `1` behind a reverse proxy you trust |
-| `WIREHUB_ENV`, `WIREHUB_PROD_MARKERS` | `prod` | a development copy beside production ("Development") |
-| `WIREHUB_BACKEND` | `pg` | `files` keeps the catalog as JSON files (with `WIREHUB_ALLOW_FILES_IN_PROD=1`) |
-| `WIREHUB_NOTIFY_URL`, `WIREHUB_NOTIFY_FORMAT` | — | alerts to a webhook (`json`, `ntfy` or `slack` body; below) |
-| `WIREHUB_STORE_INDEXES` | the official index, once its key is published | catalog store indexes to trust (Library → Browse store): `<https url> <public key>`, comma separated; `none` for no store (below) |
-| `WIREHUB_STORE_ALLOW_USER_SOURCES` | `true` | `false`: owners and editors cannot add stores in Settings; only the stores in `WIREHUB_STORE_INDEXES` are used (below) |
-| `WIREHUB_STORE_HIDE_UNREVIEWED` | — | `true`: Browse store lists and installs only pack versions an index marks reviewed (or flagged); default shows all |
-| `WIREHUB_CONVERT_WINDOW` | — | `HH:MM-HH:MM`: build imported models only then |
-| `WIREHUB_MODEL_SOURCES` | — | the folder (mounted into `worker`) imported models are built from |
-| `WIREHUB_WORKER` | on | `off`: the app runs the jobs itself (no `worker` service) |
-| `WIREHUB_GIT_MIRROR_URL` or `…_PATH` | — | the optional git mirror of every change set (below); its credentials as `…_SSH_KEY_FILE` / `…_TOKEN_FILE` |
 | `TZ` | `UTC` | log timestamps, backup and job schedules |
 
+#### What lives where
+
+**(a) Install-level: stays in the environment.** Needed before the app can
+read its database, wiring the stack together, or tied to a mount, a memory
+cap or another container.
+
+| Variable | Why it stays in the environment |
+| --- | --- |
+| `WIREHUB_IMAGE`, `COMPOSE_PROFILES` | choose the image and the services: Docker reads them, not the app |
+| `WIREHUB_BIND`, `WIREHUB_PORT` (`HOST`, `PORT` inside the container) | the published socket, bound before anything is read |
+| `WIREHUB_PUBLIC_URL` (`BETTER_AUTH_URL`) | the sign-in's base URL and cookie origin, fixed when the sign-in starts; the setup banner prints it before there is a database |
+| `TZ` | the container clock every schedule runs on |
+| `WIREHUB_ENV`, `WIREHUB_PROD_MARKERS` | the environment guard refuses to start a misconfigured instance before it touches a database |
+| `WIREHUB_ALLOW_FILES_IN_PROD` | part of the same guard |
+| `WIREHUB_BACKEND` | which store holds the settings themselves |
+| `WIREHUB_ORG` | which organisation's settings to read |
+| `WIREHUB_TRUST_PROXY` | decides who a client is (rate limits, origins) for every request, sign-in included; a security boundary of the network around the app |
+| `AUTH_ENABLED` | whether anyone may edit without signing in; turning it off from inside the app would be an escalation |
+| `AUTH_DATA_DIR` | a path in a volume |
+| `BETTER_AUTH_SECRET` | signs every session; generated into the `secrets` volume |
+| `WIREHUB_SETTINGS_KEY` | encrypts the secrets entered in Settings; it cannot live beside them |
+| `WIREHUB_SETUP_CODE`, `WIREHUB_SETUP_PROMPT` | first-run setup, before there is an organisation (or a Settings page) |
+| `WIREHUB_SUGGESTED_MODULES` | read only at first-run setup, before there is a Settings page; `/setup` itself lets you choose |
+| `WIREHUB_LOCAL_USER` | who a hub with sign-in off names; sign-in off is itself an install choice |
+| `DATABASE_ADMIN_URL`, `DATABASE_OWNER_URL`, `DATABASE_URL`, `DATABASE_RO_URL` | where the database is: needed to read anything |
+| `POSTGRES_PASSWORD`, `WIREHUB_OWNER_PASSWORD`, `WIREHUB_APP_PASSWORD`, `WIREHUB_RO_PASSWORD`, `WIREHUB_DB_NAME` | the database's roles, created by `bootstrap` and `migrate` |
+| `WIREHUB_BLOBS`, `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | where uploaded files are: needed to serve anything |
+| `S3_BACKUP_ACCESS_KEY_ID`, `S3_BACKUP_SECRET_ACCESS_KEY` | the backup mirror's key, read by the `backup-mirror` container |
+| `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `GARAGE_CAPACITY` | the bundled Garage's own configuration |
+| `WIREHUB_WORKER` | whether the `worker` service exists |
+| `WIREHUB_STEP_RSS_LIMIT_MB` | sized to the worker's `mem_limit` |
+| `WIREHUB_MODEL_SOURCES`, `WIREHUB_MODEL_CACHE_DIR`, `WIREHUB_PACKS_DIR`, `WIREHUB_KICAD_LIBRARY_DIR` | paths of mounts and volumes |
+| `WIREHUB_KICAD_LIBRARY_FETCH` | whether the worker may reach the internet at all: an air-gap decision of the install |
+| `WIREHUB_GIT_MIRROR_PATH`, `WIREHUB_GIT_MIRROR_DIR` | a repository mounted into the worker, its working clone's path |
+| `WIREHUB_BACKUP_MARKER`, `WIREHUB_BACKUP_DIR` | paths of the backup volumes |
+| `BACKUP_REPOSITORY`, `BACKUP_REPOSITORY_PASSWORD`, `BACKUP_AWS_ACCESS_KEY_ID`, `BACKUP_AWS_SECRET_ACCESS_KEY`, `BACKUP_SCHEDULE` | read by `backup-init` on first start; afterwards Backrest's own UI is where they change |
+| `BACKUP_DUMP_AT`, `BACKUP_KEEP_DUMPS`, `BACKUP_CHECK_DAY`, `BACKUP_MIRROR_INTERVAL` | read by the `backup-dump` and `backup-mirror` containers, which have no database of settings |
+| `BACKREST_BIND`, `BACKREST_PORT` | Backrest's published port |
+| `WIREHUB_GIT_AUTOCOMMIT`, `WIREHUB_GIT_DIR`, `WIREHUB_GIT_REMOTE`, `WIREHUB_GIT_BRANCH` (and their old `STUDIO_*` names) | the file backend's git export, which pulls before the server starts |
+| `WIREHUB_SECRETS_DIR` | where the stack's one-shots write the secrets |
+| `WIREHUB_VERSION`, `WIREHUB_REVISION`, `WIREHUB_BLOB_VERIFY`, `WIREHUB_WORKER_BEAT_FILE`, `WIREHUB_DERIVE_CRON`, `WIREHUB_GC_CRON`, `WIREHUB_BACKUP_WATCH_CRON` | set by the image, or internal tuning for development and tests |
+| `WIREHUB_API_URL`, `WIREHUB_API_TOKEN`, `WIREHUB_API_ENV`, `WIREHUB_PACK_SIGNING_KEY`, `WIREHUB_STORE_SIGNING_KEY` | read by the command-line tools on your machine, not by the server |
+
+**(b) Runtime: set in Settings.** The variable still works and wins (a lock),
+but is no longer in the default `compose.yaml`.
+
+| Settings group | Variables | Why it is a runtime setting |
+| --- | --- | --- |
+| Notifications (owner) | `WIREHUB_NOTIFY_URL`\*, `WIREHUB_NOTIFY_FORMAT`, `WIREHUB_NOTIFY_TOKEN`\* | where alerts go is the owner's choice and changes with their tools |
+| Sign-in & accounts (owner) | `AUTH_LOCAL_ACCOUNTS`, `AUTH_ALLOWED_EMAILS` | who may sign in is people management, like invitations |
+| | `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET`\*, `AUTH_OIDC_SCOPES`, `AUTH_OIDC_EMAIL_CLAIM`, `AUTH_OIDC_PROVIDER_ID`, `AUTH_OIDC_NAME` | an identity provider is added or rotated without touching the stack; the sign-in rebuilds in-process, sessions stay |
+| | `AUTH_SMTP_HOST`, `AUTH_SMTP_PORT`, `AUTH_SMTP_SECURE`, `AUTH_SMTP_USER`, `AUTH_SMTP_PASS`\*, `AUTH_SMTP_FROM` | the magic link's mail server, the same |
+| | `WIREHUB_TOKEN_READS_PER_MINUTE`, `WIREHUB_TOKEN_WRITES_PER_MINUTE`, `WIREHUB_TOKEN_WRITES_PER_DAY` | API token budgets, tuned to how the hub's scripts work (new; were fixed) |
+| Integrations (owner) | `WIREHUB_STORE_HIDE_UNREVIEWED`, `WIREHUB_STORE_ALLOW_USER_SOURCES` | the hub's trust policy for the catalog store, read at each request |
+| | `WIREHUB_PDF_ENGINE_TIMEOUT_MS` | a tuning of the engine, read at each print |
+| | `WIREHUB_GIT_MIRROR_URL`, `WIREHUB_GIT_MIRROR_BRANCH`, `WIREHUB_GIT_MIRROR_CRON`, `WIREHUB_GIT_MIRROR_USER`, `WIREHUB_GIT_MIRROR_TOKEN`\*, `WIREHUB_GIT_MIRROR_SSH_KEY`\*, `WIREHUB_GIT_MIRROR_KNOWN_HOSTS` | a remote and its credentials need no mount; the worker re-schedules when they change |
+| Jobs & limits (editor) | `WIREHUB_CONVERT_WINDOW` | when the night's model builds run; the worker re-schedules |
+| | `WIREHUB_IMPORT_MAX_MB` | the largest import file, read at each upload |
+| | `WIREHUB_BACKUP_MAX_AGE_HOURS` | when a backup counts as stale for the health check and the backup watch (new; was fixed at 30) |
+
+\* a secret: write-only and encrypted in Settings. In the environment each
+can also be given as a file (`NAME_FILE`).
+
+**(c) Both, by design.**
+
+| Variable | How the two meet |
+| --- | --- |
+| `WIREHUB_PDF_ENGINE_URL` | wires the stack's `pdf` profile, so `compose.yaml` still passes it and the config generator writes it with the profile; without it, Settings > Integrations names an engine |
+| `WIREHUB_STORE_INDEXES` | the stores the server trusts, shown read-only beside the ones added under Settings > Store sources (the server's win on the same URL) |
+| `WIREHUB_TEST_DEFAULTS` | a fallback of continuity test parameters; Settings > Testing overrides it parameter by parameter (older than this rule, and kept as built) |
+
 **Sign-in** is on: first-run setup makes the admin's account, and the admin
-invites everyone else. `AUTH_ALLOWED_EMAILS` lets the emails it lists sign in
-without an invitation (as editors); nobody can claim a new hub before you,
+invites everyone else. Single sign-on (OIDC), magic links over SMTP and the
+allowed emails (who may sign in without an invitation, as editors) are set
+under Settings > Sign-in & accounts; nobody can claim a new hub before you,
 because `/setup` asks for the setup code. Before the hub is reachable from
 anywhere but this machine, put a TLS-terminating reverse proxy (Caddy,
 Traefik, nginx) in front, set `WIREHUB_PUBLIC_URL` to the address people open
@@ -248,12 +336,12 @@ with the scopes they chose, for 1 to 90 days, and is shown once.
 **Health and alerts.** `/healthz` is the container's liveness probe. `/healthz?deep=1`
 also checks the database, that every migration is applied, the blob store (a
 canary object) and, with the backup profile, that a backup finished in the last
-30 hours (the file Backrest's post-snapshot hook touches, `WIREHUB_BACKUP_MARKER`;
+30 hours (Settings > Jobs & limits changes it; the file Backrest's post-snapshot hook touches, `WIREHUB_BACKUP_MARKER`;
 a day's grace after the first start), that no more than two background jobs failed
 in the last day (`jobs`), and that the worker beat its heartbeat in the last five
 minutes; it answers `503`
 with the failing check's name when one fails, so an uptime monitor can poll it.
-With `WIREHUB_NOTIFY_URL` set, the studio also POSTs an event to that URL
+With a webhook set (Settings > Notifications, or `WIREHUB_NOTIFY_URL`), the studio also POSTs an event to it
 (`{event, severity, title, message, at, env, version, data}`) for a failing
 blob store, a stale backup, a stale worker heartbeat, failing jobs, models a sweep could not
 build, a GC error, a failed backup or restore check (urgent), a catalog write that
@@ -289,7 +377,8 @@ renamed, disabled, re-checked and removed. The stores in `WIREHUB_STORE_INDEXES`
 read-only ("set by the server") and win when the same URL is also added. The same https, size and
 time limits and private-address refusal apply as for a pack URL. An installed pack remembers the
 store it came from and is only offered updates by that store. To lock a hub to the stores the
-server names, set `WIREHUB_STORE_ALLOW_USER_SOURCES=false`.
+server names, turn off "owners and editors may add stores" under Settings > Integrations
+(or set `WIREHUB_STORE_ALLOW_USER_SOURCES=false`).
 
 When an index lists a pack's **publisher**, the hub also checks the publisher's signature
 over the pack's manifest (`wirehub-pack.sig`) and every file the manifest pins, and
@@ -298,8 +387,8 @@ refuses the pack otherwise. The index publisher can mark a version **reviewed** 
 never offers it, and only an owner can install it anyway; an installed yanked version gets
 a warning badge in the Packs panel with the version to update to), and **revoke** a key (a
 pack signed only by that key is refused, and flagged where installed).
-`WIREHUB_STORE_HIDE_UNREVIEWED=true` makes the hub list and install only versions the index
-marks reviewed or flagged; by default every version is shown, with its status.
+"Reviewed versions only" (Settings > Integrations, or `WIREHUB_STORE_HIDE_UNREVIEWED=true`) makes the
+hub list and install only versions the index marks reviewed or flagged; by default every version is shown, with its status.
 
 ### Your own PostgreSQL or S3
 
@@ -366,30 +455,26 @@ not copied), authored by the person who saved, at the time they saved, with
 the change set's message and the trailers `WireHub-Change-Set` and
 `WireHub-Catalog-Version`. Its first run commits the catalog as it finds it.
 It never forces: if someone else pushed to its branch while it had commits of
-its own to push, the job fails, alerts (`WIREHUB_NOTIFY_URL`) and waits for
+its own to push, the job fails, alerts (Settings > Notifications) and waits for
 you; files outside `data/` and `depictions/` (a README) are left alone. The
 mirror is a copy, not the backup — keep the backups below.
 
-```bash
-# .env — a remote over SSH, with a deploy key that may write
-WIREHUB_GIT_MIRROR_URL=ssh://git@git.example.com/workshop/catalog.git
-WIREHUB_GIT_MIRROR_SSH_KEY_FILE=/run/secrets/git-mirror-key
-WIREHUB_GIT_MIRROR_KNOWN_HOSTS_FILE=/run/secrets/git-mirror-known-hosts
-```
+Set it up under **Settings > Integrations**: the remote (`ssh://…` or
+`https://…`, never with a password in it), the branch, the schedule, and its
+credential — an SSH deploy key with write access (and, recommended, the host's
+key line from `ssh-keyscan`), or an HTTPS access token with the user name the
+host expects. The key and the token are kept encrypted and never shown again.
+The worker picks the change up within a minute and schedules (or stops) the
+mirror; no restart.
 
-```yaml
-# compose.override.yaml — the key and the host's key, mounted into the worker
-services:
-  worker:
-    volumes:
-      - ./git-mirror-key:/run/secrets/git-mirror-key:ro
-      - ./git-mirror-known-hosts:/run/secrets/git-mirror-known-hosts:ro
-```
+To pin it on the server instead, each setting has its variable, which wins
+over Settings (add them to the worker's `environment:` in a
+`compose.override.yaml`):
 
 | Variable | Default | |
 | --- | --- | --- |
 | `WIREHUB_GIT_MIRROR_URL` | — | a remote (`ssh://…`, `https://…`) to push to; never with a password in it |
-| `WIREHUB_GIT_MIRROR_PATH` | — | instead: a repository (or an empty folder) mounted into the worker, committed to directly |
+| `WIREHUB_GIT_MIRROR_PATH` | — | instead: a repository (or an empty folder) mounted into the worker, committed to directly (environment only: it is a mount) |
 | `WIREHUB_GIT_MIRROR_BRANCH` | `main` | the branch it writes |
 | `WIREHUB_GIT_MIRROR_CRON` | `*/5 * * * *` | how often it looks for new change sets (without a worker, only the period counts: every N minutes, hourly, or every H hours) |
 | `WIREHUB_GIT_MIRROR_SSH_KEY_FILE` | — | an SSH private key (a deploy key with write access) |
@@ -421,16 +506,17 @@ WIREHUB_PDF_ENGINE_URL=http://pdf:3000
 ```
 
 (With backups too: `COMPOSE_PROFILES=backup,pdf`. The config generator sets
-both lines.) The service is **Gotenberg** (Apache-2.0), an HTTP API around
+both lines; the engine's address can instead be named under Settings >
+Integrations, which also has the timeout.) The service is **Gotenberg** (Apache-2.0), an HTTP API around
 headless Chromium, in its Chromium-only image. It is on the internal network
 only, publishes no port, and runs with JavaScript off and every outbound
 address refused: WireHub posts the sheet as one self-contained HTML file
 (images and fonts inline) and gets the PDF back, so a sheet can fetch
 nothing. Its memory cap is 1 GiB (it idles near 170 MiB; it converts two
 sheets at a time and restarts Chromium every 50); a conversion has 30 s
-(`WIREHUB_PDF_ENGINE_TIMEOUT_MS`, and Gotenberg's own `--api-timeout`).
+(Settings > Integrations, and Gotenberg's own `--api-timeout`).
 
-When the variable is unset, or the engine is down, slow or refuses a sheet,
+When no engine is named, or the engine is down, slow or refuses a sheet,
 the app still answers with the headless PDF and says why in the
 `X-WireHub-PDF-Fallback` response header (the `render` command prints it as
 a note; the app's log has a line too). `X-WireHub-PDF-Renderer` names what
@@ -537,6 +623,20 @@ the stack, move `pg_data` aside, change the `postgres` image tag, start (the
 roles are recreated), then restore the dump as above. Try it on a copy first. Releases are listed at
 <https://github.com/formless63/wirehub/releases>; the image is tagged `X.Y.Z`,
 `X.Y`, `X` (from 1.0) and `latest`. Pin a full version in production.
+
+**Settings that moved into the app** (this release; "What lives where"
+above). The default `compose.yaml` no longer passes the runtime variables —
+`AUTH_ALLOWED_EMAILS`, `AUTH_LOCAL_ACCOUNTS`, `AUTH_OIDC_*`, `AUTH_SMTP_*`,
+`WIREHUB_NOTIFY_*`, `WIREHUB_STORE_HIDE_UNREVIEWED`,
+`WIREHUB_STORE_ALLOW_USER_SOURCES`, `WIREHUB_PDF_ENGINE_TIMEOUT_MS`,
+`WIREHUB_CONVERT_WINDOW` and the git mirror's remote settings — so after
+upgrading, enter them once under Settings (an owner), then delete them from
+your `.env`. Until you do, keep them in force by adding them under the
+service's `environment:` in a `compose.override.yaml`; a variable that reaches
+the app always wins. Sign-in keeps working through the upgrade for email +
+password accounts; a hub that signs in **only** through OIDC or magic links
+must carry those variables over (the override) before it upgrades, or an owner
+must still have a password.
 
 **Renamed variables.** WireHub's own settings are named `WIREHUB_*`. An `.env`
 from before the rename that still says `STUDIO_*` keeps working, with one

@@ -26,6 +26,7 @@ import { runBackupJob, runBlobGcJob } from './gc.ts';
 import { putDerivedModel } from './model-cache.ts';
 import type { SnapshotCache } from './snapshot.ts';
 import { describeMirror, gitMirrorConfigFromEnv, runGitMirrorJob } from '../history/mirror.ts';
+import { backupMaxAgeHours } from '../runtime-settings.ts';
 
 export const BOSS_SCHEMA = 'pgboss';
 
@@ -241,6 +242,8 @@ export interface HousekeepingOptions {
   orgId: string;
   blobs?: BlobStore;
   env?: Record<string, string | undefined>;
+  /** the live settings' environment (`runtime-settings.ts`), read at each run: the git mirror, the backup age, the build window */
+  liveEnv?: () => Readonly<Record<string, string | undefined>>;
   notify?: Notifier;
   /** the snapshot cache the deps read through: the derive repair reloads it */
   cache?: SnapshotCache;
@@ -254,14 +257,17 @@ export function pgHousekeepingHandlers(options: HousekeepingOptions): JobHandler
   // a standing failure repeats at most every six hours; an audit finding once a day
   const alerts = options.notify === undefined ? undefined : throttled(options.notify, 6 * 3_600_000);
   const auditAlerts = options.notify === undefined ? undefined : throttled(options.notify, 24 * 3_600_000);
-  // the git mirror (opt-in, WIREHUB_GIT_MIRROR_*): every change set as a commit (cs-5k1.4)
-  const mirror = gitMirrorConfigFromEnv(env);
+  const envNow = (): Readonly<Record<string, string | undefined>> => options.liveEnv?.() ?? env;
+  // the git mirror (opt-in, WIREHUB_GIT_MIRROR_*, or Settings → Integrations): every change set as a commit (cs-5k1.4)
   const mirrorAlerts = options.notify === undefined ? undefined : throttled(options.notify, 6 * 3_600_000);
   return {
-    ...(mirror === undefined || options.cache === undefined
+    ...(options.cache === undefined
       ? {}
       : {
           'git-mirror': async (context) => {
+            // read at each run: the mirror may be set up, changed or turned off in Settings
+            const mirror = gitMirrorConfigFromEnv(envNow());
+            if (mirror === undefined) return { result: { skipped: 'The git mirror is not configured.' } };
             try {
               return await runGitMirrorJob(context, { db, orgId, cache: options.cache!, config: mirror, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.deps.modules === undefined ? {} : { modules: options.deps.modules }) });
             } catch (error) {
@@ -283,7 +289,7 @@ export function pgHousekeepingHandlers(options: HousekeepingOptions): JobHandler
       }),
     // the hourly watch: the backups volume, and the audit log's unattributed writes
     backup: async (context) => {
-      const outcome = await runBackupJob(context, { db, orgId, ...(backupDir === undefined ? {} : { dir: backupDir }), ...(marker === undefined ? {} : { marker }), ...(alerts === undefined ? {} : { notify: alerts }) });
+      const outcome = await runBackupJob(context, { db, orgId, staleHours: backupMaxAgeHours(envNow()), ...(backupDir === undefined ? {} : { dir: backupDir }), ...(marker === undefined ? {} : { marker }), ...(alerts === undefined ? {} : { notify: alerts }) });
       const { unattributed } = await watchAudit({ db, orgId, ...(auditAlerts === undefined ? {} : { notify: auditAlerts }) });
       await context.step(`${unattributed} unattributed audit write(s) in the last day`);
       return { ...outcome, result: { ...outcome.result, unattributed } };
@@ -299,6 +305,7 @@ export function pgJobHandlers(options: HousekeepingOptions): JobHandlers {
       orgId: options.orgId,
       ...(options.blobs === undefined ? {} : { blobs: options.blobs }),
       ...(options.env === undefined ? {} : { env: options.env }),
+      ...(options.liveEnv === undefined ? {} : { liveEnv: options.liveEnv }),
       ...(options.notify === undefined ? {} : { notify: options.notify }),
       putModel: (key, glb, meta) => putDerivedModel(options.db, options.orgId, options.blobs, key, glb, meta),
     }),

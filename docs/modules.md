@@ -403,7 +403,7 @@ sign-in id (`/api/auth/callback/<id>`), and it gets a "Sign in with …" button 
 config key ending in `Env` names an environment variable whose value becomes the key without the suffix
 (`clientSecretEnv: 'ACME_SSO_SECRET'` → `clientSecret`), so a secret never sits in a module's source; a
 variable that is not set stops the server at startup, naming it. A provider only proves who someone is:
-the allow-list (`AUTH_ALLOWED_EMAILS`, or the hub's people) still decides who may sign in, and a
+the allow-list (the allowed emails of Settings > Sign-in, `AUTH_ALLOWED_EMAILS`, or the hub's people) still decides who may sign in, and a
 deployment whose only sign-in is module-contributed starts without `AUTH_OIDC_*` or SMTP.
 
 **Derived records.** A module lists the files it keeps (`files: ['summary.json', 'report.md']`, lowercase,

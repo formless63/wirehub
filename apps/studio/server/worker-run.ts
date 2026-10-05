@@ -13,7 +13,11 @@ import type { PgBoss } from 'pg-boss';
 import type { ModuleRegistry } from '@wirehub/modules';
 
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
-import { notifierFromEnv } from './notify.ts';
+import { memoryEventHub } from './events.ts';
+import { liveNotifier } from './notify.ts';
+import { pgSecretStore } from './pg/settings-secrets.ts';
+import { createRuntimeSettings, type RuntimeSettings } from './runtime-settings.ts';
+import { settingsCipher, settingsKeyFromEnv } from './settings-secrets.ts';
 import { createJobService, executeJob } from './jobs/service.ts';
 import { moduleJobKinds, moduleSchedules } from './jobs/module-queues.ts';
 import type { JobKind, JobService } from './jobs/types.ts';
@@ -39,6 +43,10 @@ export interface RunningWorker {
   kinds: readonly JobKind[];
   jobs: JobService;
   handle: PgHandle;
+  /** the live settings the worker reads (the webhook, the git mirror, the build window, the backup age) */
+  settings: RuntimeSettings;
+  /** the schedules in force, by kind (they move when the settings do) */
+  schedules(): Readonly<Record<string, string>>;
   stop(): Promise<void>;
 }
 
@@ -78,9 +86,13 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
   const handle = openPg(config.url, { max: 4, applicationName: 'wirehub-worker' });
   let boss: PgBoss | undefined;
   let beatTimer: ReturnType<typeof setInterval> | undefined;
+  let cache: SnapshotCache | undefined;
+  let unfollow: (() => void) | undefined;
   const stop = async (): Promise<void> => {
     if (beatTimer !== undefined) clearInterval(beatTimer);
+    unfollow?.();
     await boss?.stop({ graceful: true, timeout: 30_000 }).catch(() => undefined);
+    await cache?.close().catch(() => undefined);
     await handle.close().catch(() => undefined);
   };
   try {
@@ -108,11 +120,20 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     await checkDatabase(handle.db, orgId);
     const org = orgId;
 
-    const cache = new SnapshotCache(handle.db, org);
+    cache = new SnapshotCache(handle.db, org);
     const deps = pgWorkbenchDeps({ cache, db: handle.db, ...(blobs === undefined ? {} : { blobs }), ...(options.modules === undefined ? {} : { modules: options.modules }) });
+    // the runtime settings (specs/runtime-settings.md): the environment wins, else what was saved in Settings
+    const key = settingsKeyFromEnv(env);
+    const settings = createRuntimeSettings({ env, docs: () => deps.docs, secrets: () => pgSecretStore(handle.db, org), org: () => org, ...(key === undefined ? {} : { cipher: settingsCipher(key) }), log: (line) => log(line) });
+    await settings.refresh();
+    // a save in the studio reaches the worker through the catalog's NOTIFY (and the heartbeat, below, as a fallback)
+    const events = memoryEventHub();
+    await cache.listen(config.url, events).catch((error: unknown) => log(`LISTEN unavailable (${error instanceof Error ? error.message : String(error)}); settings follow the heartbeat`));
+    unfollow = settings.follow(events);
+    const liveEnv = (): Record<string, string | undefined> => ({ ...settings.env() });
     const store = pgJobStore(handle.db, org);
-    const notify = notifierFromEnv(env);
-    const handlers = pgJobHandlers({ deps, db: handle.db, orgId: org, cache, ...(blobs === undefined ? {} : { blobs }), env, notify });
+    const notify = liveNotifier(() => settings.env());
+    const handlers = pgJobHandlers({ deps, db: handle.db, orgId: org, cache, ...(blobs === undefined ? {} : { blobs }), env, liveEnv, notify });
     const kinds = Object.keys(handlers) as JobKind[];
 
     // pg_dump runs as studio_ro: it must read the queue tables this role creates (0016)
@@ -121,8 +142,8 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     boss = await startBoss(config.url, 'worker', log, moduleJobKinds(deps.modules));
     await sql.raw(`GRANT SELECT ON ALL TABLES IN SCHEMA ${BOSS_SCHEMA} TO studio_ro`).execute(handle.db);
     await sql.raw(`GRANT SELECT ON ALL SEQUENCES IN SCHEMA ${BOSS_SCHEMA} TO studio_ro`).execute(handle.db);
-    const started = boss;
-    const jobs = createJobService({ store, runner: bossJobRunner(async () => started, () => org), kinds, worker: () => lastBeat(handle.db, org) });
+    const boundBoss = boss;
+    const jobs = createJobService({ store, runner: bossJobRunner(async () => boundBoss, () => org), kinds, worker: () => lastBeat(handle.db, org) });
 
     const afterJob = (line: string): void => log(`${line} (worker rss ${Math.round(process.memoryUsage().rss / 1048576)} MiB)`);
     for (const kind of kinds) {
@@ -139,34 +160,74 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
       });
     }
 
-    // schedules (container time; TZ sets it)
+    // schedules (container time; TZ sets it). The build window and the git mirror come from the
+    // live settings: set, changed or turned off in Settings, they are rescheduled here, no restart
     const tz = env.TZ ?? 'UTC';
-    const scheduled: { kind: JobKind; cron: string }[] = [
+    const fixed: { kind: JobKind; cron: string }[] = [
       { kind: 'backup', cron: env.WIREHUB_BACKUP_WATCH_CRON ?? '15 * * * *' },
       { kind: 'derive', cron: env.WIREHUB_DERIVE_CRON ?? '0 4 * * *' },
       { kind: 'blob-gc', cron: env.WIREHUB_GC_CRON ?? '30 4 * * *' },
+      // a module queue's own schedule
+      ...moduleSchedules(deps.modules),
     ];
-    const window = /^\s*(\d{1,2}):(\d{2})\s*-/.exec(env.WIREHUB_CONVERT_WINDOW ?? '');
-    if (window !== null) scheduled.push({ kind: 'model-cache', cron: `${Number(window[2])} ${Number(window[1])} * * *` });
-    // the git mirror, when configured: every change set as a commit (cs-5k1.4)
-    const mirror = gitMirrorConfigFromEnv(env);
-    if (mirror !== undefined) {
-      scheduled.push({ kind: 'git-mirror', cron: mirror.cron });
-      log(`git mirror to ${describeMirror(mirror)}`);
-    }
-    // a module queue's own schedule
-    scheduled.push(...moduleSchedules(deps.modules));
-    for (const s of scheduled) {
+    const mirrorOf = (current: Readonly<Record<string, string | undefined>>): ReturnType<typeof gitMirrorConfigFromEnv> => {
+      try {
+        return gitMirrorConfigFromEnv(current);
+      } catch (error) {
+        log(`git mirror not scheduled: ${error instanceof Error ? error.message : String(error)}`);
+        return undefined;
+      }
+    };
+    const liveSchedules = (current: Readonly<Record<string, string | undefined>>): { kind: JobKind; cron?: string }[] => {
+      const window = /^\s*(\d{1,2}):(\d{2})\s*-/.exec(current.WIREHUB_CONVERT_WINDOW ?? '');
+      const mirror = mirrorOf(current);
+      return [
+        { kind: 'model-cache', ...(window === null ? {} : { cron: `${Number(window[2])} ${Number(window[1])} * * *` }) },
+        // the git mirror, when configured: every change set as a commit (cs-5k1.4)
+        { kind: 'git-mirror', ...(mirror === undefined ? {} : { cron: mirror.cron }) },
+      ];
+    };
+    const inForce: Record<string, string> = {};
+    const payload: BossPayload = { org, scheduled: true };
+    for (const s of fixed) {
       if (!kinds.includes(s.kind)) continue;
-      const payload: BossPayload = { org, scheduled: true };
       await boss.schedule(bossQueueName(s.kind), s.cron, payload as unknown as object, { tz });
+      inForce[s.kind] = s.cron;
     }
+    let lastMirror = '';
+    const applySchedules = async (current: Readonly<Record<string, string | undefined>>): Promise<void> => {
+      for (const s of liveSchedules(current)) {
+        if (!kinds.includes(s.kind) || inForce[s.kind] === s.cron) continue;
+        if (s.cron === undefined) {
+          await started.unschedule(bossQueueName(s.kind));
+          delete inForce[s.kind];
+          log(`${s.kind}: not scheduled`);
+        } else {
+          await started.schedule(bossQueueName(s.kind), s.cron, payload as unknown as object, { tz });
+          inForce[s.kind] = s.cron;
+          log(`${s.kind}: scheduled "${s.cron}" (${tz})`);
+        }
+      }
+      const mirror = mirrorOf(current);
+      const described = mirror === undefined ? '' : describeMirror(mirror);
+      if (described !== lastMirror && described !== '') log(`git mirror to ${described}`);
+      lastMirror = described;
+    };
+    let applying: Promise<void> = Promise.resolve();
+    const reschedule = (current: Readonly<Record<string, string | undefined>>): void => {
+      applying = applying.then(() => applySchedules(current)).catch((error: unknown) => log(`rescheduling failed: ${error instanceof Error ? error.message : String(error)}`));
+    };
+    const started = boss;
+    await applySchedules(settings.env());
+    settings.onChange(reschedule);
 
     // the heartbeat
     const me = { worker: hostname(), version: env.WIREHUB_VERSION ?? 'dev', startedAt: new Date().toISOString(), queues: kinds };
     const doBeat = async (): Promise<void> => {
       touchBeat();
       await beat(handle.db, org, me).catch((error: unknown) => log(`heartbeat failed: ${error instanceof Error ? error.message : String(error)}`));
+      // the settings, once a minute, in case a notification was missed
+      await settings.refresh().catch((error: unknown) => log(`settings refresh failed: ${error instanceof Error ? error.message : String(error)}`));
     };
     await doBeat();
     beatTimer = setInterval(() => void doBeat(), 60_000);
@@ -174,10 +235,22 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
 
     // the boot sweep: every live model key built, the derived records sound, the backups looked at
     for (const kind of ['model-cache', 'derive', 'backup', 'git-mirror'] as const) {
+      if (kind === 'git-mirror' && inForce['git-mirror'] === undefined) continue;
       if (kinds.includes(kind)) await jobs.enqueue(kind, { reason: 'boot' });
     }
-    log(`working ${kinds.join(', ')} for org ${org}; blobs ${blobs?.describe ?? 'none'}; schedules ${scheduled.map((s) => `${s.kind} "${s.cron}"`).join(', ')} (${tz})`);
-    return { orgId: org, kinds, jobs, handle, stop };
+    log(`working ${kinds.join(', ')} for org ${org}; blobs ${blobs?.describe ?? 'none'}; schedules ${Object.entries(inForce).map(([kind, cron]) => `${kind} "${cron}"`).join(', ')} (${tz})`);
+    return {
+      orgId: org,
+      kinds,
+      jobs,
+      handle,
+      settings,
+      schedules: () => ({ ...inForce }),
+      stop: async () => {
+        await applying;
+        await stop();
+      },
+    };
   } catch (error) {
     await stop();
     throw error;

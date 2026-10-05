@@ -30,6 +30,7 @@ function isModulePath(path: string): boolean {
   return path.startsWith('/api/modules/');
 }
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
+import { runtimeEnv } from './runtime-settings.ts';
 import { importUploadLimit, importUploadRefusal, isImportPath, startImportUpload } from './jobs/api.ts';
 import { parseModuleIoPath } from './module-io.ts';
 import {
@@ -171,7 +172,7 @@ async function handleImportUpload(io: NonNullable<ReturnType<typeof parseModuleI
   if (type !== 'application/octet-stream') {
     return jsonResponse(415, { error: `The studio does not accept ${type === '' || type === undefined ? 'a body with no type' : `'${type}'`} here.`, hint: 'Nothing was changed. Send the file as application/octet-stream.' });
   }
-  const limit = importUploadLimit();
+  const limit = importUploadLimit(runtimeEnv(deps));
   let bytes: Uint8Array;
   try {
     const read = await readLimited(request, limit);

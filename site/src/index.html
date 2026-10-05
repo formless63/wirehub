@@ -108,24 +108,12 @@ bash setup-env.sh</code></pre>
 
   <fieldset>
     <legend>Printed PDFs</legend>
-    <label class="choice"><input type="checkbox" name="pdf.enabled"> Browser PDF engine <span class="hint">the <code>pdf</code> profile: Gotenberg (headless Chromium, about 1 GB of memory) prints the build sheet, BOM, test spec and drawing to PDF exactly as a browser does; off = plain text-layout PDFs</span></label>
+    <label class="choice"><input type="checkbox" name="pdf.enabled"> Browser PDF engine <span class="hint">the <code>pdf</code> profile: Gotenberg (headless Chromium, about 1 GB of memory) prints the build sheet, BOM, test spec and drawing to PDF exactly as a browser does; off = plain text-layout PDFs. The engine's address is written to the <code>.env</code>; it can also be set later in Settings</span></label>
   </fieldset>
 
   <fieldset>
-    <legend>Sign-in</legend>
-    <label class="choice"><input type="checkbox" name="oidc.enabled"> Sign in with OIDC <span class="hint">Authentik, Keycloak, Google, Entra …; off = anyone who reaches the port can edit</span></label>
-    <div class="when" data-when="oidc.enabled">
-      <label>Issuer <input name="oidc.issuer" type="url" placeholder="https://id.example.com"></label>
-      <div class="row">
-        <label>Client id <input name="oidc.clientId"></label>
-        <label>Client secret <input name="oidc.clientSecret" type="password"></label>
-      </div>
-      <div class="row">
-        <label>Button label <input name="oidc.name" placeholder="Single sign-on"></label>
-        <label>Provider id <input name="oidc.providerId" placeholder="oidc"></label>
-      </div>
-      <label>Allowed emails <span class="hint">comma-separated</span><input name="oidc.allowedEmails" placeholder="you@example.com"></label>
-    </div>
+    <legend>Sign-in and everything else</legend>
+    <p class="hint">Sign-in is on: first-run setup makes your account, and you invite everyone else. Single sign-on (OIDC), magic links over SMTP, allowed emails, alerts to a webhook, the git mirror and the job settings are set later in the app, under <strong>Settings</strong>; they apply at once, with no redeploy. Only what the install needs is set here.</p>
   </fieldset>
 
   <fieldset>

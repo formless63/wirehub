@@ -30,7 +30,8 @@ import { type ApprovalFacts, type PdfProvenance, DEFAULT_FORMAT, DOCUMENT_FORMAT
 import { approvalPolicy, BRANDING_PATH, brandingView, effectiveTestDefaults, type BrandingRecord } from './settings.ts';
 import { brandingArt } from '../module-art.ts';
 import type { AssetStore } from './assets.ts';
-import type { PdfEngine } from './render/browser-pdf.ts';
+import { pdfEngineOf, type PdfEngine } from './render/browser-pdf.ts';
+import type { RuntimeSettings } from './runtime-settings.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
 import { withDesignLibrary } from './assemblies.ts';
@@ -65,6 +66,8 @@ export interface DocumentDeps extends SchemeDeps {
   assets?: AssetStore;
   /** the browser engine the HTML sheets are printed to PDF with (`WIREHUB_PDF_ENGINE_URL`, `render/browser-pdf.ts`); absent: the headless PDFs */
   pdfEngine?: PdfEngine;
+  /** the live settings: the PDF engine named in Settings when the host handed none over */
+  runtimeSettings?: RuntimeSettings;
 }
 
 function fail(status: number, error: string, hint?: string): ApiResponse {
@@ -254,10 +257,11 @@ async function wireSpec(method: string, id: string, query: URLSearchParams, deps
     if (asked === 'pdf') {
       // the sheet printed by the browser engine, when there is one; else the headless pages
       let fallback = 'No browser PDF engine is configured (WIREHUB_PDF_ENGINE_URL), so this is the headless PDF, not the printed HTML sheet (format=html prints that in a browser).';
-      if (deps.pdfEngine !== undefined) {
+      const engine = pdfEngineOf(deps);
+      if (engine !== undefined) {
         const html = renderWireSpec(wire, 'html', options);
         try {
-          const bytes = await deps.pdfEngine.htmlToPdf(html.body as string);
+          const bytes = await engine.htmlToPdf(html.body as string);
           return file({ mimeType: 'application/pdf', fileName: html.fileName.replace(/\.html$/, '.pdf'), body: bytes }, true, pdfHeaders({ renderer: 'browser' }));
         } catch (error) {
           const why = error instanceof Error ? error.message : String(error);
@@ -365,7 +369,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(artwork === undefined ? {} : { depictions: artwork }),
     ...(partNumbers === undefined ? {} : { partNumbers }),
     ...(branding === undefined ? {} : { branding }),
-    ...(deps.pdfEngine === undefined ? {} : { pdfEngine: deps.pdfEngine }),
+    ...(pdfEngineOf(deps) === undefined ? {} : { pdfEngine: pdfEngineOf(deps) as PdfEngine }),
     today: today(),
   });
   if (!result.ok) return fail(result.status, result.error, result.hint);

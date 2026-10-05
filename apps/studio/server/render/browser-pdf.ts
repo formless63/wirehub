@@ -18,6 +18,7 @@
  */
 
 import { sans, sansBold } from '@wirehub/docs/src/drawing/fonts.generated.ts';
+import type { RuntimeSettings } from '../runtime-settings.ts';
 
 /** Turns a self-contained HTML document into PDF bytes. */
 export interface PdfEngine {
@@ -131,4 +132,33 @@ export function pdfEngineFromEnv(env: Readonly<Record<string, string | undefined
     timeoutMs = Number(timeoutText);
   }
   return gotenbergEngine(url, { timeoutMs });
+}
+
+const live = new WeakMap<RuntimeSettings, () => PdfEngine | undefined>();
+
+/**
+ * The engine the live settings name (`runtime-settings.ts`): the server's
+ * `WIREHUB_PDF_ENGINE_URL`, else the URL saved in Settings → Integrations,
+ * rebuilt when it changes. A value that does not parse prints the plain PDFs
+ * (and says so in the log) rather than failing a download.
+ */
+export function livePdfEngine(settings: RuntimeSettings): PdfEngine | undefined {
+  let get = live.get(settings);
+  if (get === undefined) {
+    get = settings.memo((env) => {
+      try {
+        return pdfEngineFromEnv(env);
+      } catch (error) {
+        console.warn(`[pdf] ${error instanceof Error ? error.message : String(error)} The plain PDFs are sent.`);
+        return undefined;
+      }
+    });
+    live.set(settings, get);
+  }
+  return get();
+}
+
+/** The engine a request prints with: one the host handed over, else the live settings'. */
+export function pdfEngineOf(deps: { pdfEngine?: PdfEngine; runtimeSettings?: RuntimeSettings }): PdfEngine | undefined {
+  return deps.pdfEngine ?? (deps.runtimeSettings === undefined ? undefined : livePdfEngine(deps.runtimeSettings));
 }
