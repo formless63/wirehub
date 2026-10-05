@@ -494,7 +494,7 @@ switch (command) {
   }
   case 'official-pubkey': {
     const source = readFileSync(join(root, 'apps/studio/server/store.ts'), 'utf8');
-    const key = /^export const OFFICIAL_STORE_PUBLIC_KEY = '([^']*)';$/m.exec(source);
+    const key = /^export const OFFICIAL_STORE_PUBLIC_KEY(?::\s*string)?\s*=\s*'([^']*)';$/m.exec(source);
     if (key === null) die('apps/studio/server/store.ts has no OFFICIAL_STORE_PUBLIC_KEY line');
     console.log(key[1]);
     break;
