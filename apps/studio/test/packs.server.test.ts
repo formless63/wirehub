@@ -291,9 +291,9 @@ describe('records from a pack are read-only, and fork to edit', () => {
     const bad = await call('PUT', '/api/definitions/components/r-120', { ...record, license: 'free to use' });
     expect([400, 428]).toContain(bad.status);
     if (bad.status === 400) expect(bad.body.error).toContain('licence');
-    const created = await call('POST', '/api/definitions/components', { ...record, id: 'r-new', license: 'CC0-1.0', provenance: { method: 'measured', sources: [{ title: 'bench' }] } });
+    const created = await call('POST', '/api/definitions/components', { ...record, partNumber: 'CMP-09001', id: 'r-new', license: 'CC0-1.0', provenance: { method: 'measured', sources: [{ title: 'bench' }] } });
     expect(created.status).toBe(201);
-    const worse = await call('POST', '/api/definitions/components', { ...record, id: 'r-newer', provenance: { method: 'guessed', sources: [] } });
+    const worse = await call('POST', '/api/definitions/components', { ...record, partNumber: 'CMP-09002', id: 'r-newer', provenance: { method: 'guessed', sources: [] } });
     expect(worse.status).toBe(400);
   });
 });
