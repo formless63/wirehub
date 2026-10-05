@@ -57,6 +57,8 @@ import {
   type WireDefinition,
 } from '@wirehub/model';
 
+import type { InstalledPacks } from '@wirehub/catalog';
+
 import type { ApiError, ApiResponse } from './api.ts';
 import {
   DEFINITION_KINDS,
@@ -87,6 +89,12 @@ export interface DefinitionDeps {
   definitions?: DefinitionStore;
   designs: DesignStore;
   loadDb: () => Awaitable<Db>;
+  /**
+   * The installed catalog packs (`packs.json`): which records came from a pack.
+   * Those are read-only here (edit and delete answer 409) and can be forked
+   * to a local copy. Absent: no record is a pack's.
+   */
+  installedPacks?: () => Awaitable<InstalledPacks>;
 }
 
 /* ------------------------------------------------------------------ *
@@ -143,6 +151,7 @@ export const DEFINITION_ROUTES = [
   'GET    /api/definitions/:kind/:id/usage',
   'PUT    /api/definitions/:kind/:id',
   'POST   /api/definitions',
+  'POST   /api/definitions/:kind/:id/fork',
   'DELETE /api/definitions/:kind/:id',
 ] as const;
 
@@ -835,6 +844,23 @@ function badKind(value: string): ApiResponse {
   );
 }
 
+/** The pack a record came from, when it came from one: `packs.json` lists what each pack added. */
+export async function packOriginOf(deps: DefinitionDeps, kind: DefinitionKind, id: string): Promise<{ pack: string; version: string } | undefined> {
+  const installed = await deps.installedPacks?.();
+  const pack = installed?.packs.find((p) => p.added[`${kind}.json`]?.includes(id) === true);
+  return pack === undefined ? undefined : { pack: pack.id, version: pack.version };
+}
+
+function readOnlyRecord(kind: DefinitionKind, id: string, origin: { pack: string; version: string }, deleting: boolean): ApiResponse {
+  return fail(
+    409,
+    `'${id}' comes from the ${origin.pack} pack (${origin.version}) and is read-only here.`,
+    deleting
+      ? `Nothing was deleted. A pack's records go with the pack (Library, Packs, Disable); to keep a changed copy, fork '${id}' first.`
+      : `Nothing was changed. Fork it to edit: POST /api/definitions/${kind}/${id}/fork copies it under a new id of your own, and designs move to the copy when you choose.`,
+  );
+}
+
 async function getIndex(deps: DefinitionDeps, store: DefinitionStore): Promise<ApiResponse> {
   return ok({
     definitions: await Promise.all(
@@ -854,6 +880,17 @@ async function generatedPcbas(deps: DefinitionDeps, store: DefinitionStore): Pro
   return (await deps.loadDb()).pcbas.filter((pcba) => !curated.has(pcba.id));
 }
 
+async function packOrigins(deps: DefinitionDeps, kind: DefinitionKind, records: readonly DefinitionRecord[]): Promise<Record<string, { pack: string; version: string }>> {
+  const out: Record<string, { pack: string; version: string }> = {};
+  const installed = await deps.installedPacks?.();
+  for (const pack of installed?.packs ?? []) {
+    const ids = pack.added[`${kind}.json`];
+    if (ids === undefined) continue;
+    for (const record of records) if (ids.includes(record.id)) out[record.id] = { pack: pack.id, version: pack.version };
+  }
+  return out;
+}
+
 async function getKind(deps: DefinitionDeps, store: DefinitionStore, kind: DefinitionKind): Promise<ApiResponse> {
   return ok({
     kind,
@@ -861,15 +898,19 @@ async function getKind(deps: DefinitionDeps, store: DefinitionStore, kind: Defin
     // each record's version, so an editor opened from this list can quote it
     // as If-Match on save (the guard is required — etag.ts)
     etags: Object.fromEntries((await store.list(kind)).map((record) => [record.id, contentETag(record)])),
+    // records that came from an installed pack are read-only: id → { pack, version } (fork to edit)
+    packs: await packOrigins(deps, kind, await store.list(kind)),
     // read-only company for the curated boards: the GUI lists them, greyed,
     // rather than pretending the library only holds what it can edit
     ...(kind === 'pcbas' ? { generated: await generatedPcbas(deps, store) } : {}),
   });
 }
 
-async function getDefinition(store: DefinitionStore, kind: DefinitionKind, id: string): Promise<ApiResponse> {
+async function getDefinition(deps: DefinitionDeps, store: DefinitionStore, kind: DefinitionKind, id: string): Promise<ApiResponse> {
   const record = (await store.list(kind)).find((candidate) => candidate.id === id);
-  return record === undefined ? notFound(kind, id) : ok(record, 200, { ETag: contentETag(record) });
+  if (record === undefined) return notFound(kind, id);
+  const origin = await packOriginOf(deps, kind, id);
+  return ok(record, 200, { ETag: contentETag(record), ...(origin === undefined ? {} : { 'X-WireHub-Pack': `${origin.pack}@${origin.version}` }) });
 }
 
 async function getUsage(deps: DefinitionDeps, kind: DefinitionKind, id: string): Promise<ApiResponse> {
@@ -905,6 +946,8 @@ async function putDefinition(
   const stored = await store.list(kind);
   const index = stored.findIndex((record) => record.id === id);
   if (index === -1) return notFound(kind, id);
+  const origin = await packOriginOf(deps, kind, id);
+  if (origin !== undefined) return readOnlyRecord(kind, id, origin, false);
   const current = stored[index];
   if (current !== undefined) {
     const guard = checkIfMatch(ifMatch, contentETag(current), KIND_NOUN[kind], id);
@@ -978,6 +1021,38 @@ async function postDefinition(
 }
 
 /**
+ * Fork a pack record to edit: a copy under a new id, remembering where it came
+ * from (`derivedFrom`). Only a pack's records are forked; a record of the
+ * deployment's own is edited in place. Designs keep the pack record until
+ * someone moves them to the copy.
+ */
+async function forkDefinition(
+  deps: DefinitionDeps,
+  store: DefinitionStore,
+  kind: DefinitionKind,
+  id: string,
+  body: unknown,
+): Promise<ApiResponse> {
+  const source = (await store.list(kind)).find((record) => record.id === id);
+  if (source === undefined) return notFound(kind, id);
+  const origin = await packOriginOf(deps, kind, id);
+  if (origin === undefined) {
+    return fail(409, `'${id}' is not from a pack, so there is nothing to fork.`, `Edit this ${KIND_NOUN[kind]} directly.`);
+  }
+  const asked = isObject(body) ? body : {};
+  const newId = asked['id'] === undefined ? `${id}-local` : asked['id'];
+  if (!isDefinitionId(newId)) {
+    return fail(400, `${JSON.stringify(String(newId))} cannot be used as a ${KIND_NOUN[kind]} id.`, ID_RULE);
+  }
+  if (asked['label'] !== undefined && !isFilledString(asked['label'])) {
+    return fail(400, 'The copy needs a name.', 'Give it a label, or leave the label out to keep the original name with "(copy)" after it.');
+  }
+  const label = asked['label'] ?? `${source.label} (copy)`;
+  const copy = { ...source, id: newId, label, derivedFrom: { pack: origin.pack, id, version: origin.version } };
+  return postDefinition(deps, store, kind, copy);
+}
+
+/**
  * Rule 3 and rule 4 together.
  *
  * The confirm token stops a stray or replayed call; the referential check stops
@@ -994,6 +1069,8 @@ async function deleteDefinition(
 ): Promise<ApiResponse> {
   const stored = await store.list(kind);
   if (!stored.some((record) => record.id === id)) return notFound(kind, id);
+  const origin = await packOriginOf(deps, kind, id);
+  if (origin !== undefined) return readOnlyRecord(kind, id, origin, true);
 
   const confirm = isObject(body) ? body['confirm'] : undefined;
   if (confirm !== id) {
@@ -1083,13 +1160,16 @@ export async function handleDefinitionRequest(
   }
 
   if (action === undefined) {
-    if (method === 'GET') return await getDefinition(store, kind, id);
+    if (method === 'GET') return await getDefinition(deps, store, kind, id);
     if (method === 'PUT') return await putDefinition(deps, store, kind, id, body, ifMatch);
     if (method === 'DELETE') return await deleteDefinition(deps, store, kind, id, body);
     return methodNotAllowed(method, ['GET', 'PUT', 'DELETE']);
   }
   if (action === 'usage') {
     return method === 'GET' ? await getUsage(deps, kind, id) : methodNotAllowed(method, ['GET']);
+  }
+  if (action === 'fork') {
+    return method === 'POST' ? await forkDefinition(deps, store, kind, id, body) : methodNotAllowed(method, ['POST']);
   }
   return undefined;
 }

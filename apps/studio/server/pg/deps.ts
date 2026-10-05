@@ -10,6 +10,7 @@
  */
 
 import { sql } from 'kysely';
+import type { InstalledPacks } from '@wirehub/catalog';
 import { CURRENT_SCHEMA_VERSION } from '@wirehub/model';
 
 import type { WorkbenchDeps } from '../api.ts';
@@ -92,6 +93,11 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     versions: pgVersionStore(context, options.depictionsDir),
     loadDb: async () => (await cache.get()).catalog.loadDb(),
     catalogVersion: () => cache.version(),
+    // which records came from a pack: the install record (packs.json) the database holds beside the catalog
+    installedPacks: async () => {
+      const text = (await cache.get()).source.read('packs.json');
+      return text === undefined ? { src: 'installed catalog packs', packs: [] } : (JSON.parse(text) as InstalledPacks);
+    },
     loadPartNumberFiles: async () => {
       const text = (await cache.get()).source.read('part-numbers.json');
       return text === undefined ? {} : { scheme: JSON.parse(text) as unknown };

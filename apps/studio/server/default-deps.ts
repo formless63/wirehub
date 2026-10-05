@@ -17,7 +17,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import type { CableDesign } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
-import { dataPath, derivedDir, livePacksDir, loadDb } from '@wirehub/catalog';
+import { dataPath, derivedDir, installedAcross, livePacksDir, loadDb } from '@wirehub/catalog';
 
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';
@@ -94,6 +94,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     docs,
     versions: fileVersionStore(),
     loadDb,
+    // which records came from a pack (read-only; fork to edit): both the layers and anything merged into the catalog
+    installedPacks: () => ({ src: 'installed catalog packs', packs: installedAcross(dataPath(''), packsDir).packs }),
     // the unit of work reuses the loaded db until one of its files changes
     // …and the packs directory: an install (packs.json) or regenerated derived tags change it too
     catalogVersion: () => `${fileCatalogVersion(dataPath(''), modules.catalogDirs())}:${fileCatalogVersion(packsDir)}:${fileCatalogVersion(derivedDir(packsDir))}`,

@@ -178,7 +178,7 @@ export function scopeFor(method: string, path: string): string | undefined {
   const m = method.toUpperCase();
   const p = path.split('?')[0] ?? '';
   // never through a token: tokens themselves, invitations, take-overs, first-run setup
-  if (p.startsWith('/api/account') || p.startsWith('/api/invitations') || p === '/api/locks/takeover' || p.startsWith('/api/setup') || p.startsWith('/api/auth')) return undefined;
+  if (p.startsWith('/api/account') || p.startsWith('/api/invitations') || p === '/api/locks/takeover' || p.startsWith('/api/setup') || (p.startsWith('/api/packs') && m !== 'GET' && m !== 'HEAD') || p.startsWith('/api/auth')) return undefined;
   if (m === 'GET' || m === 'HEAD') return 'read';
   if (p.startsWith('/api/docs/')) return 'imports';
   return 'catalog:write';

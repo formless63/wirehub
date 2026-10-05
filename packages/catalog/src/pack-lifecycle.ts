@@ -1,0 +1,510 @@
+/**
+ * The pack lifecycle (`docs/catalog-store.md` §3): update with a diff,
+ * disable, and what a deployment may and may not change of what a pack gave it.
+ *
+ * Everything here works on a **catalog view** (a `CatalogSource`: the catalog
+ * with its pack layers read as one) and the installed list, and answers with a
+ * *plan* before anything is written. Both backends use it unchanged: the file
+ * backend applies a plan to its packs directory (`applyPackUpdate`,
+ * `applyPackDisable`), the database backend runs the same handler over a
+ * scratch directory it then commits as one change set.
+ *
+ * - **Ownership.** `packs.json` records, per pack, the ids it added to each
+ *   record file (`InstalledPack.added`). Those records — and a pack's design
+ *   files — are the pack's; an identical record that was already there is not.
+ * - **Update.** The records of the installed version are compared with the
+ *   new version's, field by field (`PackDiff`). A new record that clashes with
+ *   a different one outside the pack is a conflict; a record the new version
+ *   drops while something outside the pack still uses it is refused (naming
+ *   the users); the resulting library is validated and only *new* errors block.
+ * - **Disable.** The pack's records go, unless a record outside the pack
+ *   references one of them, in which case nothing changes and the references
+ *   are listed.
+ *
+ * Pure apart from reading directories: no clock, no network.
+ */
+
+import { readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { errors, validateDb, validateDesign, type Issue } from '@wirehub/model';
+
+import { createCatalog } from './catalog.ts';
+import {
+  PACKS_FILE,
+  canonical,
+  idOf,
+  installPackLayer,
+  installedPackDir,
+  isPlainObject,
+  readInstalledPacks,
+  readPackManifest,
+  recordsIn,
+  writeFileReplacing,
+  type InstalledPack,
+  type InstalledPacks,
+  type Json,
+  type PackManifest,
+} from './packs.ts';
+import { fsCatalogSource, type CatalogSource } from './source.ts';
+
+/* ------------------------------------------------------------------ *
+ * Records of a catalog view
+ * ------------------------------------------------------------------ */
+
+/** The record files of a catalog; vocabulary lists and designs are found by listing. */
+const RECORD_FILES = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas'].map((n) => `${n}.json`);
+
+/** One record, with the file it sits in. A design is a file of its own: its id is the file's name. */
+export interface LocatedRecord {
+  /** relative to the data root: `connectors.json`, `vocab/signals.json`, `designs/x.json` */
+  file: string;
+  id: string;
+  record: Json;
+}
+
+/** Catalog files the loaders insist on: emptied, never removed. */
+const REQUIRED_FILES = ['connectors.json', 'wires.json', 'components.json'];
+
+export const recordKey = (file: string, id: string): string => `${file}#${id}`;
+
+const stemOf = (file: string): string => (file.split('/').pop() ?? file).replace(/\.json$/, '');
+
+/** What kind of thing a record file holds, in words (`connectors`, `signals`, `design`). */
+export function recordKindOf(file: string): string {
+  if (file.startsWith('designs/')) return 'design';
+  if (file.startsWith('vocab/')) return stemOf(file);
+  return stemOf(file);
+}
+
+/** Every record of a catalog source: the record files, the vocabulary lists' entries, the designs. */
+export function catalogRecords(source: CatalogSource): Map<string, LocatedRecord> {
+  const out = new Map<string, LocatedRecord>();
+  const files = [
+    ...RECORD_FILES,
+    ...source.list('vocab').filter((n) => n.endsWith('.json')).map((n) => `vocab/${n}`),
+    ...source.list('designs').filter((n) => n.endsWith('.json')).map((n) => `designs/${n}`),
+  ];
+  for (const file of files) {
+    const text = source.read(file);
+    if (text === undefined) continue;
+    const value = JSON.parse(text) as Json;
+    if (file.startsWith('designs/')) {
+      out.set(recordKey(file, stemOf(file)), { file, id: stemOf(file), record: value });
+      continue;
+    }
+    for (const record of recordsIn(value) ?? []) {
+      const id = idOf(record);
+      if (id !== undefined) out.set(recordKey(file, id), { file, id, record });
+    }
+  }
+  return out;
+}
+
+/** The records an installed pack owns, as they stand in `view`. */
+export function ownedRecords(view: CatalogSource, pack: InstalledPack): Map<string, LocatedRecord> {
+  const all = catalogRecords(view);
+  const out = new Map<string, LocatedRecord>();
+  for (const [file, ids] of Object.entries(pack.added)) {
+    const wanted = file.startsWith('designs/') ? [stemOf(file)] : ids;
+    for (const id of wanted) {
+      const found = all.get(recordKey(file, id));
+      if (found !== undefined) out.set(recordKey(file, id), found);
+    }
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Diff
+ * ------------------------------------------------------------------ */
+
+/** One field of a record that differs; `path` is dotted (`pins.3.signal`, `terminals[1]`). */
+export interface FieldChange {
+  path: string;
+  /** absent: the field is new */
+  before?: Json;
+  /** absent: the field was dropped */
+  after?: Json;
+}
+
+export interface RecordRef {
+  file: string;
+  id: string;
+  kind: string;
+  label?: string;
+}
+
+export interface ChangedRecord extends RecordRef {
+  fields: FieldChange[];
+}
+
+/** The record-level difference between two versions of a pack. */
+export interface PackDiff {
+  added: RecordRef[];
+  changed: ChangedRecord[];
+  removed: RecordRef[];
+  unchanged: number;
+}
+
+const refOf = (r: LocatedRecord): RecordRef => {
+  const label = isPlainObject(r.record) && typeof r.record['label'] === 'string' ? r.record['label'] : undefined;
+  return { file: r.file, id: r.id, kind: recordKindOf(r.file), ...(label === undefined ? {} : { label }) };
+};
+
+const same = (a: Json, b: Json): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+/** Field-level differences of two JSON values: objects recursively, arrays whole. */
+export function fieldChanges(before: Json, after: Json, path = ''): FieldChange[] {
+  if (same(before, after)) return [];
+  if (isPlainObject(before) && isPlainObject(after)) {
+    const out: FieldChange[] = [];
+    for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+      const at = path === '' ? key : `${path}.${key}`;
+      if (!(key in before)) out.push({ path: at, after: after[key] });
+      else if (!(key in after)) out.push({ path: at, before: before[key] });
+      else out.push(...fieldChanges(before[key], after[key], at));
+    }
+    return out;
+  }
+  if (Array.isArray(before) && Array.isArray(after) && before.length === after.length && before.every((v, i) => !isPlainObject(v) || idOf(v) === idOf(after[i]))) {
+    return before.flatMap((v, i) => fieldChanges(v, after[i], `${path}[${i}]`));
+  }
+  return [{ path, before, after }];
+}
+
+/** Compare the records a pack owns now (`current`) with the ones its new version supplies (`next`). */
+export function diffRecords(current: ReadonlyMap<string, LocatedRecord>, next: ReadonlyMap<string, LocatedRecord>): PackDiff {
+  const diff: PackDiff = { added: [], changed: [], removed: [], unchanged: 0 };
+  for (const [key, record] of next) {
+    const was = current.get(key);
+    if (was === undefined) diff.added.push(refOf(record));
+    else if (same(was.record, record.record)) diff.unchanged += 1;
+    else diff.changed.push({ ...refOf(record), fields: fieldChanges(was.record, record.record) });
+  }
+  for (const [key, record] of current) if (!next.has(key)) diff.removed.push(refOf(record));
+  return diff;
+}
+
+/* ------------------------------------------------------------------ *
+ * References
+ * ------------------------------------------------------------------ */
+
+/** A record outside a pack that names one of the pack's records. */
+export interface PackReference {
+  /** the record that refers */
+  from: RecordRef;
+  /** where in it (`pins.1.signal`, `bodies[0]`, `instances.connectors[2].def`) */
+  field: string;
+  /** the pack record it names */
+  to: string;
+}
+
+/** Fields that hold words, not references: an id spelled in prose is not a use. */
+const PROSE_FIELDS = new Set(['id', 'label', 'short', 'src', 'note', 'notes', 'description', 'title', 'aliases', 'name', 'provenance', 'derivedFrom']);
+
+function scan(value: Json, ids: ReadonlySet<string>, path: string, found: { field: string; to: string }[]): void {
+  if (typeof value === 'string') {
+    if (ids.has(value)) found.push({ field: path, to: value });
+  } else if (Array.isArray(value)) {
+    value.forEach((v, i) => scan(v, ids, `${path}[${i}]`, found));
+  } else if (isPlainObject(value)) {
+    for (const [key, v] of Object.entries(value)) {
+      if (PROSE_FIELDS.has(key)) continue;
+      scan(v, ids, path === '' ? key : `${path}.${key}`, found);
+    }
+  }
+}
+
+/**
+ * The records in `others` that name any of `ids` in a field that is not prose
+ * (a connector's `body`, an interface's `bodies`, a design's instance `def`,
+ * a kit line, a vocabulary entry's `deprecatedBy` …).
+ */
+export function referencesTo(others: Iterable<LocatedRecord>, ids: ReadonlySet<string>): PackReference[] {
+  const out: PackReference[] = [];
+  for (const other of others) {
+    const found: { field: string; to: string }[] = [];
+    // `id` of the record itself is skipped by PROSE_FIELDS; a design's own name is its file
+    scan(other.record, ids, '', found);
+    for (const f of found) out.push({ from: refOf(other), field: f.field, to: f.to });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Versions
+ * ------------------------------------------------------------------ */
+
+const parseVersion = (v: string): number[] => v.split(/[-+]/)[0]!.split('.').map((n) => Number.parseInt(n, 10) || 0);
+
+/** -1, 0, 1 for a before b, equal, a after b (prerelease tags ignored). */
+export function compareVersions(a: string, b: string): number {
+  const x = parseVersion(a);
+  const y = parseVersion(b);
+  for (let i = 0; i < 3; i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0);
+    if (d !== 0) return d < 0 ? -1 : 1;
+  }
+  return 0;
+}
+
+export const majorOf = (v: string): number => parseVersion(v)[0] ?? 0;
+
+/* ------------------------------------------------------------------ *
+ * Planning
+ * ------------------------------------------------------------------ */
+
+/** Files to write (text) or delete (`null`), relative to the data root, in the catalog's flattened form. */
+export type FileWrites = Map<string, string | null>;
+
+function overlay(view: CatalogSource, writes: FileWrites): CatalogSource {
+  return {
+    name: `${view.name} (planned)`,
+    read: (relative) => (writes.has(relative) ? (writes.get(relative) ?? undefined) : view.read(relative)),
+    list(relativeDir) {
+      const dir = relativeDir.replace(/\/+$/, '');
+      const prefix = dir === '' ? '' : `${dir}/`;
+      const names = new Set(view.list(relativeDir));
+      for (const [path, text] of writes) {
+        if (!path.startsWith(prefix) || path.slice(prefix.length).includes('/')) continue;
+        const name = path.slice(prefix.length);
+        if (text === null) names.delete(name);
+        else names.add(name);
+      }
+      return [...names].sort();
+    },
+  };
+}
+
+const issueKey = (i: Issue): string => `${i.code}|${i.where ?? ''}|${i.message}`;
+
+/** Library and design errors of a catalog, or the one error that stopped it loading. */
+function libraryErrors(source: CatalogSource): Issue[] {
+  try {
+    const catalog = createCatalog(source);
+    const db = catalog.loadDb();
+    const issues = [...validateDb(db)];
+    for (const design of catalog.loadDesigns()) issues.push(...validateDesign(design, db));
+    return errors(issues);
+  } catch (error) {
+    return [{ code: 'catalog-unreadable', severity: 'error', message: error instanceof Error ? error.message : String(error), where: '' }];
+  }
+}
+
+/** Errors the change adds: the ones in `after` that `before` did not already have. */
+export function newErrors(before: CatalogSource, after: CatalogSource): Issue[] {
+  const known = new Set(libraryErrors(before).map(issueKey));
+  return libraryErrors(after).filter((i) => !known.has(issueKey(i)));
+}
+
+/** The pack's section of a data file: list records in place, new ones appended, dropped ones gone. */
+function mergeFile(file: string, currentText: string | undefined, drop: ReadonlySet<string>, put: ReadonlyMap<string, Json>, packText: string | undefined): string | null | undefined {
+  if (file.startsWith('designs/')) {
+    const id = stemOf(file);
+    if (put.has(id)) return packText === undefined ? undefined : packText;
+    return drop.has(id) ? null : undefined;
+  }
+  const current = currentText === undefined ? undefined : (JSON.parse(currentText) as Json);
+  const pack = packText === undefined ? undefined : (JSON.parse(packText) as Json);
+  const base = current ?? (pack !== undefined ? (Array.isArray(pack) ? [] : { ...(pack as Record<string, Json>), entries: [] }) : undefined);
+  if (base === undefined) return undefined;
+  const records = recordsIn(base) ?? [];
+  const placed = new Set<string>();
+  const next: Json[] = [];
+  for (const record of records) {
+    const id = idOf(record);
+    if (id !== undefined && put.has(id)) {
+      next.push(put.get(id));
+      placed.add(id);
+    } else if (id !== undefined && drop.has(id) && !put.has(id)) continue;
+    else next.push(record);
+  }
+  for (const [id, record] of put) if (!placed.has(id)) next.push(record);
+  if (next.length === 0 && drop.size > 0 && !REQUIRED_FILES.includes(file)) return null;
+  const out = Array.isArray(base) ? next : { ...(base as Record<string, Json>), entries: next };
+  const text = canonical(out);
+  return text === currentText ? undefined : text;
+}
+
+/** The writes that take `view` to "these pack records in, these gone". */
+function fileWrites(view: CatalogSource, packDir: string | undefined, drop: ReadonlyMap<string, LocatedRecord>, put: ReadonlyMap<string, LocatedRecord>): FileWrites {
+  const files = new Set<string>([...[...drop.values()].map((r) => r.file), ...[...put.values()].map((r) => r.file)]);
+  const writes: FileWrites = new Map();
+  for (const file of [...files].sort()) {
+    const dropIds = new Set([...drop.values()].filter((r) => r.file === file).map((r) => r.id));
+    const putMap = new Map([...put.values()].filter((r) => r.file === file).map((r) => [r.id, r.record] as const));
+    const packText = packDir === undefined || !putMap.size ? undefined : readFileSync(join(packDir, file), 'utf8');
+    const out = mergeFile(file, view.read(file), dropIds, putMap, packText);
+    if (out !== undefined) writes.set(file, out);
+  }
+  return writes;
+}
+
+/** The `added` map of a pack: file → ids (designs: none). */
+function addedOf(records: Iterable<LocatedRecord>): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const r of records) (out[r.file] ??= []).push(...(r.file.startsWith('designs/') ? [] : [r.id]));
+  return out;
+}
+
+/** The installed packs of both places — the packs directory (layers) and the catalog directory (merged). */
+export interface InstalledAcross {
+  /** every installed pack, layers first */
+  packs: InstalledPack[];
+  /** pack id → where it is installed */
+  where: Map<string, 'layer' | 'merged'>;
+}
+
+export function installedAcross(dataDir: string, packsDir: string | undefined): InstalledAcross {
+  const packs: InstalledPack[] = [];
+  const where = new Map<string, 'layer' | 'merged'>();
+  if (packsDir !== undefined && packsDir !== dataDir) {
+    for (const p of readInstalledPacks(packsDir).packs) {
+      packs.push(p);
+      where.set(p.id, 'layer');
+    }
+  }
+  for (const p of readInstalledPacks(dataDir).packs) {
+    if (where.has(p.id)) continue;
+    packs.push(p);
+    where.set(p.id, 'merged');
+  }
+  return { packs, where };
+}
+
+/** What installing another version of a pack would do. */
+export interface PackUpdatePlan {
+  pack: { id: string; name: string; license: string; from: string; to: string; fromLicense: string };
+  direction: 'upgrade' | 'downgrade' | 'same';
+  /** the major version changes: designs can break; an update is only applied when this is accepted */
+  major: boolean;
+  licenseChanged: boolean;
+  diff: PackDiff;
+  /** new records that clash with a different record outside the pack */
+  conflicts: string[];
+  /** records the new version drops (or changes the id of) that something outside the pack still uses */
+  references: PackReference[];
+  /** errors the new version would add to the library or its designs */
+  issues: Issue[];
+  /** nothing blocks it (a major change still needs `acceptMajor`) */
+  ok: boolean;
+  /** the planned file changes, flattened (not part of the answer shown to people) */
+  writes: FileWrites;
+  /** the pack's `added` after the update */
+  added: Record<string, string[]>;
+}
+
+/** Plan `installed`'s pack `<manifest.id>` replaced by the pack in `packDir`. Throws when it is not installed. */
+export function planPackUpdate(view: CatalogSource, installed: readonly InstalledPack[], packDir: string): PackUpdatePlan {
+  const manifest: PackManifest = readPackManifest(packDir);
+  const entry = installed.find((p) => p.id === manifest.id);
+  if (entry === undefined) throw new Error(`Pack '${manifest.id}' is not installed.`);
+  const owned = ownedRecords(view, entry);
+  const everything = catalogRecords(view);
+  const others = [...everything].filter(([key]) => !owned.has(key)).map(([, r]) => r);
+  const otherByKey = new Map(others.map((r) => [recordKey(r.file, r.id), r] as const));
+
+  const conflicts: string[] = [];
+  const next = new Map<string, LocatedRecord>();
+  for (const [key, record] of catalogRecords(fsCatalogSource(packDir))) {
+    const other = otherByKey.get(key);
+    if (other === undefined) next.set(key, record);
+    else if (!same(other.record, record.record)) conflicts.push(`${record.file}: '${record.id}' already exists with different content`);
+    // identical to a record outside the pack: shared, not the pack's
+  }
+  const diff = diffRecords(owned, next);
+  const dropped = new Map([...owned].filter(([key]) => !next.has(key)));
+  const puts = new Map([...next].filter(([key, r]) => !owned.has(key) || !same(owned.get(key)!.record, r.record)));
+  const writes = fileWrites(view, packDir, dropped, puts);
+  const references = referencesTo(others, new Set([...dropped.values()].filter((r) => !r.file.startsWith('designs/')).map((r) => r.id)));
+  const issues = conflicts.length === 0 && references.length === 0 ? newErrors(view, overlay(view, writes)) : [];
+  const cmp = compareVersions(manifest.version, entry.version);
+  return {
+    pack: { id: manifest.id, name: manifest.name, license: manifest.license, from: entry.version, to: manifest.version, fromLicense: entry.license },
+    direction: cmp > 0 ? 'upgrade' : cmp < 0 ? 'downgrade' : 'same',
+    major: majorOf(manifest.version) !== majorOf(entry.version),
+    licenseChanged: manifest.license !== entry.license,
+    diff,
+    conflicts,
+    references,
+    issues,
+    ok: conflicts.length === 0 && references.length === 0 && issues.length === 0,
+    writes,
+    added: addedOf(next.values()),
+  };
+}
+
+/** What disabling a pack would remove, and what stops it. */
+export interface PackDisablePlan {
+  pack: { id: string; version: string };
+  /** the records that go */
+  records: RecordRef[];
+  /** records outside the pack that use them: when any, nothing is removed */
+  references: PackReference[];
+  ok: boolean;
+  writes: FileWrites;
+}
+
+export function planPackDisable(view: CatalogSource, installed: readonly InstalledPack[], id: string): PackDisablePlan {
+  const entry = installed.find((p) => p.id === id);
+  if (entry === undefined) throw new Error(`Pack '${id}' is not installed.`);
+  const owned = ownedRecords(view, entry);
+  const others = [...catalogRecords(view)].filter(([key]) => !owned.has(key)).map(([, r]) => r);
+  const references = referencesTo(others, new Set([...owned.values()].filter((r) => !r.file.startsWith('designs/')).map((r) => r.id)));
+  return {
+    pack: { id, version: entry.version },
+    records: [...owned.values()].map(refOf),
+    references,
+    ok: references.length === 0,
+    writes: fileWrites(view, undefined, owned, new Map()),
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Applying
+ * ------------------------------------------------------------------ */
+
+function applyWrites(dataDir: string, writes: FileWrites): void {
+  for (const [file, text] of writes) {
+    const path = join(dataDir, file);
+    if (text === null) rmSync(path, { force: true });
+    else writeFileReplacing(path, text);
+  }
+}
+
+function saveInstalled(dir: string, mutate: (packs: InstalledPack[]) => InstalledPack[]): void {
+  const installed: InstalledPacks = readInstalledPacks(dir);
+  installed.packs = mutate(installed.packs);
+  writeFileReplacing(join(dir, PACKS_FILE), canonical(installed));
+}
+
+/**
+ * Apply an update plan: a layered pack is replaced as a layer (`installPackLayer`,
+ * one directory swap); a pack merged into the catalog directory has its records
+ * rewritten in place, and `packs.json` updated last. Call only with `plan.ok`.
+ */
+export function applyPackUpdate(dataDir: string, packsDir: string | undefined, packDir: string, plan: PackUpdatePlan, where: 'layer' | 'merged'): void {
+  if (where === 'layer' && packsDir !== undefined) {
+    installPackLayer(dataDir, packsDir, packDir);
+    return;
+  }
+  const manifest = readPackManifest(packDir);
+  applyWrites(dataDir, plan.writes);
+  saveInstalled(dataDir, (packs) =>
+    packs.map((p) => (p.id === manifest.id ? { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added } : p)),
+  );
+}
+
+/** Apply a disable plan (`plan.ok`): remove a layer, or the merged records, and the install record. */
+export function applyPackDisable(dataDir: string, packsDir: string | undefined, id: string, plan: PackDisablePlan, where: 'layer' | 'merged'): void {
+  if (where === 'layer' && packsDir !== undefined) {
+    // the manifest goes first: a half-removed layer is then not read as a pack
+    rmSync(installedPackDir(packsDir, id), { recursive: true, force: true });
+    saveInstalled(packsDir, (packs) => packs.filter((p) => p.id !== id));
+    return;
+  }
+  applyWrites(dataDir, plan.writes);
+  saveInstalled(dataDir, (packs) => packs.filter((p) => p.id !== id));
+}
+

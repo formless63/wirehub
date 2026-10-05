@@ -22,7 +22,7 @@
  * list, which the GUI renders in plain language. Nothing here ever dead-ends.
  */
 
-import { isDesignId, type DesignId } from '@wirehub/catalog';
+import { isDesignId, type DesignId, type InstalledPacks } from '@wirehub/catalog';
 import { designChangeLines, errors, isReadableSchemaVersion, upgradeDesignSchema, validateDesign, type CableDesign, type Db, type Issue } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
 
@@ -51,6 +51,7 @@ import { CommitRefusedError, ReadOnlyBackendError, StaleRecordError, type Awaita
 import { UnitOfWork } from './storage/unit-of-work.ts';
 import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
+import { PACKS_ROUTES, handlePacksRequest, isPacksPath } from './packs.ts';
 import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
@@ -239,6 +240,11 @@ export interface WorkbenchDeps {
    * and the selection is kept. Absent → `/api/setup` answers 501.
    */
   setup?: SetupDeps;
+  /**
+   * The installed catalog packs (`packs.json`, layers and merged): which records came
+   * from a pack. Those are read-only through the definition routes (fork to edit).
+   */
+  installedPacks?: () => Awaitable<InstalledPacks>;
 }
 
 /** `GET /api/part-numbers`' file half; `designs` and `drawings` come from the stores. */
@@ -824,6 +830,7 @@ const ROUTES = [
   'GET    /api/modules/:module/_export/:exporter',
   'GET    /api/setup',
   'POST   /api/setup',
+  ...PACKS_ROUTES,
   ...VERSION_ROUTES,
   ...LOCK_ROUTES,
 ] as const;
@@ -928,6 +935,11 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   // the installer), outside the unit of work, under the write lock
   if (isSetupPath(request.path)) {
     const run = (): Promise<ApiResponse> => handleSetupRequest(request, deps.setup, deps.modules);
+    return isWriteMethod(request.method) ? withWriteLock(run) : run();
+  }
+  // the pack lifecycle: the same direct-write handler shape, on files and (through `setup.transact`) on Postgres
+  if (isPacksPath(request.path)) {
+    const run = (): Promise<ApiResponse> => handlePacksRequest(request, deps.setup, deps.modules);
     return isWriteMethod(request.method) ? withWriteLock(run) : run();
   }
   if (isModelPath(request.path)) {

@@ -61,8 +61,9 @@ A missing `src` is a `missing-src` warning from `validateDb` and a review blocke
 - **No private data anywhere**: no customer, supplier, person, host or internal-product names, no
   paths, no values read from a private catalog. The privacy hooks check the obvious cases
   (`wirehub-contribute`); the rest is on you.
-- Pin assignments and dimensions are facts: cite the standard, **never copy its text, tables or
-  figures**. Where the source is licensed, see `wirehub-import-public-data`.
+- Pin assignments and dimensions are facts: cite the standard. For the bundled CC0 packs, do not
+  copy a standard's text, tables or figures; your own pack's sourcing and licence are your call
+  (`wirehub-import-public-data`).
 
 ## Licence and provenance fields
 

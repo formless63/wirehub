@@ -43,6 +43,23 @@ export {
   readInstalledPacks,
   readPackManifest,
 } from './packs.ts';
+export {
+  applyPackDisable,
+  applyPackUpdate,
+  catalogRecords,
+  compareVersions,
+  diffRecords,
+  fieldChanges,
+  installedAcross,
+  newErrors,
+  ownedRecords,
+  planPackDisable,
+  planPackUpdate,
+  recordKey,
+  recordKindOf,
+  referencesTo,
+} from './pack-lifecycle.ts';
+export type { ChangedRecord, FieldChange, InstalledAcross, LocatedRecord, PackDiff, PackDisablePlan, PackReference, PackUpdatePlan, RecordRef } from './pack-lifecycle.ts';
 export type { InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */

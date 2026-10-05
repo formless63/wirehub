@@ -11,8 +11,9 @@ the connectors, stocks and parts of a domain — XLR and speakON for live audio,
 PROFIBUS for a factory floor, the OBD-II connector for a vehicle harness. Every shop
 re-entering the same public facts is wasted effort, and every shop re-entering them by hand
 is a source of errors. The **catalog store** is a public index of **catalog packs**: signed,
-versioned bundles of catalog records, each record carrying its provenance and licence, that
-a deployment installs and updates from the Library.
+versioned bundles of catalog records, each record optionally carrying its provenance and licence, that
+a deployment installs and updates from the Library. The store lists packs published by their
+authors, who are responsible for their content and licensing.
 
 Packs are **data, never code**. A pack cannot add behaviour; that is what modules are for
 (`docs/modules.md`). That is what makes it safe to install a pack at runtime from the UI,
@@ -171,10 +172,10 @@ picks the module (`docs/modules.md`).
 
 **Licences are per pack and per record.** Packs are data, not code: the AGPL of WireHub
 does not reach them (`MODULE-EXCEPTION.md` §3). A pack names its licence in its manifest
-(SPDX), a record may name its own, and the install plan shows every licence a deployment
-is accepting. The starter catalog (`packages/catalog/data`) and the bundled packs are
+(SPDX), a record may name its own, and the install plan shows every licence involved, as
+information. The starter catalog (`packages/catalog/data`) and the bundled packs are
 CC0-1.0, each directory with a `LICENSE` file saying so; the catalog's code stays
-AGPL-3.0-only.
+AGPL-3.0-only. Third-party packs carry the licence their authors chose.
 
 ## 4. The store, trust and signing
 
@@ -201,39 +202,36 @@ AGPL-3.0-only.
   versions; a yanked version stays downloadable for re-validation but is never offered for
   install and is flagged on deployments that have it.
 
-## 5. Public data sources and their licence caveats
+## 5. Sources, licences and responsibility
 
-Not legal advice — the owner should have these reviewed before the store publishes
-anything. The general rule the store follows: **pin assignments and dimensions are facts
-and are cited, not copied**; standards' text, tables and figures are never reproduced;
-every record names its source.
+Not legal advice. Two cases, kept apart.
 
-| Source | What it gives | Licence / caveats |
-| --- | --- | --- |
-| **KiCad libraries** (symbols, footprints, 3D models; gitlab.com/kicad/libraries) | footprint pad geometry, connector body names, 3D models | CC BY-SA 4.0 **with the KiCad libraries exception** (designs using the libraries are not adapted material). A pack that *contains* KiCad-derived data (converted models, extracted geometry) is itself CC BY-SA 4.0 and must carry attribution. Prefer packs that **link** to the upstream file at a pinned commit with its sha256 and let the deployment fetch it (as the base's model import already does). |
-| **TIA / EIA standards** (TIA-232, TIA-485, TIA-568, TIA-574) | serial and structured-cabling pin assignments, colour codes | Standards documents are copyrighted and sold. The assignments themselves (pin 2 = RxD on a DE-9 DTE) are widely published facts; cite the standard by number and clause, do not reproduce its tables or figures. |
-| **IEC / ISO standards** (IEC 60603-7, 61076-2-xxx, 60320, 61158; ISO 15031-3) | connector families, codings, fieldbus pinouts | Same as TIA: paywalled and copyrighted; facts cited by number. Some IEC derived national standards (EN, BS, DIN) have identical content and identical restrictions. |
-| **IEEE 802.3** | Ethernet MDI pinouts, PoE pair use | Copyrighted; IEEE makes 802 standards available free through the IEEE GET program after a delay — still not redistributable. Facts cited. |
-| **USB-IF** (usb.org) | USB 2.0 / 3.x / Type-C connector and cable specifications | Specifications downloadable free under the USB-IF's licence terms (no redistribution). The USB logos and certification marks are trademarks usable only under the USB-IF logo licence — packs use plain names ("USB Type-C plug"), never logos. |
-| **HDMI** (HDMI Licensing Administrator) | HDMI connector pinouts | The specification is licensed to adopters only; the pinout is widely published but no official public source can be cited. "HDMI" is a trademark: product names in records must be descriptive ("HDMI Type A plug" as a nominative reference), no logos. A pack may cite a secondary public source and must flag the record as such. |
-| **VESA** (DDC, DisplayPort, VGA) | VGA/DDC pinout, DisplayPort pinout | DDC/EDID standards are free to download after registration but not redistributable; DisplayPort is member-only. Facts cited. |
-| **SAE J1962 / ISO 15031-3** (OBD-II) | the 16-pin diagnostic connector and its mandated pins | SAE documents are sold and copyrighted; the mandated pin assignments (4/5 ground, 16 battery, 6/14 CAN) are public regulatory facts (also in US EPA / EU type-approval rules) and can be cited. Manufacturer-discretionary pins are not standard and must not be presented as such. |
-| **AES** (AES14, AES3) | XLR audio polarity convention, AES/EBU digital audio | AES standards are sold, free for AES members; facts cited. |
-| **ESTA / ANSI E1.11** (DMX512-A) | DMX connector pinouts | Available free from the ESTA TSP (registration); facts cited. |
-| **Manufacturer catalogues and datasheets** (TE, Molex, Amphenol, Neutrik, JST, Phoenix Contact, Belden, Alpha Wire, Lapp …) | part numbers, dimensions, materials, ratings, stock constructions | Datasheets are copyrighted; the specifications in them are facts. Many manufacturers' websites' terms forbid scraping and bulk reuse — transcribe by hand or obtain permission; never bulk-import a catalogue. 3D models and CAD from manufacturers (and from aggregators like SnapEDA / Ultra Librarian / TraceParts) usually come under licences that **forbid redistribution** — packs link to them, never include them. Trademarked product names are used nominatively. |
-| **Distributor data** (Digi-Key, Mouser, Octopart APIs) | parametric data, availability | API terms generally forbid redistributing the data; usable by a deployment for its own lookups (a module), not as a source of store packs. |
-| **Wikipedia / Wikimedia Commons** | pinout tables, connector drawings | CC BY-SA (text) and per-file licences (images). Good for cross-checking, but a record citing only Wikipedia is marked `community`, and any copied drawing carries its own licence and attribution. |
-| **Pinout aggregator sites** | many pinouts in one place | Usually all rights reserved and of mixed accuracy — use only to find the primary source, never as the cited source. |
-| **Own measurements** | stock ODs, conductor counts, colour orders | The publisher's own data under the pack's licence; `method: "measured"`, with what was measured and how. |
+**Packs published by third parties** (a shop, a manufacturer, a community maintainer) are
+published by their authors, who are responsible for their content and for the licence they
+choose. WireHub does not restrict, review or police how an author sources data, and the store
+does not gatekeep on it. The per-record `license` and `provenance` fields (§2) are
+**information** for the person installing a pack, shown in the install plan; WireHub does not
+verify them. If you build a pack, check the terms of your sources; an official API or download is
+often easier than scraping a page.
 
-Store policy, in short: records under licences that forbid redistribution never enter a
-store pack; ShareAlike records are allowed but the pack's licence must be compatible and
-the obligation is shown before install; every pack declares its licence in SPDX form, and
-the install plan shows the set of licences a deployment is accepting.
+**The bundled modules and the starter catalog in this repository** are published as CC0-1.0, so
+they contain only data the project can license that way: facts (pin assignments, contact counts,
+dimensions) cited to their source, our own measurements and synthetic examples, written in our own
+words, with no text, tables or figures copied from a standard or datasheet.
 
-Database rights: in the EU a substantial extraction from a protected database can infringe
-even when each fact is free. The store therefore does not bulk-copy any one third-party
-collection; packs are assembled from primary sources.
+Some sources worth knowing about when you cite or link:
+
+| Source | Notes |
+| --- | --- |
+| **KiCad libraries** (symbols, footprints, 3D models; gitlab.com/kicad/libraries) | CC BY-SA 4.0 with the KiCad libraries exception. A pack that *contains* KiCad-derived data (converted models, extracted geometry) carries that licence and attribution; a pack that **links** to the upstream file at a pinned commit with its sha256 (as the base's model import does) keeps its own licence simple. |
+| **Standards** (TIA/EIA, IEC, ISO, IEEE, SAE, AES, ESTA, VESA, USB-IF) | Pin assignments and dimensions are facts, cited by number and clause. The documents' text and figures belong to their publishers. |
+| **HDMI, DisplayPort** | Cite the public source you used and say when it is secondary. Product names are plain names, not logos. |
+| **Manufacturer datasheets and catalogues** | Specifications are facts; a site's terms may say more about bulk use. Manufacturer CAD and 3D models are usually better linked than included. |
+| **Distributor data** (Digi-Key, Mouser, Octopart APIs) | Their terms often cover a deployment's own lookups (a module) more readily than republishing. |
+| **Wikipedia / Commons** | CC BY-SA text and per-file image licences; handy for cross-checking. |
+| **Own measurements** | `method: "measured"`, with what was measured and how. |
+
+Trademarks (USB, HDMI, product names) appear as plain nominative names.
 
 ## 6. Where it plugs into the base
 

@@ -7,7 +7,7 @@ description: Build, version, verify and publish a WireHub catalog pack (a data-o
 
 A pack is **data, never code** (`docs/catalog-store.md`). It ships either inside a domain module
 (`catalogPacks` in `defineModule`, installed at `/setup`) or, in future, from the catalog store.
-Records themselves: `wirehub-catalog-data`. The module shell: `wirehub-module`. Licence caveats for
+Records themselves: `wirehub-catalog-data`. The module shell: `wirehub-module`. Notes on
 anything copied from outside: `wirehub-import-public-data`.
 
 ## Layout
@@ -58,9 +58,11 @@ the `id` of the module's `catalogPacks` entry, and `version`/`license` should ma
   `provenance` whose `method` (`transcribed`, `derived` for an inferred value, `synthetic`,
   `measured`, `generated`) and first source `title` come from the record's `src`; add a `url` and
   `retrieved` date when you cite a web page. `src` stays mandatory. A record under a different
-  licence than the pack's may name its own `license`, but the install plan shows every licence, so
-  prefer a separate pack with its own `license` for a whole group of them.
-- Pack data you contribute to the repository is **CC0-1.0**, like the starter.
+  licence than the pack's may name its own `license`. The fields are information for whoever
+  installs the pack; WireHub does not verify them.
+- Pack data you contribute to this repository (a bundled module) is **CC0-1.0**, like the starter, so
+  it holds only data the project can license that way. A pack you publish elsewhere carries the
+  licence you choose.
 
 ## Versioning (semver on the data)
 
@@ -150,4 +152,5 @@ What to do today:
 4. For the store: a pack is organised by domain, named `<domain>` (a shop or maker may publish
    `vendor-...` or `community-...`), reproducible when generated (name the converter version and the
    pinned upstream commit in the manifest's `source`), and every cited source passes the
-   licence rules in `wirehub-import-public-data`.
+   notes in `wirehub-import-public-data`. The store lists packs published by their authors, who are
+   responsible for their content and licensing.

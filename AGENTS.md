@@ -68,7 +68,7 @@ symlink to it, so Claude Code and other agents find the same files. Load the one
 - `wirehub-module`: create a module package, its extension points, registration, licence, tests.
 - `wirehub-catalog-data`: author catalog records of every type (ids, `src`, CC0, canonical JSON, validators).
 - `wirehub-catalog-pack`: build, version, verify and install a domain pack.
-- `wirehub-import-public-data`: derive records from public sources within their licences.
+- `wirehub-import-public-data`: derive records from outside sources, with provenance recorded.
 - `wirehub-contribute`: branch, commits, privacy hooks, tests (pg, generator), pull request.
 
 `packages/modules/test/agent-skills.test.ts` checks their frontmatter and that every path they
