@@ -173,6 +173,7 @@ it in the `secrets` volume (mounted at `/run/wirehub`):
 | `database_admin_url`, `database_owner_url`, `database_url`, `database_ro_url` | the connections, derived from the passwords on every start |
 | `better_auth_secret` | the sign-in session secret |
 | `settings_key` | encrypts the secrets entered in Settings (`WIREHUB_SETTINGS_KEY_FILE`); generated on the first start after an upgrade too |
+| `settings_key_previous` | retired settings keys, only while a rotation is under way ("Rotating the settings key" under Settings) |
 | `garage_rpc_secret`, `garage_admin_token` | Garage's |
 | `s3_access_key_id`, `s3_secret_access_key`, `s3_backup_*` | the S3 keys Garage created (`garage-init`) |
 | `setup_code` | the first-run setup code |
@@ -236,6 +237,48 @@ history, which record only when one was set. Keep a copy of `settings_key`
 with your backup password, or re-enter those secrets after a restore onto
 fresh volumes.
 
+**Rotating the settings key.** To replace `settings_key` (a suspected leak,
+a routine change) without downtime or losing a secret: the app reads with a
+key ring, the current key plus the previous ones
+(`WIREHUB_SETTINGS_KEY_PREVIOUS`, comma separated, or the volume's
+`settings_key_previous`, one per line), and always writes with the current one.
+
+1. Make the new key. In the compose stack the bootstrap does it and retires the
+   old one into `settings_key_previous`:
+
+   ```
+   docker compose run --rm -e WIREHUB_ROTATE_SETTINGS_KEY=1 bootstrap
+   docker compose up -d
+   ```
+
+   (The second command restarts the app and the worker with both keys; every
+   secret still reads, and a secret saved from now on is under the new key.)
+   If you set `WIREHUB_SETTINGS_KEY` yourself in `.env`, put the new value there
+   and `up -d`: the bootstrap retires the file's old key on its own. Outside
+   compose, make a key with `pnpm --filter studio settings-key generate`, set it
+   as `WIREHUB_SETTINGS_KEY` and the old one as `WIREHUB_SETTINGS_KEY_PREVIOUS`.
+2. Re-encrypt what is stored, as an owner: **Settings > Rotate key** (it shows
+   how many secrets are still under a previous key), or from the server's
+   shell. Both swap each secret from its old ciphertext to the new in one step,
+   so a hub in use keeps working, and a secret saved meanwhile is kept:
+
+   ```
+   docker compose exec wirehub node --experimental-strip-types --no-warnings \
+     --import ./server/boot-env.ts server/settings-key-cli.ts rotate
+   ```
+
+   `settings-key-cli.ts status` counts the secrets under each key. Running it
+   again does nothing. A secret no key reads is left as it is and named; enter
+   it again in Settings.
+3. When none is left under a previous key, drop the old key:
+   `docker compose run --rm -e WIREHUB_DROP_PREVIOUS_SETTINGS_KEYS=1 bootstrap`
+   then `docker compose up -d` (outside compose, remove
+   `WIREHUB_SETTINGS_KEY_PREVIOUS`). Keep a copy of the new `settings_key`
+   with your backup password.
+
+Backups made before the rotation hold secrets under the old key; keep that key
+as long as you might restore one.
+
 **Who sees the sign-in, notification and integration settings.** Those three
 documents (`data/settings/sign-in.json`, `notifications.json`,
 `integrations.json`) name identity providers, mail servers, webhooks and
@@ -276,6 +319,7 @@ cap or another container.
 | `AUTH_DATA_DIR` | a path in a volume |
 | `BETTER_AUTH_SECRET` | signs every session; generated into the `secrets` volume |
 | `WIREHUB_SETTINGS_KEY` | encrypts the secrets entered in Settings; it cannot live beside them |
+| `WIREHUB_SETTINGS_KEY_PREVIOUS` | the old key(s) while rotating it (comma separated) |
 | `WIREHUB_SETUP_CODE`, `WIREHUB_SETUP_PROMPT` | first-run setup, before there is an organisation (or a Settings page) |
 | `WIREHUB_SUGGESTED_MODULES` | read only at first-run setup, before there is a Settings page; `/setup` itself lets you choose |
 | `WIREHUB_LOCAL_USER` | who a hub with sign-in off names; sign-in off is itself an install choice |

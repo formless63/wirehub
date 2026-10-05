@@ -8,6 +8,7 @@
  *   PUT    /api/settings/secrets/<key>       set a secret: { "value": "…" } — write-only
  *   DELETE /api/settings/secrets/<key>       clear it
  *   POST   /api/settings/adopt               copy the server's values (the environment's) into Settings
+ *   POST   /api/settings/rotate-key          re-encrypt every stored secret under the current settings key (owner, signed in)
  *
  * Owner-only groups (sign-in, notifications, integrations) refuse everyone else, and API
  * tokens: they are changed in a signed-in session. Their values are not shown to editors or
@@ -40,6 +41,7 @@ import {
   type SettingValue,
   type SettingsDoc,
 } from './runtime-settings.ts';
+import { rotateSecrets, rotationStatus } from './settings-secrets.ts';
 import { ENGINEERING_PATH, readEngineering } from './settings.ts';
 import { UnitOfWork } from './storage/unit-of-work.ts';
 
@@ -49,6 +51,7 @@ export const RUNTIME_SETTINGS_ROUTES = [
   'PUT    /api/settings/secrets/:key',
   'DELETE /api/settings/secrets/:key',
   'POST   /api/settings/adopt',
+  'POST   /api/settings/rotate-key',
 ] as const;
 
 const MAX_TEXT = 500;
@@ -237,11 +240,19 @@ async function groupsView(deps: WorkbenchDeps, settings: RuntimeSettings, user: 
     groups,
     secrets: settings.cipher === undefined
       ? { available: false, note: 'This server has no settings key (WIREHUB_SETTINGS_KEY), so secrets cannot be saved here; set them on the server instead. The compose stack generates the key.' }
-      : { available: true },
+      : { available: true, ...(await keyRingView(settings, user)) },
     ...(isOwner(user) && user?.apiTokenId === undefined ? { adoptable: await adoptable(deps, settings) } : {}),
     problems: settings.problems(),
     src: SETTINGS_SRC,
   };
+}
+
+/** For an owner: how the key ring stands (previous keys still read with, secrets not yet under the current key). */
+async function keyRingView(settings: RuntimeSettings, user: StudioUser | undefined): Promise<{ keyRing?: { previousKeys: number; stale: number; unreadable: number } }> {
+  const store = settings.options.secrets();
+  const cipher = settings.cipher;
+  if (!isOwner(user) || user?.apiTokenId !== undefined || store === undefined || cipher === undefined) return {};
+  return { keyRing: { previousKeys: cipher.previousKeys, ...(await rotationStatus(store, cipher, settings.options.org())) } };
 }
 
 /** The settings the server's environment sets that Settings does not yet hold the same value for (labels, for the page). */
@@ -392,6 +403,32 @@ export async function handleSettingsSecret(
   }
   await settings.refresh();
   return committed;
+}
+
+/** `POST /api/settings/rotate-key` */
+export const isSettingsRotatePath = (path: string): boolean => (path.split('?')[0] ?? '').replace(/\/+$/, '') === '/api/settings/rotate-key';
+
+/**
+ * "Rotate key": re-encrypt every stored secret under the server's current settings key
+ * (`WIREHUB_SETTINGS_KEY`), reading the old ones with the previous keys the server was given
+ * (`WIREHUB_SETTINGS_KEY_PREVIOUS`, `docs/self-hosting.md` "Rotating the settings key"). Reads and
+ * saves carry on while it runs. Owner only, in a signed-in session. The answer names how many
+ * moved and which could not be read, never a value.
+ */
+export async function handleSettingsRotate(request: { method: string; path: string; user?: StudioUser }, deps: WorkbenchDeps): Promise<ApiResponse> {
+  if (request.method.toUpperCase() !== 'POST') return fail(405, `${request.method} is not something this address accepts.`, 'It answers POST.');
+  const settings = deps.runtimeSettings;
+  if (settings === undefined) return noSettings();
+  const user = request.user;
+  if (user?.role === 'viewer' || !isOwner(user)) return fail(403, 'Rotating the settings key is done by an owner.', 'Ask an owner of this hub.');
+  if (user?.apiTokenId !== undefined) return fail(403, 'Rotating the settings key is done in a signed-in session, not with an API token.');
+  const cipher = settings.cipher;
+  if (cipher === undefined) return fail(409, 'This server has no settings key (WIREHUB_SETTINGS_KEY), so there is nothing to rotate.', 'Give the server a settings key first.');
+  const store = settings.options.secrets();
+  if (store === undefined) return fail(503, 'This hub has no secret store yet.', 'Finish first-run setup first.');
+  const report = await rotateSecrets(store, cipher, settings.options.org());
+  await settings.refresh();
+  return { status: 200, body: { ...report, previousKeys: cipher.previousKeys } };
 }
 
 /** `POST /api/settings/adopt` */

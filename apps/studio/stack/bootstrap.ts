@@ -15,6 +15,8 @@
  *   better_auth_secret   the sign-in session secret (`BETTER_AUTH_SECRET_FILE`)
  *   settings_key         encrypts the secrets entered in Settings (`WIREHUB_SETTINGS_KEY_FILE`;
  *                        `specs/runtime-settings.md`): an SMTP password, a webhook URL …
+ *   settings_key_previous  retired settings keys, one per line, kept while stored secrets are re-encrypted
+ *                        (`rotateSettingsKey`; the app reads it as `WIREHUB_SETTINGS_KEY_PREVIOUS`)
  *   garage_rpc_secret    Garage's RPC secret
  *   garage_admin_token   Garage's admin API token (garage-init uses it)
  *   setup_code           the one-time first-run setup code (`WIREHUB_SETUP_CODE_FILE`)
@@ -31,12 +33,19 @@
  * `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `WIREHUB_SETUP_CODE`, or their
  * `_FILE` forms) win over generated ones.
  *
+ * Rotating the settings key (`docs/self-hosting.md`): `WIREHUB_ROTATE_SETTINGS_KEY=1` generates a
+ * new `settings_key` and retires the old one into `settings_key_previous`; a `WIREHUB_SETTINGS_KEY`
+ * set explicitly to a different value retires the old file's key the same way;
+ * `WIREHUB_DROP_PREVIOUS_SETTINGS_KEYS=1` deletes the retired keys once the secrets are re-encrypted.
+ *
  *   node --experimental-strip-types stack/bootstrap.ts
  */
 
+import { existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { base64url, ensureSecret, explicitValue, hex, prepareDir, secretsDir, setupCode, writeFile, type Env, type SecretSource } from './secrets.ts';
+import { base64url, ensureSecret, explicitValue, hex, prepareDir, readSecret, secretsDir, setupCode, writeFile, type Env, type SecretSource } from './secrets.ts';
 
 /** The bundled Garage's configuration; secrets are read from the volume, never written into it. */
 export function garageToml(options: { dir: string; region: string; rpcSecretFile: boolean; adminTokenFile: boolean }): string {
@@ -79,11 +88,49 @@ export function withCredentials(base: string, user: string, password: string): s
   return url.toString();
 }
 
+const truthy = (value: string | undefined): boolean => value !== undefined && /^(1|true|yes)$/i.test(value.trim());
+
+/** Retire `key` into `settings_key_previous` (newest first, no duplicates). */
+function retireSettingsKey(dir: string, key: string): void {
+  const kept = (readSecret(dir, 'settings_key_previous') ?? '').split(/\s+/).filter((k) => k !== '' && k !== key);
+  writeFile(dir, 'settings_key_previous', [key, ...kept].join('\n'));
+}
+
+/**
+ * The settings key's rotation step, before `settings_key` is ensured: a rotation asked for
+ * (`WIREHUB_ROTATE_SETTINGS_KEY`) writes a fresh key and retires the old; an explicit key that
+ * differs from the file's retires the file's. Returns what happened, for the log line.
+ */
+export function rotateSettingsKey(env: Env, dir: string): 'rotated' | 'retired' | 'dropped' | undefined {
+  const explicit = explicitValue(env, 'WIREHUB_SETTINGS_KEY');
+  const current = readSecret(dir, 'settings_key');
+  if (truthy(env['WIREHUB_DROP_PREVIOUS_SETTINGS_KEYS'])) {
+    const path = join(dir, 'settings_key_previous');
+    if (existsSync(path)) {
+      rmSync(path);
+      return 'dropped';
+    }
+    return undefined;
+  }
+  if (truthy(env['WIREHUB_ROTATE_SETTINGS_KEY'])) {
+    if (explicit !== undefined) throw new Error('WIREHUB_ROTATE_SETTINGS_KEY: the settings key is set explicitly (WIREHUB_SETTINGS_KEY); put the new key there and the old one in WIREHUB_SETTINGS_KEY_PREVIOUS instead.');
+    if (current === undefined) return undefined; // nothing yet: the normal path generates the first key
+    retireSettingsKey(dir, current);
+    writeFile(dir, 'settings_key', base64url(32));
+    return 'rotated';
+  }
+  if (explicit !== undefined && current !== undefined && current !== explicit) {
+    retireSettingsKey(dir, current);
+    return 'retired';
+  }
+  return undefined;
+}
+
 /** Fill the secrets volume; returns where each secret came from (the log line). */
-export function bootstrap(env: Env): Record<string, SecretSource | 'derived' | 'written'> {
+export function bootstrap(env: Env): Record<string, SecretSource | 'derived' | 'written' | 'rotated' | 'retired' | 'dropped'> {
   const dir = secretsDir(env);
   prepareDir(dir);
-  const report: Record<string, SecretSource | 'derived' | 'written'> = {};
+  const report: Record<string, SecretSource | 'derived' | 'written' | 'rotated' | 'retired' | 'dropped'> = {};
   const secret = (name: string, variable: string, generate: () => string): string => {
     const { value, source } = ensureSecret(dir, name, explicitValue(env, variable), generate);
     report[name] = source;
@@ -107,7 +154,10 @@ export function bootstrap(env: Env): Record<string, SecretSource | 'derived' | '
   url('database_ro_url', 'DATABASE_RO_URL', () => withCredentials(adminUrl, 'studio_ro', ro));
   secret('better_auth_secret', 'BETTER_AUTH_SECRET', () => base64url(32));
   // generated on the first start after an upgrade too: an existing hub gains it without a step
+  const rotation = rotateSettingsKey(env, dir);
   secret('settings_key', 'WIREHUB_SETTINGS_KEY', () => base64url(32));
+  if (rotation === 'rotated') report['settings_key'] = 'rotated';
+  if (rotation !== undefined) report['settings_key_previous'] = rotation;
   secret('garage_rpc_secret', 'GARAGE_RPC_SECRET', () => hex(32));
   secret('garage_admin_token', 'GARAGE_ADMIN_TOKEN', () => base64url(32));
   secret('setup_code', 'WIREHUB_SETUP_CODE', setupCode);

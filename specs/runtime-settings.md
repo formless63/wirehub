@@ -111,6 +111,18 @@ the SMTP password, and the git mirror's HTTPS token and SSH deploy key.
 - **Without a key** (a hub run from source with no `WIREHUB_SETTINGS_KEY`), secrets cannot be
   saved in Settings — the page says so — and the environment still sets them. A stored secret that
   no longer decrypts (the key changed) is ignored and named in the page's problems; enter it again.
+- **Rotation (cs-za5).** The cipher holds a key ring: `WIREHUB_SETTINGS_KEY` (current, the only key it
+  writes with) and previous keys (`WIREHUB_SETTINGS_KEY_PREVIOUS`, comma separated, plus the secrets
+  volume's `settings_key_previous`, one per line), tried in order when reading, so a hub started with
+  the new key still reads everything. `rotateSecrets` re-encrypts each stored secret the current key does
+  not open, by compare-and-swap on its old ciphertext (`SecretStore.swap`; a secret saved meanwhile is
+  kept), with no downtime and no migration; a secret no key opens is left and named. Triggers: the
+  owner-only, signed-in-session `POST /api/settings/rotate-key` (the Settings page's "Rotate key"; the
+  page shows `secrets.keyRing` to owners: previous keys held, secrets still under one) and
+  `server/settings-key-cli.ts rotate|status|generate`. The stack's `bootstrap` makes the new key
+  (`WIREHUB_ROTATE_SETTINGS_KEY=1`, the old one retired into `settings_key_previous`) and drops the
+  retired ones (`WIREHUB_DROP_PREVIOUS_SETTINGS_KEYS=1`). The operator's procedure is in
+  `docs/self-hosting.md`, "Rotating the settings key".
 - Backups: the ciphertext is in the database dump; the key is in the `secrets` volume. Keep a
   copy of `settings_key` with the restic password, or re-enter the secrets after a restore.
 
@@ -122,6 +134,7 @@ PUT    /api/settings/runtime/<group>    { values } — a key left out is unset (
 PUT    /api/settings/secrets/<key>      { value } — write-only
 DELETE /api/settings/secrets/<key>
 POST   /api/settings/adopt              copy the server's values into Settings (owner, signed in) → { adopted, skipped }
+POST   /api/settings/rotate-key         re-encrypt every stored secret under the current key (owner, signed in) → { total, rotated, current, skipped, unreadable, previousKeys }
 ```
 
 ## 6. Live apply
