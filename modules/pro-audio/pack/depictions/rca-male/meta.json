@@ -33,5 +33,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "RCA (phono) plug end-on: centre pin (tip) inside the outer sleeve; approximate generic outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "RCA (phono) plug end-on: centre pin (tip) inside the outer sleeve; approximate generic outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "RCA (phono) plug end-on: centre pin (tip) inside the outer sleeve; approximate generic outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }

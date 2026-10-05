@@ -24,10 +24,11 @@ import { createCatalog, type Catalog } from './catalog.ts';
 import { catalogWithPacksSource } from './packs.ts';
 import { fsCatalogSource, type CatalogSource } from './source.ts';
 
-export { ART_PIN_FORMS, ART_TONES, loadPackArt, parseBodyLayouts, parseConnectorArt } from './art.ts';
+export { ART_PIN_FORMS, ART_RECORD_VIEWS, ART_TONES, loadPackArt, parseBodyLayouts, parseConnectorArt } from './art.ts';
 export type {
   ArtLabelRecord,
   ArtPinFormName,
+  ArtRecordView,
   ArtPinRecord,
   ArtShapeRecord,
   ArtToneName,

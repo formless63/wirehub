@@ -26,8 +26,10 @@ import {
   findPcba,
   findWire,
   pcbaTerminalIds,
+  recordMetaIssues,
   type Db,
   type Issue,
+  type RecordMeta,
 } from '@wirehub/model';
 
 import {
@@ -533,7 +535,15 @@ export function parseDepictionMeta(value: unknown, where: string): ParsedDepicti
   const color = parseColor(value['color'], where, issues);
   const entryGuides = parseEntryGuides(value['entryGuides'], where, issues);
 
+  // licence, provenance and derivedFrom, when given, are held to the same rules as any catalog record
+  issues.push(...recordMetaIssues(value, where));
+  const recordMeta: RecordMeta = {
+    ...(value['license'] === undefined ? {} : { license: value['license'] as string }),
+    ...(value['provenance'] === undefined ? {} : { provenance: value['provenance'] as RecordMeta['provenance'] }),
+    ...(value['derivedFrom'] === undefined ? {} : { derivedFrom: value['derivedFrom'] as RecordMeta['derivedFrom'] }),
+  };
   const meta: DepictionMeta = {
+    ...recordMeta,
     defId: value['defId'] as string,
     views,
     pinAnchors,

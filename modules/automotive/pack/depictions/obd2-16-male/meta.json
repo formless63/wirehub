@@ -89,5 +89,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }

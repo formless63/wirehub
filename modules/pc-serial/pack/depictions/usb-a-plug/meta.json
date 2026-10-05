@@ -45,5 +45,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "USB Standard-A plug mating face, 12.0 x 4.5 mm shell; contacts numbered 4 3 2 1 left to right with centres 3.5 and 1.0 mm either side of the centre line, as in USB 2.0 Specification Figure 6-9 (USB Series \"A\" Plug Interface Drawing, USB-IF); contact widths and the outline are approximate. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "USB Standard-A plug mating face, 12.0 x 4.5 mm shell; contacts numbered 4 3 2 1 left to right with centres 3.5 and 1.0 mm either side of the centre line, as in USB 2.0 Specification Figure 6-9 (USB Series \"A\" Plug Interface Drawing, USB-IF); contact widths and the outline are approximate. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "USB Standard-A plug mating face, 12.0 x 4.5 mm shell; contacts numbered 4 3 2 1 left to right with centres 3.5 and 1.0 mm either side of the centre line, as in USB 2.0 Specification Figure 6-9 (USB Series \"A\" Plug Interface Drawing, USB-IF); contact widths and the outline are approximate. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }

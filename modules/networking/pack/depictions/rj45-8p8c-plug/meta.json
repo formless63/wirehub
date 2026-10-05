@@ -61,5 +61,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }
