@@ -135,6 +135,7 @@ export const acme = defineModule({
 | **UI panels** | `PanelContribution { id, label, slot: 'cable-inspector' \| 'cable-documents' \| 'library-detail' \| 'settings', component }` | browser | registry only |
 | **UI routes** | `UiRouteContribution { path, label, icon?, component }` under `/m/<module>/` | browser | registry only |
 | **Auth providers** | `AuthProviderContribution { id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }` | server | registry only; the base's own OIDC is configured by environment |
+| **Documents** | `DocumentContribution { path: 'data/<prefix>/' \| 'data/<file>', class: 'imported' \| 'report' }` — catalog documents the module owns | server | **yes** — `PUT /api/docs/*path` writes only these (scope `imports` for an API token) |
 | **Commit hook** | `(before, proposed, description) → CableDesign` — rewrite an edit as it is committed (e.g. record it as an override in module data) | browser (editor) | `setCommitHook` exists in the editor store; wiring from the registry not yet |
 
 UI contributions carry their component as an opaque value (`unknown` in the registry

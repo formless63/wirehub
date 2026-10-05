@@ -25,6 +25,7 @@ import { formatGateReport, runGate } from '../../server/pg/gate.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import type { DepictionStore } from '../../server/depictions.ts';
+import { batchScenario } from '../storage-contract/batch.ts';
 import { memoryWriteBackend, writeScenario } from '../storage-contract/writes.ts';
 import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
 
@@ -49,12 +50,16 @@ describePg('the write path on Postgres', () => {
   }, 60_000);
 
   it('answers the write session exactly as the commit tree (and so the file backend) does', async () => {
-    const memory = await writeScenario(memoryWriteBackend());
+    const memoryBackend = memoryWriteBackend();
+    const memory = await writeScenario(memoryBackend);
+    const memoryBatch = await batchScenario(memoryBackend.deps);
     const cache = new SnapshotCache(pgh.db, orgId);
     const deps = pgWorkbenchDeps({ cache, db: pgh.db, blobs });
     const pg = await writeScenario({ deps, depictionDeps: { store: deps.depictions as DepictionStore, loadDb: deps.loadDb, loadDesigns: async () => (await cache.get()).catalog.loadDesigns() } });
-    const drop = (log: string[]) => log.filter((line) => !line.startsWith('export:'));
+    const pgBatch = await batchScenario(deps);
+    const drop = (log: string[]) => log.filter((line) => !line.startsWith('export:') && !line.startsWith('read export:'));
     expect(drop(pg.log)).toEqual(drop(memory.log));
+    expect(drop(pgBatch)).toEqual(drop(memoryBatch));
     expect(pg.exported.files).toEqual(memory.exported.files);
     expect(pg.exported.blobs).toEqual(memory.exported.blobs);
   }, 120_000);
@@ -75,8 +80,12 @@ describePg('the write path on Postgres', () => {
       for (const s of sets.slice(1, -1)) {
         expect(s.actor_label).toBe('WireHub (local)');
         expect(Number(s.n)).toBeGreaterThan(0);
-        expect(s.message).toMatch(/^studio: /);
+        expect(s.message).toMatch(/^studio: |^Relabel two cables and add a family$|^Batch of \d+ requests$/);
       }
+      // the batch of three writes is one change set
+      const batch = sets.filter((s) => s.message === 'Relabel two cables and add a family');
+      expect(batch.length).toBe(1);
+      expect(Number(batch[0]?.n)).toBeGreaterThanOrEqual(3);
       const head = (await sql<{ version: string }>`SELECT version::text AS version FROM studio.catalog_head`.execute(tx)).rows[0]?.version;
       expect(Number(head)).toBe(sets.length);
       const person = (await sql<{ email: string }>`SELECT email FROM studio.person`.execute(tx)).rows.map((r) => r.email);

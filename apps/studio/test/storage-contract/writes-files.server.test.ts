@@ -26,11 +26,17 @@ describe('storage contract (writes): files vs the commit tree', () => {
     const { defaultWorkbenchDeps } = await import('../../server/default-deps.ts');
     const { defaultDepictionDeps } = await import('../../server/depictions.ts');
     const { memoryWriteBackend, writeScenario } = await import('./writes.ts');
+    const { batchScenario } = await import('./batch.ts');
     // the reference first: it reads the untouched copy, which the file run then edits
-    const memory = await writeScenario(memoryWriteBackend());
-    const files = await writeScenario({ deps: defaultWorkbenchDeps(), depictionDeps: defaultDepictionDeps() });
-    const drop = (log: string[]) => log.filter((line) => !line.startsWith('export:'));
+    const memoryBackend = memoryWriteBackend();
+    const memory = await writeScenario(memoryBackend);
+    const memoryBatch = await batchScenario(memoryBackend.deps);
+    const filesDeps = defaultWorkbenchDeps();
+    const files = await writeScenario({ deps: filesDeps, depictionDeps: defaultDepictionDeps() });
+    const filesBatch = await batchScenario(filesDeps);
+    const drop = (log: string[]) => log.filter((line) => !line.startsWith('export:') && !line.startsWith('read export:'));
     expect(drop(files.log)).toEqual(drop(memory.log));
+    expect(drop(filesBatch)).toEqual(drop(memoryBatch));
     expect(files.exported.files).toEqual(memory.exported.files);
     expect(files.exported.blobs).toEqual(memory.exported.blobs);
   }, 60_000);

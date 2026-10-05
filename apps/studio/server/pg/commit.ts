@@ -114,7 +114,7 @@ export function pgCommit(options: PgCommitOptions): (set: ChangeSet, derive: Rea
               INSERT INTO studio.change_set (org_id, catalog_version, actor_id, actor_label, source, api_token_id, method, path, message)
               VALUES (${orgId}::uuid, ${version}::bigint, ${actor.id}::uuid, ${actor.label}, ${set.context.source ?? options.source ?? 'studio'},
                       ${set.context.apiTokenId ?? null}::uuid, ${set.context.method}, ${set.context.path},
-                      ${commitMessage({ method: set.context.method, path: set.context.path, ...(set.context.body === undefined ? {} : { body: set.context.body }) })})
+                      ${messageOf(set)})
               RETURNING id::text AS id`.execute(tx)
           ).rows[0]!.id;
           await sql`SELECT set_config('studio.change_set_id', ${changeSet}, true)`.execute(tx);
@@ -138,6 +138,13 @@ export function pgCommit(options: PgCommitOptions): (set: ChangeSet, derive: Rea
     if (committed !== undefined) cache.prime(snapshotOf(committed.version, committed.rows));
     return result;
   };
+}
+
+/** `change_set.message`: a batch's own message, else the git export's commit message (unchanged, plan §7.6). */
+function messageOf(set: ChangeSet): string {
+  const body = set.context.body as { message?: unknown } | undefined;
+  if (set.context.path === '/api/batch' && typeof body?.message === 'string') return body.message;
+  return commitMessage({ method: set.context.method, path: set.context.path, ...(set.context.body === undefined ? {} : { body: set.context.body }) });
 }
 
 /** A database refusal, in the words a person reads (§4.2, "409s"); undefined when it is not one. */

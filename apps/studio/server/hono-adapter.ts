@@ -20,7 +20,7 @@ import type { StudioEvent } from './events.ts';
 import { signedInUser } from './auth/gate.ts';
 import { saveCommitFor, type StudioBackup } from './backup/backup.ts';
 import type { StudioUser } from './me.ts';
-import { editLockLayer } from './locks/lock-api.ts';
+import { editLockGate, editLockLayer } from './locks/lock-api.ts';
 import { LOCK_HEADER } from '../src/locks/records.ts';
 import { collectWritesAsync } from './write-journal.ts';
 import { defaultWorkbenchDeps } from './default-deps.ts';
@@ -140,7 +140,7 @@ async function handleDepiction(
           ...(contentType === undefined ? {} : { contentType }),
           ...(raw === undefined ? {} : { raw }),
         },
-        workbench === undefined ? deps : transactingDepictionDeps(deps, workbench, signedInUser(request)),
+        workbench === undefined ? deps : transactingDepictionDeps(deps, workbench, signedInUser(request), new URL(request.url).searchParams.get('dryRun') === '1'),
       ),
     );
     if ('bytes' in response) {
@@ -212,6 +212,17 @@ async function handleJson(
       },
     );
     if (locked !== undefined) return jsonResponse(locked.status, locked.body, locked.headers);
+    // a batch: every request's records are checked against the leases before the first handler runs (§4.5)
+    if (path.split('?')[0] === '/api/batch' && Array.isArray((body as { requests?: unknown } | undefined)?.requests)) {
+      for (const item of (body as { requests: { method?: unknown; path?: unknown; body?: unknown }[] }).requests) {
+        if (typeof item?.method !== 'string' || typeof item.path !== 'string') continue;
+        const held = await editLockGate(
+          { method: item.method, path: item.path, ...(item.body === undefined ? {} : { body: item.body }), lockHeader: request.headers.get(LOCK_HEADER) ?? undefined, user },
+          { ...(deps.locks === undefined ? {} : { locks: deps.locks }), ...(deps.lockClock === undefined ? {} : { clock: deps.lockClock }) },
+        );
+        if (held !== undefined) return jsonResponse(held.status, held.body, held.headers);
+      }
+    }
     const response = await perform(backup, { method, path, body, user }, () =>
       handleWorkbenchRequest(
         {

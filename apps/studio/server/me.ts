@@ -20,6 +20,8 @@ export interface StudioUser {
   source: 'session' | 'local';
   /** the personal API token this request came with (its id, for the change set's audit only) */
   apiTokenId?: string;
+  /** that token's scopes (a batch checks `imports` for doc writes) */
+  apiTokenScopes?: readonly string[];
 }
 
 export const ME_ROUTES = ['GET    /api/me'] as const;

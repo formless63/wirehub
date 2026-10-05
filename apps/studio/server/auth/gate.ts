@@ -136,7 +136,7 @@ async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefi
   const budget = limiter.take(`token:${holder.token.id}`, scope === 'read' ? READ_LIMITS : WRITE_LIMITS);
   if (budget > 0) return retryLater(budget);
   await tokens.touch(holder.token.id);
-  signedIn.set(c.req.raw, { ...sessionStudioUser({ name: holder.person.name, email: holder.person.email }), apiTokenId: holder.token.id });
+  signedIn.set(c.req.raw, { ...sessionStudioUser({ name: holder.person.name, email: holder.person.email }), apiTokenId: holder.token.id, apiTokenScopes: holder.token.scopes });
   return undefined;
 }
 

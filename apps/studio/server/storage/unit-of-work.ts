@@ -584,6 +584,49 @@ export class UnitOfWork {
  * Applying a change set through a backend's stores
  * ------------------------------------------------------------------ */
 
+/**
+ * The current value of one record, as the backend has it (a dry run's
+ * "before"); binary records answer `{ sha256 }`. `unknown` when this host
+ * keeps no such records.
+ */
+export async function currentValue(base: WorkbenchDeps, change: RecordChange): Promise<unknown> {
+  const { kind, key } = change;
+  const slash = key.lastIndexOf('/');
+  const [head, tail] = [key.slice(0, slash), Number(key.slice(slash + 1))];
+  switch (kind) {
+    case 'design':
+      return base.designs.read(key);
+    case 'definitions':
+      return base.definitions?.list(key as DefinitionKind);
+    case 'drawing':
+      return base.drawings === undefined ? undefined : (await base.drawings.read(key)).meta;
+    case 'vocab':
+      return base.vocab?.read(key);
+    case 'tag-review':
+      return base.tags?.review();
+    case 'wire-library':
+      return base.wireLibrary === undefined ? undefined : (await base.wireLibrary.read())[key as 'parts' | 'recipes'];
+    case 'wire':
+      return base.wireLibrary === undefined ? undefined : (await base.wireLibrary.wires()).find((w) => w.id === key);
+    case 'builds':
+      return base.builds?.read(key);
+    case 'design-version':
+      return base.versions?.read(head, tail);
+    case 'version-working':
+      return base.versions?.working(key);
+    case 'version-draft':
+      return base.versions?.readDraft(head, tail);
+    case 'model-link':
+      return base.modelLinks?.get(key);
+    case 'depiction-meta':
+      return base.depictions?.readMeta(key);
+    case 'doc':
+      return base.docs?.read(key);
+    default:
+      return undefined;
+  }
+}
+
 /** The current version of one record, as the backend has it — for the preconditions. */
 async function currentVersion(base: WorkbenchDeps, change: RecordChange): Promise<string | null | 'unknown'> {
   const { kind, key } = change;

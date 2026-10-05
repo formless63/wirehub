@@ -54,7 +54,8 @@ import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
 import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
-import type { DocStore } from './storage/doc-store.ts';
+import { isDocPath, type DocStore } from './storage/doc-store.ts';
+import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { EventHub } from './events.ts';
 
 /* ------------------------------------------------------------------ *
@@ -787,6 +788,10 @@ const ROUTES = [
   'GET    /api/db',
   'GET    /api/export',
   'GET    /api/blobs/:sha',
+  'POST   /api/batch',
+  'GET    /api/docs/*path',
+  'PUT    /api/docs/*path',
+  'DELETE /api/docs/*path',
   'GET    /api/part-numbers',
   'GET    /api/drawings',
   'GET    /api/drawings/:id',
@@ -895,16 +900,25 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
         transact: (write) =>
           withWriteLock(async () => {
             const uow = new UnitOfWork(deps);
-            const response = await commitUnit(uow, request, await write(modelDepsOf(uow.deps, request.user)));
+            const answered = await write(modelDepsOf(uow.deps, request.user));
+            if (isDryRun(request.path)) return dryRunAnswer(uow, answered);
+            const response = await commitUnit(uow, request, answered);
             if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
             return response;
           }),
       },
     );
   }
+  if ((request.path.split('?')[0] ?? '') === '/api/batch') {
+    if (request.method.toUpperCase() !== 'POST') return methodNotAllowed(request.method.toUpperCase(), ['POST']);
+    return withWriteLock(() => runBatch(request, deps));
+  }
   const run = async (): Promise<ApiResponse> => {
     const uow = new UnitOfWork(deps);
-    const response = await commitUnit(uow, request, await routeWorkbenchRequest(request, uow.deps));
+    const answered = await routeWorkbenchRequest(request, uow.deps);
+    // a dry run: everything up to the commit, then nothing (§4.5)
+    if (isDryRun(request.path) && isWriteMethod(request.method)) return dryRunAnswer(uow, answered);
+    const response = await commitUnit(uow, request, answered);
     if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
     return response;
   };
@@ -916,7 +930,7 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
  * store is staged with everything else, and the change set commits through
  * the backend (`commitUnit`). The host calls this with its workbench deps.
  */
-export function transactingDepictionDeps(deps: DepictionDeps, workbench: WorkbenchDeps, user?: StudioUser): DepictionDeps {
+export function transactingDepictionDeps(deps: DepictionDeps, workbench: WorkbenchDeps, user?: StudioUser, dryRun = false): DepictionDeps {
   return {
     ...deps,
     transact: async (run) => {
@@ -928,6 +942,10 @@ export function transactingDepictionDeps(deps: DepictionDeps, workbench: Workben
       const uow = new UnitOfWork({ ...rest, depictions: deps.store, ...(sameTree && docs !== undefined ? { docs } : {}) });
       const staged = uow.deps.depictions as DepictionStore;
       const response = await run({ ...deps, store: staged, loadDb: uow.deps.loadDb });
+      if (dryRun) {
+        const answer = await dryRunAnswer(uow, 'body' in response ? { status: response.status, body: response.body } : { status: response.status, body: null });
+        return { status: answer.status, body: answer.body };
+      }
       const committed = await commitUnit(uow, { method: 'POST', path: '/api/depictions', ...(user === undefined ? {} : { user }) }, 'body' in response ? { status: response.status, body: response.body } : { status: response.status, body: null });
       if (committed.status < 400 && uow.changes.length > 0) await publishCatalog(workbench);
       return committed.status === response.status ? response : { status: committed.status, body: committed.body };
@@ -935,10 +953,65 @@ export function transactingDepictionDeps(deps: DepictionDeps, workbench: Workben
   };
 }
 
+/** `POST /api/batch`: every request in one unit of work; one change set, or nothing (§4.5). The caller holds the write lock. */
+async function runBatch(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiResponse> {
+  const batch = readBatch(request.body);
+  if (!batch.ok) return fail(400, batch.error, 'Nothing was written.');
+  const scopes = request.user?.apiTokenScopes;
+  if (scopes !== undefined && !scopes.includes('imports') && batch.requests.some((r) => r.path.startsWith('/api/docs/'))) {
+    return fail(403, 'The token lacks scope imports.', 'Nothing was written.');
+  }
+  const uow = new UnitOfWork(deps);
+  const results: { status: number; body: unknown; etag?: string }[] = [];
+  for (const [i, item] of batch.requests.entries()) {
+    const answer = await routeWorkbenchRequest(batchItemRequest(item, request), uow.deps);
+    const etag = answer.headers?.ETag;
+    results.push({ status: answer.status, body: answer.body, ...(etag === undefined ? {} : { etag }) });
+    if (answer.status >= 400) {
+      return { status: answer.status, body: { committed: false, failed: i, error: `Request ${i} was refused, so nothing was written.`, results } };
+    }
+  }
+  if (batch.dryRun || isDryRun(request.path)) return dryRunAnswer(uow, { status: 200, body: { results } }, { results });
+  const committed = await commitUnit(uow, { method: 'POST', path: '/api/batch', body: { message: batch.message ?? `Batch of ${batch.requests.length} requests` }, ...(request.user === undefined ? {} : { user: request.user }) }, { status: 200, body: { committed: true, results } });
+  if (committed.status >= 400) return { status: committed.status, body: { ...(committed.body as object), committed: false, results } };
+  if (uow.changes.length > 0) await publishCatalog(deps);
+  return committed;
+}
+
 /** Tell the event stream the catalog moved (a backend that hears its own NOTIFY drops this). */
 export async function publishCatalog(deps: WorkbenchDeps): Promise<void> {
   if (deps.events === undefined) return;
   deps.events.publish({ type: 'catalog', version: String((await deps.catalogVersion?.()) ?? '') });
+}
+
+/**
+ * `/api/docs/*path` (§4.5): a module's imported documents and reports, read
+ * and written by path. Only paths a module declares (`documents`) may be
+ * written; truth files keep their own routes and derived files are never
+ * written. A write quotes the version it read (If-Match).
+ */
+async function docRequest(method: string, path: string, body: unknown, deps: WorkbenchDeps, ifMatch: string | undefined): Promise<ApiResponse> {
+  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.');
+  if (!isDocPath(path)) return fail(400, `${JSON.stringify(path)} is not a catalog document path.`, 'A document lives under data/ and ends in .json, .md or .txt.');
+  if (method === 'GET') {
+    const value = await deps.docs.read(path);
+    return value === undefined ? fail(404, `There is no document ${path}.`) : ok(value, 200, { ETag: contentETag(value) });
+  }
+  if (method !== 'PUT' && method !== 'DELETE') return methodNotAllowed(method, ['GET', 'PUT', 'DELETE']);
+  const owner = deps.modules?.documentFor(path);
+  if (owner === undefined) return fail(403, `${path} is not a document any module imports or reports.`, 'Truth files have their own routes; derived files are never written by hand.');
+  const current = await deps.docs.read(path);
+  const guard = checkIfMatch(ifMatch, contentETag(current ?? null), 'document', path);
+  if (guard !== undefined) return guard;
+  if (method === 'DELETE') {
+    if (current === undefined) return fail(404, `There is no document ${path}.`);
+    await deps.docs.remove(path);
+    return ok({ removed: path }, 200, { ETag: contentETag(null) });
+  }
+  if (!path.endsWith('.json') && typeof body !== 'string') return fail(400, `${path} is a text document; send its text as a JSON string.`);
+  if (body === undefined) return fail(400, 'Send the document as the body.');
+  await deps.docs.write(path, body);
+  return ok({ path, module: owner.module }, 200, { ETag: contentETag(body) });
 }
 
 /**
@@ -1016,6 +1089,8 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
       },
     };
   }
+
+  if (head === 'docs' && id !== undefined) return await docRequest(method, parts.slice(2).join('/'), request.body, deps, request.headers?.['if-match']);
 
   if (head === 'export' && id === undefined) {
     if (method !== 'GET') return methodNotAllowed(method, ['GET']);

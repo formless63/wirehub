@@ -152,6 +152,17 @@ export interface SetupContribution {
 /** The commit hook a module may install in the editor (`setCommitHook`). */
 export type CommitHookContribution = (before: CableDesign, proposed: CableDesign, description: string) => CableDesign;
 
+/**
+ * Catalog documents a module owns (`data/<prefix>…`): what an importer or a
+ * script writes through `PUT /api/docs/*path` (`imported`, `report`). Truth
+ * files keep their own routes; derived files are never written by hand.
+ */
+export interface DocumentContribution {
+  /** a path prefix under `data/`, ending in `/` (`data/acme/`), or one exact file (`data/acme/register.json`) */
+  path: string;
+  class: 'imported' | 'report';
+}
+
 /* ------------------------------------------------------------------ *
  * The module
  * ------------------------------------------------------------------ */
@@ -178,6 +189,7 @@ export interface WireHubModule {
   authProviders?: readonly AuthProviderContribution[];
   /** at most one module in a deployment may set this */
   commitHook?: CommitHookContribution;
+  documents?: readonly DocumentContribution[];
 }
 
 /** Identity helper so a module file type-checks its own literal. */
@@ -199,6 +211,8 @@ export interface ModuleRegistry {
   /** the optional (domain) modules first-run setup offers, in manifest order */
   domains(): readonly WireHubModule[];
   importers(): readonly (ImporterContribution & { module: string })[];
+  /** the module document a catalog path belongs to, if any (`PUT /api/docs/*path`) */
+  documentFor(path: string): (DocumentContribution & { module: string }) | undefined;
   /** the importers that take `fileName`, by extension */
   importersFor(fileName: string): readonly (ImporterContribution & { module: string })[];
   exporters(): readonly (ExporterContribution & { module: string })[];
@@ -269,6 +283,8 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     catalogPacks: () => list.flatMap((m) => tag(m, m.catalogPacks)),
     domains: () => list.filter((m) => m.setup?.kind === 'domain'),
     importers: () => list.flatMap((m) => tag(m, m.importers)),
+    documentFor: (path) =>
+      list.flatMap((m) => tag(m, m.documents)).find((d) => (d.path.endsWith('/') ? path.startsWith(d.path) : path === d.path) && !path.includes('..')),
     importersFor: (fileName) => {
       const lower = fileName.toLowerCase();
       return list.flatMap((m) => tag(m, m.importers)).filter((i) => i.accepts.some((ext) => lower.endsWith(ext)));

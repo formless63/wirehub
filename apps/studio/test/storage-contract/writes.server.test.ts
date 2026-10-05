@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { batchScenario } from './batch.ts';
 import { memoryWriteBackend, writeScenario } from './writes.ts';
 
 describe('storage contract (writes): memory commit tree', () => {
@@ -16,5 +17,10 @@ describe('storage contract (writes): memory commit tree', () => {
     expect(Object.keys(exported.files)).toContain('data/designs/dc-led-lead-renamed.json');
     expect(Object.keys(exported.files)).not.toContain('data/designs/de9-crossover-copy.json');
     expect(exported.files['data/designs/_versions/de9-crossover/drafts/1.json']).toBeDefined();
+  });
+
+  it('runs the batch and dry-run session', async () => {
+    const log = await batchScenario(memoryWriteBackend().deps);
+    expect(log.length).toBeGreaterThan(10);
   });
 });
