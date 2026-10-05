@@ -63,7 +63,7 @@ import { isDocPath, type CatalogFileStore, type DocStore } from './storage/doc-s
 import { moduleJobsFor } from './jobs/module-queues.ts';
 import { deriveContinuityExport, type TestParameters } from '@wirehub/docs';
 import { handleDocumentRequest, DOCUMENT_ROUTES } from './documents.ts';
-import { parseModuleIoPath, proposalOf, runExporter, runImporter, type ModuleIoPath } from './module-io.ts';
+import { ImportExtrasRefused, parseModuleIoPath, proposalOf, runExporter, runImporter, stageImportExtras, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { JobService } from './jobs/types.ts';
 import { handleJobRequest, isJobPath, JOB_ROUTES, startImportJob } from './jobs/api.ts';
@@ -959,13 +959,36 @@ async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: Workb
   const ran = await runImporter(deps.modules, io, request.body, db);
   if (!ran.ok) return ran.response;
   const ids = new Set((await deps.designs.list()).map((d) => d.id));
-  const { proposal, requests } = proposalOf(ran.result, db, ids);
+  const { proposal, requests, extras } = proposalOf(ran.result, db, ids);
   if (!ran.accept) return ok({ accepted: false, proposal });
-  if (requests.length === 0) return fail(409, 'There is nothing new to add.', 'Every record in the proposal is already in the library.');
+  const hasExtras = extras.boardParts.length > 0 || extras.depictions.length > 0;
+  if (requests.length === 0 && !hasExtras) return fail(409, 'There is nothing new to add.', 'Every record in the proposal is already in the library.');
   const message = `Import ${(request.body as { fileName?: string }).fileName ?? 'a file'} with ${io.module}/${io.id}`;
-  const done = await withWriteLock(() => runBatch({ ...request, body: { message, requests } }, deps));
-  if (done.status >= 400) return done;
-  return { ...done, body: { accepted: true, proposal } };
+  if (!hasExtras) {
+    const done = await withWriteLock(() => runBatch({ ...request, body: { message, requests } }, deps));
+    if (done.status >= 400) return done;
+    return { ...done, body: { accepted: true, proposal } };
+  }
+  // placed parts and artwork stage beside the records, in the same change set
+  return withWriteLock(async () => {
+    const uow = new UnitOfWork(deps);
+    for (const [i, item] of requests.entries()) {
+      const answer = await routeWorkbenchRequest(batchItemRequest(item, request), uow.deps);
+      if (answer.status >= 400) return { status: answer.status, body: { committed: false, failed: i, error: `Request ${i} was refused, so nothing was written.`, result: answer.body } };
+    }
+    try {
+      const { keptDepictions } = await stageImportExtras(uow.deps, extras);
+      for (const id of keptDepictions) proposal.existing.push(`depictions/${id}`);
+      if (proposal.depictions !== undefined) proposal.depictions = proposal.depictions.filter((id) => !keptDepictions.includes(id));
+    } catch (error) {
+      if (error instanceof ImportExtrasRefused) return fail(422, error.message, 'Nothing was written.');
+      throw error;
+    }
+    if (uow.changes.length === 0) return fail(409, 'There is nothing new to add.', 'Every record in the proposal is already in the library.');
+    const committed = await commitUnit(uow, { method: 'POST', path: request.path, body: { message }, ...(request.user === undefined ? {} : { user: request.user }) }, { status: 200, body: { accepted: true, proposal } });
+    if (committed.status < 400) await publishCatalog(deps);
+    return committed;
+  });
 }
 
 /**

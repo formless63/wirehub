@@ -4,7 +4,8 @@
  *   GET    /api/models                     every link + every stored model (the "pick imported" list)
  *   GET    /api/models/:kind/:id           this record's link (or null), with its ETag
  *   PUT    /api/models/:kind/:id           { asset, sourceKind?, src? } — link a stored model
- *   POST   /api/models/:kind/:id/upload    { name, data (base64), sourceKind? } — convert, store, link
+ *   POST   /api/models/:kind/:id/upload    { name, data (base64), sourceKind? } — convert, store, link;
+ *                                           a board's `.kicad_pcb` is kept as its model source and built by the model-cache job
  *   DELETE /api/models/:kind/:id           unlink (the stored model stays; others may use it)
  *
  * Writes are Library edits like any other: the edit-lock gate maps every one
@@ -26,9 +27,14 @@ import { DEFINITION_KINDS, isDefinitionKind, type DefinitionKind } from '../defi
 import { checkIfMatch, contentETag } from '../etag.ts';
 import type { Awaitable } from '../storage/change-set.ts';
 import { withWriteLock } from '../storage/write-lock.ts';
-import type { ModelCache } from './cache.ts';
+import { boardLibraryRefs } from './assembly.ts';
+import { sha256Hex, sourceKey, type ModelBuild, type ModelCache, type SourceFile } from './cache.ts';
+import { MAX_MODEL_TRIANGLES } from './finish.ts';
+import { parseKicadPcb } from './kicad-pcb.ts';
+import { KICAD_LIBRARY } from './kicad-library.ts';
+import type { DocStore } from '../storage/doc-store.ts';
 import { convertModel, ModelRefusal, type ConvertedModel } from './convert.ts';
-import { isModelSourceKind, type ModelLink, type ModelLinkStore, type ModelSourceKind } from './links.ts';
+import { isModelSourceKind, MODEL_SOURCES_DIR, type ModelLink, type ModelLinkStore, type ModelSourceKind } from './links.ts';
 
 export const MODEL_ROUTES = [
   'GET    /api/models',
@@ -46,6 +52,8 @@ export interface ModelDeps {
   assets?: AssetStore;
   /** the generated cache of imported models (gitignored; `cache.ts`) */
   cache?: ModelCache;
+  /** catalog documents: where an uploaded board file is kept as a model source (`MODEL_SOURCES_DIR`) */
+  docs?: DocStore;
   loadDb: () => Awaitable<Db>;
   /** injectable for tests; the real one forks the STEP child */
   convert?: (bytes: Uint8Array, name: string) => Promise<ConvertedModel>;
@@ -81,6 +89,7 @@ export function modelDepsOf(deps: WorkbenchDeps, user?: StudioUser): ModelDeps {
     ...(deps.modelLinks === undefined ? {} : { links: deps.modelLinks }),
     ...(deps.assets === undefined ? {} : { assets: deps.assets }),
     ...(deps.modelCache === undefined ? {} : { cache: deps.modelCache }),
+    ...(deps.docs === undefined ? {} : { docs: deps.docs }),
     loadDb: deps.loadDb,
     ...(deps.convertModel === undefined ? {} : { convert: deps.convertModel }),
     ...(who === undefined ? {} : { who }),
@@ -111,7 +120,7 @@ export function linkETag(link: ModelLink | undefined): string {
 /** The words for an imported model whose cache entry is not built on this box. */
 export const NOT_BUILT = {
   error: 'This 3D model has not been built on this studio yet.',
-  hint: 'It is built from source files this studio does not have mounted: run the model importer that made it on this box, then reload.',
+  hint: 'The model-cache job builds it from its source files (an uploaded board file, or a mounted model-sources folder); reload once it has run.',
   state: 'not-built',
 } as const;
 
@@ -172,9 +181,10 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
   const db = await deps.loadDb();
   if (!recordExists(db, kind, id)) return fail(404, `There is no ${kind} record '${id}'.`, 'Reload the Library; it may have been renamed or deleted.');
 
-  const guarded = async (write: (current: ModelLink | undefined, stores: { links: ModelLinkStore; assets: AssetStore }) => Promise<ApiResponse>): Promise<ApiResponse> => {
+  const guarded = async (write: (current: ModelLink | undefined, stores: { links: ModelLinkStore; assets: AssetStore; docs?: DocStore }) => Promise<ApiResponse>): Promise<ApiResponse> => {
     const run = async (d: ModelDeps): Promise<ApiResponse> => {
-      const stores = { links: d.links ?? links, assets: d.assets ?? assets };
+      const docs = d.docs ?? deps.docs;
+      const stores = { links: d.links ?? links, assets: d.assets ?? assets, ...(docs === undefined ? {} : { docs }) };
       const current = await stores.links.get(record);
       const refused = checkIfMatch(request.ifMatch, linkETag(current), '3D model link', record);
       if (refused !== undefined) return refused;
@@ -242,6 +252,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
     const kindOf = sourceKind('uploaded');
     if (typeof kindOf !== 'string') return kindOf;
     const bytes = new Uint8Array(Buffer.from(data, 'base64'));
+    if (name.trim().toLowerCase().endsWith('.kicad_pcb')) return uploadBoardFile(request, deps, { kind, id, record, name: name.trim(), bytes, today, guarded });
     // the If-Match check first — a stale page must not cost a 20 s conversion
     const current = await links.get(record);
     const early = checkIfMatch(request.ifMatch, linkETag(current), '3D model link', record);
@@ -270,4 +281,68 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
   }
 
   return fail(405, `${method} is not something this address accepts.`, MODEL_ROUTES.join('; '));
+}
+
+/**
+ * A `.kicad_pcb` uploaded as a board's model source (cs-5k1.12): not
+ * converted in the request. The file is kept as a catalog document
+ * (`MODEL_SOURCES_DIR`, named by its sha256) and the board is linked to the
+ * model it makes — an assembly of its Edge.Cuts outline and the KiCad library
+ * models its footprints name, fetched at the pinned kicad-packages3D commit —
+ * which the `model-cache` job builds once the link is committed. Until then
+ * the viewer says the model is not built yet.
+ */
+async function uploadBoardFile(
+  request: ModelRequest,
+  deps: ModelDeps,
+  upload: {
+    kind: DefinitionKind;
+    id: string;
+    record: string;
+    name: string;
+    bytes: Uint8Array;
+    today: string;
+    guarded: (write: (current: ModelLink | undefined, stores: { links: ModelLinkStore; assets: AssetStore; docs?: DocStore }) => Promise<ApiResponse>) => Promise<ApiResponse>;
+  },
+): Promise<ApiResponse> {
+  if (upload.kind !== 'pcbas') return fail(400, 'A KiCad board file is the model of a board.', 'Upload it on a board (pcbas) record, or upload a STEP, STL or GLB here.');
+  if ((deps.docs ?? undefined) === undefined) return fail(501, 'This studio does not keep catalog documents, so it cannot keep a board file.', 'Upload a STEP, STL or GLB instead.');
+  const text = new TextDecoder().decode(upload.bytes);
+  let board: ReturnType<typeof parseKicadPcb>;
+  try {
+    board = parseKicadPcb(text);
+  } catch (error) {
+    return fail(422, `${upload.name} is not a KiCad board file this studio can read.`, `Nothing was saved. ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (board.outlines[0] === undefined) return fail(422, `${upload.name} has no closed board outline (Edge.Cuts).`, 'Nothing was saved. Close the outline in KiCad and upload it again.');
+  // the bytes the reader will hand back: the text as stored
+  const stored = new TextEncoder().encode(text);
+  const sha = sha256Hex(stored);
+  const path = `${MODEL_SOURCES_DIR}/${sha}.kicad_pcb.txt`;
+  const files: SourceFile[] = [{ path, sha256: sha }];
+  const build: ModelBuild = { kind: 'assembly', library: KICAD_LIBRARY.commit };
+  const refs = boardLibraryRefs(board);
+  const current = await deps.links!.get(upload.record);
+  const early = checkIfMatch(request.ifMatch, linkETag(current), '3D model link', upload.record);
+  if (early !== undefined) return early;
+  return upload.guarded(async (_current, stores) => {
+    if (stores.docs === undefined) return fail(501, 'This studio does not keep catalog documents, so it cannot keep a board file.');
+    if ((await stores.docs.read(path)) === undefined) await stores.docs.write(path, text);
+    const who = deps.who ?? 'the Library';
+    const link: ModelLink = {
+      record: upload.record,
+      asset: sourceKey(files, MAX_MODEL_TRIANGLES, build),
+      files,
+      build,
+      name: upload.name.replace(/\.kicad_pcb$/i, ''),
+      sourceKind: 'kicad-board',
+      src: `${upload.name} (KiCad board, ${board.footprints.length} footprints), uploaded by ${who} on ${upload.today}; footprint models from ${KICAD_LIBRARY.name} ${KICAD_LIBRARY.tag} (${KICAD_LIBRARY.licence}), fetched when the model is built, never committed`,
+    };
+    await stores.links.put(link);
+    return ok(
+      { link, board: { footprints: board.footprints.length, libraryModels: refs.length, embeddedModels: board.embeddedNames.length }, state: 'not-built', hint: 'The model is built by the model-cache job; reload the viewer when it has run.' },
+      200,
+      { ETag: linkETag(link) },
+    );
+  });
 }

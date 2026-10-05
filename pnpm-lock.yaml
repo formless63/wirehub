@@ -55,6 +55,9 @@ importers:
       '@wirehub/module-av-video':
         specifier: workspace:*
         version: link:../../modules/av-video
+      '@wirehub/module-board-import':
+        specifier: workspace:*
+        version: link:../../modules/board-import
       '@wirehub/module-example':
         specifier: workspace:*
         version: link:../../modules/example
@@ -209,6 +212,33 @@ importers:
       '@wirehub/render-svg':
         specifier: workspace:*
         version: link:../../packages/render-svg
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(jsdom@30.0.1(@noble/hashes@2.4.0))(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0))
+
+  modules/board-import:
+    devDependencies:
+      '@types/node':
+        specifier: 26.1.2
+        version: 26.1.2
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@wirehub/catalog':
+        specifier: workspace:*
+        version: link:../../packages/catalog
+      '@wirehub/model':
+        specifier: workspace:*
+        version: link:../../packages/model
+      '@wirehub/modules':
+        specifier: workspace:*
+        version: link:../../packages/modules
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
       typescript:
         specifier: 7.0.2
         version: 7.0.2

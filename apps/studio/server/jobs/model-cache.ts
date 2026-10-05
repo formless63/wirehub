@@ -17,7 +17,8 @@ import type { WorkbenchDeps } from '../api.ts';
 import { buildLinkedModel, chainSources, folderSources, type Converter, type SourceReader } from '../models/build.ts';
 import type { ModelCache } from '../models/cache.ts';
 import { ModelRefusal } from '../models/convert.ts';
-import type { ModelLink } from '../models/links.ts';
+import { kicadLibrarySource } from '../models/library-source.ts';
+import { MODEL_SOURCES_DIR, type ModelLink } from '../models/links.ts';
 import type { ChangeSet } from '../storage/change-set.ts';
 import type { JobContext, JobOutcome, JobService } from './types.ts';
 
@@ -56,6 +57,8 @@ export interface ModelCacheJobOptions {
   window?: { from: number; to: number };
   now?: () => Date;
   convert?: Converter;
+  /** where a board's KiCad library models come from at a commit; default: the local copy, fetched at that commit (`library-source.ts`) */
+  library?: (commit: string) => SourceReader;
   /** a cache write with the build's provenance (pg: `derived_blob.inputs`, `triangles`, `job_id`) */
   put?: (key: string, glb: Uint8Array, meta: { triangles: number; inputs: unknown; jobId: string }) => Promise<void>;
 }
@@ -71,10 +74,19 @@ export function catalogArtSources(deps: WorkbenchDeps): SourceReader {
   };
 }
 
-/** The sources a deployment has: `WIREHUB_MODEL_SOURCES` (a folder), then the catalog's art. */
+/** A board file uploaded in the Library: a catalog document under `data/model-sources/` (`models/api.ts`). */
+export function catalogDocSources(deps: WorkbenchDeps): SourceReader {
+  return async (path) => {
+    if (!path.startsWith(`${MODEL_SOURCES_DIR}/`) || deps.docs === undefined) return undefined;
+    const text = await deps.docs.read(path);
+    return typeof text === 'string' ? new TextEncoder().encode(text) : undefined;
+  };
+}
+
+/** The sources a deployment has: `WIREHUB_MODEL_SOURCES` (a folder), then the catalog's uploaded board files and art. */
 export function sourcesFromEnv(deps: WorkbenchDeps, env: Record<string, string | undefined> = process.env): SourceReader {
   const dir = (env.WIREHUB_MODEL_SOURCES ?? '').trim();
-  return chainSources(dir === '' ? undefined : folderSources(dir), catalogArtSources(deps));
+  return chainSources(dir === '' ? undefined : folderSources(dir), catalogDocSources(deps), catalogArtSources(deps));
 }
 
 export async function runModelCacheJob(context: JobContext, options: ModelCacheJobOptions): Promise<JobOutcome> {
@@ -84,6 +96,8 @@ export async function runModelCacheJob(context: JobContext, options: ModelCacheJ
   const live = liveModelLinks(await deps.modelLinks.list());
   const built: { key: string; record: string; triangles: number; ms: number; peakRssMb?: number }[] = [];
   const failed: { key: string; record: string; error: string; hint?: string }[] = [];
+  const libraryLog: string[] = [];
+  const library = options.library ?? ((commit: string) => kicadLibrarySource({ commit, log: (line) => libraryLog.push(line) }));
   const deferred: string[] = [];
   let present = 0;
   const sources = options.sources ?? sourcesFromEnv(deps);
@@ -98,7 +112,7 @@ export async function runModelCacheJob(context: JobContext, options: ModelCacheJ
     }
     await context.step(`building ${link.record} (${link.asset.slice(0, 12)}…)`);
     try {
-      const out = await buildLinkedModel(link, sources, options.convert);
+      const out = await buildLinkedModel(link, sources, options.convert, library);
       if (options.put !== undefined) await options.put(out.key, out.glb, { triangles: out.converted.stats.triangles, inputs: out.inputs, jobId: context.job.id });
       else await cache.put(out.key, out.glb);
       built.push({
@@ -113,7 +127,7 @@ export async function runModelCacheJob(context: JobContext, options: ModelCacheJ
       failed.push({ key: link.asset, record: link.record, error: error.message, ...(error instanceof ModelRefusal ? { hint: error.hint } : {}) });
     }
   }
-  return { result: { reason: context.job.request['reason'] ?? null, live: live.length, present, built, failed, deferred } };
+  return { result: { reason: context.job.request['reason'] ?? null, live: live.length, present, built, failed, deferred, ...(libraryLog.length === 0 ? {} : { library: libraryLog }) } };
 }
 
 /**

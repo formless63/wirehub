@@ -18,7 +18,7 @@
  * package needs no React).
  */
 
-import type { CableDesign, Db, Issue, PartNumberScheme } from '@wirehub/model';
+import type { BoardPartsEntry, CableDesign, Db, Issue, PartNumberScheme } from '@wirehub/model';
 
 /* ------------------------------------------------------------------ *
  * Extension points
@@ -50,6 +50,36 @@ export interface CatalogPackContribution {
 export interface ImportInput {
   fileName: string;
   bytes: Uint8Array;
+  /**
+   * What the person chose in the review step, as plain strings (a target
+   * record, a column mapping as JSON …): the JSON body's `options`, or the
+   * raw upload's `option.<name>` query parameters. Absent when the file was
+   * sent without any. An importer must be deterministic in its file *and*
+   * these.
+   */
+  options?: Readonly<Record<string, string>>;
+}
+
+/**
+ * Board artwork an importer proposes for a definition: the depiction's
+ * `meta.json` record (`DepictionMeta` in `@wirehub/catalog`) and its SVG
+ * files by name. The host sanitises every SVG, validates the manifest against
+ * the catalog (anchors must name the definition's terminals) and stages them
+ * with the records, in the same change set.
+ */
+export interface ImportedDepiction {
+  /** the definition the art is of (a PCBA's id) */
+  defId: string;
+  meta: Record<string, unknown>;
+  /** file name (`board-top.svg`) → SVG text; vector art only */
+  files: Record<string, string>;
+  /**
+   * The art tiers this depiction may replace (`sourceKind`s, e.g. `['kicad']`):
+   * an existing depiction is replaced only when every one of its views came
+   * from one of these, so a person's own artwork is never overwritten. Absent:
+   * an existing depiction is kept.
+   */
+  replaces?: readonly string[];
 }
 
 export interface ImportResult {
@@ -57,6 +87,14 @@ export interface ImportResult {
   definitions?: Partial<Pick<Db, 'connectors' | 'wires' | 'components' | 'pcbas' | 'mechanicals'>>;
   /** designs proposed for the catalog */
   designs?: CableDesign[];
+  /**
+   * The parts placed on a board revision (`data/board-parts.json`, what the
+   * Library's "Components on this board" lists). A board and revision the
+   * catalog already lists is kept, never overwritten.
+   */
+  boardParts?: BoardPartsEntry[];
+  /** board artwork (`ImportedDepiction`) */
+  depictions?: ImportedDepiction[];
   /** what a person should check, in words */
   notes: string[];
 }

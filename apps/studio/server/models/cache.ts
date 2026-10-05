@@ -34,7 +34,8 @@ export const CONVERTER_VERSION = 'glb-q16-zup-4';
 export interface SourceFile {
   /**
    * `housings/…` or `boards/…`, relative to the mounted folder's parent;
-   * `kicad-packages3D/…` for a KiCad library file
+   * `kicad-packages3D/…` for a KiCad library file; `data/model-sources/…` for a
+   * board file uploaded in the Library (a catalog document)
    */
   path: string;
   sha256: string;
@@ -44,14 +45,17 @@ export interface SourceFile {
 
 /**
  * How a model is made from its files when it is not simply "convert the one
- * file" — committed with the link, so `--build-cache`
+ * file" — committed with the link, so the `model-cache` job
  * rebuilds exactly what the import built:
  * - `assembly`: a board from its `.kicad_pcb` (outline + placed footprint models);
+ *   with `library` (a kicad-packages3D commit), the footprints' library models are
+ *   not among `files` but fetched at that pinned commit when the model is built
+ *   (`library-source.ts`) — what a `.kicad_pcb` uploaded in the Library makes;
  * - `embedded`: the model file of that name KiCad embedded in the `.kicad_pcb`;
  * - `placed`: one library file moved by a footprint-style offset / rotation.
  */
 export type ModelBuild =
-  | { kind: 'assembly' }
+  | { kind: 'assembly'; library?: string }
   | { kind: 'embedded'; name: string }
   | { kind: 'placed'; offset: [number, number, number]; rotate: [number, number, number] };
 
@@ -68,7 +72,7 @@ export const ASSEMBLY_VERSION = 'kicad-assembly-1';
  * without a `build` keeps the key it always had.
  */
 export function sourceKey(files: readonly SourceFile[], maxTriangles: number, build?: ModelBuild): string {
-  const recipe = build === undefined ? '' : `\n${build.kind === 'assembly' ? ASSEMBLY_VERSION : JSON.stringify(build)}`;
+  const recipe = build === undefined ? '' : `\n${build.kind === 'assembly' ? `${ASSEMBLY_VERSION}${build.library === undefined ? '' : `\nkicad-packages3D@${build.library}`}` : JSON.stringify(build)}`;
   return sha256Hex(`${CONVERTER_VERSION}\n${maxTriangles}\n${files.map((f) => `${f.path}\n${f.sha256}`).join('\n')}${recipe}`);
 }
 

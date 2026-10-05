@@ -22,7 +22,9 @@ export function readModules(repoRoot = root) {
   const imports = new Map([...manifest.matchAll(/^import \{ (\w+) \} from '@wirehub\/module-([a-z0-9-]+)';$/gm)].map((m) => [m[1], m[2]]));
   const list = /^export const modules[^=]*= \[([^\]]*)\]/m.exec(manifest)?.[1] ?? '';
   const ids = list.split(',').map((name) => imports.get(name.trim())).filter((id) => id !== undefined && readdirSync(join(repoRoot, 'modules')).includes(id));
-  return ids.map((id) => {
+  // only domain modules (a `setup` contribution) are offered by the generator
+  const domains = ids.filter((id) => /\n\s+setup:\s*\{/.test(readFileSync(join(repoRoot, 'modules', id, 'src/index.ts'), 'utf8')));
+  return domains.map((id) => {
     const source = readFileSync(join(repoRoot, 'modules', id, 'src/index.ts'), 'utf8');
     const label = /\n\s+label: '([^']+)'/.exec(source)?.[1];
     const description = /\n\s+description:\s*'([^']+)'/.exec(source)?.[1];
