@@ -16,5 +16,15 @@ export const builtinModules: readonly WireHubModule[] = modules;
 
 export const registry: LiveModuleRegistry = createLiveRegistry(createRegistry(modules));
 
-// exporters render drawings on the server too
-installModuleArt(registry);
+// exporters render drawings on the server too; a runtime module's art and bench steps come and go with it
+let uninstallArt = installModuleArt(registry);
+registry.subscribe(() => {
+  uninstallArt();
+  try {
+    uninstallArt = installModuleArt(registry);
+  } catch (error) {
+    // a runtime module's art that does not validate: the built-ins' art stays, the module's is left out
+    console.warn(`[modules] ${error instanceof Error ? error.message : String(error)}; only the built-in modules' art is used`);
+    uninstallArt = installModuleArt(createRegistry(modules));
+  }
+});

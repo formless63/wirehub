@@ -59,13 +59,14 @@ export const EXTENSION_POINTS = [
   'documents',
   'derived',
   'art',
+  'bench',
   'migrations',
 ] as const;
 
 export type ExtensionPoint = (typeof EXTENSION_POINTS)[number];
 
-/** Points whose change needs a fresh process: job queues are bound at start, art is registered once (first wins). */
-export const RESTART_POINTS: readonly ExtensionPoint[] = ['queues', 'art'];
+/** Points whose change needs a fresh process: job queues are bound to the queue service when it starts (Postgres). */
+export const RESTART_POINTS: readonly ExtensionPoint[] = ['queues'];
 
 /** Points a runtime module may not use: its SQL could only run in the migrate one-shot, before the app. */
 export const RUNTIME_REFUSED_POINTS: readonly ExtensionPoint[] = ['migrations'];
@@ -94,6 +95,7 @@ export function extensionPointsOf(m: WireHubModule): ExtensionPoint[] {
     documents: some(m.documents),
     derived: some(m.derived),
     art: m.art !== undefined && (some(m.art.connectors) || some(m.art.bodyLayouts) || m.art.drawing !== undefined),
+    bench: m.bench !== undefined,
     migrations: m.migrations !== undefined,
   };
   return EXTENSION_POINTS.filter((p) => used[p]);
@@ -276,13 +278,7 @@ export function createLiveRegistry(initial: ModuleRegistry): LiveModuleRegistry 
   let inner = initial;
   let generation = 0;
   const listeners = new Set<() => void>();
-  return {
-    get modules() {
-      return inner.modules;
-    },
-    get generation() {
-      return generation;
-    },
+  const own: Pick<LiveModuleRegistry, 'current' | 'replace' | 'subscribe'> = {
     current: () => inner,
     replace(next) {
       inner = next;
@@ -299,29 +295,17 @@ export function createLiveRegistry(initial: ModuleRegistry): LiveModuleRegistry 
       listeners.add(listener);
       return () => void listeners.delete(listener);
     },
-    module: (id) => inner.module(id),
-    partNumberScheme: () => inner.partNumberScheme(),
-    commitHook: () => inner.commitHook(),
-    catalogPacks: () => inner.catalogPacks(),
-    domains: () => inner.domains(),
-    importers: () => inner.importers(),
-    derived: () => inner.derived(),
-    art: () => inner.art(),
-    catalogDirs: () => inner.catalogDirs(),
-    documentFor: (path) => inner.documentFor(path),
-    importer: (module, id) => inner.importer(module, id),
-    exporter: (module, id) => inner.exporter(module, id),
-    importersFor: (fileName) => inner.importersFor(fileName),
-    exporters: () => inner.exporters(),
-    panels: (slot) => inner.panels(slot),
-    compareViews: () => inner.compareViews(),
-    compareViewFor: (kind) => inner.compareViewFor(kind),
-    routes: () => inner.routes(),
-    integrations: () => inner.integrations(),
-    queues: () => inner.queues(),
-    authProviders: () => inner.authProviders(),
-    validate: (design, db) => inner.validate(design, db),
   };
+  // every other member is the held registry's, looked up at each call: a point the registry
+  // gains later is delegated without being listed here
+  return new Proxy({} as LiveModuleRegistry, {
+    get(_target, key) {
+      if (key === 'generation') return generation;
+      if (typeof key === 'string' && key in own) return own[key as keyof typeof own];
+      return (inner as unknown as Record<PropertyKey, unknown>)[key];
+    },
+    has: (_target, key) => key === 'generation' || key in own || key in inner,
+  });
 }
 
 /* ------------------------------------------------------------------ *
