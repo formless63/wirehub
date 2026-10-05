@@ -35,7 +35,9 @@ import { createCatalog } from './catalog.ts';
 import {
   PACKS_FILE,
   canonical,
+  canonicalPackText,
   idOf,
+  packDocumentSrcProblems,
   installPackLayer,
   installedRecordOf,
   installedPackDir,
@@ -424,7 +426,7 @@ function fileWrites(view: CatalogSource, packDir: string | undefined, drop: Read
     const dropIds = new Set([...drop.values()].filter((r) => r.file === file).map((r) => r.id));
     const putMap = new Map([...put.values()].filter((r) => r.file === file).map((r) => [r.id, r.record] as const));
     // a retired record is put from the catalog's own copy: the new pack version may not have the file
-    const packText = packDir === undefined || !putMap.size || !existsSync(join(packDir, file)) ? undefined : readFileSync(join(packDir, file), 'utf8');
+    const packText = packDir === undefined || !putMap.size || !existsSync(join(packDir, file)) ? undefined : canonicalPackText(file, readFileSync(join(packDir, file), 'utf8'));
     const out = mergeFile(file, view.read(file), dropIds, putMap, packText);
     if (out !== undefined) writes.set(file, out);
   }
@@ -713,13 +715,7 @@ export function packSourceProblems(packDir: string): string[] {
       problems.push(`${relative} is not valid JSON`);
       continue;
     }
-    const records = recordsIn(value);
-    for (const record of records ?? []) {
-      const src = isPlainObject(record) ? record['src'] : undefined;
-      if (typeof src !== 'string' || src.trim() === '') problems.push(`${relative}: record '${idOf(record) ?? '?'}' has no src`);
-    }
-    if (isPlainObject(value) && !Array.isArray(value['entries']) && !value['src'] && !Array.isArray(value)) problems.push(`${relative}: the document has no src`);
-    if (isPlainObject(value) && Array.isArray(value['entries']) && !value['src']) problems.push(`${relative}: the list has no src`);
+    problems.push(...packDocumentSrcProblems(relative, value));
   }
   return problems;
 }

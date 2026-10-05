@@ -168,7 +168,8 @@ not quarantined.
 
 Settings → Code modules → **Restart WireHub** (owners, signed in), `POST /api/system/restart`:
 
-1. answers `202 { restarting: true, bootId }` at once, then **drains** (`system.ts`, each step
+1. answers `202 { restarting: true, bootId, supervised, poll }` at once (`bootId` is the process being
+   replaced, `poll` is `/api/system/boot`; 202 means accepted, the drain has not happened yet), then **drains** (`system.ts`, each step
    bounded at 20 s): the HTTP server stops accepting connections and new requests on open ones
    get 503 *restarting*; the requests in flight finish; the write lock is taken and held (no write
    is half done, none starts); the worker is told; the code-module host stops following the
@@ -184,7 +185,9 @@ Settings → Code modules → **Restart WireHub** (owners, signed in), `POST /ap
 `restart: unless-stopped` (compose: `wirehub`, `worker` and every other long-running service —
 `postgres`, `garage`, `backup-dump`, `backup-mirror`, `backrest`, `pdf`; the one-shots `bootstrap`,
 `migrate`, `garage-init`, `backup-init` are `"no"`; verified 2026-10-05) brings both back. The page
-shows *Restarting WireHub…*, polls `GET /api/system/boot` until the boot id changes, then reloads.
+shows *Restarting WireHub…*, polls `GET /api/system/boot` until the boot id changes (and `restarting` is
+false), then reloads (`waitForRestart` in `src/code-modules.browser.ts`). Any other client does the same:
+the response carries the id it must see replaced.
 Without a supervisor (a checkout run by hand) the process simply exits; the page says so when
 `WIREHUB_RESTART_SUPERVISED` is not `true` (compose sets it for the app).
 

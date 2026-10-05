@@ -28,6 +28,7 @@ import type { ApiError, ApiResponse } from './api.ts';
 import { checkIfMatch, contentETag } from './etag.ts';
 import { writeFileAtomic } from './atomic-write.ts';
 import type { Awaitable } from './storage/change-set.ts';
+import { hubCatalogSource } from './catalog-files.ts';
 
 export interface BuildsStore {
   /** every file, by name, in name order */
@@ -50,24 +51,32 @@ function formatJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-export function fileBuildsStore(dir = dataPath('builds')): BuildsStore {
-  const path = (name: string): string => `${dir}/${name}.json`;
+/**
+ * The catalog's `builds/` directory as the store. By default what it reads is the live catalog with its
+ * installed packs under it (a pack's build files show, the catalog's own file of the same name shadowing
+ * it) and what it writes is the catalog's own; given `dir`, that directory alone.
+ */
+export function fileBuildsStore(dir?: string): BuildsStore {
+  const local = dir ?? dataPath('builds');
+  const path = (name: string): string => `${local}/${name}.json`;
+  const names = (): string[] =>
+    dir === undefined
+      ? hubCatalogSource().list('builds').filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -'.json'.length))
+      : // the directory is optional (the starter catalog has none): no directory, no builds
+        (existsSync(local) ? readdirSync(local) : []).filter((f) => f.endsWith('.json')).sort().map((f) => f.slice(0, -'.json'.length));
+  const text = (name: string): string | undefined => (dir === undefined ? hubCatalogSource().read(`builds/${name}.json`) : existsSync(path(name)) ? readFileSync(path(name), 'utf8') : undefined);
   return {
-    list: () =>
-      // the directory is optional (the starter catalog has none): no directory, no builds
-      (existsSync(dir) ? readdirSync(dir) : [])
-        .filter((f) => f.endsWith('.json'))
-        .sort()
-        .map((f) => ({ name: f.slice(0, -'.json'.length), file: JSON.parse(readFileSync(`${dir}/${f}`, 'utf8')) as BoardBuilds })),
+    list: () => names().map((name) => ({ name, file: JSON.parse(text(name) as string) as BoardBuilds })),
     read(name) {
-      if (!NAME.test(name) || !existsSync(path(name))) return undefined;
-      return JSON.parse(readFileSync(path(name), 'utf8')) as BoardBuilds;
+      if (!NAME.test(name)) return undefined;
+      const found = text(name);
+      return found === undefined ? undefined : (JSON.parse(found) as BoardBuilds);
     },
     write(name, file) {
       if (!NAME.test(name)) throw new Error(`'${name}' is not a build file name`);
-      const text = formatJson(file);
-      if (existsSync(path(name)) && readFileSync(path(name), 'utf8') === text) return;
-      writeFileAtomic(path(name), text, 'utf8');
+      const next = formatJson(file);
+      if (existsSync(path(name)) && readFileSync(path(name), 'utf8') === next) return;
+      writeFileAtomic(path(name), next, 'utf8');
     },
   };
 }

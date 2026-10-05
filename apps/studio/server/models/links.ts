@@ -22,6 +22,7 @@ import { dataPath } from '@wirehub/catalog';
 import { writeFileAtomic } from '../atomic-write.ts';
 import type { Awaitable } from '../storage/change-set.ts';
 import type { ModelBuild, SourceFile } from './cache.ts';
+import { hubCatalogSource } from '../catalog-files.ts';
 
 /** Where a model came from: a board file, a printed housing, a vendor download, an upload, or KiCad's standard 3D library. */
 export const MODEL_SOURCE_KINDS = ['kicad-board', 'resin-print', 'vendor', 'uploaded', 'kicad-library'] as const;
@@ -104,11 +105,23 @@ export function writeModelsFile(file: ModelsFile, path = modelsPath()): void {
   writeFileAtomic(path, next, 'utf8');
 }
 
-/** `packages/catalog/data/models.json` as the store. */
-export function fileModelLinkStore(path = modelsPath()): ModelLinkStore {
+/**
+ * `packages/catalog/data/models.json` as the store. Given no `path`, what it reads is the live
+ * catalog with its installed packs under it (a pack's links show, the catalog's own link for a record
+ * shadowing it) and what it writes is the catalog's own file; given a `path`, that file alone.
+ */
+export function fileModelLinkStore(explicit?: string): ModelLinkStore {
+  const path = explicit ?? modelsPath();
+  const seen = (): ModelsFile => {
+    if (explicit !== undefined) return readModelsFile(explicit);
+    const text = hubCatalogSource().read('models.json');
+    if (text === undefined) return { src: MODELS_FILE_SRC, links: [] };
+    const parsed = JSON.parse(text) as Partial<ModelsFile>;
+    return { src: parsed.src ?? MODELS_FILE_SRC, links: sortLinks(Array.isArray(parsed.links) ? parsed.links : []) };
+  };
   return {
-    list: () => readModelsFile(path).links,
-    get: (record) => readModelsFile(path).links.find((link) => link.record === record),
+    list: () => seen().links,
+    get: (record) => seen().links.find((link) => link.record === record),
     put(link) {
       const file = readModelsFile(path);
       writeModelsFile({ ...file, links: [...file.links.filter((l) => l.record !== link.record), link] }, path);

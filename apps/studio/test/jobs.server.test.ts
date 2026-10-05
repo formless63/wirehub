@@ -109,6 +109,31 @@ describe('the import job on the file backend', () => {
 });
 
 describe('the model-cache job', () => {
+  it('raises an alert for a model that failed to build, and none for sources that are not mounted', async () => {
+    const { baseJobHandlers } = await import('../server/jobs/handlers.ts');
+    const { sourceKey } = await import('../server/models/cache.ts');
+    const { memoryModelCache } = await import('../server/models/cache.ts');
+    const { memoryModelLinkStore } = await import('../server/models/links.ts');
+    const { MAX_MODEL_TRIANGLES } = await import('../server/models/finish.ts');
+    const files = [{ path: 'housings/not-mounted.stl', sha256: 'a'.repeat(64) }];
+    const link = { record: 'connectors/de9-male', asset: sourceKey(files, MAX_MODEL_TRIANGLES), files, sourceKind: 'vendor' as const, src: 'synthetic example' };
+    const job = { id: 'j2', kind: 'model-cache' as const, status: 'running' as const, request: {}, steps: [] as string[], createdAt: '' };
+    const alerts: string[] = [];
+    const notify = { enabled: true, notify: async (event: { event: string }) => void alerts.push(event.event) };
+    const steps: string[] = [];
+    const run = async (links: unknown[]) => {
+      const deps = { modelLinks: memoryModelLinkStore(links as never), modelCache: memoryModelCache() } as never;
+      return baseJobHandlers({ deps, notify, env: {} })['model-cache']!({ job, step: async (line: string) => void steps.push(line) } as never);
+    };
+    const quiet = await run([link]);
+    expect(alerts).toEqual([]);
+    expect((quiet as { result: Record<string, unknown> }).result['failed']).toEqual([]);
+    expect(steps.join('\n')).toMatch(/not available here/);
+    // a link keyed by another converter version is a real failure: it alerts
+    await run([{ ...link, asset: 'c'.repeat(64) }]);
+    expect(alerts).toEqual(['model-cache-failures']);
+  });
+
   it('builds every live key from its sources, once, and says why it could not build the others', async () => {
     const { runModelCacheJob, liveModelLinks, parseWindow, inWindow } = await import('../server/jobs/model-cache.ts');
     const { memoryModelCache, sourceKey, sha256Hex } = await import('../server/models/cache.ts');
@@ -141,8 +166,12 @@ describe('the model-cache job', () => {
     expect(outcome.result['live']).toBe(4);
     expect((outcome.result['built'] as { key: string }[]).map((b) => b.key)).toEqual([key]);
     const failed = outcome.result['failed'] as { record: string; error: string }[];
-    expect(failed.map((f) => f.record).sort()).toEqual(['connectors/de9-female', 'connectors/de9-male', 'connectors/hd15-male']);
-    expect(failed.find((f) => f.record === 'connectors/de9-male')!.error).toContain('not readable here');
+    // a source that is not mounted here is information (`unavailable`, explained in `note`), not a failure
+    expect(failed.map((f) => f.record).sort()).toEqual(['connectors/de9-female', 'connectors/hd15-male']);
+    const unavailable = outcome.result['unavailable'] as { record: string; path: string; hint: string }[];
+    expect(unavailable).toMatchObject([{ record: 'connectors/de9-male', path: 'housings/gone.stl' }]);
+    expect(unavailable[0]!.hint).toContain('WIREHUB_MODEL_SOURCES');
+    expect(outcome.result['note']).toMatch(/not available here.*information, not a failure/);
     expect(failed.find((f) => f.record === 'connectors/de9-female')!.error).toContain('has changed since');
     expect(failed.find((f) => f.record === 'connectors/hd15-male')!.error).toContain('another converter version');
     expect(cache.files.has(key)).toBe(true);

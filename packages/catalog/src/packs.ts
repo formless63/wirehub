@@ -156,6 +156,68 @@ export const isPlainObject = (value: Json): value is Record<string, Json> =>
 export const idOf = (value: Json): string | undefined =>
   isPlainObject(value) && typeof value['id'] === 'string' ? value['id'] : undefined;
 
+const codePoint = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * Files of a pack that carry no `src` of their own, because they are not records:
+ * - a drawing's sidecars (`drawings/<id>.json`, the title-block facts, and `drawings/<id>.photo-ref.json`,
+ *   exactly `{ "assetId" }`, which the Postgres codec holds as a row): the photo is an asset whose index
+ *   entry cites its source;
+ * - a design's saved versions (`designs/_versions/…`): frozen snapshots of a design, which cites its own.
+ * A board's build file (`builds/<name>.json`) is checked per build instead (`packDocumentSrcProblems`).
+ */
+export const isSrcExempt = (relative: string): boolean => /^drawings\/[^/]+\.json$/.test(relative) || relative.startsWith('designs/_versions/');
+
+/**
+ * What a pack file lacks of the catalog's rule that every data record cites where its values came from
+ * (the verifier's check, `verify-pack.mjs` and `packSourceProblems`): sentences, empty when it is fine.
+ */
+export function packDocumentSrcProblems(relative: string, value: Json): string[] {
+  if (isSrcExempt(relative)) return [];
+  const problems: string[] = [];
+  const records = recordsIn(value);
+  for (const record of records ?? []) {
+    const src = isPlainObject(record) ? record['src'] : undefined;
+    if (typeof src !== 'string' || src.trim() === '') problems.push(`${relative}: record '${idOf(record) ?? '?'}' has no src`);
+  }
+  if (relative.startsWith('builds/') && isPlainObject(value) && Array.isArray(value['builds'])) {
+    for (const build of value['builds'] as Json[]) {
+      const src = isPlainObject(build) ? build['src'] : undefined;
+      if (typeof src !== 'string' || src.trim() === '') problems.push(`${relative}: build '${isPlainObject(build) && typeof build['key'] === 'string' ? build['key'] : '?'}' has no src`);
+    }
+    return problems;
+  }
+  if (isPlainObject(value) && !Array.isArray(value['entries']) && !value['src']) problems.push(`${relative}: the document has no src`);
+  if (isPlainObject(value) && Array.isArray(value['entries']) && !value['src']) problems.push(`${relative}: the list has no src`);
+  return problems;
+}
+
+/**
+ * A pack document as the catalog stores it: JSON in canonical form
+ * (`JSON.stringify(v, null, 2) + '\n'`), and the two files whose order is the store's
+ * own in that order: `models.json` links by record key and `assets/index.json` entries
+ * by id (each entry's keys as the asset store writes them), both in code-point order.
+ * Anything else, and text that is not JSON, is returned as it is.
+ */
+export function canonicalPackText(relative: string, text: string): string {
+  if (!relative.endsWith('.json')) return text;
+  let value: Json;
+  try {
+    value = JSON.parse(text) as Json;
+  } catch {
+    return text;
+  }
+  if (relative === 'models.json' && isPlainObject(value) && Array.isArray(value['links']) && value['links'].every((l) => isPlainObject(l) && typeof l['record'] === 'string')) {
+    const links = (value['links'] as Record<string, Json>[]).map((l, i) => [l, i] as const).sort(([a, i], [b, j]) => codePoint(a['record'] as string, b['record'] as string) || i - j);
+    value = { ...value, links: links.map(([l]) => l) };
+  } else if (relative === 'assets/index.json' && Array.isArray(value) && value.every((e) => isPlainObject(e) && typeof e['id'] === 'string')) {
+    const keys = ['id', 'mime', 'originalName', 'src', 'bytes'];
+    const ordered = (value as Record<string, Json>[]).map((e) => (Object.keys(e).every((k) => keys.includes(k)) ? Object.fromEntries(keys.filter((k) => k in e).map((k) => [k, e[k]] as const)) : e));
+    value = ordered.map((e, i) => [e, i] as const).sort(([a, i], [b, j]) => codePoint(a['id'] as string, b['id'] as string) || i - j).map(([e]) => e);
+  }
+  return canonical(value);
+}
+
 /** Records by id, first layer wins; records without an id are kept in order. */
 function mergeRecords(layers: Json[][]): Json[] {
   const seen = new Set<string>();
@@ -190,6 +252,21 @@ function mergeObjects(layers: Record<string, Json>[]): Record<string, Json> {
 export function mergeCatalogFile(relative: string, texts: string[]): string {
   if (texts.length === 1 || !relative.endsWith('.json')) return texts[0] as string;
   const values = texts.map((text) => JSON.parse(text) as Json);
+  // the model links of every layer, one per record (the first layer's wins), in the store's order
+  if (relative === 'models.json' && values.every((v) => isPlainObject(v) && Array.isArray(v['links']))) {
+    const seen = new Set<string>();
+    const links = values
+      .flatMap((v) => (v as { links: Json[] }).links)
+      .filter((l) => {
+        const key = isPlainObject(l) && typeof l['record'] === 'string' ? l['record'] : undefined;
+        if (key === undefined) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    return canonicalPackText(relative, canonical({ ...(values[0] as Record<string, Json>), links }));
+  }
+  if (relative === 'assets/index.json' && values.every(Array.isArray)) return canonicalPackText(relative, canonical(mergeRecords(values as Json[][])));
   if (values.every(Array.isArray)) return canonical(mergeRecords(values as Json[][]));
   if (values.every((v) => isPlainObject(v) && Array.isArray(v['entries']))) {
     const lists = values as Record<string, Json>[];
@@ -432,7 +509,8 @@ export function applyPackAssets(dataDir: string, packDir: string | undefined, be
     if (packDir === undefined) continue;
     const to = assetPath(dataDir, relative);
     mkdirSync(dirname(to), { recursive: true });
-    cpSync(join(packDir, relative), to);
+    if (relative.endsWith('.json')) writeFileSync(to, canonicalPackText(relative, readFileSync(join(packDir, relative), 'utf8')));
+    else cpSync(join(packDir, relative), to);
   }
   return ops.owned;
 }
@@ -472,7 +550,7 @@ function planAgainst(local: CatalogSource, installed: InstalledPacks, packDir: s
   const added: Record<string, string[]> = {};
   const conflicts: string[] = [];
   for (const relative of packFiles(packDir)) {
-    const packText = readFileSync(join(packDir, relative), 'utf8');
+    const packText = canonicalPackText(relative, readFileSync(join(packDir, relative), 'utf8'));
     const localText = local.read(relative);
     if (localText === undefined) {
       writes[relative] = packText;
@@ -669,9 +747,10 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
   rmSync(staging, { recursive: true, force: true });
   mkdirSync(staging, { recursive: true });
   writeFileSync(join(staging, PACK_MANIFEST), readFileSync(join(packDir, PACK_MANIFEST)));
+  // documents are stored canonical, whatever form the pack shipped them in
   for (const relative of packFiles(packDir)) {
     mkdirSync(dirname(join(staging, relative)), { recursive: true });
-    cpSync(join(packDir, relative), join(staging, relative));
+    writeFileSync(join(staging, relative), canonicalPackText(relative, readFileSync(join(packDir, relative), 'utf8')));
   }
   for (const relative of packAssetFiles(packDir)) {
     mkdirSync(dirname(join(staging, relative)), { recursive: true });

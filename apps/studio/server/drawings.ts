@@ -33,6 +33,7 @@ import { assetDataUri, decodeImageDataUri, fileAssetStore, memoryAssetStore, typ
 import { writeFileAtomic } from './atomic-write.ts';
 import { recordWrite } from './write-journal.ts';
 import type { Awaitable } from './storage/change-set.ts';
+import { hubCatalogSource } from './catalog-files.ts';
 
 export interface StoredDrawing {
   meta: DrawingMeta;
@@ -82,10 +83,12 @@ export function fileDrawingStore(assets: AssetStore = fileAssetStore()): Drawing
       recordWrite(path);
     }
   };
+  // what a drawing reads is the live catalog with its installed packs under it (a pack can supply a sidecar,
+  // the catalog's own shadowing it); what it writes is the catalog's own files
   const readPhotoRef = (id: string): string | undefined => {
-    const path = photoRefPath(id);
-    if (!existsSync(path)) return undefined;
-    return (JSON.parse(readFileSync(path, 'utf8')) as { assetId?: string }).assetId;
+    photoRefPath(id); // the id check
+    const text = hubCatalogSource().read(`drawings/${id}.photo-ref.json`);
+    return text === undefined ? undefined : (JSON.parse(text) as { assetId?: string }).assetId;
   };
   const writePhotoRef = (id: string, assetId: string | undefined): void => {
     const path = photoRefPath(id);
@@ -101,8 +104,9 @@ export function fileDrawingStore(assets: AssetStore = fileAssetStore()): Drawing
   };
   return {
     async read(id) {
-      const path = metaPath(id);
-      const meta = existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as DrawingMeta) : {};
+      metaPath(id); // the id check
+      const metaText = hubCatalogSource().read(`drawings/${id}.json`);
+      const meta = metaText === undefined ? {} : (JSON.parse(metaText) as DrawingMeta);
       for (const [mime, ext] of Object.entries(PHOTO_EXT)) {
         const legacy = legacyPhotoPath(id, ext);
         if (existsSync(legacy)) return { meta, photo: `data:${mime};base64,${readFileSync(legacy).toString('base64')}` };

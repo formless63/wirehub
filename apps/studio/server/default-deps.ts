@@ -42,6 +42,7 @@ import { defaultDepictionDeps, fileDepictionStore, type DepictionDeps } from './
 import { fileDocStore } from './storage/doc-store.ts';
 import { checkoutPacksDir } from './env.ts';
 import { parseSuggestedModules } from './setup.ts';
+import { mediaTypeOf } from '@wirehub/catalog/src/codec/index.ts';
 import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 import { createHash } from 'node:crypto';
 import { exportTree } from './pg/export.ts';
@@ -96,16 +97,16 @@ const DEPICTION_MEDIA: Readonly<Record<string, string>> = { svg: 'image/svg+xml'
 const PACK_BLOB_PATH = /^data\/(?:docs|pack-assets|fonts)\//;
 
 /**
- * A depiction file (the base's `depictions/`, a pack's) by content address:
- * the database backend serves every binary file of the catalog from its blob
- * store, so the file backend answers for the same set (S1).
+ * A binary file of the catalog (a depiction, a pack's art, a vendor PDF, a font) by content address: the
+ * database backend serves every binary file of the catalog from its blob store, so the file backend answers
+ * for the same set (S1) — the packs' files included, as the flattened catalog holds them.
  */
 export function depictionBlob(sha: string, packsDir: string | undefined, root: string = dataPath('..')): { bytes: Uint8Array; mediaType: string; filename?: string } | undefined {
   for (const [path, content] of readFlattenedCatalog(root, packsDir)) {
-    if (typeof content === 'string' || !(path.startsWith('depictions/') || PACK_BLOB_PATH.test(path))) continue;
+    if (typeof content === 'string' || !(content instanceof Uint8Array)) continue;
     const bytes = content as Uint8Array;
     if (createHash('sha256').update(bytes).digest('hex') !== sha) continue;
-    return { bytes: new Uint8Array(bytes), mediaType: DEPICTION_MEDIA[path.slice(path.lastIndexOf('.') + 1)] ?? 'application/octet-stream', ...(PACK_BLOB_PATH.test(path) ? { filename: path.slice(path.lastIndexOf('/') + 1) } : {}) };
+    return { bytes: new Uint8Array(bytes), mediaType: DEPICTION_MEDIA[path.slice(path.lastIndexOf('.') + 1)] ?? mediaTypeOf(path), ...(PACK_BLOB_PATH.test(path) ? { filename: path.slice(path.lastIndexOf('/') + 1) } : {}) };
   }
   return undefined;
 }

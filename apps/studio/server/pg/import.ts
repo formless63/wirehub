@@ -48,6 +48,8 @@ export interface ImportOptions {
   message?: string;
   /** explode and check only: nothing uploaded, nothing written */
   dryRun?: boolean;
+  /** words for each problem the codec reports, e.g. which pack a file came from (`annotateErrors`) */
+  annotate?: (errors: string[]) => string[];
 }
 
 export interface ImportReport {
@@ -101,7 +103,7 @@ async function uploadBlobs(store: BlobStore, orgId: string, rows: CatalogRows, o
 
 export async function importCatalog(db: Db, options: ImportOptions): Promise<ImportReport> {
   const { rows, errors } = explode(options.files);
-  if (errors.length > 0) throw new ImportError(`The catalog cannot be imported as it is (${errors.length} problem${errors.length === 1 ? '' : 's'}):`, errors);
+  if (errors.length > 0) throw new ImportError(`The catalog cannot be imported as it is (${errors.length} problem${errors.length === 1 ? '' : 's'}):`, options.annotate?.(errors) ?? errors);
   if (options.dryRun === true) return { orgId: '', version: '0', changeSetId: undefined, counts: undefined, uploaded: 0, rows };
 
   const orgId = await ensureOrg(db, options.org.slug, options.org.name ?? options.org.slug, options.org.create === true);

@@ -18,11 +18,23 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { dataPath, derivedDir, installedPackSources, livePacksDir, liveCatalogSource, localPartOf, readInstalledPacks } from '@wirehub/catalog';
+import { catalogWithPacksSource, dataPath, derivedDir, fsCatalogSource, installedPackSources, livePacksDir, localPartOf, readInstalledPacks, type CatalogSource } from '@wirehub/catalog';
+
+/**
+ * The catalog as the hub sees it: the catalog's own directory with the installed packs under it (and the
+ * derived files above), read per call. What every file store reads through, so a pack's builds, drawing
+ * sidecars, saved versions and model links are seen as the database's flattened catalog holds them (S1).
+ */
+export function hubCatalogSource(): CatalogSource {
+  const root = dataPath('');
+  const packs = livePacksDir();
+  if (packs === undefined) return fsCatalogSource(root, 'the catalog');
+  return catalogWithPacksSource(root, packs, { name: 'the catalog', first: () => [fsCatalogSource(derivedDir(packs), 'derived files')] });
+}
 
 /** A catalog file's text, merged over the installed packs; `undefined` when no layer has it. */
 export function readCatalogText(relative: string): string | undefined {
-  return liveCatalogSource().read(relative);
+  return hubCatalogSource().read(relative);
 }
 
 /** A catalog file, parsed, merged over the installed packs; `undefined` when no layer has it. */

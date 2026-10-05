@@ -1,12 +1,14 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.9 (rev 6 was the first revision in the open base). **Phases A
+Status: **plan**, rev 6.10 (rev 6 was the first revision in the open base). **Phases A
 (schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
 C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.10** — Revision model links (cs-s97). Migration **0021**: `studio.model_link.record_key`
+  also admits `revisions/<part>/<revision>`, the key of a part revision's own model.
 - **rev 6.9** — Fonts as assets. Migration **0020**: `font/ttf`, `font/otf` and `font/woff2` join the
   allowed types of `studio.blob.media_type` and `studio.asset.mime` (a hub's licensed typeface uploaded
   in Settings, Branding; a data pack's `fonts/`). No new table.
@@ -1452,6 +1454,20 @@ ALTER TABLE studio.blob ADD CONSTRAINT blob_media_type_check CHECK (media_type I
                                                    'application/zip', 'model/gltf-binary', 'model/stl', 'font/ttf', 'font/otf', 'font/woff2', 'application/octet-stream'));
 ALTER TABLE studio.asset DROP CONSTRAINT asset_mime_check;
 ALTER TABLE studio.asset ADD CONSTRAINT asset_mime_check CHECK (mime IN ('image/png', 'image/jpeg', 'application/pdf', 'model/gltf-binary', 'model/stl', 'font/ttf', 'font/otf', 'font/woff2'));
+```
+
+A part's revision can have a 3D model of its own (cs-s97): `models.json` links are keyed by a Library
+record or by `revisions/<part>/<revision>`, so the key check admits both:
+
+```sql ddl
+-- 0021_model_link_revision_keys — a revision's model link (cs-s97)
+-- A link of `models.json` is keyed by its Library record (`<kind>/<id>`) or, for the
+-- model of a part's revision no record shows (a WIP or superseded one),
+-- `revisions/<part>/<revision>`. It names no entity, so `entity_id` stays null.
+ALTER TABLE studio.model_link DROP CONSTRAINT model_link_record_key_check;
+ALTER TABLE studio.model_link ADD CONSTRAINT model_link_record_key_check CHECK (
+  record_key ~ '^(connectors|components|wires|pcbas|bodies|interfaces|mechanicals|kits)/[a-z0-9][a-z0-9._-]*$'
+  OR record_key ~ '^revisions/[a-z0-9][a-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$');
 ```
 
 ---

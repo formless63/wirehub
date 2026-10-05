@@ -20,7 +20,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
-const { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, packAssetFiles, packFiles, readPackManifest } = await import(
+const { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, packAssetFiles, packDocumentSrcProblems, packFiles, readPackManifest } = await import(
   new URL('packages/catalog/src/index.ts', `file://${root}`).href
 );
 const { benchRuleProblems, declarativeSchemeProblems, ruleListProblems, validateDb, validateDesign } = await import(new URL('packages/model/src/index.ts', `file://${root}`).href);
@@ -73,12 +73,7 @@ for (const relative of packAssetFiles(packDir).filter((p) => /^(docs|assets|font
 // every record of the pack's own files cites a source
 for (const relative of packFiles(packDir)) {
   const value = JSON.parse(readFileSync(join(packDir, relative), 'utf8'));
-  const records = Array.isArray(value) ? value : Array.isArray(value.entries) ? value.entries : [];
-  for (const record of records) {
-    if (typeof record.src !== 'string' || record.src.trim() === '') fail(`${relative}: record '${record.id}' has no src`);
-  }
-  if (!Array.isArray(value) && Array.isArray(value.entries) && !value.src) fail(`${relative}: the list has no src`);
-  if (!Array.isArray(value) && value.entries === undefined && !value.src) fail(`${relative}: the document has no src`);
+  for (const problem of packDocumentSrcProblems(relative, value)) fail(problem);
 }
 
 // a code module: its manifest block, its entries

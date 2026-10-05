@@ -30,6 +30,7 @@ import { dirname, join } from 'node:path';
 import { isIP } from 'node:net';
 import { inflateRawSync } from 'node:zlib';
 
+import { canonicalPackText } from '@wirehub/catalog';
 import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
 import { isCodeFilePath } from '@wirehub/modules';
 
@@ -384,12 +385,18 @@ export function readPackBytes(bytes: Uint8Array): ReadPack {
   return { files: checkedAssets(raw), format, shipped, ...(sig === undefined ? {} : { signature: new TextDecoder().decode(sig) }) };
 }
 
-/** Write a pack's files under `dir` (a fresh temporary directory). */
+/**
+ * Write a pack's files under `dir` (a fresh temporary directory). A data document is written in
+ * canonical JSON form (and `models.json` / `assets/index.json` in the store's order), whatever form
+ * it was shipped in, so the same bytes land in the file catalog and the database one (`cs-e7d`).
+ * The manifest is kept as shipped: a signature covers its bytes.
+ */
 export function writePackFiles(dir: string, files: PackFiles): void {
   for (const [path, bytes] of files) {
     if (!isPackFilePath(path)) throw new PackArchiveError(`'${path}' is not a path a pack file may have.`);
     mkdirSync(dirname(join(dir, path)), { recursive: true });
-    writeFileSync(join(dir, path), bytes);
+    const document = path.endsWith('.json') && path !== 'wirehub-pack.json';
+    writeFileSync(join(dir, path), document ? canonicalPackText(path, new TextDecoder().decode(bytes)) : bytes);
   }
 }
 

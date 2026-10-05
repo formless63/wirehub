@@ -24,7 +24,7 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { dataPath } from '@wirehub/catalog';
-import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
+import { annotateErrors, readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 
 import { ASSET_MIME_EXT } from '@wirehub/catalog/src/codec/index.ts';
 import { blobStoreFromEnv, type BlobStore } from '../blobs.ts';
@@ -107,6 +107,7 @@ async function importCommand(args: string[]): Promise<void> {
         return bytes === undefined ? undefined : new Uint8Array(bytes);
       },
       dryRun: values['dry-run'] === true,
+      annotate: (errors) => annotateErrors(errors, root, packs === undefined ? undefined : from(packs)),
       message: `Import the catalog from ${values.from}`,
     });
     if (values['dry-run'] === true) log(`dry run: ${files.size} files explode cleanly into ${report.rows.records.length} records, ${report.rows.docs.length} docs, ${report.rows.blobs.length} blobs`);

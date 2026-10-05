@@ -53,6 +53,7 @@ import {
   type PackInstallPreview,
   type PackUpdatePlan,
 } from '@wirehub/catalog';
+import { packCodecProblems } from '@wirehub/catalog/src/codec/tree.ts';
 import { drawingArtProblems } from '@wirehub/docs';
 import type { CodeModuleManifest, ModuleRegistry } from '@wirehub/modules';
 
@@ -347,9 +348,15 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
     const major = 'major' in plan && plan.major;
     // a numbering scheme the pack offers is never switched on by installing it: Settings offers it, an owner confirms
     const offers = manifest.partNumberScheme === undefined ? {} : { offers: { partNumberScheme: manifest.partNumberScheme } };
-    const preview = { kind, source: format, sha256: digest, size: bytes.length, verified: true, signed, problems: [], plan: shown(plan), applicable: plan.ok && !same, ...offers, ...(gate.kind === 'code' ? { code: gate.preview } : {}) };
+    // what the database catalog's codec would refuse once the pack is in: said now, so a pack that previews
+    // as applicable also applies on Postgres, and `adopt` / `pg:import` take what this installed
+    const codec = same ? [] : packCodecProblems(join(deps.dataDir, '..'), layered ? packsDir : undefined, dir);
+    const preview = { kind, source: format, sha256: digest, size: bytes.length, verified: true, signed, problems: codec, plan: shown(plan), applicable: plan.ok && !same && codec.length === 0, ...offers, ...(gate.kind === 'code' ? { code: gate.preview } : {}) };
     if (body.apply !== true) return json(200, preview);
     if (same) return json(200, { ...preview, installed: false, reason: 'already at this version' });
+    if (codec.length > 0) {
+      return refuse(422, `Pack '${manifest.id}' was not installed: the catalog cannot hold it (${codec[0]}${codec.length > 1 ? `, and ${codec.length - 1} more` : ''}).`, 'Nothing was installed. The problems are listed; fix what they name and try again.', { ...preview });
+    }
     if (!plan.ok) {
       const refusal = plan.conflicts.length > 0 ? 'it clashes with records outside the pack' : 'it would add errors to the library';
       return refuse(409, `Pack '${manifest.id}' was not installed: ${refusal}. Nothing was changed.`, 'The details are listed; fix what they name and try again.', { ...preview });
