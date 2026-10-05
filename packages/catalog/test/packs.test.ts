@@ -25,6 +25,7 @@ import {
   planPackInstall,
   readInstalledPacks,
   readPackManifest,
+  reconcileAssets,
 } from '../src/index.ts';
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
@@ -200,5 +201,20 @@ describe('a pack installed as a layer in a packs directory', () => {
       if (before === undefined) delete process.env['WIREHUB_PACKS_DIR'];
       else process.env['WIREHUB_PACKS_DIR'] = before;
     }
+  });
+});
+
+describe('reconcileAssets (cs-093)', () => {
+  const held = (m: Record<string, string>) => (p: string) => m[p];
+  it('writes what nobody holds, replaces what the pack owns untouched, leaves the catalog\'s own', () => {
+    const ops = reconcileAssets({ a: '1', b: '1', c: '1' }, { a: '2', b: '1', d: '2', e: '2', f: '2' }, held({ a: '1', b: '1', c: '9', e: '8', f: '2' }));
+    expect(ops.write).toEqual(['a', 'd']);
+    expect(ops.owned).toEqual({ a: '2', b: '1', d: '2' });
+    // c: dropped by the new version but edited since: the catalog's now, kept
+    expect(ops.remove).toEqual([]);
+  });
+  it('removes what the pack owned and the new version drops, unless it was changed', () => {
+    expect(reconcileAssets({ a: '1', b: '1' }, {}, held({ a: '1', b: '2' })).remove).toEqual(['a']);
+    expect(reconcileAssets(undefined, {}, held({ a: '1' })).remove).toEqual([]);
   });
 });

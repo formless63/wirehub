@@ -28,6 +28,7 @@
  * local records first, a pack's appended in its own order.
  */
 
+import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -63,6 +64,14 @@ export interface InstalledPack {
   license: string;
   /** the record files and ids the pack added (`connectors.json` → ids, `vocab/signals.json` → entry ids, `designs/x.json` → []) */
   added: Record<string, string[]>;
+  /**
+   * The depiction and art files the pack installed, by path in the pack
+   * (`depictions/<def>/mating-face.svg`, `depictions/<def>/meta.json`,
+   * `art/x.png`) → sha256 of the content as installed (`assetSha`). Absent in
+   * a `packs.json` from before ownership was recorded; then nothing is known
+   * of the files and none is removed.
+   */
+  assets?: Record<string, string>;
 }
 
 /** `packs.json`: the packs installed into this catalog. */
@@ -198,6 +207,88 @@ export function packAssetFiles(dir: string): string[] {
   return out.sort();
 }
 
+/** sha256 of an asset as it is stored; a JSON file is hashed in the form the stores write it (2-space, trailing newline). */
+export function assetSha(relative: string, bytes: Uint8Array | string): string {
+  let content = bytes;
+  if (relative.endsWith('.json')) {
+    try {
+      content = canonical(JSON.parse(typeof bytes === 'string' ? bytes : Buffer.from(bytes).toString('utf8')));
+    } catch {
+      // not JSON after all: hashed as it is
+    }
+  }
+  return createHash('sha256').update(content).digest('hex');
+}
+
+/** The depiction and art files a pack ships (`depictions/**`, JSON manifests included, and `art/**` images) → `assetSha`. */
+export function packOwnedAssets(dir: string): Record<string, string> {
+  const paths = new Set([...packAssetFiles(dir), ...packFiles(dir).filter((p) => p.startsWith('depictions/'))]);
+  return Object.fromEntries([...paths].sort().map((p) => [p, assetSha(p, readFileSync(join(dir, p)))] as const));
+}
+
+/** Where a pack asset sits in a catalog tree (`<root>/data`, `<root>/depictions`), given the data directory. */
+export function assetPath(dataDir: string, relative: string): string {
+  return relative.startsWith('depictions/') ? join(dirname(dataDir), relative) : join(dataDir, relative);
+}
+
+/** The path of a pack asset in a flattened catalog (`depictions/…`, `data/art/…`). */
+export const flatAssetPath = (relative: string): string => (relative.startsWith('depictions/') ? relative : `data/${relative}`);
+
+/** What to do with a pack's asset files: write, remove, and which the pack owns afterwards. */
+export interface AssetOps {
+  write: string[];
+  remove: string[];
+  owned: Record<string, string>;
+}
+
+/**
+ * The catalog's own files always win. `before` is what the pack owned (the
+ * installed record), `next` what the version being installed ships, `current`
+ * the hash of what the catalog holds now (`undefined`: nothing there).
+ * - a shipped file nobody holds is written and owned;
+ * - one the pack owned and nobody touched is replaced when it changed (still owned);
+ * - anything else already there is the catalog's own: left alone, not owned
+ *   (also when it happens to be identical);
+ * - an owned file the new version no longer ships is removed, unless the
+ *   catalog's copy was changed since (then it is the catalog's now).
+ * An empty `next` is a disable.
+ */
+export function reconcileAssets(before: Readonly<Record<string, string>> | undefined, next: Readonly<Record<string, string>>, current: (relative: string) => string | undefined): AssetOps {
+  const ops: AssetOps = { write: [], remove: [], owned: {} };
+  for (const [path, sha] of Object.entries(next)) {
+    const now = current(path);
+    if (now === undefined) {
+      ops.write.push(path);
+      ops.owned[path] = sha;
+    } else if (before?.[path] !== undefined && now === before[path]) {
+      if (now !== sha) ops.write.push(path);
+      ops.owned[path] = sha;
+    }
+  }
+  for (const [path, sha] of Object.entries(before ?? {})) {
+    if (path in next) continue;
+    if (current(path) === sha) ops.remove.push(path);
+  }
+  return ops;
+}
+
+/** Apply `reconcileAssets` to the catalog tree beside `dataDir` (the merged layout: `depictions/` next to `data/`). Returns what the pack owns now. */
+export function applyPackAssets(dataDir: string, packDir: string | undefined, before: Readonly<Record<string, string>> | undefined, next: Readonly<Record<string, string>>): Record<string, string> {
+  const current = (relative: string): string | undefined => {
+    const path = assetPath(dataDir, relative);
+    return existsSync(path) ? assetSha(relative, readFileSync(path)) : undefined;
+  };
+  const ops = reconcileAssets(before, next, current);
+  for (const relative of ops.remove) rmSync(assetPath(dataDir, relative), { force: true });
+  for (const relative of ops.write) {
+    if (packDir === undefined) continue;
+    const to = assetPath(dataDir, relative);
+    mkdirSync(dirname(to), { recursive: true });
+    cpSync(join(packDir, relative), to);
+  }
+  return ops.owned;
+}
+
 /** What installing a pack would do, before anything is written. */
 export interface PackInstallPlan {
   manifest: PackManifest;
@@ -295,7 +386,10 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   }
   for (const [relative, text] of Object.entries(plan.writes)) writeFileReplacing(join(catalogDir, relative), text);
   const installed = readInstalledPacks(catalogDir);
-  const record: InstalledPack = { id: plan.manifest.id, version: plan.manifest.version, license: plan.manifest.license, added: plan.added };
+  // the merging installer keeps a pack's depictions as `data/depictions/…` documents (as before); it records the
+  // files the pack ships like a layered install does, so an update brings them beside the catalog and keeps the record the same
+  const assets = packOwnedAssets(packDir);
+  const record: InstalledPack = { id: plan.manifest.id, version: plan.manifest.version, license: plan.manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }) };
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));
   return plan;
@@ -407,7 +501,8 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
   }
   rmSync(target, { recursive: true, force: true });
   renameSync(staging, target);
-  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added };
+  const assets = packOwnedAssets(packDir);
+  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }) };
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(packsDir, PACKS_FILE), canonical(installed));
   return { manifest, added: plan.added, alreadyInstalled: false };

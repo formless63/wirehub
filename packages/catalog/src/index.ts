@@ -42,6 +42,12 @@ export { fsCatalogSource, memoryCatalogSource } from './source.ts';
 export type { CatalogSource } from './source.ts';
 export {
   PACK_MANIFEST,
+  applyPackAssets,
+  assetPath,
+  assetSha,
+  flatAssetPath,
+  packOwnedAssets,
+  reconcileAssets,
   catalogWithPacksSource,
   installPack,
   installPackLayer,
@@ -90,7 +96,7 @@ export {
   verifyStoreSignature,
 } from './store-index.ts';
 export type { StoreBundle, StoreIndex, StoreIndexPack, StoreIndexVersion, StoreSignatureCheck } from './store-index.ts';
-export type { InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest } from './packs.ts';
+export type { AssetOps, InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */
 export function dataPath(relative: string): string {

@@ -53,6 +53,7 @@ import {
   pgDefinitionStore,
   pgDepictionStore,
   pgDocStore,
+  pgFileStore,
   pgDesignStore,
   pgDrawingStore,
   pgModelLinkStore,
@@ -113,6 +114,7 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     },
     depictions: pgDepictionStore(context),
     docs: pgDocStore(context),
+    files: pgFileStore(),
     commit:
       options.db !== undefined && cache instanceof SnapshotCache
         ? pgCommit({ db: options.db, cache, modules: options.modules ?? registry, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), verify: process.env.WIREHUB_BLOB_VERIFY !== 'off' })

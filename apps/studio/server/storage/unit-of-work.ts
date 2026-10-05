@@ -39,7 +39,7 @@ import type { TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import type { WireLibraryStore } from '../wire-library.ts';
 import { sortLinks, type ModelLink, type ModelLinkStore } from '../models/links.ts';
 import type { DepictionStore } from '../depictions.ts';
-import { isDocPath, type DocStore } from './doc-store.ts';
+import { isCatalogFilePath, isDocPath, type CatalogFileStore, type DocStore } from './doc-store.ts';
 import { StaleRecordError, type ChangeSet, type CommitResult, type DerivedKind, type RecordChange, type RecordKind } from './change-set.ts';
 
 const ref = (kind: RecordKind, key: string): string => `${kind}\u0000${key}`;
@@ -95,6 +95,7 @@ export class UnitOfWork {
     if (base.versions !== undefined) staged.versions = this.versions(base.versions);
     if (base.modelLinks !== undefined) staged.modelLinks = this.modelLinks(base.modelLinks);
     if (base.docs !== undefined) staged.docs = this.docs(base.docs);
+    if (base.files !== undefined) staged.files = this.files();
     if (base.depictions !== undefined) staged.depictions = this.depictions(base.depictions, staged.docs);
     this.deps = staged;
   }
@@ -322,6 +323,19 @@ export class UnitOfWork {
     };
   }
 
+  private files(): CatalogFileStore {
+    return {
+      write: (path, bytes) => {
+        if (!isCatalogFilePath(path)) throw new Error(`'${path}' is not a catalog file path`);
+        this.stage({ kind: 'catalog-file', key: path, op: 'put', bytes: new Uint8Array(bytes) });
+      },
+      remove: (path) => {
+        if (!isCatalogFilePath(path)) throw new Error(`'${path}' is not a catalog file path`);
+        this.stage({ kind: 'catalog-file', key: path, op: 'delete' });
+      },
+    };
+  }
+
   private depictions(base: DepictionStore, docs: DocStore | undefined): DepictionStore {
     const readMeta = async (defId: string): Promise<Record<string, unknown> | undefined> => {
       const s = this.staged<Record<string, unknown>>('depiction-meta', defId);
@@ -355,6 +369,19 @@ export class UnitOfWork {
         this.stage({ kind: 'depiction-asset', key: `${defId}/${file}`, op: 'put', bytes });
       },
       // a directory on disk does not hold staged files yet: no directory to check them in
+      ...(base.removeAsset === undefined
+        ? {}
+        : {
+            removeAsset: async (defId: string, file: string) => {
+              if (file === 'meta.json') {
+                await readMeta(defId);
+                this.stage({ kind: 'depiction-meta', key: defId, op: 'delete' });
+                return;
+              }
+              if (stagedAsset(defId, file) === undefined) await store.readAsset(defId, file);
+              this.stage({ kind: 'depiction-asset', key: `${defId}/${file}`, op: 'delete' });
+            },
+          }),
       dirFor: (defId) => ([...this.stagedKeys('depiction-asset').keys()].some((k) => k.startsWith(`${defId}/`)) ? undefined : base.dirFor(defId)),
     };
     // the reviewed board maps are catalog documents (data/kicad-maps/<def>.json)
@@ -751,10 +778,16 @@ async function apply(base: WorkbenchDeps, change: RecordChange): Promise<void> {
       else await need(base.modelLinks).remove(key);
       return;
     case 'depiction-meta':
-      await need(base.depictions).writeMeta(key, change.value as Record<string, unknown>);
+      if (op === 'delete') await need(need(base.depictions).removeAsset)(key, 'meta.json');
+      else await need(base.depictions).writeMeta(key, change.value as Record<string, unknown>);
       return;
     case 'depiction-asset':
-      await need(base.depictions).writeAsset(head, tail, change.bytes as Uint8Array);
+      if (op === 'delete') await need(need(base.depictions).removeAsset)(head, tail);
+      else await need(base.depictions).writeAsset(head, tail, change.bytes as Uint8Array);
+      return;
+    case 'catalog-file':
+      if (op === 'put') await need(base.files).write(key, change.bytes as Uint8Array);
+      else await need(base.files).remove(key);
       return;
     case 'doc':
       if (op === 'put') await need(base.docs).write(key, change.value);

@@ -28,7 +28,7 @@ import type { DepictionStore } from '../depictions.ts';
 import type { ModuleRegistry } from '@wirehub/modules';
 import { moduleDerivedStore } from '../module-derived.ts';
 import { MODELS_FILE_SRC, sortLinks, type ModelLink } from '../models/links.ts';
-import { formatDoc, isDocPath, parseDoc, type DocStore } from '../storage/doc-store.ts';
+import { formatDoc, isCatalogFilePath, isDocPath, parseDoc, type DocStore } from '../storage/doc-store.ts';
 import type { DraftFile } from '../versions.ts';
 import { blobObjectKey } from './keys.ts';
 import type { Snapshot } from './snapshot.ts';
@@ -247,6 +247,10 @@ export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; b
       depictionMeta(defId);
       tree.writeBinary(`depictions/${defId}/${file}`, typeof content === 'string' ? new TextEncoder().encode(content) : new Uint8Array(content));
     },
+    removeAsset: (defId, file) => {
+      depictionMeta(defId);
+      tree.remove(`depictions/${defId}/${file}`);
+    },
     dirFor: () => undefined,
     readBoardMap: (defId) => {
       const value = docs.read(`data/kicad-maps/${defId}.json`);
@@ -397,6 +401,16 @@ export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; b
     },
     depictions,
     docs,
+    files: {
+      write: (path, bytes) => {
+        if (!isCatalogFilePath(path)) throw new Error(`'${path}' is not a catalog file path`);
+        tree.writeBinary(path, bytes);
+      },
+      remove: (path) => {
+        if (!isCatalogFilePath(path)) throw new Error(`'${path}' is not a catalog file path`);
+        tree.remove(path);
+      },
+    },
     blob: async (sha) => {
       const path = [...tree.files.entries()].find(([, c]) => isBlobRef(c) && c.blob === sha)?.[0];
       if (path === undefined) return undefined;

@@ -75,8 +75,8 @@ const json = (status: number, body: unknown): ApiResponse => ({ status, body });
 const refuse = (status: number, error: string, hint?: string, extra?: object): ApiResponse => json(status, { error, ...(hint === undefined ? {} : { hint }), ...extra });
 
 /** The plan as the API shows it: without the file writes. */
-function shown<T extends { writes: unknown }>(plan: T): Omit<T, 'writes' | 'retiredRecords'> {
-  const { writes: _writes, retiredRecords: _retired, ...rest } = plan as T & { retiredRecords?: unknown };
+function shown<T extends { writes: unknown }>(plan: T): Omit<T, 'writes' | 'retiredRecords' | 'assets'> {
+  const { writes: _writes, retiredRecords: _retired, assets: _assets, ...rest } = plan as T & { retiredRecords?: unknown; assets?: unknown };
   return rest;
 }
 

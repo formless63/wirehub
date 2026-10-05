@@ -22,6 +22,19 @@ export interface DocStore {
   remove(path: string): Awaitable<void>;
 }
 
+/** Binary files of the catalog that are not documents: a pack's art, `data/art/<name>.<image>`. Written only through a change set. */
+export interface CatalogFileStore {
+  write(path: string, bytes: Uint8Array): Awaitable<void>;
+  remove(path: string): Awaitable<void>;
+}
+
+const FILE_PATH = /^data\/art\/[A-Za-z0-9._/-]+\.(svg|png|jpe?g|webp)$/;
+
+/** A path a catalog file may live at: `data/art/…`, an image name, no `..`, no dot-files. */
+export function isCatalogFilePath(path: string): boolean {
+  return FILE_PATH.test(path) && !path.split('/').some((s) => s === '..' || s.startsWith('.'));
+}
+
 const DOC_PATH = /^data\/[A-Za-z0-9._/-]+\.(json|md|txt)$/;
 
 /** A path a doc may live at: under `data/`, no `..`, no dot-files, a JSON / markdown / text name. */
