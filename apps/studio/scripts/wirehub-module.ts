@@ -31,6 +31,9 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { packDigests, signPackManifest, PACK_SIGNATURE, type PackManifest } from '@wirehub/catalog';
+import * as React from 'react';
+import * as JsxRuntime from 'react/jsx-runtime';
+
 import { isPackFilePath } from '../server/pack-archive.ts';
 import { MODULE_API_VERSION, codeFilePath, extensionPointsOf, permissionsOf, RUNTIME_IGNORED_POINTS, RUNTIME_REFUSED_POINTS, type CodeModuleManifest, type WireHubModule } from '@wirehub/modules';
 
@@ -99,12 +102,23 @@ async function sharedPlugin(): Promise<{ name: string; enforce: 'pre'; resolveId
   };
 }
 
-async function bundle(entry: string, exportName: string, side: 'server' | 'browser', root: string): Promise<{ js: string; css?: string }> {
+/**
+ * `@wirehub/*` resolve to this checkout's packages, wherever the module lives:
+ * a module in a store repository has no `node_modules` of its own for them, and
+ * one in this repository gets exactly the files its workspace links to.
+ */
+const WIREHUB_ALIASES = [
+  { find: /^@wirehub\/([a-z-]+)$/, replacement: `${join(repo, 'packages')}/$1/src/index.ts` },
+  { find: /^@wirehub\/([a-z-]+)\/(.+)$/, replacement: `${join(repo, 'packages')}/$1/$2` },
+];
+
+/** Bundle `entry` for one side; `exportName` undefined re-exports all of it (the probe build), else that export becomes the default. */
+async function bundle(entry: string, exportName: string | undefined, side: 'server' | 'browser', root: string): Promise<{ js: string; css?: string }> {
   const { build } = await import('vite');
   // the bundle's default export is the module: a one-line entry beside nothing, outside the package
   const work = mkdtempSync(join(tmpdir(), 'wirehub-module-'));
   const entryFile = join(work, 'entry.mjs');
-  writeFileSync(entryFile, `export { ${exportName} as default } from ${JSON.stringify(entry)};\n`);
+  writeFileSync(entryFile, exportName === undefined ? `export * from ${JSON.stringify(entry)};\n` : `export { ${exportName} as default } from ${JSON.stringify(entry)};\n`);
   try {
     return await bundleEntry(build, entryFile, side, root);
   } finally {
@@ -120,7 +134,7 @@ async function bundleEntry(build: typeof import('vite').build, entryFile: string
     mode: 'production',
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
     plugins: [await sharedPlugin()],
-    resolve: side === 'browser' ? { alias: [{ find: /^node:(fs|url|path)$/, replacement: nodeShim }] } : {},
+    resolve: { alias: [...WIREHUB_ALIASES, ...(side === 'browser' ? [{ find: /^node:(fs|url|path)$/, replacement: nodeShim }] : [])] },
     ...(side === 'server' ? { ssr: { noExternal: true, target: 'node' as const } } : {}),
     build: {
       write: false,
@@ -152,6 +166,13 @@ function packFilesOf(dir: string, prefix = ''): string[] {
   return out.sort();
 }
 
+/** The host's React for the probe import (what the shim reads at load). */
+function installSharedForBuild(): void {
+  const g = globalThis as { __wirehub?: { shared?: Record<string, unknown> } };
+  g.__wirehub ??= {};
+  g.__wirehub.shared = { ...(g.__wirehub.shared ?? {}), react: React, 'react/jsx-runtime': JsxRuntime };
+}
+
 /** Does the browser need this module's code? (UI, and the pure parts the browser runs: exporters, rules, the scheme, the hook.) */
 function wantsBrowser(m: WireHubModule): boolean {
   const points = extensionPointsOf(m);
@@ -167,8 +188,18 @@ export async function buildModule(options: BuildOptions): Promise<BuildResult> {
   const entry = resolve(moduleDir, pkg.main ?? 'src/index.ts');
   if (!existsSync(entry)) throw new ModuleBuildError(`the module's entry ${relative(process.cwd(), entry)} does not exist`);
 
-  // the module object itself: its id, version and what it contributes
-  const namespace = (await import(pathToFileURL(entry).href)) as Record<string, unknown>;
+  // the module object itself (its id, version and what it contributes), from a probe build of the whole entry:
+  // the same code the hub will load, so its dependencies need resolving only once, the bundler's way
+  const probe = await bundle(entry, undefined, 'server', moduleDir);
+  installSharedForBuild();
+  const probeDir = mkdtempSync(join(tmpdir(), 'wirehub-module-probe-'));
+  let namespace: Record<string, unknown>;
+  try {
+    writeFileSync(join(probeDir, 'probe.mjs'), probe.js);
+    namespace = (await import(pathToFileURL(join(probeDir, 'probe.mjs')).href)) as Record<string, unknown>;
+  } finally {
+    rmSync(probeDir, { recursive: true, force: true });
+  }
   const candidates = Object.entries(namespace).filter(([key, v]) => (options.exportName === undefined ? key !== 'default' : key === options.exportName) && isModule(v));
   if (candidates.length !== 1) {
     throw new ModuleBuildError(options.exportName === undefined ? `the entry exports ${candidates.length} modules (${candidates.map(([k]) => k).join(', ') || 'none'}); name one with --export` : `the entry exports no module '${options.exportName}'`);

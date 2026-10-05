@@ -71,10 +71,29 @@ at it, then delete it and add your own.
   `version` in its manifest and keep the old directory. The store keeps every version it ever
   published, because a design built on 1.0.0 must still be able to re-validate against it, and
   each deploy publishes exactly what is under `packs/`.
-- Data only: a pack holds records and images, never code. Say where every value came from in its
+- A pack under `packs/` holds records and images, never code. Say where every value came from in its
   `src` field, and do not copy data you may not redistribute.
 
 Commit and push to `main`: the **Publish store** workflow runs.
+
+## 4b. Add code modules (optional)
+
+A store can also carry **code modules**: modules that run code in a hub (an ERP link, a house rule, a
+panel), installed at runtime by the hub's owner. Put each module package under `modules/<name>/`: a
+`package.json` (`"main": "./src/index.ts"`), `src/index.ts` exporting a `defineModule({...})`, and
+optionally a `pack/` with its data, laid out like WireHub's `modules/example` (copy it to start). The
+workflow builds each one with WireHub's `wirehub-module build` into a pack (`code/<id>/server.mjs` and,
+for UI, `browser.mjs`), signs it with your **publisher key** and lists it like any pack. `@wirehub/*`
+come from the tooling the action pins; a module with dependencies of its own commits its
+`package-lock.json`.
+
+- Code needs the publisher: the build fails without `WIREHUB_PACK_SIGNING_KEY` and a publisher in
+  `store-meta.json`, because a hub installs code only when the store lists its publisher and the
+  publisher's key signed it.
+- A hub owner sees what the module may do (its extension points and permissions) and consents before it
+  runs. Bump the module's `version` for every release; keep the module API it was built for in mind
+  (WireHub's `specs/runtime-modules.md`).
+- You are responsible for what your code does. Write it as you would code for your own hub.
 
 ## 5. Enable GitHub Pages
 
