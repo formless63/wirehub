@@ -143,7 +143,13 @@ function face(set: GerberSet, shape: { loops: Point[][]; frame: BoardFrame }, si
     defs.push(maskOf(`${p}-silk`, silk, frame));
     layers.push(`<rect ${cover} fill="${COLOURS.silk}" mask="url(#${p}-silk)"/>`);
   }
-  const holes = set.drills.map((d) => `<circle cx="${n(d.x)}" cy="${n(d.y)}" r="${n(d.diameter / 2)}"/>`).join('');
+  const holes = set.drills
+    .map((d) =>
+      d.to === undefined
+        ? `<circle cx="${n(d.x)}" cy="${n(d.y)}" r="${n(d.diameter / 2)}"/>`
+        : `<path d="M${n(d.x)} ${n(d.y)}L${n(d.to.x)} ${n(d.to.y)}" fill="none" stroke="${COLOURS.hole}" stroke-width="${n(d.diameter)}" stroke-linecap="round"/>`,
+    )
+    .join('');
   if (holes !== '') layers.push(`<g fill="${COLOURS.hole}">${holes}</g>`);
   // the bottom is the board seen from below: reflected about x, in the same frame as the top
   const place = side === 'top' ? `translate(${n(-frame.x0)} ${n(-frame.y0)})` : `translate(${n(frame.width + frame.x0)} ${n(-frame.y0)}) scale(-1 1)`;

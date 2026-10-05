@@ -165,6 +165,91 @@ describe('Gerber set → board art', () => {
     expect(drills[0]).toMatchObject({ x: 130, y: 105, diameter: 1, plated: true });
   });
 
+  it('repeats a step-and-repeat block, and moves only the flashes by %LM/%LR/%LS', () => {
+    const file = (body: string): string => ['%FSLAX24Y24*%', '%MOMM*%', '%ADD10C,1.0*%', '%ADD11R,2.0X1.0*%', ...body.split('\n'), 'M02*'].join('\n');
+    // 3 x 2 copies, 10 mm across and 5 mm up: one flash and one stroke per copy
+    const panel = plotGerber(file('%SRX3Y2I10.0J5.0*%\nD10*\nX10000Y10000D03*\nX10000Y10000D02*\nX20000Y10000D01*\n%SR*%\nX0Y0D03*'));
+    expect(panel.warnings).toEqual([]);
+    expect(panel.flashes.map((f) => [f.x + 0, f.y + 0]).sort((a, b) => a[0]! - b[0]! || a[1]! - b[1]!)).toEqual([
+      [0, 0],
+      [1, -6],
+      [1, -1],
+      [11, -6],
+      [11, -1],
+      [21, -6],
+      [21, -1],
+    ]);
+    expect(panel.strokes).toHaveLength(6);
+    // the block's copies are drawn dark; the bounds cover the last copy (the stroke ends at x 2, plus 20, plus its half width; y -6 and up)
+    expect(panel.bounds!.x1).toBeCloseTo(22.5);
+    expect(panel.bounds!.y0).toBeCloseTo(-6.5);
+    expect(panel.elements.filter((e) => e.svg.startsWith('<g transform="translate(20 -5)')).length).toBeGreaterThan(0);
+    // %SRX1Y1% ends a block without repeating
+    expect(plotGerber(file('%SRX2Y1I4.0J0*%\nD10*\nX0Y0D03*\n%SRX1Y1*%\nX0Y10000D03*')).flashes).toHaveLength(3);
+    // a mirrored, rotated and scaled rectangle: only the flash moves, the stroke does not
+    const moved = plotGerber(file('D11*\n%LMX*%\n%LR90*%\n%LS2*%\nX10000Y10000D03*\n%LMN*%\n%LR0*%\n%LS1*%\nX20000Y10000D03*\nD10*\nX20000Y10000D02*\nX30000Y10000D01*'));
+    expect(moved.warnings).toEqual([]);
+    const [flashed, plain] = moved.flashes;
+    // 2 x 1 rotated a quarter turn and doubled: 2 x 4 across, so half extents 1 and 2
+    expect([flashed!.hw, flashed!.hh]).toEqual([1, 2]);
+    expect([plain!.hw, plain!.hh]).toEqual([1, 0.5]);
+    expect(moved.elements[0]!.svg).toContain('<g transform="translate(1 -1) scale(2) rotate(-90) scale(-1 1) translate(-1 1)">');
+    expect(moved.elements[1]!.svg).not.toContain('<g');
+  });
+
+  it('reads inch aperture macros in inches, in millimetres out', () => {
+    const inch = plotGerber(
+      ['%FSLAX24Y24*%', '%MOIN*%', '%AMPAD*', '1,1,$1,0,0*', '21,1,0.04,$1,0.1,0.05,0*%', '%ADD10PAD,0.02*%', 'D10*', 'X10000Y20000D03*', 'M02*'].join('\n'),
+    );
+    expect(inch.warnings).toEqual([]);
+    const mm = plotGerber(
+      ['%FSLAX33Y33*%', '%MOMM*%', '%AMPAD*', '1,1,$1,0,0*', '21,1,1.016,$1,2.54,1.27,0*%', '%ADD10PAD,0.508*%', 'D10*', 'X25400Y50800D03*', 'M02*'].join('\n'),
+    );
+    // the same pad, 0.02 in = 0.508 mm, at (1 in, 2 in) = (25.4, 50.8) mm
+    expect(inch.flashes).toHaveLength(1);
+    expect(inch.flashes[0]!.x).toBeCloseTo(25.4);
+    expect(inch.flashes[0]!.y).toBeCloseTo(-50.8);
+    expect(inch.elements.map((e) => e.svg)).toEqual(mm.elements.map((e) => e.svg));
+    expect(inch.flashes[0]!.hw).toBeCloseTo(mm.flashes[0]!.hw);
+  });
+
+  it('reads routed Excellon slots, and draws them in the art', () => {
+    const drl = [
+      'M48',
+      'METRIC,TZ',
+      'T1C1.000',
+      'T2C0.800',
+      '%',
+      'G90',
+      'G05',
+      'T1',
+      'X10.000Y10.000',
+      'G05',
+      'T2',
+      'X20.000Y5.000G85X26.000Y5.000',
+      'G00X30.000Y8.000',
+      'M15',
+      'G01X30.000Y12.000',
+      'G01X34.000Y12.000',
+      'M16',
+      'X40.000Y40.000',
+      'M30',
+      '',
+    ].join('\n');
+    const { drills, warnings } = parseExcellon(drl);
+    expect(warnings).toEqual([]);
+    expect(drills).toEqual([
+      { x: 10, y: -10, diameter: 1 },
+      { x: 20, y: -5, diameter: 0.8, to: { x: 26, y: -5 } },
+      { x: 30, y: -8, diameter: 0.8, to: { x: 30, y: -12 } },
+      { x: 30, y: -12, diameter: 0.8, to: { x: 34, y: -12 } },
+      { x: 40, y: -40, diameter: 0.8 },
+    ]);
+    // inch, with a G85 on its own line
+    const inch = parseExcellon(['M48', 'INCH', 'T1C0.0394', '%', 'T1', 'X1.0Y1.0', 'G85X2.0Y1.0', 'M30'].join('\n'));
+    expect(inch.drills[1]).toMatchObject({ x: 25.4, y: -25.4, to: { x: 50.8, y: -25.4 } });
+  });
+
   it('reads stored and deflated zip entries', async () => {
     const stored = writeZip([{ path: 'a/b.txt', bytes: enc.encode('hello') }]);
     expect((await readZip(stored)).map((e) => [e.path, new TextDecoder().decode(e.bytes)])).toEqual([['a/b.txt', 'hello']]);
