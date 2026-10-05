@@ -50,6 +50,17 @@ everything drawn.
 | **Label marker** `W1-A` | `deriveLabels`: one per end of every run | a tick across the run at the label's `offsetMm` from that end |
 | **Sleeve** or **tape** | a mechanical instance with `attachedTo` a connector whose definition names heat-shrink, a sleeve or tape | a band along the run from that connector's end, the length the part's name gives ("40 mm long") else 25 mm and a note |
 
+**Captions keep clear.** Every caption (a peg's name, a label tick's name, a connector's name and
+definition, a mould's name) has a home place, and keeps it unless something is already there: the
+glyphs, pegs, ticks, runs, dimension lines, the run names and angle texts, and the captions placed
+before it. Then it takes the first free spot of a fixed list (pegs: the other corners round the peg;
+ticks: slid along the run, then across it; connector names: pushed away from the glyph, slid out,
+flipped to its other side; moulds: lifted, or put under the glyph), judged on the face's real glyph
+widths (`formboard-labels.ts`). A caption with no free spot keeps its home place. A caption that a
+tile's edge would cut, whose anchor is on that tile, is pulled inside the tile when it fits whole, so a
+long name at a join (the mould's) reads whole on both neighbouring tiles. Placement depends on the
+geometry only, so it is deterministic and the same on every tile.
+
 Glyphs (connector, mould, sleeve) are fixed-size symbols, scaled with the board but not to the
 part, and the sheet says so. Lengths and angles are the truth of the drawing.
 
@@ -103,6 +114,7 @@ The functions are pure and exported from `@wirehub/docs`: `deriveFormboard`, `fo
 `packages/docs/test/formboard.test.ts`: true lengths, symmetric fans for two and three legs,
 nested breakouts, missing lengths, sleeves, peg numbering, variation, the tiling cover rule,
 registration-mark agreement between neighbours, paper sizes, determinism and a smoke test over
-every starter design; goldens under `packages/docs/test/__golden__/` for the Y splitter
+every starter design; `formboard-labels.test.ts`: the collision geometry and, on every tile of the Y
+splitter at 1:1 and 1:2, that no caption sits on a glyph, peg, tick or another caption; goldens under `packages/docs/test/__golden__/` for the Y splitter
 (`dc-y-splitter`): the overview, the tile that holds the breakout at 1:1, and the whole board
 on one sheet at 1:10. A change to the drawing is a visible diff in those files.
