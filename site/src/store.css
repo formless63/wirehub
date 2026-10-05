@@ -1,0 +1,31 @@
+.store-head { max-width: 960px; }
+#store { max-width: 960px; margin: 0 auto; padding: 0 16px 16px; }
+#store h2 { font-size: 20px; margin: 24px 0 8px; }
+#store h3 { font-size: 16px; margin: 14px 0 6px; }
+#store pre { background: var(--code); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; overflow-x: auto; margin: 4px 0; }
+#store pre code { background: none; padding: 0; word-break: break-all; white-space: pre-wrap; }
+button { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--brand); color: var(--brand-ink); border: 0; border-radius: 4px; padding: 5px 12px; }
+button.secondary { margin: 4px 0 0; background: transparent; color: var(--ink); border: 1px solid var(--line); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--copper); outline-offset: 1px; }
+.status { margin: 12px 0; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--faint); border-radius: 6px; }
+.status p { margin: 4px 0 0; }
+.status.ok { border-left-color: var(--ok); }
+.status.warn { border-left-color: var(--warn); }
+.status.err { border-left-color: var(--err); }
+.add { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 18px 14px; }
+.pack { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 18px 12px; margin: 12px 0; }
+.pack h3 { margin-top: 8px; font-size: 18px; }
+.pack p { margin: 4px 0; }
+.meta { color: var(--dim); font-size: 13px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; margin-top: 8px; }
+th, td { text-align: left; padding: 6px 10px 6px 0; border-top: 1px solid var(--line); vertical-align: top; }
+th { color: var(--faint); font-weight: 600; font-size: 12px; border-top: 0; }
+.hint { color: var(--faint); font-size: 12px; font-weight: 400; }
+.tag { font-weight: 600; font-size: 13px; }
+.tag.ok { color: var(--ok); }
+.tag.err { color: var(--err); }
+.tag.dim { color: var(--dim); }
+.yank { color: var(--err); font-size: 13px; margin-top: 2px; }
+tr.yanked td:first-child b { text-decoration: line-through; }
+noscript p { max-width: 960px; margin: 16px auto; padding: 0 16px; }

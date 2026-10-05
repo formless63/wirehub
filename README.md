@@ -50,7 +50,7 @@ explains each. Everything else — single sign-on, magic links, allowed emails,
 alerts, the git mirror, job settings — is set in the app under **Settings** and
 applies without a redeploy.
 
-**Config generator: <https://formless63.github.io/wirehub/>** — pick your
+**Config generator: <https://formless63.github.io/wirehub/generator/>** — pick your
 options and get a ready `compose.yaml` and `.env`. It runs entirely in your
 browser and sends nothing anywhere.
 

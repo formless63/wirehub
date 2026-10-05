@@ -1,9 +1,10 @@
 name: Pages
 
-# Publishes the config generator (site/) to GitHub Pages:
-# https://formless63.github.io/wirehub/. One self-contained page with the
-# repository's compose.yaml embedded, rebuilt whenever it or the generator
-# changes. (Settings → Pages → Source: GitHub Actions.)
+# Publishes the site (site/) to GitHub Pages: https://formless63.github.io/wirehub/
+# Home (/), the config generator (/generator/, one self-contained page with the
+# repository's compose.yaml embedded), a docs placeholder (/docs/) and the
+# browsable module store (/store/), rebuilt whenever they change.
+# (Settings → Pages → Source: GitHub Actions.)
 #
 # It also publishes the official catalog store index of WireHub's bundled
 # packs at https://formless63.github.io/wirehub/store/index.json (the packs
@@ -49,8 +50,9 @@ jobs:
           cache: pnpm
       # the store bundler reads packs back with the studio's own archive reader (workspace packages)
       - run: pnpm install --frozen-lockfile
-      # the generator's default output must be the repository's compose.yaml
+      # the generator's default output must be the repository's compose.yaml; every page carries the nav
       - run: pnpm --filter site test
+      # the whole site: home, generator, docs, and the store's browsable page (store/index.html)
       - run: node site/build.mjs site/dist
       # the official store index: every bundled pack zipped, and index.json listing them
       - run: node scripts/store-index.mjs official --out site/dist/store
