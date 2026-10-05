@@ -117,7 +117,7 @@ export interface WireLayOrder {
    * structure already carries.
    *
    * `figure-8` (siamese / zip cord) = two separately jacketed legs moulded
-   * side by side, joined by a web (the 2×RCA lead, owner 2026-09-25). Ring of
+   * side by side, joined by a web (the 2×RCA lead). Ring of
    * 2, laid **left then right** looking into the `viewedFrom` face — the
    * cross-section is two joined circles, not one round jacket; its overall
    * width and height live in `WireDefinition.profile`.
@@ -246,7 +246,7 @@ export interface ConnectorPin {
 
 /**
  * A connector's or body's gender: an id in the `genders` vocab list. Open
- * (; owner 2026-09-25: list entries may be added in-app, not
+ * (list entries may be added in-app, not
  * only by editing code): `male` and `female` are the built-ins, and an entry
  * added to the list in the Library is just as valid.
  */
@@ -276,8 +276,8 @@ export interface ConnectorDefinition {
   partNumber?: string;
   /**
    * How it is terminated — a vocab `connector-constructions` id
-   * (`solder-cup`, `pcb-mount-th`, `pcb-mount-smd`, `crimp`, `moulded` …;
-   *). Two connectors with the same body pinout but a
+   * (`solder-cup`, `pcb-mount-th`, `pcb-mount-smd`, `crimp`, `moulded` …).
+   * Two connectors with the same body pinout but a
    * different construction are different parts (a DIN-8 270° PCB-mount plug
    * vs the in-line solder-cup one). Absent when
    * not known; `connectorConstruction` falls back to the body's.
@@ -290,13 +290,12 @@ export interface ConnectorDefinition {
    * `pre-made-lead` connector is the factory-terminated end of a purchased
    * lead (its own wire-stock instance, e.g. `audio-lead-2rca`) — the BOM
    * lines it up as a purchased part and the build sheet prints no
-   * termination step for it (owner 2026-09-29: RCA male/female, BNC male are
-   * "generally" or "only" bought pre-made).
+   * termination step for it (RCA male/female and BNC male are
+   * generally or only bought pre-made).
    */
   sourcing?: string;
   /**
-   * Earlier display names, kept so a search for one still finds it
-   *.
+   * Earlier display names, kept so a search for one still finds it.
    */
   aliases?: string[];
   /**
@@ -371,7 +370,7 @@ export interface ComponentUse {
  * absent when no source says them — never guessed.
  *
  * `partNumber` is the part number under the deployment's scheme (`CMP-00102`)
- * and nothing else on records the board import creates (hdy.13: no invented
+ * and nothing else on records the board import creates (no invented
  * numbers). The five hand-soldered records predate that and keep the supplier
  * string there (`LCSC C25270`) because the cable BOM prints it; their
  * `suppliers` carry the same numbers structured.
@@ -511,8 +510,8 @@ export interface PcbaDefinition {
   /**
    * Production status; absent = active. `legacy`: an older revision than the
    * the board files README's released one; `retired`: archived under `_Obsolete`
-   * (owner, decisions page 2026-09-25: legacy revisions imported for
-   * reference, hidden unless filtered). Same vocabulary as `DesignStatus`.
+   * (legacy revisions are imported for reference and hidden unless
+   * filtered). Same vocabulary as `DesignStatus`.
    */
   status?: DesignStatus;
 }
@@ -539,7 +538,7 @@ export interface MechanicalDefinition {
   kind: 'shell' | 'fastener' | 'other';
   /**
    * A pre-terminated sub-assembly the contract manufacturer supplies — the
-   * "stripped to X" stock (owner 2026-09-25): the end it arrives terminated
+   * "stripped to X" stock: the end it arrives terminated
    * at, and whether the trunk comes with it (cut, the other end stripped). A
    * design that uses one builds only the other end in house.
    */
@@ -854,8 +853,8 @@ export interface Joint {
    * The hole this one solder point is made through, when that hole is part of
    * it: a plug pin passed through a carrier board's hole
    * and soldered onto the pad of the board beneath — plug pin, carrier hole and
-   * board pad are ONE joint (owner 2026-09-29: "the through-hole is also the
-   * pad"). It is on the net with `a` and `b`; the drawings draw nothing extra
+   * board pad are ONE joint (the through-hole is also the
+   * pad). It is on the net with `a` and `b`; the drawings draw nothing extra
    * for it. `jointKey` stays the `a`–`b` pair.
    */
   through?: TerminalRef;
@@ -866,7 +865,7 @@ export interface Joint {
  * Where a design stands in production. `active` (the default when absent) is a
  * current production build; `development` is a design on a board not yet released
  * to production; `legacy` is a still-approved older variant built while its inventory
- * lasts (owner, 2026-09-24); `retired` is a design no longer
+ * lasts; `retired` is a design no longer
  * built, kept for reference (an older hand-solder build, say).
  */
 export type DesignStatus = 'active' | 'development' | 'legacy' | 'retired';

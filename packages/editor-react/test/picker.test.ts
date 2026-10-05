@@ -1,6 +1,6 @@
 /**
- * The node picker's compatibility and ranking (
- *), on real designs and real free terminals: core's
+ * The node picker's compatibility and ranking,
+ * on real designs and real free terminals: core's
  * `jointCompatibility` decides what fits, `picker.ts` ranks what does.
  */
 

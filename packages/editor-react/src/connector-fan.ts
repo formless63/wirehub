@@ -3,7 +3,7 @@
  *
  * A mating face's pins sit on a circle or in rows, so several share a height:
  * the DIN-8's pins 1, 8 and 3; 4 and 5; 6 and 7. Leaving each pin level with
- * itself (e5c.30) draws those leads on top of one another, and the edges
+ * itself draws those leads on top of one another, and the edges
  * leave the card bunched on a handful of heights. Instead every wired pin
  * gets its own **slot** on a fan column just clear of the drawing, on the
  * side its edges leave: the pin's lead runs straight to its slot, then level

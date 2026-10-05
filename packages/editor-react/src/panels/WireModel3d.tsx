@@ -5,10 +5,9 @@
  * builder's hands. The default export is what the Library, the wire builder
  * and the Inspector lazy-load, so three.js stays in its own chunk.
  *
- * Owner, 2026-09-29: "create the coaxial and bonded multi-core wires as models where
- * the different parts and pieces were able to be manipulated? Like showing
- * different lengths, stripped back at different layers, etc. Perhaps even
- * allowing our existing wire creation tools to drive this process".
+ * The coaxial and bonded multi-core wires are models whose parts can be
+ * manipulated: different lengths, stripped back at different layers, and the
+ * wire creation tools drive the process.
  *
  * Draws on demand (a control, a resize, a theme change), never in a loop.
  * Without WebGL (jsdom, an old browser) the canvas stays and a sentence says

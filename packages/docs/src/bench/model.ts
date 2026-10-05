@@ -10,7 +10,7 @@
  *   other face the same; anything straight onto a connector pin last);
  * - what happens to every element of the stock at that end — landed, twisted
  *   into a pigtail, or cut back (the strip plan). The foil is never listed:
- *   it is trimmed back and never indicated (owner 2026-09-25); a bonded multi-core
+ *   it is trimmed back and never indicated; a bonded multi-core
  *   mass is one row; a coax drain lands at the source only;
  * - the non-wire work at that end: pin bridges and hand-fitted parts.
  *
@@ -554,7 +554,7 @@ function stripPlan(
   const mine = landings.filter((l) => l.segment === segmentId && l.segEnd === end);
   const bonded = isFullyBonded(wire);
   const rows: StripRow[] = [];
-  // a breakout run carries only its own core; a mould decides what each conductor does (pci.30)
+  // a breakout run carries only its own core; a mould decides what each conductor does
   const elements = stockElements(wire).filter((e) => inScope(segment, e.path));
   const fates = breakoutFates(design, db);
   const twistOf = (path: string): { pigtail: string; n?: number } | undefined => {

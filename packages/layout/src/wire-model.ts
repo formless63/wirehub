@@ -1,9 +1,7 @@
 /**
  * `wireModel(wire, options)` — a wire stock as the pieces a 3D view draws
- *. Owner, 2026-09-29: "create the coaxial and
- * bonded multi-core wires as models where the different parts and pieces were able
- * to be manipulated? Like showing different lengths, stripped back at
- * different layers, etc."
+ * so that the coaxial and bonded multi-core wires can be manipulated piece by
+ * piece: different lengths, stripped back at different layers, and so on.
  *
  * Pure: no three.js, no DOM. Out comes a list of swept tubes — each a
  * centreline, an outer and inner radius, a material kind and a colour name —
@@ -28,7 +26,7 @@
  *   Coax": ~80 % cut off) and twisted into its own short lead that stays on
  *   its own core — folded back along it, or (a design's build) bent toward
  *   the board face its pigtail lands on. Nothing converges on a point in
- *   space (owner 2026-09-29). The drain follows the
+ *   space. The drain follows the
  *   strip's own per-end rule (used at the source end only), coming out of
  *   the bundle through a valley and lying along it.
  *
@@ -793,7 +791,7 @@ function buildModel(wire: WireDefinition, cs: CrossSection, options: WireModelOp
     if (mass) {
       if (s.shield === 'keep') continue;
       // one copper mass: every core screen unwound back to the jacket and
-      // twisted into ONE lead (owner: "indicate it together, once")
+      // twisted into ONE lead (indicated together, once)
       let area = 0;
       let metal: 'copper' | 'tinned' = 'copper';
       for (const g of cores) {

@@ -1,8 +1,8 @@
 /**
  * Kits (data model v2 §7.1).
  *
- * > "Kit number just felt wrong — it could be in multiple kits, so it felt
- * > constrained." — owner, 2026-09-25
+ * A part number is not a property of a part alone: the same part can sit in
+ * several kits, so a kit is its own SKU rather than a number on the part.
  *
  * A kit is an orderable SKU (`KIT-00101-00`) and a bill of parts: a
  * connector, a populated board, a shell, fasteners … Each part is picked from
@@ -28,7 +28,7 @@ export interface KitLine {
   qty: number;
   /**
    * A line that applies to one stock only — the `-00` coax vs `-30`
-   * bonded multi-core shell inside one kit SKU (owner question Q11).
+   * bonded multi-core shell inside one kit SKU.
    */
   when?: { stockFamily?: 'coax' | 'bonded' };
   /** the line is the catalog's inference, not a stated fact — for the owner to confirm */

@@ -45,8 +45,8 @@ export function crossingsLeftOf(i: LaneRun, j: LaneRun): number {
 /**
  * Worse than a crossing: `i` leaves on the very row `j` comes in on, and
  * with `i`'s lane left of `j`'s the two share that row between their lanes —
- * two nets drawn as one wire, which reads as a connection
- *. With `j`'s lane on the left, `j` has left the row
+ * two nets drawn as one wire, which reads as a connection.
+ * With `j`'s lane on the left, `j` has left the row
  * before `i` arrives on it.
  */
 const SHARED_ROW = 3;

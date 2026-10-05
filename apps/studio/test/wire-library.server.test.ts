@@ -1,5 +1,5 @@
 /**
- * The wire builder's endpoints (pci.17): parts in, stocks compiled from
+ * The wire builder's endpoints: parts in, stocks compiled from
  * recipes out, the whole library validated before anything is written.
  */
 
@@ -34,7 +34,7 @@ beforeEach(async () => {
 const call = async (method: string, path: string, body?: unknown) => await handleWorkbenchRequest(await withLoadedVersion({ method, path, body }, deps), deps);
 
 describe('/api/wire-library', () => {
-  it('serves the strip practice read-only, and an empty list without it (50a.58)', async () => {
+  it('serves the strip practice read-only, and an empty list without it', async () => {
     const practice = loadStripPractice();
     const withPractice: WorkbenchDeps = { ...deps, wireLibrary: memoryWireLibraryStore(LIBRARY, CATALOG.wires, practice) };
     const read = await handleWorkbenchRequest(await withLoadedVersion({ method: 'GET', path: '/api/wire-library/strip-practice' }, withPractice), withPractice);

@@ -35,22 +35,55 @@
  * their own `retry: false` client; a real page gets the default.
  */
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
-import { useState, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
+import { setCommitHook } from '@wirehub/editor-react';
+import type { ModuleRegistry } from '@wirehub/modules';
 import { Toaster } from 'sonner';
 
 import { CommandRegistryProvider } from './commands/registry.tsx';
 import { router as defaultRouter, type StudioRouter } from './router.tsx';
+import { connectEventStream } from './events.browser.ts';
+import { cableListKey, dbKey, designsKey } from './queries.ts';
+import { partNumbersKey } from './part-numbers.browser.ts';
+import { ModulesContext } from './modules/ModulesContext.tsx';
+import { registry as buildRegistry } from './modules.browser.ts';
 import { StudioProvider } from './studio-context.tsx';
 import { LockClientContext } from './locks/lock-context.tsx';
 import type { LockClient } from './locks/lock-client.ts';
+
+/**
+ * Live catalog and lease updates (`GET /api/events`): a commit anywhere
+ * refetches the lists, the library and the part-number data (an open cable is
+ * left alone: its save's If-Match is what catches a stale copy, and an
+ * unsaved edit is never replaced); a lease change refreshes the lock list.
+ * While the stream is up the lock list is polled only as a safety net.
+ */
+export function ServerEvents({ locks }: { locks?: LockClient | undefined }): null {
+  const queryClient = useQueryClient();
+  useEffect(
+    () =>
+      connectEventStream({
+        onCatalog: () => {
+          for (const queryKey of [designsKey, cableListKey, dbKey, partNumbersKey, ['studio', 'versions']]) void queryClient.invalidateQueries({ queryKey });
+        },
+        onLocks: () => void locks?.refresh(),
+        onState: (live) => locks?.setLive(live),
+      }),
+    [queryClient, locks],
+  );
+  return null;
+}
 
 export function App({
   router = defaultRouter,
   queryClient: providedQueryClient,
   locks,
+  modules: providedModules,
 }: {
+  /** the module registry; absent → the build's own (`modules.browser.ts`) */
+  modules?: ModuleRegistry;
   router?: StudioRouter;
   queryClient?: QueryClient;
   /** the page's edit-lock client; absent → no locks (the shell tests) */
@@ -58,9 +91,17 @@ export function App({
 } = {}): JSX.Element {
   const [ownQueryClient] = useState(() => new QueryClient());
   const queryClient = providedQueryClient ?? ownQueryClient;
+  const modules = providedModules ?? buildRegistry;
+  // the editor's commit hook: at most one module sets it (`docs/modules.md`)
+  useEffect(() => {
+    setCommitHook(modules.commitHook());
+    return () => setCommitHook(undefined);
+  }, [modules]);
   return (
+    <ModulesContext.Provider value={modules}>
     <QueryClientProvider client={queryClient}>
       <LockClientContext.Provider value={locks}>
+      <ServerEvents locks={locks} />
       <StudioProvider>
         <CommandRegistryProvider>
           <RouterProvider router={router} />
@@ -84,5 +125,6 @@ export function App({
         }}
       />
     </QueryClientProvider>
+    </ModulesContext.Provider>
   );
 }

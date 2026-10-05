@@ -14,9 +14,9 @@
  *   add (a label with its predecessor aliased, an alias, `deprecatedBy`).
  *   `vocabChangeIssues` is the check a writer (the studio's
  *   `POST /api/vocab/:list`, a script) runs before it saves;
- * - an entry may be `pending` — proposed, not yet accepted. Owner question Q8
- *   is who may add entries; with "either owner, in-app" nothing is ever
- *   pending, with "owner-approved only" new entries arrive pending and are
+ * - an entry may be `pending` — proposed, not yet accepted. Who may add
+ *   entries is a policy choice: with "anyone, in-app" nothing is ever
+ *   pending, with "approved only" new entries arrive pending and are
  *   accepted by clearing the flag. References to a pending entry are warnings.
  *
  * Pure and presentation-free: lists in, entries and issues out.
@@ -38,7 +38,7 @@ export interface VocabEntry {
   aliases?: string[];
   /** merged into another entry: lookups of this id resolve to that one */
   deprecatedBy?: string;
-  /** proposed, not yet accepted (owner question Q8, option b) */
+  /** proposed, not yet accepted */
   pending?: boolean;
   note?: string;
   src: string;
@@ -519,8 +519,8 @@ export type AppendResult =
  * Append one entry to a list — the only write an in-app "Add '…'" makes.
  * Refused (with the issues) when the entry has no id, label or `src`, reuses
  * an id or a spelling another entry answers to, or names a `deprecatedBy`
- * that is not there. `pending: true` in the options files it for acceptance
- * (owner question Q8, option b); the default adds it accepted (option a).
+ * that is not there. `pending: true` in the options files it for acceptance;
+ * the default adds it accepted (option a).
  */
 export function appendVocabEntry(
   list: VocabList,

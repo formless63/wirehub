@@ -4,9 +4,8 @@
  * and lay a multi-part print plate out so the parts do not sit inside each
  * other. Pure: bytes in, typed arrays out, no IO, no randomness.
  *
- * Owner (2026-09-29): "It would be a lot easier to answer your questions if
- * studio loaded a render of the 3d models for the components right on their
- * library screen so i could easily get a visual."
+ * The Library shows a render of a part's 3D model right on its screen, so the
+ * part can be checked at a glance.
  */
 
 /** One named, single-coloured triangle mesh — a housing half, a board, a part. */

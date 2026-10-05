@@ -115,7 +115,7 @@ describe('readDrawingMeta / readPhoto', () => {
     expect(readDrawingMeta({ cutaway: 'crayon' }).ok).toBe(false);
   });
 
-  it('keeps sheet options (50a.9), dropping empty ones, refusing unknown ones', async () => {
+  it('keeps sheet options, dropping empty ones, refusing unknown ones', async () => {
     expect(readDrawingMeta({ sheet: { paper: 'letter', number: ' CBL-00101-3X ', revision: '', status: 'DRAFT', stampDate: true } })).toEqual({
       ok: true,
       meta: { sheet: { paper: 'letter', number: 'CBL-00101-3X', status: 'DRAFT', stampDate: true } },

@@ -110,21 +110,60 @@ export interface IntegrationContribution {
   routes?: readonly ServerRouteContribution[];
 }
 
+export type PanelSlot = 'cable-inspector' | 'cable-documents' | 'library-detail' | 'settings';
+
 /** A UI panel the host mounts in a named slot. The component is the host framework's (React in apps/studio). */
 export interface PanelContribution {
   id: string;
   label: string;
-  slot: 'cable-inspector' | 'cable-documents' | 'library-detail' | 'settings';
+  slot: PanelSlot;
+  /** a React component taking `PanelProps` (`unknown` here, so this package needs no React) */
   component: unknown;
 }
 
+/**
+ * A call to the module's own server routes (`/api/modules/<module>/<path>`),
+ * as the host hands it to a panel or a route. Resolves with the HTTP status and
+ * the parsed JSON body; never throws on a 4xx/5xx.
+ */
+export type ModuleApi = (method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown) => Promise<{ status: number; body: unknown }>;
+
+/**
+ * The props every panel component receives. `design` is the cable on screen
+ * (the live, possibly unsaved one) in the cable slots; `record` names the
+ * Library definition in `library-detail`. Panels are read-mostly: write through
+ * `api` to the module's own routes, or through the module's data under
+ * `design.extensions[module]` by the commit hook.
+ */
+export interface PanelProps {
+  slot: PanelSlot;
+  /** the module that contributed the panel */
+  module: string;
+  db: Db;
+  design?: CableDesign;
+  record?: { kind: string; id: string };
+  /** a read-only view (a saved revision, someone else's edit lock): no writes */
+  readOnly: boolean;
+  api: ModuleApi;
+}
+
 export interface UiRouteContribution {
-  /** path below `/m/<module id>/` */
+  /** path below `/m/<module id>/`: `status`, or `reports/summary` (static segments only) */
   path: string;
   label: string;
-  /** shown in the rail when set */
+  /** shown in the rail when set: a Tabler icon name (`IconPlug`) from the host's small set; unknown names fall back to a puzzle piece */
   icon?: string;
+  /** a React component taking `RouteProps` */
   component: unknown;
+}
+
+/** The props a UI route's component receives. */
+export interface RouteProps {
+  module: string;
+  /** the route's path below `/m/<module>/` */
+  path: string;
+  db: Db;
+  api: ModuleApi;
 }
 
 /** A sign-in method the auth layer offers (e.g. OIDC against a deployment's identity provider). */
@@ -166,6 +205,36 @@ export interface DocumentContribution {
   class: 'imported' | 'report';
 }
 
+/**
+ * SQL migrations for a module's own relational state (Postgres backend only;
+ * `docs/modules.md`, "Module tables"). `dir` holds forward-only
+ * `NNNN_<module_id>_<name>.sql` files (`NNNN` ascending from 0001, the module id
+ * with `-` written as `_`), applied after the base's migrations into the schema
+ * `mod_<module_id>`. A path or a `file:` URL, like a pack's `root`.
+ */
+export interface ModuleMigrationsContribution {
+  dir: string | URL;
+}
+
+/**
+ * Derived records a module keeps beside the catalog: files recomputed from
+ * the designs and definitions whenever a save changes one of them, so they are
+ * never stale and travel with the change that moved them (the git export on
+ * files, the `derived_doc` table on Postgres). They live at
+ * `data/derived/<module id>/<file>`; nobody writes them by hand.
+ *
+ * `derive` must be pure and deterministic (no clock, no network): the same
+ * inputs give the same bytes on both backends. Return one entry per declared
+ * file: JSON-able data for a `.json` file, a string for a `.md` file.
+ */
+export interface DerivedContribution {
+  id: string;
+  label: string;
+  /** the files it keeps, by name: `summary.json`, `report.md` (lowercase, `.json` or `.md`) */
+  files: readonly string[];
+  derive(input: { designs: readonly CableDesign[]; db: Db }): Record<string, unknown>;
+}
+
 /* ------------------------------------------------------------------ *
  * The module
  * ------------------------------------------------------------------ */
@@ -193,6 +262,9 @@ export interface WireHubModule {
   /** at most one module in a deployment may set this */
   commitHook?: CommitHookContribution;
   documents?: readonly DocumentContribution[];
+  derived?: readonly DerivedContribution[];
+  /** SQL for the module's own tables on the Postgres backend */
+  migrations?: ModuleMigrationsContribution;
 }
 
 /** Identity helper so a module file type-checks its own literal. */
@@ -214,8 +286,19 @@ export interface ModuleRegistry {
   /** the optional (domain) modules first-run setup offers, in manifest order */
   domains(): readonly WireHubModule[];
   importers(): readonly (ImporterContribution & { module: string })[];
+  derived(): readonly (DerivedContribution & { module: string })[];
+  /**
+   * The catalog directories (relative to `data/`, `''` = the top level) holding
+   * files modules own — their documents and derived records — so the file
+   * backend's catalog version covers them.
+   */
+  catalogDirs(): readonly string[];
   /** the module document a catalog path belongs to, if any (`PUT /api/docs/*path`) */
   documentFor(path: string): (DocumentContribution & { module: string }) | undefined;
+  /** one importer, by module and id */
+  importer(module: string, id: string): (ImporterContribution & { module: string }) | undefined;
+  /** one exporter, by module and id */
+  exporter(module: string, id: string): (ExporterContribution & { module: string }) | undefined;
   /** the importers that take `fileName`, by extension */
   importersFor(fileName: string): readonly (ImporterContribution & { module: string })[];
   exporters(): readonly (ExporterContribution & { module: string })[];
@@ -228,6 +311,8 @@ export interface ModuleRegistry {
 }
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const DERIVED_FILE = /^[a-z0-9][a-z0-9-]*\.(json|md)$/;
+const ROUTE_PATH = /^[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*$/;
 
 /** Why a manifest is unusable — thrown by `createRegistry`, one sentence per problem. */
 export class ModuleManifestError extends Error {
@@ -253,6 +338,36 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
     ids.add(m.id);
     if (!/^\d+\.\d+\.\d+/.test(m.version)) problems.push(`module '${m.id}' version '${m.version}' is not semver`);
     if (m.setup !== undefined && (m.catalogPacks ?? []).length === 0) problems.push(`domain module '${m.id}' ships no catalog pack for setup to install`);
+  }
+  for (const m of modules) {
+    const kept = new Set<string>();
+    for (const d of m.derived ?? []) {
+      if (!KEBAB.test(d.id)) problems.push(`module '${m.id}' derived record '${d.id}' is not a kebab-case id`);
+      for (const file of d.files) {
+        if (!DERIVED_FILE.test(file)) problems.push(`module '${m.id}' derived file '${file}' must be a lowercase name ending .json or .md`);
+        if (kept.has(file)) problems.push(`module '${m.id}' declares derived file '${file}' twice`);
+        kept.add(file);
+      }
+    }
+    for (const doc of m.documents ?? []) {
+      if (doc.path.startsWith('data/derived/')) problems.push(`module '${m.id}' document '${doc.path}' is under data/derived/, which the host keeps for derived records`);
+    }
+    for (const integration of m.integrations ?? []) {
+      for (const route of integration.routes ?? []) {
+        if (route.path.startsWith('_')) problems.push(`module '${m.id}' route '${route.path}' starts with '_', which the host reserves for importers and exporters`);
+      }
+    }
+    const paths = new Set<string>();
+    for (const route of m.routes ?? []) {
+      if (!ROUTE_PATH.test(route.path)) problems.push(`module '${m.id}' UI route '${route.path}' must be lowercase kebab segments joined by '/'`);
+      if (paths.has(route.path)) problems.push(`module '${m.id}' has two UI routes at '${route.path}'`);
+      paths.add(route.path);
+    }
+    const panels = new Set<string>();
+    for (const panel of m.panels ?? []) {
+      if (panels.has(panel.id)) problems.push(`module '${m.id}' has two panels with id '${panel.id}'`);
+      panels.add(panel.id);
+    }
   }
   const schemes = modules.filter((m) => m.partNumberScheme !== undefined).map((m) => m.id);
   if (schemes.length > 1) problems.push(`more than one module sets a part-number scheme (${schemes.join(', ')})`);
@@ -286,6 +401,21 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     catalogPacks: () => list.flatMap((m) => tag(m, m.catalogPacks)),
     domains: () => list.filter((m) => m.setup?.kind === 'domain'),
     importers: () => list.flatMap((m) => tag(m, m.importers)),
+    derived: () => list.flatMap((m) => tag(m, m.derived)),
+    catalogDirs: () => {
+      const dirs = new Set<string>();
+      for (const m of list) {
+        for (const doc of m.documents ?? []) {
+          const rel = doc.path.replace(/^data\//, '');
+          const slash = rel.lastIndexOf('/');
+          dirs.add(doc.path.endsWith('/') ? rel.replace(/\/$/, '') : slash === -1 ? '' : rel.slice(0, slash));
+        }
+        if ((m.derived ?? []).length > 0) dirs.add(`derived/${m.id}`);
+      }
+      return [...dirs].sort();
+    },
+    importer: (module, id) => list.flatMap((m) => tag(m, m.importers)).find((i) => i.module === module && i.id === id),
+    exporter: (module, id) => list.flatMap((m) => tag(m, m.exporters)).find((e) => e.module === module && e.id === id),
     documentFor: (path) =>
       list.flatMap((m) => tag(m, m.documents)).find((d) => (d.path.endsWith('/') ? path.startsWith(d.path) : path === d.path) && !path.includes('..')),
     importersFor: (fileName) => {

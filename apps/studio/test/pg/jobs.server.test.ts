@@ -46,7 +46,7 @@ describePg('jobs on Postgres', () => {
     const { importScenario } = await import('../jobs-scenario.ts');
     const { createJobService, inlineJobRunner, memoryJobStore } = await import('../../server/jobs/service.ts');
     const { baseJobHandlers } = await import('../../server/jobs/handlers.ts');
-    const deps = { ...defaultWorkbenchDeps(), modules: exampleRegistry };
+    const deps = defaultWorkbenchDeps({ modules: exampleRegistry });
     const store = memoryJobStore();
     deps.jobs = createJobService({ store, runner: inlineJobRunner(store, () => baseJobHandlers({ deps }), quiet), kinds: ['import'] });
     const files = await importScenario(deps);
@@ -248,12 +248,12 @@ describePg('jobs on Postgres', () => {
       writeFileSync(join(backups, 'postgres', 'wirehub-20261005T020000Z.dump.counts'), 'studio.blob 1\n');
       symlinkSync('wirehub-20261005T020000Z.dump', join(backups, 'postgres', 'latest.dump'));
       const alerts: string[] = [];
-      const watched = await runBackupJob({ ...context, job: { ...job, kind: 'backup' } }, { db: handle.db, orgId, dir: backups, notify: async (e) => void alerts.push(e.event) });
+      const watched = await runBackupJob({ ...context, job: { ...job, kind: 'backup' } }, { db: handle.db, orgId, dir: backups, notify: { enabled: true, notify: async (e) => void alerts.push(e.event) } });
       expect(watched.result).toMatchObject({ configured: true, dump: 'wirehub-20261005T020000Z.dump', stale: false });
       expect(alerts).toEqual([]);
-      const stale = await runBackupJob({ ...context, job: { ...job, kind: 'backup' } }, { db: handle.db, orgId, dir: backups, now: () => new Date(Date.now() + 31 * 3600_000), notify: async (e) => void alerts.push(e.event) });
+      const stale = await runBackupJob({ ...context, job: { ...job, kind: 'backup' } }, { db: handle.db, orgId, dir: backups, now: () => new Date(Date.now() + 31 * 3600_000), notify: { enabled: true, notify: async (e) => void alerts.push(e.event) } });
       expect(stale.result['stale']).toBe(true);
-      expect(alerts).toEqual(['backup-stale']);
+      expect(alerts).toEqual(['backup-dump-stale']);
       expect((await runBackupJob(context, { db: handle.db, orgId, dir: join(work, 'no-backups') })).result).toEqual({ configured: false });
     } finally {
       await owner.end();

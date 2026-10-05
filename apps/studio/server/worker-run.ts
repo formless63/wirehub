@@ -13,7 +13,7 @@ import type { PgBoss } from 'pg-boss';
 import type { ModuleRegistry } from '@wirehub/modules';
 
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
-import { notifierFromEnv } from './jobs/notify.ts';
+import { notifierFromEnv } from './notify.ts';
 import { createJobService, executeJob } from './jobs/service.ts';
 import type { JobKind, JobService } from './jobs/types.ts';
 import { pgAppConfigFromEnv, redactUrl } from './pg/config.ts';
@@ -107,8 +107,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     const org = orgId;
 
     const cache = new SnapshotCache(handle.db, org);
-    const deps = pgWorkbenchDeps({ cache, db: handle.db, ...(blobs === undefined ? {} : { blobs }) });
-    if (options.modules !== undefined) deps.modules = options.modules;
+    const deps = pgWorkbenchDeps({ cache, db: handle.db, ...(blobs === undefined ? {} : { blobs }), ...(options.modules === undefined ? {} : { modules: options.modules }) });
     const store = pgJobStore(handle.db, org);
     const notify = notifierFromEnv(env);
     const handlers = pgJobHandlers({ deps, db: handle.db, orgId: org, cache, ...(blobs === undefined ? {} : { blobs }), env, notify });

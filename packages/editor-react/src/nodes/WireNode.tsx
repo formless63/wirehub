@@ -14,8 +14,8 @@
  * in the clear band outside its face, one handle per port for the edges, and
  * every conductor reaches its port along a stub painted *beneath* the faces,
  * so it appears from under the jacket's edge. A pigtail's braids do the same,
- * each on its own (drawn as braid), converging only at the pad they land on
- *; its members are tinted on the face, hovering any
+ * each on its own (drawn as braid), converging only at the pad they land on;
+ * its members are tinted on the face, hovering any
  * braid lights and lists the whole twist, clicking one selects its landing.
  */
 
@@ -210,7 +210,7 @@ function Face({
       {face.outline === undefined ? (
         <circle className="cs-face-jacket" cx={face.cx} cy={face.cy} r={face.jacket.r} />
       ) : (
-        // a figure-8 (pci.29): two jacketed legs moulded together, not one round jacket
+        // a figure-8: two jacketed legs moulded together, not one round jacket
         <path className="cs-face-jacket is-figure8" d={face.outline} />
       )}
       {shield === undefined ? null : (

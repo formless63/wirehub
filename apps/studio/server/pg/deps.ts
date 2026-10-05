@@ -19,6 +19,7 @@ import type { DepictionDeps, DepictionStore } from '../depictions.ts';
 import { memoryLockStore } from '../locks/lock-store.ts';
 import { localStudioUser } from '../me.ts';
 import { fileModelCache } from '../models/cache.ts';
+import type { ModuleRegistry } from '@wirehub/modules';
 import { registry } from '../modules.ts';
 import { PgConfigError, pgAppConfigFromEnv, redactUrl } from './config.ts';
 import { inOrg, openPg, orgCount, resolveOrgId, type Db, type PgHandle } from './db.ts';
@@ -36,7 +37,7 @@ import type { PgBoss } from 'pg-boss';
 import { remoteConvert } from '../jobs/convert.ts';
 import { stageImportInput } from '../jobs/import.ts';
 import { modelCacheTrigger } from '../jobs/model-cache.ts';
-import { notifierFromEnv } from '../jobs/notify.ts';
+import { notifierFromEnv } from '../notify.ts';
 import { createJobService, inlineJobRunner } from '../jobs/service.ts';
 import { JOB_KINDS } from '../jobs/types.ts';
 import { bossJobRunner, lastBeat, pgJobHandlers, pgJobStore, startBoss } from './jobs.ts';
@@ -74,6 +75,8 @@ export interface PgDepsOptions {
   /** the event stream, fed by LISTEN (`SnapshotCache.listen`) */
   events?: EventHub;
   blobs?: BlobStore;
+  /** the module registry; default: the build's own (`modules.config.ts`) */
+  modules?: ModuleRegistry;
   /** where today's depiction artwork lives (the file tree until B7); absent → versions copy none */
   depictionsDir?: string;
 }
@@ -105,7 +108,7 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     docs: pgDocStore(context),
     commit:
       options.db !== undefined && cache instanceof SnapshotCache
-        ? pgCommit({ db: options.db, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), verify: process.env.WIREHUB_BLOB_VERIFY !== 'off' })
+        ? pgCommit({ db: options.db, cache, modules: options.modules ?? registry, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), verify: process.env.WIREHUB_BLOB_VERIFY !== 'off' })
         : pgCommitReadOnly,
     exportCatalog: async () => exportSnapshot(await cache.get()),
     // the indicator: the database is the history (plan §7.6, D6) — its last change set
@@ -120,7 +123,7 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     // one lease table for every process when there is a database (B6)
     locks: options.db !== undefined ? pgLockStore(options.db, cache.orgId) : memoryLockStore(),
     ...(options.events === undefined ? {} : { events: options.events }),
-    modules: registry,
+    modules: options.modules ?? registry,
   };
 }
 
@@ -224,7 +227,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
         store,
         runner,
         kinds,
-        worker: () => lastBeat(handle.db, id),
+        ...(jobMode === 'worker' ? { worker: () => lastBeat(handle.db, id) } : {}),
         stageInput: async (bytes) => ({ ...(await stageImportInput(bytes, options.blobs, id)) }),
       });
       real.afterCommit = modelCacheTrigger(() => deps.jobs);

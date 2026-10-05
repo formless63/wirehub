@@ -900,7 +900,7 @@ function deriveCommoning(
  */
 function deriveOpens(design: CableDesign, db: Db, nets: Net[]): OpenCheck[] {
   // core's unwired list already drops pigtails, the foil (trimmed back at
-  // both ends and never indicated — owner 2026-09-25, e5c.25) and any screen
+  // both ends and never indicated) and any screen
   // a landed pigtail or landed bonded mass terminates (shield bonding)
   const unwired = unwiredTerminals(design, db);
   const unwiredKeys = new Set(unwired.map((terminal) => terminal.key));

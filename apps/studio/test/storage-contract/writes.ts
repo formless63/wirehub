@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { dataPath } from '@wirehub/catalog';
 import { explode } from '@wirehub/catalog/src/codec/index.ts';
 import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
+import type { ModuleRegistry } from '@wirehub/modules';
 import { expect } from 'vitest';
 
 import { exportTree } from '../../server/pg/export.ts';
@@ -158,9 +159,10 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
 }
 
 /** The in-memory commit tree over the starter catalog: the Postgres commit's stores, no database. */
-export function memoryWriteBackend(): WriteBackend {
-  const tree = CatalogTree.fromSnapshot(snapshotOf('1', explode(readCatalogTree(dataPath('..'))).rows));
-  const deps = { ...treeWorkbenchDeps(tree, { orgId: 'memory' }), exportCatalog: async () => exportTree(tree.contents(), 'memory') };
+/** `root`: the catalog package directory (default: where `@wirehub/catalog` says; a jsdom test passes the path itself) */
+export function memoryWriteBackend(modules?: ModuleRegistry, root: string = dataPath('..')): WriteBackend {
+  const tree = CatalogTree.fromSnapshot(snapshotOf('1', explode(readCatalogTree(root)).rows));
+  const deps = { ...treeWorkbenchDeps(tree, { orgId: 'memory', ...(modules === undefined ? {} : { modules }) }), ...(modules === undefined ? {} : { modules }), exportCatalog: async () => exportTree(tree.contents(), 'memory') };
   return { deps, depictionDeps: { store: deps.depictions!, loadDb: deps.loadDb, loadDesigns: () => tree.catalog.loadDesigns() } };
 }
 

@@ -336,15 +336,13 @@ export function deriveBom(design: CableDesign, db: Db): Bom {
         category: 'wire',
         unit: 'ea',
         ref: instance.def,
-        // the neutral construction name, never the maker (owner 2026-09-25/26)
+        // the neutral construction name, never the maker
         label: wire === undefined ? instance.def : wireDisplayName(db, instance.def),
         ...(wire?.partNumber === undefined ? {} : { partNumber: wire.partNumber }),
         value: length?.text ?? 'length not specified',
         location: role,
-        // never the maker here either (owner 2026-09-25/26 supersedes pci.29's
-        // "the maker, not a source document's number" — it stays in the wire's
-        // own detail view and the wire spec sheet only); a figure-8 gives both
-        // dimensions
+        // never the maker here either (it stays in the wire's own detail view
+        // and the wire spec sheet only); a figure-8 gives both dimensions
         detail: facts([
           wire?.profile !== undefined
             ? `${wire.profile.widthMm} × ${wire.profile.heightMm} mm figure-8`
@@ -413,8 +411,8 @@ export function deriveBom(design: CableDesign, db: Db): Bom {
     const kits = connector === undefined
       ? []
       : kitsContaining(db, { kind: 'connector', def: connector.id }).map((kit) => kit.sku).sort(compareStrings);
-    // pre-made-lead (owner 2026-09-29: RCA male/female,
-    // BNC male are bought as finished whips) — the connector is the
+    // pre-made-lead (e.g. RCA male/female, BNC male are usually bought as
+    // finished whips) — the connector is the
     // factory-terminated end of a purchased lead, not a part the bench
     // solders or crimps; the line stays a 'connector' BOM line (still
     // orderable, still shown at its role) but flags that no termination step

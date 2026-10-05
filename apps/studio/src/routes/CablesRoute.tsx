@@ -221,7 +221,7 @@ const columns = columnHelper.columns([
     header: 'SOURCE',
     cell: (ctx) => (
       <span className="flex min-w-0 items-start gap-1.5">
-        {/* full label on hover (owner 2026-09-25): no aggressive one-line
+        {/* full label on hover: no aggressive one-line
             ellipsis — the source title gets the space it needs, up to two
             lines, before it ever truncates */}
         <span className="line-clamp-2 min-w-0 flex-1 leading-[13px] text-[12.5px] font-medium text-ink" title={ctx.row.original.label}>
@@ -285,7 +285,7 @@ interface FilterGroupProps {
   optionLabel?: (value: string) => string;
 }
 
-/** The checklist a filter's popover shows — shared by `FilterChip` and the collapsed `FiltersMenu` (below ~900px, 50a.45). */
+/** The checklist a filter's popover shows — shared by `FilterChip` and the collapsed `FiltersMenu` (below ~900px). */
 function FilterOptionList(props: FilterGroupProps): JSX.Element {
   const show = props.optionLabel ?? ((value: string) => value);
   const toggle = (value: string): void => {

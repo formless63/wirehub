@@ -321,7 +321,7 @@ function describe(line: BomSheetLine): string {
     if (line.board.bare !== undefined) extra.push(`bare PCB ${line.board.bare}`);
     extra.push(...[line.board.rev, line.board.build].filter((s): s is string => s !== undefined));
   }
-  // never the maker in the printed build sheet (owner 2026-09-25/26) —
+  // never the maker in the printed build sheet:
   // `line.wire.manufacturer` still carries it, for a caller that wants it
   return `<span class="cs-desc">${escapeHtml(line.label)}</span>${extra.length === 0 ? '' : `<span class="cs-meta"> ${escapeHtml(extra.join(' · '))}</span>`}${
     line.board?.jumpers === undefined ? '' : `<span class="cs-jumpers">${escapeHtml(line.board.jumpers)}</span>`
@@ -395,7 +395,7 @@ export function bomSheetMarkdown(sheet: BomSheet): string {
     out.push(`## ${title}`, '', '| Qty | Part | Description | Where | Refs |', '| ---: | :--- | :--- | :--- | :--- |');
     for (const line of rows) {
       const part = line.sku ?? `UNMAPPED${line.proposal === undefined ? '' : ` (proposed ${line.proposal.pn})`}`;
-      // never the maker in the printed description (owner 2026-09-25/26) —
+      // never the maker in the printed description:
       // `line.wire.manufacturer` still carries it, for a caller that wants it
       const desc = facts([line.label, line.board?.bare === undefined ? undefined : `bare PCB ${line.board.bare}`, line.board?.build, line.board?.jumpers]);
       const where = line.variationPn ?? line.location;

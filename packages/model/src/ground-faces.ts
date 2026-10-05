@@ -226,7 +226,7 @@ export function regroupPigtailsByFace(input: CableDesign, db: Db): FaceRegroupRe
 
 /**
  * A mass pigtail (bonded multi-core) landing on a two-faced board terminal with no
- * pad, or on a shell pad: the non-RGB face's wire pad (the e5c.21 rule).
+ * pad, or on a shell pad: the non-RGB face's wire pad (the face rule).
  */
 function massPads(
   design: CableDesign,

@@ -6,10 +6,12 @@
  *
  * - **Run** (in the worker, or in this process on the file backend): the
  *   importer reads the uploaded file and the catalog and proposes records
- *   (`ImportResult`). Each proposal goes through the very route a person's
- *   edit would — `POST`/`PUT /api/definitions/…`, `POST`/`PUT /api/designs/…`
- *   with `If-Match` — in one unit of work, so validation, ordering and the
- *   records written are the file backend's by construction. Nothing is
+ *   (`ImportResult`). What the synchronous import would write
+ *   (`module-io.ts` `proposalOf`: new definitions and designs, never one that
+ *   exists) goes through the very routes a person's edits would —
+ *   `POST /api/definitions/…`, `POST /api/designs` — in one unit of work, so
+ *   validation, ordering and the records written are the file backend's by
+ *   construction. Nothing is
  *   committed: the staged record changes, each with the version it was read
  *   at (`expect`), are the plan, and their effect on the catalog's files is
  *   kept for review (`job_file`).
@@ -22,13 +24,11 @@
 
 import { createHash } from 'node:crypto';
 
-import type { ImportResult } from '@wirehub/modules';
-
-import { routeWorkbenchRequest, type ApiRequest, type ApiResponse, type WorkbenchDeps } from '../api.ts';
+import { routeWorkbenchRequest, type ApiResponse, type WorkbenchDeps } from '../api.ts';
+import { batchItemRequest } from '../batch.ts';
 import type { BlobStore } from '../blobs.ts';
-import { isDefinitionKind, type DefinitionKind, type DefinitionRecord } from '../definition-store.ts';
-import { contentETag } from '../etag.ts';
 import type { StudioUser } from '../me.ts';
+import { proposalOf } from '../module-io.ts';
 import { CatalogTree, treeWorkbenchDeps } from '../pg/tree.ts';
 import { commitChangeSet, UnitOfWork } from '../storage/unit-of-work.ts';
 import type { CommitResult, RecordChange } from '../storage/change-set.ts';
@@ -82,30 +82,6 @@ async function inputBytes(input: ImportInput, blobs: BlobStore | undefined): Pro
   return bytes;
 }
 
-/** The requests that turn an importer's proposal into catalog records: what a person's edits would send. */
-export async function proposalRequests(deps: WorkbenchDeps, result: ImportResult, user: StudioUser | undefined): Promise<{ requests: ApiRequest[]; unchanged: string[] }> {
-  const requests: ApiRequest[] = [];
-  const unchanged: string[] = [];
-  const as = user === undefined ? {} : { user };
-  for (const [kind, records] of Object.entries(result.definitions ?? {})) {
-    if (!isDefinitionKind(kind)) throw new Error(`the importer proposed '${kind}', which is not a Library kind`);
-    const stored = (await deps.definitions?.list(kind as DefinitionKind)) ?? [];
-    for (const record of (records ?? []) as DefinitionRecord[]) {
-      const current = stored.find((r) => r.id === record.id);
-      if (current === undefined) requests.push({ method: 'POST', path: `/api/definitions/${kind}`, body: record, ...as });
-      else if (JSON.stringify(current) === JSON.stringify(record)) unchanged.push(`${kind}/${record.id}`);
-      else requests.push({ method: 'PUT', path: `/api/definitions/${kind}/${encodeURIComponent(record.id)}`, body: record, headers: { 'if-match': contentETag(current) }, ...as });
-    }
-  }
-  for (const design of result.designs ?? []) {
-    const current = await deps.designs.read(design.id);
-    if (current === undefined) requests.push({ method: 'POST', path: '/api/designs', body: design, ...as });
-    else if (JSON.stringify(current) === JSON.stringify(design)) unchanged.push(`designs/${design.id}`);
-    else requests.push({ method: 'PUT', path: `/api/designs/${encodeURIComponent(design.id)}`, body: design, headers: { 'if-match': contentETag(current) }, ...as });
-  }
-  return { requests, unchanged };
-}
-
 /**
  * What `changes` would do to the catalog's text files: the plan a person
  * reviews. Computed on the catalog export (the same text on every backend),
@@ -136,7 +112,7 @@ export interface ImportDeps {
 /** The job: run the importer, stage its proposal, keep the plan. */
 export async function runImportJob(context: JobContext, { deps, blobs }: ImportDeps): Promise<JobOutcome> {
   const request = readImportRequest(context.job.request);
-  const importer = deps.modules?.importers().find((i) => i.module === request.module && i.id === request.importer);
+  const importer = deps.modules?.importer(request.module, request.importer);
   if (importer === undefined) throw new Error(`no module importer ${request.module}:${request.importer} in this deployment`);
   const bytes = await inputBytes(request.input, blobs);
   await context.step(`read ${request.fileName} (${bytes.byteLength} bytes)`);
@@ -147,12 +123,14 @@ export async function runImportJob(context: JobContext, { deps, blobs }: ImportD
 
   const by = context.job.requestedBy;
   const user: StudioUser | undefined = by === undefined ? undefined : { name: by.name, ...(by.email === undefined ? {} : { email: by.email }), source: 'session' };
+  // what the synchronous import would write (`module-io.ts`): new records only, never one that exists
+  const ids = new Set((await deps.designs.list()).map((d) => d.id));
+  const { proposal: summary, requests } = proposalOf(proposal, db, ids);
   const uow = new UnitOfWork(deps);
-  const { requests, unchanged } = await proposalRequests(uow.deps, proposal, user);
   const refused: { request: string; status: number; error: unknown }[] = [];
-  for (const r of requests) {
-    const answer: ApiResponse = await routeWorkbenchRequest(r, uow.deps);
-    if (answer.status >= 400) refused.push({ request: `${r.method} ${r.path}`, status: answer.status, error: answer.body });
+  for (const item of requests) {
+    const answer: ApiResponse = await routeWorkbenchRequest(batchItemRequest(item, user === undefined ? {} : { user }), uow.deps);
+    if (answer.status >= 400) refused.push({ request: `${item.method} ${item.path}`, status: answer.status, error: answer.body });
   }
   if (refused.length > 0) {
     const first = refused[0]!;
@@ -168,7 +146,7 @@ export async function runImportJob(context: JobContext, { deps, blobs }: ImportD
       fileName: request.fileName,
       notes: proposal.notes,
       proposed,
-      unchanged,
+      proposal: summary,
       requests: requests.map((r) => `${r.method} ${r.path}`),
       changes: uow.changes.length,
       // the staged changes as JSON text: key order is data (a jsonb column would sort it, §12 R1)

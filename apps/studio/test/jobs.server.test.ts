@@ -31,7 +31,7 @@ describe('the import job on the file backend', () => {
     const { defaultWorkbenchDeps } = await import('../server/default-deps.ts');
     const { exampleRegistry } = await import('./fixtures/example-importer.ts');
     const { importScenario } = await import('./jobs-scenario.ts');
-    const deps = { ...defaultWorkbenchDeps(), modules: exampleRegistry };
+    const deps = defaultWorkbenchDeps({ modules: exampleRegistry });
     // the service closes over the deps it was made with: give it these
     const { createJobService, inlineJobRunner, memoryJobStore } = await import('../server/jobs/service.ts');
     const { baseJobHandlers } = await import('../server/jobs/handlers.ts');
@@ -42,13 +42,14 @@ describe('the import job on the file backend', () => {
       'start: 202 queued',
       'run: done',
       'job: 200 done by Importer Person',
-      'result: proposed 2, changes 2, requests ["POST /api/definitions/mechanicals","PUT /api/definitions/mechanicals/de9-backshell"], notes ["2 part(s) read from example.parts.csv"]',
+      'result: proposed 2, changes 1, requests ["POST /api/definitions/mechanicals"], notes ["2 part(s) read from example.parts.csv"]',
+      'proposal: {"definitions":{"mechanicals":[{"id":"hd15-backshell-test","label":"HD-15 backshell (imported)"}]},"designs":[],"existing":["mechanicals/de9-backshell"],"existingDesigns":[],"notes":["2 part(s) read from example.parts.csv"]}',
       expect.stringMatching(/^plan: changed data\/mechanicals\.json \d+$/),
-      'publish: 200 applied 2',
+      'publish: 200 applied 1',
       'publish again: 409',
-      expect.stringContaining('de9-backshell=DE-9 metal backshell (re-imported label)'),
+      expect.stringContaining('de9-backshell=DE-9 metal backshell with strain relief'),
     ]);
-    expect(log[7]).toContain('hd15-backshell-test=HD-15 backshell (imported)');
+    expect(log[8]).toContain('hd15-backshell-test=HD-15 backshell (imported)');
     const mechanicals = JSON.parse(readFileSync(join(work, 'data', 'mechanicals.json'), 'utf8')) as { id: string }[];
     expect(mechanicals.map((m) => m.id).at(-1)).toBe('hd15-backshell-test');
     expect(exported.files['data/mechanicals.json']).toBe(readFileSync(join(work, 'data', 'mechanicals.json'), 'utf8'));
@@ -57,18 +58,18 @@ describe('the import job on the file backend', () => {
   it('refuses a plan whose records moved since the run (409, nothing written), and an importer that does not take the file', async () => {
     const { defaultWorkbenchDeps } = await import('../server/default-deps.ts');
     const { handleWorkbenchRequest } = await import('../server/api.ts');
-    const { exampleRegistry, exampleBody } = await import('./fixtures/example-importer.ts');
+    const { exampleRegistry, exampleBody, EXAMPLE_IMPORT_PATH } = await import('./fixtures/example-importer.ts');
     const { createJobService, inlineJobRunner, memoryJobStore } = await import('../server/jobs/service.ts');
     const { baseJobHandlers } = await import('../server/jobs/handlers.ts');
-    const deps = { ...defaultWorkbenchDeps(), modules: exampleRegistry };
+    const deps = defaultWorkbenchDeps({ modules: exampleRegistry });
     const store = memoryJobStore();
     deps.jobs = createJobService({ store, runner: inlineJobRunner(store, () => baseJobHandlers({ deps })), kinds: ['import'] });
 
-    const csv = 'mod-backshell-x,Another backshell,SHL-00091,shell\nde9-backshell,DE-9 label from a second import,SHL-00001,shell';
-    const started = await handleWorkbenchRequest({ method: 'POST', path: '/api/modules/example-parts/importers/mechanicals-csv', body: exampleBody(csv) }, deps);
+    const csv = 'mod-backshell-x,Another backshell,SHL-00091,shell';
+    const started = await handleWorkbenchRequest({ method: 'POST', path: EXAMPLE_IMPORT_PATH, body: exampleBody(csv) }, deps);
     const id = (started.body as { job: { id: string } }).job.id;
     expect((await deps.jobs.wait(id, 30_000)).status).toBe('done');
-    // someone edits a record the plan replaces
+    // someone edits the list the plan adds to
     const before = readFileSync(join(work, 'data', 'mechanicals.json'), 'utf8');
     const current = (JSON.parse(before) as { id: string; label: string }[]).find((m) => m.id === 'de9-backshell')!;
     const { contentETag } = await import('../server/etag.ts');
@@ -80,23 +81,27 @@ describe('the import job on the file backend', () => {
     expect((publish.body as { error: string }).error).toContain('changed since the import ran');
     expect(readFileSync(join(work, 'data', 'mechanicals.json'), 'utf8')).toBe(edited);
 
-    const wrong = await handleWorkbenchRequest({ method: 'POST', path: '/api/modules/example-parts/importers/mechanicals-csv', body: { fileName: 'x.txt', data: 'eA==' } }, deps);
+    const wrong = await handleWorkbenchRequest({ method: 'POST', path: EXAMPLE_IMPORT_PATH, body: { fileName: 'x.txt', base64: 'eA==', job: true } }, deps);
     expect(wrong.status).toBe(400);
-    const unknown = await handleWorkbenchRequest({ method: 'POST', path: '/api/modules/example-parts/importers/nope', body: exampleBody() }, deps);
+    const unknown = await handleWorkbenchRequest({ method: 'POST', path: '/api/modules/example-parts/_import/nope', body: exampleBody() }, deps);
     expect(unknown.status).toBe(404);
+    // without `job`, the same route still previews in the request (module-io.ts)
+    const preview = await handleWorkbenchRequest({ method: 'POST', path: EXAMPLE_IMPORT_PATH, body: { ...exampleBody(), job: undefined } }, deps);
+    expect(preview.status).toBe(200);
+    expect((preview.body as { accepted: boolean }).accepted).toBe(false);
   }, 60_000);
 
   it('fails the job, with the route\'s words, when a proposed record is refused', async () => {
     const { defaultWorkbenchDeps } = await import('../server/default-deps.ts');
     const { handleWorkbenchRequest } = await import('../server/api.ts');
-    const { exampleRegistry, exampleBody } = await import('./fixtures/example-importer.ts');
-    const deps = { ...defaultWorkbenchDeps(), modules: exampleRegistry };
+    const { exampleRegistry, exampleBody, EXAMPLE_IMPORT_PATH } = await import('./fixtures/example-importer.ts');
+    const deps = defaultWorkbenchDeps({ modules: exampleRegistry });
     const { createJobService, inlineJobRunner, memoryJobStore } = await import('../server/jobs/service.ts');
     const { baseJobHandlers } = await import('../server/jobs/handlers.ts');
     const store = memoryJobStore();
     deps.jobs = createJobService({ store, runner: inlineJobRunner(store, () => baseJobHandlers({ deps })), kinds: ['import'] });
     // an id the library already uses for a connector: refused like a person's POST
-    const started = await handleWorkbenchRequest({ method: 'POST', path: '/api/modules/example-parts/importers/mechanicals-csv', body: exampleBody('Bad Id,Label,SHL-00092,shell') }, deps);
+    const started = await handleWorkbenchRequest({ method: 'POST', path: EXAMPLE_IMPORT_PATH, body: exampleBody('Bad Id,Label,SHL-00092,shell') }, deps);
     const job = await deps.jobs.wait((started.body as { job: { id: string } }).job.id, 30_000);
     expect(job.status).toBe('failed');
     expect(job.error).toMatch(/1 of 1 proposed record\(s\) were refused; the first, POST \/api\/definitions\/mechanicals:/);

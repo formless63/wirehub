@@ -1,6 +1,5 @@
 /**
- * The catalog, as the browser gets it: from the workbench API only
- *.
+ * The catalog, as the browser gets it: from the workbench API only.
  *
  * The bundle carries none of the catalog: each screen asks the API
  * (`GET /api/db`, `/api/designs`,

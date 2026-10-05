@@ -10,7 +10,7 @@
 
 import { sql } from 'kysely';
 
-import { emptyRows, entitiesOf, type CatalogRows, type EntityKind } from '@wirehub/catalog/src/codec/index.ts';
+import { derivedModuleOf, emptyRows, entitiesOf, type CatalogRows, type EntityKind } from '@wirehub/catalog/src/codec/index.ts';
 
 import type { Tx } from './db.ts';
 import { blobObjectKey } from './keys.ts';
@@ -110,10 +110,10 @@ export async function insertRows(tx: Tx, orgId: string, rows: CatalogRows, actor
   }
   for (const batch of chunks(rows.derived)) {
     await sql`
-      INSERT INTO studio.derived_doc (org_id, path, derived_kind, media_type, body, inputs_version)
-      SELECT ${orgId}::uuid, p, k, m, b, 0
-        FROM unnest(${batch.map((d) => d.path)}::text[], ${batch.map((d) => d.derivedKind)}::text[], ${batch.map((d) => d.mediaType)}::text[],
-                    ${batch.map((d) => d.body)}::text[]) AS t(p, k, m, b)`.execute(tx);
+      INSERT INTO studio.derived_doc (org_id, path, derived_kind, module_id, media_type, body, inputs_version)
+      SELECT ${orgId}::uuid, p, k, mod, m, b, 0
+        FROM unnest(${batch.map((d) => d.path)}::text[], ${batch.map((d) => d.derivedKind)}::text[], ${batch.map((d) => derivedModuleOf(d.path) ?? null)}::text[],
+                    ${batch.map((d) => d.mediaType)}::text[], ${batch.map((d) => d.body)}::text[]) AS t(p, k, mod, m, b)`.execute(tx);
   }
 
   // saved revisions, working state, drafts
@@ -228,9 +228,9 @@ export async function readRows(tx: Tx): Promise<CatalogRows> {
     body: d.body,
     ...(d.list_kind === null ? {} : { list: { kind: d.list_kind as EntityKind, collection: d.list_collection ?? '', member: d.list_member ?? '' } }),
   }));
-  const derived = await sql<{ path: string; media_type: string; body: string }>`
-    SELECT path, media_type, body FROM studio.derived_doc WHERE derived_kind = 'tags'`.execute(tx);
-  rows.derived = derived.rows.map((d) => ({ path: d.path, derivedKind: 'tags', mediaType: d.media_type as CatalogRows['derived'][number]['mediaType'], body: d.body }));
+  const derived = await sql<{ path: string; derived_kind: 'tags' | 'module'; media_type: string; body: string }>`
+    SELECT path, derived_kind, media_type, body FROM studio.derived_doc ORDER BY path`.execute(tx);
+  rows.derived = derived.rows.map((d) => ({ path: d.path, derivedKind: d.derived_kind, mediaType: d.media_type as CatalogRows['derived'][number]['mediaType'], body: d.body }));
   rows.revisions = (
     await sql<{ design: string; rev: number; body: string }>`
       SELECT e.slug AS design, v.rev, v.body::text AS body FROM studio.design_revision v JOIN studio.entity e ON e.id = v.design_id`.execute(tx)

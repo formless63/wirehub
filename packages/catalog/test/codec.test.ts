@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { dataPath, fixtureCatalogRoot, installPack, installPackLayer } from '../src/index.ts';
-import { classifyPath, entitiesOf, explode, isSkippedPath, render, sha256Hex, type CatalogFiles } from '../src/codec/index.ts';
+import { classifyPath, derivedModuleOf, entitiesOf, explode, isSkippedPath, render, sha256Hex, type CatalogFiles } from '../src/codec/index.ts';
 import { readCatalogTree, readFlattenedCatalog } from '../src/codec/tree.ts';
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -114,6 +114,33 @@ describe('codec byte identity', () => {
     expect(rows.records.filter((r) => r.kind === 'connector').map((r) => [r.slug, r.ord])).toEqual([['b', 0], ['a', 1]]);
     expect(rows.files.map((f) => f.path)).toEqual(['data/drawings/old.photo.png']);
     expect(rows.blobs.length).toBe(2);
+  });
+});
+
+describe("a module's derived records", () => {
+  it('are derived rows of kind module, at data/derived/<module>/<file>, and render back byte for byte', () => {
+    const files = new Map<string, string | Uint8Array>([
+      ['data/derived/acme/summary.json', '{\n  "n": 1\n}\n'],
+      ['data/derived/acme/report.md', '# Report\n'],
+      ['data/tags/report.md', '# Tags\n'],
+    ]);
+    expect(classifyPath('data/derived/acme/summary.json')).toMatchObject({ class: 'derived', table: expect.stringContaining('module') });
+    const { rows, errors } = explode(files);
+    expect(errors).toEqual([]);
+    expect(rows.derived.map((d) => [d.path, d.derivedKind, derivedModuleOf(d.path)])).toEqual([
+      ['data/derived/acme/report.md', 'module', 'acme'],
+      ['data/derived/acme/summary.json', 'module', 'acme'],
+      ['data/tags/report.md', 'tags', undefined],
+    ]);
+    expect(rows.docs).toEqual([]);
+    expectIdentity(files);
+  });
+
+  it('do not capture other paths under data/derived/', () => {
+    expect(derivedModuleOf('data/derived/Acme/x.json')).toBeUndefined();
+    expect(derivedModuleOf('data/derived/acme/sub/x.json')).toBeUndefined();
+    expect(derivedModuleOf('data/derived/x.json')).toBeUndefined();
+    expect(classifyPath('data/derived/x.json')?.class).toBe('truth');
   });
 });
 

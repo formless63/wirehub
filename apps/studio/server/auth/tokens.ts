@@ -180,8 +180,7 @@ export function scopeFor(method: string, path: string): string | undefined {
   // never through a token: tokens themselves, invitations, take-overs, first-run setup
   if (p.startsWith('/api/account') || p.startsWith('/api/invitations') || p === '/api/locks/takeover' || p.startsWith('/api/setup') || p.startsWith('/api/auth')) return undefined;
   if (m === 'GET' || m === 'HEAD') return 'read';
-  // a module import and its publish are imports, like the documents a module writes
-  if (p.startsWith('/api/docs/') || /^\/api\/modules\/[^/]+\/importers\/[^/]+$/.test(p) || /^\/api\/jobs\/[^/]+\/publish$/.test(p)) return 'imports';
+  if (p.startsWith('/api/docs/')) return 'imports';
   return 'catalog:write';
 }
 
@@ -212,8 +211,13 @@ export class RateLimiter {
   }
 
   /** Failed token attempts per address: 10 a minute, then 15 minutes of refusals. */
-  failure(address: string): void {
-    if (this.take(`fail:${address}`, [{ count: 10, ms: 60_000 }]) > 0) this.blocked.set(address, this.clock() + 15 * 60_000);
+  failure(address: string): 'blocked' | 'repeated' | undefined {
+    if (this.take(`fail:${address}`, [{ count: 10, ms: 60_000 }]) > 0) {
+      const wasBlocked = this.blockedFor(address) > 0;
+      this.blocked.set(address, this.clock() + 15 * 60_000);
+      return wasBlocked ? undefined : 'blocked';
+    }
+    return (this.hits.get(`fail:${address}`)?.length ?? 0) === 5 ? 'repeated' : undefined;
   }
 
   blockedFor(address: string): number {

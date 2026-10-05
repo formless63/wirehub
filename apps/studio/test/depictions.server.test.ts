@@ -477,7 +477,7 @@ describe('anchor writes', () => {
     ]);
   });
 
-  // 3pn.4: the gerber tier's `side`/`pads` fields used to be stripped on the
+  // the gerber tier's `side`/`pads` fields used to be stripped on the
   // way through this endpoint — the client sent them, `readAnchorBody` kept
   // only `{x, y, note}`, and every save silently flattened a side-aware
   // anchor to a plain one. This is the round-trip that regressed.

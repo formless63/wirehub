@@ -62,8 +62,8 @@ const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
  * Runs one handler. With the backup on, a write runs inside its serial queue
- * and what it wrote is committed as the person who made it
- *; everything else runs as it always did.
+ * and what it wrote is committed as the person who made it;
+ * everything else runs as it always did.
  */
 async function perform<T extends { status: number; body?: unknown; changes?: string[] }>(
   backup: StudioBackup | undefined,
@@ -71,7 +71,8 @@ async function perform<T extends { status: number; body?: unknown; changes?: str
   handler: () => Promise<T>,
 ): Promise<T> {
   // module routes keep their own write discipline: never queued behind (or holding up) a save
-  if (backup === undefined || !WRITE_METHODS.has(request.method) || isModulePath(request.path)) return handler();
+  // — except an importer's accepted proposal, which writes the catalog like any save
+  if (backup === undefined || !WRITE_METHODS.has(request.method) || (isModulePath(request.path) && !request.path.includes('/_import/'))) return handler();
   return backup.withSave(
     () => collectWritesAsync(handler),
     (response) =>

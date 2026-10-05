@@ -1,0 +1,33 @@
+{
+  "name": "@wirehub/module-example",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "description": "WireHub example module: one contribution to every extension point, for learning and testing. Not for production.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src",
+    "pack"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@wirehub/model": "workspace:*",
+    "@wirehub/modules": "workspace:*",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.2",
+    "@types/react": "19.2.18",
+    "@wirehub/catalog": "workspace:*",
+    "@wirehub/model": "workspace:*",
+    "@wirehub/modules": "workspace:*",
+    "react": "19.2.8",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

@@ -342,7 +342,7 @@ export function crossSectionLayout(
   const pad = M.crossSectionPad;
 
   const title = options.title ?? stripMakerSuffix(wire.label, wire.manufacturer);
-  // our own number, never a source document's (owner 2026-09-25, pci.29)
+  // our own number, never a source document's
   const subtitleParts = [
     wire.partNumber ?? wire.id,
     figure8
@@ -550,10 +550,10 @@ export function crossSectionLayout(
     construction?: 'braid' | 'spiral' | 'foil' | 'tape';
   }[] = [];
 
-  /*
-   *: the key names copper only. A foil or tape
-   * shield is trimmed back at both ends and never landed (owner, 2026-09-25:
-   * "the foil doesn't typically get any indication on our drawings"), so its
+  /*:
+   * the key names copper only. A foil or tape
+   * shield is trimmed back at both ends and never landed (the foil gets no
+   * indication on drawings), so its
    * ring still draws — it is the cable's real, to-scale geometry, and the
    * drain's seat is drawn against it — but it gets no key row, tag or note.
    * A fully bonded stock's core shields (bonded multi-core) are keyed once, as one

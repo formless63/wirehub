@@ -116,7 +116,7 @@ export function terminalTemplate(kind: Kind, value = ''): TerminalTemplate[] | u
     case 'other':
       return undefined;
     default:
-      // a kind added to the component-kinds list in-app (hdy.9): a generic two-leg part to start from
+      // a kind added to the component-kinds list in-app: a generic two-leg part to start from
       return [
         { id: 'a', label: '', polarity: '' },
         { id: 'b', label: '', polarity: '' },

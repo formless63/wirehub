@@ -110,7 +110,7 @@ export function BackupIndicator(props: { now?: () => Date; compact?: boolean }):
           }`}
         >
           <span aria-hidden="true" className={`h-[7px] w-[7px] shrink-0 rounded-full ${DOT[tone]}`} />
-          {/* a cable's title needs the room first (owner screenshot) */}
+          {/* a cable's title needs the room first */}
           <span className={props.compact === true ? 'hidden' : 'max-lg:hidden'}>{text}</span>
         </button>
       </Popover.Trigger>

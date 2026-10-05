@@ -289,7 +289,7 @@ export type {
   Selection,
 } from './store.ts';
 
-/* The connection model (spec: ui-redesign, Canvas v2 item 6 — e5c.5). */
+/* The connection model (spec: ui-redesign, Canvas v2 item 6). */
 export {
   connectionEndKey,
   connectionForSelection,
@@ -323,7 +323,7 @@ export {
   jointedKeys,
   segmentFlips,
 } from './derive.ts';
-/* Breakouts: port columns, stubs, ground bundles and their pigtails, face turns (e5c.3, e5c.11). */
+/* Breakouts: port columns, stubs, ground bundles and their pigtails, face turns. */
 export {
   BREAKOUT_LAYOUT,
   LEAD_FILLET,
@@ -346,7 +346,7 @@ export type {
   WireBreakout,
 } from './breakout.ts';
 export { BreakoutEdge, edgeTypes } from './edges.tsx';
-/* Board artwork on the canvas: faces, rotation, pad handles (e5c.1). */
+/* Board artwork on the canvas: faces, rotation, pad handles. */
 export {
   BOARD_LAYOUT,
   DEFAULT_TURN,
@@ -410,10 +410,10 @@ export type {
 /* Where the *look* of the workbench is kept — the host's side of it. */
 export { NO_LAYOUT_STORE, memoryLayoutStore } from './layout-store.ts';
 export type { EditorLayoutStore } from './layout-store.ts';
-/* Level of detail: Parts cards and bundles, Pins full detail (e5c.7). */
+/* Level of detail: Parts cards and bundles, Pins full detail. */
 export { CARD_LAYOUT, LOD_ZOOM, cardDataOf, cardSize, partsFlow } from './lod.ts';
 export type { BundleEdgeData, CanvasDetail, CardNodeData, PartsFlow } from './lod.ts';
-/* Auto-arrange: columns and ELK (e5c.7). */
+/* Auto-arrange: columns and ELK. */
 export { designRanks, facingByColumns } from './ranks.ts';
 export type { Ranks } from './ranks.ts';
 export { ELK_OPTIONS, elkLayout } from './elk.ts';
@@ -439,7 +439,7 @@ export { POSITION_SAVE_DEBOUNCE_MS, useRememberedPositions } from './remember.ts
 export { ComponentNode, ConnectorNode, PcbaNode, WireNode, nodeTypes } from './nodes/index.tsx';
 export { PART_MIME, Palette, matchesQuery, paletteEntries } from './panels/Palette.tsx';
 export type { PaletteEntry } from './panels/Palette.tsx';
-/* The node picker's compatibility rule (e5c.6). */
+/* The node picker's compatibility rule. */
 export {
   anchorSide,
   autoWireTerminal,
@@ -574,7 +574,7 @@ export type { StockSwapResult } from './stock-swap.ts';
 /* Library tabs, shells and kits */
 export { LIBRARY_KINDS, isLibraryKind } from './definitions.ts';
 export type { LibraryKind } from './definitions.ts';
-/* The board journey (pci.10): pads on the art, footprint interface, build editor. */
+/* The board journey: pads on the art, footprint interface, build editor. */
 export {
   allTerminals,
   boardBuildsFile,
@@ -604,3 +604,6 @@ export type { ModelLinkView, ModelsAdapter, ModelSourceKind, ModelUploadStats, S
 
 export { BoardComponentsSection } from './panels/BoardComponentsSection.tsx';
 export type { BoardComponentsSectionProps } from './panels/BoardComponentsSection.tsx';
+
+export { downloadOutput } from './extensions.ts';
+export type { EditorExtensions, EditorSlotContext, ExtraDocumentOutput, ExtraExporter } from './extensions.ts';

@@ -127,7 +127,7 @@ export function authRequested(env: Env): boolean {
   return flag(env, 'AUTH_ENABLED', false);
 }
 
-export function readAuthConfig(env: Env): AuthConfig {
+export function readAuthConfig(env: Env, options: { /** sign-in methods modules contribute (counted as configured) */ moduleProviders?: number } = {}): AuthConfig {
   if (!authRequested(env)) return { enabled: false };
 
   const secret = required(env, 'BETTER_AUTH_SECRET', 'generate one with `openssl rand -base64 32`');
@@ -182,7 +182,7 @@ export function readAuthConfig(env: Env): AuthConfig {
     };
   }
 
-  if (oidc === undefined && smtp === undefined && !localAccounts) {
+  if (oidc === undefined && smtp === undefined && !localAccounts && (options.moduleProviders ?? 0) === 0) {
     throw new AuthConfigError('no sign-in method is configured — set AUTH_OIDC_ISSUER (+ client id/secret), AUTH_SMTP_HOST (+ credentials), or both.');
   }
 

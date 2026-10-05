@@ -240,7 +240,7 @@ export function depictionDefsOf(design: CableDesign): string[] {
   return [...pcbas, ...connectors, ...components, ...segments, ...(mechanical ?? [])].map((instance) => instance.def);
 }
 
-// non-eager: every file is its own chunk, fetched on first use (udy.9)
+// non-eager: every file is its own chunk, fetched on first use
 const META = import.meta.glob('../../../packages/catalog/depictions/*/meta.json', {
   import: 'default',
 }) as Record<string, () => Promise<unknown>>;

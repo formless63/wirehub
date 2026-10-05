@@ -52,7 +52,7 @@ export interface ModelLink {
   /** the source revision the model is of, when it has one (`Rev1`) */
   revision?: string;
   /**
-   * a `revisions/<variant>/<rev>` link's README status (50a.59) — the model
+   * a `revisions/<variant>/<rev>` link's README status — the model
    * of a revision no Library record shows: a WIP or superseded one
    */
   status?: 'released' | 'wip' | 'superseded';

@@ -30,7 +30,7 @@ import { dirname, join } from 'node:path';
 import { sql } from 'kysely';
 
 import type { BlobStore } from '../blobs.ts';
-import type { Notify } from '../jobs/notify.ts';
+import type { Notifier } from '../notify.ts';
 import type { JobContext, JobOutcome } from '../jobs/types.ts';
 import { CONVERTER_VERSION } from '../models/cache.ts';
 import { inOrg, type Db } from './db.ts';
@@ -45,8 +45,12 @@ export interface BackupState {
   snapshotAt?: Date;
 }
 
-/** What the backups volume says. */
-export function readBackupState(dir: string | undefined): BackupState {
+/**
+ * What the backups volume says. `marker` is the file Backrest's post-snapshot
+ * hook touches (`WIREHUB_BACKUP_MARKER`, as the deep health check reads it;
+ * default `<dir>/.last-snapshot`).
+ */
+export function readBackupState(dir: string | undefined, marker?: string): BackupState {
   if (dir === undefined || dir === '' || !existsSync(join(dir, 'postgres'))) return { configured: false };
   const state: BackupState = { configured: true };
   const latest = join(dir, 'postgres', 'latest.dump');
@@ -61,8 +65,8 @@ export function readBackupState(dir: string | undefined): BackupState {
   } catch {
     // no dump yet
   }
-  const marker = join(dir, '.last-snapshot');
-  if (existsSync(marker)) state.snapshotAt = statSync(marker).mtime;
+  const markerPath = marker ?? join(dir, '.last-snapshot');
+  if (existsSync(markerPath)) state.snapshotAt = statSync(markerPath).mtime;
   return state;
 }
 
@@ -70,14 +74,16 @@ export interface BackupJobOptions {
   db: Db;
   orgId: string;
   dir?: string;
-  notify?: Notify;
+  /** the snapshot marker (default `<dir>/.last-snapshot`) */
+  marker?: string;
+  notify?: Notifier;
   now?: () => Date;
   /** a dump older than this is stale (§8.6), hours */
   staleHours?: number;
 }
 
 export async function runBackupJob(context: JobContext, options: BackupJobOptions): Promise<JobOutcome> {
-  const state = readBackupState(options.dir);
+  const state = readBackupState(options.dir, options.marker);
   if (!state.configured) return { result: { configured: false } };
   const now = (options.now ?? (() => new Date()))();
   let marked = 0;
@@ -96,9 +102,10 @@ export async function runBackupJob(context: JobContext, options: BackupJobOption
   const staleMs = (options.staleHours ?? 30) * 3600_000;
   const stale = state.dumpAt === undefined || now.getTime() - state.dumpAt.getTime() > staleMs;
   if (stale) {
-    await options.notify?.({
-      event: 'backup-stale',
+    await options.notify?.notify({
+      event: 'backup-dump-stale',
       severity: 'default',
+      title: 'Database dump is stale',
       message: state.dumpAt === undefined ? 'No completed database dump in the backups volume yet.' : `The newest database dump is from ${state.dumpAt.toISOString()}, more than ${options.staleHours ?? 30} hours ago.`,
     });
   }
@@ -120,6 +127,8 @@ export interface GcOptions {
   orgId: string;
   blobs?: BlobStore;
   backupDir?: string;
+  /** the snapshot marker (default `<backupDir>/.last-snapshot`) */
+  backupMarker?: string;
   /** days an orphan record blob waits (30) */
   orphanDays?: number;
   /** days an expired derived blob waits (7) */
@@ -129,7 +138,7 @@ export interface GcOptions {
   /** hours a new, unreferenced record blob gets before it counts as an orphan (24) */
   graceHours?: number;
   builderVersion?: string;
-  notify?: Notify;
+  notify?: Notifier;
 }
 
 const LIVE_RECORD_BLOBS = sql`
@@ -145,7 +154,7 @@ export async function runBlobGcJob(context: JobContext, options: GcOptions): Pro
   const days = (n: number): ReturnType<typeof sql> => sql`(${n}::double precision * interval '1 day')`;
   const hours = (n: number): ReturnType<typeof sql> => sql`(${n}::double precision * interval '1 hour')`;
   const builder = options.builderVersion ?? CONVERTER_VERSION;
-  const backup = readBackupState(options.backupDir);
+  const backup = readBackupState(options.backupDir, options.backupMarker);
   const completedAt = backup.snapshotAt?.toISOString() ?? null;
 
   // 1–2. orphan marking, both ways
@@ -236,7 +245,7 @@ async function deleteBlob(options: GcOptions, blob: { sha256: string; object_key
     return true;
   } catch (error) {
     if ((error as { code?: string }).code === '23503') return false;
-    await options.notify?.({ event: 'gc-error', severity: 'default', message: `GC could not delete blob ${blob.sha256}: ${error instanceof Error ? error.message : String(error)}` });
+    await options.notify?.notify({ event: 'gc-error', severity: 'default', title: 'Blob GC error', message: `GC could not delete blob ${blob.sha256}: ${error instanceof Error ? error.message : String(error)}` });
     return false;
   }
 }

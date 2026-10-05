@@ -237,7 +237,7 @@ describe('the list', () => {
   });
 });
 
-describe('a new definition\'s id follows its name (50a.29)', () => {
+describe('a new definition\'s id follows its name', () => {
   const blank = { id: '', label: '' };
   it('suggests from the name, unique across the whole library', () => {
     expect(followNameId(blank, { id: '', label: 'SCART male' }, []).id).toBe('scart-male');

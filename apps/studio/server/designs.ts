@@ -128,7 +128,7 @@ export function fileDesignStore(): DesignStore {
           // that got here is validated, so overwriting it is an improvement
         }
         // a real change: edit the file's own text, so a hand-formatted design
-        // diffs as the change and not as a reflow (50a.12)
+        // diffs as the change and not as a reflow
         next = patchJsonText(current, design);
       }
       writeFileAtomic(path, next, 'utf8');

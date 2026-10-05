@@ -137,7 +137,7 @@ it waits while the hub is in first-run setup.
 | Job | When | What it does |
 | --- | --- | --- |
 | `convert` | a person uploads a STEP model in the Library | converts it to GLB in a memory-capped child process; the upload waits for it and answers as before |
-| `import` | a module importer is started (`POST /api/modules/<module>/importers/<importer>`) | runs the importer over the catalog and keeps its **plan** — every record it would add or change, and the files that would change; `POST /api/jobs/<id>/publish` saves the plan as one change, or answers 409 when a record changed since the run |
+| `import` | a module import sent with `job: true` (`POST /api/modules/<module>/_import/<importer>`) | runs the importer over the catalog and keeps its **plan** — every record it would add, and the files that would change; `POST /api/jobs/<id>/publish` saves the plan as one change, or answers 409 when the catalog changed since the run |
 | `model-cache` | at start, after a save that links an imported model, on request (`POST /api/jobs`) | builds every imported 3D model that is not built yet, from its source files (`WIREHUB_MODEL_SOURCES`, a folder you mount read-only) |
 | `derive` | at start and daily | recomputes derived records (the tag tables) only if something bypassed a save |
 | `blob-gc` | daily at 04:30 | removes uploaded files nothing uses any more — only after 30 days, and only once a backup taken after that holds them — and rebuildable models no record shows |
@@ -147,9 +147,8 @@ it waits while the hub is in first-run setup.
 every minute; the container's health check reads it). One conversion runs at
 a time; `WIREHUB_CONVERT_WINDOW=01:00-06:00` keeps the model builds (not a
 person's upload) to a night window on a small machine. Alerts (a stale
-backup, models that could not be built, a GC error) go to the log, and as
-JSON to `WIREHUB_NOTIFY_URL` when you set one (ntfy, Gotify, or a webhook
-adapter).
+backup, models that could not be built, a GC error) go to the log, and to
+`WIREHUB_NOTIFY_URL` when you set one (below).
 
 Without a worker, set `WIREHUB_WORKER=off` on the app and remove the
 `worker` service: the app then runs the jobs itself, one at a time, and
@@ -218,7 +217,7 @@ people set:
 | `WIREHUB_TRUST_PROXY` | — | `1` behind a reverse proxy you trust |
 | `WIREHUB_ENV`, `WIREHUB_PROD_MARKERS` | `prod` | a development copy beside production ("Development") |
 | `WIREHUB_BACKEND` | `pg` | `files` keeps the catalog as JSON files (with `WIREHUB_ALLOW_FILES_IN_PROD=1`) |
-| `WIREHUB_NOTIFY_URL` | — | alerts as a JSON POST (ntfy, Gotify, a webhook adapter) |
+| `WIREHUB_NOTIFY_URL`, `WIREHUB_NOTIFY_FORMAT` | — | alerts to a webhook (`json`, `ntfy` or `slack` body; below) |
 | `WIREHUB_CONVERT_WINDOW` | — | `HH:MM-HH:MM`: build imported models only then |
 | `WIREHUB_MODEL_SOURCES` | — | the folder (mounted into `worker`) imported models are built from |
 | `WIREHUB_WORKER` | on | `off`: the app runs the jobs itself (no `worker` service) |
@@ -237,6 +236,18 @@ address a request was made to.
 **Scripts and agents** use the same API with a personal API token (the key
 icon in the rail; `/account/tokens`): a token acts as the person who made it,
 with the scopes they chose, for 1 to 90 days, and is shown once.
+
+**Health and alerts.** `/healthz` is the container's liveness probe. `/healthz?deep=1`
+also checks the database, that every migration is applied, the blob store (a
+canary object) and, when `WIREHUB_BACKUP_MARKER` names the file the backup's
+hook touches, that a backup finished in the last 30 hours, and that the worker
+beat its heartbeat in the last five minutes; it answers `503`
+with the failing check's name when one fails, so an uptime monitor can poll it.
+With `WIREHUB_NOTIFY_URL` set, the studio also POSTs an event to that URL
+(`{event, severity, title, message, at, env, version, data}`) for a failing
+blob store, a stale backup, a stale worker heartbeat, models a sweep could not
+build, a GC error, a created API token and repeated refused tokens;
+every event is logged either way, and no token ever appears in one.
 
 ### Your own PostgreSQL or S3
 
@@ -332,9 +343,10 @@ After a restore the worker rebuilds the imported 3D models on its next start
 
 **Blob clean-up and backups.** The worker deletes an uploaded file nothing uses
 any more only after a backup that holds it has completed: it reads that from
-the `backups` volume (mounted read-only), where Backrest marks a finished
-snapshot in `.last-snapshot`. Until that marker exists — no backup profile, or
-a Backrest plan without the hook — such files are kept.
+the `backups` volume (mounted read-only), from the file a finished snapshot
+touches — `WIREHUB_BACKUP_MARKER` (as for the deep health check), by default
+`.last-snapshot` in that volume. Until that marker exists — no backup profile,
+or a Backrest plan without a post-snapshot hook — such files are kept.
 
 The weekly restore check runs the same restore into a scratch database; to
 run it now: `docker compose run --rm --entrypoint bash backup-dump

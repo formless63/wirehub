@@ -1,6 +1,5 @@
 /**
- * The only reader of old design schema versions (storage seams,
- *).
+ * The only reader of old design schema versions (storage seams).
  *
  * Every stored design is at `CURRENT_SCHEMA_VERSION` (4). Versions 1–3 only
  * ever *added* optional structure (v2 pigtails / bonded stocks / pad

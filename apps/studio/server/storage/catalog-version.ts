@@ -6,19 +6,21 @@
  * unchanged skips re-reading ~40 files.
  *
  * Name, inode (an atomic write is a rename: a new inode), size and mtime of every file `loadDb()` reads (top-level JSON,
- * `vocab/`, `tags/`, `builds/` — `loadDb` lays each build over board-parts.json —
- * plus `devices/` and `rules/`); a few dozen `stat`s, well under a millisecond.
+ * `vocab/`, `tags/`, `builds/` — `loadDb` lays each build over board-parts.json),
+ * plus the directories the deployment's modules own (`ModuleRegistry.catalogDirs()`:
+ * their documents and derived records); a few dozen `stat`s, well under a millisecond.
  */
 
 import { createHash } from 'node:crypto';
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const DIRS = ['', 'vocab', 'tags', 'builds', 'devices', 'rules'] as const;
+/** the directories the base reads, below `data/` (`''` = the top level) */
+const DIRS: readonly string[] = ['', 'vocab', 'tags', 'builds'];
 
-export function fileCatalogVersion(root: string): string {
+export function fileCatalogVersion(root: string, moduleDirs: readonly string[] = []): string {
   const hash = createHash('sha1');
-  for (const dir of DIRS) {
+  for (const dir of [...new Set([...DIRS, ...moduleDirs])]) {
     let names: string[];
     try {
       names = readdirSync(join(root, dir)).filter((name) => name.endsWith('.json')).sort();

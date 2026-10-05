@@ -132,7 +132,7 @@ export function pinLeads(
     return [
       {
         key: row.key,
-        // on a fanned face (e5c.35): level with its own exit slot from the
+        // on a fanned face: level with its own exit slot from the
         // card's edge to the fan column, then straight to the pin
         d:
           fan?.[row.terminal] === undefined
@@ -140,7 +140,7 @@ export function pinLeads(
             : `M${r(edgeX)} ${fan[row.terminal]!.y} H${fan[row.terminal]!.x} L${pin.x} ${pin.y}`,
         color: row.color,
         // a pin on no conductor's net (or an ambiguous one) draws plain
-        // grey, like the edge leaving it — not as ground (e5c.35)
+        // grey, like the edge leaving it — not as ground
         ground: row.color === GROUND_CSS,
         plain: row.color === undefined,
         onNet: row.onSelectedNet,
@@ -164,7 +164,7 @@ export function ConnectorDrawing({
   art: ConnectorArt;
   paint: (terminal: string) => PinPaint | undefined;
   bus?: ReactNode;
-  /** the edges' last stretch, over the card to each wired pin (e5c.30) */
+  /** the edges' last stretch, over the card to each wired pin */
   leads?: readonly PinLead[];
 }): JSX.Element {
   const band = (terminal: string): string | undefined => paint(terminal)?.color;

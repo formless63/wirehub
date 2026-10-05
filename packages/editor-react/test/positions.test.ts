@@ -1,6 +1,5 @@
 /**
- * The arrangement is the user's, and nothing but the user may move it
- *.
+ * The arrangement is the user's, and nothing but the user may move it.
  *
  * The rule under every test here: **auto-layout happens once**, the first time
  * a design is opened by someone who has never arranged it — or when the user
@@ -118,7 +117,7 @@ describe('auto-layout happens once', () => {
     expect(arranged.positions).toEqual(autoLayout(moved.design, db).positions);
     expect(arranged.design).toBe(moved.design);
     expect(arranged.lastAccepted).toMatch(/auto-arrange/);
-    // not a design edit, but undoable as a move (udy.10): one entry, the design unchanged
+    // not a design edit, but undoable as a move: one entry, the design unchanged
     expect(arranged.past.slice(0, -1)).toEqual(moved.past);
     expect(arranged.past.at(-1)).toMatchObject({ design: moved.design, description: 'auto-arrange', positions: moved.positions });
   });

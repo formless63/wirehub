@@ -1,10 +1,9 @@
 /**
  * A board body's top/bottom faces, painted with its own gerber-tier art
- * — the fix for "most of the solid models of the
- * PCBs/PCBAs have no styles/colors/details applied" (owner, 2026-09-29).
+ * — the fix for solid models of PCBs/PCBAs that
+ * have no styles, colours or details applied.
  *
- * The root cause (checked on real STEPs: PCA-00109, PCA-00101 Rev6,
- * PCA-00111, PCA-00108): the board designer's STEP export gives the whole PCB body **one**
+ * The root cause (checked on real STEP exports): the board designer's STEP export gives the whole PCB body **one**
  * flat STYLED_ITEM colour — the same `(0.420, 0.450, 0.290)` on every board
  * regardless of its real soldermask colour — and none of its faces carry a
  * different one (`brep_faces[i].color` is `null` for every face of the `_PCB`

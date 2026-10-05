@@ -79,7 +79,7 @@ describe('footprintPadMap', () => {
     expect(footprintPadMap({ prefix: 'j' }, demoIface, ['j.shell'], tags).rows[0]?.status).toBe('signal-mismatch');
     expect(footprintPadMap({ prefix: 'j' }, demoIface, ['j.shell'], tags, vocab).rows[0]?.status).toBe('ok');
   });
-  it('reads a pad that takes the carrier T-join and a wire as a double landing, not a mismatch (owner batch 10)', () => {
+  it('reads a pad that takes the carrier T-join and a wire as a double landing, not a mismatch', () => {
     const pce: Interface = {
       id: 'pce',
       label: 'PCE',

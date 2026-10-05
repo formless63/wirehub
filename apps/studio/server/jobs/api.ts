@@ -1,7 +1,7 @@
 /**
  * The job endpoints (`specs/postgres-backend.md` §2, §7.5):
  *
- *   POST /api/modules/:module/importers/:importer   { fileName, data (base64) } — start an import (202, the job)
+ *   POST /api/modules/:module/_import/:importer      { fileName, base64, job: true } — start an import (202, the job)
  *   GET  /api/jobs                                   recent jobs (`?kind=`), and the worker's heartbeat
  *   POST /api/jobs                                   { kind: model-cache | derive } — run one now (202)
  *   GET  /api/jobs/:id                               one job, with an import's plan files
@@ -16,11 +16,11 @@ import type { ApiRequest, ApiResponse, WorkbenchDeps } from '../api.ts';
 import { staleWriteResponse } from '../etag.ts';
 import { CommitRefusedError, ReadOnlyBackendError, StaleRecordError } from '../storage/change-set.ts';
 import { withWriteLock } from '../storage/write-lock.ts';
+import { parseModuleIoPath, type ModuleIoPath } from '../module-io.ts';
 import { commitPlan, MAX_IMPORT_BYTES, planChanges, readImportRequest } from './import.ts';
 import { isJobKind, type JobKind, type JobRun } from './types.ts';
 
 export const JOB_ROUTES = [
-  'POST   /api/modules/:module/importers/:importer',
   'GET    /api/jobs',
   'POST   /api/jobs',
   'GET    /api/jobs/:id',
@@ -49,17 +49,14 @@ function partsOf(path: string): string[] {
     });
 }
 
-/** `POST /api/modules/:module/importers/:importer`: a base64 file, as big as a model upload. */
+/** `POST /api/modules/:module/_import/:importer`: a base64 file, as big as a model upload. */
 export function isImportPath(path: string): boolean {
-  const parts = partsOf(path);
-  return parts[0] === 'api' && parts[1] === 'modules' && parts[3] === 'importers' && parts.length === 5;
+  return parseModuleIoPath(path)?.kind === 'import';
 }
 
 export function isJobPath(path: string): boolean {
   const parts = partsOf(path);
-  if (parts[0] !== 'api') return false;
-  if (parts[1] === 'jobs') return true;
-  return parts[1] === 'modules' && parts[3] === 'importers' && parts.length === 5;
+  return parts[0] === 'api' && parts[1] === 'jobs';
 }
 
 /** A job as the API shows it: an import's staged changes are counted, not sent. */
@@ -70,34 +67,35 @@ export function jobView(job: JobRun): Record<string, unknown> {
   return { ...rest, result: summary };
 }
 
+/**
+ * `POST /api/modules/:module/_import/:importer` with `job: true`: the file is
+ * kept for the job and the importer runs there (202, the job); the job's plan
+ * is what `POST /api/jobs/:id/publish` commits.
+ */
+export async function startImportJob(request: ApiRequest, io: ModuleIoPath, deps: WorkbenchDeps): Promise<ApiResponse> {
+  const jobs = deps.jobs;
+  if (jobs === undefined || !jobs.kinds.includes('import')) return fail(501, 'This studio does not run import jobs.', 'Send the import without `job` to preview and accept it in one request.');
+  const importer = deps.modules?.importer(io.module, io.id);
+  if (importer === undefined) return fail(404, `${io.module} has no importer ${io.id}.`, "Check the deployment's modules.config.ts.");
+  const body = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as Record<string, unknown>;
+  const fileName = body['fileName'];
+  const data = body['base64'];
+  if (typeof fileName !== 'string' || fileName.trim() === '' || fileName.length > 200 || /[\\/\u0000]/.test(fileName)) return fail(400, 'Send { "fileName": …, "base64": … } (a file name, no folders).');
+  if (!importer.accepts.some((ext) => fileName.toLowerCase().endsWith(ext))) return fail(400, `${importer.label} takes ${importer.accepts.join(' or ')} files, not ${fileName}.`, 'Pick another file.');
+  if (typeof data !== 'string' || !/^[A-Za-z0-9+/=\s]*$/.test(data)) return fail(400, 'The file is not valid base64.', 'Nothing was read.');
+  const bytes = new Uint8Array(Buffer.from(data, 'base64'));
+  if (bytes.byteLength === 0) return fail(400, 'That file is empty.');
+  if (bytes.byteLength > MAX_IMPORT_BYTES) return fail(413, `That file is ${(bytes.byteLength / 1048576).toFixed(1)} MB; an import takes up to ${MAX_IMPORT_BYTES / 1048576} MB.`);
+  const input = await jobs.stageInput(bytes);
+  const job = await jobs.enqueue('import', { module: io.module, importer: io.id, fileName: fileName.trim(), input }, request.user);
+  return { status: 202, body: { job: jobView(job) }, headers: { Location: `/api/jobs/${job.id}` } };
+}
+
 export async function handleJobRequest(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiResponse> {
   const method = request.method.toUpperCase();
   const parts = partsOf(request.path);
   const jobs = deps.jobs;
   if (jobs === undefined) return fail(501, 'This studio does not run jobs.', 'Imports and model builds need the job runner (docs/self-hosting.md).');
-
-  // POST /api/modules/:module/importers/:importer
-  if (parts[1] === 'modules') {
-    const [, , moduleId, , importerId] = parts;
-    if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
-    const importer = deps.modules?.importers().find((i) => i.module === moduleId && i.id === importerId);
-    if (importer === undefined) return fail(404, `No module importer ${moduleId}:${importerId} in this deployment.`, 'Check the deployment\'s modules.config.ts.');
-    if (!jobs.kinds.includes('import')) return fail(501, 'This studio does not run imports.');
-    const body = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as Record<string, unknown>;
-    const fileName = body['fileName'];
-    const data = body['data'];
-    if (typeof fileName !== 'string' || fileName.trim() === '' || fileName.length > 200 || /[\\/\u0000]/.test(fileName)) return fail(400, 'The import needs the file name (no folders) as `fileName`.');
-    if (!importer.accepts.some((ext) => fileName.toLowerCase().endsWith(ext))) {
-      return fail(400, `${importer.label} reads ${importer.accepts.join(', ')} files, not ${fileName}.`);
-    }
-    if (typeof data !== 'string' || !/^[A-Za-z0-9+/=\s]*$/.test(data)) return fail(400, 'The import needs the file, base64-encoded, as `data`.');
-    const bytes = new Uint8Array(Buffer.from(data, 'base64'));
-    if (bytes.byteLength === 0) return fail(400, 'That file is empty.');
-    if (bytes.byteLength > MAX_IMPORT_BYTES) return fail(413, `That file is ${(bytes.byteLength / 1048576).toFixed(1)} MB; an import takes up to ${MAX_IMPORT_BYTES / 1048576} MB.`);
-    const input = await jobs.stageInput(bytes);
-    const job = await jobs.enqueue('import', { module: moduleId, importer: importerId, fileName: fileName.trim(), input }, request.user);
-    return { status: 202, body: { job: jobView(job) }, headers: { Location: `/api/jobs/${job.id}` } };
-  }
 
   const [, , id, action, ...rest] = parts;
   if (rest.length > 0) return fail(404, 'There is nothing at that address.', JOB_ROUTES.join('; '));

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-/**
- *: the re-pin grips a selected wire draws on the ends
+/**:
+ * the re-pin grips a selected wire draws on the ends
  * that can move — on the very spot React Flow's own reconnect circle sits, so
  * the thing the user sees is the thing they can grab.
  */

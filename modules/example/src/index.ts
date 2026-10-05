@@ -1,0 +1,93 @@
+/**
+ * The example module — one contribution to every extension point
+ * (`docs/modules.md`). It exists to be read, copied and tested: it does
+ * nothing a shop needs. **Not for production**, and not offered at first-run
+ * setup unless the deployment's manifest lists it, which the studio does only
+ * when the dev flag `WIREHUB_EXAMPLE_MODULE=1` is set (`apps/studio/modules.config.ts`).
+ *
+ * | extension point    | what the example does                                         |
+ * | ------------------ | ------------------------------------------------------------- |
+ * | setup (domain)     | offered at /setup, labelled as an example                     |
+ * | catalog pack       | one synthetic signal                                          |
+ * | part-number scheme | `EXC-00001`-style numbers (a deployment gets one scheme only) |
+ * | validation rule    | refuses a save whose label says TODO                         |
+ * | importer           | `id,label,value` CSV lines to proposed resistors              |
+ * | exporter           | a design's joints as CSV                                      |
+ * | integration        | `GET status`, `POST echo` (a route that takes the write lock) |
+ * | panels             | all four slots                                                |
+ * | UI route           | `/m/example/status`, with a rail icon                         |
+ * | auth provider      | a demo OAuth 2 sign-in button (it does not sign anyone in)    |
+ * | commit hook        | counts edits under `extensions.example`                       |
+ * | documents          | `data/example/` for imported files and reports                |
+ * | derived records    | `data/derived/example/summary.{json,md}`                      |
+ *
+ * MIT; the pack's data is CC0-1.0.
+ */
+
+import { prefixPartNumberScheme } from '@wirehub/model';
+import { defineModule } from '@wirehub/modules';
+
+import { deriveSummary, importResistors, jointsCsv, MODULE_ID, recordEdit, todoLabelRule } from './logic.ts';
+import { DocumentsPanel, InspectorPanel, LibraryPanel, SettingsPanel, StatusPage } from './ui.ts';
+
+export { dataOf, deriveSummary, importResistors, jointsCsv, recordEdit, todoLabelRule } from './logic.ts';
+export type { ExampleData } from './logic.ts';
+
+/** the pack directory, as a `file:` URL (a variable so bundlers leave it alone) */
+const PACK_DIR = '../pack/';
+export const EXAMPLE_PACK = new URL(PACK_DIR, import.meta.url).href;
+
+export const example = defineModule({
+  id: MODULE_ID,
+  label: 'Example module (reference implementation, not for production)',
+  version: '0.1.0',
+  license: 'MIT',
+  setup: {
+    kind: 'domain',
+    description: 'EXAMPLE ONLY: a reference module that exercises every extension point, with one synthetic signal. Do not enable it on a real hub.',
+  },
+  catalogPacks: [{ id: 'example', label: 'Example pack', version: '0.1.0', root: EXAMPLE_PACK, license: 'CC0-1.0' }],
+  partNumberScheme: prefixPartNumberScheme({
+    id: 'example',
+    label: 'Example scheme (EXC-00001)',
+    prefixes: { connector: 'EXC', wire: 'EXW', component: 'EXK', pcba: 'EXB', design: 'EXD' },
+  }),
+  validationRules: [{ id: 'todo-label', label: 'A label must not say TODO', check: todoLabelRule }],
+  importers: [{ id: 'resistor-csv', label: 'Resistors (CSV)', accepts: ['.csv'], import: (input) => importResistors(input.fileName, input.bytes) }],
+  exporters: [{ id: 'joints-csv', label: 'Joints (CSV)', description: 'Every joint of the design, one row each', render: (design) => jointsCsv(design) }],
+  integrations: [
+    {
+      id: 'status',
+      label: 'Example status',
+      routes: [
+        { method: 'GET', path: 'status', handle: async () => ({ status: 200, body: { module: MODULE_ID, ok: true } }) },
+        { method: 'POST', path: 'echo', writes: true, handle: async (request) => ({ status: 200, body: { echo: request.body ?? null, by: request.user?.name ?? null } }) },
+      ],
+    },
+  ],
+  panels: [
+    { id: 'inspector', label: 'Example inspector panel', slot: 'cable-inspector', component: InspectorPanel },
+    { id: 'documents', label: 'Example documents panel', slot: 'cable-documents', component: DocumentsPanel },
+    { id: 'library', label: 'Example library panel', slot: 'library-detail', component: LibraryPanel },
+    { id: 'settings', label: 'Example settings panel', slot: 'settings', component: SettingsPanel },
+  ],
+  routes: [{ path: 'status', label: 'Example status', icon: 'IconPlug', component: StatusPage }],
+  authProviders: [
+    {
+      id: 'example-sso',
+      label: 'Example SSO (demo, does not work)',
+      kind: 'oauth2',
+      config: {
+        name: 'Example SSO (demo)',
+        authorizationUrl: 'https://idp.example.invalid/authorize',
+        tokenUrl: 'https://idp.example.invalid/token',
+        userInfoUrl: 'https://idp.example.invalid/userinfo',
+        clientId: 'wirehub-example',
+        // a real provider names its secret by environment variable: clientSecretEnv: 'ACME_SSO_SECRET'
+      },
+    },
+  ],
+  commitHook: recordEdit,
+  documents: [{ path: 'data/example/', class: 'report' }],
+  derived: [{ id: 'summary', label: 'Design summary', files: ['summary.json', 'summary.md'], derive: deriveSummary }],
+});

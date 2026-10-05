@@ -4,8 +4,8 @@
  * a reload or tab close dropped edits silently). In-app navigation keeps
  * drafts on its own; this only covers leaving the page.
  *
- * It also tells the host's edit session (`edit-session.ts`, edit locks —
- *) when this editor turns dirty or clean again: the
+ * It also tells the host's edit session (`edit-session.ts`, edit locks)
+ * when this editor turns dirty or clean again: the
  * first change is the moment a host takes the record's edit lock.
  */
 

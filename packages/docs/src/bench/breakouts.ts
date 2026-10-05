@@ -2,7 +2,7 @@
  * The breakout list of a bench sheet: per mould, what
  * passes through it uncut, what is terminated in it and on what, and what is
  * cut back there and why — read from core's `breakoutViews`. The foil is never
- * indicated (owner 2026-09-25).
+ * indicated.
  */
 
 import { breakoutViews, isTrimmedFoil, type CableDesign, type Db } from '@wirehub/model';
@@ -27,7 +27,7 @@ export function breakoutSection(design: CableDesign, db: Db, side?: 'a' | 'b'): 
         view.housed.length > 0 ? ` · housed: ${escapeHtml(view.housed.join(', '))}` : ''
       }</p>`,
     );
-    // the foil is never indicated (owner 2026-09-25): it is trimmed back with the drain
+    // the foil is never indicated: it is trimmed back with the drain
     const shown = view.rows.filter((row) => {
       const def = design.instances.segments.find((s) => s.id === row.segment)?.def;
       const wire = def === undefined ? undefined : db.wires.find((w) => w.id === def);

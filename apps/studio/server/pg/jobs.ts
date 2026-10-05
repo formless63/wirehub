@@ -17,7 +17,7 @@ import type { WorkbenchDeps } from '../api.ts';
 import type { BlobStore } from '../blobs.ts';
 import { runDeriveJob } from '../jobs/derive.ts';
 import { baseJobHandlers } from '../jobs/handlers.ts';
-import type { Notify } from '../jobs/notify.ts';
+import type { Notifier } from '../notify.ts';
 import { JOB_KINDS, type JobHandlers, type JobKind, type JobOutcome, type JobRequester, type JobRun, type JobRunner, type JobStatus, type JobStore, type PlanFile, type WorkerBeat } from '../jobs/types.ts';
 import { inOrg, type Db } from './db.ts';
 import { runBackupJob, runBlobGcJob } from './gc.ts';
@@ -229,7 +229,7 @@ export interface HousekeepingOptions {
   orgId: string;
   blobs?: BlobStore;
   env?: Record<string, string | undefined>;
-  notify?: Notify;
+  notify?: Notifier;
   /** the snapshot cache the deps read through: the derive repair reloads it */
   cache?: SnapshotCache;
 }
@@ -237,6 +237,7 @@ export interface HousekeepingOptions {
 export function pgHousekeepingHandlers(options: HousekeepingOptions): JobHandlers {
   const env = options.env ?? process.env;
   const backupDir = (env.WIREHUB_BACKUP_DIR ?? '').trim() || undefined;
+  const marker = (env.WIREHUB_BACKUP_MARKER ?? '').trim() || undefined;
   const { db, orgId } = options;
   return {
     derive: (context) => runDeriveJob(context, options.deps, options.cache === undefined ? {} : { refresh: () => options.cache!.discard() }),
@@ -246,9 +247,11 @@ export function pgHousekeepingHandlers(options: HousekeepingOptions): JobHandler
         orgId,
         ...(options.blobs === undefined ? {} : { blobs: options.blobs }),
         ...(backupDir === undefined ? {} : { backupDir }),
+        ...(marker === undefined ? {} : { backupMarker: marker }),
         ...(options.notify === undefined ? {} : { notify: options.notify }),
       }),
-    backup: (context) => runBackupJob(context, { db, orgId, ...(backupDir === undefined ? {} : { dir: backupDir }), ...(options.notify === undefined ? {} : { notify: options.notify }) }),
+    backup: (context) =>
+      runBackupJob(context, { db, orgId, ...(backupDir === undefined ? {} : { dir: backupDir }), ...(marker === undefined ? {} : { marker }), ...(options.notify === undefined ? {} : { notify: options.notify }) }),
   };
 }
 

@@ -79,10 +79,14 @@ export interface DocRow {
   list?: { kind: ListKind; collection: string; member: string };
 }
 
-/** `studio.derived_doc`: a file the commit regenerates (the tag tables). */
+/**
+ * `studio.derived_doc`: a file the commit regenerates — the tag tables
+ * (`tags`) or a module's derived record (`module`, at
+ * `data/derived/<module>/<file>`; see `derivedModuleOf`).
+ */
 export interface DerivedRow {
   path: string;
-  derivedKind: 'tags';
+  derivedKind: 'tags' | 'module';
   mediaType: DocMediaType;
   body: string;
 }
@@ -331,6 +335,13 @@ export interface FileMapEntry {
 
 const re = (pattern: RegExp) => (path: string) => pattern.test(path);
 const listPaths = new Set(LIST_FILES.map((l) => `data/${l.file}`));
+const MODULE_DERIVED = /^data\/derived\/([a-z0-9]+(?:-[a-z0-9]+)*)\/[a-z0-9][a-z0-9-]*\.(json|md)$/;
+
+/** The module a derived-record path belongs to (`data/derived/<module>/<file>`), or undefined. */
+export function derivedModuleOf(path: string): string | undefined {
+  return MODULE_DERIVED.exec(path)?.[1];
+}
+
 const derivedPaths = new Set(DERIVED_TAG_FILES.map((p) => `data/${p}`));
 
 export const FILE_MAP: readonly FileMapEntry[] = [
@@ -349,6 +360,7 @@ export const FILE_MAP: readonly FileMapEntry[] = [
   { pattern: 'data/vocab/<list>.json', class: 'truth', table: 'entity(vocab) + record', match: re(/^data\/vocab\/[^/]+\.json$/) },
   { pattern: 'data/builds/<name>.json', class: 'truth', table: 'entity(build) + record', match: re(/^data\/builds\/[^/]+\.json$/) },
   { pattern: 'data/tags/{signal-tags.json,instance-slots.json,report.md}', class: 'derived', table: 'derived_doc', match: (p) => derivedPaths.has(p) },
+  { pattern: 'data/derived/<module>/<file>.{json,md}', class: 'derived', table: "derived_doc (derived_kind 'module', module_id)", match: (p) => derivedModuleOf(p) !== undefined },
   { pattern: 'depictions/<def>/meta.json', class: 'truth', table: 'entity(depiction) + record', match: re(/^depictions\/[^/]+\/meta\.json$/) },
   { pattern: 'depictions/<def>/<file>', class: 'truth', table: 'depiction_file → blob', match: re(/^depictions\/[^/]+\/[^/]+$/) },
   { pattern: 'data/**/*.{json,md}, LICENSE, *.txt (part-numbers.json, strip-practice.json, tags/review.json, packs.json, setup.json, a module\'s files …)', class: 'truth', table: 'catalog_doc', match: (p) => p.startsWith('data/') && isTextPath(p) },
@@ -604,6 +616,16 @@ export function explode(files: CatalogFiles): ExplodeResult {
         } else {
           const parsed = json(path, content);
           if (parsed !== undefined) rows.derived.push({ path, derivedKind: 'tags', mediaType: 'application/json', body: parsed.body });
+        }
+        break;
+      }
+      case 'data/derived/<module>/<file>.{json,md}': {
+        if (path.endsWith('.md')) {
+          const source = text(path, content);
+          if (source !== undefined) rows.derived.push({ path, derivedKind: 'module', mediaType: 'text/markdown', body: source });
+        } else {
+          const parsed = json(path, content);
+          if (parsed !== undefined) rows.derived.push({ path, derivedKind: 'module', mediaType: 'application/json', body: parsed.body });
         }
         break;
       }

@@ -2,10 +2,8 @@
  * Shared, reusable image assets: the picker's own
  * types and pure logic.
  *
- * Owner: "Can we make things like photos reusable? I believe I currently
- * need to upload the image for connector if using one every time. Since
- * many drawings might use the same one it would be ideal to probably select
- * from existing assets."
+ * Photos and other images are reusable: many drawings share one picture, so
+ * it is picked from the existing assets rather than uploaded every time.
  *
  * The host (the studio) keeps the actual store — content-addressed by
  * sha256, so identical uploads dedupe automatically the moment they are

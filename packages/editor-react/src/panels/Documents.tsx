@@ -23,11 +23,12 @@
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
 import { variationsOf, type DocumentFacts, type DrawingMeta } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
-import { IconMarkdown, IconPrinter } from '@tabler/icons-react';
+import { IconDownload, IconMarkdown, IconPrinter } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import type { AssetsAdapter } from '../assets.ts';
 import { classes } from '../context.ts';
+import { downloadOutput, type EditorExtensions, type ExtraExporter } from '../extensions.ts';
 import {
   DOCUMENT_BLURBS,
   DOCUMENT_KINDS,
@@ -72,6 +73,10 @@ import { useEditLocked } from './edit-session.ts';
 export const DOCUMENT_DEBOUNCE_MS = 600;
 
 export interface DocumentsProps {
+  /** host-added panels and exports (`extensions.ts`) */
+  extensions?: EditorExtensions;
+  /** a read-only view (passed on to the panels) */
+  readOnly?: boolean;
   /** the design as it stands in the editor — draft included */
   design: CableDesign;
   db: Db;
@@ -168,8 +173,8 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
   }, [designId, adapter]);
 
   /**
-   * Save, recovering from a stale write instead of just reporting it
-   *: another action can rewrite this record behind
+   * Save, recovering from a stale write instead of just reporting it:
+   * another action can rewrite this record behind
    * this form's back — most commonly a version save bumping the drawing's
    * `revision` — and the 409 that answers is not "someone edited the same
    * thing", it is "something else touched a field you never opened this
@@ -336,9 +341,11 @@ export function DocumentsPane({
   release,
   partNumbers,
   facts,
+  extensions,
+  readOnly = false,
 }: DocumentsProps): JSX.Element {
   const sidecar = useDrawingSidecar(design.id, drawings);
-  // someone else holds this cable's edit lock (50a.51): the forms stay, disabled
+  // someone else holds this cable's edit lock: the forms stay, disabled
   const editLocked = useEditLocked();
   // which revision prints: the viewed rev, else the latest saved one
   const releaseKey = release === undefined ? '' : `${design.id}|${release.revisions.join(',')}|${release.showing.kind === 'rev' ? release.showing.rev : 'w'}`;
@@ -371,7 +378,7 @@ export function DocumentsPane({
   // `'json'` is a sub-view, not a `DocumentKind`: it does not go through
   // `@wirehub/docs`'s `renderDocument` at all — it is `JsonPane`, the
   // editor's own design-document export/import, kept reachable from here
-  // rather than a bottom dock chrome="host" no longer draws (e5c.6/3pn.3).
+  // rather than a bottom dock chrome="host" no longer draws ().
   const [kind, setKind] = useState<DocumentKind | 'json'>('build-sheet');
   // the drawing, the build sheet and the BOM read the sidecar (part number,
   // lengths, designer); the continuity spec does not, so its edits never re-render it
@@ -406,7 +413,7 @@ export function DocumentsPane({
     [partNumbers, docDb],
   );
   const docFacts = useMemo(() => (facts === undefined ? undefined : facts(docDesign, docDb)), [facts, docDesign, docDb]);
-  // the printed sheets' options (50a.9) — only the three sheets read them, and
+  // the printed sheets' options — only the three sheets read them, and
   // only the fields that shape them re-render a document
   const sheetKind = kind === 'build-sheet' || kind === 'bom' || kind === 'test-spec';
   const { partNumber } = sidecar.draft.meta;
@@ -500,6 +507,17 @@ export function DocumentsPane({
     }
     setCopyNote((await copyText(markdown)) ? 'copied' : 'the browser refused the copy');
   }, [kind, docDesign, docDb, sheetInput, drawingInput, pnInputs, docFacts, chosenVariation, docDepictions]);
+  const runExporter = useCallback(
+    async (exporter: ExtraExporter): Promise<void> => {
+      try {
+        downloadOutput(await exporter.render(docDesign, docDb));
+        setCopyNote(undefined);
+      } catch (error) {
+        setCopyNote(`${exporter.label}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [docDesign, docDb],
+  );
   const tabLabel = kind === 'json' ? 'JSON' : DOCUMENT_LABELS[kind];
 
   return (
@@ -589,6 +607,19 @@ export function DocumentsPane({
             <IconMarkdown size={14} aria-hidden /> Copy
           </button>
         ) : null}
+        {(extensions?.exporters ?? []).map((exporter) => (
+          <button
+            key={exporter.id}
+            type="button"
+            className="cs-print"
+            disabled={empty || pending}
+            data-exporter={exporter.id}
+            title={exporter.description ?? `Download ${exporter.label}`}
+            onClick={() => void runExporter(exporter)}
+          >
+            <IconDownload size={14} aria-hidden /> {exporter.label}
+          </button>
+        ))}
         <button
           type="button"
           className="cs-print"
@@ -603,6 +634,12 @@ export function DocumentsPane({
           <IconPrinter size={14} aria-hidden /> Print
         </button>
       </nav>
+
+      {extensions?.documents === undefined ? null : (
+        <div className="cs-extension-slot" data-slot="cable-documents">
+          {extensions.documents({ design: docDesign, db: docDb, readOnly: readOnly || editLocked || target !== 'working' && release !== undefined })}
+        </div>
+      )}
 
       {!empty && sidecar.conflict === undefined && sidecar.error !== undefined ? (
         <div className="cs-drawing-conflict" role="alert">
@@ -662,7 +699,7 @@ export function DocumentsPane({
         </fieldset>
       ) : null}
 
-      {/* no narrative paragraph (owner: no filler text) — the status chip's
+      {/* no narrative paragraph — the status chip's
           tooltip says whether this is the saved design or a draft */}
       {blockers.length === 0 ? null : (
         <div className="cs-doc-warning" role="alert">

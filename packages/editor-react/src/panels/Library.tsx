@@ -135,7 +135,7 @@ export interface LibraryProps {
   /**
    * How this host stores artwork. Given one, a connector's or board's detail
    * grows an Artwork tab beside Definition (`ArtworkDetailPane`, moved in
-   * from the editor's own top-level Artwork view — 3pn.1/50a.22). Without
+   * from the editor's own top-level Artwork view). Without
    * one, only Definition shows: exactly today's behaviour.
    */
   artworkAdapter?: ArtworkAdapter;
@@ -185,7 +185,7 @@ export interface LibraryProps {
   /** a list grew, or tags were written — the host reloads its db */
   onVocabChange?: () => void;
   /**
-   * The wire parts library and stock recipes (pci.17). Given one, a wire
+   * The wire parts library and stock recipes. Given one, a wire
    * stock's detail is the builder (parts, lay, bonding), its spec sheet, and
    * "New wire stock" builds from parts; without one, the stock form as before.
    */
@@ -201,6 +201,11 @@ export interface LibraryProps {
    * kind (the studio's "Import board" for boards).
    */
   listActions?: Partial<Record<DefinitionKind, ReactNode>>;
+  /**
+   * Panels a host adds to a stored record's detail (the studio's module
+   * `library-detail` slot): called with the record's kind and id.
+   */
+  detailExtras?: (record: { kind: LibraryKind; id: string }) => ReactNode;
   /**
    * A small marker before a row's label — the studio's "someone else is
    * editing this" avatar (edit locks). `null` for none.
@@ -274,7 +279,7 @@ function hasArtworkTab(kind: DefinitionKind): boolean {
 /**
  * The Artwork tab, mounted per selected definition (`key={defId}` at the call
  * site resets it on selection change). `ArtworkDetailPane` already takes just
- * a defId and an adapter (it was written for exactly this move — 50a.22) so
+ * a defId and an adapter (it was written for exactly this move) so
  * this is only the overlay bookkeeping `ArtworkPane` also does: pulling the
  * fresh manifest and bytes back after a write and keeping them around for as
  * long as this tab stays mounted.
@@ -310,8 +315,7 @@ function LibraryArtworkTab(props: {
 /**
  * How many things use this definition, compact — a chip in the head row
  * rather than a banner across the page. The list itself, and a way to open
- * one of the designs on it, is a popover click away (3pn.2, review of 3pn.1:
- * the old sentence-and-list banner was too loud for something shown before
+ * one of the designs on it, is a popover click away (the old sentence-and-list banner was too loud for something shown before
  * anything is even typed).
  */
 function UsageChip(props: {
@@ -509,7 +513,7 @@ function orphanPinouts(db: Db): { id: string; label: string; body: string }[] {
   return out;
 }
 
-/** The builder's own drawing of a connector, for the Views 2D toggle (50a.55). */
+/** The builder's own drawing of a connector, for the Views 2D toggle. */
 function connectorBuiltIn2d(db: Db, connector: ConnectorDefinition): { builtIn2d?: JSX.Element } {
   const { body } = connectorArtProps(db, connector);
   const art = builtInConnectorArt(connector, body);
@@ -525,7 +529,7 @@ function connectorArtProps(db: Db, connector: ConnectorDefinition): { connector:
 
 export function Library(props: LibraryProps): JSX.Element {
   const [uncontrolledKind, setUncontrolledKind] = useState<LibraryKind>('connectors');
-  /** a new connector's starting pair — a pinout with no connector, or a variant (50a.60) */
+  /** a new connector's starting pair — a pinout with no connector, or a variant */
   const [journeyStart, setJourneyStart] = useState<{ body?: string; interface?: string; variantOf?: ConnectorDefinition } | undefined>(undefined);
   /** rows shown / total, as the table reports them */
   const [tableCount, setTableCount] = useState<{ shown: number; total: number }>({ shown: 0, total: 0 });
@@ -535,9 +539,9 @@ export function Library(props: LibraryProps): JSX.Element {
   const [baselineVersion, setBaselineVersion] = useState(0);
   const kind = props.kind ?? uncontrolledKind;
   const [query, setQuery] = useState('');
-  /** legacy / retired board revisions are hidden unless asked for (owner 2026-09-25) */
+  /** legacy / retired board revisions are hidden unless asked for */
   const [showOld, setShowOld] = useState(false);
-  // the list's "Compare…" mode (50a.59): the ids ticked, or `undefined` when off
+  // the list's "Compare…" mode: the ids ticked, or `undefined` when off
   const [comparePick, setComparePick] = useState<string[] | undefined>(undefined);
   useEffect(() => setComparePick(undefined), [kind]);
   const [mode, setMode] = useState<Mode>({ kind: 'browse' });
@@ -599,7 +603,7 @@ export function Library(props: LibraryProps): JSX.Element {
     };
   }, [vocab, vocabAdapter, onVocabChange]);
 
-  /* the list pane: width and fold, remembered per viewer (50a.38) */
+  /* the list pane: width and fold, remembered per viewer */
   const [pane, setPane] = useState<LibraryPaneState>(() => loadLibraryPane());
   const rootRef = useRef<HTMLDivElement>(null);
   const firstPane = useRef(true);
@@ -865,19 +869,19 @@ export function Library(props: LibraryProps): JSX.Element {
     }
   };
 
-  /** someone else holds this record's edit lock (50a.51): shown, controls disabled */
+  /** someone else holds this record's edit lock: shown, controls disabled */
   const editLocked = useEditLocked();
   const readOnly =
     definitions === undefined ||
     (mode.kind === 'edit' && (list.generated ?? []).some((record) => record.id === mode.id));
   /**
    * An imported board is read-only, but its pad tags are not the record's:
-   * they are owner corrections in the tag review file, which a re-import
-   * keeps (pci.10, owner question on tag edits) — so they stay editable.
+   * they are corrections in the tag review file, which a re-import
+   * keeps — so they stay editable.
    */
   const tagsOnly = readOnly && kind === 'pcbas' && definitions !== undefined && vocabAdapter !== undefined;
 
-  /* the board journey: a board's detail as the steps a new PCB takes (pci.10) */
+  /* the board journey: a board's detail as the steps a new PCB takes */
   const journey = useBoardJourney({
     enabled: kind === 'pcbas' && mode.kind === 'edit' && props.boardJourney !== undefined && props.artworkAdapter !== undefined,
     db,
@@ -1004,7 +1008,7 @@ export function Library(props: LibraryProps): JSX.Element {
     ...db.pcbas,
     ...(db.mechanicals ?? []),
   ].map((record) => record.id);
-  /** the record head's actions (50a.60): Edit, New variant / Duplicate, Compare */
+  /** the record head's actions: Edit, New variant / Duplicate, Compare */
   const recordActions: RecordAction[] = [];
   if (mode.kind === 'edit') {
     recordActions.push({
@@ -1098,7 +1102,7 @@ export function Library(props: LibraryProps): JSX.Element {
       </>
     );
 
-  /* search and the list's actions: above the table beside a record, in its toolbar while browsing (50a.60) */
+  /* search and the list's actions: above the table beside a record, in its toolbar while browsing */
   const listTools = (
     <>
         <input
@@ -1418,6 +1422,11 @@ export function Library(props: LibraryProps): JSX.Element {
                 {...(kind === 'connectors' && baseline !== undefined ? connectorBuiltIn2d(db, baseline as ConnectorDefinition) : {})}
                 readOnly={definitions === undefined}
               />
+            ) : null}
+            {mode.kind === 'edit' && props.detailExtras !== undefined ? (
+              <div className="cs-extension-slot" data-slot="library-detail">
+                {props.detailExtras({ kind, id: mode.id })}
+              </div>
             ) : null}
 
             {mode.kind === 'edit' && openRow !== undefined ? <PropertiesGrid row={openRow} columns={columns} /> : null}

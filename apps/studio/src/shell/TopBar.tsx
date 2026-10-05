@@ -1,9 +1,9 @@
 /**
  * The 44px top bar — logo + wordmark, breadcrumb (with the cable menu),
- * the Build/Schematic/Documents switch, quick-open search
- *, undo/redo, the Make-variant menu, Save, the
- * overflow menu, the git backup indicator (`BackupIndicator`,
- *) and the theme toggle.
+ * the Build/Schematic/Documents switch, quick-open search,
+ * undo/redo, the Make-variant menu, Save, the
+ * overflow menu, the git backup indicator (`BackupIndicator`)
+ * and the theme toggle.
  *
  * The breadcrumb and the switch read the current match for `cableRoute`
  * rather than taking props, so the top bar can live at the root layout (one
@@ -136,7 +136,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
       {cableId !== undefined ? (
         <nav aria-label="breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 text-[12.5px]">
           {/* the crumb is the first thing to go once space is tight — the
-              title itself gets priority (owner screenshot) */}
+              title itself gets priority */}
           <Link to="/cables" className="shrink-0 text-dim no-underline hover:text-ink max-[1300px]:hidden max-sm:hidden">
             Cables
           </Link>
@@ -149,7 +149,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
             {label ?? cableId}
           </span>
           <StatusChip status={cableId !== undefined && studio.cableId === cableId ? studio.design?.status : undefined} />
-          {/* contract-manufactured (310/311): a generic badge, never a partner's name (owner 2026-09-29, pci.34) */}
+          {/* contract-manufactured (310/311): a generic badge, never a partner's name */}
           <ReleaseChip id={cableId} rev={search?.rev} />
           {dirty ? (
             <span
@@ -291,8 +291,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
         className={
           // a cable is open: the title needs the room, so the search box
           // stays icon-only (its full form returns on the Cables/Library
-          // pages, where nothing competes with it) — owner screenshot,
-          //
+          // pages, where nothing competes with it)
           cableId === undefined
             ? 'flex h-7 w-[200px] shrink-0 items-center gap-2 rounded-md border border-line2 bg-bg px-2 text-[12.5px] text-faint max-sm:w-7 max-sm:justify-center max-sm:px-0'
             : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line2 bg-bg px-0 text-[12.5px] text-faint'

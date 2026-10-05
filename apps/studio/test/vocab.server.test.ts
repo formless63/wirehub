@@ -148,7 +148,7 @@ describe('POST /api/vocab/:list — append-only, src required', () => {
     expect((await call('POST', '/api/vocab/signals', { label: 'Field bus A', kind: 'fieldbus', src: 'x' })).status).toBe(201);
   });
 
-  it('adds accepted entries only — `pending` is owner question Q8 (b), not in use', async () => {
+  it('adds accepted entries only — `pending` is not in use by default', async () => {
     const response = await call('POST', '/api/vocab/families', { label: 'S-Video', src: 'x', pending: true });
     expect(response.status).toBe(400);
   });

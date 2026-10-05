@@ -33,11 +33,14 @@ export const exampleImporterModule = defineModule({
 
 export const exampleRegistry: ModuleRegistry = createRegistry([exampleImporterModule]);
 
-/** One new part and one change to a starter part (its label). */
+/** One new part, and one the starter catalog already has (skipped: an import never overwrites). */
 export const EXAMPLE_CSV = ['# id,label,partNumber,kind', 'hd15-backshell-test,HD-15 backshell (imported),SHL-00090,shell', 'de9-backshell,DE-9 metal backshell (re-imported label),SHL-00001,shell'].join('\n');
 
 export const EXAMPLE_FILE = 'example.parts.csv';
 
-export function exampleBody(csv = EXAMPLE_CSV): { fileName: string; data: string } {
-  return { fileName: EXAMPLE_FILE, data: Buffer.from(csv).toString('base64') };
+/** The body of `POST /api/modules/example-parts/_import/mechanicals-csv` that runs it as a job. */
+export function exampleBody(csv = EXAMPLE_CSV): { fileName: string; base64: string; job: true } {
+  return { fileName: EXAMPLE_FILE, base64: Buffer.from(csv).toString('base64'), job: true };
 }
+
+export const EXAMPLE_IMPORT_PATH = '/api/modules/example-parts/_import/mechanicals-csv';

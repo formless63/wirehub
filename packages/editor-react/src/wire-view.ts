@@ -1,6 +1,6 @@
 /**
- * The parametric 3D wire view's state and the plain helpers around it
- *. No three.js here, so the main bundle can hold it:
+ * The parametric 3D wire view's state and the plain helpers around it.
+ * No three.js here, so the main bundle can hold it:
  * the Library, the wire builder and the Inspector decide *what* to show
  * (a stock, its recipe's lay, the strip presets, a design's strip plan);
  * the lazy chunk (`panels/WireModel3d.tsx`) draws it.
@@ -39,7 +39,7 @@ export interface WireViewState {
   xray: boolean;
 }
 
-/** 6 ft: "bonded multi-core, in general, is always 6ft" (owner, decisions page 2026-09-29, pci.35). */
+/** 6 ft: "bonded multi-core, in general, is always 6ft". */
 export const DEFAULT_LENGTH_MM = 1829;
 
 /** The presets for a stock: "Bare cut" plus the practice written for its construction. */

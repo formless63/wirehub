@@ -37,6 +37,9 @@ import { EditLockScope } from '../locks/EditLockScope.tsx';
 import { LockMarker } from '../locks/LockMarker.tsx';
 import { definitionRecord } from '../locks/records.ts';
 import { browserDepictions } from '../depictions.browser.ts';
+import { useModules } from '../modules/ModulesContext.tsx';
+import { ModuleImport } from '../modules/ModuleImport.tsx';
+import { ModulePanels } from '../modules/slots.tsx';
 
 const KIND_FROM_URL: Readonly<Record<string, LibraryKind>> = {
   connectors: 'connectors',
@@ -67,6 +70,7 @@ function kindOfUrl(value: string | undefined): LibraryKind {
 
 export function LibraryRoute(): JSX.Element {
   const studio = useStudio();
+  const modules = useModules();
   const navigate = useNavigate();
   // shared by `/library/$kind` and `/library/$kind/$id` — reading the last
   // match's own params, rather than either route's `.useParams()`, is what
@@ -75,7 +79,7 @@ export function LibraryRoute(): JSX.Element {
   const matches = useMatches();
   const params = (matches[matches.length - 1]?.params ?? {}) as { kind?: string; id?: string };
   const kind = kindOfUrl(params.kind);
-  // the wire builder's parts library (pci.17) — only the Library reads it
+  // the wire builder's parts library — only the Library reads it
   const wireLibrary = useMemo(() => workbenchWireLibrary(), []);
   const vendorDocuments = useMemo(() => workbenchDocuments(), []);
   // each record's 3D model
@@ -115,7 +119,14 @@ export function LibraryRoute(): JSX.Element {
   // the tables' Used column and Art flag: every design, and which parts have drawn art
   const art = useMemo(() => new Set(browserDepictions().known()), []);
 
-  // edit locks (50a.51): the selected definition is the record; a new one locks nothing
+  // importers modules contribute: an Import… button on every kind's list
+  const importActions = useMemo(() => {
+    if (modules.importers().length === 0) return undefined;
+    const button = <ModuleImport registry={modules} onImported={studio.onDefinitionsChange} />;
+    return { connectors: button, components: button, wires: button, pcbas: button, mechanicals: button };
+  }, [modules, studio.onDefinitionsChange]);
+
+  // edit locks: the selected definition is the record; a new one locks nothing
   return (
     <div className="cs-editor">
       <EditLockScope record={selectedId === undefined ? undefined : definitionRecord(kind, selectedId)}>
@@ -137,6 +148,14 @@ export function LibraryRoute(): JSX.Element {
         onSelectId={onSelectId}
         onOpenRecord={onOpenRecord}
         boardJourney={boardJourney}
+        {...(importActions === undefined ? {} : { listActions: importActions })}
+        {...(modules.panels('library-detail').length === 0
+          ? {}
+          : {
+              detailExtras: (record: { kind: LibraryKind; id: string }) => (
+                <ModulePanels registry={modules} slot="library-detail" context={{ db: studio.db, record, readOnly: false }} />
+              ),
+            })}
         {...(partNumbers === undefined ? {} : { partNumbers })}
         {...(partNumbers?.designs === undefined ? {} : { designs: partNumbers.designs })}
         art={art}

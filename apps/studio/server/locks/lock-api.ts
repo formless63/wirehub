@@ -69,7 +69,8 @@ function ok(body: unknown): ApiResponse {
   return { status: 200, body };
 }
 
-const ID = /^[A-Za-z0-9_-]{6,64}$/;
+// `:` for an API client's `api:<token id>` client id (plan §4.5)
+const ID = /^[A-Za-z0-9_:-]{6,64}$/;
 
 /** The record's own id, for a sentence: `design:x` → `x`. */
 function recordName(record: string): string {

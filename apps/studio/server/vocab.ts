@@ -15,7 +15,7 @@
  *    a refusal names what it would have broken. Ids never change; a rename is
  *    a new label with the old one kept as an alias.
  * 2. **`src` is required** on every new entry, like every catalog record.
- * 3. **Either owner may add, in-app** (owner question Q8, option a): entries
+ * 3. **Either owner may add, in-app**: entries
  *    arrive accepted. The `pending` flag core supports is never set here; a
  *    body asking for it is refused rather than silently obeyed.
  * 4. **Tags go through the generator.** A tag set in the Library becomes an
@@ -172,7 +172,7 @@ function entryOfBody(listId: string, body: unknown): { entry: VocabEntry } | { r
       refusal: fail(
         400,
         'Entries added here are accepted as they are added.',
-        'Either owner may add an entry, with its source (owner question Q8, option a) — leave `pending` out.',
+        'Either owner may add an entry, with its source — leave `pending` out.',
       ),
     };
   }

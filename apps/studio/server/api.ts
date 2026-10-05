@@ -55,9 +55,10 @@ import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
 import { isDocPath, type DocStore } from './storage/doc-store.ts';
+import { parseModuleIoPath, proposalOf, runExporter, runImporter, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { JobService } from './jobs/types.ts';
-import { handleJobRequest, isJobPath, JOB_ROUTES } from './jobs/api.ts';
+import { handleJobRequest, isJobPath, JOB_ROUTES, startImportJob } from './jobs/api.ts';
 import type { EventHub } from './events.ts';
 
 /* ------------------------------------------------------------------ *
@@ -77,8 +78,8 @@ export interface ApiRequest {
    */
   headers?: Record<string, string>;
   /**
-   * The signed-in person, when the host has a login and a session
-   *. Absent → `deps.localUser`.
+   * The signed-in person, when the host has a login and a session.
+   * Absent → `deps.localUser`.
    */
   user?: StudioUser;
 }
@@ -101,8 +102,7 @@ export interface ApiResponse {
    * What a design save changed, as change-log lines (`designChangeLines`:
    * joints added / removed / moved with the note a re-pin cleared, parts
    * added / removed / changed). Server-side only — never sent to the
-   * client; the backup commit lists them under its subject
-   *.
+   * client; the backup commit lists them under its subject.
    */
   changes?: string[];
 }
@@ -112,8 +112,8 @@ export interface WorkbenchDeps {
   /** the definition library every candidate is validated against */
   loadDb: () => Awaitable<Db>;
   /**
-   * A token that changes whenever the stored catalog does (storage seams,
-   *). Given one, the unit of work loads `loadDb()` once
+   * A token that changes whenever the stored catalog does (storage seams).
+   * Given one, the unit of work loads `loadDb()` once
    * per catalog version instead of once per request. Absent: every request
    * loads its own.
    */
@@ -181,9 +181,9 @@ export interface WorkbenchDeps {
    * it never goes stale behind a Library save.
    */
   tags?: TagStore;
-  /** the wire parts library and stock recipes (pci.17); optional like the rest */
+  /** the wire parts library and stock recipes; optional like the rest */
   wireLibrary?: WireLibraryStore;
-  /** the board build files (`data/builds/*.json`, pci.10); optional like the rest */
+  /** the board build files (`data/builds/*.json`); optional like the rest */
   builds?: BuildsStore;
   /**
    * The artwork store (`depictions.ts`). Given here, artwork writes are
@@ -371,7 +371,7 @@ export function readDesignBody(value: unknown): { ok: true; design: CableDesign 
     );
   }
   // an older document (a tab opened before the migration, an imported file)
-  // is stored at the one current version (migrate-schema.ts, 50a.49)
+  // is stored at the one current version (migrate-schema.ts)
   return { ok: true, design: upgradeDesignSchema(value as CableDesign).design };
 }
 
@@ -767,12 +767,12 @@ async function getAssets(deps: WorkbenchDeps): Promise<ApiResponse> {
   return ok({ assets: list });
 }
 
-/** Every stored file, bytes left out — what a wire stock's vendor documents link to (pci.29). */
+/** Every stored file, bytes left out — what a wire stock's vendor documents link to. */
 async function getAssetIndex(deps: WorkbenchDeps): Promise<ApiResponse> {
   if (deps.assets === undefined) {
     return fail(501, 'This studio does not keep a shared asset library.', 'There are no stored files to link.');
   }
-  // models are listed by `/api/models` (50a.55): a GLB is not a vendor document
+  // models are listed by `/api/models`: a GLB is not a vendor document
   return ok({ assets: (await deps.assets.list()).filter((asset) => !isModelAsset(asset)) });
 }
 
@@ -786,7 +786,7 @@ async function getAssetFile(deps: WorkbenchDeps, id: string): Promise<ApiRespons
   if (!ASSET_ID.test(id)) return badId(id, 'an asset id (64 hex characters)');
   const found = await deps.assets.get(id);
   if (found === undefined) {
-    // an imported 3D model lives in the generated cache, not the asset store (50a.55)
+    // an imported 3D model lives in the generated cache, not the asset store
     const model = await cachedModelFile(modelDepsOf(deps), id);
     return model ?? fail(404, `No stored file ${id}.`, 'It may have been removed from data/assets/.');
   }
@@ -831,6 +831,8 @@ const ROUTES = [
   'POST   /api/backup/retry',
   ...JOB_ROUTES,
   'ANY    /api/modules/:module/…',
+  'POST   /api/modules/:module/_import/:importer',
+  'GET    /api/modules/:module/_export/:exporter',
   'GET    /api/setup',
   'POST   /api/setup',
   ...VERSION_ROUTES,
@@ -887,9 +889,33 @@ function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefine
   };
 }
 
+/** `/api/modules/<module>/_import/<id>` and `_export/<id>` (`module-io.ts`). */
+async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: WorkbenchDeps): Promise<ApiResponse> {
+  const method = request.method.toUpperCase();
+  if (io.kind === 'export') {
+    if (method !== 'GET') return methodNotAllowed(method, ['GET']);
+    const query = new URLSearchParams(request.path.split('?')[1] ?? '');
+    return runExporter(deps.modules, io, query, async (id) => (isDesignId(id) ? deps.designs.read(id) : undefined), await deps.loadDb());
+  }
+  if (method !== 'POST') return methodNotAllowed(method, ['POST']);
+  // `job: true`: the importer runs as a job (the worker on Postgres) and keeps a plan to publish (§7.5)
+  if ((request.body as { job?: unknown } | undefined)?.job === true) return startImportJob(request, io, deps);
+  const db = await deps.loadDb();
+  const ran = await runImporter(deps.modules, io, request.body, db);
+  if (!ran.ok) return ran.response;
+  const ids = new Set((await deps.designs.list()).map((d) => d.id));
+  const { proposal, requests } = proposalOf(ran.result, db, ids);
+  if (!ran.accept) return ok({ accepted: false, proposal });
+  if (requests.length === 0) return fail(409, 'There is nothing new to add.', 'Every record in the proposal is already in the library.');
+  const message = `Import ${(request.body as { fileName?: string }).fileName ?? 'a file'} with ${io.module}/${io.id}`;
+  const done = await withWriteLock(() => runBatch({ ...request, body: { message, requests } }, deps));
+  if (done.status >= 400) return done;
+  return { ...done, body: { accepted: true, proposal } };
+}
+
 /**
- * The whole API surface, one request in a unit of work (storage seams,
- *): the router runs against staged stores, and what it
+ * The whole API surface, one request in a unit of work (storage seams):
+ * the router runs against staged stores, and what it
  * staged is committed in one step once it has answered < 400 — a refusal
  * never writes. Mutating requests run one at a time (`withWriteLock`), so the
  * If-Match check and the write it guards cannot interleave with another
@@ -900,15 +926,17 @@ function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefine
  * belong in front of `routeWorkbenchRequest`, here.
  */
 export async function handleWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiResponse> {
-  // 3D models (50a.55) keep their own write discipline: a STEP conversion
+  // 3D models keep their own write discipline: a STEP conversion
   // takes seconds and must not hold every other save behind the write lock,
   // so the handler takes the lock itself around the link write only
   // module integrations answer for themselves; a route that writes takes the lock
   if (deps.setupMode?.() === true && !isSetupPath(request.path) && !['/api', '/api/me'].includes((request.path.split('?')[0] ?? '').replace(/\/+$/, ''))) {
     return { status: 503, body: { state: 'setup', error: 'This hub is not set up yet.', hint: 'Open /setup to create the organisation, its catalog and the admin.' } };
   }
-  // jobs: an import started, a plan published (§7.5), a job's state
+  // jobs: a job's state, an import's plan published (§7.5)
   if (isJobPath(request.path)) return handleJobRequest(request, deps);
+  const io = parseModuleIoPath(request.path);
+  if (io !== undefined) return handleModuleIo(request, io, deps);
   const moduleRoute = findModuleRoute(request, deps.modules);
   if (moduleRoute !== undefined) return moduleRoute.writes === true ? withWriteLock(moduleRoute.run) : moduleRoute.run();
   // first-run setup installs packs straight into the catalog (journaled by

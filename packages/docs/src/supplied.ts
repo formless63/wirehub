@@ -1,6 +1,6 @@
 /**
- * Ends the contract manufacturer delivers terminated (owner, decisions page
- * 2026-09-25: "pre-made 'stripped to X' cable stock from the CM"): a design
+ * Ends the contract manufacturer delivers terminated (pre-made "stripped to X"
+ * cable stock): a design
  * carries the sub-assembly as a mechanical instance whose definition says
  * which end it `supplies` and whether the trunk comes with it. Everything on
  * that end — plugs, jacks, boards, moulds, breakout runs, their shells — and

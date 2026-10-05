@@ -10,7 +10,7 @@ import type { BlobStore } from '../blobs.ts';
 import { runConvertJob } from './convert.ts';
 import { runImportJob } from './import.ts';
 import { parseWindow, runModelCacheJob, sourcesFromEnv, type ModelCacheJobOptions } from './model-cache.ts';
-import type { Notify } from './notify.ts';
+import type { Notifier } from '../notify.ts';
 import type { JobHandlers } from './types.ts';
 
 export interface BaseHandlerOptions {
@@ -19,7 +19,7 @@ export interface BaseHandlerOptions {
   /** the org the bytes are kept under (pg); with `blobs`, the `convert` job runs */
   orgId?: string;
   env?: Record<string, string | undefined>;
-  notify?: Notify;
+  notify?: Notifier;
   /** a model build's cache write with its provenance (pg) */
   putModel?: ModelCacheJobOptions['put'];
 }
@@ -38,7 +38,7 @@ export function baseJobHandlers(options: BaseHandlerOptions): JobHandlers {
       });
       const failed = (outcome.result['failed'] as unknown[] | undefined) ?? [];
       if (failed.length > 0) {
-        await options.notify?.({ event: 'model-cache-failures', severity: 'default', message: `${failed.length} model(s) could not be built in the last sweep.`, detail: { failed } });
+        await options.notify?.notify({ event: 'model-cache-failures', severity: 'default', title: 'Models not built', message: `${failed.length} model(s) could not be built in the last sweep.`, data: { failed } });
       }
       return outcome;
     },
