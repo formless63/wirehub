@@ -229,6 +229,7 @@ export const acme = defineModule({
 | **Derived records** | `DerivedContribution { id, label, files, derive({ designs, db }) → { [file]: data \| text } }` — files recomputed when a save changes their inputs | server (the commit) | **yes** — below; on files and on Postgres |
 | **Migrations** | `ModuleMigrationsContribution { dir }` — forward-only SQL for the module's own tables, Postgres backend only | server, `db:migrate` | **yes** — applied after the base's, into schema `mod_<id>` (below) |
 | **Art** | `ArtContribution { connectors?, bodyLayouts?, drawing? }` — parsed JSON from the pack's `art/` directory (`ConnectorArtRecord`, `BodyLayoutRecord` in `@wirehub/catalog`; `DrawingArt` in `@wirehub/docs`), opaque in the contract | browser and server, at start | **yes** — below |
+| **Bench steps** | `BenchContribution { rules?, provider? }` — the shop's work instructions on the build sheet, as JSON rules or a `BenchStepsProvider` | server and browser | **yes** — see "Bench work instructions" |
 | **Commit hook** | `(before, proposed, description) → CableDesign` — rewrite an edit as it is committed (e.g. record it as an override in module data) | browser (editor) | **yes** — the app installs `registry.commitHook()` into the editor store (`setCommitHook`) when it starts |
 
 ### Art (connector drawings, body layouts, sheet art)
