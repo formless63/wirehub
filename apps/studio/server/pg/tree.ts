@@ -25,6 +25,8 @@ import type { AssetSummary } from '../assets.ts';
 import type { BlobStore } from '../blobs.ts';
 import type { DefinitionRecord } from '../definition-store.ts';
 import type { DepictionStore } from '../depictions.ts';
+import type { ModuleRegistry } from '@wirehub/modules';
+import { moduleDerivedStore } from '../module-derived.ts';
 import { MODELS_FILE_SRC, sortLinks, type ModelLink } from '../models/links.ts';
 import { formatDoc, isDocPath, parseDoc, type DocStore } from '../storage/doc-store.ts';
 import type { DraftFile } from '../versions.ts';
@@ -171,7 +173,7 @@ function treeBlobs(tree: CatalogTree, orgId: string, blobs: BlobStore | undefine
  * Every store over the tree, read and write: what `commitChangeSet` applies
  * a change set through on Postgres.
  */
-export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; blobs?: BlobStore }): WorkbenchDeps {
+export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; blobs?: BlobStore; modules?: ModuleRegistry }): WorkbenchDeps {
   const context: PgReadContext = { snapshot: async () => tree.view(), blobs: treeBlobs(tree, options.orgId, options.blobs), orgId: options.orgId };
   const assetsRead = pgAssetStore(context);
   const assetIndex = (): AssetSummary[] => tree.json<AssetSummary[]>('data/assets/index.json') ?? [];
@@ -259,7 +261,11 @@ export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; b
   };
   const writeModels = (file: { src: string; links: ModelLink[] }): void => void tree.writeJson('data/models.json', { src: file.src, links: sortLinks(file.links) });
 
+  // a module's derived records, over the tree being committed (module-derived.ts)
+  const derived = moduleDerivedStore(options.modules, { loadDb: () => tree.catalog.loadDb(), loadDesigns: () => tree.catalog.loadDesigns(), docs });
+
   return {
+    ...(derived === undefined ? {} : { derived }),
     designs: {
       ...pgDesignStore(context),
       write: (id: string, design: CableDesign) => ({ changed: tree.writeJson(designPath(id), design) }),

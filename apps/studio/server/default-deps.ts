@@ -15,6 +15,8 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
+import type { CableDesign } from '@wirehub/model';
+import type { ModuleRegistry } from '@wirehub/modules';
 import { dataPath, derivedDir, livePacksDir, loadDb } from '@wirehub/catalog';
 
 import type { WorkbenchDeps } from './api.ts';
@@ -33,6 +35,7 @@ import { localStudioUser } from './me.ts';
 import { memoryLockStore } from './locks/lock-store.ts';
 import { fileCatalogVersion } from './storage/catalog-version.ts';
 import { registry } from './modules.ts';
+import { moduleDerivedStore } from './module-derived.ts';
 import { memoryEventHub } from './events.ts';
 import { defaultDepictionDeps, fileDepictionStore, type DepictionDeps } from './depictions.ts';
 import { fileDocStore } from './storage/doc-store.ts';
@@ -49,12 +52,15 @@ function rawJson(relative: string): unknown {
 }
 
 export interface DefaultDepsOptions {
+  /** the module registry; default: the build's own (`modules.config.ts`) */
+  modules?: ModuleRegistry;
   blobs?: BlobStore;
   /** the first-run setup code (`WIREHUB_SETUP_CODE`, or one `serve.ts` made up); absent: none asked */
   setupCode?: string;
 }
 
 export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): WorkbenchDeps {
+  const modules = options.modules ?? registry;
   // one asset store, shared: `drawings` dedups every photo it is handed
   // against exactly this store, and `assets` is what the picker lists; its
   // bytes go to the blob store when the host configured one (WIREHUB_BLOBS)
@@ -63,8 +69,15 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
   const packsDir = livePacksDir() ?? checkoutPacksDir();
   const tags = fileTagStore();
   const suggested = parseSuggestedModules(process.env.WIREHUB_SUGGESTED_MODULES);
+  const designs = fileDesignStore();
+  const docs = fileDocStore();
+  const derived = moduleDerivedStore(modules, {
+    loadDb,
+    loadDesigns: async () => (await Promise.all((await designs.list()).map((d) => designs.read(d.id)))).filter((d): d is CableDesign => d !== undefined),
+    docs,
+  });
   return {
-    designs: fileDesignStore(),
+    designs,
     definitions: fileDefinitionStore(),
     drawings: fileDrawingStore(assets),
     assets,
@@ -78,12 +91,12 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     builds: fileBuildsStore(),
     // artwork and catalog documents, staged like the rest (B7)
     depictions: fileDepictionStore(),
-    docs: fileDocStore(),
+    docs,
     versions: fileVersionStore(),
     loadDb,
     // the unit of work reuses the loaded db until one of its files changes (50a.49)
     // …and the packs directory: an install (packs.json) or regenerated derived tags change it too
-    catalogVersion: () => `${fileCatalogVersion(dataPath(''))}:${fileCatalogVersion(packsDir)}:${fileCatalogVersion(derivedDir(packsDir))}`,
+    catalogVersion: () => `${fileCatalogVersion(dataPath(''), modules.catalogDirs())}:${fileCatalogVersion(packsDir)}:${fileCatalogVersion(derivedDir(packsDir))}`,
     // GET /api/blobs/:sha: the file backend's content-addressed files are its uploads
     blob: async (sha) => {
       const found = await assets.get(sha);
@@ -100,8 +113,9 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     locks: memoryLockStore(),
     // what changed, for GET /api/events: this process is the only writer
     events: memoryEventHub(),
-    // the deployment's modules (modules.config.ts)
-    modules: registry,
+    // the deployment's modules (modules.config.ts), and the derived records they keep
+    modules,
+    ...(derived === undefined ? {} : { derived }),
     // first-run setup: domain modules' packs go into the packs directory, layered
     // under the catalog; the container image sets WIREHUB_SETUP_PROMPT=1 so a
     // fresh hub opens on /setup

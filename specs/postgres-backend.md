@@ -294,6 +294,7 @@ Every file under `packages/catalog/data/` and `depictions/` (the codec coverage 
 | `builds/<name>.json` | truth | `entity(build)` |
 | `tags/review.json` | truth | `catalog_doc` |
 | `tags/{signal-tags.json, instance-slots.json, report.md}` | **derived** (`tags`) | `derived_doc` |
+| `derived/<module>/<file>.{json,md}` | **derived** (`module`) | `derived_doc` |
 | `depictions/<def>/meta.json` | truth / imported | `entity(depiction)` + `record` |
 | `depictions/<def>/<view>.svg` | truth / imported (bytes) | `depiction_file` → `blob` |
 | `data/.model-cache/<key>.glb` (gitignored) | derived cache | `derived_blob(cache 'model')` |
@@ -328,7 +329,7 @@ rather than falling back to a document.
 | `design-versions` (design id; `move`) | `design_revision`, `design_working`, `design_draft` re-parented | the rename marker |
 | `asset` (sha256) | `asset` → `blob(class 'record')` | mime: png, jpeg, pdf, gltf-binary, stl |
 | derived `tags` | `derived_doc` `data/tags/…` | in the transaction |
-| derived `module` | `derived_doc` at the paths the module's `DerivedStore` declares | in the transaction |
+| derived `module` | `derived_doc` (`derived_kind 'module'`, `module_id`) at `data/derived/<module>/<file>`, the files the module's `DerivedContribution` declares (`server/module-derived.ts`) | in the transaction |
 
 The kinds this plan adds, each landing on the **file backend first** (`storage-seam.md`
 §6):
