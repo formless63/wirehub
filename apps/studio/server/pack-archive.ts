@@ -6,12 +6,15 @@
  * Everything is bounded: sizes, file counts, paths, and the URL fetch (https
  * only, a size limit, a timeout, no private addresses, redirects followed one
  * by one with the same checks). Nothing is executed or evaluated; only `.json`
- * data files and the manifest are kept.
+ * data files, the manifest and the images of `depictions/**` and `art/**` are kept
+ * (svg, png, jpg, webp: the type must match the bytes, SVG is stripped of anything
+ * active, and each file and the total are size-limited).
  *
  * Formats:
  * - **zip**: the pack directory zipped (`wirehub-pack.json` at the top, or inside one
  *   folder). Stored or deflated entries; no encryption, no zip64.
- * - **JSON bundle**: `{ "format": 1, "manifest": { …wirehub-pack.json… }, "files": { "connectors.json": [ … ], "vocab/signals.json": { … } } }`.
+ * - **JSON bundle**: `{ "format": 1, "manifest": { …wirehub-pack.json… }, "files": { "connectors.json": [ … ], "vocab/signals.json": { … }, "depictions/x/face.svg": "<base64>" } }`
+ *   (an image's value is its bytes, base64).
  */
 
 import { createHash } from 'node:crypto';
@@ -21,9 +24,14 @@ import { dirname, join } from 'node:path';
 import { isIP } from 'node:net';
 import { inflateRawSync } from 'node:zlib';
 
+import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
+
 export const MAX_PACK_BYTES = 8 * 1024 * 1024;
 export const MAX_PACK_UNPACKED_BYTES = 24 * 1024 * 1024;
 export const MAX_PACK_FILES = 300;
+/** one image of a pack, and all of a pack's images together (decoded) */
+export const MAX_PACK_ASSET_BYTES = 2 * 1024 * 1024;
+export const MAX_PACK_ASSETS_TOTAL_BYTES = 12 * 1024 * 1024;
 export const PACK_FETCH_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 3;
 
@@ -39,10 +47,58 @@ export class PackArchiveError extends Error {
 export const sha256 = (bytes: Uint8Array | string): string => createHash('sha256').update(bytes).digest('hex');
 
 const DATA_PATH = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\.json$/;
+const ASSET_PATH = /^(?:depictions|art)(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.(?:svg|png|jpe?g|webp)$/;
+const IMAGE_EXTENSION = /\.(?:svg|png|jpe?g|webp)$/;
 
-/** A relative path a pack file may have: `.json`, no `..`, no dot-segments, not absolute. */
+/** An image a pack may ship: under `depictions/` or `art/`, an allowlisted type, a safe path. */
+export function isPackAssetPath(path: string): boolean {
+  return ASSET_PATH.test(path) && path.length <= 200 && !path.split('/').includes('..');
+}
+
+/** A relative path a pack file may have: `.json`, or an image under `depictions/`/`art/`; no `..`, no dot-segments, not absolute. */
 export function isPackFilePath(path: string): boolean {
-  return DATA_PATH.test(path) && path.length <= 200 && !path.split('/').includes('..');
+  return (DATA_PATH.test(path) && path.length <= 200 && !path.split('/').includes('..')) || isPackAssetPath(path);
+}
+
+const startsWith = (b: Uint8Array, magic: number[], at = 0): boolean => magic.every((m, i) => b[at + i] === m);
+
+/** Does the content match what the extension says? */
+function imageMatchesExtension(path: string, b: Uint8Array): boolean {
+  if (path.endsWith('.png')) return startsWith(b, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (/\.jpe?g$/.test(path)) return startsWith(b, [0xff, 0xd8, 0xff]);
+  if (path.endsWith('.webp')) return startsWith(b, [0x52, 0x49, 0x46, 0x46]) && startsWith(b, [0x57, 0x45, 0x42, 0x50], 8);
+  return true;
+}
+
+/**
+ * The images of a pack, checked: the type matches the bytes, each is within
+ * `MAX_PACK_ASSET_BYTES` and all within `MAX_PACK_ASSETS_TOTAL_BYTES`, and SVG is
+ * stripped of scripts, handlers, external references and the like (`stripUnsafeSvg`,
+ * the safety half of the artwork upload's sanitiser; the drawing is not repainted).
+ */
+function checkedAssets(files: PackFiles): PackFiles {
+  const out: PackFiles = new Map();
+  let total = 0;
+  for (const [path, bytes] of files) {
+    if (!isPackAssetPath(path)) {
+      out.set(path, bytes);
+      continue;
+    }
+    if (bytes.length === 0) throw new PackArchiveError(`'${path}' is empty.`);
+    if (bytes.length > MAX_PACK_ASSET_BYTES) throw new PackArchiveError(`'${path}' is larger than a pack image may be (${MAX_PACK_ASSET_BYTES / 1024 / 1024} MiB).`, 413);
+    let kept = bytes;
+    if (path.endsWith('.svg')) {
+      const clean = stripUnsafeSvg(new TextDecoder('utf-8').decode(bytes));
+      if (clean.svg === undefined) throw new PackArchiveError(`'${path}' is not a usable SVG: ${clean.error ?? 'unreadable'}.`);
+      kept = new TextEncoder().encode(clean.svg);
+    } else if (!imageMatchesExtension(path, bytes)) {
+      throw new PackArchiveError(`'${path}' is not the kind of image its name says.`);
+    }
+    total += kept.length;
+    if (total > MAX_PACK_ASSETS_TOTAL_BYTES) throw new PackArchiveError(`The pack's images add up to more than a pack may carry (${MAX_PACK_ASSETS_TOTAL_BYTES / 1024 / 1024} MiB).`, 413);
+    out.set(path, kept);
+  }
+  return out;
 }
 
 /** path → bytes, as read from an archive, before anything touches disk. */
@@ -59,7 +115,7 @@ export function isZip(bytes: Uint8Array): boolean {
   return bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && (bytes[2] === 3 || bytes[2] === 5);
 }
 
-/** The data files of a zip: `.json` entries only, a single wrapping folder stripped. */
+/** The files of a zip: `.json` entries and allowlisted images, a single wrapping folder stripped. */
 export function readZip(bytes: Uint8Array): PackFiles {
   let eocd = -1;
   for (let at = bytes.length - 22; at >= Math.max(0, bytes.length - 22 - 65_535); at -= 1) {
@@ -73,8 +129,8 @@ export function readZip(bytes: Uint8Array): PackFiles {
   let at = u32(bytes, eocd + 16);
   if (count === 0xffff || at === 0xffffffff) throw new PackArchiveError('Zip64 archives are not supported.');
   if (count > MAX_PACK_FILES * 4) throw new PackArchiveError(`The zip has too many entries (${count}).`);
-  const out: PackFiles = new Map();
-  let total = 0;
+  interface Entry { name: string; flags: number; method: number; compressed: number; size: number; local: number }
+  const entries: Entry[] = [];
   for (let i = 0; i < count; i += 1) {
     if (at + 46 > bytes.length || u32(bytes, at) !== 0x02014b50) throw new PackArchiveError('The zip directory is damaged.');
     const flags = u16(bytes, at + 8);
@@ -86,14 +142,27 @@ export function readZip(bytes: Uint8Array): PackFiles {
     const local = u32(bytes, at + 42);
     const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
     at += 46 + skip;
-    if (name.endsWith('/') || name.startsWith('__MACOSX/') || !name.endsWith('.json')) continue;
+    if (name.endsWith('/') || name.startsWith('__MACOSX/') || !(name.endsWith('.json') || IMAGE_EXTENSION.test(name))) continue;
     if (name.includes('\\') || name.startsWith('/') || name.split('/').some((s) => s === '..' || s.startsWith('.'))) {
       throw new PackArchiveError(`The zip holds an unsafe path: '${name}'.`);
     }
+    entries.push({ name, flags, method, compressed, size, local });
+  }
+  // a single wrapping folder (`pack-1.0.0/wirehub-pack.json` → `wirehub-pack.json`) is stripped first, so only the images a pack may ship are unpacked
+  const names = new Set(entries.map((e) => e.name));
+  const tops = new Set(entries.map((e) => e.name.split('/')[0]));
+  const top = [...tops][0];
+  const strip = names.has('wirehub-pack.json') || tops.size !== 1 || top === undefined || !names.has(`${top}/wirehub-pack.json`) ? 0 : top.length + 1;
+  const out: PackFiles = new Map();
+  let total = 0;
+  for (const { name, flags, method, compressed, size, local } of entries) {
+    const path = name.slice(strip);
+    if (!path.endsWith('.json') && !isPackAssetPath(path)) continue;
     if ((flags & 1) !== 0) throw new PackArchiveError('Encrypted zips are not supported.');
     if (compressed === 0xffffffff || size === 0xffffffff) throw new PackArchiveError('Zip64 archives are not supported.');
     total += size;
     if (size > MAX_PACK_BYTES || total > MAX_PACK_UNPACKED_BYTES) throw new PackArchiveError('The zip unpacks to more than a pack may be.', 413);
+    if (!path.endsWith('.json') && size > MAX_PACK_ASSET_BYTES) throw new PackArchiveError(`'${path}' is larger than a pack image may be (${MAX_PACK_ASSET_BYTES / 1024 / 1024} MiB).`, 413);
     if (local + 30 > bytes.length || u32(bytes, local) !== 0x04034b50) throw new PackArchiveError('The zip is damaged (a file header is missing).');
     const start = local + 30 + u16(bytes, local + 26) + u16(bytes, local + 28);
     const raw = bytes.subarray(start, start + compressed);
@@ -107,18 +176,9 @@ export function readZip(bytes: Uint8Array): PackFiles {
       }
     } else throw new PackArchiveError(`'${name}' in the zip uses a compression method this studio cannot read.`);
     if (data.length !== size) throw new PackArchiveError(`'${name}' in the zip does not match its recorded size.`);
-    out.set(name, data);
+    out.set(path, data);
   }
-  return stripWrapper(out);
-}
-
-/** `pack-1.0.0/wirehub-pack.json` → `wirehub-pack.json` when every file sits in that one folder. */
-function stripWrapper(files: PackFiles): PackFiles {
-  if (files.has('wirehub-pack.json')) return files;
-  const tops = new Set([...files.keys()].map((p) => p.split('/')[0]));
-  const top = [...tops][0];
-  if (tops.size !== 1 || top === undefined || !files.has(`${top}/wirehub-pack.json`)) return files;
-  return new Map([...files].map(([p, b]) => [p.slice(top.length + 1), b] as const));
+  return checkedAssets(out);
 }
 
 /* ------------------------------------------------------------------ *
@@ -138,9 +198,14 @@ export function readBundle(value: unknown): PackFiles {
   if (entries.length > MAX_PACK_FILES) throw new PackArchiveError(`The bundle has too many files (${entries.length}).`);
   for (const [path, content] of entries) {
     if (!isPackFilePath(path) || path === 'wirehub-pack.json') throw new PackArchiveError(`'${path}' is not a path a pack file may have.`);
+    if (isPackAssetPath(path)) {
+      if (typeof content !== 'string' || !/^[A-Za-z0-9+/\s]*={0,2}$/.test(content)) throw new PackArchiveError(`'${path}' is an image: its value is the file, base64 encoded.`);
+      out.set(path, new Uint8Array(Buffer.from(content, 'base64')));
+      continue;
+    }
     out.set(path, encode(typeof content === 'string' ? (JSON.parse(content) as unknown) : content));
   }
-  return out;
+  return checkedAssets(out);
 }
 
 /** What a stranger handed us: zip bytes, or JSON text holding a bundle. */

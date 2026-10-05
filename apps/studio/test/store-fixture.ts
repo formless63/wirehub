@@ -30,7 +30,7 @@ export interface TestStore {
   keyFile: string;
   publicKey: string;
   /** add (or replace) version `version` of the test pack `id`, then rebuild and re-sign the index */
-  publish: (id: string, version: string, resistorValue: string, extra?: boolean, depiction?: string | null) => void;
+  publish: (id: string, version: string, resistorValue: string, extra?: boolean, depiction?: string | null, face?: string) => void;
   /** run the CLI */
   cli: (...args: string[]) => string;
   /** the fetch the server uses; `override` answers a path first (tamper tests) */
@@ -60,7 +60,7 @@ export function createTestStore(): TestStore {
     cli,
     override,
     fetched,
-    publish(id, version, value, extra = false, depiction = null) {
+    publish(id, version, value, extra = false, depiction = null, face) {
       const pack = join(packs, `${id}-${version}`);
       rmSync(pack, { recursive: true, force: true });
       mkdirSync(pack, { recursive: true });
@@ -73,7 +73,15 @@ export function createTestStore(): TestStore {
         ]),
       );
       // a depiction manifest, when asked: `depictions/<id>-face/meta.json` carrying `depiction` as its note
-      if (depiction !== null) {
+      // `face`: an SVG as `depictions/<id>-face/mating-face.svg`, listed in that manifest
+      if (face !== undefined) {
+        mkdirSync(join(pack, 'depictions', `${id}-face`), { recursive: true });
+        writeFileSync(join(pack, 'depictions', `${id}-face`, 'mating-face.svg'), face);
+        writeFileSync(
+          join(pack, 'depictions', `${id}-face`, 'meta.json'),
+          json({ defId: `${id}-face`, views: { 'mating-face': { file: 'mating-face.svg', kind: 'vector', mmPerUnit: 1, sourceKind: 'hand', widthUnits: 4, heightUnits: 4, src } }, ...(depiction === null ? {} : { note: depiction }), src, license: 'CC-BY-4.0' }),
+        );
+      } else if (depiction !== null) {
         mkdirSync(join(pack, 'depictions', `${id}-face`), { recursive: true });
         writeFileSync(join(pack, 'depictions', `${id}-face`, 'meta.json'), json({ defId: `${id}-face`, views: {}, note: depiction, src, license: 'CC-BY-4.0' }));
       }

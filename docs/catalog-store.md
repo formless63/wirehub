@@ -209,6 +209,21 @@ directory, and the Postgres backend runs it over a scratch copy it commits as **
   is installed already is updated through the same door. URLs are fetched by the server: https
   only, no credentials, public addresses only, redirects re-checked, 8 MB and 15 s limits.
   Administration only: no API token may write `/api/packs`.
+  **Images travel with the pack.** Besides `.json`, a zip or bundle carries the images under
+  `depictions/**` and `art/**` (`svg`, `png`, `jpg`/`jpeg`, `webp`, lowercase extensions; in a JSON
+  bundle a `files` entry for an image is the file, base64). Anything else is ignored in a zip and
+  refused in a bundle. Each image is at most 2 MiB and a pack's images 12 MiB together; the bytes
+  must be the type the name says; an SVG is stripped of scripts, styles, `foreignObject`,
+  embedded images, animation, event handlers, `style` attributes, external references and
+  DOCTYPE/entity declarations (`stripUnsafeSvg`, the safety half of the artwork upload's sanitiser:
+  the drawing is not repainted or rescaled) and is refused if no `<svg>` is left. The images then
+  follow the pack like its records (an upload, a URL and a store install take this one path, on both
+  backends): `packs.json` records which of them the pack owns (`assets`, path to sha256), an update
+  replaces the ones it still owns and removes the ones the new version drops, a disable removes
+  them, and a file the catalog holds of its own is never overwritten or removed
+  (`reconcileAssets`). On Postgres they go to the blob store with the same change set and are
+  served by content address at `GET /api/blobs/<sha256>`; on the file backend they live in the
+  pack's layer and are served at the same address.
 
 **Offline / air-gapped**: a pack archive can be installed from a file (Library → Packs →
 Install from file) with the same verification; a deployment may run its own mirror of the
@@ -275,7 +290,10 @@ AGPL-3.0-only. Third-party packs carry the licence their authors chose.
 }
 ```
 
-A bundle is what Install pack… takes: a zip of the pack directory or a JSON bundle.
+A bundle is what Install pack… takes: a zip of the pack directory or a JSON bundle. `bundle` zips
+every file of the pack directory in sorted order (so `depictions/**` and `art/**` images are in
+it) and refuses a pack whose images a studio would not install (wrong type or extension case, a
+name outside the allowed characters, too large, not the type its name says).
 
 **The signature** is `index.json.minisig` beside the index: a minisign signature (the prehashed
 `ED` algorithm: ed25519 over the BLAKE2b-512 of the file, plus the global signature over the
