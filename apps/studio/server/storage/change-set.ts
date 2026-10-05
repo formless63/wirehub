@@ -55,7 +55,9 @@ export type RecordKind =
   /** key = `<definition id>/<file>`; `bytes` = the artwork file (B7) */
   | 'depiction-asset'
   /** key = a catalog path (`data/…`); value = the document: JSON, or text for `.md`/`.txt`; delete removes it */
-  | 'doc';
+  | 'doc'
+  /** key = a catalog path (`data/art/…`); `bytes` = the file (a pack's binary art); delete removes it */
+  | 'catalog-file';
 
 /** Records recomputed from the others at commit — never staged by a handler. */
 /** `module`: whatever derived records a module's `DerivedStore` keeps (`derived.ts`) */

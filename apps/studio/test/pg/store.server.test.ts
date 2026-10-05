@@ -44,7 +44,7 @@ describePg('store install on Postgres', () => {
     deps.modules = createRegistry([]);
     deps.store = { indexes: [{ url: STORE_URL, publicKey: store.publicKey }], fetch: store.fetch };
     const call = async (method: string, path: string, body?: unknown) => (await handleWorkbenchRequest({ method, path, ...(body === undefined ? {} : { body }) }, deps)) as { status: number; body: any };
-    store.publish('alpha', '1.0.0', '10 Ω');
+    store.publish('alpha', '1.0.0', '10 Ω', false, 'one');
 
     const v0 = BigInt(await cache.version());
     expect((await call('GET', '/api/packs/store')).body.packs[0]).toMatchObject({ id: 'alpha', action: 'install', license: 'CC-BY-4.0' });
@@ -68,7 +68,7 @@ describePg('store install on Postgres', () => {
     expect((await call('GET', '/api/definitions/components/alpha-r')).body.value).toBe('10 Ω');
     expect((await call('GET', '/api/packs/store')).body.packs[0]).toMatchObject({ installed: '1.0.0', action: 'current' });
 
-    store.publish('alpha', '1.1.0', '11 Ω', true);
+    store.publish('alpha', '1.1.0', '11 Ω', true, 'two');
     expect((await call('GET', '/api/packs/store')).body.packs[0]).toMatchObject({ action: 'update' });
     const update = await call('POST', '/api/packs/store/install', { index: STORE_URL, id: 'alpha', apply: true });
     expect(update.body).toMatchObject({ kind: 'update', installed: true, version: '1.1.0' });
@@ -76,5 +76,18 @@ describePg('store install on Postgres', () => {
     expect((await call('GET', '/api/definitions/components/alpha-r')).body.value).toBe('11 Ω');
     expect((await call('GET', '/api/definitions/components/alpha-r2')).status).toBe(200);
     expect((await call('GET', '/api/packs')).body.packs[0]).toMatchObject({ id: 'alpha', version: '1.1.0' });
+
+    // the pack's depiction manifest: installed with it, replaced by the update, gone with a disable (cs-093)
+    const note = async () => ((await deps.depictions?.readMeta('alpha-face')) as { note?: string } | undefined)?.note;
+    expect(await note()).toBe('two');
+    store.publish('alpha', '1.2.0', '11 Ω', true, null);
+    expect((await call('POST', '/api/packs/store/install', { index: STORE_URL, id: 'alpha', apply: true })).body).toMatchObject({ installed: true, version: '1.2.0' });
+    expect(await note()).toBeUndefined();
+    store.publish('alpha', '1.3.0', '11 Ω', true, 'three');
+    expect((await call('POST', '/api/packs/store/install', { index: STORE_URL, id: 'alpha', apply: true })).status).toBe(200);
+    expect(await note()).toBe('three');
+    expect((await call('DELETE', '/api/packs/alpha')).status).toBe(200);
+    expect(await note()).toBeUndefined();
+    expect(await deps.depictions?.listDefIds()).not.toContain('alpha-face');
   }, 180_000);
 });

@@ -30,7 +30,7 @@ export interface TestStore {
   keyFile: string;
   publicKey: string;
   /** add (or replace) version `version` of the test pack `id`, then rebuild and re-sign the index */
-  publish: (id: string, version: string, resistorValue: string, extra?: boolean) => void;
+  publish: (id: string, version: string, resistorValue: string, extra?: boolean, depiction?: string | null) => void;
   /** run the CLI */
   cli: (...args: string[]) => string;
   /** the fetch the server uses; `override` answers a path first (tamper tests) */
@@ -60,7 +60,7 @@ export function createTestStore(): TestStore {
     cli,
     override,
     fetched,
-    publish(id, version, value, extra = false) {
+    publish(id, version, value, extra = false, depiction = null) {
       const pack = join(packs, `${id}-${version}`);
       rmSync(pack, { recursive: true, force: true });
       mkdirSync(pack, { recursive: true });
@@ -72,6 +72,11 @@ export function createTestStore(): TestStore {
           ...(extra ? [{ id: `${id}-r2`, label: '2 resistor', kind: 'resistor', terminals: [{ id: 'a' }, { id: 'b' }], src }] : []),
         ]),
       );
+      // a depiction manifest, when asked: `depictions/<id>-face/meta.json` carrying `depiction` as its note
+      if (depiction !== null) {
+        mkdirSync(join(pack, 'depictions', `${id}-face`), { recursive: true });
+        writeFileSync(join(pack, 'depictions', `${id}-face`, 'meta.json'), json({ defId: `${id}-face`, views: {}, note: depiction, src, license: 'CC-BY-4.0' }));
+      }
       cli('bundle', pack, '--out', site);
       cli('build', site, '--store-id', 'test-store', '--store-name', 'Test store');
       cli('sign', join(site, 'index.json'), '--key', keyFile);

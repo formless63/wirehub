@@ -38,8 +38,10 @@ import {
   idOf,
   installPackLayer,
   installedPackDir,
+  applyPackAssets,
   isPlainObject,
   packFiles,
+  packOwnedAssets,
   readInstalledPacks,
   readPackManifest,
   recordsIn,
@@ -400,6 +402,8 @@ export interface PackUpdatePlan {
   writes: FileWrites;
   /** the pack's `added` after the update */
   added: Record<string, string[]>;
+  /** the depiction and art files the new version ships (path → sha256; not part of the answer shown to people) */
+  assets: Record<string, string>;
   /** the retired records as they are kept (marked), for a layered pack's catalog files (not part of the answer shown to people) */
   retiredRecords: LocatedRecord[];
 }
@@ -456,6 +460,7 @@ export function planPackUpdate(view: CatalogSource, installed: readonly Installe
     ok: conflicts.length === 0 && issues.length === 0,
     writes,
     added: addedOf(next.values()),
+    assets: packOwnedAssets(packDir),
     retiredRecords: [...retiredMarked.values()],
   };
 }
@@ -469,6 +474,8 @@ export interface PackDisablePlan {
   references: PackReference[];
   ok: boolean;
   writes: FileWrites;
+  /** the depiction and art files the pack owns (not part of the answer shown to people) */
+  assets: Record<string, string>;
 }
 
 export function planPackDisable(view: CatalogSource, installed: readonly InstalledPack[], id: string): PackDisablePlan {
@@ -483,6 +490,7 @@ export function planPackDisable(view: CatalogSource, installed: readonly Install
     references,
     ok: references.length === 0,
     writes: fileWrites(view, undefined, owned, new Map()),
+    assets: entry.assets ?? {},
   };
 }
 
@@ -529,8 +537,12 @@ export function applyPackUpdate(dataDir: string, packsDir: string | undefined, p
   }
   const manifest = readPackManifest(packDir);
   applyWrites(dataDir, plan.writes);
+  // the pack's depictions and art: replaced where it still owns them, removed where the new version drops them
+  const assets = applyPackAssets(dataDir, packDir, readInstalledPacks(dataDir).packs.find((p) => p.id === manifest.id)?.assets, plan.assets);
   saveInstalled(dataDir, (packs) =>
-    packs.map((p) => (p.id === manifest.id ? { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added } : p)),
+    packs.map((p) =>
+      p.id === manifest.id ? { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }) } : p,
+    ),
   );
 }
 
@@ -543,6 +555,8 @@ export function applyPackDisable(dataDir: string, packsDir: string | undefined, 
     return;
   }
   applyWrites(dataDir, plan.writes);
+  // its depictions and art go, unless the catalog changed or replaced them since
+  applyPackAssets(dataDir, undefined, plan.assets, {});
   saveInstalled(dataDir, (packs) => packs.filter((p) => p.id !== id));
 }
 
@@ -597,6 +611,7 @@ export interface PackInstallPreview {
   ok: boolean;
   writes: FileWrites;
   added: Record<string, string[]>;
+  assets: Record<string, string>;
 }
 
 export function planNewPack(view: CatalogSource, installed: readonly InstalledPack[], packDir: string): PackInstallPreview {
@@ -621,5 +636,6 @@ export function planNewPack(view: CatalogSource, installed: readonly InstalledPa
     ok: conflicts.length === 0 && issues.length === 0,
     writes,
     added: addedOf(next.values()),
+    assets: packOwnedAssets(packDir),
   };
 }

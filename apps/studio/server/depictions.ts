@@ -29,7 +29,7 @@
  *    after its view — the request never chooses a file name at all.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { loadDb, loadDesigns } from '@wirehub/catalog';
@@ -212,6 +212,8 @@ export interface DepictionStore {
   writeMeta(defId: string, meta: Record<string, unknown>): Awaitable<void>;
   readAsset(defId: string, file: string): Awaitable<Uint8Array | undefined>;
   writeAsset(defId: string, file: string, content: string | Uint8Array): Awaitable<void>;
+  /** removes a file (`meta.json` too); absent is fine. Optional: a store that cannot remove leaves a disabled pack's files. */
+  removeAsset?(defId: string, file: string): Awaitable<void>;
   /**
    * The directory `validateDepiction` should check asset files in, or
    * `undefined` when the store has no directory to offer (an in-memory one).
@@ -303,6 +305,13 @@ export function fileDepictionStore(root: string = depictionsRoot()): DepictionSt
         paths.asset(file),
         typeof content === 'string' ? content : Buffer.from(content),
       );
+    },
+
+    removeAsset(defId, file): void {
+      const paths = depictionPaths(defId, root);
+      rmSync(file === 'meta.json' ? paths.meta : paths.asset(file), { force: true });
+      // an emptied directory goes too: a definition id with no files is no depiction
+      if (existsSync(paths.dir) && readdirSync(paths.dir).length === 0) rmSync(paths.dir, { recursive: true, force: true });
     },
 
     dirFor(defId): string | undefined {

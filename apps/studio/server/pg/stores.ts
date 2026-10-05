@@ -30,7 +30,7 @@ import { isDefinitionKind, type DefinitionKind, type DefinitionRecord, type Defi
 import type { DesignStore, DesignSummary } from '../designs.ts';
 import type { DrawingStore, StoredDrawing } from '../drawings.ts';
 import type { DepictionStore } from '../depictions.ts';
-import { isDocPath, parseDoc, type DocStore } from '../storage/doc-store.ts';
+import { isDocPath, parseDoc, type CatalogFileStore, type DocStore } from '../storage/doc-store.ts';
 import type { ModelLink, ModelLinkStore } from '../models/links.ts';
 import { ReadOnlyBackendError, type ChangeSet, type CommitResult } from '../storage/change-set.ts';
 import { snapshotDepictions, type DraftFile, type DraftSummary, type VersionStore, type WorkingState } from '../versions.ts';
@@ -310,6 +310,7 @@ export function pgDepictionStore(context: PgReadContext): DepictionStore {
     },
     writeMeta: readOnly('the depiction manifest'),
     writeAsset: readOnly('the artwork file'),
+    removeAsset: readOnly('the artwork file delete'),
     writeBoardMap: readOnly('the board map'),
   };
 }
@@ -325,6 +326,11 @@ export function pgDocStore(context: PgReadContext): DocStore {
     write: readOnly('the document'),
     remove: readOnly('the document delete'),
   };
+}
+
+/** Binary catalog files (a pack's `data/art/…`): written only through a change set. */
+export function pgFileStore(): CatalogFileStore {
+  return { write: readOnly('the catalog file'), remove: readOnly('the catalog file delete') };
 }
 
 /** Today's artwork of `defIds`, hashed per file, with the bytes — `snapshotDepictions` over the snapshot. */

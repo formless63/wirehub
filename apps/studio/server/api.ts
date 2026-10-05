@@ -57,7 +57,7 @@ import { STORE_ROUTES, handleStoreRequest, isStorePath, type StoreDeps } from '.
 import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
-import { isDocPath, type DocStore } from './storage/doc-store.ts';
+import { isDocPath, type CatalogFileStore, type DocStore } from './storage/doc-store.ts';
 import { parseModuleIoPath, proposalOf, runExporter, runImporter, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { JobService } from './jobs/types.ts';
@@ -196,6 +196,8 @@ export interface WorkbenchDeps {
   depictions?: DepictionStore;
   /** catalog documents by path (`storage/doc-store.ts`): the `doc` change-set kind */
   docs?: DocStore;
+  /** binary catalog files by path (`data/art/…`, a pack's art): the `catalog-file` change-set kind */
+  files?: CatalogFileStore;
   /** today, YYYY-MM-DD, for a record's date (injected by tests) */
   today?: () => string;
   /**
