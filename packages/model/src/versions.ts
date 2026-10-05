@@ -176,12 +176,24 @@ export function referencedDefinitionIds(design: CableDesign, db: Db): {
     if (!pcbas.has(pcba.id)) continue;
     for (const integrated of pcba.integratedConnectors ?? []) connectors.add(integrated.connectorDefId);
   }
+  const mechanicals = new Set((design.instances.mechanical ?? []).map((i) => i.def));
+  // the contacts, seals and plugs in its cavities, and the tools that crimp them
+  for (const instance of design.instances.connectors) {
+    for (const cavity of instance.cavities ?? []) {
+      for (const id of [cavity.contact, cavity.seal, cavity.plug]) {
+        if (id === undefined) continue;
+        mechanicals.add(id);
+        const tool = (db.mechanicals ?? []).find((m) => m.id === id)?.termination?.tool;
+        if (tool !== undefined) mechanicals.add(tool);
+      }
+    }
+  }
   return {
     connectors,
     wires: new Set(design.instances.segments.map((i) => i.def)),
     components: new Set(design.instances.components.map((i) => i.def)),
     pcbas,
-    mechanicals: new Set((design.instances.mechanical ?? []).map((i) => i.def)),
+    mechanicals,
   };
 }
 

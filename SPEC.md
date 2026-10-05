@@ -129,7 +129,8 @@ PROFIBUS DP pinout on another.
 
 ```ts
 interface ConnectorBody { id; label; family; gender; positions: { id; label?; … }[];
-                          mates?: string; partNumber?; construction?; drawing?; src }
+                          mates?: string; partNumber?; construction?; drawing?;
+                          housing?: HousingSpec; src }   // housing: crimp cavities
 interface Interface     { id; label; short?; bodies: string[];
                           pins: Record<string, { signal: string; … }>;
                           modes?: { id; label; selectedBy; pins }[]; src }
@@ -189,8 +190,28 @@ jumper settings of one board revision.
 ### Mechanical parts and kits
 
 A **mechanical** is a non-electrical physical part: a shell/housing/boot, a fastener, a mould,
-heat-shrink. `{ id, label, partNumber?, revision?, kind: 'shell' | 'fastener' | 'other', src }`.
-It has **no terminals**, so it lives outside the joint/net/trace graph. A **kit** is an
+heat-shrink, or a crimp termination part. `{ id, label, partNumber?, revision?, kind: 'shell' |
+'fastener' | 'other' | 'contact' | 'seal' | 'plug' | 'tool', termination?, src }`.
+It has **no terminals**, so it lives outside the joint/net/trace graph.
+
+**Crimp terminations** (`crimp.ts`). A crimp housing — a body's or connector's `housing`
+(`{ systems?, sealing?: 'none' | 'per-wire' | 'mat', plugUnused?, cavities?, src? }`; the
+connector's wins) — has cavities (its pins, the shell excepted). Each takes a loose `contact`,
+in a `per-wire` sealed housing a `seal`, and when unused in a housing that plugs them a
+`plug`; a contact is crimped with a `tool`. Those four are mechanicals whose `termination`
+says what they fit (`systems`, `housings`) and take (`wireMinMm2`/`wireMaxMm2`,
+`insulationMinMm`/`insulationMaxMm`, `gender`, `plating`, `stripMm`, `crimpHeights`, `tool`).
+A design records them per cavity on the connector instance:
+`cavities?: { pin, contact?, seal?, plug?, crimpHeightMm?, note? }[]`. Everything is optional:
+a solder-cup or PCB connector has no housing, and a design with no cavities validates as
+before. Validation: an unknown pin or part, a part of the wrong kind, a duplicate cavity or a
+contact and a plug together are errors; the wire's total cross-section outside the contact's
+range, insulation Ø outside the contact's or seal's, a part that fits another system, a
+landed cavity with no contact (or, sealed, no seal), an unused cavity unplugged, and cavities
+on a non-crimp connector are warnings. The BOM counts contacts, seals and plugs per cavity
+(section "Contacts, seals & plugs"; a tool is never a line); the build sheet prints contact,
+seal, strip length, crimp height and tool per cavity and lists the tools; `crimp-list.csv`
+exports the same rows. A **kit** is an
 orderable bundle of parts (`{ id, label, sku, contents: { part: { kind, def }, qty }[], src }`) —
 a backshell with its jackscrews, say.
 
@@ -204,7 +225,8 @@ interface CableDesign {
   productRef?: string;               // the product part number this design documents
   status?: 'active' | 'development' | 'legacy' | 'retired';   // absent = active
   instances: {
-    connectors: { id: string; def: string; role?: string; note?: string }[];
+    connectors: { id: string; def: string; role?: string; note?: string;
+                  cavities?: CavityAssignment[] }[];   // crimp contacts, seals, plugs
     segments:   { id: string; def: string; lengthMm?: number; role?: string;
                   pigtails?: Pigtail[];
                   scope?: string[] }[];  // only these elements of the stock (a breakout run)
@@ -341,9 +363,9 @@ AGPL-3.0-only with the module exception.
 | connectors (4) | `de9-female` / `de9-male` (`CON-00012`, `CON-00013`, pins by number), `jst-xh-2-dc` (`CON-00010`), `terminal-block-4` (`CON-00011`) |
 | wires (4) | Cat 5e U/UTP, 2-pair shielded 24 AWG (foil + drain), DC 2 × 24 AWG, a neutral multicore of 3 × mini-coax + 4 cores (foil + drain) |
 | components (4) | 150 Ω and 120 Ω resistors, 100 nF capacitor, red 5 mm LED |
-| mechanicals (4), kits (1) | DE-9 backshell, 4-40 jackscrews, moulded Y body, heat-shrink; a backshell kit |
+| mechanicals (6), kits (1) | DE-9 backshell, 4-40 jackscrews, moulded Y body, heat-shrink, an XH-series crimp socket contact and its hand crimp tool; a backshell kit |
 | PCBAs (1) | `pair-terminal-board`: cable pads to a 4-way terminal block with a jumper-selected 120 Ω termination across one pair |
-| designs (4) | `de9-crossover` (2 ↔ 3 crossed, loopbacks, a pigtail), `de9-terminal-board` (board + termination), `dc-led-lead` (inline resistor; a length-family drawing), `dc-y-splitter` (breakout) |
+| designs (4) | `de9-crossover` (2 ↔ 3 crossed, loopbacks, a pigtail), `de9-terminal-board` (board + termination), `dc-led-lead` (inline resistor; a length-family drawing; crimp contacts in the JST XH housing), `dc-y-splitter` (breakout) |
 | vocab (19 lists) | signals (power, ground and the none kinds only — **no domain**), levels, lanes, colour codes, pad roles, families, genders, locations, materials, constructions, core kinds, colours, component kinds, conditioning, sources, manufacturers, connector constructions / mountings / sourcing |
 
 **Domain modules** (`modules/`, `docs/modules.md`) bring the vocabulary and records of one
@@ -353,7 +375,8 @@ board cable, a USB LED lead), `networking` (Ethernet MDI signals, RJ45 plugs wir
 T568B, a patch cable and a crossover), `pro-audio` (audio signals, XLR, RCA and TRS, audio
 stocks, a microphone cable and a Y lead) — these three suggested at setup — and
 `av-video` (video signals, VGA and SCART, a VGA cable) and `automotive` (bus signals, the
-OBD-II plug). Pack data is CC0-1.0 and every record keeps its `src`; pack records carry no
+OBD-II plug, a generic sealed 3-way connector family with its crimp contacts, seals, cavity
+plug and crimp tool, and a sealed sensor lead). Pack data is CC0-1.0 and every record keeps its `src`; pack records carry no
 part numbers. The base code knows no domain's signals: label reading goes through the
 vocabulary (`signal-words.ts`), and signal kinds are open strings.
 

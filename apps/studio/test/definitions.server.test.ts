@@ -443,6 +443,45 @@ describe('DELETE /api/definitions/:kind/:id', () => {
   });
 });
 
+describe('crimp contacts, seals, plugs and tools', () => {
+  const CONTACT: MechanicalDefinition = {
+    id: 'test-socket',
+    label: 'Test socket contact',
+    kind: 'contact',
+    termination: { systems: ['xh-2-5'], wireMinMm2: 0.05, wireMaxMm2: 0.33, crimpHeights: [{ wireMm2: 0.2, heightMm: 0.9 }], tool: 'xh-crimp-tool' },
+    src: 'test fixture — invented for the definition endpoint tests',
+  };
+
+  it('takes a contact with its termination block, and saves it as sent', async () => {
+    const response = await call('POST', '/api/definitions/mechanicals', CONTACT);
+    expect(response.status).toBe(201);
+    expect(stored('mechanicals', 'test-socket')).toEqual(CONTACT);
+  });
+
+  it('refuses a wire range written as words, and a tool that is not a tool', async () => {
+    const words = await call('POST', '/api/definitions/mechanicals', { ...CONTACT, termination: { wireMinMm2: '0.5 mm²' } });
+    expect(words.status).toBe(400);
+    expect((words.body as ApiError).error).toContain('wireMinMm2');
+    const tool = await call('POST', '/api/definitions/mechanicals', { ...CONTACT, termination: { tool: 'de9-backshell' } });
+    expect(tool.status).toBe(422);
+  });
+
+  it('refuses a housing with a sealing it does not know', async () => {
+    const plug = { ...CATALOG.connectors.find((c) => c.id === 'jst-xh-2-dc')!, id: 'test-xh', housing: { sealing: 'glue' } };
+    const response = await call('POST', '/api/definitions/connectors', plug);
+    expect(response.status).toBe(400);
+    expect((response.body as ApiError).error).toContain('glue');
+  });
+
+  it('a tool its contact names is in use, and is not deleted from under it', async () => {
+    const use = await usageOf(deps, 'mechanicals', 'xh-crimp-tool');
+    expect(use.definitions).toEqual(['mechanicals/xh-contact-socket']);
+    const response = await call('DELETE', '/api/definitions/mechanicals/xh-crimp-tool', { confirm: 'xh-crimp-tool' });
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(stored('mechanicals', 'xh-crimp-tool')).toBeDefined();
+  });
+});
+
 /* ------------------------------------------------------------------ *
  * The router itself
  * ------------------------------------------------------------------ */

@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 4,
+  "id": "sealed-sensor-lead",
+  "label": "Sealed 3-way → sealed 3-way, 2-core sensor supply lead",
+  "instances": {
+    "connectors": [
+      {
+        "id": "x1",
+        "def": "sealed-3-male-numbered",
+        "role": "harness side",
+        "cavities": [
+          {
+            "pin": "1",
+            "contact": "sealed-1-5-pin-0-5-1",
+            "seal": "sealed-1-5-seal-1-2-1-6"
+          },
+          {
+            "pin": "2",
+            "contact": "sealed-1-5-pin-0-5-1",
+            "seal": "sealed-1-5-seal-1-2-1-6"
+          },
+          {
+            "pin": "3",
+            "plug": "sealed-1-5-cavity-plug"
+          }
+        ]
+      },
+      {
+        "id": "x2",
+        "def": "sealed-3-female-numbered",
+        "role": "sensor side",
+        "cavities": [
+          {
+            "pin": "1",
+            "contact": "sealed-1-5-socket-0-5-1",
+            "seal": "sealed-1-5-seal-1-2-1-6"
+          },
+          {
+            "pin": "2",
+            "contact": "sealed-1-5-socket-0-5-1",
+            "seal": "sealed-1-5-seal-1-2-1-6"
+          },
+          {
+            "pin": "3",
+            "plug": "sealed-1-5-cavity-plug"
+          }
+        ]
+      }
+    ],
+    "segments": [
+      {
+        "id": "w1",
+        "def": "auto-2core-0-5",
+        "lengthMm": 500
+      }
+    ],
+    "components": [],
+    "pcbas": []
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "x1",
+        "terminal": "1"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "red",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "x1",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "black",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "red",
+        "end": "b"
+      },
+      "b": {
+        "instance": "x2",
+        "terminal": "1"
+      }
+    },
+    {
+      "a": {
+        "instance": "w1",
+        "terminal": "black",
+        "end": "b"
+      },
+      "b": {
+        "instance": "x2",
+        "terminal": "2"
+      }
+    }
+  ],
+  "src": "synthetic example: a 2-core 0.5 mm² supply lead between two sealed 3-way housings; cavity 3 plugged at both ends"
+}

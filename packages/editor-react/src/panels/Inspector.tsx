@@ -11,6 +11,14 @@
  */
 
 import {
+  cavityRows,
+  fillCavities,
+  fitsHousing,
+  housingOf,
+  setCavity,
+  terminationParts,
+  wireRangeText,
+  insulationRangeText,
   breakoutAt,
   connectorMountingOfInstance,
   findComponent,
@@ -1007,6 +1015,108 @@ export function BridgesSection({ state, id }: { state: EditorState; id: string }
   );
 }
 
+/**
+ * A crimp housing's cavities: per cavity, the wire landed in it and the
+ * contact, seal or plug it takes, picked from the library's parts that fit the
+ * housing; "fill all by wire gauge" chooses every one from the wires
+ * (`fillCavities`). Shown for a connector whose housing the catalog knows, or
+ * that already has cavities recorded. Every edit is one undoable step.
+ */
+export function CavitiesSection({ state, id }: { state: EditorState; id: string }): JSX.Element | null {
+  const { dispatch } = useEditorApi();
+  const { design, db } = state;
+  const instance = design.instances.connectors.find((c) => c.id === id);
+  const connector = instance === undefined ? undefined : findConnector(db, instance.def);
+  const rows = useMemo(() => cavityRows(design, db, id), [design, db, id]);
+  if (instance === undefined || connector === undefined || rows.length === 0) return null;
+  const housing = housingOf(connector, db);
+  const optionsFor = (kind: 'contact' | 'seal' | 'plug') =>
+    terminationParts(db, kind).filter((p) => fitsHousing(p, connector, db) !== false);
+  const contacts = optionsFor('contact');
+  const seals = optionsFor('seal');
+  const plugs = optionsFor('plug');
+  const showSeals = housing?.sealing === 'per-wire' || rows.some((r) => r.seal !== undefined);
+  const showPlugs = housing?.plugUnused === true || rows.some((r) => r.plug !== undefined);
+  const apply = (next: typeof design, description: string): void => dispatch({ type: 'apply-design', design: next, description, record: true });
+  const pick = (pin: string, slot: 'contact' | 'seal' | 'plug', value: string): void =>
+    apply(setCavity(design, id, pin, { [slot]: value === '' ? undefined : value }), `set ${slot} in ${id}:${pin}`);
+  const choice = (
+    pin: string,
+    slot: 'contact' | 'seal' | 'plug',
+    current: string | undefined,
+    parts: ReturnType<typeof optionsFor>,
+    describe: (p: (typeof parts)[number]) => string | undefined,
+  ): JSX.Element => {
+    const known = current === undefined || parts.some((p) => p.id === current);
+    return (
+      <select className="cs-input" aria-label={`${slot} for cavity ${pin}`} value={current ?? ''} onChange={(event) => pick(pin, slot, event.target.value)}>
+        <option value="">—</option>
+        {known ? null : <option value={current}>{current} (does not fit)</option>}
+        {parts.map((p) => {
+          const extra = describe(p);
+          return (
+            <option key={p.id} value={p.id}>
+              {p.label}
+              {extra === undefined ? '' : ` · ${extra}`}
+            </option>
+          );
+        })}
+      </select>
+    );
+  };
+  return (
+    <section className="cs-cavities" aria-label="cavities">
+      <h3>
+        cavities <span className="cs-count">{rows.length}</span>
+      </h3>
+      <table className="cs-cavity-table">
+        <thead>
+          <tr>
+            <th>cavity</th>
+            <th>wire</th>
+            <th>contact</th>
+            {showSeals ? <th>seal</th> : null}
+            {showPlugs ? <th>plug</th> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.pin}>
+              <td className="cs-mono">{row.pin}</td>
+              <td className="cs-mono" title={row.wires.map((w) => `${w.segment}.${w.path}@${w.end}`).join(' + ')}>
+                {row.wires.length === 0
+                  ? row.used
+                    ? 'landed'
+                    : 'unused'
+                  : row.wires.map((w) => (w.areaMm2 === undefined ? w.path : `${w.areaMm2} mm²`)).join(' + ')}
+              </td>
+              <td>{choice(row.pin, 'contact', row.assignment?.contact, contacts, (p) => wireRangeText(p.termination))}</td>
+              {showSeals ? <td>{choice(row.pin, 'seal', row.assignment?.seal, seals, (p) => insulationRangeText(p.termination))}</td> : null}
+              {showPlugs ? <td>{choice(row.pin, 'plug', row.assignment?.plug, plugs, () => undefined)}</td> : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="cs-cavity-actions">
+        <button
+          type="button"
+          className="cs-quiet"
+          disabled={contacts.length === 0 && plugs.length === 0}
+          title={contacts.length === 0 ? 'No contact in the library fits this housing yet' : 'Pick each cavity\'s contact (and seal, and plug) from the wire landed in it'}
+          onClick={() => apply(fillCavities(design, db, id), `fill the cavities of ${id} by wire gauge`)}
+        >
+          fill all by wire gauge
+        </button>
+        {(instance.cavities ?? []).length === 0 ? null : (
+          <button type="button" className="cs-quiet" onClick={() => apply({ ...design, instances: { ...design.instances, connectors: design.instances.connectors.map((c) => (c.id === id ? (({ cavities: _c, ...rest }) => rest)(c) : c)) } }, `clear the cavities of ${id}`)}>
+            clear
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function PartPanel({ state }: { state: EditorState }): JSX.Element {
   const { dispatch, requestDelete, stripPractice } = useEditorApi();
   const stripPracticeOf = stripPractice ?? [];
@@ -1149,6 +1259,7 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
           <InstanceField label="note" value={pcba.note ?? ''} onChange={(v) => patch('note', v)} />
         )}
 
+        {connector === undefined ? null : <CavitiesSection state={state} id={id} />}
         {connector === undefined && pcba === undefined ? null : <BridgesSection state={state} id={id} />}
 
         <h3>

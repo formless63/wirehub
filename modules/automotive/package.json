@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
-  "description": "WireHub domain module: vehicle diagnostic and bus signals and the OBD-II connector.",
+  "description": "WireHub domain module: vehicle diagnostic and bus signals, the OBD-II connector, and a generic sealed connector family with crimp contacts, seals and plugs.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -22,6 +22,7 @@
   "devDependencies": {
     "@types/node": "26.1.2",
     "@wirehub/catalog": "workspace:*",
+    "@wirehub/docs": "workspace:*",
     "@wirehub/editor-react": "workspace:*",
     "@wirehub/model": "workspace:*",
     "@wirehub/modules": "workspace:*",

@@ -16,7 +16,8 @@ Every record type below (and every vocabulary entry) may also carry the optional
 (`{ id, kind?: 'pin' | 'shell' | 'key', note? }`, in the order a connector lists its pins),
 `mates` (the opposite-gender body id; the validator checks both sides name each other),
 `partNumber?`, `construction?` (`connector-constructions` entry, e.g. `solder-cup`), `drawing?`
-(one of the layout package's built-in drawings, e.g. `d-sub`, `rca`), `src`.
+(one of the layout package's built-in drawings, e.g. `d-sub`, `rca`), `housing?` (a crimp
+housing, below), `src`.
 
 ## interfaces.json (Interface)
 
@@ -29,7 +30,8 @@ Checks: `interface-body-unknown`, `interface-position-unknown`, `vocab-unknown`.
 ## connectors.json (ConnectorRecord)
 
 `id`, `label`, `family`, `gender?`, `body`, `interface`, `construction?`, `sourcing?`
-(`connector-sourcing` entry), `aliases?`, `partNumber?` (leave out in packs), `src`. A record that
+(`connector-sourcing` entry), `aliases?`, `partNumber?` (leave out in packs), `housing?`
+(overrides the body's), `src`. A record that
 names `body` and `interface` has no `pins`. Checks: `connector-body-unknown`,
 `connector-interface-unknown`, `connector-interface-body` (interface not on that body),
 `connector-gender-mismatch`, plus warnings for part-number / construction mismatches and pins
@@ -55,8 +57,20 @@ two-terminal passives use `a` and `b`, polarised parts `a` = `+`), `value?` (`"1
 
 ## mechanicals.json / kits.json
 
-Mechanical: `id`, `label`, `kind` (`shell | fastener | other`), `partNumber?`, `revision?`,
-`src`; no terminals. Kit: `id`, `label`, `sku` (one token of letters, digits and `- . _ /`),
+Mechanical: `id`, `label`, `kind` (`shell | fastener | other | contact | seal | plug | tool`),
+`partNumber?`, `revision?`, `termination?`, `src`; no terminals.
+
+**Crimp parts** (`packages/model/src/crimp.ts`). A `contact` (crimp terminal), `seal`
+(single-wire seal), `plug` (cavity plug) or `tool` (hand tool or applicator) carries
+`termination`: `systems?` (contact-system ids, free kebab strings shared with housings),
+`housings?` (connector or body ids it fits outright), `wireMinMm2?`/`wireMaxMm2?` (contact),
+`insulationMinMm?`/`insulationMaxMm?` (contact, seal), `gender?` (`male` pin / `female` socket),
+`plating?`, `stripMm?`, `crimpHeights?` (`{ wireMm2, heightMm, widthMm? }[]`), `tool?` (a
+mechanical id of kind `tool`), `src?`. Leave out every value no source states. A **crimp
+housing** is a body's or connector's `housing`: `systems?`, `sealing?` (`none | per-wire |
+mat`), `plugUnused?` (unused cavities take a plug), `cavities?` (pin ids; default every pin
+but the shell), `src?`. Solder-cup and PCB connectors have no housing. Checks:
+`termination-range`, `termination-tool-unknown` (errors), `termination-on-non-part`. Kit: `id`, `label`, `sku` (one token of letters, digits and `- . _ /`),
 `contents` (`{ part: { kind, def }, qty, src }[]`, whole quantities, every part must exist), `src`.
 Checks: `kit-sku-format`, `kit-empty`, `kit-part-unknown`, `kit-qty`.
 
@@ -83,8 +97,13 @@ A pack's list of the same name is merged by entry id over the starter's.
 ## designs/<id>.json (CableDesign)
 
 `schemaVersion`, `id` (= file name), `label` (`<source> → <destination>`), `instances`
-(`connectors`, `segments`, `components`, `pcbas`, `mechanical?`, `breakouts?`), `joints`
+(`connectors`, `segments`, `components`, `pcbas`, `mechanical?`, `breakouts?`; a connector
+instance may carry `cavities?`: `{ pin, contact?, seal?, plug?, crimpHeightMm?, note? }[]`), `joints`
 (`{ a, b, note? }`, refs `{ instance, terminal, end? }`), `notes?`, `extensions?`, `src`.
 Common issue codes: `unknown-def`, `unknown-terminal`, `unknown-element-path`, `missing-end`,
 `unexpected-end`, `self-joint`, `duplicate-instance-id`, `terminal-not-electrical`,
-`floating-conductor-end` (warning), `screen-floating` (warning).
+`floating-conductor-end` (warning), `screen-floating` (warning). Cavities: `cavity-unknown-pin`,
+`cavity-duplicate`, `cavity-unknown-part`, `cavity-contact-and-plug` (errors); `contact-wire-range`,
+`contact-insulation-range`, `seal-wire-range`, `cavity-part-housing`, `cavity-no-contact`,
+`cavity-no-seal`, `cavity-unplugged`, `cavity-plug-on-used`, `cavity-contact-unused`,
+`cavity-not-crimp` (warnings).

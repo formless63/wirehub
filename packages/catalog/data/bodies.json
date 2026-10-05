@@ -99,6 +99,13 @@
       }
     ],
     "construction": "crimp",
+    "housing": {
+      "systems": [
+        "xh-2-5"
+      ],
+      "sealing": "none",
+      "src": "XH-series housings take the series' crimp contacts; unsealed"
+    },
     "src": "JST XH series datasheet (2.5 mm pitch wire-to-board housing, XHP-2); public datasheet"
   },
   {

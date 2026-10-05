@@ -18,7 +18,7 @@ export const RENDER_USAGE = [
   'usage: pnpm --filter studio render <design> <what> [--format svg|pdf|csv|html] [--rev <n>|latest] [--out <dir>|-]',
   '                                    [--paper A4|letter] [--variation <suffix>] [--page <n>] [--copies <n>]',
   '  <what>  schematic | build-sheet | bom | test-spec | drawing | labels   (a document, in --format; default per document)',
-  '          bom.csv | wire-list.csv | cut-list.csv | production.xlsx | continuity.csv | continuity.json | labels.csv | labels.svg   (an export)',
+  '          bom.csv | wire-list.csv | cut-list.csv | crimp-list.csv | production.xlsx | continuity.csv | continuity.json | labels.csv | labels.svg   (an export)',
   '          all   every document in its default format, plus pdf of each',
   '  Local by default (the catalog this checkout or WIREHUB_BACKEND points at); with WIREHUB_API_URL and WIREHUB_API_TOKEN set, the studio over HTTP.',
 ].join('\n');
