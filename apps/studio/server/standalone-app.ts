@@ -10,6 +10,7 @@
 import { Hono } from 'hono';
 
 import type { WorkbenchDeps } from './api.ts';
+import type { DeepHealth } from './health.ts';
 import { mountAuth } from './auth/gate.ts';
 import type { StudioAuth } from './auth/studio-auth.ts';
 import { BACKUP_DISABLED } from './backup/status.ts';
@@ -32,21 +33,23 @@ export interface StandaloneAppOptions {
   auth?: StudioAuth;
   /** the git backup (`WIREHUB_GIT_AUTOCOMMIT=true`); absent → saves are not committed */
   backup?: StudioBackup;
+  /** `/healthz?deep=1` (plan §8.3); absent → the deep form answers the plain one plus `deep: null` */
+  deepHealth?: () => Promise<DeepHealth>;
 }
 
 export function createStandaloneApp(options: StandaloneAppOptions): Hono {
   const app = new Hono();
   // the container healthcheck: ahead of the login gate, so it answers without a session
-  app.get('/healthz', (c) => {
+  app.get('/healthz', async (c) => {
     const backup = options.backup?.status() ?? BACKUP_DISABLED;
-    return c.json(
-      {
-        ok: true,
-        backup: { enabled: backup.enabled, state: backup.state, pendingCommits: backup.pendingCommits, lastPush: backup.lastPush?.at ?? null },
-      },
-      200,
-      { 'cache-control': 'no-store' },
-    );
+    const plain = {
+      ok: true,
+      backup: { enabled: backup.enabled, state: backup.state, pendingCommits: backup.pendingCommits, lastPush: backup.lastPush?.at ?? null },
+    };
+    // the plain form is the container probe and never touches the database; `?deep=1` checks the dependencies
+    if (c.req.query('deep') !== '1') return c.json(plain, 200, { 'cache-control': 'no-store' });
+    const deep = options.deepHealth === undefined ? null : await options.deepHealth();
+    return c.json({ ...plain, ok: deep?.ok ?? true, deep }, deep !== null && !deep.ok ? 503 : 200, { 'cache-control': 'no-store' });
   });
   // the login gate first, when there is one: its sign-in routes, then the
   // session check every other route (API and SPA alike) passes through

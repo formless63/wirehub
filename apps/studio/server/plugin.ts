@@ -22,7 +22,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type { Plugin } from 'vite';
 
-import { handleWorkbenchRequest, type WorkbenchDeps } from './api.ts';
+import { handleWorkbenchRequest, transactingDepictionDeps, type WorkbenchDeps } from './api.ts';
 import { defaultWorkbenchDeps } from './default-deps.ts';
 import { defaultDepictionDeps, depictionMiddleware, isDepictionPath, type DepictionDeps } from './depictions.ts';
 import { editLockLayer, type EditLockDeps } from './locks/lock-api.ts';
@@ -201,11 +201,20 @@ export function workbenchMiddleware(
   depictionDeps: DepictionDeps = defaultDepictionDeps(),
 ): (req: IncomingMessage, res: ServerResponse, next: () => void) => void {
   const gate = depictionLockMiddleware(deps);
-  const artwork = depictionMiddleware(depictionDeps);
+  const artwork = depictionMiddleware(depictionDeps, artworkUnit(deps));
   const json = workbenchJsonMiddleware(deps);
   return (req, res, next) => {
     gate(req, res, () => artwork(req, res, () => json(req, res, next)));
   };
+}
+
+/**
+ * Artwork writes in the dev host's unit of work, like the standalone server's:
+ * staged with the workbench's other stores, committed once, and `?dryRun=1`
+ * answers the would-be change set without writing (plan §4.5).
+ */
+export function artworkUnit(workbench: WorkbenchDeps): (deps: DepictionDeps, dryRun: boolean) => DepictionDeps {
+  return (deps, dryRun) => transactingDepictionDeps(deps, workbench, undefined, dryRun);
 }
 
 export function workbenchApi(deps: WorkbenchDeps = defaultWorkbenchDeps()): Plugin {
@@ -227,7 +236,7 @@ export function workbenchApi(deps: WorkbenchDeps = defaultWorkbenchDeps()): Plug
       // artwork first: those endpoints carry bytes in and images out, which the
       // JSON pipe below cannot express. Everything else falls through to it.
       server.middlewares.use(depictionLockMiddleware(deps));
-      server.middlewares.use(depictionMiddleware());
+      server.middlewares.use(depictionMiddleware(defaultDepictionDeps(), artworkUnit(deps)));
       server.middlewares.use(workbenchJsonMiddleware(deps));
     },
   };

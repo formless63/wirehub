@@ -45,6 +45,7 @@ import type { AuthProviderContribution } from '@wirehub/modules';
 import { readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
 import { resolveModuleProviders, type ModuleOAuthProvider } from './module-providers.ts';
 import type { PeopleStore, Role } from './people.ts';
+import type { Notifier } from '../notify.ts';
 import { RateLimiter, type TokenEnv, type TokenStore } from './tokens.ts';
 import { magicLinkMessage, smtpTransport, type MailTransport } from './mailer.ts';
 
@@ -85,6 +86,8 @@ export interface StudioAuth {
   tokenEnv?: TokenEnv;
   /** the token request budgets (§4.5) */
   limiter?: RateLimiter;
+  /** monitoring events (§8.6): token created, refused tokens; absent → none sent */
+  notifier?: Notifier;
   /** first-run setup's admin: an email + password account (the person exists already) */
   createAccount?(email: string, name: string, password: string): Promise<void>;
   /** true while the hub has no organisation: the gate lets the setup page and its API through */
@@ -113,7 +116,7 @@ export interface StudioAuthOverrides {
   providers?: readonly AuthProviderContribution[];
   /** the environment `…Env` entries of those providers are read from (default `process.env`) */
   providerEnv?: Readonly<Record<string, string | undefined>>;
-  pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter; setupMode?: () => boolean };
+  pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter; setupMode?: () => boolean; notifier?: Notifier };
 }
 
 function forbidden(email: string): APIError {
@@ -352,6 +355,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
     close: async () => {
       if (database instanceof pg.Pool) await database.end();
     },
+    ...(overrides.pg?.notifier === undefined ? {} : { notifier: overrides.pg.notifier }),
     ...(overrides.pg?.setupMode === undefined ? {} : { setupMode: overrides.pg.setupMode }),
     ...(config.localAccounts
       ? {

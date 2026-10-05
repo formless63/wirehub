@@ -20,6 +20,7 @@ import {
   feetFromMm,
   feetText,
   lengthFromMm,
+  massText,
   mmFromFeet,
   renderBuildSheet,
   suppliedEnds,
@@ -186,5 +187,13 @@ describe('units', () => {
     expect(feetFromMm(1000)).toBe(3.28);
     expect(feetText(6)).toBe('6');
     expect(feetAttribute(2.5)).toBe('2.5ft');
+  });
+});
+
+describe('ground landing wording for a bonded mass', () => {
+  const wire = { id: 'x' } as unknown as Parameters<typeof massText>[0];
+  it('never says "all 0 copper screens"', () => {
+    expect(massText(wire, ['drain'])).toBe('shields (drain only, bonded; no copper screens)');
+    expect(massText(wire, [])).toBe('shields (no copper screens, bonded)');
   });
 });

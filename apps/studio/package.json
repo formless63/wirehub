@@ -12,6 +12,7 @@
     "start": "node --experimental-strip-types server/serve.ts",
     "test": "vitest run --passWithNoTests",
     "brand:icons": "node scripts/brand-icons.mjs",
+    "studio-api": "node --experimental-strip-types scripts/studio-api.ts",
     "db:bootstrap": "node --experimental-strip-types server/pg/cli.ts bootstrap",
     "db:migrate": "node --experimental-strip-types server/pg/cli.ts migrate",
     "pg:import": "node --experimental-strip-types server/pg/cli.ts import",

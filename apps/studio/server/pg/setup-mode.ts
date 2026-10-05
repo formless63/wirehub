@@ -20,6 +20,7 @@ import { dataPath } from '@wirehub/catalog';
 import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
 import type { CatalogFiles } from '@wirehub/catalog/src/codec/index.ts';
 import { sql } from 'kysely';
+import { DEFAULT_PREFIX_SCHEME_CONFIG, PN_KINDS, parsePrefixSchemeConfig, type PnKind, type PrefixSchemeConfig } from '@wirehub/model';
 
 import type { ApiResponse, WorkbenchDeps } from '../api.ts';
 import type { StudioAuth } from '../auth/studio-auth.ts';
@@ -59,6 +60,37 @@ export function initialCatalog(kind: 'starter' | 'empty', root = dataPath('..'))
     if (path.startsWith('data/vocab/') || path === 'data/tags/review.json' || path === 'data/LICENSE') files.set(path, content as string);
   }
   return files;
+}
+
+/** `data/part-numbers.json` for the prefixes a person chose at setup, or `undefined` when they are the defaults (no file: the scheme's defaults apply). */
+export function partNumbersFile(chosen: unknown): { text: string } | { error: string; hint?: string } | undefined {
+  if (chosen === undefined || chosen === null) return undefined;
+  if (typeof chosen !== 'object') return { error: 'Send the part-number scheme as { prefixes, digits }.' };
+  let config: PrefixSchemeConfig;
+  try {
+    const input = chosen as { prefixes?: unknown; digits?: unknown };
+    // a kind left blank is not numbered by the scheme
+    const prefixes = Object.fromEntries(Object.entries((input.prefixes ?? {}) as Record<string, unknown>).filter(([, v]) => typeof v !== 'string' || v.trim() !== '').map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]));
+    config = parsePrefixSchemeConfig({ prefixes, ...(input.digits === undefined ? {} : { digits: input.digits }) });
+  } catch (error) {
+    return { error: (error instanceof Error ? error.message : String(error)).replace(/^part-numbers\.json: /, '') };
+  }
+  const used = Object.values(config.prefixes);
+  const twice = used.find((p, i) => used.indexOf(p) !== i);
+  if (twice !== undefined) return { error: `The prefix ${twice} is used for two kinds of part.`, hint: 'Each kind needs its own prefix.' };
+  const same = (a: Partial<Record<PnKind, string>>, b: Partial<Record<PnKind, string>>): boolean => PN_KINDS.every((k) => a[k] === b[k]);
+  const defaults = DEFAULT_PREFIX_SCHEME_CONFIG;
+  if (same(config.prefixes, defaults.prefixes) && (config.digits ?? 5) === (defaults.digits ?? 5)) return undefined;
+  const file: PrefixSchemeConfig = {
+    id: 'prefix',
+    label: 'Prefix + sequence',
+    prefixes: config.prefixes,
+    digits: config.digits ?? 5,
+    separator: '-',
+    allowRevisionSuffix: true,
+    src: 'chosen at first-run setup',
+  };
+  return { text: `${JSON.stringify(file, null, 2)}\n` };
 }
 
 /** A depiction store with nothing in it (setup mode serves no artwork). */
@@ -103,7 +135,14 @@ export function setupModeDeps(options: SetupModeOptions): WorkbenchDeps {
       ...(base.body as object),
       needed: true,
       completed: false,
-      create: { catalogs: ['starter', 'empty'], admin: adminMode(options.auth()), minPassword: MIN_PASSWORD },
+      create: {
+        catalogs: ['starter', 'empty'],
+        admin: adminMode(options.auth()),
+        minPassword: MIN_PASSWORD,
+        partNumbers: registry.partNumberScheme() === undefined
+          ? { scheme: 'prefix', kinds: PN_KINDS, prefixes: DEFAULT_PREFIX_SCHEME_CONFIG.prefixes, digits: DEFAULT_PREFIX_SCHEME_CONFIG.digits ?? 5, example: 'CON-00001' }
+          : { scheme: 'module', label: registry.partNumberScheme()?.label ?? '' },
+      },
     });
   };
 
@@ -117,6 +156,7 @@ export function setupModeDeps(options: SetupModeOptions): WorkbenchDeps {
       org?: { name?: unknown; slug?: unknown };
       admin?: { name?: unknown; email?: unknown; password?: unknown };
       catalog?: unknown;
+      partNumbers?: unknown;
     };
     if (options.code !== undefined && !codeMatches(options.code, body.code)) {
       return refuse(403, body.code === undefined || body.code === '' ? 'Enter the setup code.' : 'That is not the setup code.', "The server prints it to its log at startup: `docker compose logs wirehub`, or the wirehub container's logs in your Docker UI.");
@@ -131,6 +171,14 @@ export function setupModeDeps(options: SetupModeOptions): WorkbenchDeps {
     if (!Array.isArray(modules) || !modules.every((m): m is string => typeof m === 'string')) return refuse(400, 'Say which domain modules to enable.', 'Send { "modules": [...] } — an empty list is fine.');
     const unknown = modules.filter((id) => !registry.domains().some((m) => m.id === id));
     if (unknown.length > 0) return refuse(400, `Not a domain module of this build: ${unknown.join(', ')}.`);
+    // the part-number scheme: the default prefixes, edited ones, or (a module's scheme in the build) fixed
+    let pnFile: { text: string } | undefined;
+    if (body.partNumbers !== undefined) {
+      if (registry.partNumberScheme() !== undefined) return refuse(400, 'This build numbers parts with its own scheme; it cannot be changed here.');
+      const made = partNumbersFile(body.partNumbers);
+      if (made !== undefined && 'error' in made) return refuse(400, made.error, made.hint);
+      pnFile = made;
+    }
     const auth = options.auth();
     const mode = adminMode(auth);
     const adminName = typeof body.admin?.name === 'string' ? body.admin.name.trim() : '';
@@ -149,7 +197,7 @@ export function setupModeDeps(options: SetupModeOptions): WorkbenchDeps {
       orgId = await ensureOrg(db, slug, orgName, true);
       await importCatalog(db, {
         org: { slug },
-        files: initialCatalog(catalog),
+        files: pnFile === undefined ? initialCatalog(catalog) : new Map([...initialCatalog(catalog), ['data/part-numbers.json', pnFile.text]]),
         ...(options.blobs === undefined ? {} : { blobs: options.blobs }),
         actorLabel: adminName === '' ? (localStudioUser(process.env)?.name ?? 'WireHub (local)') : adminName,
         message: `Initial catalog: ${catalog}`,

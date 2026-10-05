@@ -73,6 +73,8 @@ services:
       WIREHUB_PROD_MARKERS:
       WIREHUB_ALLOW_FILES_IN_PROD:
       WIREHUB_SUGGESTED_MODULES:
+      WIREHUB_NOTIFY_URL:
+      WIREHUB_NOTIFY_FORMAT:
       # sign-in: on, with email + password accounts; first-run setup makes the admin
       AUTH_ENABLED: ${AUTH_ENABLED:-true}
       AUTH_LOCAL_ACCOUNTS:

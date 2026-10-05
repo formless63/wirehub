@@ -211,8 +211,13 @@ export class RateLimiter {
   }
 
   /** Failed token attempts per address: 10 a minute, then 15 minutes of refusals. */
-  failure(address: string): void {
-    if (this.take(`fail:${address}`, [{ count: 10, ms: 60_000 }]) > 0) this.blocked.set(address, this.clock() + 15 * 60_000);
+  failure(address: string): 'blocked' | 'repeated' | undefined {
+    if (this.take(`fail:${address}`, [{ count: 10, ms: 60_000 }]) > 0) {
+      const wasBlocked = this.blockedFor(address) > 0;
+      this.blocked.set(address, this.clock() + 15 * 60_000);
+      return wasBlocked ? undefined : 'blocked';
+    }
+    return (this.hits.get(`fail:${address}`)?.length ?? 0) === 5 ? 'repeated' : undefined;
   }
 
   blockedFor(address: string): number {

@@ -206,6 +206,17 @@ export interface DocumentContribution {
 }
 
 /**
+ * SQL migrations for a module's own relational state (Postgres backend only;
+ * `docs/modules.md`, "Module tables"). `dir` holds forward-only
+ * `NNNN_<module_id>_<name>.sql` files (`NNNN` ascending from 0001, the module id
+ * with `-` written as `_`), applied after the base's migrations into the schema
+ * `mod_<module_id>`. A path or a `file:` URL, like a pack's `root`.
+ */
+export interface ModuleMigrationsContribution {
+  dir: string | URL;
+}
+
+/**
  * Derived records a module keeps beside the catalog: files recomputed from
  * the designs and definitions whenever a save changes one of them, so they are
  * never stale and travel with the change that moved them (the git export on
@@ -252,6 +263,8 @@ export interface WireHubModule {
   commitHook?: CommitHookContribution;
   documents?: readonly DocumentContribution[];
   derived?: readonly DerivedContribution[];
+  /** SQL for the module's own tables on the Postgres backend */
+  migrations?: ModuleMigrationsContribution;
 }
 
 /** Identity helper so a module file type-checks its own literal. */

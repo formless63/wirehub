@@ -113,6 +113,26 @@ allow-list there (and may be empty). Personal API tokens for scripts and
 agents: `/account/tokens`. Every save is a change set in the database, so
 `saves.jsonl` is not written.
 
+**Scripts and agents: `studio-api`.** Work on the catalog as JSON files and let the
+studio's own API do the writing, as the person whose token you use:
+
+```bash
+export WIREHUB_API_URL=https://wirehub.example.com WIREHUB_API_TOKEN=cst_dev_…   # the token: environment only
+pnpm --filter studio studio-api pull ./work                  # GET /api/export + every record's ETag
+# edit the JSON in ./work
+pnpm --filter studio studio-api push ./work --dry-run        # one dry-run batch; prints the diff
+pnpm --filter studio studio-api push ./work -m "Re-pin the RS-485 adapters" [--lock]
+pnpm --filter studio studio-api call GET /api/designs        # a single route
+```
+
+Designs, the definition lists (connectors are pulled in the composed form the API
+takes) and a module's declared documents can be pushed; a changed file with no write
+route stops the push. A record changed since the pull fails its `If-Match`, the whole
+batch is refused and nothing is retried. `--lock` holds edit leases for the run. A
+`cst_prod_` token is refused by a development server and the other way round
+(`WIREHUB_API_ENV` can say which one the URL is; the server's `/api/me` does too).
+`specs/postgres-backend.md` §4.5.
+
 | Variable | Default | |
 |---|---|---|
 | `AUTH_ENABLED` | `false` | `true` turns the login on |
