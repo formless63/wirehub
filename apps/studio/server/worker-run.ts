@@ -19,6 +19,7 @@ import { pgSecretStore } from './pg/settings-secrets.ts';
 import { createRuntimeSettings, type RuntimeSettings } from './runtime-settings.ts';
 import { settingsCipherFromEnv } from './settings-secrets.ts';
 import { createJobService, executeJob } from './jobs/service.ts';
+import { createWebhookEmitter } from './webhooks/emitter.ts';
 import { moduleJobKinds, moduleSchedules } from './jobs/module-queues.ts';
 import type { JobKind, JobService } from './jobs/types.ts';
 import { pgAppConfigFromEnv, redactUrl } from './pg/config.ts';
@@ -133,6 +134,9 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     const liveEnv = (): Record<string, string | undefined> => ({ ...settings.env() });
     const store = pgJobStore(handle.db, org);
     const notify = liveNotifier(() => settings.env());
+    // the worker delivers the webhooks and announces its jobs finishing: it reads the subscriptions and the secrets itself
+    deps.runtimeSettings = settings;
+    deps.webhooks = createWebhookEmitter({ docs: () => deps.docs, jobs: () => deps.jobs, env: () => settings.env() });
     const handlers = pgJobHandlers({ deps, db: handle.db, orgId: org, cache, ...(blobs === undefined ? {} : { blobs }), env, liveEnv, notify });
     const kinds = Object.keys(handlers) as JobKind[];
 
@@ -144,10 +148,11 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     await sql.raw(`GRANT SELECT ON ALL SEQUENCES IN SCHEMA ${BOSS_SCHEMA} TO studio_ro`).execute(handle.db);
     const boundBoss = boss;
     const jobs = createJobService({ store, runner: bossJobRunner(async () => boundBoss, () => org), kinds, worker: () => lastBeat(handle.db, org) });
+    deps.jobs = jobs;
 
     const afterJob = (line: string): void => log(`${line} (worker rss ${Math.round(process.memoryUsage().rss / 1048576)} MiB)`);
     for (const kind of kinds) {
-      await boss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' ? 1 : 5 }, async ([job]) => {
+      await boss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' || kind === 'webhook' ? 1 : 5 }, async ([job]) => {
         if (job === undefined) return;
         const payload = job.data;
         if (payload.org !== org) {
@@ -156,7 +161,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
         }
         // a scheduled run has no row yet
         const id = payload.id ?? (await store.create(kind, { reason: 'schedule' })).id;
-        await executeJob(store, handlers, id, afterJob);
+        await executeJob(store, handlers, id, afterJob, (finished) => deps.webhooks?.jobFinished(finished));
       });
     }
 

@@ -367,8 +367,9 @@ versions and serialization, and never reads it.
 - Serialization is plain JSON of the types above — no classes, no Maps in the model.
 
 `Db` is the bundle `{ connectors, wires, components, pcbas, mechanicals?, bodies?,
-interfaces?, kits?, vocab?, tags? }` the catalog loads, plus — given by the host, for a design
-placing sub-assemblies — `assemblies?` (the designs those reach).
+interfaces?, kits?, vocab?, tags?, validationRules? }` the catalog loads, plus — given by the host,
+for a design placing sub-assemblies — `assemblies?` (the designs those reach). A design may carry
+free `tags?: string[]` that declarative validation rules select by.
 
 ### Part numbers — a pluggable scheme
 
@@ -378,6 +379,8 @@ interface PartNumberScheme {
   parse(text: string): string | undefined;          // canonical form, or not one of ours
   check(pn: string, kind?: PnKind): PnIssue[];      // warnings only
   suggest(subject: PnSubject, known: readonly KnownPartNumber[]): PnSuggestion | undefined;
+  shape?: string;       // the layout in words, for messages and forms
+  immutable?: boolean;  // existing numbers never change: a saved number cannot be edited into another
 }
 ```
 
@@ -386,8 +389,34 @@ The built-in **prefix scheme** numbers each kind with a prefix and a zero-padded
 boards, `SHL-` shells, `HW-` fasteners, `MEC-` other mechanicals, `KIT-` kits, `CBL-` cable
 designs; a drawing may name a length family `CBL-00010-XX` whose variations are
 `CBL-00010-03`, `-05`, …. A catalog configures it with an optional `part-numbers.json`
-(`{ id?, label?, prefixes, digits?, separator?, allowRevisionSuffix? }`); a module may register a different scheme. A
-suggestion is a proposal — nothing writes a number without a person accepting it.
+(`{ id?, label?, prefixes, digits?, separator?, allowRevisionSuffix? }`) — or with a
+**declarative scheme** (`"type": "declarative"`; `pn-declarative.ts`, `docs/part-numbers.md`): a
+template of segments (`<Level><Type>-NNNNNN-VV`), allowed values per record kind, zero-padded
+counters per combination of segments with ranges, a variant suffix, separators, a validation
+regex and `immutable` ("existing numbers never change"), edited in Settings and offered by a data
+pack's manifest (`partNumberScheme`; installing never switches it, an owner confirms). A module may
+register a code scheme for what data cannot say. A suggestion is a proposal — nothing writes a
+number without a person accepting it.
+
+### Validation rules as data
+
+`validateDesign` and `validateDb` also run the **declarative rules** in `Db.validationRules`
+(`validation-rules.json`, an array of rule records a data pack may ship; `rules.ts`,
+`docs/validation-rules.md`): a bounded JSON condition language (`all`, `any`, `not`, comparisons,
+`contains`, `some`/`every`/`none` over lists, counts) over a design and its library records, with a
+subject (`connector`, `conductor`, `signal-path`, `connector-def` …), a severity and a message
+template. No code runs: evaluation is bounded (depth, node count, a step budget). Their issues
+carry the code `rule:<id>`. Code rules in a module remain for the complex cases.
+
+### Event webhooks
+
+Integrations are configuration, not code: owners subscribe URLs to events (design saved, version
+submitted / approved / released, part number assigned, pack installed, job finished, catalog
+changed) in Settings; each delivery is a `webhook` job carrying a versioned JSON payload
+(`wirehub.event/1`: ids, links, the actor, a diff summary, fetch URLs) signed with HMAC-SHA256
+under the subscription's secret (kept encrypted in the settings secrets store), retried with
+backoff, logged and redeliverable. The receiver pulls full data through the API with a token
+(`docs/webhooks.md`).
 
 ---
 

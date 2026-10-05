@@ -5,7 +5,7 @@
  * (`src/part-numbers.browser.ts`).
  */
 
-import { DEFAULT_PART_NUMBER_SCHEME, parsePrefixSchemeConfig, prefixPartNumberScheme, type PartNumberScheme } from '@wirehub/model';
+import { DEFAULT_PART_NUMBER_SCHEME, schemeFromConfig, type PartNumberScheme } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
 
 import type { Awaitable } from './storage/change-set.ts';
@@ -21,7 +21,7 @@ export async function partNumberSchemeOf(deps: SchemeDeps): Promise<PartNumberSc
   const raw = (await deps.loadPartNumberFiles?.())?.scheme;
   if (raw === undefined || raw === null) return DEFAULT_PART_NUMBER_SCHEME;
   try {
-    return prefixPartNumberScheme(parsePrefixSchemeConfig(raw));
+    return schemeFromConfig(raw);
   } catch {
     return DEFAULT_PART_NUMBER_SCHEME;
   }

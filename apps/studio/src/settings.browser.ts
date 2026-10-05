@@ -293,3 +293,218 @@ export const runtimeSettingsQuery = {
   },
   retry: false,
 } as const;
+
+/* ------------------------------------------------------------------ *
+ * The numbering scheme (`server/pn-settings.ts`)
+ * ------------------------------------------------------------------ */
+
+export const pnSettingsKey = ['settings', 'part-numbers'] as const;
+
+export interface PnSchemeOffer {
+  pack: string;
+  version: string;
+  scheme: unknown;
+  problems: string[];
+}
+
+export interface PnSettingsView {
+  /** the stored definition, or null (the default prefix scheme) */
+  config: unknown;
+  effective: { kind: 'prefix' | 'declarative' | 'module' | 'default'; id: string; label: string; shape?: string; immutable: boolean };
+  overriddenByModule?: boolean;
+  defaults: unknown;
+  kinds: string[];
+  offers: PnSchemeOffer[];
+  etag: string;
+}
+
+export interface PnPreview {
+  ok: boolean;
+  problems?: string[];
+  shape?: string | null;
+  immutable?: boolean;
+  samples?: { pn: string; canonical: string | null; issues: { code: string; message: string }[] }[];
+  suggestions?: { kind: string; suggestion: { pn: string; explanation: string } | null }[];
+  impact?: { numbered: number; notInScheme: number; duplicates: number; unnumbered: number; examples: { pn: string; where: string; message: string }[] };
+}
+
+export async function fetchPnSettings(base = '/api'): Promise<Outcome<PnSettingsView>> {
+  let etag = '';
+  const out = await request<Omit<PnSettingsView, 'etag'>>(`${base}/settings/part-numbers`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function savePnSettings(input: { scheme: unknown } | { adoptFrom: string }, etag: string, base = '/api'): Promise<Outcome<PnSettingsView>> {
+  let next = '';
+  const out = await request<Omit<PnSettingsView, 'etag'>>(`${base}/settings/part-numbers`, { method: 'PUT', body: input, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+export const previewPnScheme = (input: { scheme: unknown; samples?: string[]; suggest?: { kind: string; variantOf?: string }[] }, base = '/api'): Promise<Outcome<PnPreview>> =>
+  request<PnPreview>(`${base}/settings/part-numbers/preview`, { method: 'POST', body: input });
+
+export const pnSettingsQuery = {
+  queryKey: pnSettingsKey,
+  queryFn: async (): Promise<PnSettingsView> => {
+    const out = await fetchPnSettings();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;
+
+/* ------------------------------------------------------------------ *
+ * Declarative validation rules (`server/rules-settings.ts`)
+ * ------------------------------------------------------------------ */
+
+export const rulesKey = ['settings', 'rules'] as const;
+
+export interface RuleView {
+  id: string;
+  label?: string;
+  enabled?: boolean;
+  severity: 'error' | 'warning';
+  message: string;
+  each: string;
+  where?: unknown;
+  require: unknown;
+  src: string;
+  origin: 'local' | 'pack';
+  pack?: string;
+  problems: string[];
+}
+
+export interface RulesView {
+  rules: RuleView[];
+  /** this hub's own rules, as stored */
+  local: Omit<RuleView, 'origin' | 'pack' | 'problems'>[];
+  limits: { rules: number };
+  subjects: { design: string[]; library: string[] };
+  etag: string;
+}
+
+export interface RulePreview {
+  ok: boolean;
+  problems?: string[];
+  designs?: { id: string; issues: number; examples: { severity: string; message: string; where?: string }[] }[];
+  library?: { issues: number; examples: { severity: string; message: string; where?: string }[] };
+  errors?: number;
+  warnings?: number;
+}
+
+export async function fetchRules(base = '/api'): Promise<Outcome<RulesView>> {
+  let etag = '';
+  const out = await request<Omit<RulesView, 'etag'>>(`${base}/rules`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function saveRules(rules: unknown[], etag: string, base = '/api'): Promise<Outcome<RulesView>> {
+  let next = '';
+  const out = await request<Omit<RulesView, 'etag'>>(`${base}/rules`, { method: 'PUT', body: { rules }, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+export const previewRule = (rule: unknown, base = '/api'): Promise<Outcome<RulePreview>> => request<RulePreview>(`${base}/rules/preview`, { method: 'POST', body: { rule } });
+
+export const rulesQuery = {
+  queryKey: rulesKey,
+  queryFn: async (): Promise<RulesView> => {
+    const out = await fetchRules();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;
+
+/* ------------------------------------------------------------------ *
+ * Outbound event webhooks (`server/webhooks/api.ts`): owners only
+ * ------------------------------------------------------------------ */
+
+export const webhooksKey = ['settings', 'webhooks'] as const;
+export const webhookDeliveriesKey = ['settings', 'webhooks', 'deliveries'] as const;
+
+export interface WebhookSubscriptionView {
+  id: string;
+  label?: string;
+  url: string;
+  events: string[];
+  enabled: boolean;
+  createdAt?: string;
+  secret: 'set' | 'unset' | 'unreadable';
+}
+
+export interface WebhooksView {
+  subscriptions: WebhookSubscriptionView[];
+  events: { type: string; label: string; description: string }[];
+  limits: { subscriptions: number; attempts: number };
+  signature: { header: string; scheme: string; payloadSchema: string };
+  secrets: { available: boolean; note?: string };
+  etag: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  deliveryId: string;
+  subscription: string;
+  type: string;
+  attempt: number;
+  state: 'queued' | 'running' | 'delivered' | 'retrying' | 'failed' | 'skipped';
+  status?: number;
+  error?: string;
+  createdAt: string;
+  finishedAt?: string;
+  retryAt?: string;
+  redeliveredFrom?: string;
+  test?: boolean;
+}
+
+export async function fetchWebhooks(base = '/api'): Promise<Outcome<WebhooksView>> {
+  let etag = '';
+  const out = await request<Omit<WebhooksView, 'etag'>>(`${base}/settings/webhooks`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function saveWebhooks(subscriptions: Pick<WebhookSubscriptionView, 'id' | 'label' | 'url' | 'events' | 'enabled'>[] | Omit<WebhookSubscriptionView, 'secret' | 'createdAt'>[], etag: string, base = '/api'): Promise<Outcome<WebhooksView>> {
+  let next = '';
+  const out = await request<Omit<WebhooksView, 'etag'>>(`${base}/settings/webhooks`, { method: 'PUT', body: { subscriptions }, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+export const setWebhookSecret = (id: string, value?: string, base = '/api'): Promise<Outcome<{ id: string; set: boolean; generated?: string }>> =>
+  request(`${base}/settings/webhooks/${id}/secret`, { method: 'PUT', body: value === undefined ? {} : { value } });
+export const clearWebhookSecret = (id: string, base = '/api'): Promise<Outcome<{ id: string; set: boolean }>> => request(`${base}/settings/webhooks/${id}/secret`, { method: 'DELETE' });
+export const testWebhook = (id: string, base = '/api'): Promise<Outcome<{ job?: string }>> => request(`${base}/settings/webhooks/${id}/test`, { method: 'POST' });
+export const redeliverWebhook = (job: string, base = '/api'): Promise<Outcome<{ job?: string }>> => request(`${base}/settings/webhooks/deliveries/${job}/redeliver`, { method: 'POST' });
+
+export const webhooksQuery = {
+  queryKey: webhooksKey,
+  queryFn: async (): Promise<WebhooksView> => {
+    const out = await fetchWebhooks();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;
+
+export const webhookDeliveriesQuery = {
+  queryKey: webhookDeliveriesKey,
+  queryFn: async (): Promise<WebhookDelivery[]> => {
+    const out = await request<{ deliveries: WebhookDelivery[] }>('/api/settings/webhooks/deliveries?limit=100', { method: 'GET' });
+    if (!out.ok) throw new Error(out.message);
+    return out.value.deliveries;
+  },
+  retry: false,
+  refetchInterval: 5000,
+} as const;

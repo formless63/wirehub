@@ -280,7 +280,9 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
     const kind = existing === undefined ? 'install' : 'update';
     const same = 'direction' in plan && plan.direction === 'same';
     const major = 'major' in plan && plan.major;
-    const preview = { kind, source: format, sha256: digest, size: bytes.length, verified: true, signed, problems: [], plan: shown(plan), applicable: plan.ok && !same };
+    // a numbering scheme the pack offers is never switched on by installing it: Settings offers it, an owner confirms
+    const offers = manifest.partNumberScheme === undefined ? {} : { offers: { partNumberScheme: manifest.partNumberScheme } };
+    const preview = { kind, source: format, sha256: digest, size: bytes.length, verified: true, signed, problems: [], plan: shown(plan), applicable: plan.ok && !same, ...offers };
     if (body.apply !== true) return json(200, preview);
     if (same) return json(200, { ...preview, installed: false, reason: 'already at this version' });
     if (!plan.ok) {

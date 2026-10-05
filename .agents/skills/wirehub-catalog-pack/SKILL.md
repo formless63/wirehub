@@ -23,6 +23,7 @@ pack/
   mechanicals.json kits.json pcbas.json          each optional
   vocab/signals.json vocab/levels.json ...        vocabulary additions
   designs/<id>.json                               example designs, optional
+  validation-rules.json                           declarative design rules, optional (below)
 ```
 
 Images under `depictions/` and `art/` (`svg png jpg jpeg webp`, lowercase extensions) ship with the
@@ -49,6 +50,24 @@ Required by `readPackManifest`: `format: 1`, a kebab-case `id`, `version` (semve
 `idPrefix`, and manifest signatures belong to later store phases and are not produced or checked
 yet (a store index pins each bundle by sha256 instead) (`docs/catalog-store.md` sections 2 and 7). The manifest `id` should equal
 the `id` of the module's `catalogPacks` entry, and `version`/`license` should match it too.
+
+## Configuration in a pack: rules and a numbering scheme
+
+A pack can carry configuration as data, not only records (`docs/catalog-store.md` section 2):
+
+- **`validation-rules.json`**: an array of rule records (`docs/validation-rules.md`; each with `id`,
+  `severity`, `each`, `where?`, `require`, `message`, `src`). It merges by id like a record file, runs
+  inside `validateDb` / `validateDesign`, and an install that would add errors to the library is
+  refused, so write a rule a design of the starter or your own example designs satisfies (or make it
+  a `warning`). `verify-pack.mjs` reports a rule the language cannot use. A hub owner can switch a pack
+  rule off or change it by saving a rule with the same id in Settings.
+- **`partNumberScheme`** in `wirehub-pack.json`: a declarative numbering definition
+  (`docs/part-numbers.md`) the pack **offers**. Installing never switches the hub's scheme: the install
+  answer carries `offers.partNumberScheme`, Settings, Part numbers lists it, and an owner confirms the
+  switch. Offer one only when the pack's records come with a convention that needs it; verification
+  refuses a definition that cannot be used. The manifest is what a publisher signature covers.
+- The pack carries **no shop part numbers** and no `part-numbers.json` of its own (the layered read
+  would make it the hub's scheme silently).
 
 ## What a pack may contain
 

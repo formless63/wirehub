@@ -43,10 +43,10 @@ export function createJobService(options: JobServiceOptions): JobService {
   return {
     describe: runner.describe,
     kinds: options.kinds,
-    async enqueue(kind, request, by) {
+    async enqueue(kind, request, by, enqueueOptions) {
       if (!options.kinds.includes(kind)) throw new Error(`this studio does not run '${kind}' jobs`);
       const job = await store.create(kind, request, requesterOf(by));
-      await runner.submit(job);
+      await runner.submit(job, enqueueOptions);
       return job;
     },
     get: (id) => store.get(id),
@@ -73,7 +73,14 @@ export function createJobService(options: JobServiceOptions): JobService {
  * failed. A job that is not queued (run already, cancelled) is left alone.
  * Never throws: a handler's failure is the job's `error`.
  */
-export async function executeJob(store: JobStore, handlers: JobHandlers, id: string, log: (line: string) => void = console.log): Promise<JobRun | undefined> {
+export async function executeJob(
+  store: JobStore,
+  handlers: JobHandlers,
+  id: string,
+  log: (line: string) => void = console.log,
+  /** called with the finished job (done or failed), never failing it: the webhook event `job.finished` */
+  onFinished?: (job: JobRun) => void | Promise<void>,
+): Promise<JobRun | undefined> {
   const job = await store.start(id);
   if (job === undefined) return undefined;
   const handler = handlers[job.kind];
@@ -96,7 +103,15 @@ export async function executeJob(store: JobStore, handlers: JobHandlers, id: str
     await store.fail(id, message);
     log(`[jobs] ${job.kind} ${id} failed after ${Date.now() - started} ms: ${message}`);
   }
-  return store.get(id);
+  const finished = await store.get(id);
+  if (finished !== undefined && onFinished !== undefined) {
+    try {
+      await onFinished(finished);
+    } catch (error) {
+      log(`[jobs] ${job.kind} ${id}: the finished-job hook failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return finished;
 }
 
 /* ------------------------------------------------------------------ *
@@ -189,13 +204,37 @@ export function memoryJobStore(options: { keep?: number; now?: () => Date } = {}
  * (the file backend; a database deployment with `WIREHUB_WORKER=off`).
  * `handlers` is a function so the deps it closes over can be filled later.
  */
-export function inlineJobRunner(store: JobStore, handlers: () => JobHandlers, log?: (line: string) => void): JobRunner & { idle(): Promise<void> } {
+export function inlineJobRunner(
+  store: JobStore,
+  handlers: () => JobHandlers,
+  log?: (line: string) => void,
+  onFinished?: (job: JobRun) => void | Promise<void>,
+): JobRunner & { idle(): Promise<void> } {
   let queue: Promise<unknown> = Promise.resolve();
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const run = (job: JobRun): void => {
+    queue = queue.then(() => executeJob(store, handlers(), job.id, log, onFinished)).catch(() => undefined);
+  };
   return {
     describe: 'in this process',
-    async submit(job) {
-      queue = queue.then(() => executeJob(store, handlers(), job.id, log)).catch(() => undefined);
+    async submit(job, options) {
+      if (options?.delayMs === undefined || options.delayMs <= 0) return run(job);
+      // a delayed job (a webhook's retry) waits on a timer that does not keep the process alive
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        run(job);
+      }, options.delayMs);
+      timer.unref?.();
+      timers.add(timer);
     },
-    idle: () => queue.then(() => undefined),
+    idle: async () => {
+      // a job may queue another (a webhook's retry): wait until nothing is waiting or queued behind
+      for (;;) {
+        const seen = queue;
+        await seen;
+        if (seen === queue && timers.size === 0) return;
+        if (timers.size > 0) await new Promise((done) => setTimeout(done, 5));
+      }
+    },
   };
 }
