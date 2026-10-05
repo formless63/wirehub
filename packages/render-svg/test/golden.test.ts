@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { fixtureCatalog, fixtureDepictionsRoot, listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
+import { withAssemblies } from '@wirehub/model';
 import { depictionsFromRoot } from '@wirehub/layout';
 
 import { renderSchematic } from '../src/index.ts';
@@ -38,7 +39,8 @@ function pretty(svg: string): string {
 }
 
 describe('golden schematics', () => {
-  const db = fixture.loadDb();
+  // the design library: a design built from sub-assemblies is drawn whole
+  const db = withAssemblies(fixture.loadDb(), { working: fixture.loadDesigns() });
   for (const id of fixture.listDesignIds()) {
     /**
      * `depictions: false` is the drawing as it stood before artwork existed,

@@ -223,8 +223,8 @@ BOM's cost roll-up and change nothing else.
 
 ```ts
 interface CableDesign {
-  schemaVersion: 1 | 2 | 3 | 4;      // 2 = shield bonding (pigtails, pads); 4 = breakouts;
-                                     // older versions still load unchanged
+  schemaVersion: 1 | 2 | 3 | 4 | 5;  // 2 = shield bonding (pigtails, pads); 4 = breakouts;
+                                     // 5 = sub-assemblies; older versions still load unchanged
   id: string; label: string;         // label: "<source> → <destination>"
   productRef?: string;               // the product part number this design documents
   status?: 'active' | 'development' | 'legacy' | 'retired';   // absent = active
@@ -238,6 +238,9 @@ interface CableDesign {
     pcbas:      { id: string; def: string; note?: string }[];
     mechanical?: { id: string; def: string; qty: number; attachedTo?: string; note?: string }[];
     breakouts?: Breakout[];          // schema v4
+    subassemblies?: { id: string; def: string;   // another design, by id (schema v5)
+                      rev?: number;              // pinned saved version; absent = working copy
+                      role?: string; label?: string; note?: string }[];
   };
   joints: { a: TerminalRef; b: TerminalRef; note?: string }[];
   notes?: string[];                  // build-level annotations (drain policy etc.)
@@ -290,6 +293,40 @@ exactly once. **Through**: the same physical conductor continues uncut on a leg 
 stock — continuous copper, no joint. **Terminated**: it ends in the mould, soldered there.
 **NC**: cut back in the mould, with a reason. A design carrying breakouts is schema v4.
 
+**Sub-assemblies** (`subassemblies.ts`). A design may place other designs: a harness made of
+cables, a Y made of two leads. A sub-assembly instance names the design (`def`) and, optionally, a
+saved version (`rev`); absent, it follows the working copy, and **saving a version pins every
+unpinned sub-assembly to that design's released revision** (approved when approvals are on, else
+the latest saved) — a version always names the same parts, and is refused when a placed design has
+nothing released. The placed design's unconnected ends are its **ports**: every connector pin
+(including a board's integrated connector), each conductor and screen of a wire end nothing is
+soldered to and that is in no breakout and twists no pigtail (a **flying lead**), and the free ports
+of its own sub-assemblies. A port is a terminal of the instance named `<instance>:<terminal>` or
+`<segment>@<end>:<path>` (`j1:3`, `w1@b:red`, nested `lead-1:j2:1`); the parent's joints land on
+them like any terminal (no `end`). A design placing any is schema v5 (`schemaVersionFor`; a design
+without stays at 4, so existing designs are unchanged).
+
+The placed designs come from `Db.assemblies` (`{ working: CableDesign[]; versions?: { designId,
+rev, released, design?, definitions? }[] }`), which the host fills for the design at hand; without
+it references are not checked and ports resolve unverified (a frozen version validates against its
+own definitions alone). `flattenSubassemblies` undoes the hierarchy: every placed part re-identified
+`<sub>/<id>` (`lead-1/j1`), the parent's joints moved from the ports onto what they stand for, a
+pinned version's frozen definition carried under `<id>@<design>.<rev>` where it differs from the
+live one. Nets, trace (`port` edges tie each port to its flat terminal), the continuity spec and the
+schematic run on it. Validation: an unknown design, an unknown or unparseable revision and a cycle
+(a design placing itself, directly or not) are errors, and so is a joint to a port the placed design
+does not expose (`subassembly-unknown-port`: it changed, or that end is connected inside it); a pin
+to an unreleased revision, a newer released revision and a schema number below 5 are warnings. A
+port profiles for the compatibility rules as the terminal it is inside the placed design.
+
+The BOM lists each sub-assembly as **one line** (category `subassembly`, section
+"Sub-assemblies") by the placed design's `productRef` and revision, its cost the placed design's own
+roll-up; `explode` lists the placed parts instead. The build sheet references each sub-assembly's
+own build sheet and lists what lands on its ports, never inlining it. "Where used" for a design
+(`subassemblyParents`, `GET /api/designs/:id/used-in`) names the designs and saved versions placing
+it; deleting or renaming such a design is refused, naming them; on Postgres each placing is a
+`ref_edge` (role `subassembly`).
+
 **Extensions.** `extensions` is an object keyed by module id; each value is that module's own
 JSON. The base validates only its shape (`invalid-extensions`), keeps it through edits,
 versions and serialization, and never reads it.
@@ -309,7 +346,8 @@ versions and serialization, and never reads it.
   (`docs/modules.md`); their codes are prefixed `<module>/`.
 - `deriveNets(design, db): Net[]` — union-find over joints, bonds, conductors passing
   through a breakout, and PCBA internal links without `via`. Components and `via` links are
-  net boundaries (a net is continuous copper).
+  net boundaries (a net is continuous copper). A design placing sub-assemblies is flattened
+  first (`flattenSubassemblies`), its ports tied to what they are.
 - `trace(design, db, from)` — walks outward through joints, plain links, two-terminal
   components (annotating each passage) and `via` links; returns reachable terminals with the
   ordered list of things passed through. The continuity spec derives from it.
@@ -319,7 +357,8 @@ versions and serialization, and never reads it.
 - Serialization is plain JSON of the types above — no classes, no Maps in the model.
 
 `Db` is the bundle `{ connectors, wires, components, pcbas, mechanicals?, bodies?,
-interfaces?, kits?, vocab?, tags? }` the catalog loads.
+interfaces?, kits?, vocab?, tags? }` the catalog loads, plus — given by the host, for a design
+placing sub-assemblies — `assemblies?` (the designs those reach).
 
 ### Part numbers — a pluggable scheme
 
@@ -369,7 +408,7 @@ AGPL-3.0-only with the module exception.
 | components (4) | 150 Ω and 120 Ω resistors, 100 nF capacitor, red 5 mm LED |
 | mechanicals (6), kits (1) | DE-9 backshell, 4-40 jackscrews, moulded Y body, heat-shrink, an XH-series crimp socket contact and its hand crimp tool; a backshell kit |
 | PCBAs (1) | `pair-terminal-board`: cable pads to a 4-way terminal block with a jumper-selected 120 Ω termination across one pair |
-| designs (4) | `de9-crossover` (2 ↔ 3 crossed, loopbacks, a pigtail), `de9-terminal-board` (board + termination), `dc-led-lead` (inline resistor; a length-family drawing; crimp contacts in the JST XH housing), `dc-y-splitter` (breakout) |
+| designs (6) | `de9-crossover` (2 ↔ 3 crossed, loopbacks, a pigtail), `de9-terminal-board` (board + termination), `dc-led-lead` (inline resistor; a length-family drawing; crimp contacts in the JST XH housing), `dc-y-splitter` (breakout), `dc-pigtail-lead` (a JST XH lead with flying leads, made to be placed) and `dc-y-from-leads` (a Y built from two of them as sub-assemblies, schema v5) |
 | vocab (19 lists) | signals (power, ground and the none kinds only — **no domain**), levels, lanes, colour codes, pad roles, families, genders, locations, materials, constructions, core kinds, colours, component kinds, conditioning, sources, manufacturers, connector constructions / mountings / sourcing |
 
 **Domain modules** (`modules/`, `docs/modules.md`) bring the vocabulary and records of one

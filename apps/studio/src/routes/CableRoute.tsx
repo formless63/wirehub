@@ -33,6 +33,7 @@ import { VersionView } from '../versions/VersionView.tsx';
 import { EditLockScope } from '../locks/EditLockScope.tsx';
 import { designRecord } from '../locks/records.ts';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';
+import { withAssemblyLibrary, workbenchAssemblies } from '../persistence.browser.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { editorExtensions } from '../modules/slots.tsx';
 
@@ -51,6 +52,14 @@ export function CableRoute(): JSX.Element {
   const chrome = useEditorChrome();
   const modules = useModules();
   const extensions = useMemo(() => editorExtensions(modules), [modules]);
+  // sub-assemblies: where the designs a cable places come from, and opening one in its own editor
+  const assemblies = useMemo(() => workbenchAssemblies(), []);
+  const openDesign = useCallback(
+    (target: string): void => {
+      void navigate({ to: '/cables/$id', params: { id: target }, search: { view: 'build' } });
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     studio.openCable(id);
@@ -159,7 +168,8 @@ export function CableRoute(): JSX.Element {
               const art = await loadVersionArt(id, out.value);
               return {
                 design: out.value.design,
-                db: versionDb(out.value.definitions, db),
+                // the designs it places, pinned to their own saved versions
+                db: await withAssemblyLibrary(versionDb(out.value.definitions, db), out.value.design),
                 depictions: versionDepictionSource(art.own, art.covered, studio.depictions),
               };
             },
@@ -254,6 +264,9 @@ export function CableRoute(): JSX.Element {
       // the editor, so the schematic redraws without a page reload
       artwork={studio.artwork}
       designs={studio.designs}
+      // sub-assemblies: the designs this cable places, fetched as it places them
+      assemblies={assemblies}
+      onOpenDesign={openDesign}
       // where this browser remembers the arrangement and the pane sizes
       layout={studio.layout}
       onCatalogChange={onCatalogChange}

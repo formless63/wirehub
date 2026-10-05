@@ -33,6 +33,7 @@ import { pnDuplicateIssues } from './part-number-health.ts';
 import type { PartNumberScheme } from './part-numbers.ts';
 import { breakoutFates, breakoutIssues, inScope, segmentElectricalPaths } from './breakouts.ts';
 import { viaText } from './link-elements.ts';
+import { parseSubassemblyPortId, placedDesign, portsOfSubassembly, subassemblyIssues, type SubassemblyPort } from './subassemblies.ts';
 import { recordMetaIssues } from './provenance.ts';
 import { validateVocab, vocabEntry, vocabReferenceIssues } from './vocab.ts';
 import { validateInterfaces } from './interfaces.ts';
@@ -106,6 +107,8 @@ export interface ResolvedTerminal {
   element?: Element;
   /** the pigtail, when the terminal is a segment's `pigtail:<id>` */
   pigtail?: Pigtail;
+  /** the port, when the instance is a sub-assembly and its design could be opened (`subassemblies.ts`) */
+  port?: SubassemblyPort;
 }
 
 export type ResolveResult =
@@ -163,6 +166,11 @@ export function designInstances(design: CableDesign): DesignInstanceRef[] {
     ...design.instances.pcbas.map((i) => ({
       id: i.id,
       kind: 'pcba' as const,
+      def: i.def,
+    })),
+    ...(design.instances.subassemblies ?? []).map((i) => ({
+      id: i.id,
+      kind: 'subassembly' as const,
       def: i.def,
     })),
   ];
@@ -275,6 +283,10 @@ export function terminalsOf(
       const pcba = findPcba(db, instance.def);
       const ids = pcba === undefined ? [] : pcbaTerminalIds(pcba, db);
       for (const id of ids) refs.push({ instance: instanceId, terminal: id });
+      break;
+    }
+    case 'subassembly': {
+      for (const port of portsOfSubassembly(design, db, instanceId) ?? []) refs.push({ instance: instanceId, terminal: port.id });
       break;
     }
   }
@@ -519,6 +531,35 @@ export function resolveTerminal(
           ...(note === undefined ? {} : { note }),
         },
       };
+    }
+    case 'subassembly': {
+      if (parseSubassemblyPortId(ref.terminal) === undefined) {
+        return {
+          ok: false,
+          issues: [issue('subassembly-unknown-port', `'${ref.terminal}' is not a port id (\`j1:3\`, \`w1@b:red\`) of sub-assembly '${ref.instance}'`, where)],
+        };
+      }
+      const ports = portsOfSubassembly(design, db, ref.instance);
+      // no library, or a placed design that cannot be opened (reported on the
+      // instance): the port stands unverified
+      if (ports === undefined) return { ok: true, terminal: { ...resolved, label: ref.terminal } };
+      const port = ports.find((p) => p.id === ref.terminal);
+      if (port === undefined) {
+        const sub = (design.instances.subassemblies ?? []).find((s) => s.id === ref.instance);
+        const opened = sub === undefined ? undefined : placedDesign(db, sub);
+        const which = sub?.rev === undefined ? 'its working copy' : `Rev ${sub.rev}`;
+        return {
+          ok: false,
+          issues: [
+            issue(
+              'subassembly-unknown-port',
+              `sub-assembly '${ref.instance}' (design '${def}', ${which}) has no free end '${ref.terminal}'${opened?.ok === true ? ' — the placed design changed, or that end is connected inside it' : ''}`,
+              where,
+            ),
+          ],
+        };
+      }
+      return { ok: true, terminal: { ...resolved, label: `${port.groupLabel} ${port.label}`, port } };
     }
   }
 }
@@ -871,6 +912,7 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
     ...design.instances.pcbas.map((i) => i.id),
     ...(design.instances.mechanical ?? []).map((i) => i.id),
     ...(design.instances.breakouts ?? []).map((i) => i.id),
+    ...(design.instances.subassemblies ?? []).map((i) => i.id),
   ];
   for (const id of duplicateIds(instanceIds)) {
     issues.push(
@@ -1046,6 +1088,8 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
 
   issues.push(...pigtailIssues(design, db));
   issues.push(...breakoutIssues(design, db));
+  // other designs placed as sub-assemblies (`subassemblies.ts`)
+  issues.push(...subassemblyIssues(design, db));
 
   // conductor ends soldered at one end and floating at the other; a breakout
   // accounts for its ends: a pass-through continues (connected), an NC end

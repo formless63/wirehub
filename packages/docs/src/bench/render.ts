@@ -10,7 +10,7 @@
 
 import { deriveLabels, labelsHtml } from '../exports/labels.ts';
 import { resolveTestParameters, type TestParameters } from '../exports/test-params.ts';
-import { findWire, isFullyBonded, validateDesign, type CableDesign, type Db } from '@wirehub/model';
+import { findWire, isFullyBonded, placedDesign, resolveTerminal, terminalKey, validateDesign, type CableDesign, type Db } from '@wirehub/model';
 import { catalogDepictions, type DepictionSource } from '@wirehub/layout';
 
 import { deriveDrawing, type DrawingFace } from '../drawing/model.ts';
@@ -64,6 +64,44 @@ function block(title: string, inner: string): string {
 /* ------------------------------------------------------------------ *
  * Page 1 — kit and cut
  * ------------------------------------------------------------------ */
+
+/**
+ * The sub-assemblies this cable is built from: each is built (or pulled
+ * from stock) to its own build sheet — referenced here, never inlined — and
+ * this sheet only lands its free ends. One row per sub-assembly, then what
+ * lands on each of its ports.
+ */
+export function subassembliesHtml(design: CableDesign, db: Db): string {
+  const subs = design.instances.subassemblies ?? [];
+  if (subs.length === 0) return '';
+  const rows = subs
+    .map((sub) => {
+      const opened = placedDesign(db, sub);
+      const placed = opened?.ok === true ? opened.placed.design : undefined;
+      const rev = sub.rev === undefined ? 'working copy — not frozen' : `Rev ${sub.rev}`;
+      const sheet = `the build sheet of ${sub.def} (${rev})`;
+      const landings = design.joints
+        .flatMap((joint) =>
+          [
+            [joint.a, joint.b],
+            [joint.b, joint.a],
+          ].filter(([mine]) => mine!.instance === sub.id),
+        )
+        .map(([mine, other]) => {
+          const port = resolveTerminal(design, db, mine!);
+          const to = resolveTerminal(design, db, other!);
+          const portText = port.ok ? (port.terminal.label ?? mine!.terminal) : mine!.terminal;
+          const toText = `${terminalKey(other!)}${to.ok && to.terminal.label !== undefined ? ` (${to.terminal.label})` : ''}`;
+          return `${mine!.terminal} · ${portText} → ${toText}`;
+        })
+        .sort(compareStrings);
+      return `<tr><td><span class="cs-check"></span></td><td>${escapeHtml(sub.label ?? sub.id)}</td><td class="cs-sku">${escapeHtml(placed?.productRef ?? 'UNMAPPED')}</td><td>${escapeHtml(placed?.label ?? sub.def)}<span class="cs-meta"> build to ${escapeHtml(sheet)}</span>${
+        landings.length === 0 ? '' : `<ul class="cs-notes">${landings.map((l) => `<li><span>${escapeHtml(l)}</span></li>`).join('')}</ul>`
+      }</td><td>${escapeHtml(sub.role ?? '')}</td></tr>`;
+    })
+    .join('');
+  return `<table class="cs-cut cs-pull" data-subassemblies=""><thead><tr><th></th><th>Ref</th><th>Part</th><th>Built to · lands here</th><th>Where</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
 
 function pullList(bom: BomSheet): string {
   const rows = bom.lines.filter((l) => l.section !== 'wire');
@@ -483,6 +521,7 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
     })
     .join('');
   const kit = [
+    block('Sub-assemblies — build each to its own sheet first', subassembliesHtml(design, db)),
     block('Parts to pull', pullList(bom)),
     block('Tools', toolsHtml(design, db)),
     block(supplied.length > 0 ? 'Cut and stock' : 'Cut', cutList(design, db, header, supplied)),

@@ -31,6 +31,8 @@ import {
   canonicalVersionFile,
   createVersion,
   designsDiffer,
+  pinSubassemblies,
+  workingDiffers,
   editVersion,
   errors,
   formatVersionJson,
@@ -65,6 +67,7 @@ import { recordWrite } from './write-journal.ts';
 import type { Awaitable } from './storage/change-set.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import { approvalPolicy } from './settings.ts';
+import { withDesignLibrary } from './assemblies.ts';
 
 export const VERSION_ROUTES = [
   'GET    /api/designs/:id/versions',
@@ -453,7 +456,8 @@ export async function workingStatus(deps: VersionDeps, id: string, working: Cabl
   const state = await store?.working(id) ?? {};
   const basedOnRev = state.basedOnRev ?? latestRev;
   const base = basedOnRev === undefined ? undefined : await store?.read(id, basedOnRev);
-  const unreleased = working === undefined || base === undefined ? true : designsDiffer(working, base.design);
+  // the pins a save froze its sub-assemblies to are not a change
+  const unreleased = working === undefined || base === undefined ? true : workingDiffers(working, base.design);
   const policy = await approvalPolicy(deps.docs);
   let releasedRev: number | undefined;
   if (policy.enabled && store !== undefined) {
@@ -528,8 +532,9 @@ async function saveVersion(deps: VersionDeps, store: VersionStore, id: string, b
   }
   const design = await deps.designs.read(id);
   if (design === undefined) return fail(404, `There is no design called '${id}'.`, 'Pick one from the cable list.');
-  const live = await deps.loadDb();
-  const failures = errors(validateDesign(design, live));
+  // the designs it places, as a saved version freezes them (each pinned to its released revision)
+  const live = await withDesignLibrary(deps, design, await deps.loadDb());
+  const failures = errors([...validateDesign(design, live), ...pinSubassemblies(design, live).issues]);
   if (failures.length > 0) {
     return fail(422, `'${id}' has problems that have to be fixed before it can be released.`, 'Nothing was saved. Fix them in the editor, save, then save the version.', failures);
   }
@@ -552,7 +557,7 @@ async function saveVersion(deps: VersionDeps, store: VersionStore, id: string, b
   });
   const art = await artwork(store, draft);
   const file = canonicalVersionFile({ ...draft, depictions: art.files });
-  const issues = errors(validateVersion(file));
+  const issues = errors(validateVersion(file, live.assemblies));
   if (issues.length > 0) return versionRejected(id, rev, issues);
   await writeWithArtwork(store, file, art);
   await store.setWorking(id, { basedOnRev: rev });
@@ -633,8 +638,10 @@ async function editLocked(deps: VersionDeps, store: VersionStore, file: DesignVe
   if (design.id !== file.designId) {
     return fail(400, `This edit is for '${file.designId}', but the document says '${String(design.id)}'.`, 'A version cannot be moved to another design.');
   }
-  const live = await deps.loadDb();
-  const failures = errors(validateDesign(design, versionDb(file.definitions, live)));
+  const live = await withDesignLibrary(deps, design, await deps.loadDb());
+  const frozenDb = versionDb(file.definitions, live);
+  const checkDb = live.assemblies === undefined ? frozenDb : { ...frozenDb, assemblies: live.assemblies };
+  const failures = errors([...validateDesign(design, checkDb), ...pinSubassemblies(design, checkDb).issues]);
   if (failures.length > 0) {
     return fail(422, `Rev ${file.rev} has problems that have to be fixed before it can be locked again.`, 'Nothing was written.', failures);
   }
@@ -643,7 +650,7 @@ async function editLocked(deps: VersionDeps, store: VersionStore, file: DesignVe
   const art = await artwork(store, edited);
   const fresh = Object.fromEntries(Object.entries(art.files).filter(([defId]) => edited.depictions[defId] === undefined));
   const next = canonicalVersionFile({ ...edited, depictions: { ...edited.depictions, ...fresh } });
-  const issues = errors(validateVersion(next));
+  const issues = errors(validateVersion(next, live.assemblies));
   if (issues.length > 0) return versionRejected(file.designId, file.rev, issues);
   await writeWithArtwork(store, next, art);
   return ok(next);
@@ -659,7 +666,7 @@ async function replaceWorking(
   reason: string,
   user: StudioUser,
 ): Promise<ApiResponse> {
-  const live = await deps.loadDb();
+  const live = await withDesignLibrary(deps, design, await deps.loadDb());
   const failures = errors(validateDesign(design, live));
   if (failures.length > 0) {
     return fail(

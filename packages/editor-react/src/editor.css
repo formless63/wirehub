@@ -6409,3 +6409,19 @@ fieldset.cs-lock-fence {
   color: var(--faint);
   margin: 6px 0;
 }
+
+/* ------------------------------------------------------------------ *
+ * Sub-assembly: another design placed as a part (`SubassemblyNode`)
+ * ------------------------------------------------------------------ */
+
+.cs-node-subassembly .cs-badge { background: var(--accent, var(--dim)); }
+.cs-node-subassembly { border-style: double; }
+.cs-subassembly-group .cs-side-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-subassembly .cs-subassembly-ports {
+  max-height: 220px;
+  overflow: auto;
+}

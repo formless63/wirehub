@@ -15,6 +15,7 @@ import {
   findPcba,
   findWire,
   kitsContaining,
+  placedDesign,
   type CableDesign,
   type Db,
   type KnownPartNumber,
@@ -39,9 +40,10 @@ import { num } from './units.ts';
  * Model
  * ------------------------------------------------------------------ */
 
-export type BomSection = 'boards' | 'connectors' | 'terminations' | 'wire' | 'shells' | 'discretes';
+export type BomSection = 'subassemblies' | 'boards' | 'connectors' | 'terminations' | 'wire' | 'shells' | 'discretes';
 
 export const BOM_SECTIONS: readonly { id: BomSection; title: string }[] = [
+  { id: 'subassemblies', title: 'Sub-assemblies' },
   { id: 'boards', title: 'Boards' },
   { id: 'connectors', title: 'Connectors' },
   { id: 'terminations', title: 'Contacts, seals & plugs' },
@@ -51,6 +53,7 @@ export const BOM_SECTIONS: readonly { id: BomSection; title: string }[] = [
 ];
 
 const SECTION_OF: Readonly<Record<BomCategory, BomSection>> = {
+  subassembly: 'subassemblies',
   pcba: 'boards',
   connector: 'connectors',
   termination: 'terminations',
@@ -62,6 +65,7 @@ const SECTION_OF: Readonly<Record<BomCategory, BomSection>> = {
 };
 
 const PN_KIND_OF: Readonly<Record<BomCategory, PnKind>> = {
+  subassembly: 'design',
   pcba: 'pcba',
   connector: 'connector',
   termination: 'mechanical-other',
@@ -101,6 +105,8 @@ export interface BomSheetLine {
   board?: { bare?: string; rev?: string; build?: string; jumpers?: string };
   /** wire: the stock's manufacturer and the length in mm */
   wire?: { manufacturer?: string; mm?: number };
+  /** a sub-assembly: the design it places and the pinned revision (absent: working copy) */
+  subassembly?: { design: string; rev?: number };
   notes: string;
   /** an unmapped part: the numbering scheme's proposal (never applied) */
   proposal?: PnSuggestion;
@@ -138,8 +144,12 @@ export interface BomSheetOptions {
   /** jumper settings for boards come from the artwork's population */
   depictions?: boolean | DepictionSource;
   generatedAt?: string;
+  /** list each sub-assembly's parts instead of one line for it (`BomOptions.explode`) */
+  explode?: boolean;
   /** cables in the build: quantity breaks in the cost roll-up are read at this (default 1) */
   buildQty?: number;
+  /** internal: the designs whose BOM is being costed above this one (a sub-assembly's roll-up), a cycle guard */
+  assemblyStack?: readonly string[];
 }
 
 function vendorOf(specRef: string | undefined): string | undefined {
@@ -180,7 +190,7 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
     ...(options.facts === undefined ? {} : { facts: options.facts }),
     ...(options.generatedAt === undefined ? {} : { generatedAt: options.generatedAt }),
   });
-  const bom = deriveBom(design, db);
+  const bom = deriveBom(design, db, options.explode === true ? { explode: true } : {});
   const source = depictionSourceOf(options.depictions);
   const variations = header.variation !== undefined ? [header.variation] : header.variations.filter(() => header.family !== undefined);
   const products = header.productPn !== undefined ? [header.productPn] : variations.map((v) => v.pn);
@@ -208,7 +218,7 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
   const sides = trunkSides(design, db);
   const mech = design.instances.mechanical ?? [];
   const whereOf = (line: BomLine): string => {
-    if (line.category === 'wire') return line.location;
+    if (line.category === 'wire' || line.category === 'subassembly') return line.location;
     // a contact's provenance is its cavity (`j2:1`): it sits where its connector does
     let id = (line.provenance[0] ?? '').split(':')[0] ?? '';
     for (let guard = 0; guard < 4; guard += 1) {
@@ -252,6 +262,7 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
         ...(jumpers === undefined ? {} : { jumpers }),
       };
     }
+    if (line.subassembly !== undefined) out.subassembly = line.subassembly;
     if (isWire) {
       const wire = findWire(db, line.ref);
       const manufacturer = wire?.manufacturer ?? vendorOf(wire?.specRef);
@@ -295,7 +306,25 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
     .filter((l) => l.state === 'unmapped')
     .map((l) => ({ code: 'unmapped', message: `${l.label} (${l.ref}) has no part number` }));
 
-  const cost = deriveCost(design, db, lines, { ...(options.buildQty === undefined ? {} : { buildQty: options.buildQty }) });
+  // a sub-assembly's cost is its own roll-up, at what this build takes of it
+  const buildQty = options.buildQty !== undefined && Number.isFinite(options.buildQty) && options.buildQty >= 1 ? Math.floor(options.buildQty) : 1;
+  const stack = options.assemblyStack ?? [design.id];
+  const subassemblies = new Map<string, CostSummary | undefined>();
+  for (const line of lines) {
+    if (line.subassembly === undefined || subassemblies.has(line.sourceKey)) continue;
+    const opened = placedDesign(db, { id: line.instances[0] ?? line.ref, def: line.subassembly.design, ...(line.subassembly.rev === undefined ? {} : { rev: line.subassembly.rev }) });
+    if (opened === undefined || !opened.ok || stack.includes(opened.placed.design.id)) {
+      subassemblies.set(line.sourceKey, undefined);
+      continue;
+    }
+    const own = deriveBomSheet(opened.placed.design, opened.placed.db, {
+      depictions: false,
+      buildQty: buildQty * Number(line.quantity),
+      assemblyStack: [...stack, opened.placed.design.id],
+    });
+    subassemblies.set(line.sourceKey, own.cost);
+  }
+  const cost = deriveCost(design, db, lines, { ...(options.buildQty === undefined ? {} : { buildQty: options.buildQty }), ...(subassemblies.size === 0 ? {} : { subassemblies }) });
   return {
     header,
     products,
@@ -328,6 +357,7 @@ function partCell(line: BomSheetLine): string {
 
 function describe(line: BomSheetLine): string {
   const extra: string[] = [];
+  if (line.subassembly !== undefined) extra.push(line.subassembly.rev === undefined ? 'working copy (not frozen)' : `Rev ${line.subassembly.rev}`, 'see its own build sheet');
   if (line.board !== undefined) {
     if (line.board.bare !== undefined) extra.push(`bare PCB ${line.board.bare}`);
     extra.push(...[line.board.rev, line.board.build].filter((s): s is string => s !== undefined));
@@ -430,7 +460,13 @@ export function bomSheetMarkdown(sheet: BomSheet): string {
       const part = line.sku ?? `UNMAPPED${line.proposal === undefined ? '' : ` (proposed ${line.proposal.pn})`}`;
       // never the maker in the printed description:
       // `line.wire.manufacturer` still carries it, for a caller that wants it
-      const desc = facts([line.label, line.board?.bare === undefined ? undefined : `bare PCB ${line.board.bare}`, line.board?.build, line.board?.jumpers]);
+      const desc = facts([
+        line.label,
+        line.subassembly === undefined ? undefined : line.subassembly.rev === undefined ? 'working copy (not frozen)' : `Rev ${line.subassembly.rev}`,
+        line.board?.bare === undefined ? undefined : `bare PCB ${line.board.bare}`,
+        line.board?.build,
+        line.board?.jumpers,
+      ]);
       const where = line.variationPn ?? line.location;
       out.push(`| ${escapeMarkdownCell(qtyText(line))} | ${escapeMarkdownCell(part)} | ${escapeMarkdownCell(desc)} | ${escapeMarkdownCell(where)} | ${escapeMarkdownCell(line.instances.join(' '))} |${sheet.cost === undefined ? '' : ` ${costMarkdown(sheet.cost, line)} |`}`);
     }

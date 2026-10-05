@@ -63,12 +63,21 @@ const GROUPS: { kind: InstanceKind; title: string }[] = [
   { kind: 'segment', title: 'wire stock' },
   { kind: 'component', title: 'components' },
   { kind: 'pcba', title: 'PCBAs' },
+  { kind: 'subassembly', title: 'sub-assemblies (cables)' },
 ];
 
-export function Palette({ db }: { db: Db }): JSX.Element {
-  const { dispatch } = useEditorApi();
+/** Other designs, as sub-assemblies to place (never the design itself). */
+export function subassemblyEntries(designs: readonly { id: string; label: string }[], current?: string): PaletteEntry[] {
+  return designs
+    .filter((design) => design.id !== current)
+    .map((design) => ({ kind: 'subassembly' as const, def: design.id, label: design.label, detail: `cable ${design.id}` }))
+    .sort((a, b) => (a.def < b.def ? -1 : a.def > b.def ? 1 : 0));
+}
+
+export function Palette({ db, designs, current }: { db: Db; designs?: readonly { id: string; label: string }[] | undefined; current?: string }): JSX.Element {
+  const { dispatch, placeSubassembly } = useEditorApi();
   const [query, setQuery] = useState('');
-  const entries = useMemo(() => paletteEntries(db), [db]);
+  const entries = useMemo(() => [...paletteEntries(db), ...subassemblyEntries(designs ?? [], current)], [db, designs, current]);
   const visible = useMemo(
     () => entries.filter((entry) => matchesQuery(entry, query)),
     [entries, query],
@@ -114,7 +123,9 @@ export function Palette({ db }: { db: Db }): JSX.Element {
                     type="button"
                     className="cs-add"
                     onClick={() =>
-                      dispatch({ type: 'add-instance', kind: entry.kind, def: entry.def })
+                      entry.kind === 'subassembly' && placeSubassembly !== undefined
+                        ? placeSubassembly(entry.def)
+                        : dispatch({ type: 'add-instance', kind: entry.kind, def: entry.def })
                     }
                     title={`add ${entry.def}`}
                   >

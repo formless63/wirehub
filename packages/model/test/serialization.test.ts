@@ -13,7 +13,7 @@ import {
   loadDesigns,
 } from '@wirehub/catalog';
 
-import { CURRENT_SCHEMA_VERSION, deriveNets, upgradeDesignSchema, validateDesign } from '../src/index.ts';
+import { deriveNets, schemaVersionFor, upgradeDesignSchema, validateDesign } from '../src/index.ts';
 
 const roundTrip = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -43,10 +43,10 @@ describe('designs', () => {
     expect(second.joints.length).toBeGreaterThan(0);
   });
 
-  it('is at the one current schema version, with an id matching its file name', () => {
+  it('is at the schema version its body is written at (4, or 5 placing sub-assemblies), with an id matching its file name', () => {
     for (const id of listDesignIds()) {
       const design = loadDesign(id);
-      expect(design.schemaVersion, id).toBe(CURRENT_SCHEMA_VERSION);
+      expect(design.schemaVersion, id).toBe(schemaVersionFor(design));
       expect(design.id).toBe(id);
     }
   });

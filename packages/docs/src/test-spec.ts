@@ -27,6 +27,10 @@ import {
   commoningFacts,
   deriveNets,
   findConnector,
+  flattenSubassemblies,
+  hasSubassemblies,
+  resolveTerminal,
+  subassemblyPorts,
   findPcba,
   isGroundSignal,
   kindOfSignal,
@@ -209,6 +213,15 @@ export function designPorts(design: CableDesign, db: Db, nets: Net[]): Port[] {
       // about what this pin carries
       push(resolved, undefined);
     }
+  }
+
+  // a flying lead — a wire end nothing is soldered to — is stripped and
+  // reachable: a probe point like a pin (a lead made to be placed as a
+  // sub-assembly is tested before it is placed)
+  for (const port of subassemblyPorts(design, db)) {
+    if (port.kind !== 'lead') continue;
+    const resolved = resolveTerminal(design, db, port.ref);
+    if (resolved.ok) push(resolved.terminal, 'flying lead');
   }
 
   ports.sort(byKeys<Port>((port) => port.key));
@@ -419,7 +432,12 @@ const WORDED_OHMS = 5;
 const withThreshold = (text: string, ohms: number | undefined): string =>
   ohms === undefined || ohms === WORDED_OHMS ? text : text.replace(`< ${WORDED_OHMS} Ω`, `< ${ohms} Ω`);
 
-export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOptions = {}): TestSpec {
+export function deriveTestSpec(given: CableDesign, givenDb: Db, options: TestSpecOptions = {}): TestSpec {
+  // the finished assembly is tested whole: its sub-assemblies' parts are
+  // probe points like its own (`lead-1/j1:1`), their nets one with the parent's
+  const flat = hasSubassemblies(given) ? flattenSubassemblies(given, givenDb) : undefined;
+  const design = flat?.design ?? given;
+  const db = flat?.db ?? givenDb;
   const nets = deriveNets(design, db);
   const ports = designPorts(design, db, nets);
   const netById = new Map(nets.map((net) => [net.id, net]));
@@ -520,7 +538,9 @@ export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOpt
   );
 
   /* --- deliberate opens -------------------------------------------- */
-  const openChecks = deriveOpens(design, db, nets);
+  // a flying lead is a probe point, not an open (`designPorts`)
+  const flying = new Set(ports.filter((port) => port.role === 'flying lead').map((port) => port.key));
+  const openChecks = deriveOpens(design, db, nets).filter((check) => !flying.has(check.key));
 
   /* --- ground landings: the twists, checked by eye ------------------ */
   const groundLandings: GroundLandingCheck[] = deriveGroundLandings(design, db).map((row) => ({
@@ -560,7 +580,7 @@ export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOpt
       commoned: commoning.commoned.length,
     },
     electrical: electricalReport(design, db),
-    issues: validateDesign(design, db),
+    issues: flat === undefined ? validateDesign(design, db) : [...validateDesign(given, givenDb), ...flat.issues.filter((i) => i.severity === 'error')],
   };
 }
 

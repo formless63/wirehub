@@ -119,6 +119,18 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
   await call('approve', { method: 'POST', path: `${base}/1/approve`, body: { comment: 'checked' } }, 200);
   await call('approved listing', { method: 'GET', path: base }, 200);
 
+  // sub-assemblies (cs-5k1.9): where used, a refused delete, a version freezing its leads to their approved revision
+  await call('used in', { method: 'GET', path: '/api/designs/dc-pigtail-lead/used-in' }, 200);
+  await call('delete a placed lead', { method: 'DELETE', path: '/api/designs/dc-pigtail-lead', body: { confirm: 'dc-pigtail-lead' } }, 409);
+  await call('Y on an unreleased lead', { method: 'POST', path: '/api/designs/dc-y-from-leads/versions', body: { note: 'too early' } }, 422);
+  await call('save lead version', { method: 'POST', path: '/api/designs/dc-pigtail-lead/versions', body: { note: 'lead released' } }, 201);
+  await call('submit lead', { method: 'POST', path: '/api/designs/dc-pigtail-lead/versions/0/submit', body: { comment: 'ready' } }, 200);
+  await call('approve lead', { method: 'POST', path: '/api/designs/dc-pigtail-lead/versions/0/approve', body: { comment: 'checked' } }, 200);
+  await call('save Y version', { method: 'POST', path: '/api/designs/dc-y-from-leads/versions', body: { note: 'Y released' } }, 201);
+  await call('Y frozen', { method: 'GET', path: '/api/designs/dc-y-from-leads/versions/0' }, 200);
+  await call('library', { method: 'GET', path: '/api/assemblies?designs=dc-y-from-leads' }, 200);
+  await call('Y BOM at its revision', { method: 'GET', path: '/api/designs/dc-y-from-leads/exports/bom.csv?rev=0' }, 200);
+
   // definitions (the tag tables follow), vocabulary, wire library, a build
   const part = (await call('read part', { method: 'GET', path: '/api/definitions/components/r-150' }, 200));
   await call('edit part', { method: 'PUT', path: '/api/definitions/components/r-150', body: { ...(part.body as object), label: '150 Ω resistor, re-checked' }, headers: { 'if-match': etag(part) } }, 200);

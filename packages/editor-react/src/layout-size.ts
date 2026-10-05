@@ -147,6 +147,8 @@ export const NODE_BASE_WIDTH = {
   pcba: 250,
   /** a breakout mould (`moulds.ts`): compact */
   breakout: 180,
+  /** another design placed as a sub-assembly: its ports, grouped */
+  subassembly: 230,
 } as const;
 
 /** …and never wider than `base × this`: past it, titles ellipsise instead. */
@@ -213,6 +215,13 @@ export function nodeHeading(data: EditorNodeData): NodeHeading {
       return { badge: 'pcba', title: data.title, subtitle: data.subtitle };
     case 'breakout':
       return { badge: 'breakout', title: data.title, subtitle: data.subtitle };
+    case 'subassembly':
+      return {
+        badge: 'subassembly',
+        title: data.title,
+        subtitle: [data.partNumber, data.subtitle].filter((part) => part !== undefined).join(' · '),
+        meta: [data.def, data.role].filter((part) => part !== undefined).join(' · '),
+      };
   }
 }
 
@@ -340,6 +349,8 @@ function bodySize(data: EditorNodeData): NodeSize {
       return pcbaBody(data);
     case 'breakout':
       return mouldBody(data);
+    case 'subassembly':
+      return { width: Math.max(NODE_BASE_WIDTH.subassembly, widest(data.rows.map((row) => pinRowWidth(row, BOX.rowPadX)))), height: BOX.bodyPadY * 2 + data.rows.length * BOX.row + data.groups.length * BOX.sideLabel };
   }
 }
 

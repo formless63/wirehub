@@ -33,7 +33,16 @@ column order.
 
 - **BOM:** `section, part_number, description, quantity, unit, location, instances,
   variation_pn, notes`. Quantity is a number; `unit` is `ea` or `ft` (wire). A length
-  family's trunk has one row per orderable length, with its `variation_pn`.
+  family's trunk has one row per orderable length, with its `variation_pn`. A sub-assembly
+  (another design placed in this one, SPEC.md "Sub-assemblies") is one row in section
+  `Sub-assemblies`, by the placed design's product part number, its notes naming the design and the
+  pinned revision (or `working copy (not frozen)`); with prices its cost is that design's own
+  roll-up. `?explode=1` (the API, on `bom.csv`, `production.xlsx` and the `bom` document) lists the
+  placed designs' parts instead, folded with this design's own (`lead-1/j1 lead-2/j1`).
+- **Sub-assemblies elsewhere:** the build sheet references each one's own build sheet and lists what
+  lands on its ports; the wire, cut, crimp and label exports cover this design's own wire only; the
+  continuity exports and the schematic cover the flattened assembly, the placed parts named
+  `<sub>/<id>` (`lead-1/j1.1`).
 - **BOM cost columns:** when some part has a price (`cost`, `docs/interop.md` "Costing"), `unit_cost,
   extended_cost, currency` follow the BOM columns, and `Labour`, `Total` and (for a build quantity above 1)
   `Total x N` rows close the file, with the amount in `extended_cost`. A BOM with no prices has none of this.

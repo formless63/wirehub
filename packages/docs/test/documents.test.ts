@@ -5,11 +5,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { listDesignIds, loadDb, loadDesign, loadDesigns } from '@wirehub/catalog';
+import { withAssemblies } from '@wirehub/model';
 import { DEFAULT_PART_NUMBER_SCHEME, knownPartNumbers } from '@wirehub/model';
 
 import { deriveBom, deriveBomSheet, renderBomMarkdown, renderBuildSheet, renderDrawingSheet, renderTestSpecSheet } from '../src/index.ts';
 
-const db = loadDb();
+// the design library, as the studio gives it: a sub-assembly's ports come from the design it places
+const db = withAssemblies(loadDb(), { working: loadDesigns() });
 
 describe.each(listDesignIds())('%s', (id) => {
   const design = loadDesign(id);
@@ -38,7 +40,8 @@ describe('the BOM against the numbering scheme', () => {
   it('every starter part is numbered, so nothing is unmapped', () => {
     for (const design of loadDesigns()) {
       const sheet = deriveBomSheet(design, db);
-      expect(sheet.lines.filter((l) => l.state === 'unmapped').map((l) => l.ref), design.id).toEqual([]);
+      // a sub-assembly line is a design, and the starter's designs carry no product number (see the proposal below)
+      expect(sheet.lines.filter((l) => l.state === 'unmapped' && l.category !== 'subassembly').map((l) => l.ref), design.id).toEqual([]);
     }
   });
 

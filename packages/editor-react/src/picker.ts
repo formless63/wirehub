@@ -37,6 +37,7 @@ import {
   jointCompatibility,
   profileDesignTerminal,
   profileTerminal,
+  subassemblyPorts,
   type CableDesign,
   type Db,
   type InstanceKind,
@@ -89,6 +90,11 @@ export function defTerminals(kind: InstanceKind, def: string, db: Db): Candidate
         return (connector?.pins ?? []).map((pin) => ({ terminal: `${carried.terminalPrefix}.${pin.id}` }));
       });
       return [...pads, ...integrated];
+    }
+    case 'subassembly': {
+      // the ports of the design it would place (`subassemblies.ts`)
+      const placed = db.assemblies?.working.find((d) => d.id === def);
+      return placed === undefined ? [] : subassemblyPorts(placed, db).map((port) => ({ terminal: port.id }));
     }
   }
 }

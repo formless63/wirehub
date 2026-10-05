@@ -79,6 +79,12 @@ export interface CostSummary {
 export interface CostOptions {
   /** cables in the build (default 1) */
   buildQty?: number;
+  /**
+   * The cost of one of each sub-assembly line (`BomSheetLine.subassembly`),
+   * by the line's `sourceKey`: the placed design's own roll-up at the
+   * quantity this build takes. Absent or `undefined` for a line: unpriced.
+   */
+  subassemblies?: ReadonlyMap<string, CostSummary | undefined>;
 }
 
 const MM_PER_M = 1000;
@@ -110,7 +116,30 @@ export function deriveCost(design: CableDesign, db: Db, lines: readonly BomSheet
   const priced: CostLine[] = [];
   const unpriced: CostSummary['unpriced'] = [];
   const segmentIds = new Set(design.instances.segments.map((s) => s.id));
+  const floors: string[] = [];
   for (const line of lines) {
+    if (line.subassembly !== undefined) {
+      // a sub-assembly costs what its own BOM and labour cost (its roll-up, one cable)
+      const own = options.subassemblies?.get(line.sourceKey);
+      if (own === undefined) {
+        unpriced.push({ sourceKey: line.sourceKey, ref: line.ref, label: line.label });
+        continue;
+      }
+      if (own.unpriced.length > 0 || own.foreign.length > 0) floors.push(line.label);
+      const quantity = Number(line.quantity);
+      const currency = own.currency ?? orgCurrency;
+      priced.push({
+        sourceKey: line.sourceKey,
+        ref: line.ref,
+        label: line.label,
+        quantity,
+        unit: 'each',
+        unitPrice: own.total,
+        extended: round(quantity * own.total),
+        ...(currency === undefined ? {} : { currency }),
+      });
+      continue;
+    }
     const { cost, isWire } = costOf(db, line.category, line.ref);
     if (cost === undefined) {
       unpriced.push({ sourceKey: line.sourceKey, ref: line.ref, label: line.label });
@@ -164,6 +193,7 @@ export function deriveCost(design: CableDesign, db: Db, lines: readonly BomSheet
   if (currency === undefined) notes.push('No currency is set: add one in the engineering settings, or on the prices.');
   if (foreign.length > 0) notes.push(`${foreign.length} priced line${foreign.length === 1 ? ' is' : 's are'} in another currency and not in the total (no exchange rates).`);
   if (unpriced.length > 0) notes.push(`${unpriced.length} line${unpriced.length === 1 ? ' has' : 's have'} no price, so the total is a floor.`);
+  for (const label of [...new Set(floors)]) notes.push(`The sub-assembly ${label} has parts without a price of its own, so its cost is a floor.`);
   if (labour !== undefined && labour.cost === undefined) notes.push('Labour time is recorded but no labour rate is set, so it is not in the total.');
   return {
     ...(currency === undefined ? {} : { currency }),

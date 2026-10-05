@@ -18,6 +18,8 @@ import {
   findWire,
   isElectricalElement,
   parseTerminalKey,
+  placedDesign,
+  portsOfSubassembly,
   screenTerminations,
   terminalKey,
   type CableDesign,
@@ -349,12 +351,38 @@ export type PcbaNodeData = {
   bridges?: Bridge[];
 };
 
+/**
+ * Another design placed as a sub-assembly: a block with one row per port
+ * (its connectors' pins, its flying leads), grouped by the end they belong to.
+ */
+export type SubassemblyNodeData = {
+  kind: 'subassembly';
+  instanceId: string;
+  /** the placed design's id */
+  def: string;
+  /** the placed design's label */
+  title: string;
+  /** `Rev 2` or `working copy` */
+  subtitle: string;
+  role?: string;
+  /** the placed design's product part number */
+  partNumber?: string;
+  /** the pinned revision; absent = follows the working copy */
+  rev?: number;
+  rows: TerminalRow[];
+  /** the ends the rows belong to, in row order: a heading over `count` rows from `start` */
+  groups: { label: string; start: number; count: number }[];
+  /** the placed design could not be opened (missing, a missing revision, no library): rows are only what the joints land on */
+  missingDef: boolean;
+};
+
 export type EditorNodeData =
   | ConnectorNodeData
   | SegmentNodeData
   | ComponentNodeData
   | PcbaNodeData
-  | MouldNodeData;
+  | MouldNodeData
+  | SubassemblyNodeData;
 
 /** What a canvas node is: an instance of the design, or a breakout mould (`moulds.ts`). */
 export type EditorNodeKind = InstanceKind | typeof MOULD_KIND;
@@ -800,6 +828,10 @@ function nodeDataOf(
     entries.push({ id: instance.id, kind: 'component', data });
   }
 
+  for (const instance of design.instances.subassemblies ?? []) {
+    entries.push({ id: instance.id, kind: 'subassembly', data: subassemblyData(design, db, instance.id, columns, context) });
+  }
+
   // a board's integrated connector: its pins reach the cable through the board
   for (const entry of boards) {
     if (entry.data.kind !== 'pcba' || entry.data.integratedArt === undefined) continue;
@@ -813,6 +845,43 @@ function nodeDataOf(
   // `parentId` (below) must name a node already in the array
   entries.push(...boards, ...mouldEntries, ...tail);
   return withBridges(design, paintThrough(design, db, paintPins(entries, pinColours(design, db, artKeys))), context.selectedJoints);
+}
+
+/** A sub-assembly's block: its ports as rows, grouped by end, facing the columns its joints go to. */
+function subassemblyData(design: CableDesign, db: Db, id: string, columns: Record<string, number>, context: RowContext): SubassemblyNodeData {
+  const instance = (design.instances.subassemblies ?? []).find((s) => s.id === id)!;
+  const opened = placedDesign(db, instance);
+  const placed = opened?.ok === true ? opened.placed.design : undefined;
+  const side: 'left' | 'right' = facingByColumns(design, id, columns);
+  const ports = portsOfSubassembly(design, db, id);
+  const rows: TerminalRow[] = [];
+  const groups: SubassemblyNodeData['groups'] = [];
+  if (ports !== undefined) {
+    for (const port of ports) {
+      const last = groups[groups.length - 1];
+      if (last === undefined || last.label !== port.groupLabel) groups.push({ label: port.groupLabel, start: rows.length, count: 1 });
+      else last.count += 1;
+      rows.push(makeRow(context, { instance: id, terminal: port.id }, { label: port.label, role: port.kind === 'lead' ? 'conductor' : 'pin', side }));
+    }
+  } else {
+    // not opened: what this design's joints land on, so its edges still draw
+    const landed = [...new Set(design.joints.flatMap((j) => [j.a, j.b, ...(j.through === undefined ? [] : [j.through])]).filter((r) => r.instance === id).map((r) => r.terminal))].sort();
+    if (landed.length > 0) groups.push({ label: 'ports (design not loaded)', start: 0, count: landed.length });
+    for (const terminal of landed) rows.push(makeRow(context, { instance: id, terminal }, { role: 'pin', side }));
+  }
+  return {
+    kind: 'subassembly',
+    instanceId: id,
+    def: instance.def,
+    title: placed?.label ?? instance.def,
+    subtitle: instance.rev === undefined ? 'working copy' : `Rev ${instance.rev}`,
+    rows,
+    groups,
+    missingDef: ports === undefined,
+    ...(instance.role === undefined ? {} : { role: instance.role }),
+    ...(placed?.productRef === undefined ? {} : { partNumber: placed.productRef }),
+    ...(instance.rev === undefined ? {} : { rev: instance.rev }),
+  };
 }
 
 /**

@@ -167,6 +167,326 @@ w1,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",black,core,black,j1.2,,j2.
 "
 `;
 
+exports[`dc-pigtail-lead > the CSV exports match their snapshots > bom.csv 1`] = `
+"section,part_number,description,quantity,unit,location,instances,variation_pn,notes
+Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Source end · device connector,j1,,2 pins · attaches: w1@a
+"Contacts, seals & plugs",MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",2,ea,Source end · device connector,j1:1 j1:2,,0.05–0.33 mm² (30–22 AWG) · in j1
+Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",1,ft,wire run,w1,,Ø 3.5 mm
+"
+`;
+
+exports[`dc-pigtail-lead > the CSV exports match their snapshots > continuity.csv 1`] = `
+"type,id,net,signal,from,to,expect,limit,unit,test_volts,duration_s,note
+net-pin,net/net-1/j1.1,net-1,power,j1.1,,on-net,,,,,
+net-pin,net/net-1/w1.red,net-1,power,w1.red,,on-net,,,,,
+net-pin,net/net-2/j1.2,net-2,ground,j1.2,,on-net,,,,,
+net-pin,net/net-2/w1.black,net-2,ground,w1.black,,on-net,,,,,
+isolation,isolation/power vs ground/j1:1|j1:2,,,j1.1,j1.2,open,10,Mohm,100,1,power vs ground (a)
+isolation,isolation/power vs ground/w1:black@b|w1:red@b,,,w1.black,w1.red,open,10,Mohm,100,1,power vs ground (unassigned)
+"
+`;
+
+exports[`dc-pigtail-lead > the CSV exports match their snapshots > continuity.json 1`] = `
+"{
+  "format": "wirehub.continuity",
+  "version": 1,
+  "design": {
+    "id": "dc-pigtail-lead",
+    "label": "JST XH 2-pin → flying leads, DC pigtail lead"
+  },
+  "parameters": {
+    "continuityOhmsMax": 5,
+    "isolationVolts": 100,
+    "isolationMinMohm": 10,
+    "isolationSeconds": 1
+  },
+  "points": [
+    {
+      "id": "j1.1",
+      "instance": "j1",
+      "terminal": "1",
+      "label": "+V",
+      "end": "a",
+      "signal": "power",
+      "net": "net-1"
+    },
+    {
+      "id": "j1.2",
+      "instance": "j1",
+      "terminal": "2",
+      "label": "0 V",
+      "end": "a",
+      "signal": "ground",
+      "net": "net-2"
+    },
+    {
+      "id": "w1.black",
+      "instance": "w1",
+      "terminal": "black",
+      "label": "0 V",
+      "end": "unassigned",
+      "signal": "ground",
+      "net": "net-2"
+    },
+    {
+      "id": "w1.red",
+      "instance": "w1",
+      "terminal": "red",
+      "label": "+V",
+      "end": "unassigned",
+      "signal": "power",
+      "net": "net-1"
+    }
+  ],
+  "nets": [
+    {
+      "net": "net-1",
+      "signal": "power",
+      "points": [
+        "j1.1",
+        "w1.red"
+      ]
+    },
+    {
+      "net": "net-2",
+      "signal": "ground",
+      "points": [
+        "j1.2",
+        "w1.black"
+      ]
+    }
+  ],
+  "connections": [],
+  "isolation": [
+    {
+      "id": "isolation/power vs ground/j1:1|j1:2",
+      "a": "j1.1",
+      "b": "j1.2",
+      "end": "a",
+      "rule": "power vs ground",
+      "netA": "net-1",
+      "netB": "net-2"
+    },
+    {
+      "id": "isolation/power vs ground/w1:black@b|w1:red@b",
+      "a": "w1.black",
+      "b": "w1.red",
+      "end": "unassigned",
+      "rule": "power vs ground",
+      "netA": "net-2",
+      "netB": "net-1"
+    }
+  ],
+  "opens": []
+}
+"
+`;
+
+exports[`dc-pigtail-lead > the CSV exports match their snapshots > crimp-list.csv 1`] = `
+"connector,connector_part_number,cavity,wires,wire_mm2,contact_part_number,contact,seal_part_number,seal,plug_part_number,plug,strip_mm,crimp_height_mm,tool_part_number,tool,notes
+j1,CON-00010,1,w1.red@a,0.205,MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",,,,,,,MEC-00004,Hand crimp tool for XH-series 2.5 mm pitch contacts,
+j1,CON-00010,2,w1.black@a,0.205,MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",,,,,,,MEC-00004,Hand crimp tool for XH-series 2.5 mm pitch contacts,
+"
+`;
+
+exports[`dc-pigtail-lead > the CSV exports match their snapshots > cut-list.csv 1`] = `
+"stock_part_number,stock,piece,length_mm,length_in,quantity,variation_pn,segments
+WIR-00005,"DC power cable, 2 × 24 AWG, red/black",trunk,300,11.8,1,,w1
+"
+`;
+
+exports[`dc-pigtail-lead > the CSV exports match their snapshots > labels.csv 1`] = `
+"label_id,segment,end,designation,line_1,line_2,line_3,offset_mm,position,stock_part_number,length_mm,core
+w1/a,w1,a,W1,W1-A,at J1,,40,40 mm from the source end of the jacket,WIR-00005,300,
+w1/b,w1,b,W1,W1-B,to J1,,40,40 mm from the destination end of the jacket,WIR-00005,300,
+"
+`;
+
+exports[`dc-pigtail-lead > the CSV exports match their snapshots > wire-list.csv 1`] = `
+"segment,stock_part_number,stock,element,kind,colour,a_landing,a_pad,b_landing,b_pad,length_mm,notes
+w1,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",red,core,red,j1.1,,,,300,+V
+w1,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",black,core,black,j1.2,,,,300,0 V
+"
+`;
+
+exports[`dc-y-from-leads > the CSV exports match their snapshots > bom.csv 1`] = `
+"section,part_number,description,quantity,unit,location,instances,variation_pn,notes
+Sub-assemblies,,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,first output,lead-1,,design dc-pigtail-lead · working copy (not frozen) · built to its own build sheet
+Sub-assemblies,,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,second output,lead-2,,design dc-pigtail-lead · working copy (not frozen) · built to its own build sheet
+Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,supply terminal block,j1,,"4 pins · attaches: sub-assemblies lead-1, lead-2"
+"
+`;
+
+exports[`dc-y-from-leads > the CSV exports match their snapshots > continuity.csv 1`] = `
+"type,id,net,signal,from,to,expect,limit,unit,test_volts,duration_s,note
+net-pin,net/net-1/j1.1,net-1,power,j1.1,,on-net,,,,,
+net-pin,net/net-1/lead-1/j1.1,net-1,power,lead-1/j1.1,,on-net,,,,,
+net-pin,net/net-1/lead-2/j1.1,net-1,power,lead-2/j1.1,,on-net,,,,,
+net-pin,net/net-2/j1.2,net-2,ground,j1.2,,on-net,,,,,
+net-pin,net/net-2/lead-1/j1.2,net-2,ground,lead-1/j1.2,,on-net,,,,,
+net-pin,net/net-2/lead-2/j1.2,net-2,ground,lead-2/j1.2,,on-net,,,,,
+isolation,isolation/power vs ground/lead-1/j1:1|lead-1/j1:2,,,lead-1/j1.1,lead-1/j1.2,open,10,Mohm,100,1,power vs ground (a)
+open,open/j1:3,,,j1.3 (3),,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
+open,open/j1:4,,,j1.4 (4),,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
+"
+`;
+
+exports[`dc-y-from-leads > the CSV exports match their snapshots > continuity.json 1`] = `
+"{
+  "format": "wirehub.continuity",
+  "version": 1,
+  "design": {
+    "id": "dc-y-from-leads",
+    "label": "Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads"
+  },
+  "parameters": {
+    "continuityOhmsMax": 5,
+    "isolationVolts": 100,
+    "isolationMinMohm": 10,
+    "isolationSeconds": 1
+  },
+  "points": [
+    {
+      "id": "j1.1",
+      "instance": "j1",
+      "terminal": "1",
+      "label": "1",
+      "end": "b",
+      "signal": "other",
+      "net": "net-1"
+    },
+    {
+      "id": "j1.2",
+      "instance": "j1",
+      "terminal": "2",
+      "label": "2",
+      "end": "b",
+      "signal": "other",
+      "net": "net-2"
+    },
+    {
+      "id": "j1.3",
+      "instance": "j1",
+      "terminal": "3",
+      "label": "3",
+      "end": "b",
+      "signal": "other"
+    },
+    {
+      "id": "j1.4",
+      "instance": "j1",
+      "terminal": "4",
+      "label": "4",
+      "end": "b",
+      "signal": "other"
+    },
+    {
+      "id": "lead-1/j1.1",
+      "instance": "lead-1/j1",
+      "terminal": "1",
+      "label": "+V",
+      "end": "a",
+      "signal": "power",
+      "net": "net-1"
+    },
+    {
+      "id": "lead-1/j1.2",
+      "instance": "lead-1/j1",
+      "terminal": "2",
+      "label": "0 V",
+      "end": "a",
+      "signal": "ground",
+      "net": "net-2"
+    },
+    {
+      "id": "lead-2/j1.1",
+      "instance": "lead-2/j1",
+      "terminal": "1",
+      "label": "+V",
+      "end": "a",
+      "signal": "power",
+      "net": "net-1"
+    },
+    {
+      "id": "lead-2/j1.2",
+      "instance": "lead-2/j1",
+      "terminal": "2",
+      "label": "0 V",
+      "end": "a",
+      "signal": "ground",
+      "net": "net-2"
+    }
+  ],
+  "nets": [
+    {
+      "net": "net-1",
+      "signal": "power",
+      "points": [
+        "j1.1",
+        "lead-1/j1.1",
+        "lead-2/j1.1"
+      ]
+    },
+    {
+      "net": "net-2",
+      "signal": "ground",
+      "points": [
+        "j1.2",
+        "lead-1/j1.2",
+        "lead-2/j1.2"
+      ]
+    }
+  ],
+  "connections": [],
+  "isolation": [
+    {
+      "id": "isolation/power vs ground/lead-1/j1:1|lead-1/j1:2",
+      "a": "lead-1/j1.1",
+      "b": "lead-1/j1.2",
+      "end": "a",
+      "rule": "power vs ground",
+      "netA": "net-1",
+      "netB": "net-2"
+    }
+  ],
+  "opens": [
+    {
+      "id": "open/j1:3",
+      "kind": "unused-pin",
+      "point": "j1.3 (3)",
+      "why": "Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
+    },
+    {
+      "id": "open/j1:4",
+      "kind": "unused-pin",
+      "point": "j1.4 (4)",
+      "why": "Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
+    }
+  ]
+}
+"
+`;
+
+exports[`dc-y-from-leads > the CSV exports match their snapshots > crimp-list.csv 1`] = `
+"connector,connector_part_number,cavity,wires,wire_mm2,contact_part_number,contact,seal_part_number,seal,plug_part_number,plug,strip_mm,crimp_height_mm,tool_part_number,tool,notes
+"
+`;
+
+exports[`dc-y-from-leads > the CSV exports match their snapshots > cut-list.csv 1`] = `
+"stock_part_number,stock,piece,length_mm,length_in,quantity,variation_pn,segments
+"
+`;
+
+exports[`dc-y-from-leads > the CSV exports match their snapshots > labels.csv 1`] = `
+"label_id,segment,end,designation,line_1,line_2,line_3,offset_mm,position,stock_part_number,length_mm,core
+"
+`;
+
+exports[`dc-y-from-leads > the CSV exports match their snapshots > wire-list.csv 1`] = `
+"segment,stock_part_number,stock,element,kind,colour,a_landing,a_pad,b_landing,b_pad,length_mm,notes
+"
+`;
+
 exports[`dc-y-splitter > the CSV exports match their snapshots > bom.csv 1`] = `
 "section,part_number,description,quantity,unit,location,instances,variation_pn,notes
 Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end · channel 1 plug,j2,,2 pins · attaches: w2@b

@@ -21,6 +21,7 @@ import { linkElements, linkVia } from './link-elements.ts';
 import { pigtailMembers, pigtailsAt } from './bonds.ts';
 import { inScope, segmentElectricalPaths, throughPairs } from './breakouts.ts';
 import { pigtailTerminal } from './model.ts';
+import { flattenSubassemblies, hasSubassemblies, portsOfSubassembly, subassembliesOf } from './subassemblies.ts';
 import {
   resolveTerminal,
   terminalKey,
@@ -46,9 +47,11 @@ export interface Passage {
  * screen twisted into it, and the members of a bonded set to each other at
  * each end (specs/shield-bonding.md §2.3). Plain copper, no passage.
  * `through` is a conductor passing uncut through a breakout mould: its trunk
- * end and the leg end it continues on are the same copper.
+ * end and the leg end it continues on are the same copper. `port` is a
+ * sub-assembly's port (`lead-1:w1@b:red`) and the terminal it is inside the
+ * placed design (`lead-1/w1:red@b`): one terminal under two names.
  */
-export type EdgeKind = 'joint' | 'wire' | 'pcba-link' | 'component' | 'bond' | 'through';
+export type EdgeKind = 'joint' | 'wire' | 'pcba-link' | 'component' | 'bond' | 'through' | 'port';
 
 export interface GraphEdge {
   a: ResolvedTerminal;
@@ -78,8 +81,44 @@ function compareEdges(x: GraphEdge, y: GraphEdge): number {
 /**
  * The full connectivity graph of a design. Unresolvable references are
  * skipped and reported in `issues` (never thrown).
+ *
+ * A design placing sub-assemblies is flattened first
+ * (`flattenSubassemblies`): the graph runs through the placed designs' parts
+ * (`lead-1/w1:red@b`), and each port of a sub-assembly is tied to the
+ * terminal it is by a `port` edge, so a trace from a port, or a net holding
+ * one, works on the parent's own terminal names too.
  */
 export function buildGraph(design: CableDesign, db: Db): DesignGraph {
+  if (hasSubassemblies(design)) return subassemblyGraph(design, db);
+  return ownGraph(design, db);
+}
+
+function subassemblyGraph(design: CableDesign, db: Db): DesignGraph {
+  const flat = flattenSubassemblies(design, db);
+  const graph = ownGraph(flat.design, flat.db);
+  const edges = [...graph.edges];
+  for (const sub of subassembliesOf(design)) {
+    for (const port of portsOfSubassembly(design, db, sub.id) ?? []) {
+      const ref: TerminalRef = { instance: sub.id, terminal: port.id };
+      const target = flat.ports.get(terminalKey(ref));
+      if (target === undefined) continue;
+      const a = resolveTerminal(design, db, ref);
+      const b = resolveTerminal(flat.design, flat.db, target);
+      if (!a.ok || !b.ok) continue;
+      edges.push({ a: a.terminal, b: b.terminal, kind: 'port' });
+    }
+  }
+  edges.sort(compareEdges);
+  const byKey = new Map<string, ResolvedTerminal>();
+  for (const edge of edges) {
+    if (!byKey.has(edge.a.key)) byKey.set(edge.a.key, edge.a);
+    if (!byKey.has(edge.b.key)) byKey.set(edge.b.key, edge.b);
+  }
+  const nodes = [...byKey.values()].sort((x, y) => x.key.localeCompare(y.key));
+  return { nodes, edges, issues: [...flat.issues, ...graph.issues] };
+}
+
+function ownGraph(design: CableDesign, db: Db): DesignGraph {
   const issues: Issue[] = [];
   const edges: GraphEdge[] = [];
 
@@ -317,7 +356,12 @@ export function trace(
   from: TerminalRef,
 ): TraceResult {
   const graph = buildGraph(design, db);
-  const start = resolveTerminal(design, db, from);
+  let start = resolveTerminal(design, db, from);
+  if (!start.ok && hasSubassemblies(design)) {
+    // a flattened terminal (`lead-1/w1:red@b`) is a node of the graph too
+    const known = graph.nodes.find((node) => node.key === terminalKey(from));
+    if (known !== undefined) start = { ok: true, terminal: known };
+  }
   if (!start.ok) {
     const startRef: ResolvedTerminal = {
       key: terminalKey(from),

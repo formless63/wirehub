@@ -703,6 +703,95 @@ exports[`golden structure > dc-led-lead matches its structure digest 1`] = `
 }"
 `;
 
+exports[`golden structure > dc-pigtail-lead matches its structure digest 1`] = `
+"{
+ "blocks": [
+  {
+   "id": "j1",
+   "kind": "connector",
+   "def": "jst-xh-2-dc",
+   "ports": 2,
+   "side": "right"
+  }
+ ],
+ "bands": [
+  {
+   "segment": "w1",
+   "def": "dc-2core-24awg",
+   "label": "DC power cable, 2 × 24 AWG, red/black · 300 mm",
+   "zone": "source",
+   "leftEnd": "a",
+   "tracks": [
+    [
+     "w1:red",
+     "conductor",
+     "plain",
+     "red"
+    ],
+    [
+     "w1:black",
+     "conductor",
+     "plain",
+     "black"
+    ]
+   ],
+   "groups": 0,
+   "pigtails": 0
+  }
+ ],
+ "joints": [
+  [
+   "j1:1",
+   1
+  ],
+  [
+   "j1:2",
+   1
+  ],
+  [
+   "w1:black@a",
+   1
+  ],
+  [
+   "w1:red@a",
+   1
+  ]
+ ],
+ "cutEnds": 2,
+ "edges": 2,
+ "components": 0,
+ "crossSection": "WIR-00005 · cross-section · lay order CW from 12 o'clock",
+ "issues": [
+  "cavity-unknown-part",
+  "cavity-unknown-part"
+ ]
+}"
+`;
+
+exports[`golden structure > dc-y-from-leads matches its structure digest 1`] = `
+"{
+ "blocks": [
+  {
+   "id": "j1",
+   "kind": "connector",
+   "def": "terminal-block-4",
+   "ports": 0,
+   "side": "right"
+  }
+ ],
+ "bands": [],
+ "joints": [],
+ "cutEnds": 0,
+ "edges": 0,
+ "components": 0,
+ "crossSection": null,
+ "issues": [
+  "subassembly-no-library",
+  "subassembly-no-library"
+ ]
+}"
+`;
+
 exports[`golden structure > dc-y-splitter matches its structure digest 1`] = `
 "{
  "blocks": [

@@ -25,6 +25,7 @@ import { useEditorChrome } from '../shell/editor-chrome.tsx';
 import { useStudio } from '../studio-context.tsx';
 import { approvalStep, branchVersion, editVersion, getVersion, loadVersionArt, lockVersion, shortTime, unlockVersion, type ApprovalStep, type VersionArt } from '../versions.browser.ts';
 import { versionDepictionSource } from '../depictions.browser.ts';
+import { withAssemblyLibrary, workbenchAssemblies } from '../persistence.browser.ts';
 import { PLAIN_BUTTON, PRIMARY_BUTTON, TEXT_INPUT, useVersionFile, useVersionListing } from './shared.tsx';
 
 type Mode = { kind: 'idle' } | { kind: 'unlock'; reason: string } | { kind: 'branch' } | { kind: 'approval'; step: ApprovalStep; comment: string };
@@ -51,6 +52,8 @@ export function VersionView(props: {
   const [artReady, setArtReady] = useState<string>();
 
   const db = useMemo(() => (file === undefined ? undefined : versionDb(file.definitions, studio.db)), [file, studio.db]);
+  // the designs the revision places (pinned to their saved versions), fetched by the editor
+  const assemblies = useMemo(() => workbenchAssemblies(), []);
   const documentFacts = useMemo(() => documentFactsFor(), []);
   const locked = file?.unlocked === undefined;
   const editorKey = file === undefined ? '' : `${id}@${rev}#${file.history.length}`;
@@ -87,7 +90,8 @@ export function VersionView(props: {
         const otherArt = await loadVersionArt(id, out.value);
         return {
           design: out.value.design,
-          db: versionDb(out.value.definitions, studio.db),
+          // the designs it places, pinned to their own saved versions
+          db: await withAssemblyLibrary(versionDb(out.value.definitions, studio.db), out.value.design),
           depictions: versionDepictionSource(otherArt.own, otherArt.covered, studio.depictions),
         };
       },
@@ -336,6 +340,7 @@ export function VersionView(props: {
           documentFacts={documentFacts}
           layout={studio.layout}
           release={release}
+          assemblies={assemblies}
           {...(extensions === undefined ? {} : { extensions })}
           view={props.view}
           onViewChange={props.onViewChange}

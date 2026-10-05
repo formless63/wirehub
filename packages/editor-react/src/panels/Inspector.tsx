@@ -28,6 +28,7 @@ import {
   findPcba,
   findWire,
   isFullyBonded,
+  portsOfSubassembly,
   profileDesignTerminal,
   terminalKey,
   terminalsOf,
@@ -69,6 +70,7 @@ import {
 import type { PigtailEdit } from '../pigtail-edit.ts';
 import { BreakoutPanel, SegmentBreakoutSection } from './BreakoutPanel.tsx';
 import { SegmentModel3d } from './SegmentModel3d.tsx';
+import { versionsOf } from '../assemblies.ts';
 
 /* ------------------------------------------------------------------ *
  * Small shared bits
@@ -108,7 +110,71 @@ function definitionFacts(
         ? undefined
         : { label: d.label, partNumber: d.partNumber, revision: d.revision };
     }
+    case 'subassembly': {
+      const d = db.assemblies?.working.find((candidate) => candidate.id === def);
+      return d === undefined ? undefined : { label: d.label, ...(d.productRef === undefined ? {} : { partNumber: d.productRef }) };
+    }
   }
+}
+
+/**
+ * A placed design: open it in its own editor, pin it to a saved version (or
+ * let it follow the working copy), and the free ends it exposes.
+ */
+export function SubassemblySection({ state, id }: { state: EditorState; id: string }): JSX.Element | null {
+  const { dispatch, openDesign } = useEditorApi();
+  const sub = (state.design.instances.subassemblies ?? []).find((s) => s.id === id);
+  if (sub === undefined) return null;
+  const versions = versionsOf(state.db.assemblies, sub.def);
+  const ports = portsOfSubassembly(state.design, state.db, id);
+  const value = sub.rev === undefined ? '' : String(sub.rev);
+  return (
+    <section className="cs-subassembly">
+      <h3>sub-assembly</h3>
+      {openDesign === undefined ? null : (
+        <button type="button" className="cs-link" onClick={() => openDesign(sub.def)} title={`open ${sub.def} in its own editor`}>
+          open {sub.def} in its own editor
+        </button>
+      )}
+      <label className="cs-field">
+        <span>version</span>
+        <select
+          className="cs-input"
+          aria-label="pinned version"
+          value={value}
+          onChange={(event) =>
+            dispatch({ type: 'update-instance', id, patch: { rev: event.target.value === '' ? undefined : Number(event.target.value) } })
+          }
+        >
+          <option value="">working copy (frozen when this cable's version is saved)</option>
+          {versions.map((v) => (
+            <option key={v.rev} value={String(v.rev)}>
+              Rev {v.rev}
+              {v.released ? '' : ' (not released)'}
+            </option>
+          ))}
+          {sub.rev !== undefined && !versions.some((v) => v.rev === sub.rev) ? <option value={value}>Rev {sub.rev} (not found)</option> : null}
+        </select>
+      </label>
+      <InstanceField label="role" value={sub.role ?? ''} onChange={(v) => dispatch({ type: 'update-instance', id, patch: { role: v } })} />
+      <InstanceField label="label" value={sub.label ?? ''} onChange={(v) => dispatch({ type: 'update-instance', id, patch: { label: v } })} placeholder={id} />
+      <InstanceField label="note" value={sub.note ?? ''} onChange={(v) => dispatch({ type: 'update-instance', id, patch: { note: v } })} />
+      <h4>
+        free ends <span className="cs-count">{ports?.length ?? 0}</span>
+      </h4>
+      {ports === undefined ? (
+        <p className="cs-empty">the placed design could not be opened — see Issues</p>
+      ) : (
+        <ul className="cs-list cs-subassembly-ports">
+          {ports.map((port) => (
+            <li key={port.id}>
+              <span className="cs-mono">{port.id}</span> <span className="cs-meta">{port.groupLabel} · {port.label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 /** The short subtitle text for one side of a connection: part number + rev
@@ -1213,7 +1279,8 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
   const segment = design.instances.segments.find((i) => i.id === id);
   const component = design.instances.components.find((i) => i.id === id);
   const pcba = design.instances.pcbas.find((i) => i.id === id);
-  const instance = connector ?? segment ?? component ?? pcba;
+  const subassembly = (design.instances.subassemblies ?? []).find((i) => i.id === id);
+  const instance = connector ?? segment ?? component ?? pcba ?? subassembly;
 
   if (instance === undefined) {
     return (
@@ -1231,7 +1298,9 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
       ? 'segment'
       : component !== undefined
         ? 'component'
-        : 'pcba';
+        : pcba !== undefined
+          ? 'pcba'
+          : 'subassembly';
   const facts = definitionFacts(db, kind, instance.def);
   const jointCount = design.joints.filter((joint) => joint.a.instance === id || joint.b.instance === id).length;
   const connections = connectionsOfInstance(design, id);
@@ -1327,6 +1396,7 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
         {pcba === undefined ? null : (
           <InstanceField label="note" value={pcba.note ?? ''} onChange={(v) => patch('note', v)} />
         )}
+        {subassembly === undefined ? null : <SubassemblySection state={state} id={id} />}
 
         {connector === undefined ? null : <CavitiesSection state={state} id={id} />}
         {connector === undefined && pcba === undefined ? null : <BridgesSection state={state} id={id} />}

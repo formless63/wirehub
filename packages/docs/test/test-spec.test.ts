@@ -7,14 +7,16 @@
  * claim broke rather than just which number moved.
  */
 
-import { listDesignIds, loadDb, loadDesign, type DesignId } from '@wirehub/catalog';
+import { listDesignIds, loadDb, loadDesign, loadDesigns, type DesignId } from '@wirehub/catalog';
+import { withAssemblies } from '@wirehub/model';
 import type { CableDesign } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { deriveTestSpec, type PathCheck, type TestSpec } from '../src/test-spec.ts';
 import { testSpecToHtml, testSpecToMarkdown } from '../src/test-spec-render.ts';
 
-const db = loadDb();
+// the design library, as the studio gives it: a sub-assembly's ports come from the design it places
+const db = withAssemblies(loadDb(), { working: loadDesigns() });
 
 const path = (spec: TestSpec, from: string, to: string): PathCheck => {
   const found = spec.pathChecks.find(

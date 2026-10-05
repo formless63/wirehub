@@ -5,7 +5,8 @@
 
 import { elementPaths, validateDesign } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
-import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
+import { listDesignIds, loadDb, loadDesign, loadDesigns } from '@wirehub/catalog';
+import { withAssemblies } from '@wirehub/model';
 
 import {
   BASE_EXPORTS,
@@ -34,7 +35,8 @@ import {
   wireListTable,
 } from '../src/index.ts';
 
-const db = loadDb();
+// the design library, as the studio gives it: a sub-assembly's ports come from the design it places
+const db = withAssemblies(loadDb(), { working: loadDesigns() });
 
 /** A small RFC 4180 reader, so the tests do not trust the writer. */
 function parseCsv(text: string): string[][] {
@@ -157,7 +159,10 @@ describe.each(listDesignIds())('%s', (id) => {
     expect(rows.map((r) => r[1])).toEqual(sheet.lines.map((l) => l.sku ?? ''));
   });
 
-  it('the wire list has a row for every landed conductor, landed at the ends the bench lands it', () => {
+  // a design built only from sub-assemblies has no wire runs of its own: its leads are theirs
+  const ownWire = design.instances.segments.length > 0;
+
+  it.runIf(ownWire)('the wire list has a row for every landed conductor, landed at the ends the bench lands it', () => {
     const table = wireListTable(design, db);
     for (const segment of design.instances.segments) {
       expect(table.rows.some((r) => r[0] === segment.id)).toBe(true);
@@ -189,7 +194,7 @@ describe.each(listDesignIds())('%s', (id) => {
     expect(rows.filter((r) => r[0] === 'isolation')).toHaveLength(spec.isolationChecks.length);
   });
 
-  it('labels: two per wire run, deterministic, and on the build sheet', () => {
+  it.runIf(ownWire)('labels: two per wire run, deterministic, and on the build sheet', () => {
     const labels = deriveLabels(design, db);
     expect(labels).toHaveLength(design.instances.segments.length * 2);
     expect(labels.map((l) => l.lines[0])).toContain('W1-A');
@@ -200,7 +205,7 @@ describe.each(listDesignIds())('%s', (id) => {
     expect((svg.match(/data-label=/g) ?? []).length).toBe(labels.length);
   });
 
-  it('label text: a run label, end text, a connector label and per-core labels override the defaults', () => {
+  it.runIf(ownWire)('label text: a run label, end text, a connector label and per-core labels override the defaults', () => {
     const d = structuredClone(design);
     const seg = d.instances.segments[0]!;
     const wire = db.wires.find((w) => w.id === seg.def)!;

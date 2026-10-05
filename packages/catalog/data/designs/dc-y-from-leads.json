@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 5,
+  "id": "dc-y-from-leads",
+  "label": "Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads",
+  "instances": {
+    "connectors": [
+      {
+        "id": "j1",
+        "def": "terminal-block-4",
+        "role": "supply terminal block"
+      }
+    ],
+    "segments": [],
+    "components": [],
+    "pcbas": [],
+    "subassemblies": [
+      {
+        "id": "lead-1",
+        "def": "dc-pigtail-lead",
+        "role": "first output"
+      },
+      {
+        "id": "lead-2",
+        "def": "dc-pigtail-lead",
+        "role": "second output"
+      }
+    ]
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "1"
+      },
+      "b": {
+        "instance": "lead-1",
+        "terminal": "w1@b:red"
+      },
+      "note": "+V to both leads"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "1"
+      },
+      "b": {
+        "instance": "lead-2",
+        "terminal": "w1@b:red"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "lead-1",
+        "terminal": "w1@b:black"
+      },
+      "note": "0 V to both leads"
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "lead-2",
+        "terminal": "w1@b:black"
+      }
+    }
+  ],
+  "src": "synthetic example: two dc-pigtail-lead sub-assemblies whose flying leads share terminal block positions 1 (+V) and 2 (0 V) — a Y split built from reusable leads"
+}

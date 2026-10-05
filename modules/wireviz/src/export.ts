@@ -5,7 +5,7 @@
  * WireViz's public syntax documentation.
  *
  * Whatever does not fit is listed as `# Not carried over:` comment lines at the
- * top of the file (components, boards, breakouts, pigtails, joints that join a
+ * top of the file (components, boards, breakouts, sub-assemblies, pigtails, joints that join a
  * conductor to a conductor, a second shield), so a person sees the loss rather
  * than a quietly smaller harness.
  */
@@ -64,6 +64,9 @@ export function exportWireViz(design: CableDesign, db: Db): ExportOutput {
   if (design.instances.pcbas.length > 0) lost.push(`${design.instances.pcbas.length} PCBA(s): ${design.instances.pcbas.map((c) => c.id).join(', ')} (a board is a black box with internal continuity)`);
   if ((design.instances.mechanical ?? []).length > 0) lost.push(`${design.instances.mechanical!.length} shell/hardware instance(s)`);
   if ((design.instances.breakouts ?? []).length > 0) lost.push('breakouts (moulds and legs)');
+  // WireViz has no nested harnesses: a placed design is exported on its own
+  const subs = design.instances.subassemblies ?? [];
+  if (subs.length > 0) lost.push(`${subs.length} sub-assembl${subs.length === 1 ? 'y' : 'ies'}: ${subs.map((s) => `${s.id} (${s.def})`).join(', ')} and the joints to them — export each placed design on its own`);
 
   /* conductor order per segment: non-bare conductors are wires 1..n; the first shield (else bare conductor) is 's' */
   interface Cab {

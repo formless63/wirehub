@@ -22,7 +22,7 @@
  * randomness; identical input gives identical bytes.
  */
 
-import { breakoutAt, findComponent, findConnector, findMechanical, findPcba, findWire, type CableDesign, type Db, type SegmentInstance } from '@wirehub/model';
+import { breakoutAt, findComponent, findConnector, findMechanical, findPcba, findWire, flattenSubassemblies, hasSubassemblies, type CableDesign, type Db, type SegmentInstance } from '@wirehub/model';
 
 import { trunkSegment } from './drawing/model.ts';
 import type { DrawingMeta } from './drawing/model.ts';
@@ -201,7 +201,11 @@ function wrapLength(label: string): number | undefined {
 }
 
 /** Derive the board's geometry from the design: no drawing, no paper. */
-export function deriveFormboard(design: CableDesign, db: Db, options: FormboardOptions = {}): Formboard {
+export function deriveFormboard(given: CableDesign, givenDb: Db, options: FormboardOptions = {}): Formboard {
+  // the whole harness lies on the board: a sub-assembly's runs are laid out with this design's own
+  const flat = hasSubassemblies(given) && givenDb.assemblies !== undefined ? flattenSubassemblies(given, givenDb) : undefined;
+  const design = flat?.design ?? given;
+  const db = flat?.db ?? givenDb;
   const segments = design.instances.segments;
   const byId = new Map(segments.map((s) => [s.id, s]));
   const trunk = trunkSegment(design, db);

@@ -15,7 +15,7 @@
  * Everything here is pure: no rules, no catalog.
  */
 
-import { CURRENT_SCHEMA_VERSION } from './model.ts';
+import { CURRENT_SCHEMA_VERSION, SUBASSEMBLY_SCHEMA_VERSION } from './model.ts';
 import type {
   BreakoutInstance,
   CableDesign,
@@ -79,12 +79,16 @@ export interface DesignBody {
 }
 
 /**
- * The schema version to write a body at: always `CURRENT_SCHEMA_VERSION` —
- * one version on disk. The arguments are kept so every
- * writer still says what it is writing.
+ * The schema version to write a body at: `CURRENT_SCHEMA_VERSION`, or
+ * `SUBASSEMBLY_SCHEMA_VERSION` when it places sub-assemblies (an older reader
+ * must refuse it rather than drop them). The second argument is kept so
+ * every writer still says what it is writing.
  */
-export function schemaVersionFor(_body: { instances: DesignInstances }, _base?: 2 | 3): typeof CURRENT_SCHEMA_VERSION {
-  return CURRENT_SCHEMA_VERSION;
+export function schemaVersionFor(
+  body: { instances: DesignInstances },
+  _base?: 2 | 3,
+): typeof CURRENT_SCHEMA_VERSION | typeof SUBASSEMBLY_SCHEMA_VERSION {
+  return (body.instances.subassemblies ?? []).length > 0 ? SUBASSEMBLY_SCHEMA_VERSION : CURRENT_SCHEMA_VERSION;
 }
 
 /* ------------------------------------------------------------------ *

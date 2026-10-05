@@ -142,7 +142,10 @@ describe('pull, edit, dry-run, push', () => {
   it('adds and removes designs, and refuses a changed file that has no write route', async () => {
     await pull(client(), dir);
     const meta = JSON.parse(readFileSync(join(dir, META_FILE), 'utf8')) as { hashes: Record<string, string> };
-    const ids = Object.keys(meta.hashes).filter((k) => k.startsWith('design:')).map((k) => k.slice(7));
+    const all = Object.keys(meta.hashes).filter((k) => k.startsWith('design:')).map((k) => k.slice(7));
+    // a design placed as a sub-assembly cannot be deleted: pick two nothing places
+    const placed = new Set(all.flatMap((id) => (JSON.parse(readFileSync(join(dir, `data/designs/${id}.json`), 'utf8')) as { instances: { subassemblies?: { def: string }[] } }).instances.subassemblies?.map((s) => s.def) ?? []));
+    const ids = all.filter((id) => !placed.has(id));
     const [first, second] = ids as [string, string];
     cpSync(join(dir, `data/designs/${first}.json`), join(dir, 'data/designs/a-new-copy.json'));
     edit('data/designs/a-new-copy.json', (d) => ((d.id = 'a-new-copy'), (d.label = 'A new copy')));

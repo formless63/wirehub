@@ -86,6 +86,8 @@ export interface BuildSheetOptions extends SheetOptions {
   partNumbers?: { scheme: PartNumberScheme; known: readonly KnownPartNumber[] };
   /** the saved revision being printed */
   revisionNumber?: number;
+  /** the BOM lists each sub-assembly's parts instead of one line for it (`BomOptions.explode`) */
+  explode?: boolean;
   /** cables in the build: the BOM's quantity breaks are read at this (default 1) */
   buildQty?: number;
 }
@@ -162,6 +164,7 @@ export function benchOptions(options: BuildSheetOptions): BenchSheetOptions {
     ...(options.document === undefined ? {} : { document: options.document }),
     ...(options.generatedAt === undefined ? {} : { generatedAt: options.generatedAt }),
     ...(options.testDefaults === undefined ? {} : { testDefaults: options.testDefaults }),
+    ...(options.explode === undefined ? {} : { explode: options.explode }),
     ...(options.buildQty === undefined ? {} : { buildQty: options.buildQty }),
   };
 }

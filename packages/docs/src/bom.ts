@@ -35,8 +35,11 @@ import {
   findMechanical,
   findPcba,
   findWire,
+  flattenSubassemblies,
+  hasSubassemblies,
   kitsContaining,
   passThroughRuns,
+  placedDesign,
   validateDesign,
   wireEndsOf,
   type CableDesign,
@@ -53,7 +56,12 @@ import { suppliedEnds } from './supplied.ts';
  * Types
  * ------------------------------------------------------------------ */
 
-export type BomCategory = 'wire' | 'assembly' | 'pcba' | 'connector' | 'termination' | 'shell' | 'hardware' | 'component';
+/**
+ * `assembly` is an end the contract manufacturer supplies terminated (a
+ * mechanical `supplies`); `subassembly` is another design placed in this one
+ * (`instances.subassemblies`), bought or built as one part by its own number.
+ */
+export type BomCategory = 'wire' | 'subassembly' | 'assembly' | 'pcba' | 'connector' | 'termination' | 'shell' | 'hardware' | 'component';
 
 /**
  * Print order: what you cut, what you populate, what you terminate with, what
@@ -63,6 +71,7 @@ export type BomCategory = 'wire' | 'assembly' | 'pcba' | 'connector' | 'terminat
  * shell, then the inline components).
  */
 export const BOM_CATEGORY_ORDER: readonly BomCategory[] = [
+  'subassembly',
   'wire',
   'assembly',
   'pcba',
@@ -74,6 +83,7 @@ export const BOM_CATEGORY_ORDER: readonly BomCategory[] = [
 ];
 
 const CATEGORY_LABEL: Readonly<Record<BomCategory, string>> = {
+  subassembly: 'Sub-assembly',
   wire: 'Wire stock',
   assembly: 'Sub-assembly',
   pcba: 'PCBA',
@@ -113,6 +123,22 @@ export interface BomLine {
   provenance: string[];
   /** the definition's own citation */
   src?: string;
+  /**
+   * A sub-assembly line: the design it places and the revision (absent: the
+   * working copy). Its build is that design's own build sheet; its cost, that
+   * design's own roll-up.
+   */
+  subassembly?: { design: string; rev?: number };
+}
+
+/** How the BOM treats sub-assemblies. */
+export interface BomOptions {
+  /**
+   * List each sub-assembly's parts instead of one line for it (the parts of
+   * the placed designs, all the way down, folded with this design's own).
+   * Needs the design library (`Db.assemblies`); without it the lines stay one each.
+   */
+  explode?: boolean;
 }
 
 /** A branch of the assembly — an audio whip, a light-gun leg, a TRS pigtail. */
@@ -190,6 +216,20 @@ function endSummary(ends: Set<string>): string {
   return [...ends].sort(compareStrings).join(', ');
 }
 
+/** The wire ends an instance is soldered to, and the sub-assemblies it lands on. */
+function attachesText(design: CableDesign, instanceId: string): string {
+  const ends = attachedEnds(design, instanceId);
+  const subIds = new Set((design.instances.subassemblies ?? []).map((s) => s.id));
+  const subs = new Set<string>();
+  for (const joint of design.joints) {
+    if (joint.a.instance === instanceId && subIds.has(joint.b.instance)) subs.add(joint.b.instance);
+    if (joint.b.instance === instanceId && subIds.has(joint.a.instance)) subs.add(joint.a.instance);
+  }
+  if (subs.size === 0) return endSummary(ends);
+  const subText = `sub-assembl${subs.size === 1 ? 'y' : 'ies'} ${[...subs].sort(compareStrings).join(', ')}`;
+  return ends.size === 0 ? subText : `${endSummary(ends)}, ${subText}`;
+}
+
 /** `source end (a)` / `destination end (b)` / `both ends`, from the wire ends. */
 function sideOf(ends: Set<string>): string {
   const sides = new Set([...ends].map((entry) => entry.slice(-1)));
@@ -248,6 +288,10 @@ function rollUpNotes(design: CableDesign): BomNote[] {
   for (const instance of design.instances.pcbas) {
     if (instance.note !== undefined) candidates.push({ source: `${instance.id}.note`, text: instance.note });
   }
+  for (const instance of design.instances.subassemblies ?? []) {
+    if (instance.role !== undefined) candidates.push({ source: `${instance.id}.role`, text: instance.role });
+    if (instance.note !== undefined) candidates.push({ source: `${instance.id}.note`, text: instance.note });
+  }
 
   const out: BomNote[] = [];
   for (const candidate of candidates) {
@@ -290,7 +334,18 @@ const WHIP = /\bwhip|pigtail\b/i;
 const LEG = /\bleg\b/i;
 const TRUNK = /\btrunk\b/i;
 
-export function deriveBom(design: CableDesign, db: Db): Bom {
+export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {}): Bom {
+  if (options.explode === true && hasSubassemblies(design) && db.assemblies !== undefined) {
+    // every placed design's parts, as if they were this design's own
+    const flat = flattenSubassemblies(design, db);
+    const bom = deriveBom(flat.design, flat.db);
+    return {
+      ...bom,
+      notes: rollUpNotes(design),
+      gaps: [...bom.gaps, ...flat.issues.map((i) => `sub-assembly ${i.where ?? ''}: ${i.message}`)].sort(compareStrings),
+      issues: validateDesign(design, db),
+    };
+  }
   const folds = new Map<string, Fold>();
   const gaps: string[] = [];
   // Mechanical instances carry their own qty per entry ("4 screws" is one
@@ -448,7 +503,7 @@ export function deriveBom(design: CableDesign, db: Db): Bom {
           preMadeLead ? 'purchased pre-made lead — not terminated on the bench' : undefined,
           connector === undefined ? undefined : `${connector.pins.length} pins`,
           kits.length === 0 ? undefined : `kit ${kits.join(', ')}`,
-          `attaches: ${endSummary(attachedEnds(design, instance.id))}`,
+          `attaches: ${attachesText(design, instance.id)}`,
         ]),
         ...(connector?.src === undefined ? {} : { src: connector.src }),
       },
@@ -576,6 +631,39 @@ export function deriveBom(design: CableDesign, db: Db): Bom {
     // the parts inside it ride on its line (provenance), not as lines of their own
     if (bought !== undefined) folds.get(key)!.provenance.push(...[...bought.covers].sort(compareStrings));
     mechanicalQtyByKey.set(key, (mechanicalQtyByKey.get(key) ?? 0) + instance.qty);
+  }
+
+  /* --- sub-assemblies: one line each, by the placed design's number -- */
+  for (const instance of design.instances.subassemblies ?? []) {
+    const opened = placedDesign(db, instance);
+    const placed = opened?.ok === true ? opened.placed.design : undefined;
+    const role = instance.role ?? 'sub-assembly';
+    const rev = instance.rev;
+    const key = `subassembly|${instance.def}|${rev ?? 'working'}|${role}`;
+    if (opened !== undefined && !opened.ok) {
+      gaps.push(`sub-assembly ${instance.id}: ${opened.issue.message}`);
+    } else if (placed?.productRef === undefined) {
+      const gap = `design '${instance.def}': no product part number — order or build it by name`;
+      if (!gaps.includes(gap)) gaps.push(gap);
+    }
+    foldInto(
+      folds,
+      key,
+      {
+        key,
+        category: 'subassembly',
+        unit: 'ea',
+        ref: instance.def,
+        label: placed?.label ?? instance.def,
+        ...(placed?.productRef === undefined ? {} : { partNumber: placed.productRef }),
+        value: rev === undefined ? 'working copy (not frozen)' : `Rev ${rev}`,
+        location: role,
+        detail: facts([`design ${instance.def}`, rev === undefined ? 'working copy (not frozen)' : `Rev ${rev}`, 'built to its own build sheet']),
+        ...(placed?.src === undefined ? {} : { src: placed.src }),
+        subassembly: { design: instance.def, ...(rev === undefined ? {} : { rev }) },
+      },
+      instance.id,
+    );
   }
 
   /* --- finish the lines ------------------------------------------- */

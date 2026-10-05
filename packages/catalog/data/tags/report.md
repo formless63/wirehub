@@ -10,7 +10,7 @@ Do not edit: correct a tag in `data/tags/review.json` (with its reason) and re-r
 | Connector pins (4 connectors) | 26 | 26 | 0 | 0 |
 | Board terminals (1 boards; 4 cable pads) | 4 | 0 | 0 | 0 |
 | Wire stocks (colour code) | 4 | 0 | 3 | — |
-| Instance role strings (4 designs) | 10 | 2 | 8 | — |
+| Instance role strings (6 designs) | 11 | 2 | 9 | — |
 
 **0 unclassified terminal(s) are soldered by a live design** (the gate is 0).
 
@@ -18,7 +18,7 @@ Do not edit: correct a tag in `data/tags/review.json` (with its reason) and re-r
 
 - **12 distinct pin labels** → 4 distinct signals.
 - **0 distinct cable-pad ids** → 0 pad roles.
-- **10 distinct instance role strings** across 4 designs → 1 slots.
+- **11 distinct instance role strings** across 6 designs → 1 slots.
 
 ## Pin labels → signals
 
@@ -73,12 +73,13 @@ Kept in `data/tags/instance-slots.json`; design files are never rewritten by the
 | channel 1 plug | connector | 1 | — (unclassified) |
 | channel 2 leg | segment | 1 | `leg` |
 | channel 2 plug | connector | 1 | — (unclassified) |
+| device connector | connector | 1 | — (unclassified) |
 | end A | connector | 1 | — (unclassified) |
 | end B | connector | 1 | — (unclassified) |
 | LED module connector | connector | 1 | — (unclassified) |
 | line connector | connector | 1 | — (unclassified) |
 | stem | segment | 1 | — (unclassified) |
-| supply terminal block | connector | 2 | — (unclassified) |
+| supply terminal block | connector | 3 | — (unclassified) |
 
 ## Owner corrections applied (`data/tags/review.json`)
 

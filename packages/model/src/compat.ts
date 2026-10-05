@@ -63,6 +63,7 @@ import { isElectricalElement, resolveElementPath } from './paths.ts';
 import { kindOfSignal, laneOfPadRole, signalOf, type TerminalTags } from './signals.ts';
 import { isGroundSignal, readSignalWords, signalOfLane } from './signal-words.ts';
 import { findInstance, terminalKey } from './validate.ts';
+import { placedDesign, portsOfSubassembly } from './subassemblies.ts';
 import { signalIds } from './vocab.ts';
 
 /** What kind of physical thing a terminal is. */
@@ -250,6 +251,15 @@ export function profileDesignTerminal(
 ): InstanceTerminal | undefined {
   const instance = findInstance(design, ref.instance);
   if (instance === undefined) return undefined;
+  if (instance.kind === 'subassembly') {
+    // a port profiles as the terminal it is inside the placed design
+    const port = portsOfSubassembly(design, db, instance.id)?.find((p) => p.id === ref.terminal);
+    const sub = (design.instances.subassemblies ?? []).find((s) => s.id === instance.id);
+    const opened = sub === undefined ? undefined : placedDesign(db, sub);
+    if (port === undefined || opened === undefined || !opened.ok) return undefined;
+    const inner = profileDesignTerminal(opened.placed.design, opened.placed.db, port.ref);
+    return inner === undefined ? undefined : { instance: `${instance.id}/${inner.instance}`, kind: inner.kind, profile: inner.profile };
+  }
   const profile = profileTerminal(db, instance.kind, instance.def, ref.terminal);
   return profile === undefined ? undefined : { instance: instance.id, kind: instance.kind, profile };
 }

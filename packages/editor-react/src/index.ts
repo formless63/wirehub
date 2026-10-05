@@ -613,3 +613,6 @@ export type { BoardComponentsSectionProps } from './panels/BoardComponentsSectio
 
 export { downloadOutput } from './extensions.ts';
 export type { EditorExtensions, EditorSlotContext, ExtraDocumentOutput, ExtraExporter } from './extensions.ts';
+export { dbWithLibrary, mergeLibraries, missingDesigns, versionsOf } from './assemblies.ts';
+export type { AssembliesAdapter } from './assemblies.ts';
+export type { SubassemblyNodeData } from './derive.ts';

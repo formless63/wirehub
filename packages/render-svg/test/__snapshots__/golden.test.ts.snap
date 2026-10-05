@@ -368,6 +368,790 @@ exports[`golden schematics > dc-led-lead matches its golden drawing 1`] = `
 </svg>"
 `;
 
+exports[`golden schematics > dc-pigtail-lead matches its depicted golden drawing 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 274.06 158.45" width="274.06mm" height="158.45mm" role="img" aria-label="JST XH 2-pin → flying leads, DC pigtail lead" data-design="dc-pigtail-lead">
+<title>JST XH 2-pin → flying leads, DC pigtail lead</title>
+<desc>Wiring schematic for dc-pigtail-lead. error: cavity-unknown-part cavity j1:1 names contact 'xh-contact-socket', which is not in the library error: cavity-unknown-part cavity j1:2 names contact 'xh-contact-socket', which is not in the library</desc>
+<style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
+<rect class="page" x="0" y="0" width="274.06" height="158.45"/>
+<g class="header">
+<text class="title" x="8" y="13">JST XH 2-pin → flying leads, DC pigtail lead</text>
+<text class="subtitle" x="8" y="18">dc-pigtail-lead</text>
+<text class="issue" x="8" y="22">2 validation error(s) — see &lt;desc&gt;</text>
+<text class="direction" x="8" y="25">end a · source — JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="direction" x="266.06" y="25" text-anchor="end">open — destination · end b</text>
+<line class="rule" x1="8" y1="27.4" x2="263.66" y2="27.4"/>
+<path class="rule" fill="#98a2ac" d="M266.06 27.4 L263.46 26.3 L263.46 28.5 Z"/>
+<g class="legend">
+<line x1="8" y1="34" x2="16" y2="34" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="legend-text" x="18" y="34.8">conductor (colour = core)</text>
+<line x1="61.12" y1="34" x2="69.12" y2="34" stroke="#7c848c" stroke-width="0.75" stroke-dasharray="2 1.2"/>
+<text class="legend-text" x="71.12" y="34.8">core shield</text>
+<line x1="92.29" y1="34" x2="100.29" y2="34" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
+<text class="legend-text" x="102.29" y="34.8">drain (bare)</text>
+<circle class="joint-dot" cx="128.87" cy="34" r="0.9"/>
+<text class="legend-text" x="134.87" y="34.8">joint</text>
+<line x1="146.36" y1="34" x2="154.36" y2="34" stroke="#5b6570" stroke-width="0.35" stroke-dasharray="1.6 1.2"/>
+<text class="legend-text" x="156.36" y="34.8">PCBA internal link</text>
+<line class="cut" x1="192.04" y1="32.3" x2="192.04" y2="35.7"/>
+<line class="cut" x1="190.64" y1="35.9" x2="193.44" y2="32.1"/>
+<text class="legend-text" x="198.04" y="34.8">deliberate cut end</text>
+</g>
+</g>
+<g class="joints-wiring">
+<g class="joint" data-joint="0" data-a="j1:1" data-b="w1:red@a" data-net="net-1">
+<title>+V</title>
+<path class="edge" d="M89.06 53.1 L98.89 53.1 L98.89 50 L115.06 50" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="1" data-a="j1:2" data-b="w1:black@a" data-net="net-2">
+<title>0 V</title>
+<path class="edge" d="M89.06 60.6 L105.23 60.6 L105.23 57 L115.06 57" stroke="#17191c" stroke-width="0.87"/>
+</g>
+</g>
+<g class="bands">
+<g class="band band-source" data-segment="w1" data-left-end="a">
+<rect class="band-outline" x="115.06" y="45" width="125" height="17" rx="2"/>
+<text class="band-label" x="115.06" y="43">DC power cable, 2 × 24 AWG, red/black · 300 mm</text>
+<g class="track track-plain" data-track="w1:red" data-segment="w1" data-element="red" data-kind="conductor" data-net="net-1">
+<line class="track-line" x1="115.06" y1="50" x2="240.06" y2="50" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="track-label" x="132.06" y="48.7">red · +V</text>
+</g>
+<g class="track track-plain" data-track="w1:black" data-segment="w1" data-element="black" data-kind="conductor" data-net="net-2">
+<line class="track-line" x1="115.06" y1="57" x2="240.06" y2="57" stroke="#17191c" stroke-width="1.4"/>
+<text class="track-label" x="132.06" y="55.7">black · 0 V</text>
+</g>
+</g>
+</g>
+<g class="cross-section" data-wire="dc-2core-24awg" data-arrangement="pair" data-direction="cw" data-scale="4">
+<rect class="xs-panel" x="115.06" y="73.35" width="93.45" height="60.6" rx="1.6"/>
+<text class="xs-title" x="118.06" y="80.15">DC power cable, 2 × 24 AWG, red/black</text>
+<text class="xs-sub" x="118.06" y="84.55">WIR-00005 · cross-section · lay order CW from 12 o'clock</text>
+<g class="xs-ring xs-ring-insulation" data-element="jacket" data-kind="insulation" data-od="3.5">
+<title>jacket · Jacket — Ø 3.50 mm</title>
+<circle class="xs-fill" cx="133.06" cy="102.55" r="5.9" fill="none" stroke="#2b3138" stroke-width="2.2"/>
+<circle class="xs-outline" cx="133.06" cy="102.55" r="7"/>
+<circle class="xs-outline" cx="133.06" cy="102.55" r="4.8"/>
+</g>
+<g class="xs-core" data-core="red" data-tag="1" data-lay="0" data-angle="90">
+<title>red · +V</title>
+<g class="xs-ring xs-ring-insulation" data-element="red" data-kind="insulation" data-od="1.2">
+<title>red · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="133.06" cy="100.15" r="2.4" fill="#cc2b2b"/>
+<circle class="xs-outline" cx="133.06" cy="100.15" r="2.4"/>
+</g>
+</g>
+<g class="xs-core" data-core="black" data-tag="2" data-lay="1" data-angle="270">
+<title>black · 0 V</title>
+<g class="xs-ring xs-ring-insulation" data-element="black" data-kind="insulation" data-od="1.2">
+<title>black · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="133.06" cy="104.95" r="2.4" fill="#17191c"/>
+<circle class="xs-outline" cx="133.06" cy="104.95" r="2.4"/>
+</g>
+</g>
+<g class="xs-callout" data-core="red" data-tag="1">
+<line class="xs-leader-halo" x1="133.06" y1="100.15" x2="133.06" y2="91.55"/>
+<line class="xs-leader" x1="133.06" y1="100.15" x2="133.06" y2="91.55"/>
+<text class="xs-tag" x="133.06" y="91.2" text-anchor="middle">1</text>
+</g>
+<g class="xs-callout" data-core="black" data-tag="2">
+<line class="xs-leader-halo" x1="133.06" y1="104.95" x2="133.06" y2="113.55"/>
+<line class="xs-leader" x1="133.06" y1="104.95" x2="133.06" y2="113.55"/>
+<text class="xs-tag" x="133.06" y="116" text-anchor="middle">2</text>
+</g>
+<g class="xs-dimension">
+<line class="xs-dim" x1="126.06" y1="119.55" x2="140.06" y2="119.55"/>
+<line class="xs-dim" x1="126.06" y1="118.35" x2="126.06" y2="120.75"/>
+<line class="xs-dim" x1="140.06" y1="118.35" x2="140.06" y2="120.75"/>
+<text class="xs-dim-text" x="133.06" y="123.45" text-anchor="middle">Ø 3.50 mm over the jacket</text>
+</g>
+<g class="xs-ruler" data-span-mm="2">
+<line class="xs-rule" x1="126.06" y1="127.95" x2="134.06" y2="127.95"/>
+<line class="xs-rule" x1="126.06" y1="127.95" x2="126.06" y2="126.15"/>
+<line class="xs-rule" x1="130.06" y1="127.95" x2="130.06" y2="126.95"/>
+<line class="xs-rule" x1="134.06" y1="127.95" x2="134.06" y2="126.15"/>
+<text class="xs-rule-text" x="135.56" y="128.97">2 mm</text>
+</g>
+<g class="xs-key-list">
+<g class="xs-key-row" data-tag="1">
+<circle class="xs-swatch" cx="155.36" cy="89.55" r="1.3" fill="#cc2b2b"/>
+<text class="xs-key-tag" x="158.06" y="90.57">1</text>
+<text class="xs-key" x="161.46" y="90.57">red · +V</text>
+</g>
+<g class="xs-key-row" data-tag="2">
+<circle class="xs-swatch" cx="155.36" cy="93.75" r="1.3" fill="#17191c"/>
+<text class="xs-key-tag" x="158.06" y="94.77">2</text>
+<text class="xs-key" x="161.46" y="94.77">black · 0 V</text>
+</g>
+<g class="xs-key-row" data-tag="">
+<circle class="xs-swatch" cx="155.36" cy="97.95" r="1.3" fill="#2b3138"/>
+<text class="xs-key" x="161.46" y="98.97">jacket · Jacket · Ø 3.50 mm</text>
+</g>
+</g>
+</g>
+<g class="blocks">
+<g class="block block-connector" data-instance="j1" data-kind="connector" data-zone="source">
+<rect class="zebra" x="8.6" y="56.85" width="79.86" height="7.5"/>
+<rect class="block-outline" x="8" y="39.65" width="81.06" height="27.7" rx="1.2"/>
+<text class="block-title" x="11" y="44.05">JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="block-sub" x="11" y="48.05">device connector · jst-xh female</text>
+<line class="rule" x1="8" y1="49.35" x2="89.06" y2="49.35"/>
+<g class="port port-cable" data-terminal="j1:1" data-pin="1" data-net="net-1">
+<text class="pin-id" x="86.06" y="54.05" text-anchor="end">1</text>
+<text class="pin-label" x="76.56" y="54.05" text-anchor="end">+V</text>
+</g>
+<g class="port port-cable" data-terminal="j1:2" data-pin="2" data-net="net-2">
+<text class="pin-id" x="86.06" y="61.55" text-anchor="end">2</text>
+<text class="pin-label" x="76.56" y="61.55" text-anchor="end">0 V</text>
+</g>
+</g>
+</g>
+<g class="components">
+</g>
+<g class="joint-dots">
+<circle class="joint-dot" data-terminal="j1:1" data-net="net-1" data-degree="1" cx="89.06" cy="53.1" r="0.9"/>
+<circle class="joint-dot" data-terminal="j1:2" data-net="net-2" data-degree="1" cx="89.06" cy="60.6" r="0.9"/>
+<circle class="joint-dot" data-terminal="w1:black@a" data-net="net-2" data-degree="1" cx="115.06" cy="57" r="0.9"/>
+<circle class="joint-dot" data-terminal="w1:red@a" data-net="net-1" data-degree="1" cx="115.06" cy="50" r="0.9"/>
+</g>
+<g class="cut-ends">
+<g class="cut-end" data-terminal="w1:red@b" data-net="net-1">
+<title>deliberately cut and left unconnected</title>
+<line class="cut" x1="242.26" y1="48.3" x2="242.26" y2="51.7"/>
+<line class="cut" x1="240.86" y1="51.9" x2="243.66" y2="48.1"/>
+<text class="cut-ref" x="244.66" y="48.6" text-anchor="start">1</text>
+</g>
+<g class="cut-end" data-terminal="w1:black@b" data-net="net-2">
+<title>deliberately cut and left unconnected</title>
+<line class="cut" x1="242.26" y1="55.3" x2="242.26" y2="58.7"/>
+<line class="cut" x1="240.86" y1="58.9" x2="243.66" y2="55.1"/>
+<text class="cut-ref" x="244.66" y="55.6" text-anchor="start">1</text>
+</g>
+</g>
+<g class="notes">
+<text class="notes-heading" x="8" y="139.95">NOTES</text>
+<text class="note-num" x="8" y="145.35">1.</text>
+<text class="note-text" x="15" y="145.35">Flying end: w1:red@b and w1:black@b are stripped and tinned, left free — the design that places this lead as a sub-assembly lands them.</text>
+</g>
+</svg>"
+`;
+
+exports[`golden schematics > dc-pigtail-lead matches its golden drawing 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 274.06 158.45" width="274.06mm" height="158.45mm" role="img" aria-label="JST XH 2-pin → flying leads, DC pigtail lead" data-design="dc-pigtail-lead">
+<title>JST XH 2-pin → flying leads, DC pigtail lead</title>
+<desc>Wiring schematic for dc-pigtail-lead. error: cavity-unknown-part cavity j1:1 names contact 'xh-contact-socket', which is not in the library error: cavity-unknown-part cavity j1:2 names contact 'xh-contact-socket', which is not in the library</desc>
+<style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
+<rect class="page" x="0" y="0" width="274.06" height="158.45"/>
+<g class="header">
+<text class="title" x="8" y="13">JST XH 2-pin → flying leads, DC pigtail lead</text>
+<text class="subtitle" x="8" y="18">dc-pigtail-lead</text>
+<text class="issue" x="8" y="22">2 validation error(s) — see &lt;desc&gt;</text>
+<text class="direction" x="8" y="25">end a · source — JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="direction" x="266.06" y="25" text-anchor="end">open — destination · end b</text>
+<line class="rule" x1="8" y1="27.4" x2="263.66" y2="27.4"/>
+<path class="rule" fill="#98a2ac" d="M266.06 27.4 L263.46 26.3 L263.46 28.5 Z"/>
+<g class="legend">
+<line x1="8" y1="34" x2="16" y2="34" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="legend-text" x="18" y="34.8">conductor (colour = core)</text>
+<line x1="61.12" y1="34" x2="69.12" y2="34" stroke="#7c848c" stroke-width="0.75" stroke-dasharray="2 1.2"/>
+<text class="legend-text" x="71.12" y="34.8">core shield</text>
+<line x1="92.29" y1="34" x2="100.29" y2="34" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
+<text class="legend-text" x="102.29" y="34.8">drain (bare)</text>
+<circle class="joint-dot" cx="128.87" cy="34" r="0.9"/>
+<text class="legend-text" x="134.87" y="34.8">joint</text>
+<line x1="146.36" y1="34" x2="154.36" y2="34" stroke="#5b6570" stroke-width="0.35" stroke-dasharray="1.6 1.2"/>
+<text class="legend-text" x="156.36" y="34.8">PCBA internal link</text>
+<line class="cut" x1="192.04" y1="32.3" x2="192.04" y2="35.7"/>
+<line class="cut" x1="190.64" y1="35.9" x2="193.44" y2="32.1"/>
+<text class="legend-text" x="198.04" y="34.8">deliberate cut end</text>
+</g>
+</g>
+<g class="joints-wiring">
+<g class="joint" data-joint="0" data-a="j1:1" data-b="w1:red@a" data-net="net-1">
+<title>+V</title>
+<path class="edge" d="M89.06 53.1 L98.89 53.1 L98.89 50 L115.06 50" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="1" data-a="j1:2" data-b="w1:black@a" data-net="net-2">
+<title>0 V</title>
+<path class="edge" d="M89.06 60.6 L105.23 60.6 L105.23 57 L115.06 57" stroke="#17191c" stroke-width="0.87"/>
+</g>
+</g>
+<g class="bands">
+<g class="band band-source" data-segment="w1" data-left-end="a">
+<rect class="band-outline" x="115.06" y="45" width="125" height="17" rx="2"/>
+<text class="band-label" x="115.06" y="43">DC power cable, 2 × 24 AWG, red/black · 300 mm</text>
+<g class="track track-plain" data-track="w1:red" data-segment="w1" data-element="red" data-kind="conductor" data-net="net-1">
+<line class="track-line" x1="115.06" y1="50" x2="240.06" y2="50" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="track-label" x="132.06" y="48.7">red · +V</text>
+</g>
+<g class="track track-plain" data-track="w1:black" data-segment="w1" data-element="black" data-kind="conductor" data-net="net-2">
+<line class="track-line" x1="115.06" y1="57" x2="240.06" y2="57" stroke="#17191c" stroke-width="1.4"/>
+<text class="track-label" x="132.06" y="55.7">black · 0 V</text>
+</g>
+</g>
+</g>
+<g class="cross-section" data-wire="dc-2core-24awg" data-arrangement="pair" data-direction="cw" data-scale="4">
+<rect class="xs-panel" x="115.06" y="73.35" width="93.45" height="60.6" rx="1.6"/>
+<text class="xs-title" x="118.06" y="80.15">DC power cable, 2 × 24 AWG, red/black</text>
+<text class="xs-sub" x="118.06" y="84.55">WIR-00005 · cross-section · lay order CW from 12 o'clock</text>
+<g class="xs-ring xs-ring-insulation" data-element="jacket" data-kind="insulation" data-od="3.5">
+<title>jacket · Jacket — Ø 3.50 mm</title>
+<circle class="xs-fill" cx="133.06" cy="102.55" r="5.9" fill="none" stroke="#2b3138" stroke-width="2.2"/>
+<circle class="xs-outline" cx="133.06" cy="102.55" r="7"/>
+<circle class="xs-outline" cx="133.06" cy="102.55" r="4.8"/>
+</g>
+<g class="xs-core" data-core="red" data-tag="1" data-lay="0" data-angle="90">
+<title>red · +V</title>
+<g class="xs-ring xs-ring-insulation" data-element="red" data-kind="insulation" data-od="1.2">
+<title>red · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="133.06" cy="100.15" r="2.4" fill="#cc2b2b"/>
+<circle class="xs-outline" cx="133.06" cy="100.15" r="2.4"/>
+</g>
+</g>
+<g class="xs-core" data-core="black" data-tag="2" data-lay="1" data-angle="270">
+<title>black · 0 V</title>
+<g class="xs-ring xs-ring-insulation" data-element="black" data-kind="insulation" data-od="1.2">
+<title>black · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="133.06" cy="104.95" r="2.4" fill="#17191c"/>
+<circle class="xs-outline" cx="133.06" cy="104.95" r="2.4"/>
+</g>
+</g>
+<g class="xs-callout" data-core="red" data-tag="1">
+<line class="xs-leader-halo" x1="133.06" y1="100.15" x2="133.06" y2="91.55"/>
+<line class="xs-leader" x1="133.06" y1="100.15" x2="133.06" y2="91.55"/>
+<text class="xs-tag" x="133.06" y="91.2" text-anchor="middle">1</text>
+</g>
+<g class="xs-callout" data-core="black" data-tag="2">
+<line class="xs-leader-halo" x1="133.06" y1="104.95" x2="133.06" y2="113.55"/>
+<line class="xs-leader" x1="133.06" y1="104.95" x2="133.06" y2="113.55"/>
+<text class="xs-tag" x="133.06" y="116" text-anchor="middle">2</text>
+</g>
+<g class="xs-dimension">
+<line class="xs-dim" x1="126.06" y1="119.55" x2="140.06" y2="119.55"/>
+<line class="xs-dim" x1="126.06" y1="118.35" x2="126.06" y2="120.75"/>
+<line class="xs-dim" x1="140.06" y1="118.35" x2="140.06" y2="120.75"/>
+<text class="xs-dim-text" x="133.06" y="123.45" text-anchor="middle">Ø 3.50 mm over the jacket</text>
+</g>
+<g class="xs-ruler" data-span-mm="2">
+<line class="xs-rule" x1="126.06" y1="127.95" x2="134.06" y2="127.95"/>
+<line class="xs-rule" x1="126.06" y1="127.95" x2="126.06" y2="126.15"/>
+<line class="xs-rule" x1="130.06" y1="127.95" x2="130.06" y2="126.95"/>
+<line class="xs-rule" x1="134.06" y1="127.95" x2="134.06" y2="126.15"/>
+<text class="xs-rule-text" x="135.56" y="128.97">2 mm</text>
+</g>
+<g class="xs-key-list">
+<g class="xs-key-row" data-tag="1">
+<circle class="xs-swatch" cx="155.36" cy="89.55" r="1.3" fill="#cc2b2b"/>
+<text class="xs-key-tag" x="158.06" y="90.57">1</text>
+<text class="xs-key" x="161.46" y="90.57">red · +V</text>
+</g>
+<g class="xs-key-row" data-tag="2">
+<circle class="xs-swatch" cx="155.36" cy="93.75" r="1.3" fill="#17191c"/>
+<text class="xs-key-tag" x="158.06" y="94.77">2</text>
+<text class="xs-key" x="161.46" y="94.77">black · 0 V</text>
+</g>
+<g class="xs-key-row" data-tag="">
+<circle class="xs-swatch" cx="155.36" cy="97.95" r="1.3" fill="#2b3138"/>
+<text class="xs-key" x="161.46" y="98.97">jacket · Jacket · Ø 3.50 mm</text>
+</g>
+</g>
+</g>
+<g class="blocks">
+<g class="block block-connector" data-instance="j1" data-kind="connector" data-zone="source">
+<rect class="zebra" x="8.6" y="56.85" width="79.86" height="7.5"/>
+<rect class="block-outline" x="8" y="39.65" width="81.06" height="27.7" rx="1.2"/>
+<text class="block-title" x="11" y="44.05">JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="block-sub" x="11" y="48.05">device connector · jst-xh female</text>
+<line class="rule" x1="8" y1="49.35" x2="89.06" y2="49.35"/>
+<g class="port port-cable" data-terminal="j1:1" data-pin="1" data-net="net-1">
+<text class="pin-id" x="86.06" y="54.05" text-anchor="end">1</text>
+<text class="pin-label" x="76.56" y="54.05" text-anchor="end">+V</text>
+</g>
+<g class="port port-cable" data-terminal="j1:2" data-pin="2" data-net="net-2">
+<text class="pin-id" x="86.06" y="61.55" text-anchor="end">2</text>
+<text class="pin-label" x="76.56" y="61.55" text-anchor="end">0 V</text>
+</g>
+</g>
+</g>
+<g class="components">
+</g>
+<g class="joint-dots">
+<circle class="joint-dot" data-terminal="j1:1" data-net="net-1" data-degree="1" cx="89.06" cy="53.1" r="0.9"/>
+<circle class="joint-dot" data-terminal="j1:2" data-net="net-2" data-degree="1" cx="89.06" cy="60.6" r="0.9"/>
+<circle class="joint-dot" data-terminal="w1:black@a" data-net="net-2" data-degree="1" cx="115.06" cy="57" r="0.9"/>
+<circle class="joint-dot" data-terminal="w1:red@a" data-net="net-1" data-degree="1" cx="115.06" cy="50" r="0.9"/>
+</g>
+<g class="cut-ends">
+<g class="cut-end" data-terminal="w1:red@b" data-net="net-1">
+<title>deliberately cut and left unconnected</title>
+<line class="cut" x1="242.26" y1="48.3" x2="242.26" y2="51.7"/>
+<line class="cut" x1="240.86" y1="51.9" x2="243.66" y2="48.1"/>
+<text class="cut-ref" x="244.66" y="48.6" text-anchor="start">1</text>
+</g>
+<g class="cut-end" data-terminal="w1:black@b" data-net="net-2">
+<title>deliberately cut and left unconnected</title>
+<line class="cut" x1="242.26" y1="55.3" x2="242.26" y2="58.7"/>
+<line class="cut" x1="240.86" y1="58.9" x2="243.66" y2="55.1"/>
+<text class="cut-ref" x="244.66" y="55.6" text-anchor="start">1</text>
+</g>
+</g>
+<g class="notes">
+<text class="notes-heading" x="8" y="139.95">NOTES</text>
+<text class="note-num" x="8" y="145.35">1.</text>
+<text class="note-text" x="15" y="145.35">Flying end: w1:red@b and w1:black@b are stripped and tinned, left free — the design that places this lead as a sub-assembly lands them.</text>
+</g>
+</svg>"
+`;
+
+exports[`golden schematics > dc-y-from-leads matches its depicted golden drawing 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 393.03 186.95" width="393.03mm" height="186.95mm" role="img" aria-label="Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads" data-design="dc-y-from-leads">
+<title>Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads</title>
+<desc>Wiring schematic for dc-y-from-leads.</desc>
+<style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
+<rect class="page" x="0" y="0" width="393.03" height="186.95"/>
+<g class="header">
+<text class="title" x="8" y="13">Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads</text>
+<text class="subtitle" x="8" y="18">dc-y-from-leads</text>
+<text class="direction" x="8" y="25">end a · source — JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="direction" x="385.03" y="25" text-anchor="end">Terminal block, 4-way, 5.08 mm — destination · end b</text>
+<line class="rule" x1="8" y1="27.4" x2="382.63" y2="27.4"/>
+<path class="rule" fill="#98a2ac" d="M385.03 27.4 L382.43 26.3 L382.43 28.5 Z"/>
+<g class="legend">
+<line x1="8" y1="34" x2="16" y2="34" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="legend-text" x="18" y="34.8">conductor (colour = core)</text>
+<line x1="61.12" y1="34" x2="69.12" y2="34" stroke="#7c848c" stroke-width="0.75" stroke-dasharray="2 1.2"/>
+<text class="legend-text" x="71.12" y="34.8">core shield</text>
+<line x1="92.29" y1="34" x2="100.29" y2="34" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
+<text class="legend-text" x="102.29" y="34.8">drain (bare)</text>
+<circle class="joint-dot" cx="128.87" cy="34" r="0.9"/>
+<text class="legend-text" x="134.87" y="34.8">joint</text>
+<line x1="146.36" y1="34" x2="154.36" y2="34" stroke="#5b6570" stroke-width="0.35" stroke-dasharray="1.6 1.2"/>
+<text class="legend-text" x="156.36" y="34.8">PCBA internal link</text>
+<line class="cut" x1="192.04" y1="32.3" x2="192.04" y2="35.7"/>
+<line class="cut" x1="190.64" y1="35.9" x2="193.44" y2="32.1"/>
+<text class="legend-text" x="198.04" y="34.8">deliberate cut end</text>
+</g>
+</g>
+<g class="joints-wiring">
+<g class="joint" data-joint="0" data-a="j1:1" data-b="lead-1/w1:red@b" data-net="net-1">
+<title>+V to both leads</title>
+<path class="edge" d="M283.12 50 L294.22 50 L294.22 52.45 L309.12 52.45" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="1" data-a="j1:1" data-b="lead-2/w1:red@b" data-net="net-1">
+<path class="edge" d="M283.12 89 L298.02 89 L298.02 52.45 L309.12 52.45" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="2" data-a="j1:2" data-b="lead-1/w1:black@b" data-net="net-2">
+<title>0 V to both leads</title>
+<path class="edge" d="M283.12 57 L290.42 57 L290.42 59.95 L309.12 59.95" stroke="#17191c" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="3" data-a="j1:2" data-b="lead-2/w1:black@b" data-net="net-2">
+<path class="edge" d="M283.12 96 L301.82 96 L301.82 59.95 L309.12 59.95" stroke="#17191c" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="4" data-a="lead-1/j1:1" data-b="lead-1/w1:red@a" data-net="net-1">
+<title>+V</title>
+<path class="edge" d="M89.06 53.1 L98.89 53.1 L98.89 50 L115.06 50" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="5" data-a="lead-1/j1:2" data-b="lead-1/w1:black@a" data-net="net-2">
+<title>0 V</title>
+<path class="edge" d="M89.06 60.6 L105.23 60.6 L105.23 57 L115.06 57" stroke="#17191c" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="6" data-a="lead-2/j1:1" data-b="lead-2/w1:red@a" data-net="net-1">
+<title>+V</title>
+<path class="edge" d="M196.12 92.1 L204.62 92.1 L204.62 89 L218.12 89" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="7" data-a="lead-2/j1:2" data-b="lead-2/w1:black@a" data-net="net-2">
+<title>0 V</title>
+<path class="edge" d="M196.12 99.6 L209.62 99.6 L209.62 96 L218.12 96" stroke="#17191c" stroke-width="0.87"/>
+</g>
+</g>
+<g class="bands">
+<g class="band band-source" data-segment="lead-1/w1" data-left-end="a">
+<rect class="band-outline" x="115.06" y="45" width="168.06" height="17" rx="2"/>
+<text class="band-label" x="115.06" y="43">DC power cable, 2 × 24 AWG, red/black · 300 mm</text>
+<g class="track track-plain" data-track="lead-1/w1:red" data-segment="lead-1/w1" data-element="red" data-kind="conductor" data-net="net-1">
+<line class="track-line" x1="115.06" y1="50" x2="283.12" y2="50" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="track-label" x="132.06" y="48.7">red · +V</text>
+</g>
+<g class="track track-plain" data-track="lead-1/w1:black" data-segment="lead-1/w1" data-element="black" data-kind="conductor" data-net="net-2">
+<line class="track-line" x1="115.06" y1="57" x2="283.12" y2="57" stroke="#17191c" stroke-width="1.4"/>
+<text class="track-label" x="132.06" y="55.7">black · 0 V</text>
+</g>
+</g>
+<g class="band band-branch" data-segment="lead-2/w1" data-left-end="a">
+<rect class="band-outline" x="218.12" y="84" width="65" height="17" rx="2"/>
+<text class="band-label" x="218.12" y="82">
+<title>DC power cable, 2 × 24 AWG, red/black · 300 mm</title>DC power cable, 2 × 24 …</text>
+<g class="track track-plain" data-track="lead-2/w1:red" data-segment="lead-2/w1" data-element="red" data-kind="conductor" data-net="net-1">
+<line class="track-line" x1="218.12" y1="89" x2="283.12" y2="89" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="track-label" x="235.12" y="87.7">red · +V</text>
+</g>
+<g class="track track-plain" data-track="lead-2/w1:black" data-segment="lead-2/w1" data-element="black" data-kind="conductor" data-net="net-2">
+<line class="track-line" x1="218.12" y1="96" x2="283.12" y2="96" stroke="#17191c" stroke-width="1.4"/>
+<text class="track-label" x="235.12" y="94.7">black · 0 V</text>
+</g>
+</g>
+</g>
+<g class="cross-section" data-wire="dc-2core-24awg" data-arrangement="pair" data-direction="cw" data-scale="4">
+<rect class="xs-panel" x="115.06" y="112.35" width="93.45" height="60.6" rx="1.6"/>
+<text class="xs-title" x="118.06" y="119.15">DC power cable, 2 × 24 AWG, red/black</text>
+<text class="xs-sub" x="118.06" y="123.55">WIR-00005 · cross-section · lay order CW from 12 o'clock</text>
+<g class="xs-ring xs-ring-insulation" data-element="jacket" data-kind="insulation" data-od="3.5">
+<title>jacket · Jacket — Ø 3.50 mm</title>
+<circle class="xs-fill" cx="133.06" cy="141.55" r="5.9" fill="none" stroke="#2b3138" stroke-width="2.2"/>
+<circle class="xs-outline" cx="133.06" cy="141.55" r="7"/>
+<circle class="xs-outline" cx="133.06" cy="141.55" r="4.8"/>
+</g>
+<g class="xs-core" data-core="red" data-tag="1" data-lay="0" data-angle="90">
+<title>red · +V</title>
+<g class="xs-ring xs-ring-insulation" data-element="red" data-kind="insulation" data-od="1.2">
+<title>red · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="133.06" cy="139.15" r="2.4" fill="#cc2b2b"/>
+<circle class="xs-outline" cx="133.06" cy="139.15" r="2.4"/>
+</g>
+</g>
+<g class="xs-core" data-core="black" data-tag="2" data-lay="1" data-angle="270">
+<title>black · 0 V</title>
+<g class="xs-ring xs-ring-insulation" data-element="black" data-kind="insulation" data-od="1.2">
+<title>black · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="133.06" cy="143.95" r="2.4" fill="#17191c"/>
+<circle class="xs-outline" cx="133.06" cy="143.95" r="2.4"/>
+</g>
+</g>
+<g class="xs-callout" data-core="red" data-tag="1">
+<line class="xs-leader-halo" x1="133.06" y1="139.15" x2="133.06" y2="130.55"/>
+<line class="xs-leader" x1="133.06" y1="139.15" x2="133.06" y2="130.55"/>
+<text class="xs-tag" x="133.06" y="130.2" text-anchor="middle">1</text>
+</g>
+<g class="xs-callout" data-core="black" data-tag="2">
+<line class="xs-leader-halo" x1="133.06" y1="143.95" x2="133.06" y2="152.55"/>
+<line class="xs-leader" x1="133.06" y1="143.95" x2="133.06" y2="152.55"/>
+<text class="xs-tag" x="133.06" y="155" text-anchor="middle">2</text>
+</g>
+<g class="xs-dimension">
+<line class="xs-dim" x1="126.06" y1="158.55" x2="140.06" y2="158.55"/>
+<line class="xs-dim" x1="126.06" y1="157.35" x2="126.06" y2="159.75"/>
+<line class="xs-dim" x1="140.06" y1="157.35" x2="140.06" y2="159.75"/>
+<text class="xs-dim-text" x="133.06" y="162.45" text-anchor="middle">Ø 3.50 mm over the jacket</text>
+</g>
+<g class="xs-ruler" data-span-mm="2">
+<line class="xs-rule" x1="126.06" y1="166.95" x2="134.06" y2="166.95"/>
+<line class="xs-rule" x1="126.06" y1="166.95" x2="126.06" y2="165.15"/>
+<line class="xs-rule" x1="130.06" y1="166.95" x2="130.06" y2="165.95"/>
+<line class="xs-rule" x1="134.06" y1="166.95" x2="134.06" y2="165.15"/>
+<text class="xs-rule-text" x="135.56" y="167.97">2 mm</text>
+</g>
+<g class="xs-key-list">
+<g class="xs-key-row" data-tag="1">
+<circle class="xs-swatch" cx="155.36" cy="128.55" r="1.3" fill="#cc2b2b"/>
+<text class="xs-key-tag" x="158.06" y="129.57">1</text>
+<text class="xs-key" x="161.46" y="129.57">red · +V</text>
+</g>
+<g class="xs-key-row" data-tag="2">
+<circle class="xs-swatch" cx="155.36" cy="132.75" r="1.3" fill="#17191c"/>
+<text class="xs-key-tag" x="158.06" y="133.76">2</text>
+<text class="xs-key" x="161.46" y="133.76">black · 0 V</text>
+</g>
+<g class="xs-key-row" data-tag="">
+<circle class="xs-swatch" cx="155.36" cy="136.95" r="1.3" fill="#2b3138"/>
+<text class="xs-key" x="161.46" y="137.97">jacket · Jacket · Ø 3.50 mm</text>
+</g>
+</g>
+</g>
+<g class="blocks">
+<g class="block block-connector" data-instance="j1" data-kind="connector" data-zone="dest">
+<rect class="zebra" x="309.72" y="56.2" width="74.72" height="7.5"/>
+<rect class="block-outline" x="309.12" y="39" width="75.92" height="27.7" rx="1.2"/>
+<text class="block-title" x="312.12" y="43.4">Terminal block, 4-way, 5.08 mm</text>
+<text class="block-sub" x="312.12" y="47.4">supply terminal block · terminal-block female</text>
+<line class="rule" x1="309.12" y1="48.7" x2="385.03" y2="48.7"/>
+<g class="port port-cable" data-terminal="j1:1" data-pin="1" data-net="net-1">
+<text class="pin-id" x="312.12" y="53.4" text-anchor="start">1</text>
+<text class="pin-label" x="321.62" y="53.4" text-anchor="start">1</text>
+</g>
+<g class="port port-cable" data-terminal="j1:2" data-pin="2" data-net="net-2">
+<text class="pin-id" x="312.12" y="60.9" text-anchor="start">2</text>
+<text class="pin-label" x="321.62" y="60.9" text-anchor="start">2</text>
+</g>
+<text class="block-foot" x="309.12" y="69.9">pins not used: 3, 4</text>
+</g>
+<g class="block block-connector" data-instance="lead-1/j1" data-kind="connector" data-zone="source">
+<rect class="zebra" x="8.6" y="56.85" width="79.86" height="7.5"/>
+<rect class="block-outline" x="8" y="39.65" width="81.06" height="27.7" rx="1.2"/>
+<text class="block-title" x="11" y="44.05">JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="block-sub" x="11" y="48.05">device connector · jst-xh female</text>
+<line class="rule" x1="8" y1="49.35" x2="89.06" y2="49.35"/>
+<g class="port port-cable" data-terminal="lead-1/j1:1" data-pin="1" data-net="net-1">
+<text class="pin-id" x="86.06" y="54.05" text-anchor="end">1</text>
+<text class="pin-label" x="76.56" y="54.05" text-anchor="end">+V</text>
+</g>
+<g class="port port-cable" data-terminal="lead-1/j1:2" data-pin="2" data-net="net-2">
+<text class="pin-id" x="86.06" y="61.55" text-anchor="end">2</text>
+<text class="pin-label" x="76.56" y="61.55" text-anchor="end">0 V</text>
+</g>
+</g>
+<g class="block block-connector" data-instance="lead-2/j1" data-kind="connector" data-zone="branch">
+<rect class="zebra" x="115.66" y="95.85" width="79.86" height="7.5"/>
+<rect class="block-outline" x="115.06" y="78.65" width="81.06" height="27.7" rx="1.2"/>
+<text class="block-title" x="118.06" y="83.05">JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="block-sub" x="118.06" y="87.05">device connector · jst-xh female</text>
+<line class="rule" x1="115.06" y1="88.35" x2="196.12" y2="88.35"/>
+<g class="port port-cable" data-terminal="lead-2/j1:1" data-pin="1" data-net="net-1">
+<text class="pin-id" x="193.12" y="93.05" text-anchor="end">1</text>
+<text class="pin-label" x="183.62" y="93.05" text-anchor="end">+V</text>
+</g>
+<g class="port port-cable" data-terminal="lead-2/j1:2" data-pin="2" data-net="net-2">
+<text class="pin-id" x="193.12" y="100.55" text-anchor="end">2</text>
+<text class="pin-label" x="183.62" y="100.55" text-anchor="end">0 V</text>
+</g>
+</g>
+</g>
+<g class="components">
+</g>
+<g class="joint-dots">
+<circle class="joint-dot" data-terminal="j1:1" data-net="net-1" data-degree="2" cx="309.12" cy="52.45" r="1.02"/>
+<circle class="joint-dot" data-terminal="j1:2" data-net="net-2" data-degree="2" cx="309.12" cy="59.95" r="1.02"/>
+<circle class="joint-dot" data-terminal="lead-1/j1:1" data-net="net-1" data-degree="1" cx="89.06" cy="53.1" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/j1:2" data-net="net-2" data-degree="1" cx="89.06" cy="60.6" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/w1:black@a" data-net="net-2" data-degree="1" cx="115.06" cy="57" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/w1:black@b" data-net="net-2" data-degree="1" cx="283.12" cy="57" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/w1:red@a" data-net="net-1" data-degree="1" cx="115.06" cy="50" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/w1:red@b" data-net="net-1" data-degree="1" cx="283.12" cy="50" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/j1:1" data-net="net-1" data-degree="1" cx="196.12" cy="92.1" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/j1:2" data-net="net-2" data-degree="1" cx="196.12" cy="99.6" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/w1:black@a" data-net="net-2" data-degree="1" cx="218.12" cy="96" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/w1:black@b" data-net="net-2" data-degree="1" cx="283.12" cy="96" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/w1:red@a" data-net="net-1" data-degree="1" cx="218.12" cy="89" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/w1:red@b" data-net="net-1" data-degree="1" cx="283.12" cy="89" r="0.9"/>
+</g>
+<g class="cut-ends">
+</g>
+</svg>"
+`;
+
+exports[`golden schematics > dc-y-from-leads matches its golden drawing 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 393.03 186.95" width="393.03mm" height="186.95mm" role="img" aria-label="Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads" data-design="dc-y-from-leads">
+<title>Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads</title>
+<desc>Wiring schematic for dc-y-from-leads.</desc>
+<style>text{font-family:Helvetica,Arial,"Liberation Sans",Arimo,"Nimbus Sans","Nimbus Sans L","DejaVu Sans",sans-serif;fill:#14181d}.page{fill:#ffffff}.title{font-size:6px;font-weight:600}.subtitle{font-size:3px;fill:#5b6570}.direction{font-size:3.2px;fill:#5b6570;letter-spacing:0.08px}.legend-text{font-size:2.9px;fill:#5b6570}.block-outline{fill:#ffffff;stroke:#14181d;stroke-width:0.6}.block-title{font-size:3.8px;font-weight:600}.block-sub{font-size:3px;fill:#5b6570}.block-caption{font-size:2.6px;fill:#5b6570;letter-spacing:0.06px}.zebra{fill:#f3f5f7}.pin-id{font-size:3.6px;font-weight:600}.pin-label{font-size:3.6px;fill:#14181d}.block-foot{font-size:2.9px;fill:#5b6570}.internal-link{fill:none;stroke:#5b6570;stroke-width:0.35}.annot{font-size:2.9px;fill:#3a424b}.band-outline{fill:#fbfcfd;stroke:#2b3138;stroke-width:0.7}.band-label{font-size:3.4px;font-weight:600}.bracket{fill:none;stroke:#98a2ac;stroke-width:0.4}.group-label{font-size:3.1px;font-weight:600;fill:#3a424b}.track-label{font-size:3.1px;fill:#3a424b}.edge{fill:none;stroke-linecap:round;stroke-linejoin:round}.halo{fill:none;stroke:#6b7178;stroke-linecap:round;stroke-linejoin:round}.joint-dot{fill:#14181d}.symbol{fill:#ffffff;stroke:#14181d;stroke-width:0.5}.symbol-line{stroke:#14181d;stroke-width:0.5;fill:none}.comp-label{font-size:2.8px;font-weight:600;text-anchor:middle}.polarity{font-size:2.8px;font-weight:600;text-anchor:middle}.cut{stroke:#a8410f;stroke-width:0.5;fill:none}.cut-ref{font-size:2.7px;font-weight:600;fill:#a8410f}.xs-panel{fill:#fbfcfd;stroke:#98a2ac;stroke-width:0.4}.xs-title{font-size:3.8px;font-weight:600}.xs-sub{font-size:3px;fill:#5b6570}.xs-outline{fill:none;stroke:#14181d;stroke-width:0.15}.xs-hatch{fill:none;stroke:#3a424b;stroke-width:0.26;stroke-linecap:round}.xs-leader-halo{fill:none;stroke:#ffffff;stroke-width:1;stroke-linecap:round}.xs-leader{fill:none;stroke:#5b6570;stroke-width:0.3}.xs-tag{font-size:3px;font-weight:600}.xs-swatch{stroke:#14181d;stroke-width:0.15}.xs-key-tag{font-size:2.9px;font-weight:600}.xs-key{font-size:2.9px;fill:#3a424b}.xs-dim{fill:none;stroke:#5b6570;stroke-width:0.25}.xs-dim-text{font-size:2.9px;fill:#5b6570}.xs-rule{stroke:#14181d;stroke-width:0.3}.xs-rule-text{font-size:2.9px;fill:#5b6570}.notes-heading{font-size:3.4px;font-weight:600;letter-spacing:0.1px}.note-num{font-size:2.9px;font-weight:600;fill:#5b6570}.note-text{font-size:2.9px;fill:#14181d}.issue{font-size:3px;fill:#a8410f}.rule{stroke:#98a2ac;stroke-width:0.3}</style>
+<rect class="page" x="0" y="0" width="393.03" height="186.95"/>
+<g class="header">
+<text class="title" x="8" y="13">Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads</text>
+<text class="subtitle" x="8" y="18">dc-y-from-leads</text>
+<text class="direction" x="8" y="25">end a · source — JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="direction" x="385.03" y="25" text-anchor="end">Terminal block, 4-way, 5.08 mm — destination · end b</text>
+<line class="rule" x1="8" y1="27.4" x2="382.63" y2="27.4"/>
+<path class="rule" fill="#98a2ac" d="M385.03 27.4 L382.43 26.3 L382.43 28.5 Z"/>
+<g class="legend">
+<line x1="8" y1="34" x2="16" y2="34" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="legend-text" x="18" y="34.8">conductor (colour = core)</text>
+<line x1="61.12" y1="34" x2="69.12" y2="34" stroke="#7c848c" stroke-width="0.75" stroke-dasharray="2 1.2"/>
+<text class="legend-text" x="71.12" y="34.8">core shield</text>
+<line x1="92.29" y1="34" x2="100.29" y2="34" stroke="#b06a2c" stroke-width="1" stroke-dasharray="2.4 1 0.6 1"/>
+<text class="legend-text" x="102.29" y="34.8">drain (bare)</text>
+<circle class="joint-dot" cx="128.87" cy="34" r="0.9"/>
+<text class="legend-text" x="134.87" y="34.8">joint</text>
+<line x1="146.36" y1="34" x2="154.36" y2="34" stroke="#5b6570" stroke-width="0.35" stroke-dasharray="1.6 1.2"/>
+<text class="legend-text" x="156.36" y="34.8">PCBA internal link</text>
+<line class="cut" x1="192.04" y1="32.3" x2="192.04" y2="35.7"/>
+<line class="cut" x1="190.64" y1="35.9" x2="193.44" y2="32.1"/>
+<text class="legend-text" x="198.04" y="34.8">deliberate cut end</text>
+</g>
+</g>
+<g class="joints-wiring">
+<g class="joint" data-joint="0" data-a="j1:1" data-b="lead-1/w1:red@b" data-net="net-1">
+<title>+V to both leads</title>
+<path class="edge" d="M283.12 50 L294.22 50 L294.22 52.45 L309.12 52.45" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="1" data-a="j1:1" data-b="lead-2/w1:red@b" data-net="net-1">
+<path class="edge" d="M283.12 89 L298.02 89 L298.02 52.45 L309.12 52.45" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="2" data-a="j1:2" data-b="lead-1/w1:black@b" data-net="net-2">
+<title>0 V to both leads</title>
+<path class="edge" d="M283.12 57 L290.42 57 L290.42 59.95 L309.12 59.95" stroke="#17191c" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="3" data-a="j1:2" data-b="lead-2/w1:black@b" data-net="net-2">
+<path class="edge" d="M283.12 96 L301.82 96 L301.82 59.95 L309.12 59.95" stroke="#17191c" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="4" data-a="lead-1/j1:1" data-b="lead-1/w1:red@a" data-net="net-1">
+<title>+V</title>
+<path class="edge" d="M89.06 53.1 L98.89 53.1 L98.89 50 L115.06 50" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="5" data-a="lead-1/j1:2" data-b="lead-1/w1:black@a" data-net="net-2">
+<title>0 V</title>
+<path class="edge" d="M89.06 60.6 L105.23 60.6 L105.23 57 L115.06 57" stroke="#17191c" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="6" data-a="lead-2/j1:1" data-b="lead-2/w1:red@a" data-net="net-1">
+<title>+V</title>
+<path class="edge" d="M196.12 92.1 L204.62 92.1 L204.62 89 L218.12 89" stroke="#cc2b2b" stroke-width="0.87"/>
+</g>
+<g class="joint" data-joint="7" data-a="lead-2/j1:2" data-b="lead-2/w1:black@a" data-net="net-2">
+<title>0 V</title>
+<path class="edge" d="M196.12 99.6 L209.62 99.6 L209.62 96 L218.12 96" stroke="#17191c" stroke-width="0.87"/>
+</g>
+</g>
+<g class="bands">
+<g class="band band-source" data-segment="lead-1/w1" data-left-end="a">
+<rect class="band-outline" x="115.06" y="45" width="168.06" height="17" rx="2"/>
+<text class="band-label" x="115.06" y="43">DC power cable, 2 × 24 AWG, red/black · 300 mm</text>
+<g class="track track-plain" data-track="lead-1/w1:red" data-segment="lead-1/w1" data-element="red" data-kind="conductor" data-net="net-1">
+<line class="track-line" x1="115.06" y1="50" x2="283.12" y2="50" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="track-label" x="132.06" y="48.7">red · +V</text>
+</g>
+<g class="track track-plain" data-track="lead-1/w1:black" data-segment="lead-1/w1" data-element="black" data-kind="conductor" data-net="net-2">
+<line class="track-line" x1="115.06" y1="57" x2="283.12" y2="57" stroke="#17191c" stroke-width="1.4"/>
+<text class="track-label" x="132.06" y="55.7">black · 0 V</text>
+</g>
+</g>
+<g class="band band-branch" data-segment="lead-2/w1" data-left-end="a">
+<rect class="band-outline" x="218.12" y="84" width="65" height="17" rx="2"/>
+<text class="band-label" x="218.12" y="82">
+<title>DC power cable, 2 × 24 AWG, red/black · 300 mm</title>DC power cable, 2 × 24 …</text>
+<g class="track track-plain" data-track="lead-2/w1:red" data-segment="lead-2/w1" data-element="red" data-kind="conductor" data-net="net-1">
+<line class="track-line" x1="218.12" y1="89" x2="283.12" y2="89" stroke="#cc2b2b" stroke-width="1.4"/>
+<text class="track-label" x="235.12" y="87.7">red · +V</text>
+</g>
+<g class="track track-plain" data-track="lead-2/w1:black" data-segment="lead-2/w1" data-element="black" data-kind="conductor" data-net="net-2">
+<line class="track-line" x1="218.12" y1="96" x2="283.12" y2="96" stroke="#17191c" stroke-width="1.4"/>
+<text class="track-label" x="235.12" y="94.7">black · 0 V</text>
+</g>
+</g>
+</g>
+<g class="cross-section" data-wire="dc-2core-24awg" data-arrangement="pair" data-direction="cw" data-scale="4">
+<rect class="xs-panel" x="115.06" y="112.35" width="93.45" height="60.6" rx="1.6"/>
+<text class="xs-title" x="118.06" y="119.15">DC power cable, 2 × 24 AWG, red/black</text>
+<text class="xs-sub" x="118.06" y="123.55">WIR-00005 · cross-section · lay order CW from 12 o'clock</text>
+<g class="xs-ring xs-ring-insulation" data-element="jacket" data-kind="insulation" data-od="3.5">
+<title>jacket · Jacket — Ø 3.50 mm</title>
+<circle class="xs-fill" cx="133.06" cy="141.55" r="5.9" fill="none" stroke="#2b3138" stroke-width="2.2"/>
+<circle class="xs-outline" cx="133.06" cy="141.55" r="7"/>
+<circle class="xs-outline" cx="133.06" cy="141.55" r="4.8"/>
+</g>
+<g class="xs-core" data-core="red" data-tag="1" data-lay="0" data-angle="90">
+<title>red · +V</title>
+<g class="xs-ring xs-ring-insulation" data-element="red" data-kind="insulation" data-od="1.2">
+<title>red · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="133.06" cy="139.15" r="2.4" fill="#cc2b2b"/>
+<circle class="xs-outline" cx="133.06" cy="139.15" r="2.4"/>
+</g>
+</g>
+<g class="xs-core" data-core="black" data-tag="2" data-lay="1" data-angle="270">
+<title>black · 0 V</title>
+<g class="xs-ring xs-ring-insulation" data-element="black" data-kind="insulation" data-od="1.2">
+<title>black · insulation — Ø 1.20 mm</title>
+<circle class="xs-fill" cx="133.06" cy="143.95" r="2.4" fill="#17191c"/>
+<circle class="xs-outline" cx="133.06" cy="143.95" r="2.4"/>
+</g>
+</g>
+<g class="xs-callout" data-core="red" data-tag="1">
+<line class="xs-leader-halo" x1="133.06" y1="139.15" x2="133.06" y2="130.55"/>
+<line class="xs-leader" x1="133.06" y1="139.15" x2="133.06" y2="130.55"/>
+<text class="xs-tag" x="133.06" y="130.2" text-anchor="middle">1</text>
+</g>
+<g class="xs-callout" data-core="black" data-tag="2">
+<line class="xs-leader-halo" x1="133.06" y1="143.95" x2="133.06" y2="152.55"/>
+<line class="xs-leader" x1="133.06" y1="143.95" x2="133.06" y2="152.55"/>
+<text class="xs-tag" x="133.06" y="155" text-anchor="middle">2</text>
+</g>
+<g class="xs-dimension">
+<line class="xs-dim" x1="126.06" y1="158.55" x2="140.06" y2="158.55"/>
+<line class="xs-dim" x1="126.06" y1="157.35" x2="126.06" y2="159.75"/>
+<line class="xs-dim" x1="140.06" y1="157.35" x2="140.06" y2="159.75"/>
+<text class="xs-dim-text" x="133.06" y="162.45" text-anchor="middle">Ø 3.50 mm over the jacket</text>
+</g>
+<g class="xs-ruler" data-span-mm="2">
+<line class="xs-rule" x1="126.06" y1="166.95" x2="134.06" y2="166.95"/>
+<line class="xs-rule" x1="126.06" y1="166.95" x2="126.06" y2="165.15"/>
+<line class="xs-rule" x1="130.06" y1="166.95" x2="130.06" y2="165.95"/>
+<line class="xs-rule" x1="134.06" y1="166.95" x2="134.06" y2="165.15"/>
+<text class="xs-rule-text" x="135.56" y="167.97">2 mm</text>
+</g>
+<g class="xs-key-list">
+<g class="xs-key-row" data-tag="1">
+<circle class="xs-swatch" cx="155.36" cy="128.55" r="1.3" fill="#cc2b2b"/>
+<text class="xs-key-tag" x="158.06" y="129.57">1</text>
+<text class="xs-key" x="161.46" y="129.57">red · +V</text>
+</g>
+<g class="xs-key-row" data-tag="2">
+<circle class="xs-swatch" cx="155.36" cy="132.75" r="1.3" fill="#17191c"/>
+<text class="xs-key-tag" x="158.06" y="133.76">2</text>
+<text class="xs-key" x="161.46" y="133.76">black · 0 V</text>
+</g>
+<g class="xs-key-row" data-tag="">
+<circle class="xs-swatch" cx="155.36" cy="136.95" r="1.3" fill="#2b3138"/>
+<text class="xs-key" x="161.46" y="137.97">jacket · Jacket · Ø 3.50 mm</text>
+</g>
+</g>
+</g>
+<g class="blocks">
+<g class="block block-connector" data-instance="j1" data-kind="connector" data-zone="dest">
+<rect class="zebra" x="309.72" y="56.2" width="74.72" height="7.5"/>
+<rect class="block-outline" x="309.12" y="39" width="75.92" height="27.7" rx="1.2"/>
+<text class="block-title" x="312.12" y="43.4">Terminal block, 4-way, 5.08 mm</text>
+<text class="block-sub" x="312.12" y="47.4">supply terminal block · terminal-block female</text>
+<line class="rule" x1="309.12" y1="48.7" x2="385.03" y2="48.7"/>
+<g class="port port-cable" data-terminal="j1:1" data-pin="1" data-net="net-1">
+<text class="pin-id" x="312.12" y="53.4" text-anchor="start">1</text>
+<text class="pin-label" x="321.62" y="53.4" text-anchor="start">1</text>
+</g>
+<g class="port port-cable" data-terminal="j1:2" data-pin="2" data-net="net-2">
+<text class="pin-id" x="312.12" y="60.9" text-anchor="start">2</text>
+<text class="pin-label" x="321.62" y="60.9" text-anchor="start">2</text>
+</g>
+<text class="block-foot" x="309.12" y="69.9">pins not used: 3, 4</text>
+</g>
+<g class="block block-connector" data-instance="lead-1/j1" data-kind="connector" data-zone="source">
+<rect class="zebra" x="8.6" y="56.85" width="79.86" height="7.5"/>
+<rect class="block-outline" x="8" y="39.65" width="81.06" height="27.7" rx="1.2"/>
+<text class="block-title" x="11" y="44.05">JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="block-sub" x="11" y="48.05">device connector · jst-xh female</text>
+<line class="rule" x1="8" y1="49.35" x2="89.06" y2="49.35"/>
+<g class="port port-cable" data-terminal="lead-1/j1:1" data-pin="1" data-net="net-1">
+<text class="pin-id" x="86.06" y="54.05" text-anchor="end">1</text>
+<text class="pin-label" x="76.56" y="54.05" text-anchor="end">+V</text>
+</g>
+<g class="port port-cable" data-terminal="lead-1/j1:2" data-pin="2" data-net="net-2">
+<text class="pin-id" x="86.06" y="61.55" text-anchor="end">2</text>
+<text class="pin-label" x="76.56" y="61.55" text-anchor="end">0 V</text>
+</g>
+</g>
+<g class="block block-connector" data-instance="lead-2/j1" data-kind="connector" data-zone="branch">
+<rect class="zebra" x="115.66" y="95.85" width="79.86" height="7.5"/>
+<rect class="block-outline" x="115.06" y="78.65" width="81.06" height="27.7" rx="1.2"/>
+<text class="block-title" x="118.06" y="83.05">JST XH 2-pin housing, DC (1 = +V)</text>
+<text class="block-sub" x="118.06" y="87.05">device connector · jst-xh female</text>
+<line class="rule" x1="115.06" y1="88.35" x2="196.12" y2="88.35"/>
+<g class="port port-cable" data-terminal="lead-2/j1:1" data-pin="1" data-net="net-1">
+<text class="pin-id" x="193.12" y="93.05" text-anchor="end">1</text>
+<text class="pin-label" x="183.62" y="93.05" text-anchor="end">+V</text>
+</g>
+<g class="port port-cable" data-terminal="lead-2/j1:2" data-pin="2" data-net="net-2">
+<text class="pin-id" x="193.12" y="100.55" text-anchor="end">2</text>
+<text class="pin-label" x="183.62" y="100.55" text-anchor="end">0 V</text>
+</g>
+</g>
+</g>
+<g class="components">
+</g>
+<g class="joint-dots">
+<circle class="joint-dot" data-terminal="j1:1" data-net="net-1" data-degree="2" cx="309.12" cy="52.45" r="1.02"/>
+<circle class="joint-dot" data-terminal="j1:2" data-net="net-2" data-degree="2" cx="309.12" cy="59.95" r="1.02"/>
+<circle class="joint-dot" data-terminal="lead-1/j1:1" data-net="net-1" data-degree="1" cx="89.06" cy="53.1" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/j1:2" data-net="net-2" data-degree="1" cx="89.06" cy="60.6" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/w1:black@a" data-net="net-2" data-degree="1" cx="115.06" cy="57" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/w1:black@b" data-net="net-2" data-degree="1" cx="283.12" cy="57" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/w1:red@a" data-net="net-1" data-degree="1" cx="115.06" cy="50" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-1/w1:red@b" data-net="net-1" data-degree="1" cx="283.12" cy="50" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/j1:1" data-net="net-1" data-degree="1" cx="196.12" cy="92.1" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/j1:2" data-net="net-2" data-degree="1" cx="196.12" cy="99.6" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/w1:black@a" data-net="net-2" data-degree="1" cx="218.12" cy="96" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/w1:black@b" data-net="net-2" data-degree="1" cx="283.12" cy="96" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/w1:red@a" data-net="net-1" data-degree="1" cx="218.12" cy="89" r="0.9"/>
+<circle class="joint-dot" data-terminal="lead-2/w1:red@b" data-net="net-1" data-degree="1" cx="283.12" cy="89" r="0.9"/>
+</g>
+<g class="cut-ends">
+</g>
+</svg>"
+`;
+
 exports[`golden schematics > dc-y-splitter matches its depicted golden drawing 1`] = `
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 462.89 208.3" width="462.89mm" height="208.3mm" role="img" aria-label="Terminal block → moulded Y → 2× JST XH, two-channel DC splitter" data-design="dc-y-splitter">
 <title>Terminal block → moulded Y → 2× JST XH, two-channel DC splitter</title>

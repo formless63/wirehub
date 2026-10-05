@@ -34,7 +34,7 @@ design problem the library's rules find is reported, and that joint is skipped, 
 
 **Export.** **WireViz (YAML)** in the Documents toolbar (also
 `GET /api/modules/wireviz/_export/wireviz-yaml?design=<id>`) writes the connectors, cables and
-connections WireViz can express. Anything it cannot (components, boards, breakouts, shells and
+connections WireViz can express. Anything it cannot (components, boards, breakouts, sub-assemblies, shells and
 hardware, pigtails, joints that do not run from a connector pin to a cable wire, a second shield) is
 listed as `# Not carried over:` comments at the top of the file. Exporting a design and importing the
 file back into the same library reproduces its expressible joints on the same connectors and stocks.

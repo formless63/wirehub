@@ -161,7 +161,8 @@ describe('export and round trip', () => {
       const out = exportWireViz(design, db);
       const back = importWireViz(`${id}.yml`, bytes(String(out.body)), db);
       const again = back.designs![0]!;
-      const onlyConnectorsAndStocks = design.instances.components.length === 0 && design.instances.pcbas.length === 0 && (design.instances.breakouts ?? []).length === 0;
+      const onlyConnectorsAndStocks =
+        design.instances.components.length === 0 && design.instances.pcbas.length === 0 && (design.instances.breakouts ?? []).length === 0 && (design.instances.subassemblies ?? []).length === 0;
       if (!onlyConnectorsAndStocks) {
         // not expressible: the export says so
         expect(String(out.body)).toMatch(/# Not carried over:/);

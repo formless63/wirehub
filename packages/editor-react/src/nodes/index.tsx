@@ -30,6 +30,7 @@ import type {
   ElementRow,
   PcbaNodeData,
   SegmentNodeData,
+  SubassemblyNodeData,
   TerminalRow,
 } from '../derive.ts';
 import { estimateNodeSize, nodeHeading } from '../layout-size.ts';
@@ -373,6 +374,37 @@ export function MouldNode({ data, selected }: NodeProps<Node<MouldNodeData, 'bre
 }
 
 /* ------------------------------------------------------------------ *
+ * Sub-assembly
+ * ------------------------------------------------------------------ */
+
+/**
+ * Another design placed as a part: a block with its free ends as rows —
+ * its connectors' pins and its flying leads, a heading per end. Double-click
+ * opens the design in its own editor (when the host can).
+ */
+export function SubassemblyNode({ data, selected }: NodeProps<Node<SubassemblyNodeData, 'subassembly'>>): JSX.Element {
+  const { openDesign } = useEditorApi();
+  return (
+    <div onDoubleClick={openDesign === undefined ? undefined : () => openDesign(data.def)}>
+      <NodeShell data={data} selected={selected === true}>
+        <div className="cs-subassembly-ports">
+          {data.groups.map((group) => (
+            <div key={`${group.start}:${group.label}`} className="cs-subassembly-group">
+              <div className="cs-side-label" title={group.label}>
+                {group.label}
+              </div>
+              {data.rows.slice(group.start, group.start + group.count).map((row) => (
+                <PinRow key={row.key} row={row} nodeSelected={selected === true} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </NodeShell>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * Registry
  * ------------------------------------------------------------------ */
 
@@ -383,4 +415,5 @@ export const nodeTypes = {
   component: ComponentNode,
   card: CardNode,
   breakout: MouldNode,
+  subassembly: SubassemblyNode,
 } as unknown as NodeTypes;

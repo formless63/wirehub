@@ -15,11 +15,13 @@ import {
   terminalKey,
   type CableDesign,
   type Db,
+  type AssemblyLibrary,
   type InstanceKind,
   type StripPractice,
   type TerminalRef,
 } from '@wirehub/model';
 import type { DocumentFacts } from '@wirehub/docs';
+import { dbWithLibrary, mergeLibraries, missingDesigns, type AssembliesAdapter } from './assemblies.ts';
 import type { DepictionSource } from '@wirehub/render-svg';
 import {
   Background,
@@ -298,6 +300,16 @@ export interface CableEditorProps {
    * registry (`extensions.ts`). Omitted: the editor is exactly the base.
    */
   extensions?: EditorExtensions;
+  /**
+   * Where the designs this cable places as sub-assemblies come from
+   * (`assemblies.ts`). Given one, the palette offers the host's other designs
+   * (`designs`) as sub-assemblies, a placed one draws as a block with its
+   * ports, and its inspector pins it to a saved version. Omitted, a `db` that
+   * already carries `assemblies` is used as it is.
+   */
+  assemblies?: AssembliesAdapter;
+  /** "Open" on a sub-assembly: the host opens that design in its own editor (the editor never navigates) */
+  onOpenDesign?: (id: string) => void;
 }
 
 /** What a host's status bar needs — see `onStatusChange`. */
@@ -590,14 +602,68 @@ const CableEditorInner = forwardRef(function CableEditorInner(
     });
   }, [props.design, props.layout]);
 
+  /**
+   * The designs this cable places (`assemblies.ts`), as the host's adapter
+   * answered for them — laid over `props.db` for every derived view.
+   */
+  const [library, setLibrary] = useState<AssemblyLibrary | undefined>(undefined);
+  const libraryRef = useRef(library);
+  libraryRef.current = library;
+
   // …and a new library replaces the one every derived view reads through, which
   // is how a connector added in the Library reaches the palette and the canvas
   // without the page being reloaded
+  const loadedLibrary = useRef(library);
   useEffect(() => {
-    if (loadedDb.current === props.db) return;
+    if (loadedDb.current === props.db && loadedLibrary.current === library) return;
     loadedDb.current = props.db;
-    dispatch({ type: 'load-db', db: props.db });
-  }, [props.db]);
+    loadedLibrary.current = library;
+    dispatch({ type: 'load-db', db: dbWithLibrary(props.db, library) });
+  }, [props.db, library]);
+
+  // the designs the cable places that the library does not hold yet: ask the host
+  const assembliesAdapter = props.assemblies;
+  const wanted = missingDesigns(state.design, mergeLibraries(props.db.assemblies, library)).join(',');
+  useEffect(() => {
+    if (assembliesAdapter === undefined || wanted === '') return;
+    let live = true;
+    void assembliesAdapter.load(wanted.split(',')).then((outcome) => {
+      if (live && outcome.ok) setLibrary((current) => mergeLibraries(current, outcome.value));
+    });
+    return () => {
+      live = false;
+    };
+  }, [assembliesAdapter, wanted]);
+
+  /**
+   * Place another design as a sub-assembly: its ports must be known before
+   * the edit is validated, so the library is fetched first when it does not
+   * hold the design yet.
+   */
+  const placeSubassembly = useCallback(
+    (def: string, position?: { x: number; y: number }): void => {
+      const add = (): void => dispatch({ type: 'add-instance', kind: 'subassembly', def, ...(position === undefined ? {} : { position }) });
+      const held = mergeLibraries(props.db.assemblies, libraryRef.current);
+      if (assembliesAdapter === undefined || held?.working.some((d) => d.id === def) === true) {
+        add();
+        return;
+      }
+      void assembliesAdapter.load([def]).then((outcome) => {
+        if (!outcome.ok) {
+          dispatch({ type: 'add-instance', kind: 'subassembly', def });
+          return;
+        }
+        const merged = mergeLibraries(libraryRef.current, outcome.value);
+        libraryRef.current = merged;
+        setLibrary(merged);
+        loadedLibrary.current = merged;
+        loadedDb.current = props.db;
+        dispatch({ type: 'load-db', db: dbWithLibrary(props.db, merged) });
+        add();
+      });
+    },
+    [assembliesAdapter, props.db],
+  );
 
   const { onDesignChange } = props;
   useEffect(() => {
@@ -918,9 +984,10 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       if (payload === '') return;
       const part = JSON.parse(payload) as { kind: InstanceKind; def: string };
       const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      dispatch({ type: 'add-instance', kind: part.kind, def: part.def, position });
+      if (part.kind === 'subassembly') placeSubassembly(part.def, position);
+      else dispatch({ type: 'add-instance', kind: part.kind, def: part.def, position });
     },
-    [flow, canEdit],
+    [flow, canEdit, placeSubassembly],
   );
 
   // the hovered ground pigtail: shared by its wire node and its edge
@@ -947,9 +1014,11 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       openPicker,
       partLabelsVisible,
       requestDelete,
+      placeSubassembly,
+      ...(props.onOpenDesign === undefined ? {} : { openDesign: props.onOpenDesign }),
       ...(stripPractice === undefined ? {} : { stripPractice }),
     }),
-    [state.selection, openPicker, partLabelsVisible, requestDelete, stripPractice],
+    [state.selection, openPicker, partLabelsVisible, requestDelete, stripPractice, placeSubassembly, props.onOpenDesign],
   );
 
   // the drawing form's Suggest: one scope per catalog, like the Library's
@@ -1325,7 +1394,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
           >
             {chrome !== 'full' ? null : (
               <>
-                <Palette db={state.db} />
+                <Palette db={state.db} designs={props.assemblies === undefined && props.db.assemblies === undefined ? undefined : (props.designs ?? state.db.assemblies?.working)} current={state.design.id} />
 
                 <Splitter
                   axis="x"
@@ -1511,7 +1580,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                         <IconX size={14} />
                       </button>
                     </div>
-                    <Palette db={state.db} />
+                    <Palette db={state.db} designs={props.assemblies === undefined && props.db.assemblies === undefined ? undefined : (props.designs ?? state.db.assemblies?.working)} current={state.design.id} />
                   </div>
                 )}
 

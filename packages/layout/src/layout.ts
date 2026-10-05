@@ -24,6 +24,8 @@ import {
   terminalKey,
   terminalsOf,
   validateDesign,
+  flattenSubassemblies,
+  hasSubassemblies,
   type CableDesign,
   type ComponentDefinition,
   type ConnectorBody,
@@ -574,11 +576,16 @@ export interface LayoutOptions {
 }
 
 export function layoutSchematic(
-  original: CableDesign,
-  db: Db,
+  given: CableDesign,
+  givenDb: Db,
   options: LayoutOptions = {},
 ): Diagram {
-  const issues = validateDesign(original, db);
+  // a design built from sub-assemblies is drawn whole: each placed design's
+  // parts under its instance id (`lead-1/j1`), wired as built
+  const flat = hasSubassemblies(given) ? flattenSubassemblies(given, givenDb) : undefined;
+  const original = flat?.design ?? given;
+  const db = flat?.db ?? givenDb;
+  const issues = flat === undefined ? validateDesign(original, db) : [...validateDesign(given, givenDb), ...flat.issues];
   // a pin soldered through a carrier's hole onto the board beneath
   // is drawn into the hole like the plug's other pins; the pad reads landed
   const through = throughView(original);
