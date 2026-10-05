@@ -204,12 +204,13 @@ export async function applyBoardTexture(parts: readonly MeshPart[], art: BoardAr
   // faces would otherwise hide the art behind its flat default grey.
   const withoutSoldermask = parts.filter((_, i) => i === at || !/soldermask/i.test(parts[i]!.name));
   const bounds = boundsOfXY(board);
-  const [topPng, bottomPng] = await Promise.all(
-    [art.top, art.bottom].map(async (svg) => {
-      const sizeMm = svgSizeMm(svg) ?? { width: bounds.maxX - bounds.minX || 1, height: bounds.maxY - bounds.minY || 1 };
-      return rasterizeSvg(svg, boardRasterSize(sizeMm));
-    }),
-  );
+  // one raster at a time: two 4096 px renders at once would double the child's resident peak (the conversion's memory cap)
+  const rasters: Uint8Array[] = [];
+  for (const svg of [art.top, art.bottom]) {
+    const sizeMm = svgSizeMm(svg) ?? { width: bounds.maxX - bounds.minX || 1, height: bounds.maxY - bounds.minY || 1 };
+    rasters.push(await rasterizeSvg(svg, boardRasterSize(sizeMm)));
+  }
+  const [topPng, bottomPng] = rasters as [Uint8Array, Uint8Array];
   // the texture is the paint now — drop whichever flat STEP/assembly colour the split faces inherited
   const { color: _topColour, ...topRest } = split.top;
   const { color: _bottomColour, ...bottomRest } = split.bottom;

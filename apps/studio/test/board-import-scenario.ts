@@ -87,6 +87,7 @@ export async function boardImportScenario(deps: WorkbenchDeps): Promise<BoardSce
   log.push(`model built before the job: ${String((before.body as { built?: boolean }).built)}`);
   const asked: string[] = [];
   const planned: number[] = [];
+  const painted: string[] = [];
   const convert: Converter = {
     model: async () => {
       throw new Error('not used');
@@ -94,8 +95,9 @@ export async function boardImportScenario(deps: WorkbenchDeps): Promise<BoardSce
     files: async () => {
       throw new Error('not used');
     },
-    assembly: async (plan) => {
+    assembly: async (plan, _name, options) => {
       planned.push(plan.instances.length);
+      painted.push(options?.boardArt === undefined ? 'no art' : `art top ${options.boardArt.top.startsWith('<svg')} bottom ${options.boardArt.bottom.startsWith('<svg')}`);
       return { glb: enc.encode(`glb with ${plan.models.length} model(s)`), format: 'glb', stats: { triangles: 12 } } as never;
     },
   };
@@ -112,7 +114,7 @@ export async function boardImportScenario(deps: WorkbenchDeps): Promise<BoardSce
     },
   );
   const result = outcome.result as { built: { record: string }[]; failed: unknown[] };
-  log.push(`model-cache: built ${result.built.map((b) => b.record).join(',')} failed ${JSON.stringify(result.failed)}; library asked ${asked.join(',')}; instances ${planned.join(',')}`);
+  log.push(`model-cache: built ${result.built.map((b) => b.record).join(',')} failed ${JSON.stringify(result.failed)}; library asked ${asked.join(',')}; instances ${planned.join(',')}; ${painted.join(',')}`);
   log.push(`model built after the job: ${String(await deps.modelCache!.has(link.asset))}`);
   return { log, exported: await deps.exportCatalog!() };
 }
