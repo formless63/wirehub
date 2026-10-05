@@ -32,7 +32,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { betterAuth, type BetterAuthOptions, type BetterAuthPlugin } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { getMigrations } from 'better-auth/db/migration';
-import { genericOAuth } from 'better-auth/plugins/generic-oauth';
+import { genericOAuth, type GenericOAuthConfig } from 'better-auth/plugins/generic-oauth';
 import { magicLink } from 'better-auth/plugins/magic-link';
 
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -40,7 +40,10 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import pg from 'pg';
 
 import { requestOrigin } from '../env.ts';
+import type { AuthProviderContribution } from '@wirehub/modules';
+
 import { readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
+import { resolveModuleProviders, type ModuleOAuthProvider } from './module-providers.ts';
 import type { PeopleStore, Role } from './people.ts';
 import { RateLimiter, type TokenEnv, type TokenStore } from './tokens.ts';
 import { magicLinkMessage, smtpTransport, type MailTransport } from './mailer.ts';
@@ -71,6 +74,8 @@ export interface StudioAuth {
   handler(request: Request): Promise<Response>;
   /** the signed-in person for this request's cookies, or `null` */
   sessionUser(headers: Headers): Promise<SessionUser | null>;
+  /** the sign-in buttons modules added, beside the configured OIDC one */
+  providers?: readonly { providerId: string; name: string }[];
   /** may this email hold a session: the allow-list, or (database backend) a person of the org */
   isAllowed(email: string): boolean | Promise<boolean>;
   /** the database backend's people and invitations (B8); absent on files */
@@ -104,6 +109,10 @@ export interface StudioAuthOverrides {
    * of the app's database (migration 0012, never migrated at boot), and the
    * people and invitations decide who may sign in.
    */
+  /** sign-in methods the deployment's modules contribute (`registry.authProviders()`, `module-providers.ts`) */
+  providers?: readonly AuthProviderContribution[];
+  /** the environment `…Env` entries of those providers are read from (default `process.env`) */
+  providerEnv?: Readonly<Record<string, string | undefined>>;
   pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter; setupMode?: () => boolean };
 }
 
@@ -164,6 +173,28 @@ function oidcUserInfo(oidc: OidcConfig, fetchImpl: typeof fetch) {
   };
 }
 
+/** A plain OAuth 2 provider's profile: the userinfo endpoint's JSON, the configured claim as `email`. */
+function oauth2UserInfo(provider: ModuleOAuthProvider, fetchImpl: typeof fetch) {
+  return async (tokens: { accessToken?: string }) => {
+    if (tokens.accessToken === undefined || provider.userInfoUrl === undefined) return null;
+    const res = await fetchImpl(provider.userInfoUrl, { headers: { authorization: `Bearer ${tokens.accessToken}`, accept: 'application/json' } });
+    if (!res.ok) return null;
+    const profile = (await res.json()) as Record<string, unknown>;
+    const sub = profile.sub ?? profile.id;
+    if (typeof sub !== 'string' && typeof sub !== 'number') return null;
+    const claim = profile[provider.emailClaim];
+    const name = profile.name ?? profile.preferred_username ?? profile.login;
+    return {
+      ...profile,
+      id: String(sub),
+      email: typeof claim === 'string' ? claim.toLowerCase() : undefined,
+      emailVerified: true,
+      name: typeof name === 'string' ? name : undefined,
+      image: typeof profile.picture === 'string' ? profile.picture : typeof profile.avatar_url === 'string' ? profile.avatar_url : undefined,
+    };
+  };
+}
+
 /** Better Auth's options for a config — exported so a test can ask `getMigrations` what it would change. */
 export function authDatabaseOf(overrides: StudioAuthOverrides, config: AuthConfigEnabled): BetterAuthOptions['database'] {
   if (overrides.pg !== undefined) {
@@ -194,25 +225,37 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
   const fetchImpl = overrides.fetch ?? fetch;
 
   const plugins: BetterAuthPlugin[] = [];
+  const fromModules = resolveModuleProviders(overrides.providers ?? [], overrides.providerEnv ?? process.env, config.oidc === undefined ? [] : [config.oidc.providerId]);
+  const oauthConfigs: GenericOAuthConfig[] = [];
   if (config.oidc !== undefined) {
     const oidc = config.oidc;
-    plugins.push(
-      genericOAuth({
-        config: [
-          {
-            providerId: oidc.providerId,
-            name: oidc.name,
-            discoveryUrl: `${oidc.issuer}/.well-known/openid-configuration`,
-            clientId: oidc.clientId,
-            ...(oidc.clientSecret === undefined ? {} : { clientSecret: oidc.clientSecret }),
-            scopes: oidc.scopes,
-            pkce: true,
-            getUserInfo: oidcUserInfo(oidc, fetchImpl),
-          },
-        ],
-      }),
-    );
+    oauthConfigs.push({
+      providerId: oidc.providerId,
+      name: oidc.name,
+      discoveryUrl: `${oidc.issuer}/.well-known/openid-configuration`,
+      clientId: oidc.clientId,
+      ...(oidc.clientSecret === undefined ? {} : { clientSecret: oidc.clientSecret }),
+      scopes: oidc.scopes,
+      pkce: true,
+      getUserInfo: oidcUserInfo(oidc, fetchImpl),
+    } as GenericOAuthConfig);
   }
+  for (const provider of fromModules.oauth) {
+    const asOidc: OidcConfig = { providerId: provider.providerId, name: provider.name, issuer: provider.issuer ?? '', clientId: provider.clientId, scopes: provider.scopes, emailClaim: provider.emailClaim };
+    oauthConfigs.push({
+      providerId: provider.providerId,
+      name: provider.name,
+      ...(provider.kind === 'oidc'
+        ? { discoveryUrl: `${provider.issuer}/.well-known/openid-configuration`, getUserInfo: oidcUserInfo(asOidc, fetchImpl) }
+        : { authorizationUrl: provider.authorizationUrl, tokenUrl: provider.tokenUrl, getUserInfo: oauth2UserInfo(provider, fetchImpl) }),
+      clientId: provider.clientId,
+      ...(provider.clientSecret === undefined ? {} : { clientSecret: provider.clientSecret }),
+      scopes: provider.scopes,
+      pkce: true,
+    } as GenericOAuthConfig);
+  }
+  if (oauthConfigs.length > 0) plugins.push(genericOAuth({ config: oauthConfigs }));
+  plugins.push(...(fromModules.plugins as BetterAuthPlugin[]));
   if (config.smtp !== undefined && mail !== undefined) {
     const from = config.smtp.from;
     plugins.push(
@@ -249,7 +292,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
     account: {
       accountLinking: {
         enabled: true,
-        trustedProviders: config.oidc === undefined ? [] : [config.oidc.providerId],
+        trustedProviders: oauthConfigs.map((c) => c.providerId),
       },
     },
     // failed OAuth callbacks land back on the sign-in page with `?error=CODE`
@@ -303,6 +346,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
       if (session === null) return null;
       return { id: session.user.id, email: session.user.email, name: session.user.name };
     },
+    providers: fromModules.oauth.map((p) => ({ providerId: p.providerId, name: p.name })),
     isAllowed,
     ...(overrides.pg?.tokens === undefined ? {} : { tokens: overrides.pg.tokens, tokenEnv: overrides.pg.tokenEnv ?? 'dev', limiter: overrides.pg.limiter ?? new RateLimiter() }),
     close: async () => {
@@ -351,7 +395,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
 
 /** `serve.ts`'s entry: `undefined` when `AUTH_ENABLED` is not `true`. */
 export async function studioAuthFromEnv(env: Readonly<Record<string, string | undefined>>, overrides: StudioAuthOverrides = {}): Promise<StudioAuth | undefined> {
-  const config = readAuthConfig(env);
+  const config = readAuthConfig(env, { moduleProviders: overrides.providers?.length ?? 0 });
   if (!config.enabled) return undefined;
   return createStudioAuth(config, overrides);
 }

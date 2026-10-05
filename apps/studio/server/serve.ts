@@ -138,7 +138,10 @@ const deps = workbench.deps;
 // on the database backend its accounts, people and invitations are in Postgres
 let auth: StudioAuth | undefined;
 try {
-  auth = await studioAuthFromEnv(process.env, workbench.pg === undefined
+  auth = await studioAuthFromEnv(process.env, {
+      // sign-in methods the deployment's modules add (docs/modules.md)
+      providers: registry.authProviders(),
+      ...(workbench.pg === undefined
       ? {}
       : {
           pg: {
@@ -148,7 +151,8 @@ try {
             tokenEnv: tokenEnvOf(process.env),
             setupMode: workbench.pg.setupMode,
           },
-        });
+        }),
+    });
 } catch (error) {
   if (!(error instanceof AuthConfigError)) throw error;
   console.error(error.message);
@@ -170,7 +174,7 @@ serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`  catalog: ${workbench.describe}`);
   console.log(`  blobs: ${blobs === undefined ? 'beside the catalog (WIREHUB_BLOBS unset)' : blobs.describe}`);
   if (auth !== undefined) {
-    const methods = [auth.config.oidc === undefined ? '' : auth.config.oidc.name, auth.config.smtp === undefined ? '' : 'magic link']
+    const methods = [auth.config.oidc === undefined ? '' : auth.config.oidc.name, auth.config.smtp === undefined ? '' : 'magic link', ...(auth.providers ?? []).map((p) => p.name)]
       .filter((m) => m !== '')
       .join(' + ');
     console.log(`  auth ON (${methods}) — sign in at ${auth.config.baseURL}/sign-in; ${auth.config.allowedEmails.size} allowed email(s)`);

@@ -8,6 +8,8 @@
 export interface SignInPageModel {
   /** OIDC button, when configured */
   oidc?: { providerId: string; name: string; emailClaim: string };
+  /** sign-in buttons contributed by modules */
+  providers?: readonly { providerId: string; name: string }[];
   /** the magic-link form, when SMTP is configured */
   magicLink: boolean;
   /** the email + password form (database backend, plan §9.3) */
@@ -59,10 +61,14 @@ export function renderSignInPage(model: SignInPageModel): string {
 <button class="btn" type="button" id="sign-out">Sign out</button>`);
     }
     if (model.oidc !== undefined) {
-      parts.push(`<button class="btn primary" type="button" id="oidc" data-provider="${esc(model.oidc.providerId)}">Sign in with ${esc(model.oidc.name)}</button>`);
+      parts.push(`<button class="btn primary" type="button" id="oidc" data-sso data-provider="${esc(model.oidc.providerId)}">Sign in with ${esc(model.oidc.name)}</button>`);
     }
+    for (const provider of model.providers ?? []) {
+      parts.push(`<button class="btn${model.oidc === undefined && provider === model.providers?.[0] ? ' primary' : ''}" type="button" data-sso data-provider="${esc(provider.providerId)}">Sign in with ${esc(provider.name)}</button>`);
+    }
+    const sso = model.oidc !== undefined || (model.providers ?? []).length > 0;
     if (model.localAccounts === true) {
-      if (model.oidc !== undefined) parts.push('<div class="or"><span>or</span></div>');
+      if (sso) parts.push('<div class="or"><span>or</span></div>');
       parts.push(`<form id="password" novalidate>
 <label for="pw-email">Email</label>
 <input id="pw-email" name="email" type="email" autocomplete="username" required placeholder="you@example.com">
@@ -72,7 +78,7 @@ export function renderSignInPage(model: SignInPageModel): string {
 </form>`);
     }
     if (model.magicLink) {
-      if (model.oidc !== undefined || model.localAccounts === true) parts.push('<div class="or"><span>or</span></div>');
+      if (sso || model.localAccounts === true) parts.push('<div class="or"><span>or</span></div>');
       parts.push(`<form id="magic" novalidate>
 <label for="email">Email</label>
 <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
@@ -132,8 +138,7 @@ var next=${JSON.stringify(model.next).replace(/</g, '\\u003c')};
 var status=document.getElementById('status');
 function say(text,kind){status.textContent=text;status.className='msg '+(kind||'')}
 function post(path,body){return fetch('/api/auth'+path,{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,body:j}})})}
-var oidc=document.getElementById('oidc');
-if(oidc)oidc.addEventListener('click',function(){oidc.disabled=true;post('/sign-in/social',{provider:oidc.dataset.provider,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){location.href=r.body.url}else{oidc.disabled=false;say(r.body.message||'Could not reach the sign-in provider.','err')}},function(){oidc.disabled=false;say('Could not reach the studio.','err')})});
+Array.prototype.forEach.call(document.querySelectorAll('[data-sso]'),function(oidc){oidc.addEventListener('click',function(){oidc.disabled=true;post('/sign-in/social',{provider:oidc.dataset.provider,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){location.href=r.body.url}else{oidc.disabled=false;say(r.body.message||'Could not reach the sign-in provider.','err')}},function(){oidc.disabled=false;say('Could not reach the studio.','err')})})});
 var form=document.getElementById('magic');
 if(form)form.addEventListener('submit',function(e){e.preventDefault();var email=form.email.value.trim();if(!email){say('Enter your email.','err');return}var b=form.querySelector('button');b.disabled=true;post('/sign-in/magic-link',{email:email,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){b.disabled=false;if(r.ok){say('Link sent to '+email+'. It works once, for 10 minutes.','ok')}else{say(r.body.message||'Could not send the link.','err')}},function(){b.disabled=false;say('Could not reach the studio.','err')})});
 var pw=document.getElementById('password');
