@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
+import { listDesignIds, loadDb, loadDesign, loadDesigns } from '@wirehub/catalog';
 
 import {
   designInstances,
@@ -25,6 +25,7 @@ import {
   pcbaTerminalIds,
   terminalKey,
   terminalsOf,
+  withAssemblies,
   type CableDesign,
   type Db,
 } from '../src/index.ts';
@@ -138,7 +139,8 @@ describe('designInstances', () => {
         design.instances.connectors.length +
         design.instances.segments.length +
         design.instances.components.length +
-        design.instances.pcbas.length;
+        design.instances.pcbas.length +
+        (design.instances.subassemblies ?? []).length;
       expect(flat, id).toHaveLength(declared);
       expect(new Set(flat.map((instance) => instance.id)).size, id).toBe(declared);
     }
@@ -285,11 +287,13 @@ describe('terminalsOf', () => {
   });
 
   it('covers every terminal the design joints actually land on', () => {
+    // a sub-assembly's ports come from the design it places
+    const withLibrary = withAssemblies(db, { working: loadDesigns() });
     for (const id of listDesignIds()) {
       const design = loadDesign(id);
       const exposed = new Set(
         designInstances(design).flatMap((instance) =>
-          terminalsOf(design, db, instance.id).map((terminal) => terminal.key),
+          terminalsOf(design, withLibrary, instance.id).map((terminal) => terminal.key),
         ),
       );
       for (const joint of design.joints) {

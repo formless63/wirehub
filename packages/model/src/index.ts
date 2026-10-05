@@ -464,3 +464,30 @@ export {
   regroupPigtailsByFace,
 } from './ground-faces.ts';
 export type { FaceRegroupReport, FaceRegroupResult } from './ground-faces.ts';
+export {
+  SUBASSEMBLY_ID_SEPARATOR,
+  flatTerminal,
+  flattenSubassemblies,
+  hasSubassemblies,
+  parseSubassemblyPortId,
+  pinSubassemblies,
+  placedDesign,
+  placedDesignIds,
+  portsOfSubassembly,
+  releasedRevisions,
+  subassembliesOf,
+  subassemblyIssues,
+  subassemblyParents,
+  subassemblyPortId,
+  subassemblyPorts,
+  withAssemblies,
+} from './subassemblies.ts';
+export type {
+  AssemblyLibrary,
+  AssemblyVersion,
+  FlatDesign,
+  PlacedDesign,
+  PlacedResult,
+  SubassemblyPort,
+  SubassemblyPortKind,
+} from './subassemblies.ts';

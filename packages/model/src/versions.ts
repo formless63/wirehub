@@ -24,6 +24,7 @@ import type { ConnectorBody, Interface } from './interfaces.ts';
 import type { SignalTags } from './vocab.ts';
 import { jointMoveText } from './design-edit.ts';
 import { terminalKey, validateDesign } from './validate.ts';
+import { pinSubassemblies, type AssemblyLibrary } from './subassemblies.ts';
 
 export const DESIGN_VERSION_FORMAT = 'wirehub/design-version@2';
 /**
@@ -288,8 +289,12 @@ export function versionDb(definitions: FrozenDefinitions, live?: Db): Db {
   };
 }
 
-/** A version must validate against its own frozen definitions. */
-export function validateVersion(file: DesignVersionFile): Issue[] {
+/**
+ * A version must validate against its own frozen definitions. Given the
+ * sub-assembly library, the designs it places are checked too (they are
+ * pinned to saved versions, so they are as frozen as it is).
+ */
+export function validateVersion(file: DesignVersionFile, assemblies?: AssemblyLibrary): Issue[] {
   const issues: Issue[] = [];
   if (file.format !== DESIGN_VERSION_FORMAT && file.format !== DESIGN_VERSION_FORMAT_V1) {
     issues.push({ code: 'version-format', severity: 'error', message: `unknown version format '${String(file.format)}'` });
@@ -311,7 +316,8 @@ export function validateVersion(file: DesignVersionFile): Issue[] {
     }
   }
   if (issues.some((issue) => issue.severity === 'error')) return issues;
-  return [...issues, ...validateDesign(file.design, versionDb(file.definitions))];
+  const db = versionDb(file.definitions);
+  return [...issues, ...validateDesign(file.design, assemblies === undefined ? db : { ...db, assemblies })];
 }
 
 /* ------------------------------------------------------------------ *
@@ -383,8 +389,15 @@ export interface NewVersionInput {
   depictions?: Record<string, ArtworkFiles>;
 }
 
+/**
+ * A new saved version. With `db.assemblies`, every sub-assembly that follows
+ * a working copy is pinned to that design's released revision
+ * (`pinSubassemblies`), so the version always names the same parts; callers
+ * refuse the save first when one has nothing released.
+ */
 export function createVersion(input: NewVersionInput): DesignVersionFile {
   const note = input.note.trim();
+  const design = pinSubassemblies(input.design, input.db).design;
   return canonicalVersionFile({
     format: DESIGN_VERSION_FORMAT,
     designId: input.design.id,
@@ -393,8 +406,8 @@ export function createVersion(input: NewVersionInput): DesignVersionFile {
     savedBy: input.by,
     note,
     ...(input.basedOnRev === undefined ? {} : { basedOnRev: input.basedOnRev }),
-    design: JSON.parse(JSON.stringify(input.design)) as CableDesign,
-    definitions: freezeDefinitions(input.design, input.db),
+    design: JSON.parse(JSON.stringify(design)) as CableDesign,
+    definitions: freezeDefinitions(design, input.db),
     depictions: input.depictions ?? {},
     history: [{ action: 'save', at: input.at, by: input.by, note }],
   });
@@ -481,6 +494,8 @@ export function editVersion(
 ): DesignVersionFile {
   const reason = file.unlocked?.reason ?? '';
   const db = versionDb(file.definitions, live);
+  // a sub-assembly added in the edit is frozen like the rest
+  design = pinSubassemblies(design, live.assemblies === undefined ? db : { ...db, assemblies: live.assemblies }).design;
   const definitions = freezeDefinitions(design, db);
   const before = { design: file.design, definitions: file.definitions };
   const after = { design, definitions };
@@ -501,9 +516,10 @@ export function editVersion(
  * Diff
  * ------------------------------------------------------------------ */
 
-type InstanceList = 'connectors' | 'segments' | 'components' | 'pcbas' | 'mechanical' | 'breakouts';
-const INSTANCE_LISTS: readonly InstanceList[] = ['connectors', 'segments', 'components', 'pcbas', 'mechanical', 'breakouts'];
+type InstanceList = 'connectors' | 'segments' | 'components' | 'pcbas' | 'mechanical' | 'breakouts' | 'subassemblies';
+const INSTANCE_LISTS: readonly InstanceList[] = ['connectors', 'segments', 'components', 'pcbas', 'mechanical', 'breakouts', 'subassemblies'];
 const LIST_NOUN: Record<InstanceList, string> = {
+  subassemblies: 'sub-assembly',
   connectors: 'connector',
   segments: 'wire',
   components: 'component',

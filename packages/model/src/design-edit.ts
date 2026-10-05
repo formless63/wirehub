@@ -22,14 +22,17 @@ import type {
   Joint,
   PcbaInstance,
   SegmentInstance,
+  SubassemblyInstance,
   TerminalRef,
 } from './model.ts';
+import { SUBASSEMBLY_SCHEMA_VERSION } from './model.ts';
 
 const ID_PREFIX: Record<InstanceKind, string> = {
   connector: 'j',
   segment: 'w',
   component: 'x',
   pcba: 'u',
+  subassembly: 'sa',
 };
 
 /** `j1`, `w2`, `u3`, `r1`/`c1` for components — the shop's own naming. */
@@ -69,6 +72,10 @@ export function addInstance(
     case 'pcba':
       instances.pcbas = [...instances.pcbas, { id, def } satisfies PcbaInstance];
       break;
+    case 'subassembly':
+      instances.subassemblies = [...(instances.subassemblies ?? []), { id, def } satisfies SubassemblyInstance];
+      // a design placing sub-assemblies is schema v5 (an older reader must refuse it)
+      return { ...design, schemaVersion: SUBASSEMBLY_SCHEMA_VERSION, instances };
   }
   return { ...design, instances };
 }
@@ -92,6 +99,7 @@ export function removeInstance(design: CableDesign, id: string): CableDesign {
       }
     }
   }
+  const subassemblies = design.instances.subassemblies?.filter((i) => i.id !== id);
   const breakouts = design.instances.breakouts?.filter(
     (b) =>
       b.id !== id &&
@@ -109,6 +117,7 @@ export function removeInstance(design: CableDesign, id: string): CableDesign {
       pcbas: design.instances.pcbas.filter((i) => i.id !== id),
       ...(mechanical !== undefined ? { mechanical: mechanical.filter((m) => !gone.has(m.id)) } : {}),
       ...(breakouts !== undefined ? { breakouts } : {}),
+      ...(subassemblies !== undefined ? { subassemblies } : {}),
     },
     joints: design.joints.filter(
       (joint) => joint.a.instance !== id && joint.b.instance !== id,
@@ -230,6 +239,8 @@ export type InstancePatch = {
   endLabels?: { a?: string[]; b?: string[] } | undefined;
   /** a segment's core labels by conductor path; empty text is dropped */
   coreLabels?: Record<string, string> | undefined;
+  /** a sub-assembly's pinned saved version; `undefined` unpins it (it follows the working copy) */
+  rev?: number | undefined;
 };
 
 /** Empty label data is no label data: drop blank lines, blank texts and empty objects. */
@@ -285,6 +296,13 @@ export function updateInstance(
       pcbas: design.instances.pcbas.map((i) =>
         i.id === id ? applyPatch(i, patch, ['note']) : i,
       ),
+      ...(design.instances.subassemblies === undefined
+        ? {}
+        : {
+            subassemblies: design.instances.subassemblies.map((i) =>
+              i.id === id ? applyPatch(i, patch, ['role', 'note', 'label', 'rev']) : i,
+            ),
+          }),
     },
   };
 }

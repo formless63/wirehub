@@ -13,6 +13,7 @@ import type { DbRules } from './electrical.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
 import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
+import type { AssemblyLibrary } from './subassemblies.ts';
 
 /* ------------------------------------------------------------------ *
  * Wire structure — hierarchical elements
@@ -621,6 +622,13 @@ export interface Db {
   boardParts?: BoardPartsEntry[];
   /** the organisation's rule thresholds (hub settings); absent means the defaults */
   rules?: DbRules;
+  /**
+   * The other designs a design places as sub-assemblies (`subassemblies.ts`):
+   * their working copies and the saved versions a reference may pin, filled
+   * in by the host for the design at hand (transitively). Absent: sub-assembly
+   * references are not checked or flattened — their ports resolve unverified.
+   */
+  assemblies?: AssemblyLibrary;
 }
 
 /* ------------------------------------------------------------------ *
@@ -867,6 +875,31 @@ export interface BreakoutInstance {
   note?: string;
 }
 
+/**
+ * Another design placed in this one as a sub-assembly (`subassemblies.ts`):
+ * a reusable lead inside a harness, two leads making a Y. Its unconnected
+ * ends — every connector pin, and the conductors of a wire end nothing is
+ * soldered to (a flying lead) — are its **ports**, terminals of this
+ * instance named by `subassemblyPortId` (`j1:3`, `w1@b:red`); the parent's
+ * joints land on them. Trace, nets and the continuity spec flatten through
+ * it; the BOM lists it as one line by its part number. Schema v5.
+ */
+export interface SubassemblyInstance {
+  id: string;
+  /** the placed design's id */
+  def: string;
+  /**
+   * The saved version it is pinned to. Absent: it follows the placed
+   * design's working copy, and saving a version of this design pins it to
+   * the placed design's released revision then.
+   */
+  rev?: number;
+  role?: string;
+  note?: string;
+  /** the text the documents use for it instead of its id */
+  label?: string;
+}
+
 export interface DesignInstances {
   connectors: ConnectorInstance[];
   segments: SegmentInstance[];
@@ -876,6 +909,8 @@ export interface DesignInstances {
   mechanical?: MechanicalInstance[];
   /** breakout points; absent means none */
   breakouts?: BreakoutInstance[];
+  /** other designs placed as sub-assemblies (schema v5); absent means none */
+  subassemblies?: SubassemblyInstance[];
 }
 
 /**
@@ -936,17 +971,18 @@ export function designStatus(design: { status?: DesignStatus }): DesignStatus {
 /**
  * Design schema versions. v2 added segment pigtails, bonded stocks and pad
  * qualifiers (shield bonding); v3 the optional `recipe`
- * (data model v2 §4.1); v4 breakouts.
+ * (data model v2 §4.1); v4 breakouts; v5 sub-assemblies.
  * Each version only *added* optional structure, so every older document is a
  * valid v4 document with a smaller number.
  *
  * **One version on disk** (storage seams): every stored
- * design is at `CURRENT_SCHEMA_VERSION`. Documents at 1–3 exist only as input
+ * design is at `CURRENT_SCHEMA_VERSION`, or — placing sub-assemblies — at
+ * `SUBASSEMBLY_SCHEMA_VERSION` (`schemaVersionFor`). Documents at 1–3 exist only as input
  * to `upgradeDesignSchema` (`migrate-schema.ts`) — the one-shot catalog
  * migration and the API's body reader — which is the only code that knows
  * the older numbers.
  */
-export type SchemaVersion = 1 | 2 | 3 | 4;
+export type SchemaVersion = 1 | 2 | 3 | 4 | 5;
 
 /**
  * The schema version a design carrying breakouts (`instances.breakouts`,
@@ -955,10 +991,21 @@ export type SchemaVersion = 1 | 2 | 3 | 4;
  */
 export const BREAKOUT_SCHEMA_VERSION = 4 as const;
 
-/** The highest design schema version this code reads. */
-export const MAX_SCHEMA_VERSION = 4 as const;
+/**
+ * The schema version a design placing sub-assemblies
+ * (`instances.subassemblies`) is written at, so an older reader refuses it
+ * rather than dropping the parts it cannot see. A design without any stays
+ * at `CURRENT_SCHEMA_VERSION`; `schemaVersionFor` picks.
+ */
+export const SUBASSEMBLY_SCHEMA_VERSION = 5 as const;
 
-/** The version every written design carries — the only one stored. */
+/** The highest design schema version this code reads. */
+export const MAX_SCHEMA_VERSION = 5 as const;
+
+/**
+ * The version every written design without sub-assemblies carries (one with
+ * them is at `SUBASSEMBLY_SCHEMA_VERSION`).
+ */
 export const CURRENT_SCHEMA_VERSION = 4 as const;
 
 export interface CableDesign {
@@ -983,7 +1030,7 @@ export interface CableDesign {
   extensions?: Record<string, unknown>;
 }
 
-export type InstanceKind = 'connector' | 'segment' | 'component' | 'pcba';
+export type InstanceKind = 'connector' | 'segment' | 'component' | 'pcba' | 'subassembly';
 
 /* ------------------------------------------------------------------ *
  * Issues
