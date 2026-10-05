@@ -11,7 +11,7 @@
 # database, and the database's export is the starter catalog plus exactly
 # that save and that model.
 #
-#   bash scripts/stack-smoke.sh [--upgrade] [--backup] [--restore] [--old-backrest-config] [image]
+#   bash scripts/stack-smoke.sh [--upgrade] [--backup] [--restore] [--pdf] [--old-backrest-config] [image]
 #
 # --upgrade  first, a hub on the file backend (as before v0.1.0) set up and
 #            edited, then started with this compose.yaml's defaults: migrate
@@ -21,6 +21,12 @@
 #            setup this time): the dump (as studio_ro, with row counts), the
 #            restore check, a Backrest snapshot and its post-snapshot hook
 #            (the marker the deep health check and blob GC read).
+# --pdf      the browser PDF engine: after the default pass, the stack comes up
+#            again with COMPOSE_PROFILES=pdf and WIREHUB_PDF_ENGINE_URL=
+#            http://pdf:3000; the engine must answer /health from the app's
+#            container, and a build sheet (?format=pdf, signed in) must come
+#            back as a PDF with X-WireHub-PDF-Renderer: browser and no
+#            X-WireHub-PDF-Fallback; then the stack is taken down.
 # --old-backrest-config  (with --backup) the backup stack starts with a Backrest
 #            configuration made before the post-snapshot hooks existed (a plan
 #            with none); backup-init must add them, and the snapshot must
@@ -39,8 +45,10 @@ backup=0
 restore=0
 upgrade=0
 old_config=0
-while [ "${1:-}" = "--backup" ] || [ "${1:-}" = "--restore" ] || [ "${1:-}" = "--upgrade" ] || [ "${1:-}" = "--old-backrest-config" ]; do
+pdf=0
+while [ "${1:-}" = "--pdf" ] || [ "${1:-}" = "--backup" ] || [ "${1:-}" = "--restore" ] || [ "${1:-}" = "--upgrade" ] || [ "${1:-}" = "--old-backrest-config" ]; do
   [ "$1" = "--old-backrest-config" ] && old_config=1
+  [ "$1" = "--pdf" ] && pdf=1
   [ "$1" = "--backup" ] && backup=1
   [ "$1" = "--restore" ] && restore=1
   [ "$1" = "--upgrade" ] && upgrade=1
@@ -61,7 +69,7 @@ export WIREHUB_IMAGE="$image" WIREHUB_PORT="$port" BACKREST_PORT="$backrest_port
 compose() { docker compose -p "$project" "$@"; }
 b() { COMPOSE_PROFILES=backup WIREHUB_PORT=$((port + 1)) BACKREST_PORT=$((backrest_port + 1)) docker compose -p "$second" "$@"; }
 cleanup() {
-  COMPOSE_PROFILES=backup docker compose -p "$project" down -v --remove-orphans >/dev/null 2>&1 || true
+  COMPOSE_PROFILES=backup,pdf docker compose -p "$project" down -v --remove-orphans >/dev/null 2>&1 || true
   b down -v --remove-orphans >/dev/null 2>&1 || true
   cd / && rm -rf "$work" "$scratch"
 }
@@ -241,6 +249,29 @@ if [ "$upgrade" = 1 ]; then
 fi
 
 check_stack '[]'
+if [ "$pdf" = 1 ]; then
+  # the pdf profile on the stack just set up: only the app is recreated (with the engine's URL); the admin's session and the data stay
+  origin="http://127.0.0.1:$port"
+  echo "smoke: --pdf — COMPOSE_PROFILES=pdf, WIREHUB_PDF_ENGINE_URL=http://pdf:3000"
+  COMPOSE_PROFILES=pdf WIREHUB_PDF_ENGINE_URL=http://pdf:3000 compose up -d --quiet-pull >/dev/null 2>&1 || fail "docker compose up with the pdf profile"
+  wait_for "$origin/healthz" 180 || fail "the app did not answer after the pdf profile came up"
+  engine=""
+  for _ in $(seq 1 60); do
+    engine="$(COMPOSE_PROFILES=pdf compose exec -T wirehub node -e "fetch('http://pdf:3000/health').then(async r => { console.log(r.status, await r.text()); process.exit(r.ok ? 0 : 1) }, e => { console.log(String(e)); process.exit(1) })" 2>&1 || true)"
+    echo "$engine" | contains '^200 ' && break
+    sleep 2
+  done
+  echo "$engine" | contains '^200 ' || fail "the PDF engine is not reachable from the app: $engine"
+  echo "smoke: the PDF engine answers /health from the app's container"
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "$origin/api/designs/dc-y-splitter/documents/build-sheet?format=pdf")" = 401 ] || fail "a build-sheet PDF without a session was not refused"
+  curl -sS -b "$jar" -D "$scratch/pdf.headers" -o "$scratch/sheet.pdf" "$origin/api/designs/dc-y-splitter/documents/build-sheet?format=pdf" || fail "fetching the build-sheet PDF"
+  head -1 "$scratch/pdf.headers" | contains ' 200' || fail "the build-sheet PDF: $(head -1 "$scratch/pdf.headers")"
+  [ "$(head -c 5 "$scratch/sheet.pdf")" = "%PDF-" ] || fail "the build-sheet answer is not a PDF"
+  tr -d '\r' < "$scratch/pdf.headers" | contains '^[Xx]-[Ww]ire[Hh]ub-[Pp][Dd][Ff]-[Rr]enderer: browser$' || fail "the build sheet was not printed by the browser engine: $(grep -i 'x-wirehub' "$scratch/pdf.headers")"
+  ! grep -qi '^x-wirehub-pdf-fallback' "$scratch/pdf.headers" || fail "the engine was used with a fallback note: $(grep -i 'fallback' "$scratch/pdf.headers")"
+  echo "smoke: a build-sheet PDF ($(wc -c < "$scratch/sheet.pdf") bytes) was printed with X-WireHub-PDF-Renderer: browser"
+  COMPOSE_PROFILES=pdf compose down -v >/dev/null 2>&1
+fi
 if [ "$backup" = 1 ]; then
   compose down -v >/dev/null 2>&1
   export COMPOSE_PROFILES=backup

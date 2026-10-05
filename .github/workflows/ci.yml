@@ -108,5 +108,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       # an empty directory, compose.yaml only, no .env — as a Docker UI deploys it
-      - name: Deploy test (default stack, then the backup profile)
-        run: bash scripts/stack-smoke.sh --upgrade --backup --restore wirehub:smoke
+      - name: Deploy test (default stack, the pdf engine, then the backup profile)
+        run: bash scripts/stack-smoke.sh --upgrade --pdf --backup --restore wirehub:smoke
