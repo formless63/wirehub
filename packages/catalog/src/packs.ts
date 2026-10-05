@@ -175,6 +175,26 @@ export function packFiles(dir: string): string[] {
   return out.sort();
 }
 
+/**
+ * The art files of a pack that are not JSON — the images under `depictions/`
+ * (`svg`, `png`, `jpg`, `webp`) — relative, sorted. A layered install copies
+ * them beside the data files, so a pack's faces and cutaways arrive with it
+ * (`specs/drawing-language.md` §7).
+ */
+export function packAssetFiles(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (relative: string): void => {
+    if (!existsSync(join(dir, relative))) return;
+    for (const entry of readdirSync(join(dir, relative), { withFileTypes: true })) {
+      const path = `${relative}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else if (entry.isFile() && /\.(svg|png|jpe?g|webp)$/.test(entry.name)) out.push(path);
+    }
+  };
+  walk('depictions');
+  return out.sort();
+}
+
 /** What installing a pack would do, before anything is written. */
 export interface PackInstallPlan {
   manifest: PackManifest;
@@ -375,6 +395,10 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
   mkdirSync(staging, { recursive: true });
   writeFileSync(join(staging, PACK_MANIFEST), readFileSync(join(packDir, PACK_MANIFEST)));
   for (const relative of packFiles(packDir)) {
+    mkdirSync(dirname(join(staging, relative)), { recursive: true });
+    cpSync(join(packDir, relative), join(staging, relative));
+  }
+  for (const relative of packAssetFiles(packDir)) {
     mkdirSync(dirname(join(staging, relative)), { recursive: true });
     cpSync(join(packDir, relative), join(staging, relative));
   }

@@ -27,7 +27,7 @@ import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import type { DepictionStore } from '../../server/depictions.ts';
 import { batchScenario } from '../storage-contract/batch.ts';
 import { memoryWriteBackend, writeScenario } from '../storage-contract/writes.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 describePg('the write path on Postgres', () => {
   let database: TestDatabase;
@@ -41,7 +41,7 @@ describePg('the write path on Postgres', () => {
     pgh = openPg(database.appUrl, { max: 4 });
     work = mkdtempSync(join(tmpdir(), 'wirehub-pg-writes-'));
     blobs = fsBlobStore(join(work, 'blobs'));
-    orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) })).orgId;
+    orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() })).orgId;
   }, 60_000);
   afterAll(async () => {
     await pgh?.close();

@@ -19,7 +19,7 @@ import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { UnitOfWork } from '../../server/storage/unit-of-work.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 describePg('model cache on Postgres', () => {
   let database: TestDatabase;
@@ -37,7 +37,7 @@ describePg('model cache on Postgres', () => {
   }, 60_000);
 
   it('serves an imported model once built, and answers not-built before', async () => {
-    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) });
+    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
     const cache = new SnapshotCache(pgh.db, orgId, { reuseMs: 0 });
     const deps = pgWorkbenchDeps({ cache, db: pgh.db, blobs: fsBlobStore(join(work, 'blobs')) });
     const key = 'c'.repeat(64);

@@ -29,7 +29,7 @@ import { createStandaloneApp } from '../../server/standalone-app.ts';
 import { batchScenario, withBatchModule } from '../storage-contract/batch.ts';
 import { httpTransport } from '../storage-contract/http.ts';
 import { fixed, memoryWriteBackend, writeScenario } from '../storage-contract/writes.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 const BASE = 'http://studio.test';
 
@@ -53,7 +53,7 @@ describePg('SA1: API clients with a personal token', () => {
   }, 60_000);
 
   it('the write and batch sessions answer identically through the API', async () => {
-    const orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) })).orgId;
+    const orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() })).orgId;
     const people = pgPeople(pgh.db, orgId);
     const person = await people.ensurePerson(fixed.localUser.email, fixed.localUser.name, 'editor');
     const tokens = pgTokens(pgh.db, orgId);

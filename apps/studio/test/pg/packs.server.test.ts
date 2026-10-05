@@ -23,7 +23,7 @@ import { pgSetupDeps } from '../../server/pg/setup.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { handleSetupRequest } from '../../server/setup.ts';
 import { handlePacksRequest } from '../../server/packs.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 const sig = (id: string, label: string) => ({ id, label, kind: 'data', src: 'synthetic example: demo pack' });
@@ -61,7 +61,7 @@ describePg('pack lifecycle on Postgres', () => {
     const v2 = join(work, 'demo-2');
     writePack(v1, '1.0.0', { r60: '60 Ω' });
     writePack(v2, '1.1.0', { r60: '62 Ω', extra: true });
-    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'packs', create: true }, files: readCatalogTree(dataPath('..')) });
+    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'packs', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
     const cache = new SnapshotCache(pgh.db, orgId, { reuseMs: 0 });
     const deps: WorkbenchDeps = pgWorkbenchDeps({ cache, db: pgh.db });
     deps.setup = pgSetupDeps(deps, cache, { prompt: false, now });
@@ -107,6 +107,7 @@ describePg('pack lifecycle on Postgres', () => {
     const copy = join(work, 'data');
     const packsDir = join(work, 'packs');
     cpSync(dataPath(''), copy, { recursive: true });
+    cpSync(join(dataPath('..'), 'depictions'), join(work, 'depictions'), { recursive: true });
     const fileDeps = { dataDir: copy, packsDir, prompt: false, now };
     const registry1 = createRegistry([demo('1.0.0', v1)]);
     expect((await handleSetupRequest({ method: 'POST', body: { modules: ['demo'] } }, fileDeps, registry1)).status).toBe(200);
@@ -131,7 +132,7 @@ describePg('pack lifecycle on Postgres', () => {
   }, 180_000);
 
   it('installs an uploaded bundle, and updates it by uploading another', async () => {
-    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'upload', create: true }, files: readCatalogTree(dataPath('..')) });
+    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'upload', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
     const cache = new SnapshotCache(pgh.db, orgId, { reuseMs: 0 });
     const deps: WorkbenchDeps = pgWorkbenchDeps({ cache, db: pgh.db });
     deps.setup = pgSetupDeps(deps, cache, { prompt: false, now: () => '2026-10-05T09:00:00.000Z' });

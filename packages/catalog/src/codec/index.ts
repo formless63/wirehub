@@ -315,6 +315,8 @@ export function isSkippedPath(path: string): boolean {
 
 /** Whether a catalog file is read as text (JSON, markdown, plain text) rather than bytes. */
 export function isTextPath(path: string): boolean {
+  // a version's saved artwork is content-addressed bytes whatever its extension (`<sha>.json` is a manifest copy)
+  if (/^data\/designs\/_versions\/[^/]+\/artwork\//.test(path)) return false;
   const name = path.slice(path.lastIndexOf('/') + 1);
   return /\.(json|md|txt)$/.test(name) || name === 'LICENSE' || name === 'NOTICE' || name === 'README';
 }

@@ -5,13 +5,14 @@
  * sits on its anchor.
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { createCatalog, dataPath, fsCatalogSource, layeredCatalogSource, loadPackArt } from '../src/index.ts';
+import { createCatalog, dataPath, fsCatalogSource, installPackLayer, layeredCatalogSource, loadPackArt } from '../src/index.ts';
 import { loadDepiction } from '../src/depictions/index.ts';
 import { faceArtFiles } from '../scripts/face-art.ts';
 
@@ -65,5 +66,18 @@ describe('pack art records', () => {
     expect(art.connectors.map((c) => c.id)).toEqual(['jp21-21', 'scart-21']);
     expect(art.bodyLayouts.map((l) => l.id)).toEqual(['scart21', 'jp21']);
     for (const c of art.connectors) expect(c.src).toMatch(/CC0-1\.0/);
+  });
+});
+
+describe('installing a pack layer', () => {
+  it('copies the pack\'s depiction images and art records with its data files', () => {
+    const packs = mkdtempSync(join(tmpdir(), 'wirehub-art-packs-'));
+    try {
+      installPackLayer(dataPath(''), packs, join(ROOT, 'modules/networking/pack'));
+      expect(existsSync(join(packs, 'networking/depictions/rj45-8p8c-plug/mating-face.svg'))).toBe(true);
+      expect(existsSync(join(packs, 'networking/depictions/rj45-8p8c-plug/meta.json'))).toBe(true);
+    } finally {
+      rmSync(packs, { recursive: true, force: true });
+    }
   });
 });
