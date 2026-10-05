@@ -200,7 +200,7 @@ connector's wins) — has cavities (its pins, the shell excepted). Each takes a 
 in a `per-wire` sealed housing a `seal`, and when unused in a housing that plugs them a
 `plug`; a contact is crimped with a `tool`. Those four are mechanicals whose `termination`
 says what they fit (`systems`, `housings`) and take (`wireMinMm2`/`wireMaxMm2`,
-`insulationMinMm`/`insulationMaxMm`, `gender`, `plating`, `stripMm`, `crimpHeights`, `tool`).
+`insulationMinMm`/`insulationMaxMm`, `gender`, `plating`, `stripMm`, `ratedCurrentA`, `crimpHeights`, `tool`).
 A design records them per cavity on the connector instance:
 `cavities?: { pin, contact?, seal?, plug?, crimpHeightMm?, note? }[]`. Everything is optional:
 a solder-cup or PCB connector has no housing, and a design with no cavities validates as

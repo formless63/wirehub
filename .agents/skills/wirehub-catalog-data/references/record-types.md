@@ -65,7 +65,7 @@ Mechanical: `id`, `label`, `kind` (`shell | fastener | other | contact | seal | 
 `termination`: `systems?` (contact-system ids, free kebab strings shared with housings),
 `housings?` (connector or body ids it fits outright), `wireMinMm2?`/`wireMaxMm2?` (contact),
 `insulationMinMm?`/`insulationMaxMm?` (contact, seal), `gender?` (`male` pin / `female` socket),
-`plating?`, `stripMm?`, `crimpHeights?` (`{ wireMm2, heightMm, widthMm? }[]`), `tool?` (a
+`plating?`, `stripMm?`, `ratedCurrentA?` (per contact; the electrical rules prefer it to the connector's `contactRatingA`), `crimpHeights?` (`{ wireMm2, heightMm, widthMm? }[]`), `tool?` (a
 mechanical id of kind `tool`), `src?`. Leave out every value no source states. A **crimp
 housing** is a body's or connector's `housing`: `systems?`, `sealing?` (`none | per-wire |
 mat`), `plugUnused?` (unused cavities take a plug), `cavities?` (pin ids; default every pin

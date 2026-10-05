@@ -1341,6 +1341,8 @@ export interface TerminationDraft {
   gender: string;
   plating: string;
   stripMm: string;
+  /** rated current per contact, A */
+  ratedCurrentA: string;
   /** one `mm² height [width]` per line: `0.5 1.15 1.7` */
   crimpHeights: string;
   tool: string;
@@ -1364,7 +1366,7 @@ const MECHANICAL_FIELDS = ['id', 'label', 'partNumber', 'revision', 'kind', 'ter
 const numText = (n: number | undefined): string => (n === undefined ? '' : String(n));
 
 export function blankTerminationDraft(): TerminationDraft {
-  return { systems: '', housings: '', wireMinMm2: '', wireMaxMm2: '', insulationMinMm: '', insulationMaxMm: '', gender: '', plating: '', stripMm: '', crimpHeights: '', tool: '', src: '' };
+  return { systems: '', housings: '', wireMinMm2: '', wireMaxMm2: '', insulationMinMm: '', insulationMaxMm: '', gender: '', plating: '', stripMm: '', ratedCurrentA: '', crimpHeights: '', tool: '', src: '' };
 }
 
 export function terminationDraftOf(spec: TerminationSpec): TerminationDraft {
@@ -1378,6 +1380,7 @@ export function terminationDraftOf(spec: TerminationSpec): TerminationDraft {
     gender: text(spec.gender),
     plating: text(spec.plating),
     stripMm: numText(spec.stripMm),
+    ratedCurrentA: numText(spec.ratedCurrentA),
     crimpHeights: (spec.crimpHeights ?? []).map((h) => [h.wireMm2, h.heightMm, ...(h.widthMm === undefined ? [] : [h.widthMm])].join(' ')).join('\n'),
     tool: text(spec.tool),
     src: text(spec.src),
@@ -1406,6 +1409,7 @@ export function terminationOfDraft(draft: TerminationDraft): TerminationSpec {
     ...num('insulationMaxMm', draft.insulationMaxMm),
     ...some({ gender: draft.gender.trim(), plating: draft.plating.trim() }),
     ...num('stripMm', draft.stripMm),
+    ...num('ratedCurrentA', draft.ratedCurrentA),
     ...(heights.length === 0 ? {} : { crimpHeights: heights }),
     ...some({ tool: draft.tool.trim(), src: draft.src.trim() }),
   };
@@ -1420,6 +1424,7 @@ export function terminationFormIssues(draft: TerminationDraft): FieldIssue[] {
     ['insulationMinMm', 'smallest insulation'],
     ['insulationMaxMm', 'largest insulation'],
     ['stripMm', 'strip length'],
+    ['ratedCurrentA', 'rated current'],
   ];
   for (const [key, name] of fields) {
     if (draft[key].trim() !== '' && numberOf(draft[key]) === undefined) out.push({ where: name, message: `'${draft[key]}' is not a number.` });

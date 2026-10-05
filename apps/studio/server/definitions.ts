@@ -611,7 +611,7 @@ function gateTermination(value: unknown): { error: string; hint: string } | unde
   if (value === undefined) return undefined;
   if (!isObject(value)) return { error: 'What this part fits is not in the right form.', hint: 'It is an object: systems, wire and insulation ranges, plating, strip length, crimp heights, tool.' };
   if (!isOptionalWords(value['systems']) || !isOptionalWords(value['housings'])) return { error: 'The systems or housings it fits are not a list of ids.', hint: 'List contact system ids (sealed-1-5) and connector or body ids.' };
-  for (const key of ['wireMinMm2', 'wireMaxMm2', 'insulationMinMm', 'insulationMaxMm', 'stripMm']) {
+  for (const key of ['wireMinMm2', 'wireMaxMm2', 'insulationMinMm', 'insulationMaxMm', 'stripMm', 'ratedCurrentA']) {
     if (!isOptionalNumber(value[key])) return { error: `${key} is not a number.`, hint: 'Write sizes as plain numbers: mm² for wire, mm for insulation and strip length.' };
   }
   for (const key of ['gender', 'plating', 'tool', 'src']) {

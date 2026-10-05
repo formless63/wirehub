@@ -81,6 +81,8 @@ export interface TerminationSpec {
   stripMm?: number;
   /** contact: crimp heights per wire size */
   crimpHeights?: CrimpHeight[];
+  /** contact: rated current per contact, A — the electrical rules use it over the connector's `contactRatingA` */
+  ratedCurrentA?: number;
   /** contact: the tool or applicator that crimps it — a mechanical id of kind `tool` */
   tool?: string;
   src?: string;

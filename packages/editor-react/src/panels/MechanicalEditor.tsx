@@ -147,6 +147,7 @@ function TerminationSection(props: {
             />
             <Field label="Plating" value={value.plating} onChange={(next) => set('plating', next)} options={['tin', 'gold', 'silver']} />
             <Field label="Strip length (mm)" value={value.stripMm} onChange={(next) => set('stripMm', next)} problem={problem('strip length')} mono />
+            <Field label="Rated current (A)" say="Per contact. The electrical rules use it over the housing's contact rating." value={value.ratedCurrentA} onChange={(next) => set('ratedCurrentA', next)} problem={problem('rated current')} mono />
             <Choice
               label="Crimp tool"
               value={value.tool}
