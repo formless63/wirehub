@@ -170,7 +170,11 @@ other design.
   reason), and compare the physical body. A difference nobody recorded is drift.
 - `validateDesign` runs `recipeIssues` for every design with a recipe: `recipe-drift`,
   `recipe-override-stale`, `recipe-option-gone`, `recipe-hazard`, `recipe-unresolved`,
-  `recipe-device-unknown` — all warnings: a recipe is advice, the body is the truth.
+  `recipe-device-unknown` — all warnings: a recipe is advice, the body is the truth. An end the recipe
+  declares by a **requirement** (`{ "requirement": "…" }`, no `device`) names nothing to look up: such a
+  recipe raises no `recipe-device-unknown` and reads as `unresolved` (nothing to re-derive). A device the
+  library lacks (a pack this hub has not installed) is one `recipe-device-unknown` warning per design, naming
+  every missing end; the design itself is unaffected.
 - `rederive(design, db)` rebuilds the body from the recipe (after a library change), keeping prose
   where the parts survive.
 - `inferCableRecipe(design, db)` finds, for a hand design, the device ports its plugs fit, resolves

@@ -31,7 +31,8 @@ import {
 import { useEditorApi } from '../context.ts';
 import type { EditorState } from '../store.ts';
 
-const portLabel = (state: EditorState, end: { device: string; port?: string }): string => {
+const portLabel = (state: EditorState, end: { device: string; port?: string; requirement?: string }): string => {
+  if (typeof end.device !== 'string' || end.device === '') return end.requirement === undefined ? '(no device)' : `requirement: ${end.requirement}`;
   const device = resolveDevice(state.db.devices, end.device);
   if (device === undefined) return `${end.device} (not in the library)`;
   const port = device.ports.find((p) => p.id === end.port) ?? device.ports[0];

@@ -293,6 +293,32 @@ describe('derive, drift, inference', () => {
     expect(back.ok && back.design.joints.length).toBe(design.joints.length);
   });
 
+  it('does not look up an end a requirement declares, and says nothing false about it', () => {
+    const design = derived();
+    const byRequirement = { ...design, recipe: { ...design.recipe!, source: { requirement: 'a clean 5 V supply' } as never } } as CableDesign;
+    const issues = validateDesign(byRequirement, db).filter((i) => i.where === 'recipe');
+    expect(issues).toEqual([]);
+    expect(recipeDrift(byRequirement, db)).toMatchObject({ state: 'unresolved', reason: expect.stringContaining('requirement') });
+    expect(rederive(byRequirement, db).ok).toBe(false);
+    expect(recipeJointProposals(byRequirement, db)).toEqual([]);
+    // both ends by requirement: still nothing to look up
+    const both = { ...design, recipe: { ...design.recipe!, source: { requirement: 'x' } as never, destination: { requirement: 'y' } as never } } as CableDesign;
+    expect(validateDesign(both, db).filter((i) => i.where === 'recipe')).toEqual([]);
+  });
+
+  it('warns once, clearly, when the devices are not in this library', () => {
+    const design = derived();
+    const none = validateDesign(design, { ...db, devices: [] }).filter((i) => i.where === 'recipe');
+    expect(none).toHaveLength(1);
+    expect(none[0]).toMatchObject({ code: 'recipe-device-unknown', severity: 'warning' });
+    expect(none[0]!.message).toMatch(/source 'unit-a' and destination 'unit-b-low' are not in this library's devices/);
+    expect(none[0]!.message).not.toContain('undefined');
+    // one device missing: that one is named, once
+    const some = validateDesign(design, { ...db, devices: (db.devices ?? []).filter((d) => d.id !== 'unit-a') }).filter((i) => i.where === 'recipe');
+    expect(some).toHaveLength(1);
+    expect(some[0]!.message).toMatch(/source 'unit-a' is not in/);
+  });
+
   it('infers the recipe of a design whose instances were renamed', () => {
     const design = derived();
     const rename = (id: string): string => (id === 'j1' ? 'p1' : id === 'w1' ? 'cable' : id);

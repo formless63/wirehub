@@ -25,9 +25,23 @@ import { resolveDevice, type ResolverLibrary } from './devices.ts';
 import type { CableDesign, Issue, Joint } from './model.ts';
 import { resolve, type ResolveQuery } from './resolve.ts';
 
+/**
+ * One end of a recipe: a device (and port) of the library. An end a design declares by a **requirement** instead
+ * (`{ requirement: '…' }`, no `device`) names no device the resolver could use: such a recipe is a statement of what
+ * the cable needs, not something to re-derive, so it is neither checked against the library nor drift-checked.
+ */
+export interface RecipeEnd {
+  device: string;
+  port?: string;
+  requirement?: string;
+}
+
+/** Does this end name a device (a recipe read from data may lack one)? */
+export const isDeviceEnd = (end: RecipeEnd | undefined): end is RecipeEnd => typeof end?.device === 'string' && end.device !== '';
+
 export interface CableRecipe {
-  source: { device: string; port?: string };
-  destination: { device: string; port?: string };
+  source: RecipeEnd;
+  destination: RecipeEnd;
   /** the resolver option chosen (`CableOption.id`); absent = the top-ranked */
   option?: string;
   /** the trunk stock */
@@ -58,6 +72,8 @@ const queryOf = (recipe: CableRecipe): ResolveQuery => ({ source: recipe.source,
 
 /** The body `recipe` stands for (ids laid over), before its overrides. */
 export function derivedBody(lib: ResolverLibrary, recipe: CableRecipe): { ok: true; body: DesignBody; option: string } | { ok: false; reason: string } {
+  const abstract = (['source', 'destination'] as const).filter((end) => !isDeviceEnd(recipe[end]));
+  if (abstract.length > 0) return { ok: false, reason: `the recipe's ${abstract.join(' and ')} is declared by a requirement, not a device: there is nothing to derive from` };
   const derived = deriveCable(lib, queryOf(recipe), recipe.option, { ...(recipe.stock === undefined ? {} : { stock: recipe.stock }), ...(recipe.lengthMm === undefined ? {} : { lengthMm: recipe.lengthMm }) });
   if (!derived.ok) return { ok: false, reason: derived.reason };
   return { ok: true, body: renameBody(designBody(derived.design), recipe.ids), option: derived.option.id };
@@ -116,10 +132,15 @@ export function recipeIssues(design: CableDesign, lib: ResolverLibrary): Issue[]
   if (recipe === undefined) return [];
   const issues: Issue[] = [];
   const warn = (code: string, message: string): void => void issues.push({ code, severity: 'warning', message, where: 'recipe' });
-  for (const end of ['source', 'destination'] as const) {
-    if (resolveDevice(lib.devices, recipe[end].device) === undefined) warn('recipe-device-unknown', `the recipe's ${end} device '${recipe[end].device}' is not in the library`);
+  // an end declared by a requirement names no device: nothing to look up, and nothing the resolver could re-derive
+  if (!isDeviceEnd(recipe.source) || !isDeviceEnd(recipe.destination)) return issues;
+  // one warning per design, naming every device the hub's library lacks (a device from a pack this hub has not installed, say)
+  const missing = (['source', 'destination'] as const).filter((end) => resolveDevice(lib.devices, recipe[end].device) === undefined);
+  if (missing.length > 0) {
+    const named = missing.map((end) => `${end} '${recipe[end].device}'`).join(' and ');
+    warn('recipe-device-unknown', `the recipe's ${named} ${missing.length === 1 ? 'is' : 'are'} not in this library's devices (the pack that defines ${missing.length === 1 ? 'it' : 'them'} may not be installed), so the recipe cannot be checked against the design; the design itself is unaffected`);
+    return issues;
   }
-  if (issues.length > 0) return issues;
   const resolution = resolve(lib, queryOf(recipe));
   if (resolution.problems.length > 0 && resolution.options.length === 0 && resolution.rejected.length === 0) {
     warn('recipe-unresolved', `the recipe does not resolve: ${resolution.problems[0]!.message}`);
@@ -264,5 +285,5 @@ export function recipeJointProposals(design: CableDesign, lib: ResolverLibrary):
   );
   return body.joints
     .filter((j) => !have.has(jointKey(j)) && instances.has(j.a.instance) && instances.has(j.b.instance))
-    .map((j) => ({ joint: j, why: `the recipe (${recipe.source.device} → ${recipe.destination.device}) derives ${jointKey(j)}` }));
+    .map((j) => ({ joint: j, why: `the recipe (${recipe.source.device ?? recipe.source.requirement} → ${recipe.destination.device ?? recipe.destination.requirement}) derives ${jointKey(j)}` }));
 }
