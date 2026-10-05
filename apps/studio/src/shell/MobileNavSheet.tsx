@@ -9,7 +9,7 @@
  */
 
 import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconList, IconX } from '@tabler/icons-react';
+import { IconBox, IconHistory, IconList, IconX } from '@tabler/icons-react';
 import { useEffect, type JSX } from 'react';
 
 import { useModules } from '../modules/ModulesContext.tsx';
@@ -18,6 +18,7 @@ import { Wordmark } from './Wordmark.tsx';
 const LINKS = [
   { to: '/cables' as const, label: 'Cables', icon: IconList },
   { to: '/library' as const, label: 'Library', icon: IconBox },
+  { to: '/history' as const, label: 'History', icon: IconHistory },
 ];
 
 export function MobileNavSheet(props: { open: boolean; onClose: () => void }): JSX.Element | null {
