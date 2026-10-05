@@ -690,6 +690,8 @@ export interface ConnectorInstance {
    * when derivation can't tell (an instance with no joints yet).
    */
   mounting?: string;
+  /** the text the wire labels use for this connector ("at J1") instead of its id in capitals */
+  label?: string;
 }
 
 export interface SegmentInstance {
@@ -697,6 +699,12 @@ export interface SegmentInstance {
   def: string;
   lengthMm?: number;
   role?: string;
+  /** the run's label designation (`FEED-1`) instead of the generated `W<n>` */
+  label?: string;
+  /** the exact text lines of the marker at an end, replacing the generated lines (at most 3, 40 characters each) */
+  endLabels?: { a?: string[]; b?: string[] };
+  /** a label per core, by conductor path: printed at both ends of the run, beside the run's own labels */
+  coreLabels?: Record<string, string>;
   /**
    * How this instance's screens are prepared at each end: braids/spirals and
    * drains twisted together into a pigtail that lands once. A pigtail is a

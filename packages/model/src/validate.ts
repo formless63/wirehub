@@ -908,6 +908,23 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
       );
     }
   }
+  // marker text (labels): bounded, and a core label names a conductor of the stock
+  for (const instance of design.instances.segments) {
+    for (const end of ['a', 'b'] as const) {
+      const lines = instance.endLabels?.[end] ?? [];
+      if (lines.length > 3 || lines.some((l) => l.length > 40)) {
+        issues.push(issue('label-too-long', `the end ${end.toUpperCase()} label of segment '${instance.id}' is more than 3 lines or has a line over 40 characters`, instance.id, 'warning'));
+      }
+    }
+    const wire = findWire(db, instance.def);
+    if (wire === undefined) continue;
+    for (const path of Object.keys(instance.coreLabels ?? {})) {
+      const element = resolveElementPath(wire.structure, path);
+      if (element === undefined || element.kind !== 'conductor') {
+        issues.push(issue('label-unknown-core', `segment '${instance.id}' has a label for '${path}', which is not a conductor of '${wire.id}'`, instance.id, 'warning'));
+      }
+    }
+  }
   for (const instance of design.instances.components) {
     if (findComponent(db, instance.def) === undefined) {
       issues.push(

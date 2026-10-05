@@ -56,6 +56,13 @@ exported as CSV, and printable as a sheet: `labels.svg` is one page in millimetr
 3 × 7 grid of 63.5 × 38.1 mm labels (A4) or 3 × 10 of 66.7 × 25.4 mm (US letter); print it
 at 100%. `page=` and `copies=` (API and CLI) pick a page and repeat each label.
 
+The generated text can be overridden in the inspector, per segment and connector: a segment's
+**run label** replaces `W<n>`, its **end A / end B text** replaces the generated lines of that
+end (lines separated by `|`, at most 3 of 40 characters), a connector's **label** replaces its
+id in capitals in the `at` / `to` lines, and a **core label** (one per conductor of the stock)
+prints an extra marker at both ends of the run (`core` column of the CSV). Cores nobody
+named get no marker; with nothing entered the labels are exactly the generated ones.
+
 Per-run label text typed in the inspector is not built yet (cs-5k1.20 stays open for it).
 
 ## Continuity tester export and test parameters
@@ -105,9 +112,12 @@ test_volts, duration_s, note`, where `type` is:
 | `isolationSeconds` | 1 s | how long the isolation voltage is held |
 | `hipotVolts`, `hipotSeconds`, `hipotMaxMicroamps` | none | an optional withstand step |
 
-Three layers, the later one wins: the base's defaults; the organisation's, set in the
-environment as `WIREHUB_TEST_DEFAULTS='{"isolationVolts":250,"hipotVolts":1500,"hipotSeconds":2}'`
-(a bad value stops the server at start with one line); the design's own, edited on the
+Three layers, the later one wins: the base's defaults; the organisation's, set on the
+Settings page under **Testing** (kept in `data/settings/engineering.json`, so it travels with
+the catalog) or, as a fallback, in the environment as
+`WIREHUB_TEST_DEFAULTS='{"isolationVolts":250,"hipotVolts":1500,"hipotSeconds":2}'` (a bad
+value stops the server at start with one line; a parameter set on the page overrides the
+variable's); the design's own, edited on the
 Continuity spec tab and saved in the drawing sidecar (`test` in `data/drawings/<id>.json`).
 They are printed on the continuity spec (and the threshold is quoted in its expected
 readings and on the build sheet's Test page) and carried in the exports. They are settings,
