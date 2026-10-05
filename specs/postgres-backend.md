@@ -1304,6 +1304,25 @@ CREATE POLICY org_isolation ON studio.worker_heartbeat USING (org_id = studio.cu
 GRANT SELECT, INSERT, UPDATE, DELETE ON studio.worker_heartbeat TO studio_app;
 ```
 
+Change history (cs-5k1.4) keeps each change's earlier state beside its later one, so a
+History panel can show what a save changed field by field and restore an earlier state as
+a new change set (§3.5, "Change history"):
+
+```sql ddl
+-- 0017_history — change history: each change's earlier state (§3.5; cs-5k1.4)
+-- The state of the record before the change, as the commit read it before
+-- applying the set: what a history diff and a restore compare against.
+-- JSON null = there was no such record; SQL NULL = not recorded (rows written
+-- before this migration, binary records, moves, and the second and later
+-- changes of one record within a set).
+ALTER TABLE studio.change ADD COLUMN before_body json;
+
+-- A record's history: its changes by kind and key, in order.
+CREATE INDEX change_kind_key ON studio.change (kind, key, change_set_id);
+-- The hub-wide history, filtered by date.
+CREATE INDEX change_set_created ON studio.change_set (org_id, created_at);
+```
+
 ---
 
 ## 4. PgStore

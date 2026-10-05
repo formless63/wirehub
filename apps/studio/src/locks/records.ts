@@ -122,6 +122,9 @@ export function recordsOfWrite(method: string, path: string, body?: unknown): st
       return a === undefined ? [] : [buildRecord(a)];
     case 'vocab':
       return a === undefined ? [] : [vocabRecord(a)];
+    case 'history':
+      // restoring a record to an earlier state is an edit of that record: /api/history/records/<record key>/restore
+      return a === 'records' && b !== undefined && c === 'restore' && isRecordKey(b) ? [b] : [];
     case 'depictions':
       // artwork is keyed by definition id alone: it belongs to whichever
       // library record of that id is being edited

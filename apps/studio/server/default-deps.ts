@@ -44,6 +44,7 @@ import { parseSuggestedModules } from './setup.ts';
 import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 import { createHash } from 'node:crypto';
 import { exportTree } from './pg/export.ts';
+import { gitHistorySource } from './history/git.ts';
 import { backendFromEnv, type Backend } from './pg/config.ts';
 import { baseJobHandlers } from './jobs/handlers.ts';
 import { moduleJobHandlers, moduleJobKinds } from './jobs/module-queues.ts';
@@ -129,6 +130,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     },
     // GET /api/export: the catalog's text files, the same shape the database backend answers
     exportCatalog: async () => exportTree(readFlattenedCatalog(dataPath('..'), livePacksDir()), fileCatalogVersion(dataPath(''))),
+    // change history: the git log of the catalog directory, when it is in a git work tree (cs-5k1.4)
+    history: gitHistorySource({ dataDir: dataPath('') }),
     // the catalog's part-number configuration, as stored (absent: the scheme's defaults)
     loadPartNumberFiles: () => ({ scheme: rawJson('part-numbers.json') }),
     // who a studio without a login names (read once: env, else git config)

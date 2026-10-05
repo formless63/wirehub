@@ -64,6 +64,8 @@ import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts'
 import type { JobService } from './jobs/types.ts';
 import { handleJobRequest, isJobPath, JOB_ROUTES, startImportJob } from './jobs/api.ts';
 import type { EventHub } from './events.ts';
+import { handleHistoryRequest, HISTORY_ROUTES } from './history/api.ts';
+import type { HistorySource } from './history/source.ts';
 
 /* ------------------------------------------------------------------ *
  * Transport-shaped, transport-free
@@ -265,6 +267,11 @@ export interface WorkbenchDeps {
   jobs?: JobService;
   /** Called after every committed change set (the model-cache trigger, §5.5). Never fails the request. */
   afterCommit?: (set: ChangeSet) => void | Promise<void>;
+  /**
+   * Change history (`history/`, cs-5k1.4): the database's change sets, or the
+   * git log of a file catalog. Absent → `/api/history` answers 501.
+   */
+  history?: HistorySource;
 }
 
 /** `GET /api/part-numbers`' file half; `designs` and `drawings` come from the stores. */
@@ -852,6 +859,7 @@ const ROUTES = [
   ...ME_ROUTES,
   'GET    /api/backup',
   'POST   /api/backup/retry',
+  ...HISTORY_ROUTES,
   ...JOB_ROUTES,
   'ANY    /api/modules/:module/…',
   'POST   /api/modules/:module/_import/:importer',
@@ -1201,6 +1209,12 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   }
   if (head === 'drawings' && id === undefined) {
     return method === 'GET' ? await getDrawingIndex(deps) : methodNotAllowed(method, ['GET']);
+  }
+
+  // change history, and restoring a record to an earlier state through the routes below
+  if (head === 'history') {
+    const history = await handleHistoryRequest(request, deps, routeWorkbenchRequest);
+    if (history !== undefined) return history;
   }
 
   const ifMatch = request.headers?.['if-match'];

@@ -27,6 +27,7 @@ import { inOrg, openPg, orgCount, resolveOrgId, type Db, type PgHandle } from '.
 import { migrationFiles, MIGRATION_SCHEMA } from './migrate.ts';
 import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
+import { pgHistorySource } from '../history/pg.ts';
 import { pgModelCache } from './model-cache.ts';
 import { pgSetupDeps } from './setup.ts';
 import { claimSetupDeps, emptyDepictionStore, ownerCount, setupModeDeps } from './setup-mode.ts';
@@ -122,6 +123,8 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     exportCatalog: async () => exportSnapshot(await cache.get()),
     // the indicator: the database is the history (plan §7.6, D6) — its last change set
     ...(options.db === undefined ? {} : { backup: databaseBackupControl(options.db, cache.orgId) }),
+    // change history: the change sets themselves (cs-5k1.4)
+    ...(options.db === undefined ? {} : { history: pgHistorySource(options.db, cache.orgId) }),
     blob: async (sha) => {
       const row = (await cache.get()).rows?.blobs.find((b) => b.sha256 === sha);
       if (row === undefined || options.blobs === undefined) return undefined;
