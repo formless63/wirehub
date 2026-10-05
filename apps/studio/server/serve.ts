@@ -132,12 +132,23 @@ let auth: StudioAuth | undefined;
 try {
   auth = await studioAuthFromEnv(process.env, workbench.pg === undefined
       ? {}
-      : { pg: { url: workbench.pg.url, people: pgPeople(workbench.pg.db, workbench.pg.orgId), tokens: pgTokens(workbench.pg.db, workbench.pg.orgId), tokenEnv: tokenEnvOf(process.env) } });
+      : {
+          pg: {
+            url: workbench.pg.url,
+            people: pgPeople(workbench.pg.db, workbench.pg.orgId),
+            tokens: pgTokens(workbench.pg.db, workbench.pg.orgId),
+            tokenEnv: tokenEnvOf(process.env),
+            setupMode: workbench.pg.setupMode,
+          },
+        });
 } catch (error) {
   if (!(error instanceof AuthConfigError)) throw error;
   console.error(error.message);
   process.exit(1);
 }
+
+// first-run setup on the database makes the admin's account through the sign-in
+workbench.pg?.attachAuth(auth);
 
 const app = createStandaloneApp({ distDir, deps, depictionDeps: workbench.depictionDeps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 

@@ -63,6 +63,12 @@ export interface SetupDeps {
    * it as one change set (`pg/setup.ts`). Absent: `dataDir` is the catalog.
    */
   transact?: (run: (dataDir: string, packsDir: string) => Promise<ApiResponse>, write: boolean) => Promise<ApiResponse>;
+  /**
+   * A hub with no organisation yet (the database backend's setup mode, plan
+   * §9.2): `/api/setup` creates the org, its catalog and the admin. Given, it
+   * answers every setup request itself.
+   */
+  create?: (request: { method: string; body?: unknown; user?: { name: string } }) => Promise<ApiResponse>;
 }
 
 /** `setup.json`: the stored selection. */
@@ -127,7 +133,7 @@ export function normalizeSetupCode(code: string): string {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-function codeMatches(expected: string, given: unknown): boolean {
+export function codeMatches(expected: string, given: unknown): boolean {
   if (typeof given !== 'string') return false;
   const a = Buffer.from(normalizeSetupCode(expected));
   const b = Buffer.from(normalizeSetupCode(given));
@@ -217,6 +223,7 @@ export async function handleSetupRequest(
   modules: ModuleRegistry | undefined,
 ): Promise<ApiResponse> {
   if (deps === undefined) return refuse(501, 'This host has no first-run setup.', 'Domain modules are installed by the deployment here.');
+  if (deps.create !== undefined) return deps.create(request);
   if (deps.transact !== undefined) {
     const { transact, ...rest } = deps;
     return transact((dataDir, packsDir) => handleSetupRequest(request, { ...rest, dataDir, packsDir }, modules), request.method.toUpperCase() === 'POST');

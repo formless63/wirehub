@@ -17,7 +17,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { sql } from 'kysely';
 
-import { inOrg, type Db } from '../pg/db.ts';
+import { inOrg, orgOf, type Db, type OrgRef } from '../pg/db.ts';
 import type { Person, Role } from './people.ts';
 
 export const TOKEN_SCOPES = ['read', 'catalog:write', 'imports'] as const;
@@ -112,12 +112,14 @@ export interface TokenStore {
   touch(id: string): Promise<void>;
 }
 
-export function pgTokens(db: Db, orgId: string, options: { now?: () => Date } = {}): TokenStore {
+export function pgTokens(db: Db, orgRef: OrgRef, options: { now?: () => Date } = {}): TokenStore {
+  // the org may not exist yet (first-run setup creates it): resolved per call
+  const org = (): string => orgOf(orgRef);
   const now = options.now ?? (() => new Date());
   const touched = new Map<string, number>();
   return {
     create: ({ person, name, scopes, days, env }) =>
-      inOrg(db, orgId, async (tx) => {
+      inOrg(db, org(), async (tx) => {
         const created = now();
         const expires = new Date(created.getTime() + days * 86_400_000);
         const id = (await sql<{ id: string }>`SELECT uuidv7()::text AS id`.execute(tx)).rows[0]!.id;
@@ -125,7 +127,7 @@ export function pgTokens(db: Db, orgId: string, options: { now?: () => Date } = 
         const row = (
           await sql<Row>`
             INSERT INTO auth.api_token (id, org_id, person_id, name, env, token_sha256, scopes, created_at, expires_at, created_by)
-            VALUES (${id}::uuid, ${orgId}::uuid, ${person.id}::uuid, ${name}, ${env}, ${sha(secret)}, ${[...new Set(['read', ...scopes])]}::text[],
+            VALUES (${id}::uuid, ${org()}::uuid, ${person.id}::uuid, ${name}, ${env}, ${sha(secret)}, ${[...new Set(['read', ...scopes])]}::text[],
                     ${created.toISOString()}::timestamptz, ${expires.toISOString()}::timestamptz, ${person.id}::uuid)
             RETURNING ${COLUMNS}`.execute(tx)
         ).rows[0] as Row;
@@ -133,7 +135,7 @@ export function pgTokens(db: Db, orgId: string, options: { now?: () => Date } = 
       }),
 
     list: (personId) =>
-      inOrg(db, orgId, async (tx) =>
+      inOrg(db, org(), async (tx) =>
         (personId === undefined
           ? await sql<Row>`SELECT ${COLUMNS} FROM auth.api_token ORDER BY created_at DESC`.execute(tx)
           : await sql<Row>`SELECT ${COLUMNS} FROM auth.api_token WHERE person_id = ${personId}::uuid ORDER BY created_at DESC`.execute(tx)
@@ -141,7 +143,7 @@ export function pgTokens(db: Db, orgId: string, options: { now?: () => Date } = 
       ),
 
     revoke: (id, by) =>
-      inOrg(db, orgId, async (tx) => {
+      inOrg(db, org(), async (tx) => {
         // a person revokes their own; an owner anyone's
         const result = await sql`
           UPDATE auth.api_token SET revoked_at = ${now().toISOString()}::timestamptz, revoked_by = ${by.id}::uuid
@@ -150,7 +152,7 @@ export function pgTokens(db: Db, orgId: string, options: { now?: () => Date } = 
       }),
 
     resolve: (value) =>
-      inOrg(db, orgId, async (tx) => {
+      inOrg(db, org(), async (tx) => {
         const row = (
           await sql<Row & { email: string; pname: string; role: Role | 'service' }>`
             SELECT t.id::text AS id, t.person_id::text AS person_id, t.name, t.env, t.scopes, t.created_at, t.expires_at, t.last_used_at, t.revoked_at,
@@ -166,7 +168,7 @@ export function pgTokens(db: Db, orgId: string, options: { now?: () => Date } = 
       const at = now().getTime();
       if ((touched.get(id) ?? 0) > at - 60_000) return;
       touched.set(id, at);
-      await inOrg(db, orgId, async (tx) => void (await sql`UPDATE auth.api_token SET last_used_at = ${new Date(at).toISOString()}::timestamptz WHERE id = ${id}::uuid`.execute(tx)));
+      await inOrg(db, org(), async (tx) => void (await sql`UPDATE auth.api_token SET last_used_at = ${new Date(at).toISOString()}::timestamptz WHERE id = ${id}::uuid`.execute(tx)));
     },
   };
 }

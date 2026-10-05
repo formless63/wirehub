@@ -20,12 +20,14 @@ import { localStudioUser } from '../me.ts';
 import { fileModelCache } from '../models/cache.ts';
 import { registry } from '../modules.ts';
 import { PgConfigError, pgAppConfigFromEnv, redactUrl } from './config.ts';
-import { inOrg, openPg, resolveOrgId, type Db, type PgHandle } from './db.ts';
+import { inOrg, openPg, orgCount, resolveOrgId, type Db, type PgHandle } from './db.ts';
 import { migrationFiles, MIGRATION_SCHEMA } from './migrate.ts';
 import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
 import { pgModelCache } from './model-cache.ts';
 import { pgSetupDeps } from './setup.ts';
+import { emptyDepictionStore, setupModeDeps } from './setup-mode.ts';
+import type { StudioAuth } from '../auth/studio-auth.ts';
 import { parseSuggestedModules } from '../setup.ts';
 import { pgLockStore } from './locks.ts';
 import { deliveredEventHub, type EventHub } from '../events.ts';
@@ -111,7 +113,7 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
 }
 
 /** Refuse to serve a database whose schema is behind the code, or whose catalog is ahead of the model. */
-export async function checkDatabase(db: Db, orgId: string): Promise<void> {
+export async function checkDatabase(db: Db, orgId: string | undefined): Promise<void> {
   let applied: string[];
   try {
     applied = (await sql<{ name: string }>`SELECT name FROM ${sql.table(`${MIGRATION_SCHEMA}.kysely_migration`)}`.execute(db)).rows.map((r) => r.name);
@@ -122,6 +124,7 @@ export async function checkDatabase(db: Db, orgId: string): Promise<void> {
     .map((m) => m.name)
     .filter((name) => !applied.includes(name));
   if (pending.length > 0) throw new PgConfigError(`The database is missing migration(s) ${pending.join(', ')}. Run \`pnpm --filter studio db:migrate\` first.`);
+  if (orgId === undefined) return;
   const schema = await inOrg(db, orgId, async (tx) => (await sql<{ schema_version: number }>`SELECT schema_version FROM studio.catalog_head`.execute(tx)).rows[0]?.schema_version);
   if (schema !== undefined && schema > CURRENT_SCHEMA_VERSION) {
     throw new PgConfigError(`The catalog is at design schema ${schema}; this studio reads up to ${CURRENT_SCHEMA_VERSION}. Upgrade the studio.`);
@@ -130,57 +133,119 @@ export async function checkDatabase(db: Db, orgId: string): Promise<void> {
 
 export interface PgBackend {
   handle: PgHandle;
-  cache: SnapshotCache;
+  /** the org's snapshot cache (throws while the hub is in first-run setup) */
+  readonly cache: SnapshotCache;
+  /** the workbench deps: one object, filled in place when first-run setup creates the org */
   deps: WorkbenchDeps;
   /** the artwork routes' deps, over the same stores (B7) */
   depictionDeps: DepictionDeps;
+  /** the org id, once there is one */
+  orgId(): string | undefined;
+  /** true until first-run setup created the org (plan §9.1) */
+  setupMode(): boolean;
+  /** the sign-in, for the admin account first-run setup makes */
+  attachAuth(auth: StudioAuth | undefined): void;
   close(): Promise<void>;
 }
 
-/** Open the Postgres backend from the environment: connect, check, warm the snapshot, listen. */
-export async function openPgBackend(env: Record<string, string | undefined>, options: { blobs?: BlobStore; depictionsDir?: string; listen?: boolean; setupCode?: string } = {}): Promise<PgBackend> {
+export interface OpenPgOptions {
+  blobs?: BlobStore;
+  depictionsDir?: string;
+  listen?: boolean;
+  setupCode?: string;
+}
+
+/**
+ * Open the Postgres backend from the environment: connect, check, warm the
+ * snapshot, listen. A database with no org yet starts in **setup mode**
+ * (plan §9.1): every API route but `/api/setup` answers 503, and `/setup`
+ * creates the org, its catalog and the admin, then the same deps object is
+ * filled with the org's stores — no restart.
+ */
+export async function openPgBackend(env: Record<string, string | undefined>, options: OpenPgOptions = {}): Promise<PgBackend> {
   const config = pgAppConfigFromEnv(env);
   const handle = openPg(config.url, { applicationName: 'wirehub-studio' });
+  const caches: SnapshotCache[] = [];
   try {
-    const orgId = await resolveOrgId(handle.db, config.org);
-    if (orgId === undefined) {
-      throw new PgConfigError(
-        config.org === undefined
-          ? `${redactUrl(config.url)} holds no org (or more than one). Import a catalog first (\`pnpm --filter studio pg:import --create-org\`), or set WIREHUB_ORG.`
-          : `${redactUrl(config.url)} has no org '${config.org}'.`,
-      );
+    await checkDatabase(handle.db, undefined);
+    let orgId = await resolveOrgId(handle.db, config.org);
+    if (orgId === undefined && config.org !== undefined) throw new PgConfigError(`${redactUrl(config.url)} has no org '${config.org}'.`);
+    // no org at all: first-run setup; several and none named: refuse
+    if (orgId === undefined && (await orgCount(handle.db)) > 0) {
+      throw new PgConfigError(`${redactUrl(config.url)} holds more than one org; set WIREHUB_ORG to the one this studio serves.`);
     }
     await checkDatabase(handle.db, orgId);
-    const cache = new SnapshotCache(handle.db, orgId);
-    const snapshot = await cache.get();
-    if (options.blobs === undefined && snapshot.rows.blobs.length > 0) {
-      throw new PgConfigError(`The catalog holds ${snapshot.rows.blobs.length} binary file(s) in the blob store; set WIREHUB_BLOBS (s3 or fs:<dir>) to serve them.`);
-    }
+    const deps = {} as WorkbenchDeps;
+    const depictionDeps = {} as DepictionDeps;
     const events = deliveredEventHub();
-    if (options.listen !== false) await cache.listen(config.url, events).catch((error: unknown) => console.warn(`[pg] LISTEN unavailable: ${error instanceof Error ? error.message : String(error)}`));
-    const deps = pgWorkbenchDeps({ cache, db: handle.db, events, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
-    // first-run setup installs the domain modules' packs into the database (WIREHUB_SETUP_PROMPT as on files)
-    const stored = snapshot.source.read('setup.json');
-    const completed = stored !== undefined && (JSON.parse(stored) as { completed?: boolean }).completed === true;
+    let current: SnapshotCache | undefined;
+    let auth: StudioAuth | undefined;
     const suggested = parseSuggestedModules(env.WIREHUB_SUGGESTED_MODULES);
-    deps.setup = pgSetupDeps(deps, cache, {
-      // a hub whose setup completed never prompts again (and the boot banner stays quiet)
-      prompt: env.WIREHUB_SETUP_PROMPT === '1' && !completed,
-      now: () => new Date().toISOString(),
-      ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
-      ...(suggested === undefined ? {} : { suggested }),
-    });
+
+    const activate = async (id: string): Promise<void> => {
+      const cache = new SnapshotCache(handle.db, id);
+      caches.push(cache);
+      const snapshot = await cache.get();
+      if (options.blobs === undefined && snapshot.rows.blobs.length > 0) {
+        throw new PgConfigError(`The catalog holds ${snapshot.rows.blobs.length} binary file(s) in the blob store; set WIREHUB_BLOBS (s3 or fs:<dir>) to serve them.`);
+      }
+      if (options.listen !== false) await cache.listen(config.url, events).catch((error: unknown) => console.warn(`[pg] LISTEN unavailable: ${error instanceof Error ? error.message : String(error)}`));
+      const real = pgWorkbenchDeps({ cache, db: handle.db, events, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
+      // first-run setup installs the domain modules' packs into the database (WIREHUB_SETUP_PROMPT as on files)
+      const stored = snapshot.source.read('setup.json');
+      const completed = stored !== undefined && (JSON.parse(stored) as { completed?: boolean }).completed === true;
+      real.setup = pgSetupDeps(real, cache, {
+        // a hub whose setup completed never prompts again (and the boot banner stays quiet)
+        prompt: env.WIREHUB_SETUP_PROMPT === '1' && !completed,
+        now: () => new Date().toISOString(),
+        ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
+        ...(suggested === undefined ? {} : { suggested }),
+      });
+      for (const key of Object.keys(deps)) delete (deps as unknown as Record<string, unknown>)[key];
+      Object.assign(deps, real);
+      Object.assign(depictionDeps, { store: real.depictions as DepictionStore, loadDb: real.loadDb, loadDesigns: async () => (await cache.get()).catalog.loadDesigns() });
+      current = cache;
+      orgId = id;
+    };
+
+    if (orgId !== undefined) await activate(orgId);
+    else {
+      Object.assign(
+        deps,
+        setupModeDeps({
+          db: handle.db,
+          ...(options.blobs === undefined ? {} : { blobs: options.blobs }),
+          ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
+          ...(suggested === undefined ? {} : { suggested }),
+          auth: () => auth,
+          activate: async (id) => {
+            await activate(id);
+            return deps;
+          },
+        }),
+      );
+      Object.assign(depictionDeps, { store: emptyDepictionStore(), loadDb: () => deps.loadDb() });
+    }
     return {
       handle,
-      cache,
+      get cache(): SnapshotCache {
+        if (current === undefined) throw new Error('this hub has no organisation yet: finish first-run setup');
+        return current;
+      },
       deps,
-      depictionDeps: { store: deps.depictions as DepictionStore, loadDb: deps.loadDb, loadDesigns: async () => (await cache.get()).catalog.loadDesigns() },
+      depictionDeps,
+      orgId: () => orgId,
+      setupMode: () => current === undefined,
+      attachAuth: (value) => {
+        auth = value;
+      },
       close: async () => {
-        await cache.close();
+        for (const cache of caches) await cache.close();
         await handle.close();
       },
     };
   } catch (error) {
+    for (const cache of caches) await cache.close();
     await handle.close();
     throw error;
   }

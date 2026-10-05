@@ -164,6 +164,6 @@ describePg('import and the S1 gate', () => {
     } finally {
       await backend.close();
     }
-    await expect(openPgBackend({ DATABASE_URL: database.appUrl })).rejects.toThrow(/no org \(or more than one\)/);
+    await expect(openPgBackend({ DATABASE_URL: database.appUrl })).rejects.toThrow(/more than one org/);
   });
 });

@@ -79,6 +79,10 @@ export interface StudioAuth {
   tokenEnv?: TokenEnv;
   /** the token request budgets (§4.5) */
   limiter?: RateLimiter;
+  /** first-run setup's admin: an email + password account (the person exists already) */
+  createAccount?(email: string, name: string, password: string): Promise<void>;
+  /** true while the hub has no organisation: the gate lets the setup page and its API through */
+  setupMode?: () => boolean;
   /** close what the store holds open (the database backend's pool) */
   close?(): Promise<void>;
   /** accept an invitation: make the local account and sign it in (the response carries the session cookie) */
@@ -99,7 +103,7 @@ export interface StudioAuthOverrides {
    * of the app's database (migration 0012, never migrated at boot), and the
    * people and invitations decide who may sign in.
    */
-  pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter };
+  pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter; setupMode?: () => boolean };
 }
 
 function forbidden(email: string): APIError {
@@ -296,6 +300,14 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
     close: async () => {
       if (database instanceof pg.Pool) await database.end();
     },
+    ...(overrides.pg?.setupMode === undefined ? {} : { setupMode: overrides.pg.setupMode }),
+    ...(config.localAccounts
+      ? {
+          async createAccount(email: string, name: string, password: string) {
+            await auth.api.signUpEmail({ body: { email, password, name } });
+          },
+        }
+      : {}),
     ...(people === undefined
       ? {}
       : {

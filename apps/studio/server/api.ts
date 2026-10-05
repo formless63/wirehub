@@ -218,6 +218,11 @@ export interface WorkbenchDeps {
   /** what changed, for `GET /api/events` (`events.ts`); absent → no stream */
   events?: EventHub;
   /**
+   * True while the hub has no organisation yet (the database backend before
+   * first-run setup, plan §9.1): every route but `/api/setup` answers 503.
+   */
+  setupMode?: () => boolean;
+  /**
    * The deployment's modules (`modules.config.ts`, `docs/modules.md`): their
    * validation rules run with `validateDesign`, their integrations answer
    * under `/api/modules/<id>/…`. Absent → none.
@@ -882,6 +887,9 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   // takes seconds and must not hold every other save behind the write lock,
   // so the handler takes the lock itself around the link write only
   // module integrations answer for themselves; a route that writes takes the lock
+  if (deps.setupMode?.() === true && !isSetupPath(request.path) && !['/api', '/api/me'].includes((request.path.split('?')[0] ?? '').replace(/\/+$/, ''))) {
+    return { status: 503, body: { state: 'setup', error: 'This hub is not set up yet.', hint: 'Open /setup to create the organisation, its catalog and the admin.' } };
+  }
   const moduleRoute = findModuleRoute(request, deps.modules);
   if (moduleRoute !== undefined) return moduleRoute.writes === true ? withWriteLock(moduleRoute.run) : moduleRoute.run();
   // first-run setup installs packs straight into the catalog (journaled by

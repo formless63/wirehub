@@ -14,7 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState, type JSX } from 'react';
 
-import { loadSetup, saveSetup, type SetupView } from '../setup.browser.ts';
+import { loadSetup, saveSetup, signInAdmin, slugOf, type SetupView } from '../setup.browser.ts';
 import { StudioMark } from '../shell/Wordmark.tsx';
 
 export function SetupRoute(): JSX.Element {
@@ -25,6 +25,14 @@ export function SetupRoute(): JSX.Element {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState('');
+  // a hub with no organisation yet: the organisation, its catalog and the admin
+  const [orgName, setOrgName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [catalog, setCatalog] = useState<'starter' | 'empty'>('starter');
+  const [adminName, setAdminName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
     let live = true;
@@ -52,12 +60,30 @@ export function SetupRoute(): JSX.Element {
   const submit = async (): Promise<void> => {
     setBusy(true);
     setProblem(undefined);
-    const out = await saveSetup([...picked], '/api', view?.codeRequired === true ? code : undefined);
-    setBusy(false);
+    const create = view?.create;
+    const admin = create === undefined || (create.admin === 'none' && adminEmail.trim() === '') ? undefined : { name: adminName.trim(), email: adminEmail.trim(), ...(create.admin === 'password' ? { password } : {}) };
+    const out = await saveSetup(
+      [...picked],
+      '/api',
+      view?.codeRequired === true ? code : undefined,
+      create === undefined ? undefined : { org: { name: orgName.trim(), slug: slug.trim() }, catalog, ...(admin === undefined ? {} : { admin }) },
+    );
     if (!out.ok) {
+      setBusy(false);
       setProblem(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
       return;
     }
+    // the admin made here signs in now; with an identity provider, through the sign-in page
+    if (create?.admin === 'password' && !(await signInAdmin(adminEmail.trim(), password))) {
+      setBusy(false);
+      window.location.assign('/sign-in');
+      return;
+    }
+    if (create?.admin === 'oidc') {
+      window.location.assign('/sign-in');
+      return;
+    }
+    setBusy(false);
     // the catalog changed underneath every cached query: refetch, then the cable list
     await queryClient.invalidateQueries();
     void navigate({ to: '/cables' });
@@ -87,6 +113,80 @@ export function SetupRoute(): JSX.Element {
           problem === undefined ? <p className="text-[13px] text-dim">Loading…</p> : null
         ) : (
           <>
+            {view.create === undefined ? null : (
+              <>
+                <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                  <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Organisation</legend>
+                  <label className="flex flex-col gap-1 text-[12px] text-dim">
+                    Name
+                    <input
+                      className="rounded border border-line bg-panel px-2 py-1 text-[13px] text-ink"
+                      value={orgName}
+                      disabled={busy}
+                      placeholder="Example Shop"
+                      onChange={(event) => {
+                        setOrgName(event.target.value);
+                        if (!slugEdited) setSlug(slugOf(event.target.value));
+                      }}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[12px] text-dim">
+                    Short name (lowercase, used in addresses)
+                    <input
+                      className="w-[260px] rounded border border-line bg-panel px-2 py-1 font-mono text-[13px] text-ink"
+                      value={slug}
+                      disabled={busy}
+                      placeholder="example-shop"
+                      onChange={(event) => {
+                        setSlug(event.target.value);
+                        setSlugEdited(true);
+                      }}
+                    />
+                  </label>
+                </fieldset>
+                <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                  <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Admin</legend>
+                  {view.create.admin === 'none' ? (
+                    <p className="m-0 text-[12px] text-dim">
+                      Sign-in is off (AUTH_ENABLED), so anyone who can reach this hub can edit. A name and email here only label your changes.
+                    </p>
+                  ) : null}
+                  {view.create.admin === 'oidc' ? (
+                    <p className="m-0 text-[12px] text-dim">You sign in with the identity provider; give the email it knows you by.</p>
+                  ) : null}
+                  <label className="flex flex-col gap-1 text-[12px] text-dim">
+                    Your name
+                    <input className="rounded border border-line bg-panel px-2 py-1 text-[13px] text-ink" value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[12px] text-dim">
+                    Email
+                    <input type="email" className="rounded border border-line bg-panel px-2 py-1 text-[13px] text-ink" value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
+                  </label>
+                  {view.create.admin === 'password' ? (
+                    <label className="flex flex-col gap-1 text-[12px] text-dim">
+                      Password ({view.create.minPassword} characters or more)
+                      <input type="password" className="rounded border border-line bg-panel px-2 py-1 text-[13px] text-ink" value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
+                    </label>
+                  ) : null}
+                </fieldset>
+                <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                  <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Catalog</legend>
+                  <label className="flex items-start gap-2 text-[13px] text-ink">
+                    <input type="radio" name="catalog" className="mt-1" checked={catalog === 'starter'} disabled={busy} onChange={() => setCatalog('starter')} />
+                    <span>
+                      Starter catalog <span className="text-[12px] text-dim">— example cables and the parts they use, to learn from</span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 text-[13px] text-ink">
+                    <input type="radio" name="catalog" className="mt-1" checked={catalog === 'empty'} disabled={busy} onChange={() => setCatalog('empty')} />
+                    <span>
+                      Empty catalog <span className="text-[12px] text-dim">— the base vocabulary only</span>
+                    </span>
+                  </label>
+                </fieldset>
+              </>
+            )}
+
             <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
               <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Domain modules</legend>
               {view.domains.length === 0 ? (
@@ -160,7 +260,12 @@ export function SetupRoute(): JSX.Element {
               <button
                 type="button"
                 className="rounded bg-accent px-4 py-1.5 text-[13px] font-semibold text-accent-ink disabled:opacity-60"
-                disabled={busy || (view.codeRequired === true && code.trim() === '')}
+                disabled={
+                  busy ||
+                  (view.codeRequired === true && code.trim() === '') ||
+                  (view.create !== undefined &&
+                    (orgName.trim() === '' || slug.trim() === '' || (view.create.admin !== 'none' && (adminName.trim() === '' || adminEmail.trim() === '')) || (view.create.admin === 'password' && password.length < view.create.minPassword)))
+                }
                 onClick={() => void submit()}
               >
                 {busy ? 'Setting up…' : view.completed ? 'Add the selected modules' : 'Finish setup'}

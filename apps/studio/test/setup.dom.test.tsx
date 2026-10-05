@@ -112,4 +112,44 @@ describe('first-run setup', () => {
     render(<App router={r} />);
     await waitFor(() => expect(r.state.location.pathname).toBe('/cables'));
   });
+
+  it('on a hub with no organisation, also asks for the organisation, the admin and the catalog', async () => {
+    const posted: unknown[] = [];
+    const catalog = createCatalog(catalogWithPacksSource(dir, packs));
+    const deps: WorkbenchDeps = {
+      designs: { list: () => [], has: () => false, read: () => undefined, write: () => ({ changed: false }), remove: () => undefined },
+      loadDb: () => catalog.loadDb(),
+      modules: createRegistry(manifest),
+      setup: {
+        dataDir: dir,
+        prompt: true,
+        now: () => '2026-10-04T12:00:00.000Z',
+        create: async (request) => {
+          if (request.method === 'POST') {
+            posted.push(request.body);
+            return { status: 200, body: { needed: false, completed: true, domains: [], suggestions: [], created: { org: 'example-shop' } } };
+          }
+          return { status: 200, body: { needed: true, completed: false, codeRequired: false, domains: [], suggestions: [], create: { catalogs: ['starter', 'empty'], admin: 'none', minPassword: 12 } } };
+        },
+      },
+    };
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await handleWorkbenchRequest(
+        { method: init?.method ?? 'GET', path: String(input), ...(typeof init?.body === 'string' ? { body: JSON.parse(init.body) as unknown } : {}) },
+        deps,
+      );
+      return new Response(JSON.stringify(response.body), { status: response.status, headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+    render(<App router={router('/setup')} />);
+    const name = await screen.findByPlaceholderText('Example Shop');
+    const finish = screen.getByRole('button', { name: 'Finish setup' }) as HTMLButtonElement;
+    expect(finish.disabled).toBe(true);
+    fireEvent.change(name, { target: { value: 'Example Shop' } });
+    expect((screen.getByPlaceholderText('example-shop') as HTMLInputElement).value).toBe('example-shop');
+    fireEvent.click(screen.getByRole('radio', { name: /Empty catalog/ }));
+    expect(finish.disabled).toBe(false);
+    fireEvent.click(finish);
+    await waitFor(() => expect(posted.length).toBe(1));
+    expect(posted[0]).toMatchObject({ modules: [], org: { name: 'Example Shop', slug: 'example-shop' }, catalog: 'empty' });
+  });
 });

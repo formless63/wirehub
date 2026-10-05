@@ -78,3 +78,17 @@ export async function catalogHeadVersion(db: Db, orgId: string): Promise<string 
   const result = await sql<{ version: string | null }>`SELECT studio.head_version(${orgId}::uuid)::text AS version`.execute(db);
   return result.rows[0]?.version ?? undefined;
 }
+
+/** An org id, or where to find it once it exists (a hub in first-run setup has none yet). */
+export type OrgRef = string | (() => string | undefined);
+
+export function orgOf(ref: OrgRef): string {
+  const id = typeof ref === 'string' ? ref : ref();
+  if (id === undefined) throw new Error('this hub has no organisation yet: finish first-run setup');
+  return id;
+}
+
+/** How many orgs the database holds (a SECURITY DEFINER count: zero means first-run setup). */
+export async function orgCount(db: Db): Promise<number> {
+  return (await sql<{ n: number }>`SELECT studio.org_count() AS n`.execute(db)).rows[0]?.n ?? 0;
+}

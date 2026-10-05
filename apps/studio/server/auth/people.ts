@@ -10,7 +10,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { sql } from 'kysely';
 
-import { inOrg, type Db } from '../pg/db.ts';
+import { inOrg, orgOf, type Db, type OrgRef } from '../pg/db.ts';
 
 export type Role = 'owner' | 'editor' | 'viewer';
 export const ROLES: readonly Role[] = ['owner', 'editor', 'viewer'];
@@ -67,19 +67,24 @@ const invitationOf = (r: InvitationRow): Invitation => ({
   createdAt: iso(r.created_at),
 });
 
-export function pgPeople(db: Db, orgId: string, options: { now?: () => Date } = {}): PeopleStore {
+export function pgPeople(db: Db, orgRef: OrgRef, options: { now?: () => Date } = {}): PeopleStore {
+  // the org may not exist yet (first-run setup creates it): resolved per call
+  const org = (): string => orgOf(orgRef);
   const now = options.now ?? (() => new Date());
   return {
     personByEmail: (email) =>
-      inOrg(db, orgId, async (tx) => (await sql<Person>`SELECT id::text AS id, email, name, role, auth_user_id AS "authUserId" FROM studio.person WHERE email = ${email.toLowerCase()}`.execute(tx)).rows[0]),
+      // no org yet (first-run setup): nobody is a person of it
+      typeof orgRef !== 'string' && orgRef() === undefined
+        ? Promise.resolve(undefined)
+        : inOrg(db, org(), async (tx) => (await sql<Person>`SELECT id::text AS id, email, name, role, auth_user_id AS "authUserId" FROM studio.person WHERE email = ${email.toLowerCase()}`.execute(tx)).rows[0]),
 
     linkAuthUser: (email, authUserId) =>
-      inOrg(db, orgId, async (tx) => {
+      inOrg(db, org(), async (tx) => {
         await sql`UPDATE studio.person SET auth_user_id = ${authUserId} WHERE email = ${email.toLowerCase()} AND auth_user_id IS DISTINCT FROM ${authUserId}`.execute(tx);
       }),
 
     ensurePerson: (email, name, role) =>
-      inOrg(db, orgId, async (tx) => {
+      inOrg(db, org(), async (tx) => {
         const lower = email.toLowerCase();
         const existing = (await sql<Person>`SELECT id::text AS id, email, name, role FROM studio.person WHERE email = ${lower}`.execute(tx)).rows[0];
         if (existing !== undefined) return existing;
@@ -88,7 +93,7 @@ export function pgPeople(db: Db, orgId: string, options: { now?: () => Date } = 
         return (
           await sql<Person>`
             INSERT INTO studio.person (org_id, email, name, role)
-            VALUES (${orgId}::uuid, ${lower}, ${name || lower}, ${role ?? (first ? 'owner' : 'editor')})
+            VALUES (${org()}::uuid, ${lower}, ${name || lower}, ${role ?? (first ? 'owner' : 'editor')})
             RETURNING id::text AS id, email, name, role`.execute(tx)
         ).rows[0] as Person;
       }),
@@ -96,38 +101,38 @@ export function pgPeople(db: Db, orgId: string, options: { now?: () => Date } = 
     async createInvitation({ email, role, invitedBy, days }) {
       const token = randomBytes(32).toString('base64url');
       const expires = new Date(now().getTime() + (days ?? 7) * 86_400_000);
-      const row = await inOrg(db, orgId, async (tx) => (
+      const row = await inOrg(db, org(), async (tx) => (
         await sql<InvitationRow>`
           INSERT INTO auth.invitation (org_id, email, role, token_sha256, invited_by, expires_at)
-          VALUES (${orgId}::uuid, ${email.toLowerCase()}, ${role}, ${sha(token)}, ${invitedBy}::uuid, ${expires.toISOString()}::timestamptz)
+          VALUES (${org()}::uuid, ${email.toLowerCase()}, ${role}, ${sha(token)}, ${invitedBy}::uuid, ${expires.toISOString()}::timestamptz)
           RETURNING id::text AS id, email, role, expires_at, accepted_at, created_at`.execute(tx)
       ).rows[0] as InvitationRow);
       return { invitation: invitationOf(row), token };
     },
 
     async invitationByToken(token) {
-      const row = await inOrg(db, orgId, async (tx) => (
+      const row = await inOrg(db, org(), async (tx) => (
         await sql<InvitationRow>`
           SELECT id::text AS id, email, role, expires_at, accepted_at, created_at FROM auth.invitation
-           WHERE org_id = ${orgId}::uuid AND token_sha256 = ${sha(token)} AND accepted_at IS NULL AND expires_at > ${now().toISOString()}::timestamptz`.execute(tx)
+           WHERE org_id = ${org()}::uuid AND token_sha256 = ${sha(token)} AND accepted_at IS NULL AND expires_at > ${now().toISOString()}::timestamptz`.execute(tx)
       ).rows[0]);
       return row === undefined ? undefined : invitationOf(row);
     },
 
     async markAccepted(id) {
-      await inOrg(db, orgId, async (tx) => void (await sql`UPDATE auth.invitation SET accepted_at = now() WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid`.execute(tx)));
+      await inOrg(db, org(), async (tx) => void (await sql`UPDATE auth.invitation SET accepted_at = now() WHERE id = ${id}::uuid AND org_id = ${org()}::uuid`.execute(tx)));
     },
 
     async listInvitations() {
-      return inOrg(db, orgId, async (tx) => (
+      return inOrg(db, org(), async (tx) => (
         await sql<InvitationRow>`
           SELECT id::text AS id, email, role, expires_at, accepted_at, created_at FROM auth.invitation
-           WHERE org_id = ${orgId}::uuid ORDER BY created_at DESC`.execute(tx)
+           WHERE org_id = ${org()}::uuid ORDER BY created_at DESC`.execute(tx)
       ).rows.map(invitationOf));
     },
 
     async revokeInvitation(id) {
-      const result = await inOrg(db, orgId, (tx) => sql`DELETE FROM auth.invitation WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid AND accepted_at IS NULL`.execute(tx));
+      const result = await inOrg(db, org(), (tx) => sql`DELETE FROM auth.invitation WHERE id = ${id}::uuid AND org_id = ${org()}::uuid AND accepted_at IS NULL`.execute(tx));
       return Number(result.numAffectedRows ?? 0) > 0;
     },
   };

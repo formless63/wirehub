@@ -211,6 +211,9 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
 
   app.use('*', async (c, next) => {
     const path = c.req.path;
+    // first-run setup (database backend, no organisation yet): no account exists to sign in with;
+    // the app answers 503 to everything but /api/setup and serves the setup page
+    if (auth.setupMode?.() === true) return next();
     if (path === SIGN_IN_PATH || path === AUTH_BASE_PATH || path.startsWith(`${AUTH_BASE_PATH}/`)) return next();
     if (people !== undefined && (path === INVITE_PATH || path === `${INVITATIONS_PATH}/accept`)) return next();
     const api = isApiPath(path);

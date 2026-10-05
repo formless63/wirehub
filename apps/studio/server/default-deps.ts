@@ -126,20 +126,26 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
 export async function workbenchDepsFromEnv(
   env: Record<string, string | undefined>,
   options: DefaultDepsOptions = {},
-): Promise<{ backend: Backend; deps: WorkbenchDeps; depictionDeps: DepictionDeps; describe: string; close: () => Promise<void>; pg?: { db: import('./pg/db.ts').Db; orgId: string; url: string } }> {
+): Promise<{
+  backend: Backend;
+  deps: WorkbenchDeps;
+  depictionDeps: DepictionDeps;
+  describe: string;
+  close: () => Promise<void>;
+  pg?: { db: import('./pg/db.ts').Db; orgId: () => string | undefined; setupMode: () => boolean; url: string; attachAuth: (auth: import('./auth/studio-auth.ts').StudioAuth | undefined) => void };
+}> {
   const backend = backendFromEnv(env);
   if (backend === 'files') {
     return { backend, deps: defaultWorkbenchDeps(options), depictionDeps: defaultDepictionDeps(), describe: 'files (packages/catalog/data)', close: async () => {} };
   }
   const { openPgBackend } = await import('./pg/deps.ts');
   const pg = await openPgBackend(env, { ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.setupCode === undefined ? {} : { setupCode: options.setupCode }) });
-  const snapshot = pg.cache.peek();
   return {
     backend,
     deps: pg.deps,
     depictionDeps: pg.depictionDeps,
-    describe: `pg (org ${pg.cache.orgId}, catalog version ${snapshot?.version ?? '?'})`,
+    describe: pg.setupMode() ? 'pg (no organisation yet: first-run setup creates it)' : `pg (org ${pg.orgId()}, catalog version ${pg.cache.peek()?.version ?? '?'})`,
     close: pg.close,
-    pg: { db: pg.handle.db, orgId: pg.cache.orgId, url: (env.DATABASE_URL ?? '').trim() },
+    pg: { db: pg.handle.db, orgId: pg.orgId, setupMode: pg.setupMode, url: (env.DATABASE_URL ?? '').trim(), attachAuth: pg.attachAuth },
   };
 }
