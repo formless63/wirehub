@@ -67,7 +67,7 @@ modules/                        bundled optional domain modules (pc-serial, netw
                                 pro-audio, av-video, automotive):
                                 catalog packs + module objects, offered at first-run setup
 apps/studio/                    the app: Vite SPA + Hono server (file store, auth, locks,
-                                optional git export, module routes)
+                                change history and restore, optional git export, module routes)
 specs/                          per-epic build specs (storage seam, Postgres backend)
 docs/                           boundaries, module system, catalog store, self-hosting
 docker/, compose.yaml           the self-hosted stack in one file (app, PostgreSQL, Garage,

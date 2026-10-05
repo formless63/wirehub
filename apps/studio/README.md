@@ -90,6 +90,34 @@ committing locally meanwhile; nothing is lost. A conflict with the remote:
 then **Retry now**. Uncommitted changes in the checkout: commit or restore
 them, then Retry.
 
+## Change history
+
+`server/history/`, `src/history/`. **History** in the rail lists the hub's
+changes (person, date and kind filters); the History button of a cable
+(beside its revision chip) and of a library record lists that record's
+changes, opens each to a field-level diff, and restores an earlier state.
+
+| Route | |
+|---|---|
+| `GET /api/history` | the hub's entries, newest first: `?person=` (name or email), `from=`/`to=` (YYYY-MM-DD), `kind=` (`design`, `library`, `vocab`, `builds`, `other`), `before=` (paging), `limit=` |
+| `GET /api/history/records/:subject` | one record's entries; a subject is named as its edit lock is: `design:<id>`, `definition:<kind>:<id>` (also `vocab:<list>`, `build:<name>`) |
+| `GET /api/history/entries/:id` | one entry: every record it changed, before and after; with `?subject=`, that record's parts and their current versions (`current`) |
+| `POST /api/history/records/:subject/restore` | `{ entry, current }`: the design (and its drawing details) or library record back to its state right after `entry` |
+
+Every answer carries `capabilities`: where the history comes from and what
+it can do. On the database backend it is the change sets (every save, its
+person, and since migration 0017 each record's state before the change); on
+the file backend it is the git log of the catalog directory when that is in
+a git work tree (with the git export above, every save), else nothing. A
+restore is a new save — a new change set, or a new commit with the export on
+— through the design and definition routes: validated, refused (423) while
+someone else holds the record's edit lock, and refused (409) when the record
+changed since `current` was read. History is never rewritten.
+
+On the database backend the worker can also mirror every change set to git
+as a commit by its person (`WIREHUB_GIT_MIRROR_*`, `server/history/mirror.ts`;
+`docs/self-hosting.md`, "History and the git mirror").
+
 ## Auth
 
 `server/auth/` — Better Auth on the standalone server, **off unless

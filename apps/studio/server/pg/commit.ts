@@ -31,7 +31,7 @@ import type { ModuleRegistry } from '@wirehub/modules';
 
 import type { BlobStore } from '../blobs.ts';
 import { CommitRefusedError, type ChangeSet, type CommitResult, type DerivedKind } from '../storage/change-set.ts';
-import { commitChangeSet } from '../storage/unit-of-work.ts';
+import { commitChangeSet, currentValue } from '../storage/unit-of-work.ts';
 import { inOrg, type Db, type Tx } from './db.ts';
 import { blobObjectKey } from './keys.ts';
 import { referencesOf } from './refs.ts';
@@ -107,6 +107,8 @@ export function pgCommit(options: PgCommitOptions): (set: ChangeSet, derive: Rea
           const base = cached?.version === head.version ? cached : snapshotOf(head.version, await readRows(tx));
           const tree = CatalogTree.fromSnapshot(base);
           const deps = treeWorkbenchDeps(tree, { orgId, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.modules === undefined ? {} : { modules: options.modules }) });
+          // each record's state before the set, for the history (0017): read before anything is applied
+          const befores = await beforeBodies(deps, set);
           const applied = await commitChangeSet(deps, set, derive);
 
           const { rows, errors } = explode(tree.contents());
@@ -128,7 +130,7 @@ export function pgCommit(options: PgCommitOptions): (set: ChangeSet, derive: Rea
           // the derived docs are computed over this version's inputs, changed or not (§4.4)
           if (applied.derived.includes('tags')) await sql`UPDATE studio.derived_doc SET inputs_version = ${version}::bigint WHERE derived_kind = 'tags'`.execute(tx);
           if (applied.derived.includes('module')) await sql`UPDATE studio.derived_doc SET inputs_version = ${version}::bigint WHERE derived_kind = 'module'`.execute(tx);
-          await insertChanges(tx, changeSet, set, touched.derivedPaths);
+          await insertChanges(tx, changeSet, set, touched.derivedPaths, befores);
           await sql`UPDATE studio.catalog_head SET version = ${version}::bigint, updated_at = now()`.execute(tx);
           await sql`SELECT pg_notify('studio_catalog', ${JSON.stringify({ org: orgId, version, changeSet })})`.execute(tx);
           committed = { version, rows };
@@ -427,8 +429,33 @@ async function writeDiff(
   return { derivedPaths };
 }
 
+/** Record kinds whose changes carry bytes: their "before" is not kept (the blob store has the bytes). */
+const BINARY_KINDS = new Set(['drawing-photo', 'version-artwork', 'depiction-asset', 'asset', 'catalog-file']);
+
+/**
+ * `change.before_body` (0017): the state of each record the set changes, as
+ * the commit read it before applying anything — JSON `null` when there was no
+ * such record. Only the first change of a record in the set carries it; binary
+ * records and moves carry none.
+ */
+async function beforeBodies(deps: Parameters<typeof currentValue>[0], set: ChangeSet): Promise<(string | null)[]> {
+  const seen = new Set<string>();
+  const out: (string | null)[] = [];
+  for (const change of set.changes) {
+    const k = `${change.kind}\u0000${change.key}`;
+    if (seen.has(k) || change.op === 'move' || BINARY_KINDS.has(change.kind) || change.kind === 'design-versions') {
+      out.push(null);
+      continue;
+    }
+    seen.add(k);
+    const value = await currentValue(deps, change);
+    out.push(JSON.stringify(value ?? null));
+  }
+  return out;
+}
+
 /** One `change` row per change of the set, then one per derived file that moved. */
-async function insertChanges(tx: Tx, changeSet: string, set: ChangeSet, derivedPaths: readonly string[]): Promise<void> {
+async function insertChanges(tx: Tx, changeSet: string, set: ChangeSet, derivedPaths: readonly string[], befores: readonly (string | null)[] = []): Promise<void> {
   const rows = set.changes.map((c, seq) => ({
     seq,
     kind: c.kind as string,
@@ -437,13 +464,16 @@ async function insertChanges(tx: Tx, changeSet: string, set: ChangeSet, derivedP
     to: c.to ?? null,
     before: c.expect ?? null,
     after: c.op !== 'put' ? null : c.bytes !== undefined ? `"sha256:${sha256Hex(c.bytes)}"` : contentETag(c.value ?? null),
-    body: c.op === 'put' && c.bytes === undefined && c.value !== undefined ? JSON.stringify(c.value) : null,
+    // a binary record's metadata (an asset's mime and name; the bytes are the blob after_etag names)
+    body: c.op === 'put' && c.value !== undefined ? JSON.stringify(c.value) : null,
+    beforeBody: befores[seq] ?? null,
   }));
-  derivedPaths.forEach((path, i) => rows.push({ seq: set.changes.length + i, kind: 'derived', key: path, op: 'put', to: null, before: null, after: null, body: null }));
+  derivedPaths.forEach((path, i) => rows.push({ seq: set.changes.length + i, kind: 'derived', key: path, op: 'put', to: null, before: null, after: null, body: null, beforeBody: null }));
   if (rows.length === 0) return;
   await sql`
-    INSERT INTO studio.change (change_set_id, seq, kind, key, op, to_key, before_etag, after_etag, after_body)
-    SELECT ${changeSet}::bigint, s, k, y, o, t, b, a, j::json
+    INSERT INTO studio.change (change_set_id, seq, kind, key, op, to_key, before_etag, after_etag, after_body, before_body)
+    SELECT ${changeSet}::bigint, s, k, y, o, t, b, a, j::json, bb::json
       FROM unnest(${rows.map((r) => r.seq)}::int[], ${rows.map((r) => r.kind)}::text[], ${rows.map((r) => r.key)}::text[], ${rows.map((r) => r.op)}::text[],
-                  ${rows.map((r) => r.to)}::text[], ${rows.map((r) => r.before)}::text[], ${rows.map((r) => r.after)}::text[], ${rows.map((r) => r.body)}::text[]) AS x(s, k, y, o, t, b, a, j)`.execute(tx);
+                  ${rows.map((r) => r.to)}::text[], ${rows.map((r) => r.before)}::text[], ${rows.map((r) => r.after)}::text[], ${rows.map((r) => r.body)}::text[],
+                  ${rows.map((r) => r.beforeBody)}::text[]) AS x(s, k, y, o, t, b, a, j, bb)`.execute(tx);
 }
