@@ -159,3 +159,71 @@ export async function historyScenario(backend: HistoryBackend): Promise<{ log: s
   log.push('restores: ok');
   return { log };
 }
+
+/**
+ * cs-5k1.25, after `historyScenario`: a design's history follows it across a
+ * rename (and a restore to a state under the old id lands under the new one),
+ * and a controlled list restores through its route.
+ */
+export async function renameAndListScenario(backend: HistoryBackend): Promise<void> {
+  const { deps } = backend;
+  const call = async (request: ApiRequest): Promise<ApiResponse> => {
+    const answer = await handleWorkbenchRequest(request, deps);
+    if (answer.status < 400 && request.method !== 'GET' && request.user !== undefined) await backend.afterSave?.(request.user, answer, request);
+    return answer;
+  };
+  const get = async <T>(path: string): Promise<T> => {
+    const answer = await call({ method: 'GET', path });
+    expect(answer.status, `${path}: ${JSON.stringify(answer.body)}`).toBe(200);
+    return answer.body as T;
+  };
+
+  // a rename: the history under the old id is the history of the new one
+  const old = `${DESIGN}`;
+  const renamedId = 'dc-led-lead-renamed';
+  const before = await get<HistoryPage>(`/api/history/records/${encodeURIComponent(`design:${old}`)}`);
+  const stateEntry = before.entries.find((e) => e.touches.some((t) => t.part === 'design'))!;
+  const current = await call({ method: 'GET', path: `/api/designs/${old}` });
+  const renamed = await call({ method: 'POST', path: `/api/designs/${old}/rename`, body: { newId: renamedId }, headers: { 'if-match': current.headers?.ETag as string }, user: bob });
+  expect(renamed.status, JSON.stringify(renamed.body)).toBe(200);
+  const after = await get<HistoryPage>(`/api/history/records/${encodeURIComponent(`design:${renamedId}`)}`);
+  expect(after.entries.length).toBeGreaterThanOrEqual(before.entries.length);
+  for (const e of before.entries) expect(after.entries.map((x) => x.id), `entry ${e.id} of the old id`).toContain(e.id);
+  // the rename is the newest entry, and the design is not "deleted" by it
+  expect(after.entries[0]?.by.name).toBe(bob.name);
+  const renameDetail = await get<HistoryEntryDetail>(`/api/history/entries/${after.entries[0]!.id}?subject=${encodeURIComponent(`design:${renamedId}`)}`);
+  expect(renameDetail.records.find((r) => r.part === 'design')?.after.known).toBe(true);
+  // restoring to a state from before the rename puts it back under the new id
+  const detail = await get<HistoryEntryDetail>(`/api/history/entries/${stateEntry.id}?subject=${encodeURIComponent(`design:${renamedId}`)}`);
+  const restored = await call({ method: 'POST', path: `/api/history/records/${encodeURIComponent(`design:${renamedId}`)}/restore`, body: { entry: stateEntry.id, current: detail.current }, user: carol });
+  expect(restored.status, JSON.stringify(restored.body)).toBe(200);
+  const now = await call({ method: 'GET', path: `/api/designs/${renamedId}` });
+  expect((now.body as { id: string }).id).toBe(renamedId);
+  // and back again: the history is still one
+  const backAgain = await call({ method: 'POST', path: `/api/designs/${renamedId}/rename`, body: { newId: old }, headers: { 'if-match': now.headers?.ETag as string }, user: bob });
+  expect(backAgain.status, JSON.stringify(backAgain.body)).toBe(200);
+  const full = await get<HistoryPage>(`/api/history/records/${encodeURIComponent(`design:${old}`)}?limit=100`);
+  for (const e of before.entries) expect(full.entries.map((x) => x.id)).toContain(e.id);
+
+  // a controlled list: two notes, restore the first
+  const list = await get<{ entries: { id: string; note?: string }[] }>('/api/vocab/families');
+  const entry = list.entries[0]!.id;
+  const note = async (text: string, user: StudioUser): Promise<void> => {
+    const l = await call({ method: 'GET', path: '/api/vocab/families' });
+    const saved = await call({ method: 'PATCH', path: `/api/vocab/families/${entry}`, body: { note: text }, headers: { 'if-match': l.headers?.ETag as string }, user });
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+  };
+  await note('first note', alice);
+  await note('second note', bob);
+  const subject = 'vocab:families';
+  const log = await get<HistoryPage>(`/api/history/records/${encodeURIComponent(subject)}`);
+  expect(log.entries.length).toBeGreaterThanOrEqual(2);
+  const first = log.entries[1]!;
+  const vdetail = await get<HistoryEntryDetail>(`/api/history/entries/${first.id}?subject=${encodeURIComponent(subject)}`);
+  expect(vdetail.records[0]?.restorable).toBe(true);
+  const back = await call({ method: 'POST', path: `/api/history/records/${encodeURIComponent(subject)}/restore`, body: { entry: first.id, current: vdetail.current }, user: carol });
+  expect(back.status, JSON.stringify(back.body)).toBe(200);
+  // the answer carries the list as stored now
+  const stored = (back.body as RestoreAnswer).value as { entries: { id: string; note?: string }[] };
+  expect(stored.entries.find((e) => e.id === entry)?.note).toBe('first note');
+}

@@ -183,6 +183,52 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
     return out;
   }
 
+  /**
+   * A design's ids over time, newest first: the current one, then each earlier
+   * name with `by`, the commit that renamed it into the next (git's own rename
+   * detection over `designs/`, as `git log --follow` does for one path).
+   */
+  async function designChain(id: string): Promise<{ id: string; by?: string }[]> {
+    const chain: { id: string; by?: string }[] = [{ id }];
+    const out = await run(['log', '--no-color', '-M', '--diff-filter=R', '--name-status', '--relative', `--format=${END}%H`, 'HEAD', '--', 'designs']);
+    if (out.code !== 0) return chain;
+    const renames: { sha: string; from: string; to: string }[] = [];
+    for (const chunk of out.stdout.split(END)) {
+      const [sha = '', ...lines] = chunk.split('\n').map((l) => l.trim()).filter((l) => l !== '');
+      for (const line of lines) {
+        const [status = '', from = '', to = ''] = line.split('\t');
+        const f = /^designs\/([^/]+)\.json$/.exec(from);
+        const t = /^designs\/([^/]+)\.json$/.exec(to);
+        if (status.startsWith('R') && f !== null && t !== null) renames.push({ sha, from: f[1] as string, to: t[1] as string });
+      }
+    }
+    let cutoff: string | undefined;
+    for (let i = 0; i < 25; i += 1) {
+      const last = chain[chain.length - 1] as { id: string; by?: string };
+      let found: (typeof renames)[number] | undefined;
+      for (const r of renames) {
+        if (r.to !== last.id) continue;
+        if (cutoff !== undefined && (r.sha === cutoff || (await run(['merge-base', '--is-ancestor', r.sha, cutoff])).code !== 0)) continue;
+        found = r;
+        break;
+      }
+      if (found === undefined) break;
+      last.by = found.sha;
+      cutoff = found.sha;
+      chain.push({ id: found.from });
+    }
+    return chain;
+  }
+
+  /** The subject as it was named at `sha`: a design renamed since is read under the name it had then. */
+  async function subjectAt(subject: Subject, sha: string, chain: { id: string; by?: string }[]): Promise<Subject> {
+    if (subject.type !== 'design' || chain.length < 2) return subject;
+    for (const link of chain) {
+      if (link.by === undefined || link.by === sha || (await run(['merge-base', '--is-ancestor', link.by, sha])).code === 0) return { type: 'design', id: link.id };
+    }
+    return subject;
+  }
+
   const entryOf = (c: Commit, touches: HistoryTouch[], more = 0): HistoryEntry => {
     const [first = '', ...rest] = c.message.split('\n');
     const body = rest.join('\n').trim();
@@ -253,7 +299,8 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
 
     async record(subject, query): Promise<HistoryList> {
       if (!(await isAvailable())) return none.record(subject, query);
-      const paths = subjectPaths(subject).map((p) => p.path);
+      const chain = subject.type === 'design' ? await designChain(subject.id) : [];
+      const paths = (subject.type === 'design' ? chain.map((c) => ({ type: 'design' as const, id: c.id })) : [subject]).flatMap((x) => subjectPaths(x).map((p) => p.path));
       let start = query.before !== undefined && SHA.test(query.before) ? `${query.before}^` : 'HEAD';
       const entries: HistoryEntry[] = [];
       let next: string | undefined;
@@ -264,7 +311,7 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
         const commits = parseLog(out.stdout);
         if (commits.length === 0) break;
         for (const c of commits) {
-          const steps = await stepsOf(subject, c.sha);
+          const steps = await stepsOf(await subjectAt(subject, c.sha, chain), c.sha);
           if (steps.length === 0) continue;
           if (entries.length === query.limit) {
             next = entries[entries.length - 1]!.id;
@@ -286,7 +333,7 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
       const commit = parseLog(out.stdout)[0];
       if (commit === undefined || commit.sha !== id) return undefined;
       if (subject !== undefined) {
-        const steps = await stepsOf(subject, id);
+        const steps = await stepsOf(await subjectAt(subject, id, subject.type === 'design' ? await designChain(subject.id) : []), id);
         return { entry: entryOf(commit, touchesOfSteps(subject, steps)), records: diffsOf(subject, steps) };
       }
       const parent = await parentOf(id);
@@ -314,7 +361,7 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
           }
           continue;
         }
-        const restorable = (t.subject.startsWith('design:') && (t.part === 'design' || t.part === 'drawing'));
+        const restorable = (t.subject.startsWith('design:') && (t.part === 'design' || t.part === 'drawing')) || ((t.subject.startsWith('vocab:') || t.subject.startsWith('build:')) && t.part === 'record');
         records.push({
           subject: t.subject,
           label: t.label,
@@ -333,7 +380,8 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
       if ((await run(['cat-file', '-e', `${id}^{commit}`])).code !== 0) return undefined;
       const parts: SubjectState = {};
       const restorable = new Set(restorableParts(subject));
-      for (const p of subjectPaths(subject)) {
+      const named = await subjectAt(subject, id, subject.type === 'design' ? await designChain(subject.id) : []);
+      for (const p of subjectPaths(named)) {
         if (!restorable.has(p.part)) continue;
         const state = await show(id, p.path);
         parts[p.part] = p.element === undefined || !state.known ? state : known(elementOf(state.value, p.element));

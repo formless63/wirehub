@@ -104,16 +104,50 @@ interface SubjectRowsSql {
   part(kind: string): string | undefined;
 }
 
-function subjectSql(subject: Subject): SubjectRowsSql {
-  switch (subject.type) {
-    case 'design': {
-      const id = subject.id;
-      const prefix = `${id}/`;
-      return {
-        where: sql`((c.kind IN ('design', 'drawing', 'drawing-photo', 'version-working') AND c.key = ${id})
+/** A design's ids over time: the current one, then each earlier one with the change set that renamed it away. */
+interface DesignId {
+  id: string;
+  /** rows of this id older than this change set only (the change set that created the next id) */
+  before?: string;
+}
+
+/** Follows a design back through its renames: a rename moves the design's drawing and saved-versions rows (`from` -> `to`). */
+async function designIds(tx: Tx, id: string): Promise<DesignId[]> {
+  const chain: DesignId[] = [{ id }];
+  for (let i = 0; i < 25; i += 1) {
+    const last = chain[chain.length - 1] as DesignId;
+    const moved = (
+      await sql<{ key: string; cs: string }>`
+        SELECT c.key, c.change_set_id::text AS cs FROM studio.change c
+         WHERE c.kind IN ('design-versions', 'drawing') AND c.op = 'move' AND c.to_key = ${last.id}
+           ${last.before === undefined ? sql`` : sql`AND c.change_set_id < ${last.before}::bigint`}
+         ORDER BY c.change_set_id DESC LIMIT 1`.execute(tx)
+    ).rows[0];
+    if (moved === undefined) break;
+    // the cutoffs only fall, so a design renamed away and back terminates
+    chain.push({ id: moved.key, before: moved.cs });
+  }
+  return chain;
+}
+
+function designWhere(entry: DesignId): RawBuilder<unknown> {
+  const id = entry.id;
+  const prefix = `${id}/`;
+  const cap = entry.before === undefined ? sql`` : sql` AND c.change_set_id < ${entry.before}::bigint`;
+  return sql`(((c.kind IN ('design', 'drawing', 'drawing-photo', 'version-working') AND c.key = ${id})
           OR (c.kind IN ('design-versions', 'drawing') AND c.op = 'move' AND c.to_key = ${id})
           OR (c.kind = 'design-versions' AND c.key = ${id})
-          OR (c.kind IN ('design-version', 'version-draft', 'version-artwork') AND left(c.key, ${prefix.length}) = ${prefix}))`,
+          OR (c.kind IN ('design-version', 'version-draft', 'version-artwork') AND left(c.key, ${prefix.length}) = ${prefix}))${cap})`;
+}
+
+function subjectSql(subject: Subject, ids: readonly DesignId[] = []): SubjectRowsSql {
+  switch (subject.type) {
+    case 'design': {
+      const chain = ids.length === 0 ? [{ id: subject.id }] : ids;
+      // the move rows of the rename itself belong to the new id's history; the old id's rows end before it
+      const where = chain.map(designWhere).reduce((a, b) => sql`${a} OR ${b}`);
+      return {
+        where: sql`(${where})`,
         part: (kind) => (kind === 'design' ? 'design' : kind === 'drawing' ? 'drawing' : kind === 'drawing-photo' ? 'photo' : 'versions'),
       };
     }
@@ -149,7 +183,7 @@ interface SubjectRow extends SetRow {
 }
 
 async function subjectRows(tx: Tx, subject: Subject): Promise<{ rows: SubjectRow[]; parts: PartRow[] }> {
-  const q = subjectSql(subject);
+  const q = subjectSql(subject, subject.type === 'design' ? await designIds(tx, subject.id) : []);
   const element = q.element ?? null;
   // a definitions list row is read for one element: its JSON text, or JSON null when the list lacks it
   const pick = (column: RawBuilder<unknown>): RawBuilder<unknown> =>
@@ -391,7 +425,7 @@ async function setDiffs(tx: Tx, id: string): Promise<RecordDiff[]> {
     }
     const subject = touch.subject;
     const part = touch.part ?? 'record';
-    const restorable = (subject.startsWith('design:') && (part === 'design' || part === 'drawing')) || (subject.startsWith('definition:') && part === 'record');
+    const restorable = (subject.startsWith('design:') && (part === 'design' || part === 'drawing')) || ((subject.startsWith('definition:') || subject.startsWith('vocab:') || subject.startsWith('build:')) && part === 'record');
     const step: PartStep = { part, before: binary ? UNKNOWN : before, after: binary ? UNKNOWN : after, binary };
     out.push({ subject, label: touch.label, part, op: diffOp(step), before: step.before, after: step.after, restorable: restorable && !binary });
   }
