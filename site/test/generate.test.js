@@ -104,7 +104,7 @@ describe('choices', () => {
       publicUrl: 'https://wirehub.example.com/',
       bind: '0.0.0.0',
       port: '8080',
-      imageTag: '0.2.0',
+      imageTag: '9.9.9-test', // never the released default, which the generator leaves out,
       modules: ['networking', 'pc-serial'],
       // an option from an older page: sign-in methods are set in the app now
       oidc: { enabled: true, issuer: 'https://id.example.com', clientId: 'wh', clientSecret: 's3cr3t' },
@@ -112,7 +112,7 @@ describe('choices', () => {
     expect(env).toContain('WIREHUB_PUBLIC_URL=https://wirehub.example.com\n');
     expect(env).toContain('WIREHUB_BIND=0.0.0.0');
     expect(env).toContain('WIREHUB_PORT=8080');
-    expect(env).toContain(`WIREHUB_IMAGE=${defaultImage(templates.compose).replace(/:[^:]+$/, '')}:0.2.0`);
+    expect(env).toContain(`WIREHUB_IMAGE=${defaultImage(templates.compose).replace(/:[^:]+$/, '')}:9.9.9-test`);
     // in the order setup lists them
     expect(env).toContain('WIREHUB_SUGGESTED_MODULES=pc-serial,networking');
     expect(env).not.toMatch(/AUTH_|WIREHUB_NOTIFY|WIREHUB_GIT_MIRROR|WIREHUB_CONVERT_WINDOW/);
