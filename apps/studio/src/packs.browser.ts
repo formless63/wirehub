@@ -143,6 +143,8 @@ export interface StoreNotice {
 export interface StorePackView {
   index: string;
   store: { id: string; name: string; homepage?: string };
+  /** the name shown for the store: the label it was given here, else its own name */
+  storeLabel?: string;
   id: string;
   name: string;
   description?: string;
@@ -158,12 +160,17 @@ export interface StorePackView {
   releases?: StoreReleaseView[];
   /** the version installed here, if any */
   installed?: string;
-  action: 'install' | 'update' | 'current' | 'newer-installed' | 'unavailable';
+  /** the installed pack came from another store (this index URL): no install or update is offered from here */
+  installedFrom?: string;
+  action: 'install' | 'update' | 'current' | 'newer-installed' | 'unavailable' | 'other-store';
 }
 export interface StoreIndexView {
   url: string;
   ok: boolean;
   store?: { id: string; name: string };
+  /** `env`/`official`: named by the deployment; `user`: added in Settings */
+  source?: 'env' | 'official' | 'user';
+  label?: string;
   packs?: number;
   error?: string;
 }

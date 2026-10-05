@@ -250,7 +250,8 @@ AGPL-3.0-only. Third-party packs carry the licence their authors chose.
 - **Signatures**: ed25519 detached signatures (minisign-compatible) over the index and over
   each pack manifest; the manifest pins every file by sha256, so one signature covers the
   pack. Publishers sign their own packs; the store signs the index that lists them.
-- **Trust roots** are deployment configuration: the store indexes a hub trusts, each by its
+- **Trust roots** are deployment configuration, plus the stores an owner or editor adds in
+  Settings (see "Store sources" below): the store indexes a hub trusts, each by its
   key (`WIREHUB_STORE_INDEXES`). An index lists its publishers and their keys, so trusting an
   index trusts the publisher keys it vouches for. A pack the index pins but whose publisher it
   does not list installs on the index's signature and sha256 alone, and says so; a pack from a
@@ -339,7 +340,7 @@ key `sign` says the index is left unsigned and exits 0 (`--required` makes it fa
 `index.json.minisig` in one directory on any https host (GitHub Pages, an object store, a web
 server), keep every version you published in it (the index lists what the directory holds, and a
 design built on an old version can be re-validated against it), rebuild and re-sign after every
-change, and give people the index URL and your public key for `WIREHUB_STORE_INDEXES`. Keep the
+change, and give people the index URL and your public key (for `WIREHUB_STORE_INDEXES`, or to paste into Settings > Store sources). Put a copy of `wirehub-store.pub` (public) beside `index.json` so the app can offer "fetch key from the store"; people should still compare the fingerprint with you. Keep the
 private key out of the repository (a CI secret, as below). A mirror copies the directory as is:
 the signature still verifies. You are responsible for what your packs contain and the licence you
 give them; WireHub does not review store content.
@@ -355,6 +356,35 @@ once the owner has created the key (`keygen`) and stored the secret, `store-inde
 the workflow fails if the secret's key and the recorded one differ.
 
 Official index public key: *(placeholder, not yet created)*
+
+### Store sources: adding stores in the app
+
+People add more stores, their own private ones or other creators', in Settings > Store sources
+(owners and editors; viewers read). Browse store then lists the packs of every enabled store,
+grouped by store, with a store filter; each pack says which store it is from, and a store that is
+down or fails verification is named and left out without hiding the others.
+
+- **Where stores come from.** The deployment's (`WIREHUB_STORE_INDEXES`, and the official index
+  once its key is published) are shown read-only, marked "set by the server", the official one with
+  its state (signed, not signed yet, or not enabled on this server). The ones added in the app are
+  the org settings document `data/settings/stores.json` (`{ sources: [{ url, publicKey, label?, enabled }] }`),
+  written with `If-Match` like the other settings, on files and Postgres. The two merge; on the same
+  URL the deployment's entry wins. `WIREHUB_STORE_ALLOW_USER_SOURCES=false` ignores the document
+  and refuses edits (default true).
+- **Adding one.** A URL (https only) and the store's minisign public key. "Fetch key from the
+  store's `wirehub-store.pub`" fills it in from beside the index; that is trust on first use (the
+  key only proves the store matches itself), so the page says so and the person confirms the
+  fingerprint (the key id and a sha256 fingerprint of the key) with the store's owner another way.
+  Before saving, the server fetches the index and its signature, verifies them and shows the
+  store's name, publishers, pack count and the fingerprint; saving re-verifies a new or re-keyed
+  store. Fetches are the pack URL install's: https only, 8 MB, 15 s, redirects re-checked, private
+  addresses refused.
+- **Managing.** Enable or disable (a disabled store is not browsed or installed from), rename the
+  label, re-check now, remove. Removing a store does not uninstall anything.
+- **Origin and updates.** An install records the index URL it came from (`origin.index`); Browse
+  store checks updates and notices for that pack against that store only. Another store listing the
+  same id is shown as "installed from another store" and offers no update.
+- API: `GET`/`PUT /api/settings/stores`, and `GET /api/settings/stores/(preview?url=&key=|key?url=|check?url=)`.
 
 ### As built (phase 5): publisher signatures, review, yanking, revocation
 

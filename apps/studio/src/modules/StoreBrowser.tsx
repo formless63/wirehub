@@ -41,6 +41,8 @@ export function StoreBrowser(): JSX.Element {
   const [notes, setNotes] = useState<string[]>([]);
   const [query, setQuery] = useState('');
   const [domain, setDomain] = useState('');
+  // '' = every store
+  const [storeUrl, setStoreUrl] = useState('');
   const [message, setMessage] = useState<string | undefined>(undefined);
   const [pending, setPending] = useState<Pending | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -81,10 +83,21 @@ export function StoreBrowser(): JSX.Element {
     const words = query.trim().toLowerCase().split(/\s+/).filter((w) => w !== '');
     return (packs ?? []).filter((p) => {
       if (domain !== '' && p.domain !== domain) return false;
+      if (storeUrl !== '' && p.index !== storeUrl) return false;
       const text = `${p.id} ${p.name} ${p.description ?? ''} ${p.domain} ${p.author.name} ${p.license}`.toLowerCase();
       return words.every((w) => text.includes(w));
     });
-  }, [packs, query, domain]);
+  }, [packs, query, domain, storeUrl]);
+  // the packs grouped by store, in the order the stores are listed (the server's first)
+  const groups = useMemo(
+    () =>
+      indexes
+        .filter((i) => i.ok)
+        .map((i) => ({ index: i, packs: shown.filter((p) => p.index === i.url) }))
+        .filter((g) => g.packs.length > 0),
+    [indexes, shown],
+  );
+  const nameOf = (i: StoreIndexView): string => i.label ?? i.store?.name ?? i.url;
 
   const run = async (work: () => Promise<void>): Promise<void> => {
     setBusy(true);
@@ -145,8 +158,8 @@ export function StoreBrowser(): JSX.Element {
       {indexes
         .filter((i) => !i.ok)
         .map((i) => (
-          <div key={i.url} role="alert" className="text-err">
-            {i.url}: {i.error}
+          <div key={i.url} role="alert" className="text-err" data-store-down={i.url}>
+            {i.label ?? i.url}: {i.error} The other stores are still listed.
           </div>
         ))}
       {notes.map((n) => (
@@ -154,6 +167,18 @@ export function StoreBrowser(): JSX.Element {
       ))}
       <div className="my-2 flex flex-wrap gap-2">
         <input type="search" aria-label="Search packs" placeholder="Search packs" value={query} onChange={(e) => setQuery(e.target.value)} className="w-64 border border-line px-1" />
+ {indexes.filter((i) => i.ok).length < 2 ? null : (
+          <select aria-label="Store" value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} className="border border-line px-1">
+            <option value="">All stores</option>
+            {indexes
+              .filter((i) => i.ok)
+              .map((i) => (
+                <option key={i.url} value={i.url}>
+                  {nameOf(i)}
+                </option>
+              ))}
+          </select>
+        )}
         <select aria-label="Domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="border border-line px-1">
           <option value="">All domains</option>
           {domains.map((d) => (
@@ -164,8 +189,15 @@ export function StoreBrowser(): JSX.Element {
         </select>
       </div>
       {packs === undefined ? <div className="text-faint">Loading…</div> : shown.length === 0 ? <div className="text-faint">{packs.length === 0 ? 'No packs to show.' : 'No pack matches.'}</div> : null}
+      {groups.map((g) => (
+        <div key={g.index.url} data-store-group={g.index.url}>
+          {groups.length < 2 && indexes.filter((i) => i.ok).length < 2 ? null : (
+            <h3 className="mt-3 text-[12.5px] font-medium">
+              {nameOf(g.index)} <span className="text-faint">{g.index.source === 'user' ? 'added here' : 'set by the server'} · {g.packs.length} pack{g.packs.length === 1 ? '' : 's'}</span>
+            </h3>
+          )}
       <ul>
-        {shown.map((p) => (
+        {g.packs.map((p) => (
           <li key={`${p.index} ${p.id}`} className="my-2" data-store-pack={p.id}>
             <div>
               <b>{p.name}</b> <span className="text-faint">{p.id}</span> {p.latest?.version ?? ''} · {p.domain} · by {p.author.name}
@@ -204,9 +236,14 @@ export function StoreBrowser(): JSX.Element {
                   Installed: {noticeText(n)}
                 </div>
               ))}
+            {p.action === 'other-store' ? (
+              <div className="text-faint" data-store-note="other-store">
+                Installed ({p.installed}) from another store; updates come from that store.
+              </div>
+            ) : null}
             {p.action === 'unavailable' ? <div className="text-faint">Every version is yanked; nothing is offered.</div> : null}
             <div className="text-faint">
-              from {p.store.name}
+              from {p.storeLabel ?? p.store.name}
               {p.homepage === undefined ? null : (
                 <>
                   {' · '}
@@ -224,6 +261,8 @@ export function StoreBrowser(): JSX.Element {
           </li>
         ))}
       </ul>
+        </div>
+      ))}
       {message === undefined ? null : <div role="status" className="mt-2">{message}</div>}
       {pending === undefined ? null : (
         <div className="mt-2 border border-line p-2" data-testid="store-pending">

@@ -96,6 +96,7 @@ export {
   versionVisible,
   parseStorePublicKey,
   signStoreIndex,
+  storeKeyFingerprint,
   storeKeyId,
   storePrivateKey,
   storePublicKeyFile,

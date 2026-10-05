@@ -22,7 +22,8 @@
  * The list also carries `notices` for installed packs: a yanked version, a revoked
  * signature or a flagged review, with the version to update to.
  *
- * The trusted indexes are `WIREHUB_STORE_INDEXES` (`storeIndexesFromEnv`): a list of
+ * The trusted indexes are `WIREHUB_STORE_INDEXES` (`storeIndexesFromEnv`) plus the stores added in
+ * Settings (`store-sources.ts`; `WIREHUB_STORE_ALLOW_USER_SOURCES=false` ignores those): a list of
  * `<url> <public key>`; `official` names WireHub's own index once its key is published.
  * WireHub does not police what third-party packs contain: the licence and provenance
  * are shown as the author states them, beside the disclaimer (`STORE_DISCLAIMER`).
@@ -58,6 +59,8 @@ import type { StudioUser } from './me.ts';
 import { PackArchiveError, fetchPack, isZip, readPackBytes, sha256, type FetchPackOptions } from './pack-archive.ts';
 import { handlePacksRequest } from './packs.ts';
 import type { SetupDeps } from './setup.ts';
+import type { DocStore } from './storage/doc-store.ts';
+import { effectiveIndexes } from './store-sources.ts';
 
 export const STORE_ROUTES = ['GET    /api/packs/store', 'POST   /api/packs/store/install'] as const;
 
@@ -79,6 +82,10 @@ export interface TrustedStoreIndex {
   url: string;
   /** minisign public key, `RW…` */
   publicKey: string;
+  /** where the entry comes from: the deployment (`env`), the official index, or Settings (`user`) */
+  origin?: 'env' | 'official' | 'user';
+  /** the name a person gave an added store */
+  label?: string;
 }
 
 export interface StoreDeps {
@@ -89,6 +96,10 @@ export interface StoreDeps {
   fetch?: FetchPackOptions;
   /** `WIREHUB_STORE_HIDE_UNREVIEWED`: list and offer only versions the index marks reviewed or flagged (default: show all) */
   hideUnreviewed?: boolean;
+  /** `WIREHUB_STORE_ALLOW_USER_SOURCES` (default true): may owners and editors add stores in Settings? */
+  allowUserSources?: boolean;
+  /** where the stores added in Settings are kept (`data/settings/stores.json`) */
+  docs?: DocStore;
 }
 
 const yes = (value: string | undefined): boolean => value !== undefined && /^(1|true|yes|on)$/i.test(value.trim());
@@ -100,8 +111,11 @@ const yes = (value: string | undefined): boolean => value !== undefined && /^(1|
  */
 export function storeIndexesFromEnv(env: Env = process.env): StoreDeps {
   const raw = env['WIREHUB_STORE_INDEXES'];
-  const hide = yes(env['WIREHUB_STORE_HIDE_UNREVIEWED']) ? { hideUnreviewed: true } : {};
-  const official = (): TrustedStoreIndex[] => (OFFICIAL_STORE_PUBLIC_KEY === '' ? [] : [{ url: OFFICIAL_STORE_INDEX_URL, publicKey: OFFICIAL_STORE_PUBLIC_KEY }]);
+  const hide = {
+    ...(yes(env['WIREHUB_STORE_HIDE_UNREVIEWED']) ? { hideUnreviewed: true } : {}),
+    ...(/^(0|false|no|off)$/i.test((env['WIREHUB_STORE_ALLOW_USER_SOURCES'] ?? '').trim()) ? { allowUserSources: false } : {}),
+  };
+  const official = (): TrustedStoreIndex[] => (OFFICIAL_STORE_PUBLIC_KEY === '' ? [] : [{ url: OFFICIAL_STORE_INDEX_URL, publicKey: OFFICIAL_STORE_PUBLIC_KEY, origin: 'official' }]);
   if (raw === undefined) return { indexes: official(), ...hide };
   const indexes: TrustedStoreIndex[] = [];
   const problems: string[] = [];
@@ -126,7 +140,7 @@ export function storeIndexesFromEnv(env: Env = process.env): StoreDeps {
       problems.push(`'${url}': '${key}' is not a minisign public key (RW…).`);
       continue;
     }
-    indexes.push({ url, publicKey: key });
+    indexes.push({ url, publicKey: key, origin: 'env' });
   }
   return { indexes, problems, ...hide };
 }
@@ -224,55 +238,75 @@ export async function handleStoreRequest(
   const method = request.method.toUpperCase();
   const p = (request.path.split('?')[0] ?? '').replace(/\/+$/, '');
   const options = store.fetch ?? setup.packFetch ?? {};
+  // the deployment's indexes plus the ones added in Settings (store-sources.ts)
+  const trustedNow = await effectiveIndexes(store);
 
   if (p === '/api/packs/store') {
     if (method !== 'GET') return refuse(405, `${method} is not something this address accepts.`, 'It answers GET.');
     const installedList = await installedPacks(setup, modules);
-    const installed = new Map(installedList.map((pack) => [pack.id, pack.version]));
+    const installed = new Map(installedList.map((pack) => [pack.id, pack]));
     const visibility = { hideUnreviewed: store.hideUnreviewed === true };
     const indexes: unknown[] = [];
     const packs: unknown[] = [];
     const verified: { url: string; index: StoreIndex }[] = [];
     let hidden = 0;
-    for (const trusted of store.indexes) {
-      try {
-        const index = await fetchVerifiedIndex(trusted, options);
-        verified.push({ url: trusted.url, index });
-        const revoked = revokedKeysOf(index);
-        indexes.push({ url: trusted.url, ok: true, store: index.store, packs: index.packs.length, ...(index.generated === undefined ? {} : { generated: index.generated }) });
-        for (const pack of index.packs) {
-          const visible = pack.versions.filter((v) => versionVisible(v, visibility));
-          if (visible.length === 0) {
-            hidden += 1;
-            continue;
-          }
-          const offered = offeredVersion(pack, visibility);
-          const have = installed.get(pack.id);
-          const publisher = pack.publisher === undefined ? undefined : index.publishers?.find((p) => p.id === pack.publisher);
-          packs.push({
-            index: trusted.url,
-            store: index.store,
-            id: pack.id,
-            name: pack.name,
-            ...(pack.description === undefined ? {} : { description: pack.description }),
-            domain: pack.domain,
-            license: offered?.license ?? pack.license,
-            author: pack.author,
-            // who signs it: the index's publisher entry; absent = the pack is pinned by the index's sha256 only
-            ...(publisher === undefined ? {} : { publisher: { id: publisher.id, name: publisher.name, ...(publisher.url === undefined ? {} : { url: publisher.url }) } }),
-            ...(pack.homepage === undefined ? {} : { homepage: pack.homepage }),
-            latest: offered === undefined ? undefined : { version: offered.version, size: offered.size, review: reviewOf(offered), ...(offered.requires === undefined ? {} : { requires: offered.requires }) },
-            versions: visible.map((v) => v.version),
-            releases: visible.map((v) => {
-              const gone = revokedSigners(v.signedBy, revoked);
-              return { version: v.version, review: reviewOf(v), ...(v.yanked === undefined ? {} : { yanked: v.yanked }), ...(gone === undefined ? {} : { revoked: true }) };
-            }),
-            ...(have === undefined ? {} : { installed: have }),
-            action: actionOf(offered, have),
-          });
+    // every store is fetched on its own: one that is down or does not verify is listed as refused, the others still show
+    const fetched = await Promise.all(
+      trustedNow.indexes.map(async (trusted) => {
+        try {
+          return { trusted, index: await fetchVerifiedIndex(trusted, options), error: '' };
+        } catch (error) {
+          return { trusted, index: undefined, error: error instanceof Error ? error.message : String(error) };
         }
-      } catch (error) {
-        indexes.push({ url: trusted.url, ok: false, error: error instanceof Error ? error.message : String(error) });
+      }),
+    );
+    for (const got of fetched) {
+      const trusted = got.trusted;
+      if (got.index === undefined) {
+        indexes.push({ url: trusted.url, ok: false, source: trusted.origin ?? 'env', ...(trusted.label === undefined ? {} : { label: trusted.label }), error: got.error });
+        continue;
+      }
+      const index = got.index;
+      const label = trusted.label ?? index.store.name;
+      verified.push({ url: trusted.url, index });
+      const revoked = revokedKeysOf(index);
+      indexes.push({ url: trusted.url, ok: true, source: trusted.origin ?? 'env', label, store: index.store, packs: index.packs.length, ...(index.generated === undefined ? {} : { generated: index.generated }) });
+      for (const pack of index.packs) {
+        const visible = pack.versions.filter((v) => versionVisible(v, visibility));
+        if (visible.length === 0) {
+          hidden += 1;
+          continue;
+        }
+        const offered = offeredVersion(pack, visibility);
+        const here = installed.get(pack.id);
+        // an installed pack keeps the store it came from: another store listing the same id does not offer it an update
+        const from = here?.origin?.index;
+        const elsewhere = here !== undefined && from !== undefined && from !== trusted.url;
+        const have = here?.version;
+        const publisher = pack.publisher === undefined ? undefined : index.publishers?.find((p) => p.id === pack.publisher);
+        packs.push({
+          index: trusted.url,
+          store: index.store,
+          storeLabel: label,
+          id: pack.id,
+          name: pack.name,
+          ...(pack.description === undefined ? {} : { description: pack.description }),
+          domain: pack.domain,
+          license: offered?.license ?? pack.license,
+          author: pack.author,
+          // who signs it: the index's publisher entry; absent = the pack is pinned by the index's sha256 only
+          ...(publisher === undefined ? {} : { publisher: { id: publisher.id, name: publisher.name, ...(publisher.url === undefined ? {} : { url: publisher.url }) } }),
+          ...(pack.homepage === undefined ? {} : { homepage: pack.homepage }),
+          latest: offered === undefined ? undefined : { version: offered.version, size: offered.size, review: reviewOf(offered), ...(offered.requires === undefined ? {} : { requires: offered.requires }) },
+          versions: visible.map((v) => v.version),
+          releases: visible.map((v) => {
+            const gone = revokedSigners(v.signedBy, revoked);
+            return { version: v.version, review: reviewOf(v), ...(v.yanked === undefined ? {} : { yanked: v.yanked }), ...(gone === undefined ? {} : { revoked: true }) };
+          }),
+          ...(have === undefined ? {} : { installed: have }),
+          ...(elsewhere ? { installedFrom: from } : {}),
+          action: elsewhere ? 'other-store' : actionOf(offered, have),
+        });
       }
     }
     return json(200, {
@@ -282,8 +316,10 @@ export async function handleStoreRequest(
       domains: [...new Set(packs.map((pack) => (pack as { domain: string }).domain))].sort(),
       notices: installedNotices(installedList, verified, visibility),
       ...(visibility.hideUnreviewed ? { hideUnreviewed: true, hidden } : {}),
-      ...(store.problems === undefined || store.problems.length === 0 ? {} : { problems: store.problems }),
-      ...(store.indexes.length === 0 ? { hint: 'No store index is configured. Set WIREHUB_STORE_INDEXES to "<index url> <public key>" (docs/self-hosting.md).' } : {}),
+      ...([...(store.problems ?? []), ...trustedNow.problems].length === 0 ? {} : { problems: [...(store.problems ?? []), ...trustedNow.problems] }),
+      ...(trustedNow.indexes.length === 0
+        ? { hint: store.allowUserSources === false ? 'No store index is configured. Set WIREHUB_STORE_INDEXES to "<index url> <public key>" (docs/self-hosting.md).' : 'No store is configured. Add one under Settings > Store sources, or set WIREHUB_STORE_INDEXES (docs/self-hosting.md).' }
+        : {}),
     });
   }
 
@@ -291,8 +327,8 @@ export async function handleStoreRequest(
     if (method !== 'POST') return refuse(405, `${method} is not something this address accepts.`, 'It answers POST.');
     const body = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as { index?: unknown; id?: unknown; version?: unknown; apply?: unknown; acceptMajor?: unknown; sha256?: unknown; force?: unknown };
     if (typeof body.index !== 'string' || typeof body.id !== 'string') return refuse(400, 'Name the index and the pack: { "index": "<index url>", "id": "<pack id>" }.', 'GET /api/packs/store lists them.');
-    const trusted = store.indexes.find((i) => i.url === body.index);
-    if (trusted === undefined) return refuse(404, `'${body.index}' is not a store index this hub trusts.`, 'The trusted indexes are WIREHUB_STORE_INDEXES; GET /api/packs/store lists them.');
+    const trusted = trustedNow.indexes.find((i) => i.url === body.index);
+    if (trusted === undefined) return refuse(404, `'${body.index}' is not a store index this hub trusts.`, 'The trusted indexes are WIREHUB_STORE_INDEXES and the stores added (and enabled) in Settings; GET /api/packs/store lists them.');
     let index: StoreIndex;
     try {
       index = await fetchVerifiedIndex(trusted, options);
@@ -406,6 +442,8 @@ function installedNotices(installed: readonly InstalledView[], verified: readonl
   const notices: unknown[] = [];
   for (const pack of installed) {
     for (const { url, index } of verified) {
+      // an installed pack is checked against the store it came from (packs of unknown origin: any store listing them)
+      if (pack.origin?.index !== undefined && pack.origin.index !== url) continue;
       const listed = index.packs.find((p) => p.id === pack.id);
       const version = listed?.versions.find((v) => v.version === pack.version);
       if (listed === undefined || version === undefined) continue;

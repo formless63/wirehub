@@ -74,7 +74,7 @@ describe('/api/packs/store', () => {
     const list = await call('/api/packs/store');
     expect(list.status, JSON.stringify(list.body)).toBe(200);
     expect(list.body.disclaimer).toMatch(/published by their authors, who are responsible/);
-    expect(list.body.indexes).toEqual([{ url: STORE_URL, ok: true, store: { id: 'test-store', name: 'Test store' }, packs: 1 }]);
+    expect(list.body.indexes).toEqual([{ url: STORE_URL, ok: true, source: 'env', label: 'Test store', store: { id: 'test-store', name: 'Test store' }, packs: 1 }]);
     expect(list.body.packs).toEqual([
       expect.objectContaining({ index: STORE_URL, id: 'alpha', name: 'Store alpha', domain: 'test-domain', license: 'CC-BY-4.0', author: { id: 'tester', name: 'Test publisher' }, latest: expect.objectContaining({ version: '1.0.0' }), action: 'install' }),
     ]);

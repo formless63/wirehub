@@ -20,6 +20,7 @@ import { importCatalog } from '../../server/pg/import.ts';
 import { pgSetupDeps } from '../../server/pg/setup.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { STORE_URL, createTestStore, type TestStore } from '../store-fixture.ts';
+import { storeSourcesScenario } from '../store-sources-scenario.ts';
 import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 describePg('store install on Postgres', () => {
@@ -131,6 +132,29 @@ describePg('store install on Postgres', () => {
       expect(list.notices).toEqual([expect.objectContaining({ id: 'gamma', version: '1.0.0', revoked: [expect.objectContaining({ reason: 'key lost' })] })]);
     } finally {
       trust.close();
+    }
+  }, 180_000);
+
+  it('stores added in Settings: kept in the org document, merged with the deployment\'s, browsed and installed from', async () => {
+    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'store-sources', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
+    const cache = new SnapshotCache(pgh.db, orgId, { reuseMs: 0 });
+    const deps: WorkbenchDeps = pgWorkbenchDeps({ cache, db: pgh.db });
+    deps.setup = pgSetupDeps(deps, cache, { prompt: false, now: () => '2026-10-05T09:00:00.000Z' });
+    deps.modules = createRegistry([]);
+    const first = createTestStore();
+    const second = createTestStore();
+    try {
+      await storeSourcesScenario(
+        async (method, path, body, headers) => (await handleWorkbenchRequest({ method, path, ...(body === undefined ? {} : { body }), ...(headers === undefined ? {} : { headers }) }, deps)) as { status: number; body: any; headers?: Record<string, string> },
+        (next) => {
+          deps.store = next;
+        },
+        first,
+        second,
+      );
+    } finally {
+      first.close();
+      second.close();
     }
   }, 180_000);
 });

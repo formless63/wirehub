@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 
 import { brandingKey, brandingQuery, saveBranding, type BrandingView } from '../settings.browser.ts';
 import { EngineeringSettings } from './EngineeringSettings.tsx';
+import { StoreSourcesSettings } from './StoreSourcesSettings.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 const FIELDS = [
@@ -185,6 +186,7 @@ export function SettingsRoute(): JSX.Element {
         </form>
       )}
       <EngineeringSettings />
+      <StoreSourcesSettings />
     </div>
   );
 }

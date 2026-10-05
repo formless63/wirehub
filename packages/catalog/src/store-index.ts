@@ -387,6 +387,18 @@ export function parseStorePublicKey(text: string): { keyId: Buffer; key: KeyObje
   return { keyId: Buffer.from(bytes.subarray(2, 10)), key };
 }
 
+/**
+ * What a person compares when they decide to trust a store's key: the minisign key
+ * id (as `wirehub-store.pub` prints it) and a sha256 fingerprint of the whole key,
+ * as eight groups of four upper-case hex digits. Throws on text that is not a key.
+ */
+export function storeKeyFingerprint(publicKey: string): { keyId: string; fingerprint: string } {
+  const { keyId, key } = parseStorePublicKey(publicKey);
+  const raw = Buffer.concat([Buffer.from('Ed'), keyId, rawPublicKey(key)]);
+  const hex = createHash('sha256').update(raw).digest('hex').toUpperCase().slice(0, 32);
+  return { keyId: keyIdHex(keyId), fingerprint: (hex.match(/.{4}/g) ?? []).join(' ') };
+}
+
 const blake2b512 = (bytes: Uint8Array): Buffer => createHash('blake2b512').update(bytes).digest();
 
 /**
