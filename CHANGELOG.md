@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.4.0](https://github.com/formless63/wirehub/compare/v0.3.0...v0.4.0) (2026-10-05)
+
+
+### Features
+
+* **branding:** licensed fonts and drawing art as hub data, used by sheets and PDFs; fonts and PDFs in packs ([e45f488](https://github.com/formless63/wirehub/commit/e45f4881673225827431dc76ef3535411f6c852b))
+* **model:** board and adapter proposals from resolver gaps ([8ff4ccf](https://github.com/formless63/wirehub/commit/8ff4ccff26c28b069a718a2eef0f641accdf10ee))
+* **model:** generic device resolver — device profiles, conditioning recipes, hazards, ranked options, derived designs, recipe drift and inference ([4564024](https://github.com/formless63/wirehub/commit/45640245a194b6358e9e04f754d2afddb6f7edca))
+* **model:** pn counter exclusions, range unions and multi-segment matches; cable-end and board/shell rule selectors ([9bf90bd](https://github.com/formless63/wirehub/commit/9bf90bd712a765ad06c44dccb10c519315224cc6))
+* **model:** product families, variants, merge and split, the lineup, and make/contract/buy routes ([f951dd8](https://github.com/formless63/wirehub/commit/f951dd8554aca3a2aa338f1eb8caff754f61cd54))
+* **model:** revisions of library records, where used per revision, variant numbers; feat(modules): revisionSources extension point (module API 1.2) ([56349b9](https://github.com/formless63/wirehub/commit/56349b94ac595c2b53bcf94d5399ac93b05156b0))
+* **packs:** a pack ships a drawing photo as an asset-library image with its index entry ([8899e6d](https://github.com/formless63/wirehub/commit/8899e6debcbc038f3ef0b75dabec01f22ded0223))
+* **packs:** bench-rules.json and pcba-pads.json as owned pack data; preview validates what will run ([b77ea2a](https://github.com/formless63/wirehub/commit/b77ea2aedca242d942ff57b45508cc120af4d0eb))
+* **packs:** resolver examples — a PC serial port to an RS-485 device through a converter board, a line output into a mic input through a pad, a control unit to sensors of two pinouts ([280b21a](https://github.com/formless63/wirehub/commit/280b21a394f29dc6e701b81fd8a04fd7d32a360d))
+* **packs:** signed vendor PDFs and fonts as pack assets, served by /api/blobs with safe headers ([93237e3](https://github.com/formless63/wirehub/commit/93237e34c685cfe255c5f1d70a46d91d09c32211))
+* **store:** record the official store index public key (key id 289BB53D1B721017) ([e9b1175](https://github.com/formless63/wirehub/commit/e9b11755a9ec2f0de0648889724aa3c2ff3789ef))
+* **store:** record the wirehub publisher key and sign bundled packs in the pages workflow ([6bc4ff5](https://github.com/formless63/wirehub/commit/6bc4ff5ab3ccf691c462df6bd9cf1d1f3ae5d0d2))
+* **studio:** "Which cable do I need?", the resolver API and the editor's Recipe tab ([ed41822](https://github.com/formless63/wirehub/commit/ed418223e46539ddb848253412dc683b2cc98ddf))
+* **studio:** product pages, the lineup (JSON/CSV), product.changed webhooks, route badge and sourcing fields ([3c520dc](https://github.com/formless63/wirehub/commit/3c520dce7740a70805224a5e291870c1f8aeafd5))
+* **studio:** record Revisions section, revisions API, and the base compare view in fields, 2D and 3D ([5754933](https://github.com/formless63/wirehub/commit/575493396c47226e5178ea17a1f130f0392514c5))
+* **studio:** review proposals — drafts on "Which cable do I need?", decline (remembered), accept as a development board, the Proposals tab and /api/proposals ([22282e1](https://github.com/formless63/wirehub/commit/22282e18e88ee80b82b0a335f20a7484d2187c86))
+
+
+### Bug Fixes
+
+* **catalog:** revision model-link keys take a part number as &lt;part&gt; (migration 0022) ([d908a2c](https://github.com/formless63/wirehub/commit/d908a2c5897ee0cbeb369c750b653862eb1754fa))
+* **model:** no false recipe-device-unknown for requirement ends; one warning per design for missing devices ([003b745](https://github.com/formless63/wirehub/commit/003b7453250f89b8315e7408c48e258fe6c455c1))
+* **packs:** preview, files and Postgres agree about a pack ([f0bb284](https://github.com/formless63/wirehub/commit/f0bb284a500a28f9407e76905a33c6ea938e6ad7))
+* **settings:** a library that cannot be read leaves the branding art out; part-number settings hint ([d2925d4](https://github.com/formless63/wirehub/commit/d2925d4c2464cb7b64e2a55d1f81593de98f8629))
+* **store-index:** read OFFICIAL_STORE_PUBLIC_KEY with or without a type annotation ([72ee451](https://github.com/formless63/wirehub/commit/72ee4510379385ecd431d184e01dd8088563858a))
+* **store:** injectable official index and tests off the real store; chore(ci): bump all GitHub Actions to current majors ([ec54eef](https://github.com/formless63/wirehub/commit/ec54eefd140fab287bdd2d00c6aeba7ac683dc55))
+* **studio:** file stores layer pack wire library, depictions, tag review and part-number data; extend pack parity fixture ([bbb518c](https://github.com/formless63/wirehub/commit/bbb518c274c82e4e3a1221ebe15f389f50697d48))
+
 ## [0.3.0](https://github.com/formless63/wirehub/compare/v0.2.0...v0.3.0) (2026-10-05)
 
 
