@@ -18,10 +18,17 @@
  *
  * What maps to a route: designs (`data/designs/<id>.json`), the definition lists
  * (`connectors`, `components`, `wires`, `pcbas`, `bodies`, `interfaces`,
- * `mechanicals`, `kits`) record by record, and the documents a module declares
- * (`PUT /api/docs/<path>`). Connectors are pulled in the composed form the API takes
- * (the server stores them decomposed). Any other changed file is reported and
- * stops the push: it has no write route.
+ * `mechanicals`, `kits`) record by record, the documents a module declares
+ * (`PUT /api/docs/<path>`), and — compared with the copy a pull took (`base` in
+ * the meta file) — the controlled vocabularies (`data/vocab/<list>.json`: new
+ * entries, and a changed label, more aliases or a note), the tag corrections
+ * (`data/tags/review.json`), the wire parts library (`data/wire-parts.json`:
+ * new parts; `data/wire-recipes.json`: stock recipes), the board build files
+ * (`data/builds/<name>.json`) and the drawing details
+ * (`data/drawings/<id>.json`). Connectors are pulled in the composed form the
+ * API takes (the server stores them decomposed). Any other changed file — and a
+ * change in those files the routes cannot express (removing a vocabulary entry,
+ * changing an existing wire part) — is reported and stops the push.
  */
 
 import { createHash } from 'node:crypto';
@@ -150,6 +157,8 @@ export interface PullMeta {
   hashes: Record<string, string>;
   /** every file written, relative to the directory */
   files: string[];
+  /** the files with their own routes (vocab, tags, wire library, builds, drawings), as pulled: edits are compared with these */
+  base?: Record<string, unknown>;
 }
 
 const sha = (text: string): string => createHash('sha256').update(text).digest('hex').slice(0, 32);
@@ -182,8 +191,29 @@ function recordsOf(kind: DefinitionKind, text: string): Map<string, unknown> {
   return out;
 }
 
+type Classified =
+  | { type: 'design'; id: string }
+  | { type: 'definitions'; kind: DefinitionKind }
+  | { type: 'vocab'; list: string }
+  | { type: 'wire-parts' }
+  | { type: 'wire-recipes' }
+  | { type: 'build'; name: string }
+  | { type: 'drawing'; id: string }
+  | { type: 'tag-review' }
+  | { type: 'doc' }
+  | { type: 'other' };
+
 /** Which kind of file a path under the pulled directory is. */
-function classify(path: string): { type: 'design'; id: string } | { type: 'definitions'; kind: DefinitionKind } | { type: 'doc' } | { type: 'other' } {
+function classify(path: string): Classified {
+  const vocab = /^data\/vocab\/([a-z0-9][a-z0-9-]*)\.json$/.exec(path);
+  if (vocab !== null) return { type: 'vocab', list: vocab[1] as string };
+  if (path === 'data/wire-parts.json') return { type: 'wire-parts' };
+  if (path === 'data/wire-recipes.json') return { type: 'wire-recipes' };
+  if (path === 'data/tags/review.json') return { type: 'tag-review' };
+  const build = /^data\/builds\/([a-z0-9][a-z0-9-]*)\.json$/.exec(path);
+  if (build !== null) return { type: 'build', name: build[1] as string };
+  const drawing = /^data\/drawings\/([a-z0-9][a-z0-9-]*)\.json$/.exec(path);
+  if (drawing !== null) return { type: 'drawing', id: drawing[1] as string };
   const design = /^data\/designs\/([a-z0-9][a-z0-9-]*)\.json$/.exec(path);
   if (design !== null) return { type: 'design', id: design[1] as string };
   const list = /^data\/([a-z]+)\.json$/.exec(path);
@@ -241,6 +271,33 @@ export async function pull(client: ApiClient, dir: string): Promise<PullResult> 
     } else if (what.type === 'other') hashes[`file:${path}`] = sha(text);
   }
 
+  // the files with their own routes: kept as pulled, with the versions the API holds them at
+  const base: Record<string, unknown> = {};
+  const etagOf = async (path: string, what: string): Promise<string> => {
+    const answer = await client.request('GET', path);
+    if (answer.status !== 200 || answer.etag === undefined) throw new ApiClientError(`GET ${path} answered ${answer.status}${answer.etag === undefined && answer.status === 200 ? ' without a version' : ''} (${what}).`);
+    return answer.etag;
+  };
+  let wireLibrary = false;
+  for (const [path, text] of [...files].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const what = classify(path);
+    if (what.type === 'vocab' || what.type === 'wire-parts' || what.type === 'wire-recipes' || what.type === 'build' || what.type === 'drawing' || what.type === 'tag-review') {
+      base[path] = JSON.parse(text) as unknown;
+      delete hashes[`file:${path}`];
+      delete hashes[`doc:${path}`];
+      delete etags[`doc:${path}`];
+    }
+    // a list and a build file are stored as the text exported, so their versions are the hash of it (as designs and documents are)
+    if (what.type === 'vocab') etags[`vocab:${what.list}`] = contentETag(base[path]);
+    else if (what.type === 'build') etags[`build:${what.name}`] = contentETag(base[path]);
+    // drawing details are versioned together with their photo: ask
+    else if (what.type === 'drawing') etags[`drawing:${what.id}`] = await etagOf(`/api/drawings/${what.id}`, 'drawing details');
+    else if ((what.type === 'wire-parts' || what.type === 'wire-recipes') && !wireLibrary) {
+      wireLibrary = true;
+      etags['wire-library'] = await etagOf('/api/wire-library', 'wire parts library');
+    }
+  }
+
   // a re-pull replaces what the last one wrote
   for (const old of previous?.files ?? []) if (!files.has(old)) rmSync(join(dir, old), { force: true });
   for (const [path, text] of files) {
@@ -248,7 +305,7 @@ export async function pull(client: ApiClient, dir: string): Promise<PullResult> 
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, text);
   }
-  const meta: PullMeta = { format: 'studio-api-pull', url: client.config.url, version: catalog.version, etags, hashes, files: [...files.keys()].sort() };
+  const meta: PullMeta = { format: 'studio-api-pull', url: client.config.url, version: catalog.version, etags, hashes, files: [...files.keys()].sort(), base };
   writeFileSync(metaPath, prettyJson(meta));
   return { dir, version: catalog.version, files: files.size };
 }
@@ -258,7 +315,7 @@ export async function pull(client: ApiClient, dir: string): Promise<PullResult> 
  * ------------------------------------------------------------------ */
 
 export interface PlannedRequest {
-  method: 'POST' | 'PUT' | 'DELETE';
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   ifMatch?: string;
   body?: unknown;
@@ -289,6 +346,154 @@ function readCurrent(dir: string, pulled: ReadonlySet<string>): Map<string, stri
   return out;
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+const same = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/** The entries of a list file by id. */
+function byId(value: unknown, path: string): Map<string, Record<string, unknown>> {
+  const list = Array.isArray(value) ? value : isObject(value) && Array.isArray(value['entries']) ? (value['entries'] as unknown[]) : undefined;
+  if (list === undefined) throw new ApiClientError(`${path} must be a JSON list of records (or a list with entries).`);
+  const out = new Map<string, Record<string, unknown>>();
+  for (const record of list) {
+    if (!isObject(record) || typeof record['id'] !== 'string') throw new ApiClientError(`A record in ${path} has no id.`);
+    out.set(record['id'], record);
+  }
+  return out;
+}
+
+interface Planned {
+  /** requests, by the order they must run in */
+  vocabPatches: PlannedRequest[];
+  vocabPosts: PlannedRequest[];
+  wireParts: PlannedRequest[];
+  wireStocks: PlannedRequest[];
+  builds: PlannedRequest[];
+  drawings: PlannedRequest[];
+  tags: PlannedRequest[];
+  unsupported: string[];
+}
+
+/** A vocabulary list: new entries are added, an entry may get a new label, more aliases or a note; nothing else has a route. */
+function planVocab(path: string, list: string, base: unknown, now: unknown, etag: string | undefined, out: Planned): void {
+  if (!isObject(base) || !isObject(now)) {
+    out.unsupported.push(`${path} (a vocabulary list is a JSON object with entries)`);
+    return;
+  }
+  const { entries: _b, ...baseRest } = base;
+  const { entries: _n, ...nowRest } = now;
+  if (!same(baseRest, nowRest)) out.unsupported.push(`${path}: the list's own fields (label, source …) have no route`);
+  const before = byId(base, path);
+  const after = byId(now, path);
+  let patched = 0;
+  for (const [id, entry] of after) {
+    const old = before.get(id);
+    if (old === undefined) {
+      out.vocabPosts.push({ method: 'POST', path: `/api/vocab/${list}`, body: entry, label: `add ${list} entry ${id}` });
+      continue;
+    }
+    if (same(old, entry)) continue;
+    const body: Record<string, unknown> = {};
+    const problems: string[] = [];
+    for (const key of new Set([...Object.keys(old), ...Object.keys(entry)])) {
+      if (same(old[key], entry[key])) continue;
+      if (key === 'label' && typeof entry[key] === 'string') body['label'] = entry[key];
+      else if (key === 'note' && typeof entry[key] === 'string' && (entry[key] as string).trim() !== '') body['note'] = entry[key];
+      else if (key === 'aliases' && Array.isArray(entry[key])) {
+        const had = new Set(Array.isArray(old[key]) ? (old[key] as unknown[]) : []);
+        const next = entry[key] as unknown[];
+        if ([...had].some((a) => !next.includes(a))) problems.push('an alias cannot be removed through the API');
+        else body['aliases'] = next.filter((a) => !had.has(a));
+      } else problems.push(`${key} cannot be changed through the API`);
+    }
+    if (problems.length > 0) {
+      out.unsupported.push(`${path}: entry ${id}: ${[...new Set(problems)].join('; ')} (only the label, more aliases and a note can change)`);
+      continue;
+    }
+    // the first edit quotes the list as pulled; the batch is one atomic unit, so the rest ride on it
+    out.vocabPatches.push({ method: 'PATCH', path: `/api/vocab/${list}/${id}`, ifMatch: patched === 0 ? (etag ?? '*') : '*', body, label: `change ${list} entry ${id}` });
+    patched += 1;
+  }
+  for (const id of before.keys()) if (!after.has(id)) out.unsupported.push(`${path}: entry ${id} was removed, and no route removes a vocabulary entry`);
+}
+
+/** Tag corrections: each changed correction is a `PUT /api/tags/<kind>/<id>`; removing one has no route. */
+function planTagReview(path: string, base: unknown, now: unknown, out: Planned): void {
+  if (!isObject(base) || !isObject(now)) {
+    out.unsupported.push(`${path} (the tag review is a JSON object)`);
+    return;
+  }
+  if (!same(base['src'], now['src'])) out.unsupported.push(`${path}: src has no route`);
+  if (!same(base['slots'], now['slots'])) out.unsupported.push(`${path}: slot corrections have no route`);
+  const at = (value: Record<string, unknown>, kind: string): Record<string, unknown> => (isObject(value[kind]) ? (value[kind] as Record<string, unknown>) : {});
+  const put = (kind: 'connectors' | 'pcbas' | 'wires', id: string, tags: unknown, why: unknown, label: string): void => {
+    out.tags.push({ method: 'PUT', path: `/api/tags/${kind}/${id}`, body: { tags, ...(typeof why === 'string' && why.trim() !== '' ? { why } : {}) }, label });
+  };
+  for (const kind of ['connectors', 'pcbas'] as const) {
+    const was = at(base, kind);
+    const is = at(now, kind);
+    for (const id of new Set([...Object.keys(was), ...Object.keys(is)])) {
+      const wasRecord = isObject(was[id]) ? (was[id] as Record<string, unknown>) : {};
+      const isRecord = isObject(is[id]) ? (is[id] as Record<string, unknown>) : {};
+      for (const part of new Set([...Object.keys(wasRecord), ...Object.keys(isRecord)])) {
+        if (same(wasRecord[part], isRecord[part])) continue;
+        const fix = isRecord[part];
+        if (!isObject(fix)) {
+          out.unsupported.push(`${path}: the correction for ${kind}/${id}/${part} was removed, and no route removes one`);
+          continue;
+        }
+        const { why, ...fields } = fix;
+        put(kind, id, { [part]: kind === 'connectors' ? (fields['signal'] ?? null) : fields }, why, `correct ${kind.replace(/s$/, '')} ${id} ${part}`);
+      }
+    }
+  }
+  const wasWires = at(base, 'wires');
+  const isWires = at(now, 'wires');
+  for (const id of new Set([...Object.keys(wasWires), ...Object.keys(isWires)])) {
+    if (same(wasWires[id], isWires[id])) continue;
+    const fix = isWires[id];
+    if (!isObject(fix)) {
+      out.unsupported.push(`${path}: the correction for wires/${id} was removed, and no route removes one`);
+      continue;
+    }
+    const { why, ...fields } = fix;
+    put('wires', id, fields, why, `correct wire ${id}`);
+  }
+}
+
+/** New wire parts are added; a stock recipe is created or replaced; changing or removing a part, or removing a recipe, has no route. */
+function planWireLibrary(wire: { parts?: { path: string; now: unknown }; recipes?: { path: string; now: unknown } }, baseOf: (path: string) => unknown, etag: string | undefined, out: Planned): void {
+  let newParts = 0;
+  if (wire.parts !== undefined) {
+    const before = byId(baseOf(wire.parts.path), wire.parts.path);
+    const after = byId(wire.parts.now, wire.parts.path);
+    for (const [id, part] of after) {
+      const old = before.get(id);
+      if (old === undefined) {
+        out.wireParts.push({ method: 'POST', path: '/api/wire-library/parts', body: { part }, label: `add wire part ${id}` });
+        newParts += 1;
+      } else if (!same(old, part)) out.unsupported.push(`${wire.parts.path}: part ${id} changed, and no route changes a wire part (add a new one)`);
+    }
+    for (const id of before.keys()) if (!after.has(id)) out.unsupported.push(`${wire.parts.path}: part ${id} was removed, and no route removes one`);
+  }
+  if (wire.recipes !== undefined) {
+    const before = byId(baseOf(wire.recipes.path), wire.recipes.path);
+    const after = byId(wire.recipes.now, wire.recipes.path);
+    // a stock edit quotes the library as pulled — unless a new part already moved it inside this batch
+    let guard: string | undefined = newParts === 0 ? (etag ?? '*') : '*';
+    const creates: PlannedRequest[] = [];
+    for (const [id, recipe] of after) {
+      const old = before.get(id);
+      if (old === undefined) creates.push({ method: 'PUT', path: `/api/wire-library/stocks/${id}`, body: { recipe, create: true }, label: `add wire stock ${id}` });
+      else if (!same(old, recipe)) {
+        out.wireStocks.push({ method: 'PUT', path: `/api/wire-library/stocks/${id}`, ifMatch: guard ?? '*', body: { recipe }, label: `change wire stock ${id}` });
+        guard = '*';
+      }
+    }
+    out.wireStocks.push(...creates);
+    for (const id of before.keys()) if (!after.has(id)) out.unsupported.push(`${wire.recipes.path}: recipe ${id} was removed, and no route removes one`);
+  }
+}
+
 /** Map the directory's edits to write requests. Pure over the files; reads the directory and its meta only. */
 export function planPush(dir: string): PushPlan {
   const meta = readMeta(dir);
@@ -300,6 +505,12 @@ export function planPush(dir: string): PushPlan {
   const deletes: PlannedRequest[] = [];
   const unsupported: string[] = [];
   const seen = new Set<string>();
+  const planned: Planned = { vocabPatches: [], vocabPosts: [], wireParts: [], wireStocks: [], builds: [], drawings: [], tags: [], unsupported };
+  const base = meta.base ?? {};
+  // a wire library file the catalog did not have when pulled (none in the starter catalog) starts empty
+  const baseOf = (path: string): unknown => (path in base ? base[path] : []);
+  // wire parts and recipes, planned together: new parts first, and the library's version moves with every write
+  const wire: { parts?: { path: string; now: unknown }; recipes?: { path: string; now: unknown } } = {};
 
   const diffRecord = (key: string, value: unknown, route: { create: string; update: string }, label: string, bucket: 'design' | 'def'): void => {
     seen.add(key);
@@ -320,6 +531,23 @@ export function planPush(dir: string): PushPlan {
         const id = key.split('/')[1] as string;
         diffRecord(key, record, { create: `/api/definitions/${what.kind}`, update: `/api/definitions/${what.kind}/${id}` }, `${what.kind.replace(/s$/, '')} ${id}`, 'def');
       }
+    } else if (what.type === 'vocab') {
+      if (path in base) planVocab(path, what.list, base[path], JSON.parse(text), meta.etags[`vocab:${what.list}`], planned);
+      else unsupported.push(`${path} (a new vocabulary list has no route)`);
+    } else if (what.type === 'tag-review') {
+      if (path in base) planTagReview(path, base[path], JSON.parse(text), planned);
+      else unsupported.push(`${path} (not in the pull this directory holds; pull again)`);
+    } else if (what.type === 'wire-parts') wire.parts = { path, now: JSON.parse(text) };
+    else if (what.type === 'wire-recipes') wire.recipes = { path, now: JSON.parse(text) };
+    else if (what.type === 'build') {
+      const now = JSON.parse(text) as unknown;
+      const was = base[path];
+      if (!(path in base)) planned.builds.push({ method: 'PUT', path: `/api/builds/${what.name}`, body: { file: now }, label: `add build file ${what.name}` });
+      else if (!same(was, now)) planned.builds.push({ method: 'PUT', path: `/api/builds/${what.name}`, ifMatch: meta.etags[`build:${what.name}`] ?? '*', body: { file: now }, label: `change build file ${what.name}` });
+    } else if (what.type === 'drawing') {
+      const now = JSON.parse(text) as unknown;
+      if (!(path in base)) planned.drawings.push({ method: 'PUT', path: `/api/drawings/${what.id}`, ifMatch: '*', body: now, label: `add drawing details ${what.id}` });
+      else if (!same(base[path], now)) planned.drawings.push({ method: 'PUT', path: `/api/drawings/${what.id}`, ifMatch: meta.etags[`drawing:${what.id}`] ?? '*', body: now, label: `change drawing details ${what.id}` });
     } else if (what.type === 'doc') {
       const key = `doc:${path}`;
       seen.add(key);
@@ -338,8 +566,17 @@ export function planPush(dir: string): PushPlan {
       if (meta.hashes[key] !== sha(text)) unsupported.push(path);
     }
   }
-  // records and files that were pulled and are gone now
+  // the wire parts library
+  if (wire.parts !== undefined || wire.recipes !== undefined) planWireLibrary(wire, baseOf, meta.etags['wire-library'], planned);
   const present = new Set([...current.keys()]);
+  // files with their own routes that were pulled and are gone now: only a deleted design takes its drawing details with it
+  for (const path of Object.keys(base)) {
+    if (present.has(path)) continue;
+    const what = classify(path);
+    if (what.type === 'drawing' && !present.has(`data/designs/${what.id}.json`)) continue;
+    unsupported.push(`${path} was removed, and no route removes it`);
+  }
+  // records and files that were pulled and are gone now
   for (const key of Object.keys(meta.hashes)) {
     if (seen.has(key)) continue;
     if (key.startsWith('design:')) {
@@ -354,8 +591,24 @@ export function planPush(dir: string): PushPlan {
       if (!present.has(path)) deletes.push({ method: 'DELETE', path: `/api/docs/${path}`, ifMatch: meta.etags[key] as string, label: `delete document ${path}` });
     }
   }
-  // definitions first (a design may use a new part), designs and documents next, deletions last
-  return { requests: [...creates, ...updates, ...designs, ...docs, ...deletes], unsupported };
+  // vocabulary and wire parts first (records use them), definitions next, then what builds on them, deletions last
+  return {
+    requests: [
+      ...planned.vocabPatches,
+      ...planned.vocabPosts,
+      ...planned.wireParts,
+      ...planned.wireStocks,
+      ...creates,
+      ...updates,
+      ...designs,
+      ...planned.drawings,
+      ...planned.builds,
+      ...planned.tags,
+      ...docs,
+      ...deletes,
+    ],
+    unsupported,
+  };
 }
 
 /* ------------------------------------------------------------------ *
