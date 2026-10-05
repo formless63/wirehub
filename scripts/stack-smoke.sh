@@ -108,7 +108,9 @@ check_worker() { # $1: the app's origin; the admin is signed in ($jar)
   [ "$state" = done ] || fail "the model-cache job ended '$state'"
   curl -fsS -b "$jar" "$origin/api/jobs" | contains '"beatAt"' || fail "GET /api/jobs shows no worker heartbeat"
   compose exec -T worker sh -c 'find /tmp/wirehub-worker.beat -mmin -3' | contains 'beat' || fail "the worker's heartbeat file is stale"
-  echo "smoke: a model-cache job ran end to end in the worker ($job); the heartbeat is fresh"
+  curl -fsS "$origin/healthz?deep=1" > "$scratch/deep.json" || fail "the deep health check failed: $(cat "$scratch/deep.json")"
+  tr -d ' \n' < "$scratch/deep.json" | contains '"name":"worker","ok":true' || fail "the deep health check has no passing worker check: $(cat "$scratch/deep.json")"
+  echo "smoke: a model-cache job ran end to end in the worker ($job); the heartbeat is fresh, and /healthz?deep=1 passes its worker check"
   # a backup restores: pg_dump as studio_ro (which must read the queue tables the worker made), into a scratch database
   docker run --rm --network "${project}_internal" -v "${project}_secrets:/run/wirehub:ro" postgres:18.6-bookworm sh -c '
     set -e; admin="$(cat /run/wirehub/database_admin_url)"
