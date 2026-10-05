@@ -172,9 +172,16 @@ versions and revoked keys (`docs/catalog-store.md`, "As built (phase 5)").
    node scripts/store-index.mjs verify my-store/index.json --pubkey ~/wirehub-store-keys/wirehub-store.pub
    ```
 
-   Serve `my-store/` over https, keep old bundles in it, re-run `build` and `sign` after each release, and
+   Copy `~/wirehub-store-keys/wirehub-store.pub` (the public key, never the `.key`) into `my-store/` so a hub can offer "fetch key from the store". Serve `my-store/` over https, keep old bundles in it, re-run `build` and `sign` after each release, and
    publish the index URL and the `RW...` public key (`pubkey --key ...` prints it) for hubs to add to
    `WIREHUB_STORE_INDEXES`.
+
+   **Sharing it.** Anyone with the owner or editor role adds a store in the app: Settings > Store sources,
+   the index URL and the public key (paste the `RW...` line, or "fetch key from the store's
+   `wirehub-store.pub`", which is trust on first use). The page shows the store's name, publishers, pack
+   count and the key fingerprint; tell people the fingerprint through another channel
+   (`node scripts/store-index.mjs pubkey --key ...` prints the key) so they can compare. A deployment
+   can lock sources to `WIREHUB_STORE_INDEXES` with `WIREHUB_STORE_ALLOW_USER_SOURCES=false`.
 
    To sign the packs as their publisher (hubs then verify it on top of the index), name the publisher
    in the manifest (`"publisher": { "id", "name" }`), make a publisher key once, sign the pack after

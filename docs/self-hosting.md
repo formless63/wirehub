@@ -223,6 +223,7 @@ people set:
 | `WIREHUB_BACKEND` | `pg` | `files` keeps the catalog as JSON files (with `WIREHUB_ALLOW_FILES_IN_PROD=1`) |
 | `WIREHUB_NOTIFY_URL`, `WIREHUB_NOTIFY_FORMAT` | — | alerts to a webhook (`json`, `ntfy` or `slack` body; below) |
 | `WIREHUB_STORE_INDEXES` | the official index, once its key is published | catalog store indexes to trust (Library → Browse store): `<https url> <public key>`, comma separated; `none` for no store (below) |
+| `WIREHUB_STORE_ALLOW_USER_SOURCES` | `true` | `false`: owners and editors cannot add stores in Settings; only the stores in `WIREHUB_STORE_INDEXES` are used (below) |
 | `WIREHUB_STORE_HIDE_UNREVIEWED` | — | `true`: Browse store lists and installs only pack versions an index marks reviewed (or flagged); default shows all |
 | `WIREHUB_CONVERT_WINDOW` | — | `HH:MM-HH:MM`: build imported models only then |
 | `WIREHUB_MODEL_SOURCES` | — | the folder (mounted into `worker`) imported models are built from |
@@ -276,6 +277,19 @@ the hub trusts WireHub's official index once this release carries its key (the w
 by their authors, who are responsible for their content and licensing; the licence shown
 is information, not checked. An air-gapped hub leaves this off and installs pack files
 (Modules → Install pack…). To publish your own index, see `docs/catalog-store.md` §4.
+
+**Store sources (Settings).** Owners and editors can add more stores under Settings > Store
+sources: a URL and the store's public key (the `RW…` line, or "fetch key from the store's
+`wirehub-store.pub`"). The hub fetches the index and its signature, verifies them, and shows the
+store's name, publishers, pack count and the key's fingerprint before saving; the person adding
+it confirms the fingerprint (a key fetched from the store itself is trust on first use). Added
+stores are kept in the catalog (`data/settings/stores.json`, with the other hub settings, on both
+backends) and Browse store then lists their packs next to the others, grouped by store. They can be
+renamed, disabled, re-checked and removed. The stores in `WIREHUB_STORE_INDEXES` are shown there
+read-only ("set by the server") and win when the same URL is also added. The same https, size and
+time limits and private-address refusal apply as for a pack URL. An installed pack remembers the
+store it came from and is only offered updates by that store. To lock a hub to the stores the
+server names, set `WIREHUB_STORE_ALLOW_USER_SOURCES=false`.
 
 When an index lists a pack's **publisher**, the hub also checks the publisher's signature
 over the pack's manifest (`wirehub-pack.sig`) and every file the manifest pins, and

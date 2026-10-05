@@ -101,3 +101,100 @@ export const engineeringQuery = {
   },
   retry: false,
 } as const;
+
+/* ------------------------------------------------------------------ *
+ * Store sources: the stores this hub trusts (`server/store-settings.ts`)
+ * ------------------------------------------------------------------ */
+
+export const storeSourcesKey = ['settings', 'stores'] as const;
+
+export interface StoreSourceView {
+  url: string;
+  publicKey: string;
+  keyId: string;
+  fingerprint: string;
+  label?: string;
+  enabled: boolean;
+  /** `env`/`official`: set by the server, read-only; `user`: added here */
+  origin: 'env' | 'official' | 'user';
+  readOnly: boolean;
+  /** an added store whose URL the server also names: the server's entry wins */
+  shadowed?: boolean;
+  /** added stores are ignored while the deployment locks sources to the environment */
+  ignored?: boolean;
+}
+
+export interface StoreSourcesView {
+  allowUserSources: boolean;
+  official: { url: string; state: 'trusted' | 'not-signed-yet' | 'not-enabled'; fingerprint?: string; keyId?: string };
+  sources: StoreSourceView[];
+  problems?: string[];
+  etag: string;
+}
+
+/** What the person confirms before a store is added: the verified store and its key's fingerprint. */
+export interface StorePreview {
+  ok: true;
+  url: string;
+  publicKey: string;
+  keyId: string;
+  fingerprint: string;
+  store: { id: string; name: string; homepage?: string };
+  publishers: { id: string; name: string; url?: string }[];
+  packs: number;
+  alreadyConfigured?: boolean;
+}
+
+export interface FetchedStoreKey {
+  publicKey: string;
+  keyId: string;
+  fingerprint: string;
+  from: string;
+  notice: string;
+}
+
+export interface StoreSourceInput {
+  url: string;
+  publicKey: string;
+  label?: string;
+  enabled?: boolean;
+}
+
+export async function fetchStoreSources(base = '/api'): Promise<Outcome<StoreSourcesView>> {
+  let etag = '';
+  const out = await request<Omit<StoreSourcesView, 'etag'>>(`${base}/settings/stores`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function saveStoreSources(sources: StoreSourceInput[], etag: string, base = '/api'): Promise<Outcome<StoreSourcesView>> {
+  let next = '';
+  const out = await request<Omit<StoreSourcesView, 'etag'>>(`${base}/settings/stores`, { method: 'PUT', body: { sources }, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+const withQuery = (path: string, params: Record<string, string>): string => `${path}?${new URLSearchParams(params).toString()}`;
+
+/** Fetch an index and verify it with the key. Also "re-check now" for a configured store (no `key`). */
+export const previewStoreSource = (url: string, key: string | undefined, base = '/api'): Promise<Outcome<StorePreview>> =>
+  request<StorePreview>(key === undefined ? withQuery(`${base}/settings/stores/check`, { url }) : withQuery(`${base}/settings/stores/preview`, { url, key }), { method: 'GET' });
+
+/** Fetch `wirehub-store.pub` from beside the index (trust on first use). */
+export const fetchStoreKey = (url: string, base = '/api'): Promise<Outcome<FetchedStoreKey>> => request<FetchedStoreKey>(withQuery(`${base}/settings/stores/key`, { url }), { method: 'GET' });
+
+export const storeSourcesQuery = {
+  queryKey: storeSourcesKey,
+  queryFn: async (): Promise<StoreSourcesView> => {
+    const out = await fetchStoreSources();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;
+
+/** The stores added here, as the PUT takes them. */
+export const userSourceInputs = (view: StoreSourcesView): StoreSourceInput[] =>
+  view.sources.filter((s) => s.origin === 'user').map((s) => ({ url: s.url, publicKey: s.publicKey, ...(s.label === undefined ? {} : { label: s.label }), enabled: s.enabled }));

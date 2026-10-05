@@ -25,6 +25,7 @@ import { checkIfMatch, contentETag } from './etag.ts';
 import { MAX_LOGO_BYTES, sanitizePng } from './png-sanitize.ts';
 import { svgToPng } from './render/raster.ts';
 import type { DocStore } from './storage/doc-store.ts';
+import { handleStoreSources, isStoreSourcesPath, type StoreSourceDeps } from './store-settings.ts';
 
 export const BRANDING_PATH = 'data/settings/branding.json';
 
@@ -35,6 +36,8 @@ export const SETTINGS_ROUTES = [
   'PUT    /api/settings/branding',
   'GET    /api/settings/engineering',
   'PUT    /api/settings/engineering',
+  'GET    /api/settings/stores',
+  'PUT    /api/settings/stores',
 ] as const;
 
 /** Roles a person can approve a release with. */
@@ -113,7 +116,7 @@ const SRC = 'Hub settings (entered in the app)';
 /** the title block's tolerance box holds this many rows */
 const MAX_TOLERANCE_ROWS = 5;
 
-interface SettingsDeps {
+interface SettingsDeps extends Pick<StoreSourceDeps, 'store' | 'setup'> {
   docs?: DocStore;
   assets?: AssetStore;
   /** the environment's test defaults (`WIREHUB_TEST_DEFAULTS`): the fallback the engineering settings override */
@@ -196,6 +199,7 @@ async function handleEngineering(method: string, body: unknown, deps: SettingsDe
 
 export async function handleSettingsRequest(method: string, parts: string[], body: unknown, deps: SettingsDeps, ifMatch: string | undefined): Promise<ApiResponse | undefined> {
   if (parts[0] !== 'api' || parts[1] !== 'settings') return undefined;
+  if (isStoreSourcesPath(parts)) return await handleStoreSources(method, body, deps, ifMatch);
   if (parts[2] === 'engineering' && parts.length === 3) return await handleEngineering(method, body, deps, ifMatch);
   if (parts[2] !== 'branding' || parts.length !== 3) return undefined;
   if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');

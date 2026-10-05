@@ -40,6 +40,7 @@ import type { DesignStore } from './designs.ts';
 import { handleWireLibraryRequest, WIRE_LIBRARY_ROUTES, type WireLibraryStore } from './wire-library.ts';
 import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
 import { refuseTakenDesignNumber } from './part-number-guard.ts';
+import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
@@ -55,7 +56,7 @@ import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
 import { packOwnerOf, packRecordRefusal } from './pack-guard.ts';
 import { PACKS_ROUTES, handlePacksRequest, isPacksPath } from './packs.ts';
-import { STORE_ROUTES, handleStoreRequest, isStorePath, type StoreDeps } from './store.ts';
+import { STORE_ROUTES, handleStoreRequest, isStorePath, storeIndexesFromEnv, type StoreDeps } from './store.ts';
 import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
@@ -1028,6 +1029,11 @@ async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: Workb
   });
 }
 
+/** The store's deps: the deployment's indexes, and where the stores added in Settings are kept. */
+function storeDepsOf(deps: WorkbenchDeps): StoreDeps {
+  return { ...(deps.store ?? storeIndexesFromEnv()), ...(deps.docs === undefined ? {} : { docs: deps.docs }) };
+}
+
 /**
  * The whole API surface, one request in a unit of work (storage seams):
  * the router runs against staged stores, and what it
@@ -1060,9 +1066,11 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
     const run = (): Promise<ApiResponse> => handleSetupRequest(request, deps.setup, deps.modules);
     return isWriteMethod(request.method) ? withWriteLock(run) : run();
   }
+  // store sources: fetch-and-verify checks for the Settings page (no write, no lock)
+  if (isStoreSourcesQueryPath(request.path, request.method)) return handleStoreSourcesQuery(request, { ...(deps.docs === undefined ? {} : { docs: deps.docs }), store: storeDepsOf(deps), ...(deps.setup === undefined ? {} : { setup: deps.setup }) });
   // the store: verified indexes, and install through the pack lifecycle below
   if (isStorePath(request.path, request.method)) {
-    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, deps.store, request.user);
+    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, storeDepsOf(deps), request.user);
     return isWriteMethod(request.method) ? withWriteLock(run) : run();
   }
   // the pack lifecycle: the same direct-write handler shape, on files and (through `setup.transact`) on Postgres
