@@ -48,5 +48,63 @@
         }
       ]
     }
+  },
+  {
+    "id": "auto-3core-0-5",
+    "label": "Automotive cable, 3 × 0.5 mm², thin-wall cores",
+    "odMm": 5,
+    "structure": {
+      "kind": "group",
+      "id": "auto-3core-0-5",
+      "label": "3-core 0.5 mm²",
+      "role": "cable",
+      "children": [
+        {
+          "kind": "conductor",
+          "id": "red",
+          "color": "red",
+          "material": "copper",
+          "areaMm2": 0.5,
+          "label": "+5 V",
+          "insulatedOdMm": 1.6
+        },
+        {
+          "kind": "conductor",
+          "id": "green",
+          "color": "green",
+          "material": "copper",
+          "areaMm2": 0.5,
+          "label": "Signal",
+          "insulatedOdMm": 1.6
+        },
+        {
+          "kind": "conductor",
+          "id": "black",
+          "color": "black",
+          "material": "copper",
+          "areaMm2": 0.5,
+          "label": "0 V",
+          "insulatedOdMm": 1.6
+        },
+        {
+          "kind": "insulation",
+          "id": "jacket",
+          "label": "Sheath",
+          "material": "pvc",
+          "odMm": 5,
+          "color": "black"
+        }
+      ]
+    },
+    "src": "generic three-core automotive sensor cable: 3 × 0.5 mm² thin-wall cores (insulation Ø 1.6 mm, the ISO 6722-1 thin-wall maximum for 0.5 mm²), PVC sheath Ø 5 mm; sheath Ø inferred; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic three-core automotive sensor cable: 3 × 0.5 mm² thin-wall cores (insulation Ø 1.6 mm, the ISO 6722-1 thin-wall maximum for 0.5 mm²), PVC sheath Ø 5 mm; sheath Ø inferred; synthetic example"
+        }
+      ]
+    }
   }
 ]

@@ -1,0 +1,294 @@
+[
+  {
+    "id": "desktop-pc",
+    "label": "Desktop PC with a serial port",
+    "kind": "computer",
+    "ports": [
+      {
+        "id": "com1",
+        "label": "COM1 (DE-9 male, RS-232 DTE)",
+        "interface": "rs232-dte",
+        "body": "de9-male",
+        "role": "both",
+        "pins": {
+          "1": {
+            "signal": "rs232-dcd",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "2": {
+            "signal": "rs232-rxd",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "3": {
+            "signal": "rs232-txd",
+            "dir": "out",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "4": {
+            "signal": "rs232-dtr",
+            "dir": "out",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "6": {
+            "signal": "rs232-dsr",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "7": {
+            "signal": "rs232-rts",
+            "dir": "out",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "8": {
+            "signal": "rs232-cts",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "9": {
+            "signal": "rs232-ri",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          }
+        }
+      }
+    ],
+    "src": "TIA-574: a PC serial port is a DTE on a DE-9 male; TIA-232-F levels; synthetic example of a generic PC",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TIA-574: a PC serial port is a DTE on a DE-9 male; TIA-232-F levels; synthetic example of a generic PC"
+        }
+      ]
+    }
+  },
+  {
+    "id": "serial-instrument",
+    "label": "Bench instrument with an RS-232 port (DTE)",
+    "kind": "instrument",
+    "ports": [
+      {
+        "id": "rs232",
+        "label": "RS-232 (DE-9 male, DTE)",
+        "interface": "rs232-dte",
+        "body": "de9-male",
+        "role": "both",
+        "pins": {
+          "1": {
+            "signal": "rs232-dcd",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "2": {
+            "signal": "rs232-rxd",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "3": {
+            "signal": "rs232-txd",
+            "dir": "out",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "4": {
+            "signal": "rs232-dtr",
+            "dir": "out",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "6": {
+            "signal": "rs232-dsr",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "7": {
+            "signal": "rs232-rts",
+            "dir": "out",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "8": {
+            "signal": "rs232-cts",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          },
+          "9": {
+            "signal": "rs232-ri",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "TIA-574 DE-9 DTE pin assignment; TIA-232-F signal levels"
+          }
+        }
+      }
+    ],
+    "src": "TIA-574 DTE on a DE-9 male; synthetic example of a generic instrument",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TIA-574 DTE on a DE-9 male; synthetic example of a generic instrument"
+        }
+      ]
+    }
+  },
+  {
+    "id": "rs485-field-device",
+    "label": "Field device with an RS-485 port",
+    "kind": "instrument",
+    "ports": [
+      {
+        "id": "bus",
+        "label": "RS-485 bus (DE-9 female)",
+        "interface": "profibus-dp",
+        "body": "de9-female",
+        "role": "both",
+        "pins": {
+          "3": {
+            "signal": "rs485-b",
+            "dir": "bidir",
+            "level": "rs485",
+            "confidence": "documented",
+            "src": "IEC 61158 PROFIBUS DP pin 3 B; TIA-485-A"
+          },
+          "8": {
+            "signal": "rs485-a",
+            "dir": "bidir",
+            "level": "rs485",
+            "confidence": "documented",
+            "src": "IEC 61158 PROFIBUS DP pin 8 A; TIA-485-A"
+          }
+        },
+        "requires": [
+          {
+            "id": "bus-termination",
+            "conditioning": "termination",
+            "positions": [
+              "3",
+              "8"
+            ],
+            "text": "the last device on the bus: 120 Ω across A and B",
+            "src": "TIA-485-A: terminate the bus at both ends with its characteristic impedance (about 120 Ω)"
+          }
+        ]
+      }
+    ],
+    "src": "IEC 61158 PROFIBUS DP pin assignment on DE-9 female; TIA-485-A; synthetic example of a generic field device",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 61158 PROFIBUS DP pin assignment on DE-9 female; TIA-485-A; synthetic example of a generic field device"
+        }
+      ]
+    }
+  },
+  {
+    "id": "rs232-rs485-converter",
+    "label": "RS-232 to RS-485 converter board (plug-on)",
+    "kind": "adapter",
+    "board": "rs232-rs485-converter",
+    "ports": [
+      {
+        "id": "rs232",
+        "label": "RS-232 side (DE-9 female on the board)",
+        "interface": "rs232-dte",
+        "body": "de9-female",
+        "terminals": "j1",
+        "role": "sink",
+        "pins": {
+          "1": "nc",
+          "2": {
+            "signal": "rs232-rxd",
+            "dir": "out",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "synthetic example: the board drives the DTE's RXD"
+          },
+          "3": {
+            "signal": "rs232-txd",
+            "dir": "in",
+            "level": "rs232",
+            "confidence": "documented",
+            "src": "synthetic example: the board receives the DTE's TXD"
+          },
+          "4": "nc",
+          "6": "nc",
+          "7": "nc",
+          "8": "nc",
+          "9": "nc"
+        }
+      },
+      {
+        "id": "pads",
+        "label": "RS-485 cable pads",
+        "terminals": "",
+        "role": "source",
+        "pins": {
+          "A": {
+            "signal": "rs485-a",
+            "dir": "bidir",
+            "level": "rs485",
+            "src": "synthetic example"
+          },
+          "B": {
+            "signal": "rs485-b",
+            "dir": "bidir",
+            "level": "rs485",
+            "src": "synthetic example"
+          },
+          "GND": {
+            "signal": "gnd-signal",
+            "src": "synthetic example"
+          },
+          "SHLD": {
+            "signal": "gnd-chassis",
+            "src": "synthetic example"
+          }
+        }
+      }
+    ],
+    "src": "synthetic example: a generic port-mounted RS-232 to RS-485 converter (a TIA-232 receiver/driver and a TIA-485 transceiver)",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "synthetic example: a generic port-mounted RS-232 to RS-485 converter (a TIA-232 receiver/driver and a TIA-485 transceiver)"
+        }
+      ]
+    }
+  }
+]

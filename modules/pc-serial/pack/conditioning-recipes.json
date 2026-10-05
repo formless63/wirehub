@@ -1,0 +1,25 @@
+[
+  {
+    "id": "rs485-termination-120r",
+    "label": "RS-485 line termination, 120 Ω",
+    "conditioning": "termination",
+    "parts": [
+      {
+        "component": "r-120",
+        "placement": "across",
+        "note": "between A and B at the end of the bus"
+      }
+    ],
+    "location": "dest-head",
+    "src": "TIA-485-A: terminate each end of the bus with about 120 Ω (the twisted pair's characteristic impedance)",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TIA-485-A: terminate each end of the bus with about 120 Ω (the twisted pair's characteristic impedance)"
+        }
+      ]
+    }
+  }
+]

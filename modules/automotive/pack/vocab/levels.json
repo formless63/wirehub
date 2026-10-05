@@ -1,0 +1,21 @@
+{
+  "id": "levels",
+  "label": "Signal levels",
+  "src": "automotive pack: sensor levels",
+  "entries": [
+    {
+      "id": "analog-0-5v",
+      "label": "Analog 0–5 V (ratiometric to a 5 V reference)",
+      "src": "ratiometric 5 V sensor convention; synthetic example",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "ratiometric 5 V sensor convention; synthetic example"
+          }
+        ]
+      }
+    }
+  ]
+}

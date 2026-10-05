@@ -16,6 +16,20 @@
           }
         ]
       }
+    },
+    {
+      "id": "mic",
+      "label": "Microphone level (about −60 to −40 dBu)",
+      "src": "common professional audio practice: microphone level is roughly −60 to −40 dBu; line level +4 dBu (AES/IEC 60268-17 reference); synthetic example",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "common professional audio practice: microphone level is roughly −60 to −40 dBu; line level +4 dBu (AES/IEC 60268-17 reference); synthetic example"
+          }
+        ]
+      }
     }
   ]
 }

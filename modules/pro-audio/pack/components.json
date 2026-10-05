@@ -1,0 +1,56 @@
+[
+  {
+    "id": "r-6k8",
+    "label": "Resistor 6.8 kΩ, 0.25 W",
+    "kind": "resistor",
+    "category": "resistor",
+    "value": "6.8 kΩ",
+    "tolerance": "1%",
+    "package": "axial",
+    "terminals": [
+      {
+        "id": "a"
+      },
+      {
+        "id": "b"
+      }
+    ],
+    "src": "IEC 60063 E12 value; synthetic example of a pad's series resistor",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "IEC 60063 E12 value; synthetic example of a pad's series resistor"
+        }
+      ]
+    }
+  },
+  {
+    "id": "r-68",
+    "label": "Resistor 68 Ω, 0.25 W",
+    "kind": "resistor",
+    "category": "resistor",
+    "value": "68 Ω",
+    "tolerance": "1%",
+    "package": "axial",
+    "terminals": [
+      {
+        "id": "a"
+      },
+      {
+        "id": "b"
+      }
+    ],
+    "src": "IEC 60063 E12 value; synthetic example of a pad's shunt resistor",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "IEC 60063 E12 value; synthetic example of a pad's shunt resistor"
+        }
+      ]
+    }
+  }
+]

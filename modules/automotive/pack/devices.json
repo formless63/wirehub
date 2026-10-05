@@ -1,0 +1,125 @@
+[
+  {
+    "id": "engine-control-unit",
+    "label": "Engine control unit (sensor connector)",
+    "kind": "controller",
+    "ports": [
+      {
+        "id": "pressure-sensor",
+        "label": "Pressure sensor input (sealed 3-way, male)",
+        "interface": "sealed-3-numbered",
+        "body": "sealed-3-male",
+        "role": "source",
+        "pins": {
+          "1": {
+            "signal": "pwr-5v",
+            "src": "synthetic example",
+            "dir": "out"
+          },
+          "2": {
+            "signal": "sensor-signal",
+            "src": "synthetic example",
+            "dir": "in",
+            "level": "analog-0-5v"
+          },
+          "3": {
+            "signal": "gnd-signal",
+            "src": "synthetic example"
+          }
+        }
+      }
+    ],
+    "src": "a control unit's 5 V reference, sensor input and sensor return on one sealed connector; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "a control unit's 5 V reference, sensor input and sensor return on one sealed connector; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "pressure-sensor-a",
+    "label": "Pressure sensor, 3-wire 5 V (pinout A)",
+    "kind": "sensor",
+    "ports": [
+      {
+        "id": "connector",
+        "label": "Sensor connector (sealed 3-way, male)",
+        "interface": "sealed-3-numbered",
+        "body": "sealed-3-male",
+        "role": "sink",
+        "pins": {
+          "1": {
+            "signal": "pwr-5v",
+            "src": "synthetic example",
+            "dir": "in"
+          },
+          "2": {
+            "signal": "sensor-signal",
+            "src": "synthetic example",
+            "dir": "out",
+            "level": "analog-0-5v"
+          },
+          "3": {
+            "signal": "gnd-signal",
+            "src": "synthetic example"
+          }
+        }
+      }
+    ],
+    "src": "a generic ratiometric 3-wire sensor: 1 supply, 2 output, 3 return; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "a generic ratiometric 3-wire sensor: 1 supply, 2 output, 3 return; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "pressure-sensor-b",
+    "label": "Pressure sensor, 3-wire 5 V (pinout B)",
+    "kind": "sensor",
+    "ports": [
+      {
+        "id": "connector",
+        "label": "Sensor connector (sealed 3-way, male)",
+        "interface": "sealed-3-numbered",
+        "body": "sealed-3-male",
+        "role": "sink",
+        "pins": {
+          "1": {
+            "signal": "gnd-signal",
+            "src": "synthetic example"
+          },
+          "2": {
+            "signal": "sensor-signal",
+            "src": "synthetic example",
+            "dir": "out",
+            "level": "analog-0-5v"
+          },
+          "3": {
+            "signal": "pwr-5v",
+            "src": "synthetic example",
+            "dir": "in"
+          }
+        }
+      }
+    ],
+    "src": "a generic ratiometric 3-wire sensor with the other common order: 1 return, 2 output, 3 supply; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "a generic ratiometric 3-wire sensor with the other common order: 1 return, 2 output, 3 supply; synthetic example"
+        }
+      ]
+    }
+  }
+]

@@ -9,7 +9,10 @@ Balanced and unbalanced audio for WireHub, as a catalog pack (`pack/`):
   connectors;
 - microphone (2-core + braid) and stereo (2-core + spiral) stocks;
 - an XLR microphone cable and a 3.5 mm TRS to 2 × RCA Y lead whose moulded
-  breakout uses the base's Y body.
+  breakout uses the base's Y body;
+- for the resolver (`docs/resolver.md`): an audio interface's balanced line
+  output, a mixer's microphone and line inputs, the microphone level, and a
+  line-to-mic pad (about −40 dB, two E12 resistors per leg).
 
 The AV / video pack carries identical copies of the audio signal entries
 (SCART has audio pins), so the two install side by side. Enable it at

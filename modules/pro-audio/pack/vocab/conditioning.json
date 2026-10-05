@@ -1,0 +1,21 @@
+{
+  "id": "conditioning",
+  "label": "Signal conditioning",
+  "src": "pro-audio pack: conditioning for audio lines",
+  "entries": [
+    {
+      "id": "attenuation",
+      "label": "Attenuation (resistive pad)",
+      "src": "a resistive voltage divider in the line; synthetic example",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "a resistive voltage divider in the line; synthetic example"
+          }
+        ]
+      }
+    }
+  ]
+}

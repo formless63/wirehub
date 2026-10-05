@@ -1,0 +1,105 @@
+[
+  {
+    "id": "audio-interface",
+    "label": "Audio interface (balanced line outputs)",
+    "kind": "instrument",
+    "ports": [
+      {
+        "id": "line-out-1",
+        "label": "Line out 1 (XLR male)",
+        "interface": "xlr-balanced-audio",
+        "body": "xlr3-male",
+        "role": "source",
+        "pins": {
+          "2": {
+            "signal": "audio-hot",
+            "dir": "out",
+            "level": "line",
+            "confidence": "documented",
+            "src": "AES14 pin 2 hot; professional line level +4 dBu"
+          },
+          "3": {
+            "signal": "audio-cold",
+            "dir": "out",
+            "level": "line",
+            "confidence": "documented",
+            "src": "AES14 pin 3 cold; professional line level +4 dBu"
+          }
+        }
+      }
+    ],
+    "src": "AES14-1992 / IEC 61076-2-103 balanced XLR output; synthetic example of a generic audio interface",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "AES14-1992 / IEC 61076-2-103 balanced XLR output; synthetic example of a generic audio interface"
+        }
+      ]
+    }
+  },
+  {
+    "id": "mixer",
+    "label": "Mixer (microphone inputs)",
+    "kind": "instrument",
+    "ports": [
+      {
+        "id": "mic-in-1",
+        "label": "Mic in 1 (XLR female)",
+        "interface": "xlr-balanced-audio",
+        "body": "xlr3-female",
+        "role": "sink",
+        "pins": {
+          "2": {
+            "signal": "audio-hot",
+            "dir": "in",
+            "level": "mic",
+            "confidence": "documented",
+            "src": "AES14 pin 2 hot; microphone-level input"
+          },
+          "3": {
+            "signal": "audio-cold",
+            "dir": "in",
+            "level": "mic",
+            "confidence": "documented",
+            "src": "AES14 pin 3 cold; microphone-level input"
+          }
+        }
+      },
+      {
+        "id": "line-in-1",
+        "label": "Line in 1 (XLR female)",
+        "interface": "xlr-balanced-audio",
+        "body": "xlr3-female",
+        "role": "sink",
+        "pins": {
+          "2": {
+            "signal": "audio-hot",
+            "dir": "in",
+            "level": "line",
+            "confidence": "documented",
+            "src": "AES14 pin 2 hot; line-level input"
+          },
+          "3": {
+            "signal": "audio-cold",
+            "dir": "in",
+            "level": "line",
+            "confidence": "documented",
+            "src": "AES14 pin 3 cold; line-level input"
+          }
+        }
+      }
+    ],
+    "src": "AES14-1992 balanced XLR inputs; synthetic example of a generic mixer",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "AES14-1992 balanced XLR inputs; synthetic example of a generic mixer"
+        }
+      ]
+    }
+  }
+]
