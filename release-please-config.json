@@ -16,6 +16,14 @@
         {
           "type": "generic",
           "path": ".env.example"
+        },
+        {
+          "type": "generic",
+          "path": "templates/store/.github/workflows/publish.yml"
+        },
+        {
+          "type": "generic",
+          "path": "templates/store/README.md"
         }
       ]
     }

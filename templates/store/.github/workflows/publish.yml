@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       # The ref after @ pins the store tooling: use a WireHub release tag (or a commit SHA) and
       # raise it when you want newer tooling. See README.md, "Pinning the tooling".
-      - uses: formless63/wirehub/.github/actions/build-store@main
+      - uses: formless63/wirehub/.github/actions/build-store@v0.2.0 # x-release-please-version
         with:
           store-signing-key: ${{ secrets.WIREHUB_STORE_SIGNING_KEY }}
           pack-signing-key: ${{ secrets.WIREHUB_PACK_SIGNING_KEY }}
