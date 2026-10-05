@@ -10,11 +10,12 @@
  * endpoint is unauthenticated); the reason goes to the log.
  *
  * With the worker (Phase C), the `worker` check fails when its newest
- * heartbeat is older than five minutes. Not here: a failed-job count (jobs
- * and their failures are `GET /api/jobs`).
+ * heartbeat is older than five minutes, and the `jobs` check when more than two
+ * pg-boss jobs failed in the last 24 hours (the jobs themselves: `GET /api/jobs`).
  */
 
-import { statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { sql } from 'kysely';
 import type { WireHubModule } from '@wirehub/modules';
@@ -26,7 +27,7 @@ import { pendingMigrations } from './pg/migrate.ts';
 import { pendingModuleMigrations } from './pg/module-migrations.ts';
 
 export interface HealthCheck {
-  name: 'database' | 'migrations' | 'blobs' | 'backup' | 'worker';
+  name: 'database' | 'migrations' | 'blobs' | 'backup' | 'worker' | 'jobs';
   ok: boolean;
   /** a fixed word: `ok`, `unreachable`, `pending`, `missing`, `stale` … */
   detail: string;
@@ -49,6 +50,9 @@ export interface DeepHealthOptions {
   backupMarker?: string;
   /** the worker's newest heartbeat (pg with the worker); absent: not checked; undefined answer: none yet */
   worker?: () => Promise<{ beatAt: string } | undefined>;
+  /** pg-boss jobs that failed in the last 24 h; the check fails above `failedJobsMax` (default 2). Absent: not checked */
+  failedJobs?: () => Promise<number>;
+  failedJobsMax?: number;
   /** the oldest an acceptable heartbeat is, ms (default 5 min) */
   workerMaxAgeMs?: number;
   /** the oldest an acceptable backup is, ms (default 30 h) */
@@ -116,17 +120,25 @@ export function deepHealthCheck(options: DeepHealthOptions): () => Promise<DeepH
         }),
       );
     }
-    if (options.backupMarker !== undefined) {
+    // the compose stack always names the marker, but only the backup profile's backup-init writes
+    // `.configured` beside it: no marker and no `.configured` means backups are not on, so nothing to check
+    if (options.backupMarker !== undefined && (existsSync(options.backupMarker) || existsSync(join(dirname(options.backupMarker), '.configured')))) {
       const marker = options.backupMarker;
+      const maxAge = options.backupMaxAgeMs ?? 30 * 3_600_000;
       checks.push(
         timed('backup', budget, log, async () => {
           let at: number;
           try {
             at = statSync(marker).mtimeMs;
           } catch {
-            return 'missing';
+            // configured, no snapshot yet: fine for the first day
+            try {
+              return now() - statSync(join(dirname(marker), '.configured')).mtimeMs > maxAge ? 'missing' : undefined;
+            } catch {
+              return 'missing';
+            }
           }
-          return now() - at > (options.backupMaxAgeMs ?? 30 * 3_600_000) ? 'stale' : undefined;
+          return now() - at > maxAge ? 'stale' : undefined;
         }),
       );
     }
@@ -137,6 +149,16 @@ export function deepHealthCheck(options: DeepHealthOptions): () => Promise<DeepH
           const beat = await worker();
           if (beat === undefined) return 'missing';
           return now() - Date.parse(beat.beatAt) > (options.workerMaxAgeMs ?? 5 * 60_000) ? 'stale' : undefined;
+        }),
+      );
+    }
+    if (options.failedJobs !== undefined) {
+      const failedJobs = options.failedJobs;
+      checks.push(
+        timed('jobs', budget, log, async () => {
+          const failed = await failedJobs();
+          if (failed > 0) log(`[health] ${failed} job(s) failed in the last 24 h (GET /api/jobs)`);
+          return failed > (options.failedJobsMax ?? 2) ? 'failing' : undefined;
         }),
       );
     }
@@ -151,6 +173,7 @@ const EVENT_FOR: Record<HealthCheck['name'], Pick<NotifyEvent, 'event' | 'severi
   backup: { event: 'backup-stale', severity: 'default', title: 'Backup is stale' },
   database: { event: 'database-check-failing', severity: 'high', title: 'Database check failing' },
   migrations: { event: 'migrations-pending', severity: 'high', title: 'Migrations pending' },
+  jobs: { event: 'jobs-failing', severity: 'default', title: 'Background jobs failing' },
   worker: { event: 'worker-stale', severity: 'high', title: 'Worker heartbeat stale' },
 };
 

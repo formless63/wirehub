@@ -239,14 +239,17 @@ with the scopes they chose, for 1 to 90 days, and is shown once.
 
 **Health and alerts.** `/healthz` is the container's liveness probe. `/healthz?deep=1`
 also checks the database, that every migration is applied, the blob store (a
-canary object) and, when `WIREHUB_BACKUP_MARKER` names the file the backup's
-hook touches, that a backup finished in the last 30 hours, and that the worker
-beat its heartbeat in the last five minutes; it answers `503`
+canary object) and, with the backup profile, that a backup finished in the last
+30 hours (the file Backrest's post-snapshot hook touches, `WIREHUB_BACKUP_MARKER`;
+a day's grace after the first start), that no more than two background jobs failed
+in the last day (`jobs`), and that the worker beat its heartbeat in the last five
+minutes; it answers `503`
 with the failing check's name when one fails, so an uptime monitor can poll it.
 With `WIREHUB_NOTIFY_URL` set, the studio also POSTs an event to that URL
 (`{event, severity, title, message, at, env, version, data}`) for a failing
-blob store, a stale backup, a stale worker heartbeat, models a sweep could not
-build, a GC error, a created API token and repeated refused tokens;
+blob store, a stale backup, a stale worker heartbeat, failing jobs, models a sweep could not
+build, a GC error, a failed backup or restore check (urgent), a catalog write that
+bypassed the application, a created API token and repeated refused tokens;
 every event is logged either way, and no token ever appears in one.
 
 ### Your own PostgreSQL or S3
@@ -344,9 +347,13 @@ After a restore the worker rebuilds the imported 3D models on its next start
 **Blob clean-up and backups.** The worker deletes an uploaded file nothing uses
 any more only after a backup that holds it has completed: it reads that from
 the `backups` volume (mounted read-only), from the file a finished snapshot
-touches — `WIREHUB_BACKUP_MARKER` (as for the deep health check), by default
-`.last-snapshot` in that volume. Until that marker exists — no backup profile,
-or a Backrest plan without a post-snapshot hook — such files are kept.
+touches — `WIREHUB_BACKUP_MARKER` (as for the deep health check; the compose
+stack's default is `/backup-marker/.last-snapshot`, a small volume only Backrest
+may write). `backup-init` sets that hook up in the plan it creates; a Backrest
+configuration made before that (or by hand) needs a post-snapshot command hook,
+`touch /marker/.last-snapshot` on the condition "snapshot success" (the volume is
+mounted at `/marker` in Backrest). Until the marker exists — no backup profile,
+or no hook — such files are kept.
 
 The weekly restore check runs the same restore into a scratch database; to
 run it now: `docker compose run --rm --entrypoint bash backup-dump

@@ -13,11 +13,13 @@ admin="${ADMIN_URL:-}"
 if [ -z "$admin" ] && [ -n "${ADMIN_URL_FILE:-}" ] && [ -r "$ADMIN_URL_FILE" ]; then admin="$(tr -d '\n' < "$ADMIN_URL_FILE")"; fi
 [ -n "$admin" ] || { echo "restore-check: no ADMIN_URL" >&2; exit 1; }
 [ -r "$dump" ] || { echo "restore-check: no dump at $dump" >&2; exit 1; }
+# the outcome, for the worker's backup watch (alerts on `failed`): <dump dir>/restore-check.status
+status="$(dirname "$dump")/restore-check.status"
 scratch=wirehub_restore_check
 maint="$(printf '%s' "$admin" | sed -E 's#(postgres(ql)?://[^/]+)/[^?]*#\1/postgres#')"
 target="$(printf '%s' "$admin" | sed -E "s#(postgres(ql)?://[^/]+)/[^?]*#\1/$scratch#")"
+trap 'rc=$?; psql -d "$maint" -XAtq -c "DROP DATABASE IF EXISTS $scratch WITH (FORCE)" >/dev/null 2>&1 || true; if [ "$rc" = 0 ]; then echo "ok $(date -u +%Y-%m-%dT%H:%M:%SZ)"; else echo "failed $(date -u +%Y-%m-%dT%H:%M:%SZ)"; fi > "$status" 2>/dev/null || true' EXIT
 psql -d "$maint" -XAtq -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS $scratch WITH (FORCE)" -c "CREATE DATABASE $scratch TEMPLATE template0"
-trap 'psql -d "$maint" -XAtq -c "DROP DATABASE IF EXISTS $scratch WITH (FORCE)" >/dev/null 2>&1 || true' EXIT
 pg_restore -d "$target" --no-owner --no-acl --exit-on-error "$dump"
 if [ -r "$dump.counts" ]; then
   if diff <(bash "$(dirname "$0")/pg-counts.sh" "$target") "$(readlink -f "$dump.counts")" >/dev/null; then

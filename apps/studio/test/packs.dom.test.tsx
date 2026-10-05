@@ -55,6 +55,16 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
+describe('a viewer', () => {
+  it('sees the installed packs but no Install pack…, update or disable', async () => {
+    deps = { ...deps, localUser: { name: 'Vera', source: 'session', role: 'viewer' } };
+    render(<PacksPanel />);
+    await screen.findByText('No packs are installed.');
+    await waitFor(() => expect(screen.queryByLabelText('Pack file')).toBeNull());
+    expect(screen.queryByText('Install pack…')).toBeNull();
+  });
+});
+
 describe('Install pack…', () => {
   it('previews an uploaded bundle with its diff, installs it, lists it, and disables it', async () => {
     render(<PacksPanel />);

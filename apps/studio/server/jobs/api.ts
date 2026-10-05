@@ -2,6 +2,9 @@
  * The job endpoints (`specs/postgres-backend.md` §2, §7.5):
  *
  *   POST /api/modules/:module/_import/:importer      { fileName, base64, job: true } — start an import (202, the job)
+ *   PUT  /api/modules/:module/_import/:importer?fileName=…   the file's bytes (application/octet-stream), as a job (202):
+ *                                                    no base64, and room for a file bigger than a JSON document
+ *                                                    (`WIREHUB_IMPORT_MAX_MB`, default 100)
  *   GET  /api/jobs                                   recent jobs (`?kind=`), and the worker's heartbeat
  *   POST /api/jobs                                   { kind: model-cache | derive } — run one now (202)
  *   GET  /api/jobs/:id                               one job, with an import's plan files
@@ -59,6 +62,12 @@ export function isJobPath(path: string): boolean {
   return parts[0] === 'api' && parts[1] === 'jobs';
 }
 
+/** The largest file the raw upload route takes: `WIREHUB_IMPORT_MAX_MB` (default 100 MB). */
+export function importUploadLimit(env: Readonly<Record<string, string | undefined>> = process.env): number {
+  const mb = Number((env['WIREHUB_IMPORT_MAX_MB'] ?? '').trim());
+  return (Number.isFinite(mb) && mb > 0 ? mb : 100) * 1024 * 1024;
+}
+
 /** A job as the API shows it: an import's staged changes are counted, not sent. */
 export function jobView(job: JobRun): Record<string, unknown> {
   const { result, ...rest } = job;
@@ -85,9 +94,34 @@ export async function startImportJob(request: ApiRequest, io: ModuleIoPath, deps
   if (typeof data !== 'string' || !/^[A-Za-z0-9+/=\s]*$/.test(data)) return fail(400, 'The file is not valid base64.', 'Nothing was read.');
   const bytes = new Uint8Array(Buffer.from(data, 'base64'));
   if (bytes.byteLength === 0) return fail(400, 'That file is empty.');
-  if (bytes.byteLength > MAX_IMPORT_BYTES) return fail(413, `That file is ${(bytes.byteLength / 1048576).toFixed(1)} MB; an import takes up to ${MAX_IMPORT_BYTES / 1048576} MB.`);
+  if (bytes.byteLength > MAX_IMPORT_BYTES) return fail(413, `That file is ${(bytes.byteLength / 1048576).toFixed(1)} MB; an import takes up to ${MAX_IMPORT_BYTES / 1048576} MB.`, 'A bigger file goes up as raw bytes: PUT the same address with ?fileName=… and application/octet-stream.');
   const input = await jobs.stageInput(bytes);
   const job = await jobs.enqueue('import', { module: io.module, importer: io.id, fileName: fileName.trim(), input }, request.user);
+  return { status: 202, body: { job: jobView(job) }, headers: { Location: `/api/jobs/${job.id}` } };
+}
+
+/** The checks on an import's file name and importer shared by the two ways of sending one. */
+export function importUploadRefusal(deps: WorkbenchDeps, io: ModuleIoPath, fileName: string | null): ApiResponse | undefined {
+  if (deps.jobs === undefined || !deps.jobs.kinds.includes('import')) return fail(501, 'This studio does not run import jobs.', 'Send the import as JSON, without `job`, to preview and accept it in one request.');
+  const importer = deps.modules?.importer(io.module, io.id);
+  if (importer === undefined) return fail(404, `${io.module} has no importer ${io.id}.`, "Check the deployment's modules.config.ts.");
+  if (fileName === null || fileName.trim() === '' || fileName.length > 200 || /[\\/\u0000]/.test(fileName)) return fail(400, 'Say the file name in the query: ?fileName=… (a name, no folders).');
+  if (!importer.accepts.some((ext) => fileName.toLowerCase().endsWith(ext))) return fail(400, `${importer.label} takes ${importer.accepts.join(' or ')} files, not ${fileName}.`, 'Pick another file.');
+  return undefined;
+}
+
+/**
+ * `PUT /api/modules/:module/_import/:importer?fileName=…`: the raw bytes of a file
+ * (read by the transport, up to `importUploadLimit`) kept for an import job. The
+ * answer is `startImportJob`'s: 202 and the job.
+ */
+export async function startImportUpload(request: ApiRequest & { fileName: string | null; bytes: Uint8Array }, io: ModuleIoPath, deps: WorkbenchDeps): Promise<ApiResponse> {
+  const refused = importUploadRefusal(deps, io, request.fileName);
+  if (refused !== undefined) return refused;
+  if (request.bytes.byteLength === 0) return fail(400, 'That file is empty.');
+  const jobs = deps.jobs!;
+  const input = await jobs.stageInput(request.bytes);
+  const job = await jobs.enqueue('import', { module: io.module, importer: io.id, fileName: (request.fileName as string).trim(), input }, request.user);
   return { status: 202, body: { job: jobView(job) }, headers: { Location: `/api/jobs/${job.id}` } };
 }
 

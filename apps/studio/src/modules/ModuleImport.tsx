@@ -4,13 +4,20 @@
  * the person reviews the proposal and accepts it (one change set) or cancels.
  * Nothing is written before Accept, and an id the library already has is
  * listed and skipped, never overwritten.
+ *
+ * Where the studio runs jobs (the worker on Postgres, this process on files)
+ * the import is a **job**: it is queued, its progress is followed, and its
+ * plan is published from `ImportJob` (also from the Jobs page, later). A
+ * studio without jobs (501) uses the one-request preview and Accept below.
  */
 
 import { useQueryClient } from '@tanstack/react-query';
 import type { ModuleRegistry } from '@wirehub/modules';
 import { useRef, useState, type JSX } from 'react';
 
+import { startImportJob, uploadImportJob } from '../jobs.browser.ts';
 import { designsKey } from '../queries.ts';
+import { ImportJob } from './ImportJob.tsx';
 
 interface Proposal {
   definitions: Record<string, { id: string; label: string }[]>;
@@ -50,6 +57,7 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
   const [pending, setPending] = useState<Pending>();
   const [message, setMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [jobId, setJobId] = useState<string>();
   const accepts = [...new Set(registry.importers().flatMap((i) => i.accepts))];
   if (accepts.length === 0) return null;
 
@@ -63,7 +71,23 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
     setBusy(true);
     setMessage(undefined);
     try {
-      const base64 = toBase64(new Uint8Array(await file.arrayBuffer()));
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      // raw bytes first (no base64, and room for a big file); a host that takes only JSON gets the base64 form
+      let queued = await uploadImportJob(importer.module, importer.id, file.name, bytes);
+      // (the base64 copy is made only when a host needs it)
+      let encoded: string | undefined;
+      const base64Of = (): string => (encoded ??= toBase64(bytes));
+      if (!queued.ok && (queued.status === 415 || queued.status === 405)) queued = await startImportJob(importer.module, importer.id, file.name, base64Of());
+      if (queued.ok) {
+        setJobId(queued.value.job.id);
+        return;
+      }
+      // 501: no job runner here — the synchronous preview below; anything else is the importer's own refusal
+      if (queued.status !== 501) {
+        setMessage(`${queued.error}${queued.hint === undefined ? '' : ` ${queued.hint}`}`);
+        return;
+      }
+      const base64 = base64Of();
       const out = await call(importer.module, importer.id, { fileName: file.name, base64 });
       if (out.status >= 400 || out.body.proposal === undefined) setMessage(`${out.body.error ?? 'The import failed.'} ${out.body.hint ?? ''}`.trim());
       else setPending({ module: importer.module, importer: importer.id, importerLabel: importer.label, fileName: file.name, base64, proposal: out.body.proposal });
@@ -114,6 +138,7 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
           {message}
         </span>
       )}
+      {jobId === undefined ? null : <ImportJob id={jobId} onClose={() => setJobId(undefined)} onPublished={onImported} />}
       {pending === undefined || proposal === undefined ? null : (
         <div role="dialog" aria-label="Review import" className="fixed inset-x-0 top-16 z-50 mx-auto flex max-w-md flex-col gap-1.5 rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
           <strong>

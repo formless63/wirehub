@@ -121,6 +121,20 @@ describe('cable panels and exports', () => {
     expect(String((window as unknown as { exported: { body: string } }).exported.body)).toMatch(/^a,b,note\n/);
   });
 
+  it('mounts the same panels and exporters over a saved revision (frozen design, read-only)', async () => {
+    const saved = await handleWorkbenchRequest({ method: 'POST', path: '/api/designs/de9-crossover/versions', body: { note: 'First release' } }, deps);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(201);
+    mount('/cables/de9-crossover?rev=0');
+    await waitFor(() => expect(screen.getByTestId('open-id').textContent).toBe('de9-crossover'));
+    expect(screen.getByTestId('version-banner').textContent).toContain('Rev 0');
+    expect(within(screen.getByTestId('inspector-slot')).getByTestId('example-inspector')).toBeTruthy();
+    expect(within(screen.getByTestId('documents-slot')).getByTestId('example-documents').textContent).toMatch(/Example: \d+ joints/);
+    // the editor is the revision's: read-only while it is locked
+    expect(seen.editor?.['readOnly']).toBe(true);
+    fireEvent.click(screen.getByTestId('export-example/joints-csv'));
+    await waitFor(() => expect((window as unknown as { exported?: { fileName: string } }).exported?.fileName).toBe('de9-crossover-joints.csv'));
+  });
+
   it('adds nothing to the editor when no module contributes', async () => {
     mount('/cables/de9-crossover', EMPTY_REGISTRY);
     await waitFor(() => expect(screen.getByTestId('open-id').textContent).toBe('de9-crossover'));

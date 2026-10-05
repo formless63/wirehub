@@ -12,7 +12,8 @@
  *   (`BACKUP_REPOSITORY`, else a local repository in the `restic_repo` volume)
  *   and one plan — `/sources`, on `BACKUP_SCHEDULE` (cron, default daily at
  *   03:00), keeping 7 daily, 4 weekly and 12 monthly snapshots, with a weekly
- *   prune and check. After that Backrest's UI owns its configuration, and this
+ *   prune and check, and a post-snapshot hook that touches the marker
+ *   (`/marker/.last-snapshot`, read by the app and the worker). After that Backrest's UI owns its configuration, and this
  *   never touches it again.
  *
  *   node --experimental-strip-types stack/backup-init.ts
@@ -36,6 +37,10 @@ export function checkCron(expression: string): string {
   }
   return fields.join(' ');
 }
+
+/** Where the post-snapshot hook touches its marker, in Backrest's container (the `backup_marker` volume). */
+export const MARKER_FILE = '/marker/.last-snapshot';
+export const FAILURE_FILE = '/marker/.last-failure';
 
 /** Backrest's configuration for a first start. */
 export function backrestConfig(options: { repository: string; password: string; schedule: string; env?: Record<string, string> }): unknown {
@@ -64,6 +69,12 @@ export function backrestConfig(options: { repository: string; password: string; 
         paths: ['/sources'],
         schedule: { cron: options.schedule, clock: 'CLOCK_LOCAL' },
         retention: { policyTimeBucketed: { daily: 7, weekly: 4, monthly: 12 } },
+        // a finished snapshot touches the marker: blob clean-up deletes only after one, and /healthz?deep=1 reports its age
+        hooks: [
+          { conditions: ['CONDITION_SNAPSHOT_SUCCESS'], actionCommand: { command: `touch ${MARKER_FILE}` } },
+          // the worker's backup watch alerts on a failure newer than the last success
+          { conditions: ['CONDITION_SNAPSHOT_ERROR'], actionCommand: { command: `touch ${FAILURE_FILE}` } },
+        ],
       },
     ],
     // no `auth`: Backrest asks the first visitor of its UI to create a login
@@ -87,6 +98,10 @@ export function backupInit(env: Env, log: (line: string) => void = console.log):
 
   const { value: password, source: passwordSource } = ensureSecret(dir, 'restic_password', explicitValue(env, 'BACKUP_REPOSITORY_PASSWORD'), () => base64url(32));
   log(`backup-init: restic_password ${passwordSource}`);
+
+  // tells the app and the worker that backups are on (the volume exists without the profile): a missing marker then means "no snapshot yet"
+  const markerDir = env['BACKUP_MARKER_DIR'] ?? '/marker';
+  if (existsSync(markerDir)) writeFileSync(join(markerDir, '.configured'), '');
 
   const configPath = env['BACKREST_CONFIG'] ?? '/config/config.json';
   if (existsSync(configPath)) {

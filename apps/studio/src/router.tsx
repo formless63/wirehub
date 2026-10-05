@@ -30,6 +30,7 @@ import { CablesRoute } from './routes/CablesRoute.tsx';
 import { CableRoute } from './routes/CableRoute.tsx';
 import { SetupRoute } from './routes/SetupRoute.tsx';
 import { ModuleRoute, ModulesRoute } from './routes/ModuleRoute.tsx';
+import { JobsRoute } from './routes/JobsRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
@@ -171,6 +172,13 @@ export const modulesRoute = createRoute({
   component: ModulesRoute,
 });
 
+/** `/jobs`: recent jobs (imports to review and publish, model builds) and the worker's heartbeat */
+export const jobsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/jobs',
+  component: JobsRoute,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   setupRoute,
@@ -181,6 +189,7 @@ const routeTree = rootRoute.addChildren([
   libraryItemRoute,
   moduleRoute,
   modulesRoute,
+  jobsRoute,
 ]);
 
 /**

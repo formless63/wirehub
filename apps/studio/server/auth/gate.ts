@@ -185,7 +185,7 @@ async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefi
   const budget = limiter.take(`token:${holder.token.id}`, scope === 'read' ? READ_LIMITS : WRITE_LIMITS);
   if (budget > 0) return retryLater(budget);
   await tokens.touch(holder.token.id);
-  signedIn.set(c.req.raw, { ...sessionStudioUser({ name: holder.person.name, email: holder.person.email }), apiTokenId: holder.token.id, apiTokenScopes: holder.token.scopes });
+  signedIn.set(c.req.raw, { ...sessionStudioUser({ name: holder.person.name, email: holder.person.email }), ...((ROLES as readonly string[]).includes(holder.person.role) ? { role: holder.person.role as Role } : {}), apiTokenId: holder.token.id, apiTokenScopes: holder.token.scopes });
   return undefined;
 }
 
@@ -319,6 +319,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
     signedIn.set(c.req.raw, sessionStudioUser(user));
     if (people !== undefined && api) {
       const person = await people.personByEmail(user.email);
+      if (person !== undefined && (ROLES as readonly string[]).includes(person.role)) signedIn.set(c.req.raw, { ...sessionStudioUser(user), role: person.role as Role });
       // the account is committed by now: link it to its person once
       if (person !== undefined && person.authUserId !== user.id) await people.linkAuthUser(user.email, user.id);
       const own = path === PEOPLE_PATH || path.startsWith(`${PEOPLE_PATH}/`) || path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`) || path === TOKENS_PATH || path.startsWith(`${TOKENS_PATH}/`);

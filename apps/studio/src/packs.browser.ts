@@ -34,6 +34,8 @@ export interface PackPlan {
   licenseChanged?: boolean;
   conflicts?: string[];
   references?: PackReference[];
+  /** records the new version drops that something outside the pack still uses: kept, as the deployment's own */
+  retired?: RecordRef[];
   issues?: { code: string; message: string }[];
   records?: RecordRef[];
   unmetRequires?: string[];

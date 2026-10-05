@@ -16,6 +16,8 @@ import { envVar } from './env.ts';
 export interface StudioUser {
   name: string;
   email?: string;
+  /** what the person may do here: owners and editors write, viewers read (`GET /api/me`); absent when this host keeps no roles (then everyone who is signed in may write) */
+  role?: 'owner' | 'editor' | 'viewer';
   /** `session` — signed in through the studio's login; `local` — auth is off */
   source: 'session' | 'local';
   /** the personal API token this request came with (its id, for the change set's audit only) */
@@ -39,7 +41,7 @@ export function gitUserName(): string | undefined {
 /** The user a studio without a login names. `gitName` is injected so tests never shell out. */
 export function localStudioUser(env: Readonly<Record<string, string | undefined>>, gitName: () => string | undefined = gitUserName): StudioUser {
   const configured = envVar('LOCAL_USER', env)?.trim();
-  return { name: configured !== undefined && configured !== '' ? configured : (gitName() ?? 'local'), source: 'local' };
+  return { name: configured !== undefined && configured !== '' ? configured : (gitName() ?? 'local'), source: 'local', role: 'owner' };
 }
 
 /** A Better Auth session user as a studio user — the name, or the email when the IdP sent none. */
@@ -48,4 +50,4 @@ export function sessionStudioUser(user: { name?: string | null; email: string })
   return { name: name !== undefined && name !== '' ? name : user.email, email: user.email, source: 'session' };
 }
 
-export const LOCAL_FALLBACK: StudioUser = { name: 'local', source: 'local' };
+export const LOCAL_FALLBACK: StudioUser = { name: 'local', source: 'local', role: 'owner' };

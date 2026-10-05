@@ -37,6 +37,7 @@ import { formatGateReport, runGate } from './gate.ts';
 import { ImportError, importCatalog } from './import.ts';
 import { adoptFileCatalog } from './adopt.ts';
 import { migrateToLatest } from './migrate.ts';
+import { notifierFromEnv } from '../notify.ts';
 import { migrateModules } from './module-migrations.ts';
 import { registry } from '../modules.ts';
 import { SnapshotCache } from './snapshot.ts';
@@ -177,6 +178,10 @@ async function gateCommand(args: string[]): Promise<boolean> {
       ...(values.models === true ? { models: live ? { fileCache: fileModelCache() } : {} } : {}),
     });
     log(formatGateReport(report));
+    if (!report.ok) {
+      const differences = report.checks.reduce((n, c) => n + c.diffs.length, 0);
+      await notifierFromEnv(env).notify({ event: 'parity-diff', severity: 'high', title: 'Catalog parity differs', message: `The files-vs-database gate found ${differences} difference(s) in ${report.checks.filter((c) => c.diffs.length > 0).map((c) => c.name).join(', ')}.`, data: { differences } });
+    }
     return report.ok;
   } finally {
     await handle.close();

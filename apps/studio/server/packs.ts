@@ -4,7 +4,8 @@
  *
  *   GET    /api/packs                  installed packs, with the version this build bundles
  *   GET    /api/packs/:id/update       the plan for installing this build's version: the
- *                                      record-level diff, conflicts, references, new errors
+ *                                      record-level diff, conflicts, new errors, and the
+ *                                      records it retires (dropped but still used: kept)
  *   POST   /api/packs/:id/update       apply it, as one change set: { acceptMajor?: true }
  *   GET    /api/packs/:id/references   what disabling would remove, and what outside the
  *                                      pack still uses it
@@ -74,8 +75,8 @@ const json = (status: number, body: unknown): ApiResponse => ({ status, body });
 const refuse = (status: number, error: string, hint?: string, extra?: object): ApiResponse => json(status, { error, ...(hint === undefined ? {} : { hint }), ...extra });
 
 /** The plan as the API shows it: without the file writes. */
-function shown<T extends { writes: unknown }>(plan: T): Omit<T, 'writes'> {
-  const { writes: _writes, ...rest } = plan;
+function shown<T extends { writes: unknown }>(plan: T): Omit<T, 'writes' | 'retiredRecords'> {
+  const { writes: _writes, retiredRecords: _retired, ...rest } = plan as T & { retiredRecords?: unknown };
   return rest;
 }
 
@@ -99,13 +100,8 @@ function viewOf(deps: SetupDeps): CatalogSource {
 const notInstalled = (id: string): ApiResponse => refuse(404, `Pack '${id}' is not installed.`, 'GET /api/packs lists the installed packs.');
 
 function updateRefusal(plan: PackUpdatePlan): ApiResponse {
-  const why = plan.conflicts.length > 0 ? 'it clashes with records outside the pack' : plan.references.length > 0 ? 'it drops records something outside the pack still uses' : 'it would add errors to the library';
-  const hint =
-    plan.conflicts.length > 0
-      ? 'Rename or remove the clashing records, then update again.'
-      : plan.references.length > 0
-        ? 'Move the records that use them to something else first (the references are listed), then update again.'
-        : 'The errors are listed; fix what they name, or keep the installed version.';
+  const why = plan.conflicts.length > 0 ? 'it clashes with records outside the pack' : 'it would add errors to the library';
+  const hint = plan.conflicts.length > 0 ? 'Rename or remove the clashing records, then update again.' : 'The errors are listed; fix what they name, or keep the installed version.';
   return refuse(409, `Pack '${plan.pack.id}' was not updated: ${why}. Nothing was changed.`, hint, { plan: shown(plan) });
 }
 
@@ -199,7 +195,7 @@ export async function handlePacksRequest(
     }
     applyPackUpdate(deps.dataDir, packsDir === deps.dataDir ? undefined : packsDir, bundled.dir, plan, where);
     if (deps.afterInstall !== undefined) await deps.afterInstall();
-    return json(200, { updated: true, from: plan.pack.from, to: plan.pack.to, plan: shown(plan) });
+    return json(200, { updated: true, from: plan.pack.from, to: plan.pack.to, retired: plan.retired.length, plan: shown(plan) });
   }
 
   return refuse(404, 'There is no such address.', `Packs answer ${PACKS_ROUTES.join(', ')}.`);
@@ -267,7 +263,7 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
     if (body.apply !== true) return json(200, preview);
     if (same) return json(200, { ...preview, installed: false, reason: 'already at this version' });
     if (!plan.ok) {
-      const refusal = 'references' in plan && plan.references.length > 0 ? 'it drops records something outside the pack still uses' : plan.conflicts.length > 0 ? 'it clashes with records outside the pack' : 'it would add errors to the library';
+      const refusal = plan.conflicts.length > 0 ? 'it clashes with records outside the pack' : 'it would add errors to the library';
       return refuse(409, `Pack '${manifest.id}' was not installed: ${refusal}. Nothing was changed.`, 'The details are listed; fix what they name and try again.', { ...preview });
     }
     if (major && body.acceptMajor !== true) {

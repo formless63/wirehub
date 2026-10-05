@@ -50,8 +50,9 @@ import type { ApiError, ApiResponse } from './api.ts';
 import { checkIfMatch, contentETag, ifMatchSatisfied } from './etag.ts';
 import type { TagStore, VocabStore } from './vocab-store.ts';
 import type { Awaitable } from './storage/change-set.ts';
+import { packOwnerOf, packRecordRefusal, type PackGuardDeps } from './pack-guard.ts';
 
-export interface VocabDeps {
+export interface VocabDeps extends PackGuardDeps {
   vocab?: VocabStore;
   tags?: TagStore;
   loadDb: () => Awaitable<Db>;
@@ -270,9 +271,11 @@ async function postEntry(store: VocabStore, listId: string, body: unknown, ifMat
  * A relabel or new aliases. The old label is kept as an alias automatically —
  * a rename never loses the spelling people already search by.
  */
-async function patchEntry(store: VocabStore, listId: string, entryId: string, body: unknown, ifMatch: string | undefined): Promise<ApiResponse> {
+async function patchEntry(deps: PackGuardDeps, store: VocabStore, listId: string, entryId: string, body: unknown, ifMatch: string | undefined): Promise<ApiResponse> {
   const list = await store.read(listId);
   if (list === undefined) return await unknownList(listId, store);
+  const origin = await packOwnerOf(deps, `vocab/${listId}.json`, entryId);
+  if (origin !== undefined) return packRecordRefusal('vocabulary entry', entryId, origin, `add an entry of your own to '${listId}' (POST /api/vocab/${listId}) and use that; to rename this one, give your entry the old label as an alias.`);
   // an edit of an existing entry: the list version is required
   const guard = checkIfMatch(ifMatch, contentETag(list), 'list', listId);
   if (guard !== undefined) return guard;
@@ -507,7 +510,7 @@ export async function handleVocabRequest(
       if (method === 'POST') return await postEntry(store, list, body, ifMatch);
       return methodNotAllowed(method, ['GET', 'POST']);
     }
-    return method === 'PATCH' ? await patchEntry(store, list, entry, body, ifMatch) : methodNotAllowed(method, ['PATCH']);
+    return method === 'PATCH' ? await patchEntry(deps, store, list, entry, body, ifMatch) : methodNotAllowed(method, ['PATCH']);
   }
   if (parts[1] === 'tags') {
     const [, , kind, id, ...rest] = parts;

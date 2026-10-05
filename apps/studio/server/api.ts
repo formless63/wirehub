@@ -51,6 +51,7 @@ import { CommitRefusedError, ReadOnlyBackendError, StaleRecordError, type Awaita
 import { UnitOfWork } from './storage/unit-of-work.ts';
 import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
+import { packOwnerOf, packRecordRefusal } from './pack-guard.ts';
 import { PACKS_ROUTES, handlePacksRequest, isPacksPath } from './packs.ts';
 import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
@@ -526,6 +527,9 @@ async function getDesign(deps: WorkbenchDeps, id: DesignId): Promise<ApiResponse
  * nothing is refused with 428: it cannot know what it would overwrite.
  */
 async function putDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMatch: string | undefined): Promise<ApiResponse> {
+  // a design a pack ships is the pack's: fork (duplicate) to edit
+  const origin = await packOwnerOf(deps, `designs/${id}.json`, id);
+  if (origin !== undefined) return packRecordRefusal('design', id, origin, `POST /api/designs/${id}/duplicate copies it under a new id of your own.`);
   const parsed = readDesignBody(body);
   if (!parsed.ok) return parsed.response;
   if (parsed.design.id !== id) {
@@ -596,6 +600,8 @@ async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown)
 async function renameDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMatch: string | undefined): Promise<ApiResponse> {
   const source = await deps.designs.read(id);
   if (source === undefined) return notFound(id);
+  const origin = await packOwnerOf(deps, `designs/${id}.json`, id);
+  if (origin !== undefined) return packRecordRefusal('design', id, origin, `POST /api/designs/${id}/duplicate copies it under the new id.`);
   const guard = checkIfMatch(ifMatch, contentETag(source), 'design', id);
   if (guard !== undefined) return guard;
   const move = readMoveBody(body, 'design');
@@ -638,6 +644,8 @@ async function renameDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, if
  */
 async function deleteDesign(deps: WorkbenchDeps, id: DesignId, body: unknown): Promise<ApiResponse> {
   if (!await deps.designs.has(id)) return notFound(id);
+  const origin = await packOwnerOf(deps, `designs/${id}.json`, id);
+  if (origin !== undefined) return packRecordRefusal('design', id, origin, `to keep a changed copy, POST /api/designs/${id}/duplicate; the pack's own designs go with the pack (Library, Packs, Disable).`);
   const confirm = (typeof body === 'object' && body !== null ? (body as { confirm?: unknown }).confirm : undefined);
   if (confirm !== id) {
     return fail(

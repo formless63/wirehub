@@ -63,7 +63,7 @@ export interface LibraryColumn {
   fixed?: boolean;
 }
 
-export type LibraryFlag = '3D' | 'Art' | 'Photo' | 'Inferred' | 'Importer';
+export type LibraryFlag = '3D' | 'Art' | 'Photo' | 'Inferred' | 'Importer' | 'Pack';
 
 export interface LibraryRow {
   kind: LibraryKind;
@@ -78,6 +78,8 @@ export interface LibraryRow {
   pn: ResolvedPartNumber;
   used?: number;
   flags: LibraryFlag[];
+  /** the installed pack this record came from (read-only here; fork to edit) */
+  pack?: { pack: string; version: string };
   /** legacy / retired boards: hidden unless asked for */
   old: boolean;
   cells: Record<string, LibraryCell>;
@@ -98,6 +100,8 @@ export interface LibraryTableContext {
   art?: ReadonlySet<string>;
   /** definition ids with a photo */
   photos?: ReadonlySet<string>;
+  /** records an installed catalog pack supplied, by id (`DefinitionList.packs`) */
+  packs?: Readonly<Record<string, { pack: string; version: string }>>;
 }
 
 /* ------------------------------------------------------------------ *
@@ -108,7 +112,7 @@ const PN: LibraryColumn = { id: 'pn', header: 'PN', title: 'Part number — the 
 const NAME: LibraryColumn = { id: 'name', header: 'Name', width: 240, fixed: true };
 const USED: LibraryColumn = { id: 'used', header: 'Used', title: 'Designs and other definitions that use it', width: 58, numeric: true };
 const STATUS: LibraryColumn = { id: 'status', header: 'Status', width: 84, facet: true };
-const FLAGS: LibraryColumn = { id: 'flags', header: 'Flags', title: '3D model · drawn art · photo · inferred values · from the importer', width: 120, facet: true };
+const FLAGS: LibraryColumn = { id: 'flags', header: 'Flags', title: '3D model · drawn art · photo · inferred values · from the importer · from an installed pack', width: 120, facet: true };
 const ID: LibraryColumn = { id: 'id', header: 'Id', width: 150, mono: true, hiddenByDefault: true };
 
 const KIND_COLUMNS: Record<LibraryKind, LibraryColumn[]> = {
@@ -356,6 +360,9 @@ export function libraryRows(
     if (ctx.photos?.has(record.id) === true) flags.push('Photo');
     if (isInferred(record.src)) flags.push('Inferred');
     if (readOnly) flags.push('Importer');
+    const pack = ctx.packs?.[record.id];
+    // first: the narrow Flags column clips from the right, and this one explains why the record is read-only
+    if (pack !== undefined) flags.unshift('Pack');
     const status = statusOf(kind, record);
     const own =
       kind === 'connectors'
@@ -383,6 +390,7 @@ export function libraryRows(
       pn,
       ...(usedCount === undefined ? {} : { used: usedCount }),
       flags,
+      ...(pack === undefined ? {} : { pack }),
       old: kind === 'pcbas' && (status === 'legacy' || status === 'retired'),
       cells: {
         pn: partNumberCell(pn),

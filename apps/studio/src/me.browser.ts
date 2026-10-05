@@ -10,6 +10,8 @@ export interface StudioUser {
   name: string;
   email?: string;
   source: 'session' | 'local';
+  /** viewers read, owners and editors write; absent when the host keeps no roles */
+  role?: 'owner' | 'editor' | 'viewer';
   /** about this hub: a development instance (a banner), and whether it has people and API tokens */
   instance?: { env?: 'dev' | 'prod'; accounts?: boolean };
 }
