@@ -147,6 +147,8 @@ export function workbenchDefinitions(base = '/api'): DefinitionsAdapter {
         return result.ok ? { ok: true, value: { id: result.value.deleted } } : result;
       }),
 
+    fork: (kind, id, newId) => request<DefinitionRecord>(definitionUrl(base, kind, id, 'fork'), { method: 'POST', body: { id: newId } }, remember(kind, newId)),
+
     usage: (kind, id) => request<DefinitionUsage>(definitionUrl(base, kind, id, 'usage')),
   };
 }

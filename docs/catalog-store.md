@@ -1,18 +1,22 @@
 # Catalog store
 
-Status: **design**, with the file-backend pieces of phases 1–2 implemented:
-the pack manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over a catalog
-(`layeredCatalogSource`), and install from a directory (`installPack`, used by first-run
-setup for the bundled domain modules — `docs/modules.md`). Signing, the store index,
-updates with diffs and per-record provenance fields are still design. Tracked in beads.
+Status: **design**, with these pieces built on both backends (files and Postgres): the pack
+manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over a catalog
+(`layeredCatalogSource`), install from a directory, an uploaded zip or JSON bundle, or an https
+URL (`installPackLayer`, Library → Modules → Install pack…; first-run setup uses the same for the
+bundled domain modules — `docs/modules.md`), per-record `license` / `provenance` / `derivedFrom`
+fields, and the **pack lifecycle**: update with a record-level diff, disable, read-only marking
+with fork to edit (§3). Signing, the store index, review status and yanking are still design.
+Tracked in beads.
 
 A fresh WireHub has the starter catalog: a few dozen generic records (CC0-1.0). Real work needs
 the connectors, stocks and parts of a domain — XLR and speakON for live audio, M12 and
 PROFIBUS for a factory floor, the OBD-II connector for a vehicle harness. Every shop
 re-entering the same public facts is wasted effort, and every shop re-entering them by hand
 is a source of errors. The **catalog store** is a public index of **catalog packs**: signed,
-versioned bundles of catalog records, each record carrying its provenance and licence, that
-a deployment installs and updates from the Library.
+versioned bundles of catalog records, each record optionally carrying its provenance and licence, that
+a deployment installs and updates from the Library. The store lists packs published by their
+authors, who are responsible for their content and licensing.
 
 Packs are **data, never code**. A pack cannot add behaviour; that is what modules are for
 (`docs/modules.md`). That is what makes it safe to install a pack at runtime from the UI,
@@ -120,13 +124,12 @@ forever (a design built on 1.2.0 can always be re-validated against 1.2.0).
 ## 3. Installing and updating
 
 Installed pack records are **read-only** in the deployment and marked with their origin
-(`pack: { id, version }` on the record in the database backend; `data/packs/<id>/` in the
-file backend, merged by the catalog loader under the local records). A shop that needs a
-change to a pack record **forks** it: the editor makes a local copy with a new id and
-`derivedFrom: { pack, id, version }`, and designs move to the copy only when someone
-chooses to.
+(`packs.json` names the pack and version per record id; the pack's files are a layer under the
+catalog in the file backend). A shop that needs a change to a pack record **forks** it: the
+Library makes a local copy with a new id and `derivedFrom: { pack, id, version }`, and designs
+move to the copy only when someone chooses to.
 
-**Implemented today (file backend).** First-run setup installs a pack as a **layer**:
+**Implemented today.** First-run setup installs a pack as a **layer**:
 `installPackLayer(catalogDir, packsDir, packDir)` (`packages/catalog/src/packs.ts`) checks the
 pack against the catalog with the other installed packs under it — a record id already used
 for something different is a conflict, and nothing is written — then copies it to
@@ -158,9 +161,48 @@ catalog with packs over it without writing — what a module's tests use.
 **Update**: the same, plus a **diff preview** — records added, changed (field by field) and
 removed — and the list of designs that use a changed or removed record, each re-validated
 against the new version before anything is applied. A removed record still used by a design
-is kept as `status: "retired"` in the deployment, never deleted under a design. Updates
+is never deleted under it (the idea of keeping it as `status: "retired"` is not built: as built
+the update is refused until the use is moved). Updates
 across a major version are never automatic. Rollback re-installs the previous version
 through the same path.
+
+**The lifecycle, as built** (`packages/catalog/src/pack-lifecycle.ts`, `apps/studio/server/packs.ts`,
+the Library's Modules page). One handler serves both backends: it plans and applies on a catalog
+directory, and the Postgres backend runs it over a scratch copy it commits as **one change set**
+(the same way first-run setup does), so there is nothing backend-specific to keep in step.
+
+- **Which pack a record came from.** `packs.json` (the install record, a file in the packs
+  directory on files and a catalog document in the database) lists per pack the ids it added to
+  each record file (`added`) and its version. That is the origin: no extra column was needed on
+  Postgres, because packs are flattened into ordinary records there and `packs.json` is
+  flattened with them. An identical record that was already in the catalog is not the pack's, and
+  disabling leaves it.
+- **Update with a diff.** `GET /api/packs/:id/update` compares the installed records with the
+  version this build bundles, field by field (`added` / `changed` / `removed` / `unchanged`), and
+  reports conflicts (a new record clashing with a different local one), references (a dropped
+  record that a record outside the pack still uses, which blocks), new library or design errors
+  after the change (only *new* ones block), a licence change and a major version. `POST` applies
+  it as one swap of the pack layer (files) or one change set (Postgres); a major version needs
+  `{ "acceptMajor": true }`. A downgrade goes through the same path. A dropped record that is
+  still used is refused rather than kept as `retired`; move the user first.
+- **Disable.** `DELETE /api/packs/:id` removes the pack's records when nothing outside the pack
+  references them (a record naming a pack id in a non-prose field: a connector's `body`, an
+  interface's `bodies`, a design's instance `def`, a kit line, a vocabulary `deprecatedBy` …).
+  Otherwise it refuses with 409 and lists every reference; nothing is removed.
+- **Read-only and fork.** Records from a pack answer `PUT` and `DELETE` with 409 on the
+  definition routes; the list carries `packs` (id → pack and version) and a single record the
+  `X-WireHub-Pack` header. `POST /api/definitions/:kind/:id/fork` copies the record under a new
+  id with `derivedFrom: { pack, id, version }`. The Library shows "From pack X 1.0.0 —
+  read-only" and a **Fork to edit** action. Records from other places (vocabulary lists, designs
+  of a pack) are removed and updated with the pack but not yet guarded against direct edits.
+- **Install pack… (from a file or URL).** `POST /api/packs/install` takes a zip of the pack
+  directory, a JSON bundle (`{ "manifest": …, "files": { "connectors.json": […] } }`) or an
+  https URL, verifies it as `scripts/verify-pack.mjs` does (manifest, `src` on every record, the
+  library validates with it, no clashes), shows the same diff, and with `apply` installs it as
+  one change set recorded with its id and version, so update and disable work on it. A pack that
+  is installed already is updated through the same door. URLs are fetched by the server: https
+  only, no credentials, public addresses only, redirects re-checked, 8 MB and 15 s limits.
+  Administration only: no API token may write `/api/packs`.
 
 **Offline / air-gapped**: a pack archive can be installed from a file (Library → Packs →
 Install from file) with the same verification; a deployment may run its own mirror of the
@@ -172,10 +214,10 @@ picks the module (`docs/modules.md`).
 
 **Licences are per pack and per record.** Packs are data, not code: the AGPL of WireHub
 does not reach them (`MODULE-EXCEPTION.md` §3). A pack names its licence in its manifest
-(SPDX), a record may name its own, and the install plan shows every licence a deployment
-is accepting. The starter catalog (`packages/catalog/data`) and the bundled packs are
+(SPDX), a record may name its own, and the install plan shows every licence involved, as
+information. The starter catalog (`packages/catalog/data`) and the bundled packs are
 CC0-1.0, each directory with a `LICENSE` file saying so; the catalog's code stays
-AGPL-3.0-only.
+AGPL-3.0-only. Third-party packs carry the licence their authors chose.
 
 ## 4. The store, trust and signing
 
@@ -202,39 +244,36 @@ AGPL-3.0-only.
   versions; a yanked version stays downloadable for re-validation but is never offered for
   install and is flagged on deployments that have it.
 
-## 5. Public data sources and their licence caveats
+## 5. Sources, licences and responsibility
 
-Not legal advice — the owner should have these reviewed before the store publishes
-anything. The general rule the store follows: **pin assignments and dimensions are facts
-and are cited, not copied**; standards' text, tables and figures are never reproduced;
-every record names its source.
+Not legal advice. Two cases, kept apart.
 
-| Source | What it gives | Licence / caveats |
-| --- | --- | --- |
-| **KiCad libraries** (symbols, footprints, 3D models; gitlab.com/kicad/libraries) | footprint pad geometry, connector body names, 3D models | CC BY-SA 4.0 **with the KiCad libraries exception** (designs using the libraries are not adapted material). A pack that *contains* KiCad-derived data (converted models, extracted geometry) is itself CC BY-SA 4.0 and must carry attribution. Prefer packs that **link** to the upstream file at a pinned commit with its sha256 and let the deployment fetch it (as the base's model import already does). |
-| **TIA / EIA standards** (TIA-232, TIA-485, TIA-568, TIA-574) | serial and structured-cabling pin assignments, colour codes | Standards documents are copyrighted and sold. The assignments themselves (pin 2 = RxD on a DE-9 DTE) are widely published facts; cite the standard by number and clause, do not reproduce its tables or figures. |
-| **IEC / ISO standards** (IEC 60603-7, 61076-2-xxx, 60320, 61158; ISO 15031-3) | connector families, codings, fieldbus pinouts | Same as TIA: paywalled and copyrighted; facts cited by number. Some IEC derived national standards (EN, BS, DIN) have identical content and identical restrictions. |
-| **IEEE 802.3** | Ethernet MDI pinouts, PoE pair use | Copyrighted; IEEE makes 802 standards available free through the IEEE GET program after a delay — still not redistributable. Facts cited. |
-| **USB-IF** (usb.org) | USB 2.0 / 3.x / Type-C connector and cable specifications | Specifications downloadable free under the USB-IF's licence terms (no redistribution). The USB logos and certification marks are trademarks usable only under the USB-IF logo licence — packs use plain names ("USB Type-C plug"), never logos. |
-| **HDMI** (HDMI Licensing Administrator) | HDMI connector pinouts | The specification is licensed to adopters only; the pinout is widely published but no official public source can be cited. "HDMI" is a trademark: product names in records must be descriptive ("HDMI Type A plug" as a nominative reference), no logos. A pack may cite a secondary public source and must flag the record as such. |
-| **VESA** (DDC, DisplayPort, VGA) | VGA/DDC pinout, DisplayPort pinout | DDC/EDID standards are free to download after registration but not redistributable; DisplayPort is member-only. Facts cited. |
-| **SAE J1962 / ISO 15031-3** (OBD-II) | the 16-pin diagnostic connector and its mandated pins | SAE documents are sold and copyrighted; the mandated pin assignments (4/5 ground, 16 battery, 6/14 CAN) are public regulatory facts (also in US EPA / EU type-approval rules) and can be cited. Manufacturer-discretionary pins are not standard and must not be presented as such. |
-| **AES** (AES14, AES3) | XLR audio polarity convention, AES/EBU digital audio | AES standards are sold, free for AES members; facts cited. |
-| **ESTA / ANSI E1.11** (DMX512-A) | DMX connector pinouts | Available free from the ESTA TSP (registration); facts cited. |
-| **Manufacturer catalogues and datasheets** (TE, Molex, Amphenol, Neutrik, JST, Phoenix Contact, Belden, Alpha Wire, Lapp …) | part numbers, dimensions, materials, ratings, stock constructions | Datasheets are copyrighted; the specifications in them are facts. Many manufacturers' websites' terms forbid scraping and bulk reuse — transcribe by hand or obtain permission; never bulk-import a catalogue. 3D models and CAD from manufacturers (and from aggregators like SnapEDA / Ultra Librarian / TraceParts) usually come under licences that **forbid redistribution** — packs link to them, never include them. Trademarked product names are used nominatively. |
-| **Distributor data** (Digi-Key, Mouser, Octopart APIs) | parametric data, availability | API terms generally forbid redistributing the data; usable by a deployment for its own lookups (a module), not as a source of store packs. |
-| **Wikipedia / Wikimedia Commons** | pinout tables, connector drawings | CC BY-SA (text) and per-file licences (images). Good for cross-checking, but a record citing only Wikipedia is marked `community`, and any copied drawing carries its own licence and attribution. |
-| **Pinout aggregator sites** | many pinouts in one place | Usually all rights reserved and of mixed accuracy — use only to find the primary source, never as the cited source. |
-| **Own measurements** | stock ODs, conductor counts, colour orders | The publisher's own data under the pack's licence; `method: "measured"`, with what was measured and how. |
+**Packs published by third parties** (a shop, a manufacturer, a community maintainer) are
+published by their authors, who are responsible for their content and for the licence they
+choose. WireHub does not restrict, review or police how an author sources data, and the store
+does not gatekeep on it. The per-record `license` and `provenance` fields (§2) are
+**information** for the person installing a pack, shown in the install plan; WireHub does not
+verify them. If you build a pack, check the terms of your sources; an official API or download is
+often easier than scraping a page.
 
-Store policy, in short: records under licences that forbid redistribution never enter a
-store pack; ShareAlike records are allowed but the pack's licence must be compatible and
-the obligation is shown before install; every pack declares its licence in SPDX form, and
-the install plan shows the set of licences a deployment is accepting.
+**The bundled modules and the starter catalog in this repository** are published as CC0-1.0, so
+they contain only data the project can license that way: facts (pin assignments, contact counts,
+dimensions) cited to their source, our own measurements and synthetic examples, written in our own
+words, with no text, tables or figures copied from a standard or datasheet.
 
-Database rights: in the EU a substantial extraction from a protected database can infringe
-even when each fact is free. The store therefore does not bulk-copy any one third-party
-collection; packs are assembled from primary sources.
+Some sources worth knowing about when you cite or link:
+
+| Source | Notes |
+| --- | --- |
+| **KiCad libraries** (symbols, footprints, 3D models; gitlab.com/kicad/libraries) | CC BY-SA 4.0 with the KiCad libraries exception. A pack that *contains* KiCad-derived data (converted models, extracted geometry) carries that licence and attribution; a pack that **links** to the upstream file at a pinned commit with its sha256 (as the base's model import does) keeps its own licence simple. |
+| **Standards** (TIA/EIA, IEC, ISO, IEEE, SAE, AES, ESTA, VESA, USB-IF) | Pin assignments and dimensions are facts, cited by number and clause. The documents' text and figures belong to their publishers. |
+| **HDMI, DisplayPort** | Cite the public source you used and say when it is secondary. Product names are plain names, not logos. |
+| **Manufacturer datasheets and catalogues** | Specifications are facts; a site's terms may say more about bulk use. Manufacturer CAD and 3D models are usually better linked than included. |
+| **Distributor data** (Digi-Key, Mouser, Octopart APIs) | Their terms often cover a deployment's own lookups (a module) more readily than republishing. |
+| **Wikipedia / Commons** | CC BY-SA text and per-file image licences; handy for cross-checking. |
+| **Own measurements** | `method: "measured"`, with what was measured and how. |
+
+Trademarks (USB, HDMI, product names) appear as plain nominative names.
 
 ## 6. Where it plugs into the base
 
@@ -243,19 +282,24 @@ collection; packs are assembled from primary sources.
 - **Catalog (file backend)**: `data/packs/<id>/` with its manifest; the loader merges pack
   records read-only under the local ones and refuses a local record that shadows a pack id
   without forking it.
-- **Postgres backend** (`specs/postgres-backend.md`): pack records live in the same tables
-  with `pack_id`, `pack_version` columns; installs and updates are units of work through the
-  normal write path, so they are audited and versioned like any other change.
+- **Postgres backend** (`specs/postgres-backend.md`): pack records live in the same tables as
+  ordinary records, and `packs.json` (a catalog document) says which pack and version each came
+  from (`pack_id` / `pack_version` columns were considered and not needed); installs, updates
+  and disables are one change set through the normal write path, so they are audited and
+  versioned like any other change.
 - **Modules**: `CatalogPackContribution` packs install at build time through the same
   verification.
-- **UI**: Library → Packs (browse, install, update with diff, fork a record), and a pack
-  badge on every record that came from one.
+- **UI**: Modules → Catalog packs (installed list, update with diff, disable, Install pack…),
+  and in the Library a read-only chip and Fork to edit on a record that came from a pack.
+  Browsing a store index is still to come.
 
 ## 7. Phases
 
-1. Model fields (`license`, `provenance`, `derivedFrom`) and the pack manifest type; a
-   `pack verify` command (hashes, schema, `validateDb`).
-2. File-backend loading of installed packs; install from file; fork a record.
+1. Model fields (`license`, `provenance`, `derivedFrom`; **done**) and the pack manifest type
+   (done); a `pack verify` command (hashes, schema, `validateDb`; the skill's `verify-pack.mjs`
+   covers the last two).
+2. Loading of installed packs; install from file or URL; fork a record; update with a diff and
+   disable (**done**, both backends).
 3. The signed static index, store browsing and install/update with diff in the Library.
 4. First packs: `core-bodies`, `pro-audio`, `fieldbus`, `networking`, each reviewed against
    cited sources; the KiCad model-link pack built reproducibly.

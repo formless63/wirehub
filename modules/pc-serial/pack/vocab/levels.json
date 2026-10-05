@@ -6,12 +6,30 @@
     {
       "id": "rs232",
       "label": "RS-232 (±3…15 V)",
-      "src": "TIA-232-F"
+      "src": "TIA-232-F",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-232-F"
+          }
+        ]
+      }
     },
     {
       "id": "rs485",
       "label": "RS-485 differential",
-      "src": "TIA-485-A"
+      "src": "TIA-485-A",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-485-A"
+          }
+        ]
+      }
     }
   ]
 }

@@ -7,7 +7,16 @@
     "construction": "solder-cup",
     "body": "hd15-male",
     "interface": "vga",
-    "src": "VESA DDC pin assignment on a generic DE-15 male solder-cup connector"
+    "src": "VESA DDC pin assignment on a generic DE-15 male solder-cup connector",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "VESA DDC pin assignment on a generic DE-15 male solder-cup connector"
+        }
+      ]
+    }
   },
   {
     "id": "scart-male",
@@ -17,6 +26,15 @@
     "construction": "solder-cup",
     "body": "scart-21-male",
     "interface": "euroscart",
-    "src": "EN 50049-1 pin assignment on a generic SCART cable plug"
+    "src": "EN 50049-1 pin assignment on a generic SCART cable plug",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "EN 50049-1 pin assignment on a generic SCART cable plug"
+        }
+      ]
+    }
   }
 ]

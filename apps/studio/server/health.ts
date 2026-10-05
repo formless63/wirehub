@@ -9,8 +9,9 @@
  * carry a fixed word and the time taken, never an error message (the
  * endpoint is unauthenticated); the reason goes to the log.
  *
- * Not yet here: the worker heartbeat and the pg-boss failed-job count (the
- * worker is a later phase).
+ * With the worker (Phase C), the `worker` check fails when its newest
+ * heartbeat is older than five minutes. Not here: a failed-job count (jobs
+ * and their failures are `GET /api/jobs`).
  */
 
 import { statSync } from 'node:fs';
@@ -25,7 +26,7 @@ import { pendingMigrations } from './pg/migrate.ts';
 import { pendingModuleMigrations } from './pg/module-migrations.ts';
 
 export interface HealthCheck {
-  name: 'database' | 'migrations' | 'blobs' | 'backup';
+  name: 'database' | 'migrations' | 'blobs' | 'backup' | 'worker';
   ok: boolean;
   /** a fixed word: `ok`, `unreachable`, `pending`, `missing`, `stale` … */
   detail: string;
@@ -46,6 +47,10 @@ export interface DeepHealthOptions {
   modules?: readonly Pick<WireHubModule, 'id' | 'migrations'>[];
   /** the file the backup's post-snapshot hook touches (`WIREHUB_BACKUP_MARKER`); absent: not checked */
   backupMarker?: string;
+  /** the worker's newest heartbeat (pg with the worker); absent: not checked; undefined answer: none yet */
+  worker?: () => Promise<{ beatAt: string } | undefined>;
+  /** the oldest an acceptable heartbeat is, ms (default 5 min) */
+  workerMaxAgeMs?: number;
   /** the oldest an acceptable backup is, ms (default 30 h) */
   backupMaxAgeMs?: number;
   env?: string;
@@ -125,6 +130,16 @@ export function deepHealthCheck(options: DeepHealthOptions): () => Promise<DeepH
         }),
       );
     }
+    if (options.worker !== undefined) {
+      const worker = options.worker;
+      checks.push(
+        timed('worker', budget, log, async () => {
+          const beat = await worker();
+          if (beat === undefined) return 'missing';
+          return now() - Date.parse(beat.beatAt) > (options.workerMaxAgeMs ?? 5 * 60_000) ? 'stale' : undefined;
+        }),
+      );
+    }
     const done = await Promise.all(checks);
     return { ok: done.every((c) => c.ok), checks: done, env: options.env ?? null, version: options.version ?? null };
   };
@@ -136,6 +151,7 @@ const EVENT_FOR: Record<HealthCheck['name'], Pick<NotifyEvent, 'event' | 'severi
   backup: { event: 'backup-stale', severity: 'default', title: 'Backup is stale' },
   database: { event: 'database-check-failing', severity: 'high', title: 'Database check failing' },
   migrations: { event: 'migrations-pending', severity: 'high', title: 'Migrations pending' },
+  worker: { event: 'worker-stale', severity: 'high', title: 'Worker heartbeat stale' },
 };
 
 /**

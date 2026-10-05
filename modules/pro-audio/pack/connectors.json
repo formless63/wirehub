@@ -7,7 +7,16 @@
     "construction": "solder-cup",
     "body": "xlr3-female",
     "interface": "xlr-balanced-audio",
-    "src": "IEC 61076-2-103 / AES14 cable-mount female"
+    "src": "IEC 61076-2-103 / AES14 cable-mount female",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 61076-2-103 / AES14 cable-mount female"
+        }
+      ]
+    }
   },
   {
     "id": "xlr3-male",
@@ -17,7 +26,16 @@
     "construction": "solder-cup",
     "body": "xlr3-male",
     "interface": "xlr-balanced-audio",
-    "src": "IEC 61076-2-103 / AES14 cable-mount male"
+    "src": "IEC 61076-2-103 / AES14 cable-mount male",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 61076-2-103 / AES14 cable-mount male"
+        }
+      ]
+    }
   },
   {
     "id": "rca-male",
@@ -27,7 +45,16 @@
     "construction": "solder-cup",
     "body": "rca-male",
     "interface": "rca-single",
-    "src": "IEC 60603-12 phono plug, solder type"
+    "src": "IEC 60603-12 phono plug, solder type",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 60603-12 phono plug, solder type"
+        }
+      ]
+    }
   },
   {
     "id": "trs-3-5mm-male",
@@ -37,6 +64,15 @@
     "construction": "solder-cup",
     "body": "trs-3-5mm-male",
     "interface": "stereo-trs",
-    "src": "IEC 60603-11 3.5 mm stereo plug, solder type"
+    "src": "IEC 60603-11 3.5 mm stereo plug, solder type",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 60603-11 3.5 mm stereo plug, solder type"
+        }
+      ]
+    }
   }
 ]

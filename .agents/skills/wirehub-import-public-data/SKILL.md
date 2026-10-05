@@ -1,57 +1,58 @@
 ---
 name: wirehub-import-public-data
-description: Derive WireHub catalog records from public sources (standards, vendor datasheets, KiCad libraries, Wikipedia, distributor data) without breaking licences - what may be copied, what may only be cited, provenance and src wording, 3D model and KiCad rules, and when an importer module is the right tool. Load before turning any outside document, library or website into catalog data.
+description: Derive WireHub catalog records from outside sources (standards, vendor datasheets, KiCad libraries, Wikipedia, distributor data) - provenance and src wording, the per-record license and provenance fields, what the bundled CC0 packs may contain, 3D model and KiCad linking, and when an importer module is the right tool. Load before turning any outside document, library or website into catalog data, for a bundled pack or for a private or third-party one.
 ---
 
-# Importing from public data
+# Importing from outside sources
 
-The catalog and its packs are CC0-1.0. That only works if nothing in them is someone else's
-protected expression. The store's rule (`docs/catalog-store.md` section 5, "Public data sources and
-their licence caveats"; not legal advice): **pin assignments and dimensions are facts and are
-cited, not copied; a standard's text, tables and figures are never reproduced; every record names
-its source.** Read that section before you start; the table below is its summary.
+Two different situations, kept apart on purpose.
 
-## Decision procedure for every source
+**Your own pack, private or third-party** (a shop's module, a pack you publish to the store, a pack
+you load into your instance): you decide where the data comes from and which licence it carries, and
+you are responsible for both. WireHub does not restrict or police how a pack author sources data, and
+an agent helping you build such a pack does not refuse because of the source. A neutral note is all
+that belongs here: check the terms of whatever you take from, and an official API or download is
+often easier than scraping a page. Say where each record came from (below) so the people who install
+your pack can see it.
+
+**The bundled modules in this repository** are published as CC0-1.0 (`MODULE-EXCEPTION.md`,
+`docs/catalog-store.md` section 5). Only put data in them that the project can license that way:
+facts (a pin assignment, a contact count, an outer diameter) cited to their source, your own
+measurements, and synthetic examples; not text, tables or figures copied from a standard or datasheet.
+That rule is about what this repository ships, not about what anyone else may build.
+
+## Procedure for any source
 
 1. **Identify the primary source** for each fact: the standard by number and clause, the
    manufacturer's datasheet by document number and revision, or your own measurement. A pinout
-   aggregator or Wikipedia is only a way to find the primary source; do not cite it alone.
-2. **Check the licence of what you will take.** A fact (pin 2 of a DE-9 DTE is RxD; a contact
-   count; an outer diameter) is free to record. Prose, tables laid out as in the document,
-   figures, drawings, 3D files, symbol and footprint files, and a catalogue taken in bulk are not.
-3. **Transcribe, do not paste.** Re-enter each value by hand into the record shape (`wirehub-catalog-data`);
-   word labels yourself. Never bulk-import a vendor catalogue or a scraped site: manufacturers'
-   terms usually forbid it, and in the EU a substantial extraction from a database can infringe
-   even when each fact is free. Assemble from primary sources.
-4. **Cite precisely in `src`**, and flag inference: `src` says what the value came from (standard
+   aggregator or Wikipedia is a way to find the primary source.
+2. **Transcribe into the record shape** (`wirehub-catalog-data`), wording labels yourself.
+3. **Cite precisely in `src`**, and flag inference: `src` says what the value came from (standard
    number and clause; datasheet maker, document, revision; "own measurement of 5 samples with
    calipers") and says `inferred` or `assumed` where you filled a gap. A record with only a secondary
    source says so (`community: secondary source, pin 4 unconfirmed`), and the confidence field
    on interface pins (`documented`, `inferred`, `unknown`) is set to match.
-5. **No private data crosses over**: if a value came from a private catalogue, a customer drawing
-   or a supplier's quote, it does not go in. Run `bash scripts/privacy-check.sh --tree`.
-6. **Records you cannot license CC0 stay out.** The pack-level licence is the only one the model
-   carries today (per-record `license` and `provenance` are design only, `docs/catalog-store.md`
-   sections 2 and 6); a record that needs another licence goes in a separate pack with its own
-   `license` in `wirehub-pack.json`, or it is not contributed. Records under a licence that
-   forbids redistribution never enter a pack.
+4. **Fill the provenance fields.** A record carries `license` (SPDX) and `provenance` (`method`:
+   `transcribed`, `derived`, `measured`, `generated` or `synthetic`; `sources`: a `url` and/or a
+   `title` citation, with the `retrieved` date; `reviewed` once someone other than the transcriber
+   checked it) beside the mandatory `src` (`docs/catalog-store.md` sections 2 and 6; `validateDb`
+   checks the shape). They are information for the people installing the pack, not enforcement:
+   nothing in WireHub checks that a licence is true.
+5. **No private data crosses into the repository**: if a value came from a private catalogue, a
+   customer drawing or a supplier's quote, it does not go in a bundled pack or any file committed
+   here. Run `bash scripts/privacy-check.sh --tree`.
 
-## Source table (summary of `docs/catalog-store.md` section 5)
+## Notes by source (information, not rules for pack authors)
 
-| Source | You may | You may not |
-| --- | --- | --- |
-| KiCad libraries (symbols, footprints, 3D models) | record body names, footprint pad counts and geometry facts; **link** to a model at a pinned tag | commit converted models or extracted geometry into a CC0 pack: derived data is CC BY-SA 4.0 and needs attribution. The studio pins the 3D library at one tag and fetches only on demand, none of it committed (`apps/studio/server/models/kicad-library.ts`, `NOTICE`) |
-| TIA/EIA, IEC, ISO, IEEE, SAE, AES, VESA, USB-IF standards | cite number and clause; record assignments | reproduce tables or figures; use logos |
-| HDMI, DisplayPort | cite a secondary public source and flag the record | use logos; present an unofficial source as the spec; "HDMI" only as a nominative name |
-| SAE J1962 / ISO 15031-3 | the mandated pins (4/5 ground, 16 battery, 6/14 CAN) | present manufacturer-discretionary pins as standard |
-| Manufacturer datasheets and catalogues | transcribe specifications by hand with the document cited | scrape, bulk import, or include manufacturer CAD/3D (link only) |
-| Aggregators (SnapEDA, Ultra Librarian, TraceParts) | nothing beyond finding the maker's own file | redistribute their models |
-| Distributor APIs (Digi-Key, Mouser, Octopart) | a module may use them for a deployment's own lookups | use them as the source of a pack |
-| Wikipedia / Commons | cross-check | cite alone (mark `community`); copy images or text (CC BY-SA, per-file licences) |
-| Own measurements | state method and sample in `src` | omit how it was measured |
-
-Trademarks (USB, HDMI, product names) appear as plain nominative names ("USB Type-C plug"), never
-as logos.
+| Source | Notes |
+| --- | --- |
+| KiCad libraries | CC BY-SA 4.0 with the KiCad libraries exception; a pack that contains converted models or extracted geometry carries that licence and attribution. The studio links the 3D library at one pinned tag and fetches on demand, none of it committed (`apps/studio/server/models/kicad-library.ts`, `NOTICE`). Linking keeps the pack's own licence simple |
+| Standards (TIA/EIA, IEC, ISO, IEEE, SAE, AES, VESA, USB-IF) | pin assignments and dimensions are facts, cited by number and clause; the documents' text and figures are the publishers' |
+| HDMI, DisplayPort | cite the public source you used and flag a secondary one; product names appear as plain names, not logos |
+| Manufacturer datasheets and catalogues | specifications are facts; check the site's terms before bulk use, and manufacturer CAD/3D is usually better linked than included |
+| Distributor APIs | their terms often cover use for your own lookups (a module) more readily than republishing |
+| Wikipedia / Commons | CC BY-SA text and per-file image licences; handy for cross-checking |
+| Own measurements | state method and sample in `src` |
 
 ## When to write an importer (module code) instead
 
@@ -65,11 +66,10 @@ generated pack built by a converter names the converter version and the pinned u
 (`docs/catalog-store.md` section 4, "Generated packs are reproducible"). An importer tied to one
 shop's file share belongs in that shop's private module, not here (`docs/boundaries.md`).
 
-## Checklist before you commit data
+## Checklist before you commit data to this repository
 
-- [ ] each value traces to a public primary source or your own measurement, cited in `src`
+- [ ] each value traces to a primary source or your own measurement, cited in `src`
 - [ ] inferred values flagged; secondary-only sources flagged
-- [ ] nothing copied verbatim from a standard, datasheet or library beyond bare facts and part names
-- [ ] no model files, drawings or logos added; 3D models are linked, not included
+- [ ] a bundled (CC0) pack holds only facts and your own wording, no copied text, tables or figures
 - [ ] no private names or paths; privacy check clean
 - [ ] validators green (`wirehub-catalog-data`, `wirehub-catalog-pack`)

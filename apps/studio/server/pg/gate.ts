@@ -16,7 +16,7 @@
  * (`defaultWorkbenchDeps`) when the tree is the live catalog, and the
  * snapshot stores over the directory on disk otherwise (any catalog: a
  * deployment's, the starter with packs installed).
- * Derived blobs (converted models) are not compared until Phase C (C6).
+ * | `derived-blobs` | with `models` (after the `model-cache` job): every live model key built in `derived_blob` at the current converter version; and, given the file backend's model cache, the same bytes for every key both hold (the builder is deterministic, §5.5) |
  */
 
 import { createCatalog, memoryCatalogSource, type Catalog } from '@wirehub/catalog';
@@ -35,6 +35,10 @@ import { pgWorkbenchDeps, type SnapshotSource } from './deps.ts';
 import { usageFromEdges, referencesOf, type SourcedEdge } from './refs.ts';
 import { blobObjectKey } from './keys.ts';
 import type { Snapshot } from './snapshot.ts';
+import { liveModelLinks } from '../jobs/model-cache.ts';
+import type { ModelCache } from '../models/cache.ts';
+import type { ModelLink } from '../models/links.ts';
+import { pgModelCache } from './model-cache.ts';
 
 export interface GateCheck {
   name: string;
@@ -61,6 +65,8 @@ export interface GateOptions {
   pg: { db: Db; cache: SnapshotSource; blobs?: BlobStore };
   /** the real file backend's deps, when `root` is the live catalog (they read nowhere else) */
   filesDeps?: WorkbenchDeps;
+  /** compare derived blobs (C6): run after the `model-cache` job; `fileCache` is the file backend's built models */
+  models?: { fileCache?: ModelCache };
 }
 
 const MAX_DIFFS = 50;
@@ -300,6 +306,26 @@ export async function runGate(options: GateOptions): Promise<GateReport> {
   if (options.filesDeps !== undefined) {
     const filesDeps = options.filesDeps;
     checks.push(await check('api-parity-file-stores', (diff) => apiParity(routes, filesDeps, pgDeps, 'file stores vs pg', diff)));
+  }
+
+  if (options.models !== undefined) {
+    const fileCache = options.models.fileCache;
+    checks.push(
+      await check('derived-blobs', async (diff) => {
+        const links = liveModelLinks(snapshot.files.get('data/models.json') === undefined ? [] : (JSON.parse(snapshot.files.get('data/models.json') as string) as { links: ModelLink[] }).links);
+        const pgCache = pgModelCache(options.pg.db, options.pg.cache.orgId, pgBlobs);
+        for (const link of links) {
+          const built = await pgCache.get(link.asset);
+          if (built === undefined) {
+            diff(`${link.record}: live model key ${link.asset} is not built`);
+            continue;
+          }
+          const theirs = await fileCache?.get(link.asset);
+          if (theirs !== undefined && sha256Hex(new Uint8Array(theirs)) !== sha256Hex(new Uint8Array(built))) diff(`${link.record}: key ${link.asset} built to different bytes on files and pg`);
+        }
+        return links.length;
+      }),
+    );
   }
 
   return { ok: checks.every((c) => c.diffs.length === 0), checks, routes };

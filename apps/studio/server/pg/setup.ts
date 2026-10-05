@@ -7,13 +7,15 @@
  * record into the catalog, `packs.json` and `setup.json` at its root — how the
  * database holds a catalog). Every file that changed is committed as one
  * change set of `doc` writes, with the tag tables regenerated in it. Nothing
- * is written when the handler refuses.
+ * is written when the handler refuses. The pack lifecycle (`/api/packs`, `packs.ts`) runs
+ * through the same transaction, so a pack's update or disable is one change set too.
  */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+import { isSkippedPath } from '@wirehub/catalog/src/codec/index.ts';
 import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 
 import { commitUnit, publishCatalog, type WorkbenchDeps } from '../api.ts';
@@ -59,6 +61,13 @@ export function pgSetupDeps(workbench: WorkbenchDeps, cache: SnapshotSource, opt
           if (!path.startsWith('data/') || typeof content !== 'string' || before.get(path) === content) continue;
           if (!isDocPath(path)) throw new Error(`setup wrote ${path}, which the catalog cannot hold`);
           await docs.write(path, parseDoc(path, content));
+          changed = true;
+        }
+        // a file the handler removed (a disabled pack's vocabulary list, an example design)
+        for (const path of before.keys()) {
+          if (after.has(path) || isSkippedPath(path)) continue;
+          if (!isDocPath(path)) throw new Error(`setup removed ${path}, which the catalog cannot hold`);
+          await docs.remove(path);
           changed = true;
         }
         // the tag tables cover every record, the packs' included

@@ -1,12 +1,43 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.4 (rev 6 was the first revision in the open base). **Phases A
-(schema and read path), B (write path, blobs, API clients) and S (self-hosted install)
-are built** (§11); C (worker), D and E are plan — v0.1.0 ships without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
+Status: **plan**, rev 6.5 (rev 6 was the first revision in the open base). **Phases A
+(schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
+C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.5** — Phase C built. **Jobs have one shape on every backend** (`server/jobs/`):
+  a `JobRun` kept by a store (memory on files, `studio.job_run`/`job_file` on pg) and run
+  by a runner — in the studio process, one at a time, on the file backend (and on pg with
+  `WIREHUB_WORKER=off`), or by the **worker** (`server/worker.ts`, `worker-run.ts`)
+  through pg-boss on pg. Migration **0016**: schema `pgboss` (studio_app may create
+  tables in it, not schemas; pg-boss runs with `createSchema: false`; the worker grants
+  `studio_ro` read on its tables so `pg_dump` keeps working) and
+  `studio.worker_heartbeat` (RLS). **The import job (§7.5):** the synchronous module import
+  (`POST /api/modules/:module/_import/:importer`, `module-io.ts`) runs as a job with
+  `job: true`; what it would write (`proposalOf`: new definitions and designs, never one that
+  exists) goes through the very routes a person's edits would (`POST /api/definitions/…`,
+  `POST /api/designs`) in one unit of work; the staged record changes (as JSON *text* in
+  `job_run.result.plan` — a `jsonb` value would sort their keys, R1) are the plan, and their
+  effect on the catalog files is `job_file`; `POST /api/jobs/:id/publish` is a request (409
+  "changed since the import ran"), not a job. New routes: `GET/POST /api/jobs`,
+  `GET /api/jobs/:id`, `POST /api/jobs/:id/publish`. **A new queue, `convert`:** a person's STEP upload converts in the
+  worker (whose 1.5 GiB budget is sized for it) while the request waits — the upload's
+  request and answer are unchanged; GLB/STL stay in the studio, and files convert
+  everything in process as before. **`model-cache`** rebuilds every live key from its
+  sources (`WIREHUB_MODEL_SOURCES`, plus the catalog's depiction art) through the same
+  capped conversion, keys checked against `sourceKey`; `derived_blob` records `inputs`,
+  `triangles`, `job_id`; the gate's `derived-blobs` check (`pg:gate --models`). **The
+  `backup` queue is a watch, not a dump:** the backup profile (Phase S) makes the backups;
+  the worker reads the read-only `backups` volume, marks `blob.backed_up_at` and alerts on
+  a dump older than 30 h. GC deletes an orphan only after the snapshot marker
+  (`WIREHUB_BACKUP_MARKER`, the deep check's; default `<backups>/.last-snapshot`) is newer
+  than it (no marker: kept). `restore-check` stays `backup-dump`'s weekly job. Alerts go
+  through the monitoring webhook (`server/notify.ts`, §8.6). The deep health check (§8.3)
+  gains `worker`: the newest heartbeat older than five minutes fails it.
+  `WIREHUB_STEP_RSS_LIMIT_MB` (1280 in the worker) keeps the child inside the cap. Not in
+  C: module-registered queues (§3.13), the Backrest hook that touches the marker.
 - **rev 6.4** — Phase S built. The compose stack runs `WIREHUB_BACKEND=pg`,
   `WIREHUB_ENV=prod` and sign-in on by default. **Setup mode (§9.1–9.2):** a database with
   no organisation answers 503 everywhere but `/api/setup`; `/setup`, with the setup code,
@@ -226,16 +257,18 @@ and nothing else.
 
 | Queue | Trigger | Does |
 | --- | --- | --- |
-| `import` | a module importer started from the UI (`POST /api/modules/<id>/…` that enqueues) | runs the importer over a snapshot; the plan goes into `job_file`; publish = one change set (§7.5) |
-| `model-cache` | after any commit that adds or changes a `model_link` that needs conversion; at boot when `CONVERTER_VERSION` has no rows | builds the missing or stale GLBs into `derived_blob` (§5.5) |
-| `derive` | only on repair (`derived_doc.inputs_version ≠ head`) | recomputes derived docs |
-| `blob-gc` | daily, after the backup | mark and sweep record blobs; expire derived blobs no live key names (§5.4) |
-| `backup` | daily at `WIREHUB_BACKUP_AT` (default 03:00 local) when `WIREHUB_BACKUP_DIR` is set | `pg_dump` + record-blob mirror (§8.4) |
-| `restore-check` | weekly when backups are on | restores the latest dump into a scratch database and compares counts and sampled hashes (§8.5) |
-| `parity` | only while migrating from files (§7.4) | compares every GET route between backends |
+| `import` | `POST /api/modules/<module>/_import/<importer>` with `job: true` (a base64 file, up to 24 MB) | runs the importer over the snapshot; what it would write (new records only) through the definition and design routes in one unit of work; the staged changes are the plan, their files `job_file`; publish = `POST /api/jobs/:id/publish`, one change set (§7.5) |
+| `convert` | a person's STEP upload (`POST /api/models/:kind/:id/upload`) on pg | converts it in the capped child; the upload waits for the answer, unchanged in shape (as built, rev 6.5) |
+| `model-cache` | after any commit that adds or changes an imported `model_link` (`afterCommit`); at worker boot; `POST /api/jobs`; daily at the window's start with `WIREHUB_CONVERT_WINDOW` | builds every live key not built at the current `CONVERTER_VERSION` into `derived_blob` (§5.5) |
+| `derive` | at worker boot and daily (04:00); `POST /api/jobs` | recomputes the derived docs over freshly read rows; commits (source `worker`) only when they differ |
+| `blob-gc` | daily (04:30) | mark and sweep record blobs; expire derived blobs no live key names; stray objects (§5.4) |
+| `backup` | hourly, and at boot | watches the backup profile's volume (`WIREHUB_BACKUP_DIR`, read-only): marks `blob.backed_up_at`, alerts on a stale dump (§8.4) |
+| `parity` | only while migrating from files (§7.4) | compares every GET route between backends (Phase D) |
 
-Modules may register queues of their own through an integration (§3.13). There is no
-permanent export job: the export is on demand (§7.6).
+The dump, the bucket mirror and the weekly restore check are the `backup` profile's
+(`backup-dump`, `backup-mirror`, Backrest; §8.4–8.5), not worker jobs. Modules may register
+queues of their own through an integration (§3.13; not built yet). There is no permanent
+export job: the export is on demand (§7.6).
 
 ---
 
@@ -1241,6 +1274,36 @@ ALTER DEFAULT PRIVILEGES FOR ROLE studio_owner IN SCHEMA studio, auth GRANT SELE
 ALTER DEFAULT PRIVILEGES FOR ROLE studio_owner IN SCHEMA studio, auth GRANT SELECT ON SEQUENCES TO studio_ro;
 ```
 
+Phase C added the worker's queue schema and heartbeat (§2, §8.3). pg-boss runs as
+`studio_app` with `createSchema: false` and creates its own tables inside `pgboss`; the
+worker grants `studio_ro` read access to them at boot (`ALTER DEFAULT PRIVILEGES` for its
+own role), so `pg_dump` as `studio_ro` keeps working:
+
+```sql ddl
+-- 0016_worker — the worker's queue schema and its heartbeat (§2, §8.3)
+-- pg-boss's schema: the worker and the studio (studio_app) create its tables
+-- in it on first start; the app may not create schemas, so this one is made here.
+CREATE SCHEMA pgboss;
+GRANT USAGE, CREATE ON SCHEMA pgboss TO studio_app;
+GRANT USAGE ON SCHEMA pgboss TO studio_ro;
+
+-- One row per worker process, beaten every 60 s; a deep health check fails
+-- when the newest is older than five minutes.
+CREATE TABLE studio.worker_heartbeat (
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  worker      text NOT NULL CHECK (length(worker) BETWEEN 1 AND 200),
+  version     text NOT NULL,
+  started_at  timestamptz NOT NULL,
+  beat_at     timestamptz NOT NULL DEFAULT now(),
+  queues      text[] NOT NULL DEFAULT '{}',
+  PRIMARY KEY (org_id, worker)
+);
+ALTER TABLE studio.worker_heartbeat ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.worker_heartbeat FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.worker_heartbeat USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+GRANT SELECT, INSERT, UPDATE, DELETE ON studio.worker_heartbeat TO studio_app;
+```
+
 ---
 
 ## 4. PgStore
@@ -1544,9 +1607,11 @@ The re-read costs one extra GET per upload; uploads are rare, so it stays on.
 - Daily, after the backup. The live set of **record** blobs is every sha referenced by
   `asset`, `drawing_photo`, `depiction_file`, `design_artwork`, `catalog_file`, `job_file` (jobs < 7
   days) and `qa_test_run.raw_blob`. Assets are roots.
-- A record blob not in the live set becomes an orphan. After 30 days its object and its
-  row are deleted — and only if a backup completed **after** it became an orphan (its
-  copy then stays in the backup for the retention period).
+- A record blob not in the live set (and older than 24 h) becomes an orphan. After 30 days
+  its row and then its object are deleted — and only if a backup completed **after** it
+  became an orphan (its copy then stays in the backup for the retention period). As built:
+  "completed" is the modification time of `<WIREHUB_BACKUP_DIR>/.last-snapshot`, which
+  Backrest's post-snapshot hook touches; without it no orphan is deleted.
 - **Derived** blobs: the live keys are every `model_link.asset_key` where `imported`, at
   the current builder version. Any other `derived_blob` row is deleted after 7 days, and
   its blob follows the orphan rule. Always safe: a rebuild makes it again.
@@ -1713,7 +1778,7 @@ with Garage for uploaded bytes and Postgres bootstrapped and migrated:
 | `migrate` | the app image, `server/pg/cli.ts bootstrap` + `migrate` | 256 MiB | one-shot: roles and database (idempotent, safe on an existing volume), then every migration; `wirehub` depends on it | `worker` too |
 | `garage` | `dxflrs/garage` (pinned) | 256 MiB | blob store, single node, internal network; config from the volume | the same |
 | `garage-init` | the app image, `stack/garage-init.ts` | 128 MiB | one-shot: layout, bucket, the app key and a read-only backup key — created by Garage, written to the volume | the same |
-| `worker` | the app image, `server/worker.ts` | 1.5 GiB | — | jobs (§2), model conversion |
+| `worker` | the app image, `server/worker.ts` | 1.5 GiB | — | jobs (§2), model conversion; built in Phase C: volumes `secrets` (ro), `blobs`, `backups` (ro); health check on its heartbeat file |
 
 Profile `backup` (§8.4): `backup-init`, `backup-dump`, `backup-mirror`, `backrest`.
 
@@ -1765,6 +1830,11 @@ Nothing is required; `.env` (or a Docker UI's environment box) overrides what it
 | `BACKUP_REPOSITORY`, `BACKUP_REPOSITORY_PASSWORD`, `BACKUP_SCHEDULE` | a local repository; generated; `0 3 * * *` | §8.4 |
 | `BACKUP_DUMP_AT`, `BACKUP_KEEP_DUMPS`, `BACKUP_MIRROR_INTERVAL`, `BACKREST_PORT` | `02:30`; `7`; `3600`; `9898` | §8.4 |
 | `WIREHUB_NOTIFY_URL` | — | optional webhook for alerts (§8.6) |
+| `WIREHUB_WORKER` | on | `off`: the studio runs the jobs itself (no `worker` service) |
+| `WIREHUB_CONVERT_WINDOW` | — | `HH:MM-HH:MM`: model builds only then (§5.5) |
+| `WIREHUB_STEP_RSS_LIMIT_MB` | 1400; 1280 in the compose worker | the STEP child's watchdog |
+| `WIREHUB_MODEL_SOURCES` | — | the folder imported models are rebuilt from (mounted into the worker) |
+| `WIREHUB_BACKUP_DIR` | `/backups` in the compose worker | the backup profile's volume, read-only (§5.4, §8.4) |
 
 ### 8.3 Health checks
 
@@ -1773,8 +1843,9 @@ Nothing is required; `.env` (or a Docker UI's environment box) overrides what it
   (`HEAD` of a canary object written at boot); the age of the last successful backup when
   backups are on (≤ 30 h); the pg-boss failed-job count; `WIREHUB_ENV` and the image's
   version.
-- worker: a heartbeat row it updates every 60 s; the studio's deep check fails when it is
-  older than 5 minutes.
+- worker: a heartbeat row it updates every 60 s (`studio.worker_heartbeat`, shown by `GET
+  /api/jobs`); the studio's deep check (`worker`) fails when it is older than 5 minutes. The container's own health check reads the file the worker touches with
+  each beat (`WIREHUB_WORKER_BEAT_FILE`).
 
 ### 8.4 Backups
 
@@ -2038,7 +2109,23 @@ serialise on the head row.
 token (SA1); a staging pg studio used for a day of real edits with save p95 within S5; one
 multi-design batch committed as one change set after a dry run whose diff matched it.
 
-### Phase C — worker and jobs (≈ 8 d)
+### Phase C — worker and jobs (≈ 8 d) — built (rev 6.5)
+
+As built (see the changelog): C1 `server/jobs/` (store, runner, service), `pg/jobs.ts`
+(pg-boss as `studio_app`, `job_run`, the heartbeat), `worker.ts`/`worker-run.ts`, compose
+`worker` (1536 MiB, after `migrate`); C2 the import job through the routes, plan as text +
+`job_file`, publish as a request; C4 GC (`pg/gc.ts`) and the backup *watch*; C5 the derive
+repair and `jobs/notify.ts`; C6 `model-cache` (sources, `sourceKey` check, the window), the
+determinism check (a STEP converts to the same bytes twice, and through the job as in
+process) and the gate's `derived-blobs`. Added: the `convert` queue. Gate: the example
+importer's run, plan, publish and resulting catalog are identical on files, on pg in
+process and on pg through the worker (`test/pg/jobs.server.test.ts`); the worker's boot
+sweep builds every live key (after a "restore": links with no derived blobs);
+`stack-smoke.sh` (default stack): the worker waits for setup, converts a STEP upload and
+runs a job end to end, a dump as `studio_ro` (pgboss included) restores into a scratch
+database, the app stays healthy. S6: in the worker's 1536 MiB cgroup a 4.3 MB STEP peaks at
+622 MiB; a 33 MB STEP is stopped by the 1280 MB watchdog at a 1385 MiB container peak (no
+OOM kill); the smoke stack's worker peaked at 384 MiB, the app sat at 120 MiB.
 
 | # | Task | Size | Depends on |
 | --- | --- | --- | --- |

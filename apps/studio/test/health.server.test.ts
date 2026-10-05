@@ -57,6 +57,13 @@ describe('/healthz', () => {
     expect(result.checks[0]).toMatchObject({ name: 'blobs', detail: 'unreachable' });
   });
 
+  it('the worker check fails on a heartbeat older than five minutes, or none', async () => {
+    const at = (ms: number) => async () => ({ beatAt: new Date(Date.now() - ms).toISOString() });
+    expect((await deepHealthCheck({ worker: at(60_000) })()).checks).toEqual([expect.objectContaining({ name: 'worker', ok: true })]);
+    expect((await deepHealthCheck({ worker: at(6 * 60_000) })()).checks[0]).toMatchObject({ name: 'worker', ok: false, detail: 'stale' });
+    expect((await deepHealthCheck({ worker: async () => undefined })()).checks[0]).toMatchObject({ name: 'worker', ok: false, detail: 'missing' });
+  });
+
   it('the monitor alerts on a failing check', async () => {
     const sent: string[] = [];
     const stop = startHealthMonitor(

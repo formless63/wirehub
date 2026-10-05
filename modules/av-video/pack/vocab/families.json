@@ -10,7 +10,16 @@
         "VGA",
         "DE-15"
       ],
-      "src": "VESA DDC"
+      "src": "VESA DDC",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC"
+          }
+        ]
+      }
     },
     {
       "id": "scart",
@@ -19,7 +28,16 @@
         "Peritel",
         "EuroSCART"
       ],
-      "src": "IEC 60933-1 / EN 50049-1"
+      "src": "IEC 60933-1 / EN 50049-1",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60933-1 / EN 50049-1"
+          }
+        ]
+      }
     },
     {
       "id": "jp21",
@@ -32,7 +50,16 @@
     {
       "id": "bnc",
       "label": "BNC",
-      "src": "IEC 61169-8"
+      "src": "IEC 61169-8",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 61169-8"
+          }
+        ]
+      }
     }
   ]
 }

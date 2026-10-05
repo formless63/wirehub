@@ -6,12 +6,30 @@
     {
       "id": "rgb-analog",
       "label": "Analog RGB (0.7 Vp-p, 75 Ω)",
-      "src": "VESA analog video signal standard (public)"
+      "src": "VESA analog video signal standard (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA analog video signal standard (public)"
+          }
+        ]
+      }
     },
     {
       "id": "cvbs-1vpp",
       "label": "Composite video (1 Vp-p, 75 Ω)",
-      "src": "ITU-R BT.1700 (public)"
+      "src": "ITU-R BT.1700 (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "ITU-R BT.1700 (public)"
+          }
+        ]
+      }
     }
   ]
 }

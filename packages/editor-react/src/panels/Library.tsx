@@ -871,15 +871,16 @@ export function Library(props: LibraryProps): JSX.Element {
 
   /** someone else holds this record's edit lock: shown, controls disabled */
   const editLocked = useEditLocked();
-  const readOnly =
-    definitions === undefined ||
-    (mode.kind === 'edit' && (list.generated ?? []).some((record) => record.id === mode.id));
+  /** the installed pack this record came from, when it did: read-only, fork to edit */
+  const packOrigin = mode.kind === 'edit' && list.kind === kind ? list.packs?.[mode.id] : undefined;
+  const generatedRecord = mode.kind === 'edit' && (list.generated ?? []).some((record) => record.id === mode.id);
+  const readOnly = definitions === undefined || generatedRecord || packOrigin !== undefined;
   /**
    * An imported board is read-only, but its pad tags are not the record's:
    * they are corrections in the tag review file, which a re-import
    * keeps — so they stay editable.
    */
-  const tagsOnly = readOnly && kind === 'pcbas' && definitions !== undefined && vocabAdapter !== undefined;
+  const tagsOnly = generatedRecord && kind === 'pcbas' && definitions !== undefined && vocabAdapter !== undefined;
 
   /* the board journey: a board's detail as the steps a new PCB takes */
   const journey = useBoardJourney({
@@ -1018,7 +1019,26 @@ export function Library(props: LibraryProps): JSX.Element {
       disabled: editLocked,
       onClick: focusEditor,
     });
-    if (kind === 'connectors' && baseline !== undefined && definitions !== undefined) {
+    if (packOrigin !== undefined && definitions?.fork !== undefined) {
+      const fork = definitions.fork.bind(definitions);
+      const id = mode.id;
+      recordActions.push({
+        id: 'fork',
+        label: 'Fork to edit',
+        title: `Copy this record under a new id of your own (it remembers it came from ${packOrigin.pack} ${packOrigin.version})`,
+        primary: true,
+        disabled: busy,
+        onClick: () => {
+          const asked = typeof window === 'undefined' ? null : window.prompt('Id for your copy (lowercase words joined by hyphens):', `${id}-local`);
+          if (asked === null || asked.trim() === '') return;
+          void run(async () => {
+            const outcome = await fork(kind, id, asked.trim());
+            if (!outcome.ok) return { ok: false, problem: { message: outcome.message, ...(outcome.hint === undefined ? {} : { hint: outcome.hint }), details: (outcome.issues ?? []).map((issue) => describeIssue(issue)) } };
+            return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Forked ${id} as ${outcome.value.id}` };
+          });
+        },
+      });
+    } else if (kind === 'connectors' && baseline !== undefined && definitions !== undefined) {
       const source = baseline as ConnectorDefinition;
       recordActions.push({
         id: 'variant',
@@ -1360,7 +1380,14 @@ export function Library(props: LibraryProps): JSX.Element {
               {...(mode.kind === 'edit' ? { id: mode.id } : {})}
               chips={
                 <>
-                  {readOnly && definitions !== undefined ? (
+                  {packOrigin !== undefined ? (
+                    <span
+                      className="cs-chip"
+                      title="Records from an installed pack are read-only: a pack update replaces them. Fork it to edit a copy of your own; designs move to the copy when you choose."
+                    >
+                      From pack {packOrigin.pack} {packOrigin.version} — read-only
+                    </span>
+                  ) : generatedRecord && definitions !== undefined ? (
                     <span
                       className="cs-chip"
                       title={

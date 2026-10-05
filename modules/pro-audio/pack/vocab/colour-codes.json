@@ -10,7 +10,16 @@
         "white": "audio-l",
         "red": "audio-r"
       },
-      "src": "RCA convention (white = left, red = right)"
+      "src": "RCA convention (white = left, red = right)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "RCA convention (white = left, red = right)"
+          }
+        ]
+      }
     },
     {
       "id": "balanced-mic",
@@ -19,7 +28,16 @@
         "red": "audio-hot",
         "white": "audio-cold"
       },
-      "src": "common microphone-cable practice (red = hot, white = cold); synthetic example"
+      "src": "common microphone-cable practice (red = hot, white = cold); synthetic example",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "common microphone-cable practice (red = hot, white = cold); synthetic example"
+          }
+        ]
+      }
     }
   ]
 }

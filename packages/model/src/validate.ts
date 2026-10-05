@@ -29,6 +29,7 @@ import {
 import { compatibilityIssues } from './compat.ts';
 import { breakoutFates, breakoutIssues, inScope, segmentElectricalPaths } from './breakouts.ts';
 import { viaText } from './link-elements.ts';
+import { recordMetaIssues } from './provenance.ts';
 import { validateVocab, vocabEntry, vocabReferenceIssues } from './vocab.ts';
 import { validateInterfaces } from './interfaces.ts';
 import { validateKits } from './kits.ts';
@@ -621,6 +622,7 @@ export function validateDb(db: Db): Issue[] {
 
   for (const connector of db.connectors) {
     if (!connector.src) issues.push(missingSrc(`connectors/${connector.id}`));
+    issues.push(...recordMetaIssues(connector, `connectors/${connector.id}`));
     for (const id of duplicateIds(connector.pins.map((p) => p.id))) {
       issues.push(
         issue(
@@ -634,6 +636,7 @@ export function validateDb(db: Db): Issue[] {
 
   for (const component of db.components) {
     if (!component.src) issues.push(missingSrc(`components/${component.id}`));
+    issues.push(...recordMetaIssues(component, `components/${component.id}`));
     for (const id of duplicateIds(component.terminals.map((t) => t.id))) {
       issues.push(
         issue(
@@ -648,6 +651,7 @@ export function validateDb(db: Db): Issue[] {
   for (const wire of db.wires) {
     const where = `wires/${wire.id}`;
     if (!wire.src) issues.push(missingSrc(where));
+    issues.push(...recordMetaIssues(wire, where));
     for (const dupe of duplicateSiblingIds(wire.structure)) {
       issues.push(
         issue(
@@ -701,6 +705,7 @@ export function validateDb(db: Db): Issue[] {
   for (const pcba of db.pcbas) {
     const where = `pcbas/${pcba.id}`;
     if (!pcba.src) issues.push(missingSrc(where));
+    issues.push(...recordMetaIssues(pcba, where));
     for (const id of duplicateIds(pcba.terminals.map((t) => t.id))) {
       issues.push(
         issue(
@@ -750,6 +755,7 @@ export function validateDb(db: Db): Issue[] {
 
   for (const mechanical of db.mechanicals ?? []) {
     if (!mechanical.src) issues.push(missingSrc(`mechanicals/${mechanical.id}`));
+    issues.push(...recordMetaIssues(mechanical, `mechanicals/${mechanical.id}`));
   }
 
   // the controlled vocabularies and every tag that points into them (data

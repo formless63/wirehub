@@ -10,6 +10,7 @@
  */
 
 import { sql } from 'kysely';
+import type { InstalledPacks } from '@wirehub/catalog';
 import { CURRENT_SCHEMA_VERSION } from '@wirehub/model';
 
 import type { WorkbenchDeps } from '../api.ts';
@@ -33,6 +34,14 @@ import { authRequested } from '../auth/config.ts';
 import type { StudioAuth } from '../auth/studio-auth.ts';
 import { parseSuggestedModules } from '../setup.ts';
 import { pgLockStore } from './locks.ts';
+import type { PgBoss } from 'pg-boss';
+import { remoteConvert } from '../jobs/convert.ts';
+import { stageImportInput } from '../jobs/import.ts';
+import { modelCacheTrigger } from '../jobs/model-cache.ts';
+import { notifierFromEnv } from '../notify.ts';
+import { createJobService, inlineJobRunner } from '../jobs/service.ts';
+import { JOB_KINDS } from '../jobs/types.ts';
+import { bossJobRunner, lastBeat, pgJobHandlers, pgJobStore, startBoss } from './jobs.ts';
 import { deliveredEventHub, type EventHub } from '../events.ts';
 import { blobObjectKey } from './keys.ts';
 import { SnapshotCache, type Snapshot } from './snapshot.ts';
@@ -92,6 +101,11 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     versions: pgVersionStore(context, options.depictionsDir),
     loadDb: async () => (await cache.get()).catalog.loadDb(),
     catalogVersion: () => cache.version(),
+    // which records came from a pack: the install record (packs.json) the database holds beside the catalog
+    installedPacks: async () => {
+      const text = (await cache.get()).source.read('packs.json');
+      return text === undefined ? { src: 'installed catalog packs', packs: [] } : (JSON.parse(text) as InstalledPacks);
+    },
     loadPartNumberFiles: async () => {
       const text = (await cache.get()).source.read('part-numbers.json');
       return text === undefined ? {} : { scheme: JSON.parse(text) as unknown };
@@ -157,6 +171,12 @@ export interface PgBackend {
 
 export interface OpenPgOptions {
   blobs?: BlobStore;
+  /**
+   * Who runs jobs: the worker process through pg-boss (`worker`, the
+   * default), or this process (`inline`, `WIREHUB_WORKER=off`: no worker
+   * service; STEP uploads then convert in the studio, as on files).
+   */
+  jobs?: 'worker' | 'inline';
   depictionsDir?: string;
   listen?: boolean;
   setupCode?: string;
@@ -186,6 +206,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     const depictionDeps = {} as DepictionDeps;
     const events = deliveredEventHub();
     let current: SnapshotCache | undefined;
+    let boss: Promise<PgBoss> | undefined;
     let claimPending = false;
     let auth: StudioAuth | undefined;
     const suggested = parseSuggestedModules(env.WIREHUB_SUGGESTED_MODULES);
@@ -199,6 +220,25 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       }
       if (options.listen !== false) await cache.listen(config.url, events).catch((error: unknown) => console.warn(`[pg] LISTEN unavailable: ${error instanceof Error ? error.message : String(error)}`));
       const real = pgWorkbenchDeps({ cache, db: handle.db, events, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
+      // jobs (Phase C): recorded in job_run; run by the worker through pg-boss, or here
+      const store = pgJobStore(handle.db, id);
+      const jobMode = options.jobs ?? (env.WIREHUB_WORKER === 'off' ? 'inline' : 'worker');
+      const notify = notifierFromEnv(env);
+      const runner =
+        jobMode === 'worker'
+          ? bossJobRunner(() => (boss ??= startBoss(config.url, 'studio')), () => id)
+          : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, notify }));
+      const kinds = JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined));
+      real.jobs = createJobService({
+        store,
+        runner,
+        kinds,
+        ...(jobMode === 'worker' ? { worker: () => lastBeat(handle.db, id) } : {}),
+        stageInput: async (bytes) => ({ ...(await stageImportInput(bytes, options.blobs, id)) }),
+      });
+      real.afterCommit = modelCacheTrigger(() => deps.jobs);
+      // a STEP upload converts in the worker, whose memory budget is sized for it (S6)
+      if (jobMode === 'worker' && options.blobs !== undefined) real.convertModel = remoteConvert({ jobs: real.jobs, blobs: options.blobs, orgId: () => id });
       // first-run setup installs the domain modules' packs into the database (WIREHUB_SETUP_PROMPT as on files)
       const stored = snapshot.source.read('setup.json');
       const completed = stored !== undefined && (JSON.parse(stored) as { completed?: boolean }).completed === true;
@@ -269,6 +309,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
         auth = value;
       },
       close: async () => {
+        if (boss !== undefined) await (await boss.catch(() => undefined))?.stop({ graceful: false }).catch(() => undefined);
         for (const cache of caches) await cache.close();
         await handle.close();
       },

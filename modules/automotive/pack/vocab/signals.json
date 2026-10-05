@@ -13,7 +13,16 @@
         "CAN_H",
         "CAN High"
       ],
-      "src": "ISO 11898-2"
+      "src": "ISO 11898-2",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "ISO 11898-2"
+          }
+        ]
+      }
     },
     {
       "id": "can-l",
@@ -25,7 +34,16 @@
         "CAN_L",
         "CAN Low"
       ],
-      "src": "ISO 11898-2"
+      "src": "ISO 11898-2",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "ISO 11898-2"
+          }
+        ]
+      }
     },
     {
       "id": "kline",
@@ -35,7 +53,16 @@
         "K line",
         "ISO 9141 K"
       ],
-      "src": "ISO 9141-2 / ISO 14230 (KWP2000)"
+      "src": "ISO 9141-2 / ISO 14230 (KWP2000)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "ISO 9141-2 / ISO 14230 (KWP2000)"
+          }
+        ]
+      }
     },
     {
       "id": "lline",
@@ -45,7 +72,16 @@
         "L line",
         "ISO 9141 L"
       ],
-      "src": "ISO 9141-2"
+      "src": "ISO 9141-2",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "ISO 9141-2"
+          }
+        ]
+      }
     },
     {
       "id": "j1850-bus-p",
@@ -55,7 +91,16 @@
         "J1850+",
         "J1850 Bus+"
       ],
-      "src": "SAE J1850"
+      "src": "SAE J1850",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "SAE J1850"
+          }
+        ]
+      }
     },
     {
       "id": "j1850-bus-n",
@@ -65,7 +110,16 @@
         "J1850-",
         "J1850 Bus-"
       ],
-      "src": "SAE J1850"
+      "src": "SAE J1850",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "SAE J1850"
+          }
+        ]
+      }
     },
     {
       "id": "pwr-battery",
@@ -77,7 +131,16 @@
         "Battery power",
         "Ubat"
       ],
-      "src": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number)"
+      "src": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number)"
+          }
+        ]
+      }
     }
   ]
 }

@@ -81,7 +81,16 @@
       }
     },
     "confidence": "documented",
-    "src": "VESA Enhanced Display Data Channel (E-DDC) / VESA DDC — public VGA pin assignment"
+    "src": "VESA Enhanced Display Data Channel (E-DDC) / VESA DDC — public VGA pin assignment",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "VESA Enhanced Display Data Channel (E-DDC) / VESA DDC — public VGA pin assignment"
+        }
+      ]
+    }
   },
   {
     "id": "euroscart",
@@ -198,6 +207,15 @@
         "label": "Shield / common ground"
       }
     },
-    "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+    "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+        }
+      ]
+    }
   }
 ]

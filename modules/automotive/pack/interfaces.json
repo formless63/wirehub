@@ -72,6 +72,15 @@
         "label": "Battery positive"
       }
     },
-    "src": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number); discretionary pins are the vehicle manufacturer's and are not standard"
+    "src": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number); discretionary pins are the vehicle manufacturer's and are not standard",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number); discretionary pins are the vehicle manufacturer's and are not standard"
+        }
+      ]
+    }
   }
 ]

@@ -238,3 +238,38 @@ async function pickOption(name: string, text: string): Promise<void> {
   fireEvent.keyDown(filter, { key: 'Enter' });
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Records from a pack
+ * ------------------------------------------------------------------ */
+
+describe('a record from an installed pack', () => {
+  const target = db.components[0] as { id: string; label: string };
+
+  it('is read-only, says which pack it came from, and forks to a copy of your own', async () => {
+    const inner = host();
+    const fork = vi.fn(async (kind: 'components', id: string, newId: string) => {
+      const source = inner.stored.get(kind)?.find((record) => record.id === id) as { id: string };
+      const copy = { ...source, id: newId, derivedFrom: { pack: 'demo', id, version: '1.0.0' } };
+      inner.stored.set(kind, [...(inner.stored.get(kind) ?? []), copy as never]);
+      return { ok: true as const, value: copy as never };
+    });
+    const adapter = {
+      ...inner,
+      list: async (kind: Parameters<typeof inner.list>[0]) => {
+        const out = await inner.list(kind);
+        return out.ok && kind === 'components' ? { ok: true as const, value: { ...out.value, packs: { [target.id]: { pack: 'demo', version: '1.0.0' } } } } : out;
+      },
+      fork,
+    };
+    vi.spyOn(window, 'prompt').mockReturnValue(`${target.id}-mine`);
+    const selected: (string | undefined)[] = [];
+    render(<Library db={db} definitions={adapter} kind="components" selectedId={target.id} onSelectId={(id) => selected.push(id)} />);
+    await screen.findByText(/From pack demo 1\.0\.0 — read-only/);
+    // the form is disabled
+    expect(document.querySelector('fieldset[disabled]')).not.toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: 'Fork to edit' }));
+    await waitFor(() => expect(fork).toHaveBeenCalledWith('components', target.id, `${target.id}-mine`));
+    await waitFor(() => expect(selected).toContain(`${target.id}-mine`));
+  });
+});

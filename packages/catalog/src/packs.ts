@@ -69,16 +69,16 @@ export interface InstalledPacks {
   packs: InstalledPack[];
 }
 
-const PACKS_FILE = 'packs.json';
+export const PACKS_FILE = 'packs.json';
 
-const canonical = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
+export const canonical = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 
-type Json = unknown;
+export type Json = unknown;
 
-const isPlainObject = (value: Json): value is Record<string, Json> =>
+export const isPlainObject = (value: Json): value is Record<string, Json> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const idOf = (value: Json): string | undefined =>
+export const idOf = (value: Json): string | undefined =>
   isPlainObject(value) && typeof value['id'] === 'string' ? value['id'] : undefined;
 
 /** Records by id, first layer wins; records without an id are kept in order. */
@@ -188,7 +188,7 @@ export interface PackInstallPlan {
 }
 
 /** Where a record or entry list sits in a file's JSON. */
-function recordsIn(value: Json): Json[] | undefined {
+export function recordsIn(value: Json): Json[] | undefined {
   if (Array.isArray(value)) return value;
   if (isPlainObject(value) && Array.isArray(value['entries'])) return value['entries'] as Json[];
   return undefined;
@@ -252,7 +252,7 @@ export function readInstalledPacks(catalogDir: string): InstalledPacks {
   return JSON.parse(readFileSync(path, 'utf8')) as InstalledPacks;
 }
 
-function writeFileReplacing(path: string, text: string): void {
+export function writeFileReplacing(path: string, text: string): void {
   mkdirSync(dirname(path), { recursive: true });
   const temp = `${path}.${process.pid}.pack-tmp`;
   writeFileSync(temp, text);

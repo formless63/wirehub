@@ -3,6 +3,15 @@
     "id": "rj45-boot",
     "label": "RJ45 strain-relief boot",
     "kind": "shell",
-    "src": "generic snag-less RJ45 boot; synthetic example"
+    "src": "generic snag-less RJ45 boot; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic snag-less RJ45 boot; synthetic example"
+        }
+      ]
+    }
   }
 ]

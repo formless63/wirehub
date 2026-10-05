@@ -17,7 +17,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import type { CableDesign } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
-import { dataPath, derivedDir, livePacksDir, loadDb } from '@wirehub/catalog';
+import { dataPath, derivedDir, installedAcross, livePacksDir, loadDb } from '@wirehub/catalog';
 
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';
@@ -44,6 +44,9 @@ import { parseSuggestedModules } from './setup.ts';
 import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 import { exportTree } from './pg/export.ts';
 import { backendFromEnv, type Backend } from './pg/config.ts';
+import { baseJobHandlers } from './jobs/handlers.ts';
+import { modelCacheTrigger } from './jobs/model-cache.ts';
+import { createJobService, inlineJobRunner, memoryJobStore } from './jobs/service.ts';
 
 /** A catalog data file, parsed; `undefined` when it is not there. */
 function rawJson(relative: string): unknown {
@@ -76,7 +79,7 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     loadDesigns: async () => (await Promise.all((await designs.list()).map((d) => designs.read(d.id)))).filter((d): d is CableDesign => d !== undefined),
     docs,
   });
-  return {
+  const deps: WorkbenchDeps = {
     designs,
     definitions: fileDefinitionStore(),
     drawings: fileDrawingStore(assets),
@@ -94,6 +97,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     docs,
     versions: fileVersionStore(),
     loadDb,
+    // which records came from a pack (read-only; fork to edit): both the layers and anything merged into the catalog
+    installedPacks: () => ({ src: 'installed catalog packs', packs: installedAcross(dataPath(''), packsDir).packs }),
     // the unit of work reuses the loaded db until one of its files changes
     // …and the packs directory: an install (packs.json) or regenerated derived tags change it too
     catalogVersion: () => `${fileCatalogVersion(dataPath(''), modules.catalogDirs())}:${fileCatalogVersion(packsDir)}:${fileCatalogVersion(derivedDir(packsDir))}`,
@@ -130,6 +135,15 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
       afterInstall: () => tags.regenerate(),
     },
   };
+  // jobs (imports, model builds) run in this process, one at a time, and are remembered in memory
+  const jobStore = memoryJobStore();
+  deps.jobs = createJobService({
+    store: jobStore,
+    runner: inlineJobRunner(jobStore, () => baseJobHandlers({ deps, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) })),
+    kinds: ['import', 'model-cache'],
+  });
+  deps.afterCommit = modelCacheTrigger(() => deps.jobs);
+  return deps;
 }
 
 /**

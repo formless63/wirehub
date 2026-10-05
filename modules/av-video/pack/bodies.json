@@ -57,7 +57,16 @@
     ],
     "construction": "solder-cup",
     "drawing": "d-sub",
-    "src": "VESA DDC / Enhanced DDC VGA connector (DE-15, three rows); generic solder-cup part"
+    "src": "VESA DDC / Enhanced DDC VGA connector (DE-15, three rows); generic solder-cup part",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "VESA DDC / Enhanced DDC VGA connector (DE-15, three rows); generic solder-cup part"
+        }
+      ]
+    }
   },
   {
     "id": "scart-21-male",
@@ -132,6 +141,15 @@
     ],
     "construction": "solder-cup",
     "drawing": "scart",
-    "src": "IEC 60933-1 / EN 50049-1: 20 contacts in two rows plus the shell as contact 21; generic cable plug"
+    "src": "IEC 60933-1 / EN 50049-1: 20 contacts in two rows plus the shell as contact 21; generic cable plug",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 60933-1 / EN 50049-1: 20 contacts in two rows plus the shell as contact 21; generic cable plug"
+        }
+      ]
+    }
   }
 ]

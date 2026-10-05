@@ -5,6 +5,11 @@ Authority: `SPEC.md` (Domain model) and the types in `packages/model/src/model.t
 `packages/model/src/kits.ts`. Examples to copy: `packages/catalog/data/*.json` and
 `modules/pro-audio/pack/`.
 
+Every record type below (and every vocabulary entry) may also carry the optional `license`,
+`provenance` and `derivedFrom` fields (`packages/model/src/provenance.ts`; see `SKILL.md`,
+"Licence and provenance fields"). Their checks: `record-license`, `record-provenance`,
+`record-derived-from`.
+
 ## bodies.json (ConnectorBody)
 
 `id`, `label`, `family` (a `families` entry id), `gender` (`genders` entry id), `positions`

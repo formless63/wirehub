@@ -11,7 +11,16 @@
         "TXD",
         "TX"
       ],
-      "src": "TIA-574 / EIA-232"
+      "src": "TIA-574 / EIA-232",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-574 / EIA-232"
+          }
+        ]
+      }
     },
     {
       "id": "rs232-rxd",
@@ -21,7 +30,16 @@
         "RXD",
         "RX"
       ],
-      "src": "TIA-574 / EIA-232"
+      "src": "TIA-574 / EIA-232",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-574 / EIA-232"
+          }
+        ]
+      }
     },
     {
       "id": "rs232-rts",
@@ -30,7 +48,16 @@
       "aliases": [
         "RTS"
       ],
-      "src": "TIA-574 / EIA-232"
+      "src": "TIA-574 / EIA-232",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-574 / EIA-232"
+          }
+        ]
+      }
     },
     {
       "id": "rs232-cts",
@@ -39,7 +66,16 @@
       "aliases": [
         "CTS"
       ],
-      "src": "TIA-574 / EIA-232"
+      "src": "TIA-574 / EIA-232",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-574 / EIA-232"
+          }
+        ]
+      }
     },
     {
       "id": "rs232-dtr",
@@ -48,7 +84,16 @@
       "aliases": [
         "DTR"
       ],
-      "src": "TIA-574 / EIA-232"
+      "src": "TIA-574 / EIA-232",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-574 / EIA-232"
+          }
+        ]
+      }
     },
     {
       "id": "rs232-dsr",
@@ -57,7 +102,16 @@
       "aliases": [
         "DSR"
       ],
-      "src": "TIA-574 / EIA-232"
+      "src": "TIA-574 / EIA-232",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-574 / EIA-232"
+          }
+        ]
+      }
     },
     {
       "id": "rs232-dcd",
@@ -66,7 +120,16 @@
       "aliases": [
         "DCD"
       ],
-      "src": "TIA-574 / EIA-232"
+      "src": "TIA-574 / EIA-232",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-574 / EIA-232"
+          }
+        ]
+      }
     },
     {
       "id": "rs232-ri",
@@ -75,7 +138,16 @@
       "aliases": [
         "RI"
       ],
-      "src": "TIA-574 / EIA-232"
+      "src": "TIA-574 / EIA-232",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-574 / EIA-232"
+          }
+        ]
+      }
     },
     {
       "id": "rs485-a",
@@ -85,7 +157,16 @@
         "A",
         "Data-"
       ],
-      "src": "TIA-485-A; PROFIBUS DP line N"
+      "src": "TIA-485-A; PROFIBUS DP line N",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-485-A; PROFIBUS DP line N"
+          }
+        ]
+      }
     },
     {
       "id": "rs485-b",
@@ -95,7 +176,16 @@
         "B",
         "Data+"
       ],
-      "src": "TIA-485-A; PROFIBUS DP line P"
+      "src": "TIA-485-A; PROFIBUS DP line P",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TIA-485-A; PROFIBUS DP line P"
+          }
+        ]
+      }
     },
     {
       "id": "usb-dp",
@@ -104,7 +194,16 @@
       "aliases": [
         "D+"
       ],
-      "src": "USB 2.0 Specification §6.5 (USB-IF)"
+      "src": "USB 2.0 Specification §6.5 (USB-IF)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "USB 2.0 Specification §6.5 (USB-IF)"
+          }
+        ]
+      }
     },
     {
       "id": "usb-dn",
@@ -113,7 +212,16 @@
       "aliases": [
         "D-"
       ],
-      "src": "USB 2.0 Specification §6.5 (USB-IF)"
+      "src": "USB 2.0 Specification §6.5 (USB-IF)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "USB 2.0 Specification §6.5 (USB-IF)"
+          }
+        ]
+      }
     }
   ]
 }

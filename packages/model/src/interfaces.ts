@@ -22,6 +22,7 @@
  * Pure: records in, records out. Nothing here reads a file.
  */
 
+import { recordMetaIssues, type RecordMeta } from './provenance.ts';
 import type { ConnectorDefinition, ConnectorGender, ConnectorPin, Db, Issue } from './model.ts';
 import { signalIds, vocabEntry, type SignalEntry, type SignalRef, type Vocab } from './vocab.ts';
 
@@ -40,7 +41,7 @@ export interface BodyPosition {
 }
 
 /** A physical connector: shell, positions, gender. No signal meaning. */
-export interface ConnectorBody {
+export interface ConnectorBody extends RecordMeta {
   /** `din8-270-male`, `scart-21-male`, `de9-male` */
   id: string;
   label: string;
@@ -84,7 +85,7 @@ export interface PinFunction {
 }
 
 /** A named assignment of signals to a body's positions. */
-export interface Interface {
+export interface Interface extends RecordMeta {
   /** `rs232-dte`, `euroscart`, `jp21` */
   id: string;
   label: string;
@@ -312,6 +313,7 @@ export function validateInterfaces(db: Db): Issue[] {
   for (const body of bodies) {
     const where = `bodies/${body.id}`;
     if (!body.src) issues.push(issue('missing-src', `record '${where}' has no src citation`, where, 'warning'));
+    issues.push(...recordMetaIssues(body, where));
     for (const id of duplicates(body.positions.map((p) => p.id))) {
       issues.push(issue('duplicate-terminal-id', `body '${body.id}' has duplicate position '${id}'`, where));
     }
@@ -329,6 +331,7 @@ export function validateInterfaces(db: Db): Issue[] {
   for (const iface of interfaces) {
     const where = `interfaces/${iface.id}`;
     if (!iface.src) issues.push(issue('missing-src', `record '${where}' has no src citation`, where, 'warning'));
+    issues.push(...recordMetaIssues(iface, where));
     const known = iface.bodies.map((id) => bodyById.get(id));
     iface.bodies.forEach((id, n) => {
       if (known[n] === undefined) issues.push(issue('interface-body-unknown', `interface '${iface.id}' names unknown body '${id}'`, where));

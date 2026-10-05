@@ -208,6 +208,15 @@
         "src": "the drain lies on the foil for the whole length (generic construction)"
       }
     ],
-    "src": "generic VGA monitor cable construction (three 75 Ω mini-coax for RGB, separate sync and DDC cores, overall foil + drain); synthetic example"
+    "src": "generic VGA monitor cable construction (three 75 Ω mini-coax for RGB, separate sync and DDC cores, overall foil + drain); synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic VGA monitor cable construction (three 75 Ω mini-coax for RGB, separate sync and DDC cores, overall foil + drain); synthetic example"
+        }
+      ]
+    }
   }
 ]

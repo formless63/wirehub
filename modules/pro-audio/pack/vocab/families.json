@@ -9,7 +9,16 @@
       "aliases": [
         "XLR"
       ],
-      "src": "IEC 61076-2-103"
+      "src": "IEC 61076-2-103",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 61076-2-103"
+          }
+        ]
+      }
     },
     {
       "id": "rca",
@@ -18,7 +27,16 @@
         "RCA",
         "phono"
       ],
-      "src": "IEC 60603-12"
+      "src": "IEC 60603-12",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60603-12"
+          }
+        ]
+      }
     },
     {
       "id": "trs-3-5mm",
@@ -27,7 +45,16 @@
         "3.5mm",
         "3.5 mm"
       ],
-      "src": "IEC 60603-11"
+      "src": "IEC 60603-11",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60603-11"
+          }
+        ]
+      }
     }
   ]
 }

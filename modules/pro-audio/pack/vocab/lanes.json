@@ -6,22 +6,58 @@
     {
       "id": "audio-l",
       "label": "Audio L",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     },
     {
       "id": "audio-r",
       "label": "Audio R",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     },
     {
       "id": "audio-hot",
       "label": "Audio hot",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     },
     {
       "id": "audio-cold",
       "label": "Audio cold",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     }
   ]
 }

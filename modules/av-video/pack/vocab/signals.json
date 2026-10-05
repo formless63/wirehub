@@ -11,7 +11,16 @@
         "Red",
         "Video red"
       ],
-      "src": "VESA DDC / analog RGB video (public)"
+      "src": "VESA DDC / analog RGB video (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC / analog RGB video (public)"
+          }
+        ]
+      }
     },
     {
       "id": "video-g",
@@ -21,7 +30,16 @@
         "Green",
         "Video green"
       ],
-      "src": "VESA DDC / analog RGB video (public)"
+      "src": "VESA DDC / analog RGB video (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC / analog RGB video (public)"
+          }
+        ]
+      }
     },
     {
       "id": "video-b",
@@ -31,7 +49,16 @@
         "Blue",
         "Video blue"
       ],
-      "src": "VESA DDC / analog RGB video (public)"
+      "src": "VESA DDC / analog RGB video (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC / analog RGB video (public)"
+          }
+        ]
+      }
     },
     {
       "id": "hsync",
@@ -45,7 +72,16 @@
       "near": [
         "csync"
       ],
-      "src": "VESA DDC (public)"
+      "src": "VESA DDC (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC (public)"
+          }
+        ]
+      }
     },
     {
       "id": "vsync",
@@ -59,7 +95,16 @@
       "near": [
         "csync"
       ],
-      "src": "VESA DDC (public)"
+      "src": "VESA DDC (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC (public)"
+          }
+        ]
+      }
     },
     {
       "id": "csync",
@@ -75,7 +120,16 @@
         "cvbs",
         "luma"
       ],
-      "src": "analog video practice (public)"
+      "src": "analog video practice (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "analog video practice (public)"
+          }
+        ]
+      }
     },
     {
       "id": "cvbs",
@@ -90,7 +144,16 @@
         "csync",
         "luma"
       ],
-      "src": "ITU-R BT.1700 composite video (public)"
+      "src": "ITU-R BT.1700 composite video (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "ITU-R BT.1700 composite video (public)"
+          }
+        ]
+      }
     },
     {
       "id": "luma",
@@ -105,7 +168,16 @@
         "cvbs",
         "csync"
       ],
-      "src": "IEC 60933-5 S-Video (Y/C) (public)"
+      "src": "IEC 60933-5 S-Video (Y/C) (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60933-5 S-Video (Y/C) (public)"
+          }
+        ]
+      }
     },
     {
       "id": "chroma",
@@ -117,7 +189,16 @@
         "Y/C chroma"
       ],
       "near": [],
-      "src": "IEC 60933-5 S-Video (Y/C) (public)"
+      "src": "IEC 60933-5 S-Video (Y/C) (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60933-5 S-Video (Y/C) (public)"
+          }
+        ]
+      }
     },
     {
       "id": "ypbpr-y",
@@ -126,7 +207,16 @@
       "aliases": [
         "Y (component)"
       ],
-      "src": "EIA-770 component video (public)"
+      "src": "EIA-770 component video (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "EIA-770 component video (public)"
+          }
+        ]
+      }
     },
     {
       "id": "ypbpr-pb",
@@ -135,7 +225,16 @@
       "aliases": [
         "Pb"
       ],
-      "src": "EIA-770 component video (public)"
+      "src": "EIA-770 component video (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "EIA-770 component video (public)"
+          }
+        ]
+      }
     },
     {
       "id": "ypbpr-pr",
@@ -144,7 +243,16 @@
       "aliases": [
         "Pr"
       ],
-      "src": "EIA-770 component video (public)"
+      "src": "EIA-770 component video (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "EIA-770 component video (public)"
+          }
+        ]
+      }
     },
     {
       "id": "data-ddc-sda",
@@ -154,7 +262,16 @@
         "SDA",
         "DDC SDA"
       ],
-      "src": "VESA DDC (public)"
+      "src": "VESA DDC (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC (public)"
+          }
+        ]
+      }
     },
     {
       "id": "data-ddc-scl",
@@ -164,7 +281,16 @@
         "SCL",
         "DDC SCL"
       ],
-      "src": "VESA DDC (public)"
+      "src": "VESA DDC (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC (public)"
+          }
+        ]
+      }
     },
     {
       "id": "blanking",
@@ -175,7 +301,16 @@
         "RGB select",
         "Fast blanking"
       ],
-      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+          }
+        ]
+      }
     },
     {
       "id": "function-switch",
@@ -185,7 +320,16 @@
         "Status",
         "Slow switching"
       ],
-      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+          }
+        ]
+      }
     },
     {
       "id": "scart-data",
@@ -195,7 +339,16 @@
         "AV.link",
         "AV link"
       ],
-      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+          }
+        ]
+      }
     },
     {
       "id": "gnd-video-r",
@@ -208,7 +361,16 @@
         "Red GND",
         "Video R GND"
       ],
-      "src": "VESA DDC (public)"
+      "src": "VESA DDC (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC (public)"
+          }
+        ]
+      }
     },
     {
       "id": "gnd-video-g",
@@ -221,7 +383,16 @@
         "Green GND",
         "Video G GND"
       ],
-      "src": "VESA DDC (public)"
+      "src": "VESA DDC (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC (public)"
+          }
+        ]
+      }
     },
     {
       "id": "gnd-video-b",
@@ -234,7 +405,16 @@
         "Blue GND",
         "Video B GND"
       ],
-      "src": "VESA DDC (public)"
+      "src": "VESA DDC (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC (public)"
+          }
+        ]
+      }
     },
     {
       "id": "gnd-sync",
@@ -252,7 +432,16 @@
         "CVBS GND",
         "Composite GND"
       ],
-      "src": "VESA DDC (public)"
+      "src": "VESA DDC (public)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "VESA DDC (public)"
+          }
+        ]
+      }
     },
     {
       "id": "gnd-blanking",
@@ -264,7 +453,16 @@
       "aliases": [
         "Blanking GND"
       ],
-      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+      "src": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "EN 50049-1 / IEC 60933-1 SCART pin assignment (facts cited, device-side naming)"
+          }
+        ]
+      }
     },
     {
       "id": "audio-l",
@@ -274,7 +472,16 @@
         "Left"
       ],
       "src": "IEC 60603-11 stereo plug convention",
-      "standIn": "audio-mono"
+      "standIn": "audio-mono",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60603-11 stereo plug convention"
+          }
+        ]
+      }
     },
     {
       "id": "audio-r",
@@ -284,13 +491,31 @@
         "Right"
       ],
       "src": "IEC 60603-11 stereo plug convention",
-      "standIn": "audio-mono"
+      "standIn": "audio-mono",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60603-11 stereo plug convention"
+          }
+        ]
+      }
     },
     {
       "id": "audio-mono",
       "label": "Audio (mono)",
       "kind": "audio",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     },
     {
       "id": "gnd-audio",
@@ -301,7 +526,16 @@
         "audio-r",
         "audio-mono"
       ],
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     }
   ]
 }
