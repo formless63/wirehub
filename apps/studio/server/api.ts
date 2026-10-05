@@ -40,6 +40,8 @@ import type { DesignStore } from './designs.ts';
 import { handleWireLibraryRequest, WIRE_LIBRARY_ROUTES, type WireLibraryStore } from './wire-library.ts';
 import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
 import { refuseTakenDesignNumber } from './part-number-guard.ts';
+import { RULES_ROUTES, handleRulesRequest, isRulesPath } from './rules-settings.ts';
+import { PN_SETTINGS_ROUTES, handlePartNumberSettings, isPnSettingsPath } from './pn-settings.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
 import { RUNTIME_SETTINGS_ROUTES, handleRuntimeSettingsRequest, handleSettingsAdopt, handleSettingsSecret, isSettingsAdoptPath, isSettingsSecretPath } from './runtime-settings-api.ts';
@@ -914,6 +916,8 @@ const ROUTES = [
   ...DEFINITION_ROUTES,
   ...MODEL_ROUTES,
   ...SETTINGS_ROUTES,
+  ...PN_SETTINGS_ROUTES,
+  ...RULES_ROUTES,
   ...RUNTIME_SETTINGS_ROUTES,
   ...VOCAB_ROUTES,
   ...WIRE_LIBRARY_ROUTES,
@@ -1374,6 +1378,9 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
 
   const runtime = await handleRuntimeSettingsRequest(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
   if (runtime !== undefined) return runtime;
+
+  if (isRulesPath(parts)) return await handleRulesRequest(method, parts, request.body, deps, ifMatch);
+  if (isPnSettingsPath(parts)) return await handlePartNumberSettings(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
 
   const settings = await handleSettingsRequest(method, parts, request.body, { ...deps, store: storeDepsOf(deps) }, ifMatch);
   if (settings !== undefined) return settings;

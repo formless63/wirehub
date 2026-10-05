@@ -10,6 +10,7 @@
 import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
 import type { DbRules, DesignElectrical } from './electrical.ts';
+import type { ValidationRule } from './rules.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
 import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
@@ -554,9 +555,9 @@ export interface PcbaDefinition extends RecordMeta {
  * `tool` is the crimp tool or applicator a contact needs — a tool is never a
  * BOM line.
  */
-export type MechanicalKind = 'shell' | 'fastener' | 'other' | 'contact' | 'seal' | 'plug' | 'tool';
+export type MechanicalKind = 'shell' | 'fastener' | 'boot' | 'other' | 'contact' | 'seal' | 'plug' | 'tool';
 
-export const MECHANICAL_KINDS: readonly MechanicalKind[] = ['shell', 'fastener', 'other', 'contact', 'seal', 'plug', 'tool'];
+export const MECHANICAL_KINDS: readonly MechanicalKind[] = ['shell', 'fastener', 'boot', 'other', 'contact', 'seal', 'plug', 'tool'];
 
 export interface MechanicalDefinition extends RecordMeta {
   id: string;
@@ -629,6 +630,12 @@ export interface Db {
    * references are not checked or flattened — their ports resolve unverified.
    */
   assemblies?: AssemblyLibrary;
+  /**
+   * The declarative validation rules (`rules.ts`, the catalog's
+   * `validation-rules.json`): run by `validateDb` (library subjects) and
+   * `validateDesign` (design subjects). Absent means none.
+   */
+  validationRules?: ValidationRule[];
 }
 
 /* ------------------------------------------------------------------ *
@@ -1016,6 +1023,8 @@ export interface CableDesign {
   productRef?: string;
   /** production status; absent = 'active' */
   status?: DesignStatus;
+  /** free tags (`mil-spec`, `export`) the declarative validation rules can select designs by; absent = none */
+  tags?: string[];
   instances: DesignInstances;
   joints: Joint[];
   /** build-level annotations (drain policy etc.) */

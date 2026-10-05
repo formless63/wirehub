@@ -13,6 +13,8 @@
  * the scheme describes intent, a person decides.
  */
 
+import { declarativePartNumberScheme, isDeclarativeSchemeConfig, parseDeclarativeSchemeConfig } from './pn-declarative.ts';
+
 /** The catalog kinds a PN is checked or suggested for. */
 export type PnKind =
   | 'connector'
@@ -62,6 +64,8 @@ export interface PnSubject {
   label: string;
   /** the record or design id */
   id?: string;
+  /** a number this part is a variant of (a declarative scheme proposes its next variant) */
+  variantOf?: string;
 }
 
 export interface PnSuggestion {
@@ -85,6 +89,10 @@ export interface PartNumberScheme {
   check(pn: string, kind?: PnKind): PnIssue[];
   /** a proposal for `subject`, given every number already in use; `undefined` when the scheme does not number that kind */
   suggest(subject: PnSubject, known: readonly KnownPartNumber[]): PnSuggestion | undefined;
+  /** the layout of a number in words (`<level><type>-NNNNNN-VV`), for messages and forms */
+  shape?: string;
+  /** existing numbers never change: a saved number cannot be edited into another one */
+  immutable?: boolean;
 }
 
 /* ------------------------------------------------------------------ *
@@ -211,6 +219,15 @@ export function prefixPartNumberScheme(config: PrefixSchemeConfig = DEFAULT_PREF
       };
     },
   };
+}
+
+/**
+ * The scheme a `part-numbers.json` describes: a declarative definition
+ * (`pn-declarative.ts`, `"type": "declarative"`) or the prefix scheme's
+ * configuration. Throws, naming the problem, on a bad one.
+ */
+export function schemeFromConfig(json: unknown): PartNumberScheme {
+  return isDeclarativeSchemeConfig(json) ? declarativePartNumberScheme(parseDeclarativeSchemeConfig(json)) : prefixPartNumberScheme(parsePrefixSchemeConfig(json));
 }
 
 /** The scheme a deployment gets when it configures none. */

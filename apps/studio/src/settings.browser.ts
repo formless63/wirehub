@@ -280,3 +280,133 @@ export const runtimeSettingsQuery = {
   },
   retry: false,
 } as const;
+
+/* ------------------------------------------------------------------ *
+ * The numbering scheme (`server/pn-settings.ts`)
+ * ------------------------------------------------------------------ */
+
+export const pnSettingsKey = ['settings', 'part-numbers'] as const;
+
+export interface PnSchemeOffer {
+  pack: string;
+  version: string;
+  scheme: unknown;
+  problems: string[];
+}
+
+export interface PnSettingsView {
+  /** the stored definition, or null (the default prefix scheme) */
+  config: unknown;
+  effective: { kind: 'prefix' | 'declarative' | 'module' | 'default'; id: string; label: string; shape?: string; immutable: boolean };
+  overriddenByModule?: boolean;
+  defaults: unknown;
+  kinds: string[];
+  offers: PnSchemeOffer[];
+  etag: string;
+}
+
+export interface PnPreview {
+  ok: boolean;
+  problems?: string[];
+  shape?: string | null;
+  immutable?: boolean;
+  samples?: { pn: string; canonical: string | null; issues: { code: string; message: string }[] }[];
+  suggestions?: { kind: string; suggestion: { pn: string; explanation: string } | null }[];
+  impact?: { numbered: number; notInScheme: number; duplicates: number; unnumbered: number; examples: { pn: string; where: string; message: string }[] };
+}
+
+export async function fetchPnSettings(base = '/api'): Promise<Outcome<PnSettingsView>> {
+  let etag = '';
+  const out = await request<Omit<PnSettingsView, 'etag'>>(`${base}/settings/part-numbers`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function savePnSettings(input: { scheme: unknown } | { adoptFrom: string }, etag: string, base = '/api'): Promise<Outcome<PnSettingsView>> {
+  let next = '';
+  const out = await request<Omit<PnSettingsView, 'etag'>>(`${base}/settings/part-numbers`, { method: 'PUT', body: input, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+export const previewPnScheme = (input: { scheme: unknown; samples?: string[]; suggest?: { kind: string; variantOf?: string }[] }, base = '/api'): Promise<Outcome<PnPreview>> =>
+  request<PnPreview>(`${base}/settings/part-numbers/preview`, { method: 'POST', body: input });
+
+export const pnSettingsQuery = {
+  queryKey: pnSettingsKey,
+  queryFn: async (): Promise<PnSettingsView> => {
+    const out = await fetchPnSettings();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;
+
+/* ------------------------------------------------------------------ *
+ * Declarative validation rules (`server/rules-settings.ts`)
+ * ------------------------------------------------------------------ */
+
+export const rulesKey = ['settings', 'rules'] as const;
+
+export interface RuleView {
+  id: string;
+  label?: string;
+  enabled?: boolean;
+  severity: 'error' | 'warning';
+  message: string;
+  each: string;
+  where?: unknown;
+  require: unknown;
+  src: string;
+  origin: 'local' | 'pack';
+  pack?: string;
+  problems: string[];
+}
+
+export interface RulesView {
+  rules: RuleView[];
+  /** this hub's own rules, as stored */
+  local: Omit<RuleView, 'origin' | 'pack' | 'problems'>[];
+  limits: { rules: number };
+  subjects: { design: string[]; library: string[] };
+  etag: string;
+}
+
+export interface RulePreview {
+  ok: boolean;
+  problems?: string[];
+  designs?: { id: string; issues: number; examples: { severity: string; message: string; where?: string }[] }[];
+  library?: { issues: number; examples: { severity: string; message: string; where?: string }[] };
+  errors?: number;
+  warnings?: number;
+}
+
+export async function fetchRules(base = '/api'): Promise<Outcome<RulesView>> {
+  let etag = '';
+  const out = await request<Omit<RulesView, 'etag'>>(`${base}/rules`, { method: 'GET' }, (r) => {
+    etag = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag } } : out;
+}
+
+export async function saveRules(rules: unknown[], etag: string, base = '/api'): Promise<Outcome<RulesView>> {
+  let next = '';
+  const out = await request<Omit<RulesView, 'etag'>>(`${base}/rules`, { method: 'PUT', body: { rules }, headers: { 'if-match': etag } }, (r) => {
+    next = r.headers.get('etag') ?? '';
+  });
+  return out.ok ? { ok: true, value: { ...out.value, etag: next } } : out;
+}
+
+export const previewRule = (rule: unknown, base = '/api'): Promise<Outcome<RulePreview>> => request<RulePreview>(`${base}/rules/preview`, { method: 'POST', body: { rule } });
+
+export const rulesQuery = {
+  queryKey: rulesKey,
+  queryFn: async (): Promise<RulesView> => {
+    const out = await fetchRules();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;

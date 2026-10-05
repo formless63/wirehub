@@ -60,6 +60,7 @@ import {
 import type { ModuleRegistry } from '@wirehub/modules';
 
 import type { InstalledPacks } from '@wirehub/catalog';
+import { refuseChangedNumber } from './part-number-guard.ts';
 import { partNumberSchemeOf } from './part-number-scheme.ts';
 
 import type { ApiError, ApiResponse } from './api.ts';
@@ -602,7 +603,7 @@ function gateInterface(value: unknown): Gate<Interface> {
   return { ok: true, record: value as Interface };
 }
 
-const MECHANICAL_KINDS = ['shell', 'fastener', 'other', 'contact', 'seal', 'plug', 'tool'] as const;
+const MECHANICAL_KINDS = ['shell', 'fastener', 'boot', 'other', 'contact', 'seal', 'plug', 'tool'] as const;
 
 const isOptionalWords = (value: unknown): boolean => value === undefined || (Array.isArray(value) && value.every(isFilledString));
 
@@ -647,7 +648,7 @@ function gateMechanical(value: unknown): Gate<MechanicalDefinition> {
   if (!common.ok) return common;
   const record = common.record;
   if (!(MECHANICAL_KINDS as readonly unknown[]).includes(record['kind'])) {
-    return reject(`'${String(record['kind'])}' is not a kind of mechanical part.`, 'A mechanical part is a shell, a fastener, a crimp contact, a seal, a cavity plug, a crimp tool, or other.');
+    return reject(`'${String(record['kind'])}' is not a kind of mechanical part.`, 'A mechanical part is a shell, a fastener, a strain-relief boot, a crimp contact, a seal, a cavity plug, a crimp tool, or other.');
   }
   const termination = gateTermination(record['termination']);
   if (termination !== undefined) return reject(termination.error, termination.hint);
@@ -1019,12 +1020,21 @@ async function putDefinition(
   const next = stored.map((record, at) => (at === index ? parsed.record : record));
   const designs = await everyDesign(deps);
   const db = await deps.loadDb();
+  const scheme = await partNumberSchemeOf(deps);
+  // a scheme that never changes an existing number: the number on the record stays what it was
+  const numberField = kind === 'kits' ? 'sku' : 'partNumber';
+  const pnOf = (r: unknown): string | undefined => {
+    const v = (r as Record<string, unknown> | undefined)?.[numberField];
+    return typeof v === 'string' ? v : undefined;
+  };
+  const changed = refuseChangedNumber(scheme, `This ${KIND_NOUN[kind]}`, pnOf(parsed.record), pnOf(current));
+  if (changed !== undefined) return changed;
   const rejection = await validatedLibrary(
     candidateDb(db, kind, next, stored),
     db,
     designs,
     `this ${KIND_NOUN[kind]}`,
-    await partNumberSchemeOf(deps),
+    scheme,
     true,
   );
   if (rejection !== undefined) return rejection;

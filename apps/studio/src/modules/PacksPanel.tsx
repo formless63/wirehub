@@ -164,7 +164,8 @@ export function PacksPanel(): JSX.Element {
         showPlan(answer, pending.kind, pending.id, pending.source);
         return;
       }
-      await finish(pending.kind === 'disable' ? `Disabled ${pending.id}.` : `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`);
+      const offersScheme = answer.body['offers'] !== undefined && (answer.body['offers'] as { partNumberScheme?: unknown }).partNumberScheme !== undefined;
+      await finish(`${pending.kind === 'disable' ? `Disabled ${pending.id}.` : `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`);
     });
 
   return (

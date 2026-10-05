@@ -59,6 +59,12 @@ export interface PackManifest {
    * pack (`pack-signature.ts`). Written by `store-index.mjs sign-pack`.
    */
   files?: Record<string, string>;
+  /**
+   * A numbering scheme this pack offers (a declarative definition,
+   * `@wirehub/model` `pn-declarative.ts`). Installing the pack never switches
+   * the hub's scheme: Settings offers it, and an owner confirms.
+   */
+  partNumberScheme?: unknown;
 }
 
 export const PACK_MANIFEST = 'wirehub-pack.json';
@@ -85,7 +91,12 @@ export interface InstalledPack {
    * installed from a file, a URL or a module.
    */
   origin?: { index: string; publisher?: string; signedBy?: string[] };
+  /** the numbering scheme the pack's manifest offers, as it was when installed (an owner may adopt it in Settings) */
+  partNumberScheme?: unknown;
 }
+
+/** What an installed pack's record keeps of its manifest. */
+export const manifestOffers = (manifest: PackManifest): Pick<InstalledPack, 'partNumberScheme'> => (manifest.partNumberScheme === undefined ? {} : { partNumberScheme: manifest.partNumberScheme });
 
 /** `packs.json`: the packs installed into this catalog. */
 export interface InstalledPacks {
@@ -402,7 +413,7 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   // the merging installer keeps a pack's depictions as `data/depictions/…` documents (as before); it records the
   // files the pack ships like a layered install does, so an update brings them beside the catalog and keeps the record the same
   const assets = packOwnedAssets(packDir);
-  const record: InstalledPack = { id: plan.manifest.id, version: plan.manifest.version, license: plan.manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }) };
+  const record: InstalledPack = { id: plan.manifest.id, version: plan.manifest.version, license: plan.manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }), ...manifestOffers(plan.manifest) };
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));
   return plan;
@@ -515,7 +526,7 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
   rmSync(target, { recursive: true, force: true });
   renameSync(staging, target);
   const assets = packOwnedAssets(packDir);
-  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }) };
+  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }), ...manifestOffers(manifest) };
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(packsDir, PACKS_FILE), canonical(installed));
   return { manifest, added: plan.added, alreadyInstalled: false };

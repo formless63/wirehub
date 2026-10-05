@@ -204,6 +204,7 @@ export type EditorAction =
   | { type: 'set-notes'; notes: string[] }
   /** the hand labour to build one cable, in minutes (the BOM's cost roll-up); `undefined` removes it */
   | { type: 'set-labour'; minutes: number | undefined }
+  | { type: 'set-tags'; tags: string[] }
   /** the Connection tab's pigtail tools: new / split / merge / move / pad (shield bonding) */
   | { type: 'edit-pigtails'; edit: PigtailEdit }
   | { type: 'move-node'; id: string; position: XY }
@@ -892,6 +893,19 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
           ? (rest as CableDesign)
           : (Object.fromEntries(Object.entries(rest).flatMap(([key, value]) => (key === 'src' ? [['labourMinutes', minutes], [key, value]] : [[key, value]]))) as unknown as CableDesign);
       return commit(state, next, minutes === undefined ? 'remove the labour time' : 'set the labour time');
+    }
+
+    case 'set-tags': {
+      const tags = [...new Set(action.tags.map((t) => t.trim()).filter((t) => t !== ''))];
+      const before = state.design.tags ?? [];
+      if (tags.length === before.length && tags.every((t, i) => t === before[i])) return state;
+      if (tags.some((t) => !/^[A-Za-z0-9][A-Za-z0-9 _.\-/]{0,39}$/.test(t)) || tags.length > 50) return reject(state, 'a tag is a short word: letters, digits, spaces, dash, dot or slash, up to 40 characters');
+      const { tags: _old, ...rest } = state.design;
+      const next: CableDesign =
+        tags.length === 0
+          ? (rest as CableDesign)
+          : (Object.fromEntries(Object.entries(rest).flatMap(([key, value]) => (key === 'src' ? [['tags', tags], [key, value]] : [[key, value]]))) as unknown as CableDesign);
+      return commit(state, next, tags.length === 0 ? 'remove the design tags' : 'set the design tags');
     }
 
     case 'edit-pigtails': {
