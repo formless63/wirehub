@@ -20,7 +20,7 @@ import type { JobKind, JobService } from './jobs/types.ts';
 import { pgAppConfigFromEnv, redactUrl } from './pg/config.ts';
 import { openPg, resolveOrgId, type PgHandle } from './pg/db.ts';
 import { checkDatabase, pgWorkbenchDeps } from './pg/deps.ts';
-import { beat, bossJobRunner, BOSS_SCHEMA, lastBeat, pgJobHandlers, pgJobStore, startBoss, type BossPayload } from './pg/jobs.ts';
+import { beat, bossJobRunner, bossQueueName, BOSS_SCHEMA, lastBeat, pgJobHandlers, pgJobStore, startBoss, type BossPayload } from './pg/jobs.ts';
 import { SnapshotCache } from './pg/snapshot.ts';
 
 export interface WorkerOptions {
@@ -125,7 +125,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
 
     const afterJob = (line: string): void => log(`${line} (worker rss ${Math.round(process.memoryUsage().rss / 1048576)} MiB)`);
     for (const kind of kinds) {
-      await boss.work<BossPayload>(kind, { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' ? 1 : 5 }, async ([job]) => {
+      await boss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' ? 1 : 5 }, async ([job]) => {
         if (job === undefined) return;
         const payload = job.data;
         if (payload.org !== org) {
@@ -152,7 +152,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     for (const s of scheduled) {
       if (!kinds.includes(s.kind)) continue;
       const payload: BossPayload = { org, scheduled: true };
-      await boss.schedule(s.kind, s.cron, payload as unknown as object, { tz });
+      await boss.schedule(bossQueueName(s.kind), s.cron, payload as unknown as object, { tz });
     }
 
     // the heartbeat

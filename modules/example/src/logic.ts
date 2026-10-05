@@ -100,8 +100,9 @@ export async function recountCatalog(context: JobQueueContext): Promise<Record<s
   const counts: Record<string, number> = {};
   for (const kind of ['connectors', 'wires', 'components', 'pcbas', 'mechanicals'] as const) {
     if (only !== undefined && only !== kind) continue;
-    counts[kind] = db[kind].length;
-    await context.step(`${kind}: ${counts[kind]}`);
+    const n = db[kind]?.length ?? 0;
+    counts[kind] = n;
+    await context.step(`${kind}: ${n}`);
   }
   return { counts };
 }

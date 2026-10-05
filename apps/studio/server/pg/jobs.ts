@@ -28,6 +28,9 @@ import type { SnapshotCache } from './snapshot.ts';
 
 export const BOSS_SCHEMA = 'pgboss';
 
+/** pg-boss queue names allow no colon: a module's `<module>:<queue>` kind is the queue `<module>.<queue>`. */
+export const bossQueueName = (kind: string): string => kind.replace(':', '.');
+
 interface JobRow {
   id: string;
   kind: string;
@@ -185,7 +188,7 @@ export async function startBoss(url: string, role: 'studio' | 'worker', log: (li
   await boss.start();
   // a module's queues (`<module>:<queue>`, §3.13) are made beside the base's, so the studio can send before the worker has started
   for (const kind of [...JOB_KINDS, ...moduleKinds]) {
-    if ((await boss.getQueue(kind)) === null) await boss.createQueue(kind, { retryLimit: 0, expireInSeconds: kind === 'model-cache' ? 6 * 3600 : 1800, deleteAfterSeconds: 7 * 24 * 3600 }).catch(() => undefined);
+    if ((await boss.getQueue(bossQueueName(kind))) === null) await boss.createQueue(bossQueueName(kind), { retryLimit: 0, expireInSeconds: kind === 'model-cache' ? 6 * 3600 : 1800, deleteAfterSeconds: 7 * 24 * 3600 }).catch(() => undefined);
   }
   return boss;
 }
@@ -196,7 +199,7 @@ export function bossJobRunner(boss: () => Promise<PgBoss>, orgId: () => string):
     describe: 'the worker (pg-boss)',
     async submit(job) {
       const payload: BossPayload = { id: job.id, org: orgId() };
-      await (await boss()).send(job.kind, payload as unknown as object);
+      await (await boss()).send(bossQueueName(job.kind), payload as unknown as object);
     },
   };
 }

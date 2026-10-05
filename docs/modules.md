@@ -171,7 +171,7 @@ export const acme = defineModule({
 | **Exporters / document types** | `ExporterContribution { id, label, description?, render(design, db, options) → { mimeType, fileName, body } }` | browser and server | **yes** — one download button per exporter in the cable's Documents toolbar; `GET /api/modules/<module>/_export/<exporter>?design=<id>` (below) |
 | **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@wirehub/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
 | **Validation rules** | `ValidationRuleContribution { id, label, check(design, db) → Issue[] }` | everywhere | **yes** — every design save runs them after `validateDesign` |
-| **Integrations** | `IntegrationContribution { id, label, env?, routes?: { method, path, writes?, handle(request) }[] }` | server only | **yes** — `/api/modules/<module>/<path>`; `writes: true` routes take the write lock; a route path may not start with `_` |
+| **Integrations** | `IntegrationContribution { id, label, env?, routes?: { method, path, writes?, handle(request) }[], queues?: JobQueueContribution[] }` | server only | **yes** — `/api/modules/<module>/<path>`; `writes: true` routes take the write lock; a route path may not start with `_`; `queues` are job queues (below) |
 | **UI panels** | `PanelContribution { id, label, slot: 'cable-inspector' \| 'cable-documents' \| 'library-detail' \| 'settings', component }`; the component takes `PanelProps` | browser | **yes** — below |
 | **UI routes** | `UiRouteContribution { path, label, icon?, component }` under `/m/<module>/`; the component takes `RouteProps` | browser | **yes** — below |
 | **Auth providers** | `AuthProviderContribution { id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }` | server | **yes** — below; the base's own OIDC is still configured by environment |
@@ -210,6 +210,44 @@ It is **not** a module extension point yet: the provider's inputs are the bench 
 (`BenchEnd`, `ShellSet`), which a module cannot name without importing `@wirehub/docs`. Hoisting
 those types into `@wirehub/model` (or a thin `BenchStepsContribution` over plain facts) is the
 step that makes it a module point; the bead stays open for it.
+
+### Job queues
+
+An integration may register queues of its own for work that outlasts a request or runs on a
+schedule (a push to another system, a nightly re-index):
+
+```ts
+integrations: [{
+  id: 'sync', label: 'Sync',
+  queues: [{
+    id: 'push',                    // kebab; the job kind is '<module id>:push'
+    label: 'Push to the ERP',
+    schedule: '*/30 * * * *',      // optional five-field cron, container time; Postgres worker only
+    async run({ request, step, db }) {
+      await step('reading the catalog');
+      const catalog = await db();  // the catalog as it is when the job starts (read only)
+      return { pushed: catalog.connectors.length };   // plain JSON: the job's result
+    },
+  }],
+  routes: [{ method: 'POST', path: 'push', async handle(request) {
+    const job = await request.jobs!.enqueue('push', { full: true });   // this module's queues only
+    return { status: 202, body: { job } };
+  } }],
+}]
+```
+
+- A queue's jobs are recorded like the base's (`GET /api/jobs?kind=<module>:<queue>`, the
+  `job_run` table), run one at a time per queue by the worker process on the Postgres backend
+  and in the studio process on files, and never retried: a `run` that throws fails the job
+  with its message. `request` is what was enqueued (`{ reason: 'schedule' }` for a scheduled
+  run, `{ reason: 'requested' }` for `POST /api/jobs { kind }`, which any module queue accepts).
+- A route's `request.jobs` offers `enqueue(queue, request?)` and `get(id)` for the module's
+  **own** queues only (it is absent where the studio runs no jobs); `get` answers `undefined`
+  for any other job.
+- Catalog writes still go through the module's importers and routes, not a job's `db()`.
+  The queue ids must be kebab-case and unique in the module; `manifestProblems` checks them
+  and the schedule. On pg-boss the queue is named `<module>.<queue>` (it takes no colon).
+- `registry.queues()` lists them; the example module's `example:recount` shows all of it.
 
 ### Module tables (Postgres backend)
 

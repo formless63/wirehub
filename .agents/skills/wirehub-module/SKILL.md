@@ -85,6 +85,7 @@ details"); `modules/example/src/index.ts` has one working instance of each. Quic
 | Read a file | `importers: [{ id, label, accepts: ['.csv'], import(input, db) }]` | returns `{ definitions?, designs?, notes }`; proposes, never writes; deterministic; ids the library has are skipped, never overwritten |
 | Write a file | `exporters: [{ id, label, render(design, db, options) }]` | returns `{ mimeType, fileName, body }` |
 | Server routes | `integrations: [{ id, label, env?, routes: [{ method, path, writes?, handle }] }]` | served at `/api/modules/<module>/<path>`; `writes: true` takes the write lock |
+| Job queues | `integrations: [{ …, queues: [{ id, label, schedule?, run({ request, step, db }) }] }]` | kind `<module>:<queue>`; run by the worker (Postgres) or the studio process (files), never retried; routes enqueue and read them through `request.jobs` (own queues only); `modules/example` has `example:recount` (docs/modules.md, "Job queues") |
 | UI panel | `panels: [{ id, label, slot, component }]` | slots: `cable-inspector`, `cable-documents`, `library-detail`, `settings`; component takes `PanelProps` |
 | UI page | `routes: [{ path, label, icon?, component }]` | rendered at `/m/<module>/<path>` with `RouteProps` |
 | Sign-in | `authProviders: [{ id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }]` | a config key ending `Env` names an environment variable (secrets never sit in source) |
