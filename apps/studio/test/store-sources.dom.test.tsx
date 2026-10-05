@@ -74,7 +74,7 @@ describe('Settings: store sources', () => {
   it('shows the server store read-only, then adds a store after fetching its key and confirming the fingerprint', async () => {
     mount('/settings');
     const section = await screen.findByTestId('store-sources');
-    await waitFor(() => expect(within(section).getByTestId('store-official').textContent).toMatch(/not signed yet/));
+    await waitFor(() => expect(within(section).getByTestId('store-official').textContent).toMatch(/not enabled/));
     const env = await waitFor(() => section.querySelector(`[data-store-source="${STORE_URL}"]`) as HTMLElement);
     expect(env.textContent).toContain('set by the server');
     expect(within(env).queryByRole('button', { name: 'Remove' })).toBeNull();

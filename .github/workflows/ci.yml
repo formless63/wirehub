@@ -17,7 +17,7 @@ jobs:
     name: Privacy check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Script tests
@@ -61,9 +61,9 @@ jobs:
     env:
       WIREHUB_TEST_PG_URL: postgres://postgres:ci-only@localhost:5432/postgres
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -84,8 +84,8 @@ jobs:
     name: Compose stack and image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Validate compose.yaml (no .env), every profile, and the generator's variants
@@ -96,9 +96,9 @@ jobs:
           done
           COMPOSE_PROFILES="$(docker compose config --profiles | paste -sd, -)" docker compose config --quiet
           node site/check-variants.mjs
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Build the image (not pushed)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/app.Dockerfile

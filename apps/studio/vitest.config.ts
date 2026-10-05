@@ -17,6 +17,10 @@ import { defineConfig } from 'vitest/config';
  * Vite proper for the depiction tree's `import.meta.glob` (`depictions.browser.ts`);
  * catalog data comes from the API router it drives, never from the bundle.
  */
+// Hubs trust the official store index by default; tests must never fetch it. Tests that cover the
+// official store pass their own key and a local fixture (storeIndexesFromEnv's 2nd argument).
+const noOfficialStore = { WIREHUB_STORE_INDEXES: 'none' };
+
 export default defineConfig({
   test: {
     // see packages/editor-react/vitest.config.ts: loaded shared box, not hangs
@@ -28,6 +32,7 @@ export default defineConfig({
           name: 'browser-path',
           include: ['test/**/*.browser.test.ts'],
           environment: 'node',
+          env: noOfficialStore,
         },
       },
       {
@@ -35,6 +40,7 @@ export default defineConfig({
           name: 'workbench-api',
           include: ['test/**/*.server.test.ts'],
           environment: 'node',
+          env: noOfficialStore,
         },
       },
       {
@@ -42,6 +48,7 @@ export default defineConfig({
           name: 'shell',
           include: ['test/**/*.dom.test.tsx'],
           environment: 'jsdom',
+          env: noOfficialStore,
           // `@tanstack/react-virtual` (the cables list)
           // needs a non-zero measured viewport — jsdom does no layout, so
           // every element reports 0×0 without this. See setup-dom.ts.

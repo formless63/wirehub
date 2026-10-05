@@ -404,8 +404,8 @@ grouped by store, with a store filter; each pack says which store it is from, an
 down or fails verification is named and left out without hiding the others.
 
 - **Where stores come from.** The deployment's (`WIREHUB_STORE_INDEXES`, and the official index
-  once its key is published) are shown read-only, marked "set by the server", the official one with
-  its state (signed, not signed yet, or not enabled on this server). The ones added in the app are
+  by default) are shown read-only, marked "set by the server", the official one with
+  its state (trusted, or not enabled on this server). The ones added in the app are
   the org settings document `data/settings/stores.json` (`{ sources: [{ url, publicKey, label?, enabled }] }`),
   written with `If-Match` like the other settings, on files and Postgres. The two merge; on the same
   URL the deployment's entry wins. Turning off "owners and editors may add stores" (Settings > Integrations, or

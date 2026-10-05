@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { scopeFor } from '../server/auth/tokens.ts';
-import { OFFICIAL_STORE_PUBLIC_KEY, storeIndexesFromEnv } from '../server/store.ts';
+import { OFFICIAL_STORE_INDEX_URL, OFFICIAL_STORE_PUBLIC_KEY, storeIndexesFromEnv } from '../server/store.ts';
 import { STORE_URL, createTestStore, type TestStore } from './store-fixture.ts';
 
 describe('WIREHUB_STORE_INDEXES', () => {
@@ -29,9 +29,20 @@ describe('WIREHUB_STORE_INDEXES', () => {
     expect(storeIndexesFromEnv({ WIREHUB_STORE_INDEXES: '' }).indexes).toEqual([]);
     expect(storeIndexesFromEnv({ WIREHUB_STORE_INDEXES: 'none' }).indexes).toEqual([]);
   });
-  it('trusts the official index by default only once its public key is published', () => {
-    expect(storeIndexesFromEnv({}).indexes.length).toBe(OFFICIAL_STORE_PUBLIC_KEY === '' ? 0 : 1);
-    if (OFFICIAL_STORE_PUBLIC_KEY === '') expect(storeIndexesFromEnv({ WIREHUB_STORE_INDEXES: 'official' }).problems?.[0]).toMatch(/no public key/);
+  it('trusts the official index by default: the recorded key, origin official, nothing fetched at construction', () => {
+    expect(OFFICIAL_STORE_PUBLIC_KEY).toMatch(/^RW/);
+    expect(storeIndexesFromEnv({}).indexes).toEqual([{ url: OFFICIAL_STORE_INDEX_URL, publicKey: OFFICIAL_STORE_PUBLIC_KEY, origin: 'official' }]);
+    expect(storeIndexesFromEnv({ WIREHUB_STORE_INDEXES: 'official' }).indexes.map((i) => i.origin)).toEqual(['official']);
+    expect(storeIndexesFromEnv({ WIREHUB_STORE_INDEXES: 'none' }).indexes).toEqual([]);
+  });
+  it('takes an injected official index (a test key and a local URL) instead of the recorded one', () => {
+    const official = { url: 'https://official.test/index.json', publicKey: key };
+    expect(storeIndexesFromEnv({}, official).indexes).toEqual([{ ...official, origin: 'official' }]);
+    expect(storeIndexesFromEnv({}, { ...official, publicKey: '' }).indexes).toEqual([]);
+    expect(storeIndexesFromEnv({ WIREHUB_STORE_INDEXES: 'official' }, { ...official, publicKey: '' }).problems?.[0]).toMatch(/no public key/);
+  });
+  it('the test environment trusts no official index (so no test reaches the real one)', () => {
+    expect(storeIndexesFromEnv().indexes).toEqual([]);
   });
   it('lets no API token install from the store', () => {
     expect(scopeFor('POST', '/api/packs/store/install')).toBeUndefined();
@@ -163,6 +174,27 @@ describe('/api/packs/store', () => {
     // other methods on /api/packs/store are the pack lifecycle's (a pack whose id is 'store')
     expect((await call('/api/packs/store', undefined, 'DELETE')).status).toBe(404);
     expect(readInstalledPacks(packs).packs).toEqual([]);
+  });
+
+  it('fetches the official index only when the store is listed, and shows it as down when unreachable', async () => {
+    const official = storeIndexesFromEnv({}, { url: STORE_URL, publicKey: store.publicKey });
+    const seen: string[] = [];
+    const down = (async (input: URL | string): Promise<never> => {
+      seen.push(String(input));
+      throw new Error('connect ECONNREFUSED');
+    }) as typeof fetch;
+    deps.store = { ...official, fetch: { fetch: down, lookup: async () => ['93.184.216.34'] } };
+    expect(seen).toEqual([]);
+    const list = await call('/api/packs/store');
+    expect(list.status, JSON.stringify(list.body)).toBe(200);
+    expect(list.body.indexes).toEqual([expect.objectContaining({ url: STORE_URL, ok: false, source: 'official', error: expect.any(String) })]);
+    expect(list.body.packs).toEqual([]);
+  });
+
+  it('lists the official index, when reachable, as source official', async () => {
+    deps.store = { ...storeIndexesFromEnv({}, { url: STORE_URL, publicKey: store.publicKey }), fetch: store.fetch };
+    const list = await call('/api/packs/store');
+    expect(list.body.indexes).toEqual([expect.objectContaining({ url: STORE_URL, ok: true, source: 'official' })]);
   });
 
   it('says when no index is configured', async () => {

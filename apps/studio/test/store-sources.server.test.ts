@@ -57,6 +57,13 @@ describe('store sources (files)', { timeout: 180_000 }, () => {
     );
   });
 
+  it('shows the official store as trusted when the hub lists it, with the recorded key', async () => {
+    deps.store = storeIndexesFromEnv({});
+    const got = (await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/stores' }, deps)) as { status: number; body: any };
+    expect(got.body.official).toMatchObject({ state: 'trusted', keyId: '289BB53D1B721017' });
+    expect(got.body.sources).toEqual([expect.objectContaining({ origin: 'official', readOnly: true })]);
+  });
+
   it('reads the lock from the environment and checks a source entry', () => {
     expect(storeIndexesFromEnv({}).allowUserSources).toBeUndefined();
     expect(storeIndexesFromEnv({ WIREHUB_STORE_ALLOW_USER_SOURCES: 'true' }).allowUserSources).toBeUndefined();

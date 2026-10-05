@@ -42,7 +42,7 @@ export async function storeSourcesScenario(call: Call, setStore: (store: StoreDe
   const first = await settings();
   expect(first.status).toBe(200);
   expect(first.body.allowUserSources).toBe(true);
-  expect(first.body.official).toMatchObject({ state: 'not-signed-yet' });
+  expect(first.body.official).toMatchObject({ state: 'not-enabled', keyId: '289BB53D1B721017' });
   expect(first.body.sources).toEqual([expect.objectContaining({ url: STORE_URL, origin: 'env', readOnly: true, enabled: true, fingerprint: storeKeyFingerprint(a.publicKey).fingerprint })]);
 
   // preview: the store's name, publishers, pack count and the key's fingerprint

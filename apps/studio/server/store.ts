@@ -71,13 +71,11 @@ export const OFFICIAL_STORE_INDEX_URL = 'https://formless63.github.io/wirehub/st
 /**
  * The official index's public key (minisign `RW…` form).
  *
- * PLACEHOLDER: empty until the owner creates the signing key. Then:
- *   node scripts/store-index.mjs pubkey --key <private key file>
- * prints the line to put here (and in docs/catalog-store.md). While it is empty the
- * official index is not trusted by default; `WIREHUB_STORE_INDEXES` can still name it
- * with a key.
+ * Recorded 2026-10-05 (key id 289BB53D1B721017); `node scripts/store-index.mjs pubkey --key <private key file>`
+ * prints it. Hubs trust the official index by default. Tests never reach the real index: they set
+ * `WIREHUB_STORE_INDEXES=none` (vitest.config.ts) or pass their own `official` to `storeIndexesFromEnv`.
  */
-export const OFFICIAL_STORE_PUBLIC_KEY = 'RWQXEHIbPbWbKH32jyM29IRDsITWmTwGdtDQzcVaY2peD2aQnCHCoVlj';
+export const OFFICIAL_STORE_PUBLIC_KEY: string = 'RWQXEHIbPbWbKH32jyM29IRDsITWmTwGdtDQzcVaY2peD2aQnCHCoVlj';
 
 export interface TrustedStoreIndex {
   url: string;
@@ -108,21 +106,21 @@ const yes = (value: string | undefined): boolean => value !== undefined && /^(1|
 /**
  * `WIREHUB_STORE_INDEXES`: entries separated by commas or new lines, each
  * `<https url> <public key>`; the word `official` stands for WireHub's own index.
- * Unset: the official index when its key is published, else none. Empty or `none`: none.
+ * Unset: the official index (fetched lazily, on the first store request), else none if the build has no key. Empty or `none`: none.
  */
-export function storeIndexesFromEnv(env: Env = process.env): StoreDeps {
+export function storeIndexesFromEnv(env: Env = process.env, officialIndex: { url: string; publicKey: string } = { url: OFFICIAL_STORE_INDEX_URL, publicKey: OFFICIAL_STORE_PUBLIC_KEY }): StoreDeps {
   const raw = env['WIREHUB_STORE_INDEXES'];
   const hide = {
     ...(yes(env['WIREHUB_STORE_HIDE_UNREVIEWED']) ? { hideUnreviewed: true } : {}),
     ...(/^(0|false|no|off)$/i.test((env['WIREHUB_STORE_ALLOW_USER_SOURCES'] ?? '').trim()) ? { allowUserSources: false } : {}),
   };
-  const official = (): TrustedStoreIndex[] => (OFFICIAL_STORE_PUBLIC_KEY === '' ? [] : [{ url: OFFICIAL_STORE_INDEX_URL, publicKey: OFFICIAL_STORE_PUBLIC_KEY, origin: 'official' }]);
+  const official = (): TrustedStoreIndex[] => (officialIndex.publicKey === '' ? [] : [{ url: officialIndex.url, publicKey: officialIndex.publicKey, origin: 'official' }]);
   if (raw === undefined) return { indexes: official(), ...hide };
   const indexes: TrustedStoreIndex[] = [];
   const problems: string[] = [];
   for (const entry of raw.split(/[,\n]/).map((e) => e.trim()).filter((e) => e !== '' && e !== 'none')) {
     if (entry === 'official') {
-      if (OFFICIAL_STORE_PUBLIC_KEY === '') problems.push("'official': this build has no public key for the official index yet; name it with its key instead.");
+      if (officialIndex.publicKey === '') problems.push("'official': this build has no public key for the official index yet; name it with its key instead.");
       indexes.push(...official());
       continue;
     }
