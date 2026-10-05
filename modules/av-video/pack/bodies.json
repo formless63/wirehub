@@ -151,5 +151,32 @@
         }
       ]
     }
+  },
+  {
+    "id": "bnc-male",
+    "label": "BNC plug (male)",
+    "family": "bnc",
+    "gender": "male",
+    "positions": [
+      {
+        "id": "tip"
+      },
+      {
+        "id": "shell",
+        "kind": "shell"
+      }
+    ],
+    "construction": "solder-cup",
+    "drawing": "bnc",
+    "src": "IEC 61169-8: BNC bayonet-coupled RF connector, centre contact (tip) and outer conductor (shell); generic 50/75 ohm cable plug",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 61169-8: BNC bayonet-coupled RF connector, centre contact (tip) and outer conductor (shell); generic 50/75 ohm cable plug"
+        }
+      ]
+    }
   }
 ]

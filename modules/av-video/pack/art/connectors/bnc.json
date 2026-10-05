@@ -10,7 +10,7 @@
   "short": "BNC",
   "width": 146,
   "height": 32,
-  "approximate": false,
+  "approximate": true,
   "shapes": [
     {
       "el": "rect",
@@ -19,7 +19,8 @@
       "width": 12,
       "height": 2.2,
       "tone": "copper",
-      "rx": 0.6
+      "rx": 0.6,
+      "ifDefined": "tip"
     },
     {
       "el": "rect",
@@ -28,7 +29,8 @@
       "width": 12,
       "height": 2.2,
       "tone": "metal",
-      "rx": 0.6
+      "rx": 0.6,
+      "ifDefined": "shell"
     },
     {
       "el": "path",

@@ -15,11 +15,12 @@ import type { ModuleRegistry } from '@wirehub/modules';
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
 import { notifierFromEnv } from './notify.ts';
 import { createJobService, executeJob } from './jobs/service.ts';
+import { moduleJobKinds, moduleSchedules } from './jobs/module-queues.ts';
 import type { JobKind, JobService } from './jobs/types.ts';
 import { pgAppConfigFromEnv, redactUrl } from './pg/config.ts';
 import { openPg, resolveOrgId, type PgHandle } from './pg/db.ts';
 import { checkDatabase, pgWorkbenchDeps } from './pg/deps.ts';
-import { beat, bossJobRunner, BOSS_SCHEMA, lastBeat, pgJobHandlers, pgJobStore, startBoss, type BossPayload } from './pg/jobs.ts';
+import { beat, bossJobRunner, bossQueueName, BOSS_SCHEMA, lastBeat, pgJobHandlers, pgJobStore, startBoss, type BossPayload } from './pg/jobs.ts';
 import { SnapshotCache } from './pg/snapshot.ts';
 
 export interface WorkerOptions {
@@ -116,7 +117,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     // pg_dump runs as studio_ro: it must read the queue tables this role creates (0016)
     await sql.raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${BOSS_SCHEMA} GRANT SELECT ON TABLES TO studio_ro`).execute(handle.db);
     await sql.raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${BOSS_SCHEMA} GRANT SELECT ON SEQUENCES TO studio_ro`).execute(handle.db);
-    boss = await startBoss(config.url, 'worker', log);
+    boss = await startBoss(config.url, 'worker', log, moduleJobKinds(deps.modules));
     await sql.raw(`GRANT SELECT ON ALL TABLES IN SCHEMA ${BOSS_SCHEMA} TO studio_ro`).execute(handle.db);
     await sql.raw(`GRANT SELECT ON ALL SEQUENCES IN SCHEMA ${BOSS_SCHEMA} TO studio_ro`).execute(handle.db);
     const started = boss;
@@ -124,7 +125,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
 
     const afterJob = (line: string): void => log(`${line} (worker rss ${Math.round(process.memoryUsage().rss / 1048576)} MiB)`);
     for (const kind of kinds) {
-      await boss.work<BossPayload>(kind, { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' ? 1 : 5 }, async ([job]) => {
+      await boss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' ? 1 : 5 }, async ([job]) => {
         if (job === undefined) return;
         const payload = job.data;
         if (payload.org !== org) {
@@ -146,10 +147,12 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     ];
     const window = /^\s*(\d{1,2}):(\d{2})\s*-/.exec(env.WIREHUB_CONVERT_WINDOW ?? '');
     if (window !== null) scheduled.push({ kind: 'model-cache', cron: `${Number(window[2])} ${Number(window[1])} * * *` });
+    // a module queue's own schedule
+    scheduled.push(...moduleSchedules(deps.modules));
     for (const s of scheduled) {
       if (!kinds.includes(s.kind)) continue;
       const payload: BossPayload = { org, scheduled: true };
-      await boss.schedule(s.kind, s.cron, payload as unknown as object, { tz });
+      await boss.schedule(bossQueueName(s.kind), s.cron, payload as unknown as object, { tz });
     }
 
     // the heartbeat

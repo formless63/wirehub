@@ -254,6 +254,20 @@ function mirrored(art: { shapes: ArtShape[]; pins: ConnectorPinArt[]; labels: Ar
  * A record as the art a renderer paints, or `undefined` when the connector has a pin it does not draw.
  * A profile record is authored cable end on the left, and mirrored when the wire leaves from the right.
  */
+/**
+ * One record shape as the art's: the record-only fields (`ifDefined`,
+ * `bandFallback`) resolved away. A band whose terminal the connector lacks
+ * takes the first fallback it has; with none it is a plain band.
+ */
+function artShape(shape: ConnectorArtRecord['shapes'][number], has: ReadonlySet<string>): ArtShape {
+  const { ifDefined: _ifDefined, ...rest } = shape;
+  if (rest.el !== 'rect') return rest;
+  const { bandFallback, band, ...plain } = rest;
+  if (band === undefined) return plain;
+  const terminal = [band, ...(bandFallback ?? [])].find((id) => has.has(id));
+  return terminal === undefined ? plain : { ...plain, band: terminal };
+}
+
 function artOfRecord(def: ConnectorDefinition, record: ConnectorArtRecord, facing: Facing): ConnectorArt | undefined {
   const has = new Set(def.pins.map((pin) => pin.id));
   const pins: ConnectorPinArt[] = record.pins
@@ -268,7 +282,7 @@ function artOfRecord(def: ConnectorDefinition, record: ConnectorArtRecord, facin
     short: record.short,
     width: record.width,
     height: record.height,
-    shapes: record.shapes.map((shape) => ({ ...shape })),
+    shapes: record.shapes.filter((shape) => shape.ifDefined === undefined || has.has(shape.ifDefined)).map((shape) => artShape(shape, has)),
     pins,
     labels: record.labels.map((item) => ({ ...item })),
     ...(profile ? { facing } : {}),

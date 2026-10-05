@@ -19,6 +19,7 @@ import { runDeriveJob } from '../jobs/derive.ts';
 import { baseJobHandlers } from '../jobs/handlers.ts';
 import { throttled, type Notifier } from '../notify.ts';
 import { JOB_KINDS, type JobHandlers, type JobKind, type JobOutcome, type JobRequester, type JobRun, type JobRunner, type JobStatus, type JobStore, type PlanFile, type WorkerBeat } from '../jobs/types.ts';
+import { moduleJobHandlers } from '../jobs/module-queues.ts';
 import { inOrg, type Db } from './db.ts';
 import { watchAudit } from './audit-watch.ts';
 import { runBackupJob, runBlobGcJob } from './gc.ts';
@@ -26,6 +27,9 @@ import { putDerivedModel } from './model-cache.ts';
 import type { SnapshotCache } from './snapshot.ts';
 
 export const BOSS_SCHEMA = 'pgboss';
+
+/** pg-boss queue names allow no colon: a module's `<module>:<queue>` kind is the queue `<module>.<queue>`. */
+export const bossQueueName = (kind: string): string => kind.replace(':', '.');
 
 interface JobRow {
   id: string;
@@ -169,7 +173,7 @@ export interface BossPayload {
 }
 
 /** A pg-boss instance as `studio_app`: the studio only sends; the worker also works and schedules. */
-export async function startBoss(url: string, role: 'studio' | 'worker', log: (line: string) => void = console.log): Promise<PgBoss> {
+export async function startBoss(url: string, role: 'studio' | 'worker', log: (line: string) => void = console.log, moduleKinds: readonly string[] = []): Promise<PgBoss> {
   const boss = new PgBoss({
     connectionString: url,
     schema: BOSS_SCHEMA,
@@ -182,8 +186,9 @@ export async function startBoss(url: string, role: 'studio' | 'worker', log: (li
   });
   boss.on('error', (error: Error) => log(`[jobs] pg-boss: ${error.message}`));
   await boss.start();
-  for (const kind of JOB_KINDS) {
-    if ((await boss.getQueue(kind)) === null) await boss.createQueue(kind, { retryLimit: 0, expireInSeconds: kind === 'model-cache' ? 6 * 3600 : 1800, deleteAfterSeconds: 7 * 24 * 3600 }).catch(() => undefined);
+  // a module's queues (`<module>:<queue>`, §3.13) are made beside the base's, so the studio can send before the worker has started
+  for (const kind of [...JOB_KINDS, ...moduleKinds]) {
+    if ((await boss.getQueue(bossQueueName(kind))) === null) await boss.createQueue(bossQueueName(kind), { retryLimit: 0, expireInSeconds: kind === 'model-cache' ? 6 * 3600 : 1800, deleteAfterSeconds: 7 * 24 * 3600 }).catch(() => undefined);
   }
   return boss;
 }
@@ -194,7 +199,7 @@ export function bossJobRunner(boss: () => Promise<PgBoss>, orgId: () => string):
     describe: 'the worker (pg-boss)',
     async submit(job) {
       const payload: BossPayload = { id: job.id, org: orgId() };
-      await (await boss()).send(job.kind, payload as unknown as object);
+      await (await boss()).send(bossQueueName(job.kind), payload as unknown as object);
     },
   };
 }
@@ -276,6 +281,8 @@ export function pgJobHandlers(options: HousekeepingOptions): JobHandlers {
       putModel: (key, glb, meta) => putDerivedModel(options.db, options.orgId, options.blobs, key, glb, meta),
     }),
     ...pgHousekeepingHandlers(options),
+    // the queues modules registered through an integration (§3.13)
+    ...moduleJobHandlers(options.deps.modules, options.deps),
   };
 }
 

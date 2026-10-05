@@ -178,7 +178,7 @@ describe('drawing the audio parts', () => {
     try {
       const left = connectorArt(input('left'))!;
       const right = connectorArt(input('right'))!;
-      expect(left).toMatchObject({ view: 'profile', short: 'RCA', approximate: false, facing: 'left' });
+      expect(left).toMatchObject({ view: 'profile', short: 'RCA', approximate: true, facing: 'left' });
       expect(left.pins.map((p) => p.terminal)).toEqual(['tip', 'sleeve']);
       expect(left.pins.every((p) => p.x < left.width / 2)).toBe(true);
       expect(right.pins.every((p) => p.x > right.width / 2)).toBe(true);

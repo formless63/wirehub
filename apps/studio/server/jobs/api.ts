@@ -21,7 +21,7 @@ import { CommitRefusedError, ReadOnlyBackendError, StaleRecordError } from '../s
 import { withWriteLock } from '../storage/write-lock.ts';
 import { parseModuleIoPath, type ModuleIoPath } from '../module-io.ts';
 import { commitPlan, MAX_IMPORT_BYTES, planChanges, readImportRequest } from './import.ts';
-import { isJobKind, type JobKind, type JobRun } from './types.ts';
+import { isJobKind, isModuleJobKind, type JobKind, type JobRun } from './types.ts';
 
 export const JOB_ROUTES = [
   'GET    /api/jobs',
@@ -30,7 +30,7 @@ export const JOB_ROUTES = [
   'POST   /api/jobs/:id/publish',
 ] as const;
 
-/** Kinds a person may start by hand (`POST /api/jobs`); the rest have their own triggers. */
+/** Kinds a person may start by hand (`POST /api/jobs`), and every module queue; the rest have their own triggers. */
 const ON_DEMAND: readonly JobKind[] = ['model-cache', 'derive'];
 
 const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -146,7 +146,7 @@ export async function handleJobRequest(request: ApiRequest, deps: WorkbenchDeps)
     }
     if (method === 'POST') {
       const kind = (request.body as { kind?: unknown } | undefined)?.kind;
-      if (!isJobKind(kind) || !ON_DEMAND.includes(kind)) return fail(400, `Say which job to run: one of ${ON_DEMAND.join(', ')}.`);
+      if (!isJobKind(kind) || !(ON_DEMAND.includes(kind) || isModuleJobKind(kind))) return fail(400, `Say which job to run: one of ${ON_DEMAND.join(', ')}, or a module's queue (<module>:<queue>).`);
       if (!jobs.kinds.includes(kind)) return fail(501, `This studio does not run '${kind}' jobs.`);
       const job = await jobs.enqueue(kind, { reason: 'requested' }, request.user);
       return { status: 202, body: { job: jobView(job) }, headers: { Location: `/api/jobs/${job.id}` } };

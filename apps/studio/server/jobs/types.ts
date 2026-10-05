@@ -22,10 +22,23 @@ import type { Awaitable, RecordChange } from '../storage/change-set.ts';
 
 /** The base's queues (§2). A module's queue is `<module>:<queue>`. */
 export const JOB_KINDS = ['import', 'convert', 'model-cache', 'derive', 'blob-gc', 'backup'] as const;
-export type JobKind = (typeof JOB_KINDS)[number];
+export type BaseJobKind = (typeof JOB_KINDS)[number];
+/** A queue a module registered (`@wirehub/modules` `JobQueueContribution`): `<module id>:<queue id>`. */
+export type ModuleJobKind = `${string}:${string}`;
+export type JobKind = BaseJobKind | ModuleJobKind;
+
+export function isBaseJobKind(value: unknown): value is BaseJobKind {
+  return typeof value === 'string' && (JOB_KINDS as readonly string[]).includes(value);
+}
+
+const MODULE_KIND = /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function isModuleJobKind(value: unknown): value is ModuleJobKind {
+  return typeof value === 'string' && MODULE_KIND.test(value);
+}
 
 export function isJobKind(value: unknown): value is JobKind {
-  return typeof value === 'string' && (JOB_KINDS as readonly string[]).includes(value);
+  return isBaseJobKind(value) || isModuleJobKind(value);
 }
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';

@@ -143,4 +143,33 @@ describe('art contributions', () => {
     expect(() => createRegistry([mod('a-mod', { connectors: [{ short: 'x' }] })])).toThrow(/without a kebab-case id/);
     expect(() => createRegistry([mod('a-mod', { connectors: [{ id: 'one' }] }), mod('b-mod', { connectors: [{ id: 'one' }] })])).toThrow(/'one' is contributed by both/);
   });
+
+  it('lists the job queues an integration registers, as <module>:<queue>', () => {
+    const m = defineModule({
+      id: 'acme',
+      label: 'Acme',
+      version: '1.0.0',
+      integrations: [{ id: 'sync', label: 'Sync', queues: [{ id: 'push', label: 'Push', schedule: '*/15 * * * *', run: async () => ({ pushed: 1 }) }, { id: 'pull', label: 'Pull', run: async () => undefined }] }],
+    });
+    expect(manifestProblems([m])).toEqual([]);
+    expect(createRegistry([m]).queues().map((q) => [q.kind, q.module, q.id, q.schedule])).toEqual([
+      ['acme:push', 'acme', 'push', '*/15 * * * *'],
+      ['acme:pull', 'acme', 'pull', undefined],
+    ]);
+    expect(EMPTY_REGISTRY.queues()).toEqual([]);
+  });
+
+  it('refuses a queue with a bad id, a duplicate id or a schedule that is not cron', () => {
+    const run = async (): Promise<void> => undefined;
+    const bad = defineModule({
+      id: 'bad',
+      label: 'Bad',
+      version: '1.0.0',
+      integrations: [{ id: 'i', label: 'I', queues: [{ id: 'Not Kebab', label: 'A', run }, { id: 'dup', label: 'B', run }, { id: 'dup', label: 'C', run }, { id: 'when', label: 'D', schedule: 'daily', run }] }],
+    });
+    const problems = manifestProblems([bad]).join('\n');
+    expect(problems).toMatch(/queue 'Not Kebab' is not a kebab-case id/);
+    expect(problems).toMatch(/two queues with id 'dup'/);
+    expect(problems).toMatch(/queue 'when' schedule must be a five-field cron/);
+  });
 });

@@ -29,9 +29,10 @@ import { editLockLayer, type EditLockDeps } from './locks/lock-api.ts';
 import { LOCK_HEADER } from '../src/locks/records.ts';
 
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
-import { isImportPath } from './jobs/api.ts';
+import { importUploadLimit, importUploadRefusal, isImportPath, startImportUpload } from './jobs/api.ts';
+import { parseModuleIoPath } from './module-io.ts';
 import { legacyEnvWarning } from './env.ts';
-import { MAX_JSON_BODY_BYTES as MAX_JSON_BYTES, contentTypeRefusal, crossSiteRefusal, type GuardRefusal } from './request-guard.ts';
+import { MAX_JSON_BODY_BYTES as MAX_JSON_BYTES, contentTypeRefusal, crossSiteRefusal, tooLargeRefusal, type GuardRefusal } from './request-guard.ts';
 
 export { defaultWorkbenchDeps } from './default-deps.ts';
 
@@ -83,6 +84,67 @@ function send(res: ServerResponse, status: number, body: unknown, headers?: Reco
   res.end(payload);
 }
 
+/** The raw body of `req`, up to `limit` bytes; undefined when it is larger (the rest is drained, not held). */
+function readBytes(req: IncomingMessage, limit: number): Promise<Uint8Array | undefined> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= limit) chunks.push(chunk);
+    });
+    req.on('end', () => resolve(size > limit ? undefined : new Uint8Array(Buffer.concat(chunks))));
+    req.on('error', reject);
+  });
+}
+
+/**
+ * `PUT /api/modules/:module/_import/:importer?fileName=…` on the dev host: the
+ * file's raw bytes (application/octet-stream), queued as an import job, with the
+ * standalone server's refusals in the same order (`hono-adapter.ts`).
+ */
+async function handleImportUpload(
+  req: IncomingMessage,
+  res: ServerResponse,
+  io: NonNullable<ReturnType<typeof parseModuleIoPath>>,
+  deps: WorkbenchDeps,
+): Promise<void> {
+  const path = req.url ?? '';
+  const fileName = new URL(path, 'http://dev.invalid').searchParams.get('fileName');
+  try {
+    // refuse before the body is read: a wrong importer or name never costs the upload
+    const early = importUploadRefusal(deps, io, fileName);
+    if (early !== undefined) {
+      req.resume();
+      send(res, early.status, early.body, early.headers);
+      return;
+    }
+    const type = (header(req, 'content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? '';
+    if (type !== 'application/octet-stream') {
+      req.resume();
+      send(res, 415, {
+        error: `The studio does not accept ${type === '' ? 'a body with no type' : `'${type}'`} here.`,
+        hint: 'Nothing was changed. Send the file as application/octet-stream.',
+      });
+      return;
+    }
+    const limit = importUploadLimit();
+    const bytes = await readBytes(req, limit);
+    if (bytes === undefined) {
+      const refusal = tooLargeRefusal(limit);
+      send(res, refusal.status, refusal.body);
+      return;
+    }
+    const response = await startImportUpload({ method: 'PUT', path: path.split('?')[0] ?? path, fileName, bytes }, io, deps);
+    send(res, response.status, response.body, response.headers);
+  } catch (error) {
+    send(res, 500, {
+      error: 'The workbench hit an unexpected problem and stopped before changing anything.',
+      hint: `Check the terminal running the studio for details. (${(error as Error).message})`,
+    });
+  }
+}
+
 /** The one request header this router reads: the stale-write guard's `If-Match`. */
 function ifMatchOf(req: IncomingMessage): string | undefined {
   const value = req.headers['if-match'];
@@ -110,6 +172,11 @@ export function workbenchJsonMiddleware(
       const crossSite = guardWrite(req, false, false);
       if (crossSite !== undefined) {
         send(res, crossSite.status, crossSite.body);
+        return;
+      }
+      const io = parseModuleIoPath(path);
+      if (io?.kind === 'import' && req.method === 'PUT') {
+        await handleImportUpload(req, res, io, deps);
         return;
       }
       let body: unknown;

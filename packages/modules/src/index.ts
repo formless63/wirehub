@@ -99,7 +99,52 @@ export interface ServerRouteContribution {
   path: string;
   /** whether the route writes catalog data (takes the write lock) */
   writes?: boolean;
-  handle(request: { body?: unknown; query: URLSearchParams; user?: { name: string; email?: string } }): Promise<{ status: number; body: unknown }>;
+  handle(request: {
+    body?: unknown;
+    query: URLSearchParams;
+    user?: { name: string; email?: string };
+    /** this module's job queues (absent where the studio runs no jobs) */
+    jobs?: ModuleJobs;
+  }): Promise<{ status: number; body: unknown }>;
+}
+
+/** What a queue's `run` is given for one job. */
+export interface JobQueueContext {
+  /** the module id and the queue's id */
+  module: string;
+  queue: string;
+  /** what the job was enqueued with (`jobs.enqueue(queue, request)`); `{ reason: 'schedule' }` for a scheduled run, `{ reason: 'requested' }` by hand; plain JSON */
+  request: Readonly<Record<string, unknown>>;
+  /** report progress: shown on the job, in order */
+  step(text: string): Promise<void>;
+  /** the catalog as it is when the job starts (read only: catalog writes go through the module's routes and importers) */
+  db(): Promise<Db>;
+}
+
+/**
+ * A job queue a module registers through an integration (`docs/modules.md`,
+ * "Job queues"): work that takes longer than a request, or runs on a schedule,
+ * run by the worker process on the Postgres backend and in the studio process
+ * on files, one job at a time per queue, recorded like the base's own
+ * (`GET /api/jobs`, kind `<module id>:<queue id>`). Nothing is retried: a
+ * `run` that throws fails the job with its message.
+ */
+export interface JobQueueContribution {
+  /** kebab id, unique within the module; the job kind is `<module id>:<id>` */
+  id: string;
+  label: string;
+  /** a five-field cron expression (container time): a job is enqueued on it by the worker (Postgres only) */
+  schedule?: string;
+  /** do the work; the returned object (plain JSON) is the job's result */
+  run(context: JobQueueContext): Promise<Record<string, unknown> | void>;
+}
+
+/** What a route's `request.jobs` offers: enqueue and read this module's own queues. */
+export interface ModuleJobs {
+  /** queue a job on one of this module's queues; resolves once it is recorded, not when it has run */
+  enqueue(queue: string, request?: Record<string, unknown>): Promise<{ id: string; kind: string; status: string }>;
+  /** a job of this module's queues (`undefined` for any other job): its status, steps, result and error */
+  get(id: string): Promise<{ id: string; kind: string; status: string; steps: { at: string; text: string }[]; result?: Record<string, unknown>; error?: string } | undefined>;
 }
 
 export interface IntegrationContribution {
@@ -108,6 +153,8 @@ export interface IntegrationContribution {
   /** environment variables it reads, for the setup page and `docs/` */
   env?: readonly string[];
   routes?: readonly ServerRouteContribution[];
+  /** job queues of this module (run by the worker; see `JobQueueContribution`) */
+  queues?: readonly JobQueueContribution[];
 }
 
 export type PanelSlot = 'cable-inspector' | 'cable-documents' | 'library-detail' | 'settings';
@@ -331,6 +378,8 @@ export interface ModuleRegistry {
   panels(slot: PanelContribution['slot']): readonly (PanelContribution & { module: string })[];
   routes(): readonly (UiRouteContribution & { module: string })[];
   integrations(): readonly (IntegrationContribution & { module: string })[];
+  /** every module's job queues, with the job kind each runs as (`<module>:<queue>`) */
+  queues(): readonly (JobQueueContribution & { module: string; kind: string })[];
   authProviders(): readonly (AuthProviderContribution & { module: string })[];
   /** every registered rule's issues for `design`, codes prefixed `<module>/` when the rule did not */
   validate(design: CableDesign, db: Db): Issue[];
@@ -338,6 +387,7 @@ export interface ModuleRegistry {
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DERIVED_FILE = /^[a-z0-9][a-z0-9-]*\.(json|md)$/;
+const CRON_FIELD = /^[0-9*,/\-A-Za-z]+$/;
 const ROUTE_PATH = /^[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*$/;
 
 /** Why a manifest is unusable — thrown by `createRegistry`, one sentence per problem. */
@@ -381,6 +431,18 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
     for (const integration of m.integrations ?? []) {
       for (const route of integration.routes ?? []) {
         if (route.path.startsWith('_')) problems.push(`module '${m.id}' route '${route.path}' starts with '_', which the host reserves for importers and exporters`);
+      }
+    }
+    const queues = new Set<string>();
+    for (const integration of m.integrations ?? []) {
+      for (const queue of integration.queues ?? []) {
+        if (!KEBAB.test(queue.id)) problems.push(`module '${m.id}' queue '${queue.id}' is not a kebab-case id`);
+        if (queues.has(queue.id)) problems.push(`module '${m.id}' has two queues with id '${queue.id}'`);
+        queues.add(queue.id);
+        if (queue.schedule !== undefined) {
+          const fields = queue.schedule.trim().split(/\s+/);
+          if (fields.length !== 5 || !fields.every((f) => CRON_FIELD.test(f))) problems.push(`module '${m.id}' queue '${queue.id}' schedule must be a five-field cron expression`);
+        }
       }
     }
     const paths = new Set<string>();
@@ -466,6 +528,7 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     panels: (slot) => list.flatMap((m) => tag(m, m.panels)).filter((p) => p.slot === slot),
     routes: () => list.flatMap((m) => tag(m, m.routes)),
     integrations: () => list.flatMap((m) => tag(m, m.integrations)),
+    queues: () => list.flatMap((m) => (m.integrations ?? []).flatMap((i) => (i.queues ?? []).map((q) => ({ ...q, module: m.id, kind: `${m.id}:${q.id}` })))),
     authProviders: () => list.flatMap((m) => tag(m, m.authProviders)),
     validate: (design, db) =>
       list.flatMap((m) =>

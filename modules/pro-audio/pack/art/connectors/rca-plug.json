@@ -11,7 +11,7 @@
   "short": "RCA",
   "width": 146,
   "height": 30,
-  "approximate": false,
+  "approximate": true,
   "shapes": [
     {
       "el": "rect",
@@ -20,7 +20,8 @@
       "width": 12,
       "height": 2.2,
       "tone": "copper",
-      "rx": 0.6
+      "rx": 0.6,
+      "ifDefined": "tip"
     },
     {
       "el": "rect",
@@ -29,7 +30,8 @@
       "width": 12,
       "height": 2.2,
       "tone": "metal",
-      "rx": 0.6
+      "rx": 0.6,
+      "ifDefined": "sleeve"
     },
     {
       "el": "path",
@@ -107,7 +109,10 @@
       "width": 8,
       "height": 24,
       "tone": "band",
-      "band": "tip"
+      "band": "tip",
+      "bandFallback": [
+        "sleeve"
+      ]
     },
     {
       "el": "rect",

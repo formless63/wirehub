@@ -42,8 +42,9 @@ describe('the example module', () => {
     expect(registry.commitHook()).toBe(recordEdit);
     expect(registry.importersFor('Parts.CSV').map((i) => i.id)).toEqual(['resistor-csv']);
     expect(registry.exporters().map((e) => e.id)).toEqual(['joints-csv']);
-    expect(registry.integrations().flatMap((i) => (i.routes ?? []).map((r) => `${r.method} ${r.path}${r.writes === true ? ' (writes)' : ''}`))).toEqual(['GET status', 'POST echo (writes)']);
+    expect(registry.integrations().flatMap((i) => (i.routes ?? []).map((r) => `${r.method} ${r.path}${r.writes === true ? ' (writes)' : ''}`))).toEqual(['GET status', 'POST recount', 'GET recount', 'POST echo (writes)']);
     for (const slot of ['cable-inspector', 'cable-documents', 'library-detail', 'settings'] as const) expect(registry.panels(slot), slot).toHaveLength(1);
+    expect(registry.queues().map((q) => q.kind)).toEqual(['example:recount']);
     expect(registry.routes().map((r) => r.path)).toEqual(['status']);
     expect(registry.authProviders().map((a) => a.id)).toEqual(['example-sso']);
     expect(registry.documentFor('data/example/notes.json')?.module).toBe('example');

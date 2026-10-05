@@ -13,7 +13,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { backrestConfig, backupInit, checkCron, LOCAL_REPOSITORY, MARKER_FILE } from '../stack/backup-init.ts';
+import { backrestConfig, backupInit, checkCron, LOCAL_REPOSITORY, MARKER_FILE, withMarkerHooks } from '../stack/backup-init.ts';
 import { bootstrap, bundledDatabaseUrl, garageToml } from '../stack/bootstrap.ts';
 import { ensureKey, garageInit, KEYS, parseSize } from '../stack/garage-init.ts';
 import { readSecret } from '../stack/secrets.ts';
@@ -229,6 +229,43 @@ describe('backup-init', () => {
     backupInit(env({ BACKREST_CONFIG: config(), BACKUP_REPOSITORY: 'rest:http://nas:8000/x' }), () => undefined);
     expect(readFileSync(config(), 'utf8')).toBe('{"edited":true}\n');
     expect(readSecret(dir, 'restic_password')).toBe(password);
+  });
+
+  it('adds the marker hooks to an existing configuration that lacks them, once, and touches nothing else', () => {
+    const old = backrestConfig({ repository: '/repos/x', password: 'p', schedule: '0 3 * * *' }) as { plans: { hooks?: unknown[]; retention: unknown }[]; modno: number };
+    const mine = { conditions: ['CONDITION_SNAPSHOT_START'], actionCommand: { command: 'echo mine' } };
+    old.plans[0]!.hooks = [mine];
+    old.modno = 7;
+    mkdirSync(join(dir, 'backrest'), { recursive: true });
+    writeFileSync(config(), `${JSON.stringify(old)}\n`, { mode: 0o600 });
+    const lines: string[] = [];
+    backupInit(env({ BACKREST_CONFIG: config() }), (line) => lines.push(line));
+    const patched = JSON.parse(readFileSync(config(), 'utf8'));
+    expect(patched.plans[0].hooks).toEqual([
+      mine,
+      { conditions: ['CONDITION_SNAPSHOT_SUCCESS'], actionCommand: { command: 'touch /marker/.last-snapshot' } },
+      { conditions: ['CONDITION_SNAPSHOT_ERROR'], actionCommand: { command: 'touch /marker/.last-failure' } },
+    ]);
+    expect(patched.plans[0].retention).toEqual(old.plans[0]!.retention);
+    expect(patched.repos).toEqual((old as unknown as { repos: unknown }).repos);
+    expect(patched.modno).toBe(8);
+    expect(lines.join('\n')).toContain('added the snapshot marker hooks');
+    // a second start changes nothing
+    const once = readFileSync(config(), 'utf8');
+    backupInit(env({ BACKREST_CONFIG: config() }), () => undefined);
+    expect(readFileSync(config(), 'utf8')).toBe(once);
+    expect(existsSync(`${config()}.tmp`)).toBe(false);
+  });
+
+  it('adds only the hook that is missing, leaves other plans and unreadable files alone', () => {
+    const text = JSON.stringify({ plans: [{ id: 'a', paths: ['/sources'], hooks: [{ conditions: ['CONDITION_SNAPSHOT_SUCCESS'], actionCommand: { command: 'sh -c "touch /marker/.last-snapshot && echo ok"' } }] }, { id: 'b', paths: ['/elsewhere'] }] });
+    const { text: out, added } = withMarkerHooks(text);
+    expect(added).toEqual(['a: touch /marker/.last-failure']);
+    const plans = JSON.parse(out).plans;
+    expect(plans[0].hooks).toHaveLength(2);
+    expect(plans[1].hooks).toBeUndefined();
+    expect(withMarkerHooks('not json')).toEqual({ text: 'not json', added: [] });
+    expect(withMarkerHooks('{"edited":true}\n').added).toEqual([]);
   });
 
   it('marks backups as configured in the marker volume, when it is mounted', () => {
