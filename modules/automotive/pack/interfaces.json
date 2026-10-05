@@ -82,5 +82,38 @@
         }
       ]
     }
+  },
+  {
+    "id": "sealed-3-numbered",
+    "label": "Sealed 3-way, cavities by number (no signals assigned)",
+    "short": "Sealed 3-way",
+    "bodies": [
+      "sealed-3-female",
+      "sealed-3-male"
+    ],
+    "pins": {
+      "1": {
+        "signal": "any",
+        "label": "1"
+      },
+      "2": {
+        "signal": "any",
+        "label": "2"
+      },
+      "3": {
+        "signal": "any",
+        "label": "3"
+      }
+    },
+    "src": "cavities by number, no signals assigned; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "cavities by number, no signals assigned; synthetic example"
+        }
+      ]
+    }
   }
 ]

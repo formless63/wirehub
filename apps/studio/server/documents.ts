@@ -6,7 +6,7 @@
  *       kind: schematic · build-sheet · bom · test-spec · drawing · labels
  *       format: html · svg · pdf · csv (which a kind comes in: `render/index.ts`)
  *   GET /api/designs/:id/exports/:format?rev=…&quantity=…
- *       format: bom.csv · wire-list.csv · cut-list.csv · production.xlsx ·
+ *       format: bom.csv · wire-list.csv · cut-list.csv · crimp-list.csv · production.xlsx ·
  *       continuity.csv · continuity.json · labels.csv · labels.svg
  *   GET /api/exports   the list of export formats
  *

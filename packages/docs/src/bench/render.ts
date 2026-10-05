@@ -26,6 +26,7 @@ import { deriveBench, type Bench, type BenchEnd, type Landing, type SegmentEnd, 
 import { breakoutSection } from './breakouts.ts';
 import { assemblySteps, endSteps, prepSteps, qaSteps, solderStep, shellSets, type Step } from './standard-work.ts';
 import { BENCH_STYLESHEET } from './styles.ts';
+import { crimpTableHtml, toolsHtml } from './crimp.ts';
 import { trunkSegment } from '../drawing/model.ts';
 import { suppliedEnds, type SuppliedEnd } from '../supplied.ts';
 
@@ -235,6 +236,12 @@ function endPage(
       }${figure?.svg ?? ''}</div>`,
     );
     listed.push(...term.landings.filter((l) => figure === undefined || !figure.drawn.has(l.n)));
+  }
+  // crimp: contact, seal and tool per cavity of each connector at this end
+  for (const term of end.terminations) {
+    if (term.kind === 'pcba') continue;
+    const crimp = crimpTableHtml(design, db, term.instance);
+    if (crimp !== '') parts.push(block(`Crimp — ${term.instance} ${term.label}`, crimp));
   }
   parts[colsAt] = (parts[colsAt] ?? '').replace('<!--side-->', pinned.length === 0 ? '' : block('Plugs and pins', landingList(pinned, true)));
   if (listed.length > 0) parts.push(block(listed.length === end.terminations.reduce((c, t) => c + t.landings.length, 0) ? 'Landings' : 'Also at this end', landingList(listed)));
@@ -477,6 +484,7 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
     .join('');
   const kit = [
     block('Parts to pull', pullList(bom)),
+    block('Tools', toolsHtml(design, db)),
     block(supplied.length > 0 ? 'Cut and stock' : 'Cut', cutList(design, db, header, supplied)),
     `<div class="cs-cols">${prep}${block('Solder', stepsHtml([solderStep()]))}</div>`,
   ].join('');

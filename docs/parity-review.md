@@ -53,7 +53,7 @@ What was lost is mostly glue around the private parts:
 - documents no longer carry the organisation's identity;
 - a generic variant transform has no button;
 - part numbers are checked for format but never for duplicates;
-- the 3D board-model path has no way in;
+- the 3D board-model path had no way in (it has one now: a `.kicad_pcb` uploaded as a board's model source, cs-5k1.12);
 - the headless document scripts were not carried over;
 - six design specs are still waiting to be rewritten generically.
 
@@ -68,7 +68,7 @@ What was lost is mostly glue around the private parts:
 | Library route per kind and record | present | |
 | A saved revision opened read-only (`?rev=N`) | present | |
 | Product lineup page | missing, private | resolver and lineup module |
-| Board import page | missing, private | board importer over one file share (see cs-5k1.13 for open formats) |
+| Board import page | present | `modules/board-import` (`/m/board-import/boards`): KiCad, Gerber and fab BOM/CPL files, reviewed and published as jobs (cs-5k1.13); only the private file-share discovery stays private |
 | Part compare view (2D art and 3D model diff, revisions) | missing, private | boundaries §2.5; the Library still draws Compare but nothing can supply it: cs-5k1.21 |
 | Declined board-proposal tab | missing, private | resolver module |
 | Not-found view | present | |
@@ -113,7 +113,7 @@ What was lost is mostly glue around the private parts:
 
 | Feature | Class | Notes / bead |
 | --- | --- | --- |
-| Board nodes with top and bottom artwork, handles on the real pads | present | art from uploads or packs. Generating it from fabrication files is private today (cs-5k1.13) |
+| Board nodes with top and bottom artwork, handles on the real pads | present | art from uploads, packs, or a board's KiCad file and Gerber set (`modules/board-import`, cs-5k1.13) |
 | Wire nodes with end-face cutaways, chirality, jacket run | present | |
 | Port columns, stubs under the jacket, bundled grounds (`×n`) | present | |
 | Automatic end rotation | present | |
@@ -158,10 +158,10 @@ What was lost is mostly glue around the private parts:
 | PCBA editor: terminals, pads, internal links, integrated connectors | present | |
 | Board builds editor (population, jumpers) | present | |
 | Mechanical and kit editors | present | |
-| Board journey | present | its import step is private |
+| Board journey | present | its import step is `modules/board-import`'s page |
 | Artwork upload, click-to-place anchors, entry guides | present | |
 | 3D models: STEP/STL/GLB upload, conversion in the background | present | now a job |
-| KiCad library models and a board's 3D assembly from its KiCad file | degraded | the code is there, but its feeding scripts were left behind, so nothing can create such a source: cs-5k1.12 |
+| KiCad library models and a board's 3D assembly from its KiCad file | present | a `.kicad_pcb` uploaded on a board (`POST /api/models/pcbas/:id/upload`, or the board-import page) is kept as its model source; the model-cache job fetches the KiCad library models it names at the pinned commit and builds it (cs-5k1.12). A table of library models for other records is a module's |
 | Model matcher and import over one file share | missing, private | |
 | Parametric 3D wire stocks | present | |
 | Vendor documents on parts | present | |
@@ -243,7 +243,7 @@ What was lost is mostly glue around the private parts:
 | --- | --- | --- |
 | Every save a git commit by its author, pushed with retry; backup indicator | present | better since cs-5k1.4: every save is a change set on the database backend, with a History panel per record, a hub-wide History page, field-level diffs and restore on both backends, and an opt-in git mirror of every change set (`docs/self-hosting.md`) |
 | Model conversion in the background | present | now a job, with a worker on Postgres |
-| Board import jobs | missing, private | |
+| Board import jobs | present | `modules/board-import`'s importers run as import jobs |
 | Login: local allow-list, OIDC, magic link | present | better: accounts, invitations, people page, API tokens |
 | Local user name when the login is off | present | |
 | Live-clone deploy and proxy specifics | dropped | |
@@ -253,7 +253,7 @@ What was lost is mostly glue around the private parts:
 
 | Feature | Class | Notes / bead |
 | --- | --- | --- |
-| Catalog import scripts (boards, depictions generator, board components, fab files, legacy boards, store products, devices) | missing, private | |
+| Catalog import scripts (boards, depictions generator, board components, fab files, legacy boards, store products, devices) | missing, private | the open-format part (boards, art, board components, fab files) is `modules/board-import`; the share-specific scripts stay private |
 | One-shot data migrations | dropped | schema migration itself lives in the model |
 | Fixture catalog refresh | present | a documented copy |
 | Document and drawing preview scripts | missing, generic | covered by cs-5k1.7 |
@@ -272,7 +272,7 @@ What was lost is mostly glue around the private parts:
 | cs-5k1.7 | Headless document rendering: CLI and API | missing, generic | M |
 | cs-5k1.8 | Connect known pins by signal tags | missing, generic | M |
 | cs-5k1.10 | Make-variant: copy a cable onto another trunk stock | degraded | S |
-| cs-5k1.12 | KiCad 3D-model pipeline: give it a way in, or remove it | degraded | M |
+| cs-5k1.12 | KiCad 3D-model pipeline: give it a way in, or remove it (done: a `.kicad_pcb` upload, built by the model-cache job) | degraded → present | M |
 | cs-5k1.14 | Re-specify the remaining design specs generically | missing, generic | M |
 | cs-5k1.21 | A compare-view slot in the Library for modules | missing, private (hook gap) | S |
 
@@ -285,11 +285,11 @@ phase plan, and what a harness shop expects from a design tool.
 | Rank | Bead | Gap | Size |
 | --- | --- | --- | --- |
 | 1 | cs-5k1.1 | Production exports: BOM, wire list and cut list as CSV (XLSX optional) | M |
-| 2 | cs-5k1.5 | Crimp terminations as parts: contacts, seals and tooling per cavity, in the BOM and on the build sheet | L |
+| 2 | cs-5k1.5 | Crimp terminations as parts: contacts, seals and tooling per cavity, in the BOM and on the build sheet (**built**: `crimp.ts`, SPEC.md "Crimp terminations") | L |
 | 3 | cs-5k1.6 | Continuity tester export (neutral format) and test parameters (threshold, hipot) | M |
 | 4 | cs-5k1.9 | Sub-assemblies: a design that places other designs, with BOM roll-up and frozen revisions | L |
 | 5 | cs-5k1.11 | Release approvals on saved versions | M |
-| 6 | cs-5k1.13 | Decision: a public board-import module for open file formats (KiCad, Gerber, fab BOM/CPL) | XL |
+| 6 | cs-5k1.13 | Decision: a public board-import module for open file formats (KiCad, Gerber, fab BOM/CPL) — **decided and built**: `modules/board-import` | XL |
 | 7 | cs-5k1.15 | Electrical rules: conductor gauge, contact rating, voltage drop | M |
 | 8 | cs-5k1.16 | Harness formboard drawing for branched assemblies | XL |
 | 9 | cs-5k1.17 | Costing: price breaks and BOM cost roll-up | M |
@@ -307,7 +307,7 @@ cs-5k1.11 and cs-5k1.20 cross-reference it.
    importers private because they read one file share. The formats they parse are
    public. Recommendation: build a public module over the importer contract (files
    are uploaded, then reviewed and published as a job), and keep only the file-share
-   discovery private.
+   discovery private. **Decided and built** as recommended: `modules/board-import`.
 2. **Generic part compare (cs-5k1.21).** The compare view went private together with
    board revisions. Comparing two library parts (2D artwork, 3D models) is generic.
    Recommendation: add the module slot now. Decide later whether the base itself

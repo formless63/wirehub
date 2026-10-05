@@ -11,7 +11,8 @@ server and browser each build the registry from it. The base bundles five option
 modules** there (`modules/pc-serial`, `modules/networking`, `modules/pro-audio`,
 `modules/av-video`, `modules/automotive`, below), and an **example module**
 (`modules/example`) that contributes to every extension point, off unless a dev flag is set
-(see "The example module"). Every extension point below is mounted in the app.
+(see "The example module"), and the always-on **board import** module (`modules/board-import`,
+see "Board import"). Every extension point below is mounted in the app.
 
 **Licensing.** `@wirehub/modules` is **MIT**, so a module can depend on it whatever its own
 licence. WireHub itself is AGPL-3.0-only with the **WireHub Module Exception**
@@ -156,6 +157,32 @@ session on Postgres, comparing every answer and the final catalog byte for byte;
 the SPA; `test/module-auth.server.test.ts` signs in through contributed providers;
 `modules/example/test` checks the module's own logic and that it touches every point.
 
+## Board import
+
+`modules/board-import` (`@wirehub/module-board-import`, MIT, README inside) brings a PCBA in
+from its open fabrication files, for any shop. It is in the manifest always (it has no data of
+its own and is not a setup choice) and contributes three importers and a page:
+
+| Importer | Accepts | Proposes |
+| --- | --- | --- |
+| `kicad-board` | `.kicad_pcb`, `.net` | the PCBA — terminals with their pads (positions in the art frame), internal links from its nets and two-terminal parts, integrated connectors named in review — and, from a `.kicad_pcb`, `kicad`-tier art (outline and pads) with anchors |
+| `gerbers` | `.zip` (RS-274X/X2 and Excellon) | `gerber`-tier art for the board: top and bottom SVG (substrate, copper, mask, silkscreen, holes, clipped to the outline), anchored on the board's pads and checked against the copper flashes; it replaces `kicad`-tier art |
+| `fab-bom` | `.csv`, `.board-bom.json` | component records (one per distinct part, reusing the Library's by MPN or supplier number) and the board's placed parts |
+
+The page `/m/board-import/boards` is the review step: the options (board id, part number,
+revision; the board a Gerber set or BOM belongs to), the BOM and placement column mapping
+(detected, then editable), the job's proposal and plan with the art previewed, **Publish**, and,
+once a board is published, **Attach … as its 3D model**: the `.kicad_pcb` goes to
+`POST /api/models/pcbas/:id/upload`, the server keeps it as a catalog document
+(`data/model-sources/<sha256>.kicad_pcb.txt`) and links the board to a model built from it
+(`sourceKind: 'kicad-board'`, `build: { kind: 'assembly', library: <commit> }`). The
+`model-cache` job builds it, fetching the KiCad library models the footprints name from
+kicad-packages3D at the pinned commit into the model cache (`WIREHUB_KICAD_LIBRARY_DIR`,
+`WIREHUB_KICAD_LIBRARY_FETCH=0` to stay offline). Those models are CC-BY-SA: fetched, never
+committed. Its tests: `modules/board-import/test` (parsers, derivation, art, BOM on a synthetic
+board), `apps/studio/test/board-import.server.test.ts` and `test/pg/board-import.server.test.ts`
+(the whole flow as jobs on both backends, compared), `test/board-import.dom.test.tsx` (the page).
+
 ## The module object
 
 ```ts
@@ -189,7 +216,7 @@ export const acme = defineModule({
 | --- | --- | --- | --- |
 | **Catalog packs** | `CatalogPackContribution { id, label, version, root?, license? }` — a data directory laid out like `packages/catalog/data` plus `wirehub-pack.json`; `root` a path or `file:` URL | server, at install | **yes** — installed by first-run setup for domain modules (`/setup`); `layeredCatalogSource` reads one without installing |
 | **Setup (domain)** | `SetupContribution { kind: 'domain', description, suggested? }` | server + browser | **yes** — `/setup` lists `registry.domains()` |
-| **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import(input, db) → { definitions?, designs?, notes } }` — proposes records, never writes | server | **yes** — the Library's **Import…** button (every kind's list) offers the importers that take the file; the person reviews the proposal and accepts it; `POST /api/modules/<module>/_import/<importer>` (below); with `job: true` it runs as a job instead (the worker on Postgres) and its plan is published with `POST /api/jobs/<job>/publish` (`specs/postgres-backend.md` §7.5) |
+| **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import({ fileName, bytes, options? }, db) → { definitions?, designs?, boardParts?, depictions?, notes } }` — proposes records (and a board's placed parts and artwork), never writes | server | **yes** — the Library's **Import…** button (every kind's list) offers the importers that take the file; the person reviews the proposal and accepts it; `POST /api/modules/<module>/_import/<importer>` (below); with `job: true` it runs as a job instead (the worker on Postgres) and its plan is published with `POST /api/jobs/<job>/publish` (`specs/postgres-backend.md` §7.5) |
 | **Exporters / document types** | `ExporterContribution { id, label, description?, source?, render(design, db, options) → { mimeType, fileName, body } }` — `source: 'continuity'` makes the host pass the neutral continuity data as `options.continuity`, for a tester's own format (`docs/exports.md`) | browser and server | **yes** — one download button per exporter in the cable's Documents toolbar; `GET /api/modules/<module>/_export/<exporter>?design=<id>` (below) |
 | **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@wirehub/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
 | **Validation rules** | `ValidationRuleContribution { id, label, check(design, db) → Issue[] }` | everywhere | **yes** — every design save runs them after `validateDesign` |
@@ -340,7 +367,18 @@ else is a puzzle piece) gets a rail entry and a place in the mobile menu. Paths 
 kebab segments joined by `/`, with no parameters.
 
 **Importers.** The server runs them (`POST /api/modules/<module>/_import/<importer>` with
-`{ fileName, base64, accept? }`, a JSON body, so files up to about 24 MB). Without `accept` the
+`{ fileName, base64, accept?, options? }`, a JSON body, so files up to about 24 MB).
+`options` is what a review step chose — an object of up to 32 text values (a target board,
+a column mapping as JSON) handed to the importer as `input.options`; the raw upload below
+takes them as `option.<name>=…` query parameters. Besides definitions and designs an importer
+may propose a board's **placed parts** (`boardParts`, `BoardPartsEntry` rows appended to
+`data/board-parts.json`; a board and revision already listed is kept) and **board artwork**
+(`depictions`: a depiction's `meta.json` record and its SVG files by name). The host runs every
+SVG through the artwork sanitiser and every manifest through the depiction validator (anchors
+must name the definition's terminals, including ones the same import adds) and stages them with
+the records in the same change set; an existing depiction is kept unless every one of its views
+is of a tier the importer lists in `replaces` (`['kicad']`), so a person's own artwork is never
+overwritten. The proposal names them (`boardParts: ['<board>@<rev>']`, `depictions: [<id>]`). Without `accept` the
 answer is the proposal — new definitions by kind, ids the library already has (skipped, never
 overwritten), designs, and the importer's notes — and nothing is written. With `accept: true` the
 file is read again and the proposal is written as **one change set** (the batch machinery:
@@ -395,7 +433,9 @@ It is installed once by `<App>` and removed when the app unmounts.
   designs) to propose the next free one.
 - *A board importer for one file share*: an importer accepting `.kicad_pcb` that returns
   proposed `pcbas` and `components` records with `src` citing the file and revision; the
-  person reviews and accepts them in the Library.
+  person reviews and accepts them in the Library. The file formats themselves are read by the
+  public `modules/board-import`; a private module adds only the share's discovery (which
+  folder, which revision is released) and calls the same parsing.
 - *A product resolver*: rules and a panel; its recipe data under `extensions.<module>`; a
   commit hook that records hand edits against the recipe.
 - *House rules*: a validation rule `acme/no-unsleeved-splice` that warns when a splice has no

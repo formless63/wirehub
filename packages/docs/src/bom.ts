@@ -25,7 +25,10 @@
  */
 
 import {
+  cavityRows,
   designInstances,
+  wireRangeText,
+  insulationRangeText,
   findComponent,
   findConnector,
   findInstance,
@@ -50,7 +53,7 @@ import { suppliedEnds } from './supplied.ts';
  * Types
  * ------------------------------------------------------------------ */
 
-export type BomCategory = 'wire' | 'assembly' | 'pcba' | 'connector' | 'shell' | 'hardware' | 'component';
+export type BomCategory = 'wire' | 'assembly' | 'pcba' | 'connector' | 'termination' | 'shell' | 'hardware' | 'component';
 
 /**
  * Print order: what you cut, what you populate, what you terminate with, what
@@ -64,6 +67,7 @@ export const BOM_CATEGORY_ORDER: readonly BomCategory[] = [
   'assembly',
   'pcba',
   'connector',
+  'termination',
   'shell',
   'hardware',
   'component',
@@ -74,6 +78,7 @@ const CATEGORY_LABEL: Readonly<Record<BomCategory, string>> = {
   assembly: 'Sub-assembly',
   pcba: 'PCBA',
   connector: 'Connector',
+  termination: 'Contact, seal or plug',
   shell: 'Shell',
   hardware: 'Hardware',
   component: 'Component',
@@ -101,7 +106,10 @@ export interface BomLine {
   length?: Length;
   /** qty × per-piece length, for wire lines */
   totalMm?: number;
-  /** instance ids that produced this line, sorted */
+  /**
+   * instance ids that produced this line, sorted; a contact, seal or plug
+   * line names its cavities instead (`j2:1`, the connector instance and pin)
+   */
   provenance: string[];
   /** the definition's own citation */
   src?: string;
@@ -446,6 +454,43 @@ export function deriveBom(design: CableDesign, db: Db): Bom {
       },
       instance.id,
     );
+  }
+
+  /* --- crimp contacts, seals and plugs, counted per cavity ---------- */
+  // a tool is not consumed, so it is never a line (the build sheet lists it)
+  for (const instance of design.instances.connectors) {
+    if (covered.has(instance.id)) continue;
+    const role = instance.role ?? 'unspecified';
+    for (const row of cavityRows(design, db, instance.id)) {
+      for (const part of [row.contact, row.seal, row.plug]) {
+        if (part === undefined) continue;
+        const key = `termination|${part.id}|${role}`;
+        if (part.partNumber === undefined) {
+          const gap = `${part.kind} '${part.id}': no part number in the catalog`;
+          if (!gaps.includes(gap)) gaps.push(gap);
+        }
+        foldInto(
+          folds,
+          key,
+          {
+            key,
+            category: 'termination',
+            unit: 'ea',
+            ref: part.id,
+            label: part.label,
+            ...(part.partNumber === undefined ? {} : { partNumber: part.partNumber }),
+            value: facts([part.kind, part.termination?.plating]),
+            location: role,
+            detail: facts([
+              part.kind === 'contact' ? wireRangeText(part.termination) : insulationRangeText(part.termination),
+              `in ${instance.id}`,
+            ]),
+            ...(part.src === undefined ? {} : { src: part.src }),
+          },
+          `${instance.id}:${row.pin}`,
+        );
+      }
+    }
   }
 
   /* --- discrete components ---------------------------------------- */

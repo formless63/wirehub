@@ -9,6 +9,7 @@ import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
 
 import {
   BASE_EXPORTS,
+  CRIMP_LIST_HEADERS,
   BOM_HEADERS,
   CONTINUITY_CSV_HEADERS,
   CUT_LIST_HEADERS,
@@ -124,6 +125,7 @@ describe.each(listDesignIds())('%s', (id) => {
       'bom.csv': BOM_HEADERS,
       'wire-list.csv': WIRE_LIST_HEADERS,
       'cut-list.csv': CUT_LIST_HEADERS,
+      'crimp-list.csv': CRIMP_LIST_HEADERS,
       'continuity.csv': CONTINUITY_CSV_HEADERS,
       'labels.csv': LABEL_HEADERS,
     };

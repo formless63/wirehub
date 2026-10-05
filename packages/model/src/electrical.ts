@@ -8,7 +8,8 @@
  * - **gauge vs current** — a conductor's area gives an ampacity (the stock's
  *   own `ratedCurrentA`, else the cited table below); the net's current must
  *   not exceed it;
- * - **contact rating** — a connector's `contactRatingA` against the current
+ * - **contact rating** — the crimp contact's `termination.ratedCurrentA` in
+ *   that cavity, else the connector's `contactRatingA`, against the current
  *   of the net its pin lands on;
  * - **voltage drop** — `I × R × L` over a segment's conductor, `R` from the
  *   stock's `resistanceOhmPerKm`, else the conductor's material and area.
@@ -25,6 +26,7 @@ import type { CostingRules } from './cost.ts';
 import { deriveNets, type Net } from './nets.ts';
 import {
   findConnector,
+  findMechanical,
   findWire,
   type CableDesign,
   type ConductorElement,
@@ -279,21 +281,27 @@ export function electricalReport(design: CableDesign, db: Db): ElectricalReport 
     }
   }
 
-  // contact rating
+  // contact rating: the crimp contact in the cavity (`crimp.ts`) when it states
+  // one, else the connector's own rating
   for (const instance of design.instances.connectors) {
     const connector = findConnector(db, instance.def);
-    if (!positive(connector?.contactRatingA)) continue;
+    if (connector === undefined) continue;
     for (const pin of connector.pins) {
+      const contactId = (instance.cavities ?? []).find((c) => c.pin === pin.id)?.contact;
+      const contact = contactId === undefined ? undefined : findMechanical(db, contactId);
+      const own = contact?.termination?.ratedCurrentA;
+      const base = positive(own) ? own : connector.contactRatingA;
+      if (!positive(base)) continue;
       const load = loads.get(terminalKey({ instance: instance.id, terminal: pin.id }));
       if (load === undefined) continue;
-      const rating = connector.contactRatingA * contactDerate;
+      const rating = base * contactDerate;
       contacts.push({ connector: instance.id, pin: pin.id, net: load.net.id, currentA: load.amps, ratingA: rating });
       if (load.amps > rating + 1e-9) {
         issues.push({
           code: 'contact-rating',
           severity: 'warning',
           where: `${instance.id}:${pin.id}`,
-          message: `pin ${pin.id} of '${instance.id}' (${connector.id}) carries ${fmt(load.amps)} A (${load.net.id}) but its contact is rated ${fmt(rating)} A${contactDerate < 1 ? ` (derated to ${Math.round(contactDerate * 100)} percent)` : ''}`,
+          message: `pin ${pin.id} of '${instance.id}' (${connector.id}) carries ${fmt(load.amps)} A (${load.net.id}) but its contact${positive(own) ? ` '${contact!.id}'` : ''} is rated ${fmt(rating)} A${contactDerate < 1 ? ` (derated to ${Math.round(contactDerate * 100)} percent)` : ''}`,
         });
       }
     }

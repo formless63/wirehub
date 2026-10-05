@@ -20,13 +20,14 @@ import {
   duplicateRowIds,
   pinRowsReducer,
   type ConnectorDraft,
+  type HousingDraft,
   type PinRow,
   type RowAction,
 } from '../library.ts';
 import { resolveVocab } from '@wirehub/model';
 
 import { signalRefOf, useVocab } from '../vocab.ts';
-import { Field, FormSection, RowTools, SrcField } from './fields.tsx';
+import { Choice, Field, FormSection, RowTools, SrcField } from './fields.tsx';
 import { CostFields, costOfExtra, withExtraCost } from './CostFields.tsx';
 import { Pick } from './Pick.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
@@ -115,6 +116,11 @@ export function ConnectorEditor(props: ConnectorEditorProps): JSX.Element {
         </div>
         <SrcField value={draft.src} onChange={(value) => set('src', value)} />
       </FormSection>
+
+      <HousingSection value={draft.housing} onChange={(housing) => {
+        const { housing: _old, ...rest } = draft;
+        onChange(housing === undefined ? rest : { ...rest, housing });
+      }} />
 
       <FormSection title="Cost" say="Optional. The BOM shows a cost only where parts are priced.">
         <CostFields
@@ -231,5 +237,61 @@ export function ConnectorEditor(props: ConnectorEditorProps): JSX.Element {
         </button>
       </FormSection>
     </>
+  );
+}
+
+const BLANK_HOUSING: HousingDraft = { systems: '', sealing: '', plugUnused: false, cavities: '', src: '' };
+
+/**
+ * A crimp housing's cavities: the contact systems they take, how wires are
+ * sealed and whether unused cavities are plugged. Off for a solder-cup or PCB
+ * connector (or one whose body already says).
+ */
+function HousingSection(props: { value: HousingDraft | undefined; onChange: (next: HousingDraft | undefined) => void }): JSX.Element {
+  const value = props.value;
+  const set = <K extends keyof HousingDraft>(key: K, next: HousingDraft[K]): void => props.onChange({ ...(value ?? BLANK_HOUSING), [key]: next });
+  return (
+    <FormSection
+      title="Crimp housing"
+      say="For a crimp housing: which contacts, seals and plugs its cavities take. A design then picks them per cavity, and the BOM counts them."
+      right={
+        <label className="cs-check-label">
+          <input
+            type="checkbox"
+            aria-label="crimp housing"
+            checked={value !== undefined}
+            onChange={(event) => props.onChange(event.target.checked ? BLANK_HOUSING : undefined)}
+          />{' '}
+          takes crimp contacts
+        </label>
+      }
+    >
+      {value === undefined ? (
+        <p className="cs-empty">Not a crimp housing of its own (its body may still say it is).</p>
+      ) : (
+        <div className="cs-form-grid">
+          <Field label="Contact systems" say="The contact system ids its contacts, seals and plugs name, comma-separated." value={value.systems} onChange={(next) => set('systems', next)} placeholder="sealed-1-5" mono />
+          <Choice
+            label="Sealing"
+            value={value.sealing}
+            onChange={(next) => set('sealing', next as HousingDraft['sealing'])}
+            choices={[
+              { value: '', label: 'not stated' },
+              { value: 'none', label: 'Unsealed' },
+              { value: 'per-wire', label: 'A seal on each wire' },
+              { value: 'mat', label: 'Mat seal in the housing' },
+            ]}
+          />
+          <label className="cs-field" title="A sealed housing closes each unused cavity with a plug.">
+            <span>Unused cavities</span>
+            <span>
+              <input type="checkbox" aria-label="plug unused cavities" checked={value.plugUnused} onChange={(event) => set('plugUnused', event.target.checked)} /> take a plug
+            </span>
+          </label>
+          <Field label="Cavities" say="The pins that are crimp cavities, comma-separated. Blank: every pin but the shell." value={value.cavities} onChange={(next) => set('cavities', next)} mono />
+          <Field label="Where this comes from" wide value={value.src} onChange={(next) => set('src', next)} />
+        </div>
+      )}
+    </FormSection>
   );
 }

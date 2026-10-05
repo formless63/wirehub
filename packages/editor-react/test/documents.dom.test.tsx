@@ -256,7 +256,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
       render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} />);
       const menu = screen.getByRole('combobox', { name: 'Export' }) as HTMLSelectElement;
       const ids = Array.from(menu.querySelectorAll('option')).map((o) => o.value).filter((v) => v !== '');
-      expect(ids).toEqual(['bom.csv', 'wire-list.csv', 'cut-list.csv', 'production.xlsx', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg']);
+      expect(ids).toEqual(['bom.csv', 'wire-list.csv', 'cut-list.csv', 'crimp-list.csv', 'production.xlsx', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg']);
       for (const id of ids) fireEvent.change(menu, { target: { value: id } });
       expect(names).toEqual(ids.map((id) => `${design.id}-${id.split('.')[0]}.${id.split('.')[1]}`));
       expect(await blobs[0]!.text()).toMatch(/^section,part_number,description,quantity,unit/);

@@ -6,7 +6,9 @@
  * Vendored from the edges `@wirehub/model`'s `definitionUsage` (`usage.ts`)
  * walks — a design's instances, a board's integrated connectors, a
  * connector's body and pinout — plus the direct edges it reads transitively
- * or per kit: `interface-body`, `body-mate` and `kit-part`. Model links
+ * or per kit: `interface-body`, `body-mate` and `kit-part`; a design's
+ * cavities (`cavity`: contacts, seals, plugs) and a contact's crimp `tool`
+ * (`termination-tool`). Model links
  * (`model-record`) are `model_link.entity_id`, not edges.
  *
  * `usageFromEdges` answers "where used" from the edges alone, with the same
@@ -50,6 +52,9 @@ export function referencesOf(kind: EntityKind, collection: string, value: unknow
     for (const i of list(instances.segments)) add('wire', str(i.def), 'wire');
     for (const i of list(instances.pcbas)) add('pcba', str(i.def), 'pcba');
     for (const i of list(instances.mechanical)) add('mechanical', str(i.def), 'mechanical');
+    for (const c of list(instances.connectors)) {
+      for (const a of list(c.cavities)) for (const slot of ['contact', 'seal', 'plug']) add('mechanical', str(a[slot]), 'cavity');
+    }
   } else if (kind === 'pcba') {
     for (const entry of list(v.integratedConnectors)) add('connector', str(entry.connectorDefId), 'connector');
   } else if (kind === 'connector') {
@@ -59,6 +64,9 @@ export function referencesOf(kind: EntityKind, collection: string, value: unknow
     for (const body of Array.isArray(v.bodies) ? v.bodies : []) add('body', str(body), 'interface-body');
   } else if (kind === 'body') {
     add('body', str(v.mates), 'body-mate');
+  } else if (kind === 'mechanical') {
+    const termination = (typeof v.termination === 'object' && v.termination !== null ? v.termination : {}) as Json;
+    add('mechanical', str(termination.tool), 'termination-tool');
   } else if (kind === 'kit') {
     for (const line of list(v.contents)) {
       const part = (typeof line.part === 'object' && line.part !== null ? line.part : {}) as Json;
@@ -115,6 +123,7 @@ export function usageFromEdges(edges: readonly SourcedEdge[], usageKind: string,
     for (const e of into('body', id, 'interface-body')) definitions.push(`interfaces/${e.fromSlug}`);
     for (const e of into('body', id, 'body-mate')) definitions.push(`bodies/${e.fromSlug}`);
   }
+  if (kind === 'mechanical') for (const e of into('mechanical', id, 'termination-tool')) definitions.push(`mechanicals/${e.fromSlug}`);
   for (const e of into(kind, id, 'kit-part')) definitions.push(`${PLURAL.kit}/${e.fromSlug}`);
   return { designs: [...designs].sort(), definitions: [...new Set(definitions)].sort() };
 }

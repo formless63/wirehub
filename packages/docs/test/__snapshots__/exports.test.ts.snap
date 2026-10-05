@@ -4,6 +4,7 @@ exports[`dc-led-lead > the CSV exports match their snapshots > bom.csv 1`] = `
 "section,part_number,description,quantity,unit,location,instances,variation_pn,notes
 Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end · LED module connector,j2,,2 pins · attaches: w1@b
 Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,Source end · supply terminal block,j1,,4 pins · attaches: w1@a
+"Contacts, seals & plugs",MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",2,ea,Destination end · LED module connector,j2:1 j2:2,,0.05–0.33 mm² (30–22 AWG) · in j2
 Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",3,ft,wire run,w1,,Ø 3.5 mm
 Shells & hardware,MEC-00002,"Heat-shrink sleeve 6 mm, 40 mm long",1,ea,unspecified,m1,,
 Discrete parts,CMP-00001,"Resistor 150 Ω, 0.25 W",1,ea,Source end,r1,,
@@ -139,6 +140,13 @@ exports[`dc-led-lead > the CSV exports match their snapshots > continuity.json 1
 "
 `;
 
+exports[`dc-led-lead > the CSV exports match their snapshots > crimp-list.csv 1`] = `
+"connector,connector_part_number,cavity,wires,wire_mm2,contact_part_number,contact,seal_part_number,seal,plug_part_number,plug,strip_mm,crimp_height_mm,tool_part_number,tool,notes
+j2,CON-00010,1,w1.red@b,0.205,MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",,,,,,,MEC-00004,Hand crimp tool for XH-series 2.5 mm pitch contacts,
+j2,CON-00010,2,w1.black@b,0.205,MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",,,,,,,MEC-00004,Hand crimp tool for XH-series 2.5 mm pitch contacts,
+"
+`;
+
 exports[`dc-led-lead > the CSV exports match their snapshots > cut-list.csv 1`] = `
 "stock_part_number,stock,piece,length_mm,length_in,quantity,variation_pn,segments
 WIR-00005,"DC power cable, 2 × 24 AWG, red/black",trunk,1000,39.4,1,,w1
@@ -164,6 +172,8 @@ exports[`dc-y-splitter > the CSV exports match their snapshots > bom.csv 1`] = `
 Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end · channel 1 plug,j2,,2 pins · attaches: w2@b
 Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end · channel 2 plug,j3,,2 pins · attaches: w3@b
 Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,Source end · supply terminal block,j1,,4 pins · attaches: w1@a
+"Contacts, seals & plugs",MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",2,ea,Destination end · channel 1 plug,j2:1 j2:2,,0.05–0.33 mm² (30–22 AWG) · in j2
+"Contacts, seals & plugs",MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",2,ea,Destination end · channel 2 plug,j3:1 j3:2,,0.05–0.33 mm² (30–22 AWG) · in j3
 Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",5,ft,stem,w1,,Ø 5 mm
 Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",1,ft,channel 1 leg,w2,,Ø 3.5 mm
 Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",1,ft,channel 2 leg,w3,,Ø 3.5 mm
@@ -366,6 +376,15 @@ exports[`dc-y-splitter > the CSV exports match their snapshots > continuity.json
     }
   ]
 }
+"
+`;
+
+exports[`dc-y-splitter > the CSV exports match their snapshots > crimp-list.csv 1`] = `
+"connector,connector_part_number,cavity,wires,wire_mm2,contact_part_number,contact,seal_part_number,seal,plug_part_number,plug,strip_mm,crimp_height_mm,tool_part_number,tool,notes
+j2,CON-00010,1,w2.red@b,0.205,MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",,,,,,,MEC-00004,Hand crimp tool for XH-series 2.5 mm pitch contacts,
+j2,CON-00010,2,w2.black@b,0.205,MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",,,,,,,MEC-00004,Hand crimp tool for XH-series 2.5 mm pitch contacts,
+j3,CON-00010,1,w3.red@b,0.205,MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",,,,,,,MEC-00004,Hand crimp tool for XH-series 2.5 mm pitch contacts,
+j3,CON-00010,2,w3.black@b,0.205,MEC-00003,"Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",,,,,,,MEC-00004,Hand crimp tool for XH-series 2.5 mm pitch contacts,
 "
 `;
 
@@ -738,6 +757,11 @@ exports[`de9-crossover > the CSV exports match their snapshots > continuity.json
 "
 `;
 
+exports[`de9-crossover > the CSV exports match their snapshots > crimp-list.csv 1`] = `
+"connector,connector_part_number,cavity,wires,wire_mm2,contact_part_number,contact,seal_part_number,seal,plug_part_number,plug,strip_mm,crimp_height_mm,tool_part_number,tool,notes
+"
+`;
+
 exports[`de9-crossover > the CSV exports match their snapshots > cut-list.csv 1`] = `
 "stock_part_number,stock,piece,length_mm,length_in,quantity,variation_pn,segments
 WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",trunk,1830,72,1,,w1
@@ -1013,6 +1037,11 @@ exports[`de9-terminal-board > the CSV exports match their snapshots > continuity
     }
   ]
 }
+"
+`;
+
+exports[`de9-terminal-board > the CSV exports match their snapshots > crimp-list.csv 1`] = `
+"connector,connector_part_number,cavity,wires,wire_mm2,contact_part_number,contact,seal_part_number,seal,plug_part_number,plug,strip_mm,crimp_height_mm,tool_part_number,tool,notes
 "
 `;
 

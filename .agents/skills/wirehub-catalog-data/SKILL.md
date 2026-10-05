@@ -125,6 +125,14 @@ See `references/record-types.md` for fields. The decisions that matter:
   structure"). Use `role` values `coax`, `shielded-core`, `twisted-pair`, `bundle`, `cable`. A shield
   and drain that touch along the whole length go in `bonded`. `colourCode` must name a
   `colour-codes` entry; `lane` on an element a `lanes` entry.
+- **Crimp contacts, seals, plugs and tools** are mechanicals (`kind` `contact`, `seal`, `plug`,
+  `tool`) with a `termination` block: the contact systems they belong to, the wire range in mm²
+  and insulation Ø in mm, plating, strip length, crimp heights per wire size, and the tool. The
+  housing they go into says the same systems in its body's (or connector's) `housing`, with its
+  sealing and whether unused cavities are plugged. A design picks them per cavity
+  (`cavities` on the connector instance); the BOM counts them per cavity, a tool never. Cite the
+  datasheet the ranges come from; values typical of a class rather than one part are flagged as
+  inferred. Example: `modules/automotive/pack/mechanicals.json` and its sealed 3-way housings.
 - **PCBAs are black boxes.** Declare terminals and `internalLinks`; a link with no `via` is plain
   copper, a link through a part names it in `via` (and `elements`, which must spell `via` exactly).
 - **Designs** are physical joints (solder/crimp facts), not nets. `end` is required for wire

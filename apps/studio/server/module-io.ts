@@ -16,11 +16,14 @@
  * may not use one — `manifestProblems`).
  */
 
-import type { CableDesign, Db } from '@wirehub/model';
-import type { ContinuityData, ImportResult, ModuleRegistry } from '@wirehub/modules';
+import { parseDepictionMeta, stripUnsafeSvg, validateDepiction } from '@wirehub/catalog/src/depictions/index.ts';
+import type { BoardPartsEntry, CableDesign, Db } from '@wirehub/model';
+import type { ContinuityData, ImportedDepiction, ImportResult, ModuleRegistry } from '@wirehub/modules';
 
 import type { ApiResponse } from './api.ts';
 import type { BatchRequestItem } from './batch.ts';
+import type { DepictionStore } from './depictions.ts';
+import type { DocStore } from './storage/doc-store.ts';
 
 export interface ModuleIoPath {
   kind: 'import' | 'export';
@@ -48,15 +51,25 @@ const KINDS = ['connectors', 'wires', 'components', 'pcbas', 'mechanicals'] as c
 export interface Proposal {
   /** definitions the importer proposes that the library does not have yet, by kind */
   definitions: Record<string, { id: string; label: string }[]>;
-  /** ids the library already has (skipped, never overwritten), `<kind>/<id>` */
+  /** ids the library already has (skipped, never overwritten), `<kind>/<id>`; `board-parts/<board>@<rev>` and `depictions/<id>` too */
   existing: string[];
   designs: { id: string; label: string }[];
   existingDesigns: string[];
+  /** board revisions whose placed parts are proposed, `<board>@<revision>` (present only when the importer proposed some) */
+  boardParts?: string[];
+  /** definitions whose board art is proposed (present only when the importer proposed some) */
+  depictions?: string[];
   notes: string[];
 }
 
+/** What a proposal stages besides routed requests: placed parts and artwork (`stageImportExtras`). */
+export interface ImportExtras {
+  boardParts: BoardPartsEntry[];
+  depictions: ImportedDepiction[];
+}
+
 /** The importer's result as a proposal against `db` and the stored design ids. */
-export function proposalOf(result: ImportResult, db: Db, designIds: ReadonlySet<string>): { proposal: Proposal; requests: BatchRequestItem[] } {
+export function proposalOf(result: ImportResult, db: Db, designIds: ReadonlySet<string>): { proposal: Proposal; requests: BatchRequestItem[]; extras: ImportExtras } {
   const taken = new Set<string>();
   for (const kind of KINDS) for (const record of (db[kind] ?? []) as { id: string }[]) taken.add(record.id);
   for (const kind of ['bodies', 'interfaces', 'kits'] as const) for (const record of ((db as unknown as Record<string, { id: string }[] | undefined>)[kind] ?? [])) taken.add(record.id);
@@ -81,7 +94,128 @@ export function proposalOf(result: ImportResult, db: Db, designIds: ReadonlySet<
     proposal.designs.push({ id: design.id, label: design.label });
     requests.push({ method: 'POST', path: '/api/designs', body: design });
   }
-  return { proposal, requests };
+  const extras: ImportExtras = { boardParts: [], depictions: [] };
+  const listed = new Set((db.boardParts ?? []).map((e) => `${e.board}@${e.revision}`));
+  for (const entry of result.boardParts ?? []) {
+    const key = `${entry.board}@${entry.revision}`;
+    if (listed.has(key)) {
+      proposal.existing.push(`board-parts/${key}`);
+      continue;
+    }
+    listed.add(key);
+    (proposal.boardParts ??= []).push(key);
+    extras.boardParts.push(entry);
+  }
+  for (const depiction of result.depictions ?? []) {
+    if (extras.depictions.some((d) => d.defId === depiction.defId)) continue;
+    (proposal.depictions ??= []).push(depiction.defId);
+    extras.depictions.push(depiction);
+  }
+  return { proposal, requests, extras };
+}
+
+/** A refusal while staging an import's extras: the whole import writes nothing. */
+export class ImportExtrasRefused extends Error {}
+
+const ART_FILE = /^[a-z0-9][a-z0-9._-]*\.svg$/;
+const BOARD_PARTS = 'data/board-parts.json';
+
+function viewKinds(meta: unknown): string[] {
+  const views = (meta as { views?: Record<string, { sourceKind?: unknown }> } | undefined)?.views;
+  return views === undefined || typeof views !== 'object' ? [] : Object.values(views).map((v) => String(v?.sourceKind ?? ''));
+}
+
+/**
+ * Stage an import's placed parts and artwork into a unit of work's stores,
+ * after its records (so anchors are checked against the boards it adds).
+ * Placed parts are appended to `data/board-parts.json`; a depiction is
+ * written only where none exists, or where every view of the existing one is
+ * of a tier the importer says it replaces. Every SVG goes through the
+ * artwork sanitiser and every manifest through the depiction validator;
+ * any refusal throws `ImportExtrasRefused` and nothing is written. Answers
+ * the depictions it skipped (kept as they were).
+ */
+export async function stageImportExtras(
+  stores: { docs?: DocStore; depictions?: DepictionStore; loadDb: () => Db | Promise<Db> },
+  extras: ImportExtras,
+): Promise<{ keptDepictions: string[] }> {
+  if (extras.boardParts.length > 0) {
+    if (stores.docs === undefined) throw new ImportExtrasRefused('This studio does not keep catalog documents, so placed parts cannot be imported.');
+    const current = ((await stores.docs.read(BOARD_PARTS)) ?? {}) as { src?: string; boards?: BoardPartsEntry[] };
+    const boards = [...(current.boards ?? [])];
+    for (const entry of extras.boardParts) {
+      if (boards.some((b) => b.board === entry.board && b.revision === entry.revision)) continue;
+      const { builds: _builds, ...stored } = entry;
+      boards.push(stored);
+    }
+    await stores.docs.write(BOARD_PARTS, { src: current.src ?? 'The parts placed on each board revision, linked to component records; written by board imports and by hand.', boards });
+  }
+  const kept: string[] = [];
+  if (extras.depictions.length === 0) return { keptDepictions: kept };
+  const store = stores.depictions;
+  if (store === undefined) throw new ImportExtrasRefused('This studio does not keep artwork, so board art cannot be imported.');
+  const db = await stores.loadDb();
+  for (const depiction of extras.depictions) {
+    const existing = await store.readMeta(depiction.defId);
+    if (existing !== undefined) {
+      const kinds = viewKinds(existing);
+      const replaceable = depiction.replaces !== undefined && kinds.length > 0 && kinds.every((k) => depiction.replaces!.includes(k));
+      if (!replaceable) {
+        kept.push(depiction.defId);
+        continue;
+      }
+    }
+    const parsed = parseDepictionMeta(depiction.meta, `depictions/${depiction.defId}`);
+    if (parsed.meta === undefined || parsed.meta.defId !== depiction.defId) {
+      throw new ImportExtrasRefused(`The art proposed for ${depiction.defId} is not a valid depiction: ${parsed.issues.map((i) => i.message).join('; ') || 'its defId does not match'}.`);
+    }
+    const problems = validateDepiction(parsed.meta, { db }).filter((i) => i.severity === 'error');
+    if (problems.length > 0) throw new ImportExtrasRefused(`The art proposed for ${depiction.defId} does not fit the board: ${problems.map((i) => i.message).join('; ')}.`);
+    for (const [name, text] of Object.entries(depiction.files)) {
+      if (!ART_FILE.test(name)) throw new ImportExtrasRefused(`${depiction.defId}: '${name}' is not an SVG file name.`);
+      const clean = stripUnsafeSvg(text);
+      if (clean.svg === undefined) throw new ImportExtrasRefused(`${depiction.defId}/${name} is refused: ${clean.error ?? 'not an SVG'}.`);
+      await store.writeAsset(depiction.defId, name, clean.svg);
+    }
+    await store.writeMeta(depiction.defId, depiction.meta);
+  }
+  return { keptDepictions: kept };
+}
+
+const OPTION_NAME = /^[a-z][a-zA-Z0-9_.-]{0,63}$/;
+
+/**
+ * An import's review-step options (`ImportInput.options`): an object of
+ * text values, at most 32 of them and 64 kB in all. `undefined` when absent;
+ * a sentence when malformed.
+ */
+export function readImportOptions(value: unknown): Record<string, string> | undefined | string {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object' || Array.isArray(value)) return 'The import options must be an object of text values.';
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > 32) return 'An import takes at most 32 options.';
+  let size = 0;
+  const out: Record<string, string> = {};
+  for (const [name, v] of entries) {
+    if (!OPTION_NAME.test(name)) return `'${name}' is not an option name.`;
+    if (typeof v !== 'string') return `Option '${name}' must be text.`;
+    size += name.length + v.length;
+    out[name] = v;
+  }
+  if (size > 65_536) return 'The import options are too long (64 kB at most).';
+  return entries.length === 0 ? undefined : out;
+}
+
+/** The `option.<name>` query parameters of a raw upload, as import options. */
+export function importOptionsOfQuery(query: URLSearchParams): Record<string, string> | undefined | string {
+  const out: Record<string, string> = {};
+  let any = false;
+  for (const [key, value] of query) {
+    if (!key.startsWith('option.')) continue;
+    out[key.slice('option.'.length)] = value;
+    any = true;
+  }
+  return any ? readImportOptions(out) : undefined;
 }
 
 /** The importer's result for the request's file, or the refusal. */
@@ -93,7 +227,9 @@ export async function runImporter(
 ): Promise<{ ok: true; result: ImportResult; accept: boolean } | { ok: false; response: ApiResponse }> {
   const importer = registry?.importer(io.module, io.id);
   if (importer === undefined) return { ok: false, response: refuse(404, `${io.module} has no importer ${io.id}.`, "Check the deployment's modules.config.ts.") };
-  const b = typeof body === 'object' && body !== null && !Array.isArray(body) ? (body as { fileName?: unknown; base64?: unknown; accept?: unknown }) : {};
+  const b = typeof body === 'object' && body !== null && !Array.isArray(body) ? (body as { fileName?: unknown; base64?: unknown; accept?: unknown; options?: unknown }) : {};
+  const options = readImportOptions(b.options);
+  if (typeof options === 'string') return { ok: false, response: refuse(400, options, 'Options are names and text values: { "options": { "board": "…" } }.') };
   if (typeof b.fileName !== 'string' || b.fileName.trim() === '' || typeof b.base64 !== 'string') {
     return { ok: false, response: refuse(400, 'Send { "fileName": …, "base64": … }.', 'The file goes in as base64 text.') };
   }
@@ -108,7 +244,7 @@ export async function runImporter(
     return { ok: false, response: refuse(400, 'The file is not valid base64.', 'Nothing was read.') };
   }
   try {
-    return { ok: true, result: await importer.import({ fileName: b.fileName, bytes }, db), accept: b.accept === true };
+    return { ok: true, result: await importer.import({ fileName: b.fileName, bytes, ...(options === undefined ? {} : { options }) }, db), accept: b.accept === true };
   } catch (error) {
     return { ok: false, response: refuse(422, `${importer.label} could not read ${b.fileName}.`, error instanceof Error ? error.message : String(error)) };
   }

@@ -6041,6 +6041,43 @@ fieldset.cs-lock-fence {
   min-width: 0;
 }
 
+/* crimp cavities (Part tab) */
+.cs-cavity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+.cs-cavity-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--cs-muted, var(--muted));
+}
+
+.cs-cavity-table th:first-child,
+.cs-cavity-table td:first-child {
+  width: 3.5em;
+}
+
+.cs-cavity-table td {
+  padding: 2px 2px 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-cavity-table select {
+  width: 100%;
+  min-width: 0;
+}
+
+.cs-cavity-actions {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
 .cs-confirm-delete h2 {
   font-size: 14px;
 }

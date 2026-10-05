@@ -92,4 +92,19 @@ describe('electrical rules', () => {
     expect(electricalRulesProblems({ maxDropV: -1, ampacityDerate: 2, bogus: 1 }).length).toBe(3);
     expect(electricalRulesProblems({ maxDropV: 0.3 })).toEqual([]);
   });
+
+  it('the crimp contact in the cavity rates the pin over the connector, when it states a rating', () => {
+    const withContact = (contactA: number, connectorA: number) => {
+      const db = dbWith({ amps: 2, area: 1.31, rating: connectorA });
+      db.mechanicals = [...(db.mechanicals ?? []), { id: 'rated-contact', label: 'rated contact', kind: 'contact', termination: { ratedCurrentA: contactA }, src: 'test' }];
+      const instance = design.instances.connectors.find((c) => c.def === 'de9-female')!.id;
+      const d = structuredClone(design);
+      d.instances.connectors = d.instances.connectors.map((c) => (c.id === instance ? { ...c, cavities: [{ pin: '3', contact: 'rated-contact' }] } : c));
+      return electricalReport(d, db).issues.filter((i) => i.code === 'contact-rating' && i.where === `${instance}:3`);
+    };
+    expect(withContact(10, 1)).toEqual([]);
+    const over = withContact(1, 10);
+    expect(over).toHaveLength(1);
+    expect(over[0]!.message).toContain("contact 'rated-contact'");
+  });
 });

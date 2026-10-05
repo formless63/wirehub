@@ -15,7 +15,8 @@ wherever it was made. Nothing here is shop-specific: a module adds formats of it
 | BOM (CSV) | `bom.csv` | the bill of materials, one row per printed line |
 | Wire list (CSV) | `wire-list.csv` | every conductor, screen and drain, and where each end lands |
 | Cut list (CSV) | `cut-list.csv` | pieces to cut per stock and length |
-| BOM, wire and cut lists (XLSX) | `production.xlsx` | the three above, one sheet each |
+| Crimp list (CSV) | `crimp-list.csv` | every cavity of each crimp housing: wires, contact, seal or plug, strip, crimp height, tool |
+| BOM, wire, cut and crimp lists (XLSX) | `production.xlsx` | the four above, one sheet each |
 | Continuity (CSV) | `continuity.csv` | net-to-pin pairs, expected connections, isolation pairs, with the test parameters |
 | Continuity (JSON) | `continuity.json` | the same, structured |
 | Wire labels (CSV) | `labels.csv` | text and position of the marker at each wire end |
@@ -45,6 +46,13 @@ column order.
 - **Cut list:** `stock_part_number, stock, piece, length_mm, length_in, quantity,
   variation_pn, segments`. Equal pieces fold into a quantity; a segment the contract
   manufacturer supplies terminated is not cut here.
+- **Crimp list:** `connector, connector_part_number, cavity, wires, wire_mm2,
+  contact_part_number, contact, seal_part_number, seal, plug_part_number, plug, strip_mm,
+  crimp_height_mm, tool_part_number, tool, notes`. One row per cavity of every connector
+  with a crimp housing or a cavity assignment (`ConnectorInstance.cavities`); `wires` lists
+  `<segment>.<element>@<end>` and `wire_mm2` their total cross-section. A design with no
+  crimp housing on record has the header row only. Contacts, seals and plugs are also BOM
+  lines (section "Contacts, seals & plugs", counted per cavity); tools are not.
 - **Labels:** `label_id, segment, end, designation, line_1, line_2, line_3, offset_mm,
   position, stock_part_number, length_mm`.
 - **Continuity:** below.

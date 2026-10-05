@@ -26,5 +26,38 @@
     "partNumber": "MEC-00002",
     "kind": "other",
     "src": "generic 2:1 polyolefin heat-shrink; synthetic example"
+  },
+  {
+    "id": "xh-contact-socket",
+    "label": "Crimp socket contact, 2.5 mm pitch XH-series, 30–22 AWG, tin",
+    "partNumber": "MEC-00003",
+    "kind": "contact",
+    "termination": {
+      "systems": [
+        "xh-2-5"
+      ],
+      "wireMinMm2": 0.05,
+      "wireMaxMm2": 0.33,
+      "insulationMinMm": 0.8,
+      "insulationMaxMm": 1.6,
+      "gender": "female",
+      "plating": "tin",
+      "tool": "xh-crimp-tool",
+      "src": "the XH-series 2.5 mm pitch crimp contact's public datasheet: AWG 30–22, insulation Ø 0.8–1.6 mm, tin plated; mm² converted from AWG; check the maker's current datasheet before production"
+    },
+    "src": "JST XH series datasheet (socket contact for the XHP housings); public datasheet; synthetic example record"
+  },
+  {
+    "id": "xh-crimp-tool",
+    "label": "Hand crimp tool for XH-series 2.5 mm pitch contacts",
+    "partNumber": "MEC-00004",
+    "kind": "tool",
+    "termination": {
+      "systems": [
+        "xh-2-5"
+      ],
+      "src": "the XH-series datasheet names a dedicated hand crimp tool for its contacts"
+    },
+    "src": "JST XH series datasheet (applicable hand tool); generic description; synthetic example record"
   }
 ]
