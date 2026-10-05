@@ -8,7 +8,8 @@
  * connector's body and pinout — plus the direct edges it reads transitively
  * or per kit: `interface-body`, `body-mate` and `kit-part`; a design's
  * cavities (`cavity`: contacts, seals, plugs) and a contact's crimp `tool`
- * (`termination-tool`). Model links
+ * (`termination-tool`); a design's sub-assemblies (`subassembly`: the
+ * designs it places, `subassemblies.ts`). Model links
  * (`model-record`) are `model_link.entity_id`, not edges.
  *
  * `usageFromEdges` answers "where used" from the edges alone, with the same
@@ -52,6 +53,8 @@ export function referencesOf(kind: EntityKind, collection: string, value: unknow
     for (const i of list(instances.segments)) add('wire', str(i.def), 'wire');
     for (const i of list(instances.pcbas)) add('pcba', str(i.def), 'pcba');
     for (const i of list(instances.mechanical)) add('mechanical', str(i.def), 'mechanical');
+    // another design placed as a sub-assembly: deleting it is refused while this one places it
+    for (const i of list(instances.subassemblies)) add('design', str(i.def), 'subassembly');
     for (const c of list(instances.connectors)) {
       for (const a of list(c.cavities)) for (const slot of ['contact', 'seal', 'plug']) add('mechanical', str(a[slot]), 'cavity');
     }

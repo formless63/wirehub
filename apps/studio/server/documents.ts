@@ -2,7 +2,7 @@
  * Documents and exports without a browser — `/api/designs/:id/documents/:kind`
  * and `/api/designs/:id/exports/:format` (`docs/exports.md`).
  *
- *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&quantity=…
+ *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&explode=1&quantity=…
  *       kind: schematic · build-sheet · bom · test-spec · drawing · labels
  *       format: html · svg · pdf · csv (which a kind comes in: `render/index.ts`)
  *   GET /api/designs/:id/exports/:format?rev=…&quantity=…
@@ -27,6 +27,7 @@ import { type ApprovalFacts, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, i
 import { approvalPolicy, effectiveTestDefaults } from './settings.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
+import { withDesignLibrary } from './assemblies.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
 export const DOCUMENT_ROUTES = [
@@ -84,7 +85,8 @@ async function load(deps: DocumentDeps, id: string, rev: string | null): Promise
   const photo = sidecar?.photo;
   const keepsRevisions = deps.versions !== undefined;
   if (rev === null || rev === '') {
-    return { design: working, db: live, drawing, ...(photo === undefined ? {} : { photo }), target: keepsRevisions ? 'working' : undefined };
+    // a design placing sub-assemblies reads them from the design library
+    return { design: working, db: await withDesignLibrary(deps, working, live), drawing, ...(photo === undefined ? {} : { photo }), target: keepsRevisions ? 'working' : undefined };
   }
   if (deps.versions === undefined) return fail(501, 'This studio does not keep saved revisions.', 'Leave out ?rev= to render the working copy.');
   let number: number;
@@ -109,9 +111,11 @@ async function load(deps: DocumentDeps, id: string, rev: string | null): Promise
   const file = await deps.versions.read(id, number);
   if (file === undefined) return fail(404, `'${id}' has no saved Rev ${number}.`, 'GET /api/designs/:id/versions lists the revisions.');
   const policy = await approvalPolicy(deps.docs);
+  const frozen = { ...file.design, id };
   return {
-    design: { ...file.design, id },
-    db: versionDb(file.definitions, live),
+    design: frozen,
+    // its sub-assemblies are pinned to saved versions: as frozen as it is
+    db: await withDesignLibrary(deps, frozen, versionDb(file.definitions, live)),
     drawing,
     ...(photo === undefined ? {} : { photo }),
     target: number,
@@ -177,6 +181,8 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const paper = query.get('paper');
   if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
   const variation = query.get('variation') ?? undefined;
+  // the BOM lists each sub-assembly's parts instead of one line for it
+  const explode = query.get('explode') === '1' || query.get('explode') === 'true';
   const meta = releaseMeta(loaded.drawing, loaded.target, loaded.approvals);
   const orgDefaults = await effectiveTestDefaults(deps);
 
@@ -193,6 +199,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
       ...(page === undefined ? {} : { page }),
       ...(copies === undefined ? {} : { copies }),
       ...(quantity === undefined ? {} : { buildQty: quantity }),
+      ...(explode ? { explode: true } : {}),
     };
     try {
       return file(format.render(loaded.design, loaded.db, options), false);
@@ -219,6 +226,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(page === undefined ? {} : { page }),
     ...(copies === undefined ? {} : { copies }),
     ...(quantity === undefined ? {} : { buildQty: quantity }),
+    ...(explode ? { explode: true } : {}),
     ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
     today: today(),
   });

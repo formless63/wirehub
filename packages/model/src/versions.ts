@@ -711,3 +711,20 @@ export function diffLines(diff: DesignDiff): string[] {
 export function designsDiffer(a: CableDesign, b: CableDesign): boolean {
   return stableJson(a) !== stableJson(b);
 }
+
+/**
+ * Whether a working copy differs from the version it descends from, setting
+ * aside the pins the save added: a sub-assembly that follows a working copy
+ * in `working` and was frozen to a revision in `saved` (`pinSubassemblies`)
+ * is the same reference.
+ */
+export function workingDiffers(working: CableDesign, saved: CableDesign): boolean {
+  const follows = new Map((working.instances.subassemblies ?? []).filter((s) => s.rev === undefined).map((s) => [s.id, s.def]));
+  if (follows.size === 0 || saved.instances.subassemblies === undefined) return designsDiffer(working, saved);
+  const subassemblies = saved.instances.subassemblies.map((s) => {
+    if (s.rev === undefined || follows.get(s.id) !== s.def) return s;
+    const { rev: _frozen, ...rest } = s;
+    return rest;
+  });
+  return designsDiffer(working, { ...saved, instances: { ...saved.instances, subassemblies } });
+}

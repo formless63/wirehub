@@ -220,7 +220,23 @@ function featuresOf(design: CableDesign, trunk: readonly string[]): CableListEnt
   if (breakouts.length > 0) out.push({ text: '+ Breakout', title: `${breakouts.length} breakout${breakouts.length === 1 ? '' : 's'}: ${breakouts.map((b) => b.role ?? b.id).join(', ')}` });
   const legs = design.instances.segments.filter((s) => !trunk.includes(s.id));
   if (legs.length > 0 && breakouts.length === 0) out.push({ text: `+ ${legs.length} leg${legs.length === 1 ? '' : 's'}`, title: legs.map((s) => s.role ?? s.id).join(', ') });
+  const subs = design.instances.subassemblies ?? [];
+  if (subs.length > 0) {
+    out.push({
+      text: `+ ${subs.length} sub-assembl${subs.length === 1 ? 'y' : 'ies'}`,
+      title: subs.map((s) => `${s.id}: ${s.def}${s.rev === undefined ? '' : ` Rev ${s.rev}`}`).join(', '),
+    });
+  }
   return out;
+}
+
+/** The "where used" chip: the designs that place this one as a sub-assembly. */
+export function usedInFeature(parents: readonly { id: string; instances: readonly string[] }[]): CableListEntry['features'][number] | undefined {
+  if (parents.length === 0) return undefined;
+  return {
+    text: `used in ${parents.length}`,
+    title: `placed as a sub-assembly in ${parents.map((p) => `${p.id} (${p.instances.join(', ')})`).join(', ')}`,
+  };
 }
 
 export function cableListEntry(design: CableDesign, db: Db, context: CableListContext = {}): CableListEntry {

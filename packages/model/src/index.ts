@@ -326,6 +326,7 @@ export {
   canonicalVersionFile,
   createVersion,
   designsDiffer,
+  workingDiffers,
   diffIsEmpty,
   designChangeLines,
   diffLines,

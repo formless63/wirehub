@@ -23,10 +23,10 @@
  */
 
 import { isDesignId, type DesignId, type InstalledPacks } from '@wirehub/catalog';
-import { designChangeLines, errors, isReadableSchemaVersion, upgradeDesignSchema, validateDesign, type CableDesign, type Db, type Issue } from '@wirehub/model';
+import { designChangeLines, errors, isReadableSchemaVersion, MAX_SCHEMA_VERSION, subassemblyParents, upgradeDesignSchema, validateDesign, type CableDesign, type Db, type Issue } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
 
-import { cableListEntry, type CableListContext, type CableListEntry, type CableListPnContext } from '../src/cable-list.ts';
+import { cableListEntry, usedInFeature, type CableListContext, type CableListEntry, type CableListPnContext } from '../src/cable-list.ts';
 import { assetSummaryWithDataUri, isImageAsset, isModelAsset, type AssetStore } from './assets.ts';
 import type { ConvertedModel } from './models/convert.ts';
 import type { ModelLinkStore } from './models/links.ts';
@@ -69,6 +69,7 @@ import type { JobService } from './jobs/types.ts';
 import { handleJobRequest, isJobPath, JOB_ROUTES, startImportJob } from './jobs/api.ts';
 import type { EventHub } from './events.ts';
 import { handleHistoryRequest, HISTORY_ROUTES } from './history/api.ts';
+import { ASSEMBLY_ROUTES, designUse, handleAssemblyRequest, usedAsSubassemblyRefusal, withDesignLibrary } from './assemblies.ts';
 import type { HistorySource } from './history/source.ts';
 
 /* ------------------------------------------------------------------ *
@@ -357,7 +358,7 @@ export function readDesignBody(value: unknown): { ok: true; design: CableDesign 
   const candidate = value as Partial<CableDesign>;
   if (!isReadableSchemaVersion(candidate.schemaVersion)) {
     return say(
-      `This document says it is schema version ${JSON.stringify(candidate.schemaVersion)}, and this studio reads versions 1 to 4.`,
+      `This document says it is schema version ${JSON.stringify(candidate.schemaVersion)}, and this studio reads versions 1 to ${MAX_SCHEMA_VERSION}.`,
       'It was probably written by a different (or much older) version of the tool.',
     );
   }
@@ -393,6 +394,9 @@ export function readDesignBody(value: unknown): { ok: true; design: CableDesign 
       'A design needs connectors, segments, components and pcbas lists, even when some of them are empty.',
     );
   }
+  if (instances.subassemblies !== undefined && !Array.isArray(instances.subassemblies)) {
+    return say('This design\'s sub-assemblies are not a list.', 'instances.subassemblies is a list of { id, def, rev? } — or leave it out.');
+  }
   if (!Array.isArray(candidate.joints)) {
     return say(
       'This design is missing its joints list.',
@@ -412,7 +416,10 @@ export function readDesignBody(value: unknown): { ok: true; design: CableDesign 
  * push the user back to a text editor, which is exactly what this API exists
  * to make unnecessary.
  */
-function validated(design: CableDesign, db: Db, modules?: ModuleRegistry): ApiResponse | undefined {
+async function validated(deps: WorkbenchDeps, design: CableDesign): Promise<ApiResponse | undefined> {
+  // a design placing sub-assemblies is checked against the designs it places
+  const db = await withDesignLibrary(deps, design, await deps.loadDb());
+  const modules = deps.modules;
   const issues = [...validateDesign(design, db), ...(modules?.validate(design, db) ?? [])];
   const failures = errors(issues);
   if (failures.length === 0) return undefined;
@@ -486,7 +493,19 @@ async function getDesigns(deps: WorkbenchDeps): Promise<ApiResponse> {
   }
   const listContext: CableListContext = wireVendors === undefined ? {} : { wireVendors };
   const designs: CableListEntry[] = [];
-  for (const summary of await deps.designs.list()) designs.push(await listRow(summary));
+  const summaries = await deps.designs.list();
+  // where used: the designs that place each one as a sub-assembly
+  const all: CableDesign[] = [];
+  for (const summary of summaries) {
+    const design = await deps.designs.read(summary.id);
+    if (design !== undefined) all.push(design);
+  }
+  const placing = all.filter((design) => (design.instances.subassemblies ?? []).length > 0);
+  for (const summary of summaries) {
+    const row = await listRow(summary);
+    const used = usedInFeature(subassemblyParents(placing, summary.id));
+    designs.push(used === undefined ? row : { ...row, features: [...row.features, used] });
+  }
   return ok({ designs });
 
   async function listRow(summary: { id: string; label: string }): Promise<CableListEntry> {
@@ -566,7 +585,7 @@ async function putDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMat
   const guard = checkIfMatch(ifMatch, contentETag(current), 'design', id);
   if (guard !== undefined) return guard;
 
-  const rejection = validated(parsed.design, await deps.loadDb(), deps.modules);
+  const rejection = await validated(deps, parsed.design);
   if (rejection !== undefined) return rejection;
   const taken = await refuseTakenDesignNumber(deps, id, 'productRef', parsed.design.productRef, current.productRef);
   if (taken !== undefined) return taken;
@@ -586,7 +605,7 @@ async function postDesign(deps: WorkbenchDeps, body: unknown): Promise<ApiRespon
   const id = parsed.design.id;
   if (await deps.designs.has(id)) return alreadyExists(id);
 
-  const rejection = validated(parsed.design, await deps.loadDb(), deps.modules);
+  const rejection = await validated(deps, parsed.design);
   if (rejection !== undefined) return rejection;
 
   await deps.designs.write(id, parsed.design);
@@ -611,7 +630,7 @@ async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown)
     // reader is never left guessing where the numbers came from
     src: `${source.src} — duplicated from design '${id}' in the studio workbench.`,
   };
-  const rejection = validated(copy, await deps.loadDb(), deps.modules);
+  const rejection = await validated(deps, copy);
   if (rejection !== undefined) return rejection;
 
   await deps.designs.write(move.newId, copy);
@@ -633,13 +652,18 @@ async function renameDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, if
   const move = readMoveBody(body, 'design');
   if (!move.ok) return move.response;
   if (move.newId !== id && await deps.designs.has(move.newId)) return alreadyExists(move.newId);
+  // the designs placing it name it by id
+  if (move.newId !== id) {
+    const used = usedAsSubassemblyRefusal(id, await designUse(deps, id), 'renamed');
+    if (used !== undefined) return used;
+  }
 
   const renamed: CableDesign = {
     ...source,
     id: move.newId,
     ...(move.newLabel === undefined ? {} : { label: move.newLabel }),
   };
-  const rejection = validated(renamed, await deps.loadDb(), deps.modules);
+  const rejection = await validated(deps, renamed);
   if (rejection !== undefined) return rejection;
 
   if (move.newId !== id && ((await deps.versions?.revisions(move.newId))?.length ?? 0) > 0) {
@@ -662,11 +686,8 @@ async function renameDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, if
  * — a double-click, a replayed fetch, a script with the wrong variable — cannot
  * remove a design on its own.
  *
- * There is no referential check here because nothing in the catalog references
- * a design: designs point at definitions, never at each other. The definition
- * editors this epic adds next *will* need one (a connector is referenced by
- * every design that uses it), and it belongs in their handler, phrased the same
- * way: name the referrers.
+ * A design placed as a sub-assembly in another is refused, naming the
+ * designs (and saved versions) that place it (`assemblies.ts`).
  */
 async function deleteDesign(deps: WorkbenchDeps, id: DesignId, body: unknown): Promise<ApiResponse> {
   if (!await deps.designs.has(id)) return notFound(id);
@@ -680,6 +701,8 @@ async function deleteDesign(deps: WorkbenchDeps, id: DesignId, body: unknown): P
       `Nothing was deleted. Confirm by sending the design's own id ('${id}') back as the confirmation.`,
     );
   }
+  const used = usedAsSubassemblyRefusal(id, await designUse(deps, id), 'deleted');
+  if (used !== undefined) return used;
   const released = await deps.versions?.revisions(id) ?? [];
   if (released.length > 0) {
     return fail(
@@ -851,6 +874,7 @@ const ROUTES = [
   'POST   /api/designs/:id/duplicate',
   'POST   /api/designs/:id/rename',
   'DELETE /api/designs/:id',
+  ...ASSEMBLY_ROUTES,
   'GET    /api/db',
   'GET    /api/export',
   'GET    /api/blobs/:sha',
@@ -1254,6 +1278,11 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   if ((head === 'exports' && id === undefined) || (head === 'designs' && (action === 'documents' || action === 'exports'))) {
     const documents = await handleDocumentRequest(method, parts, new URLSearchParams(request.path.split('?')[1] ?? ''), deps);
     if (documents !== undefined) return documents;
+  }
+
+  if (head === 'assemblies' || (head === 'designs' && action === 'used-in')) {
+    const assemblies = await handleAssemblyRequest(method, parts, new URLSearchParams(request.path.split('?')[1] ?? ''), deps);
+    if (assemblies !== undefined) return assemblies;
   }
 
   if (head === 'part-numbers' && id === undefined) {

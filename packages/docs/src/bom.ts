@@ -658,7 +658,7 @@ export function deriveBom(design: CableDesign, db: Db, options: BomOptions = {})
         ...(placed?.productRef === undefined ? {} : { partNumber: placed.productRef }),
         value: rev === undefined ? 'working copy (not frozen)' : `Rev ${rev}`,
         location: role,
-        detail: facts([`design ${instance.def}`, 'built to its own build sheet']),
+        detail: facts([`design ${instance.def}`, rev === undefined ? 'working copy (not frozen)' : `Rev ${rev}`, 'built to its own build sheet']),
         ...(placed?.src === undefined ? {} : { src: placed.src }),
         subassembly: { design: instance.def, ...(rev === undefined ? {} : { rev }) },
       },

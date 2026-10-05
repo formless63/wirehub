@@ -311,8 +311,8 @@ w1,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",black,core,black,j1.2,,,,3
 
 exports[`dc-y-from-leads > the CSV exports match their snapshots > bom.csv 1`] = `
 "section,part_number,description,quantity,unit,location,instances,variation_pn,notes
-Sub-assemblies,,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,first output,lead-1,,design dc-pigtail-lead · built to its own build sheet
-Sub-assemblies,,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,second output,lead-2,,design dc-pigtail-lead · built to its own build sheet
+Sub-assemblies,,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,first output,lead-1,,design dc-pigtail-lead · working copy (not frozen) · built to its own build sheet
+Sub-assemblies,,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,second output,lead-2,,design dc-pigtail-lead · working copy (not frozen) · built to its own build sheet
 Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,supply terminal block,j1,,"4 pins · attaches: sub-assemblies lead-1, lead-2"
 "
 `;

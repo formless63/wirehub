@@ -13,6 +13,7 @@
 
 import {
   withAssetUsed,
+  type AssembliesAdapter,
   type AssetsAdapter,
   type DesignSummary,
   type DrawingAdapter,
@@ -24,7 +25,7 @@ import {
   type VendorDocumentsAdapter,
 } from '@wirehub/editor-react';
 import type { DrawingMeta } from '@wirehub/docs';
-import type { CableDesign, Issue } from '@wirehub/model';
+import { placedDesignIds, withAssemblies, type AssemblyLibrary, type CableDesign, type Db, type Issue } from '@wirehub/model';
 
 import type { CableListEntry } from './cable-list.ts';
 
@@ -181,6 +182,24 @@ export function workbenchPersistence(base = '/api'): PersistenceAdapter {
  * contract editor-react's pickers need, so this is a second, studio-local
  * reader of the same bytes rather than a widened adapter type.
  */
+/**
+ * The designs a cable places as sub-assemblies (`GET /api/assemblies`): their
+ * working copies and saved versions, and the designs they place in turn.
+ */
+export function workbenchAssemblies(base = '/api'): AssembliesAdapter {
+  return {
+    load: (ids) => request<AssemblyLibrary>(`${base}/assemblies?designs=${ids.map(encodeURIComponent).join(',')}`),
+  };
+}
+
+/** `db` with the library `design`'s sub-assemblies reach (unchanged for a design placing none, or offline). */
+export async function withAssemblyLibrary(db: Db, design: CableDesign, base = '/api'): Promise<Db> {
+  const ids = placedDesignIds(design);
+  if (ids.length === 0) return db;
+  const out = await workbenchAssemblies(base).load(ids);
+  return out.ok ? withAssemblies(db, out.value) : db;
+}
+
 export async function fetchCableList(base = '/api'): Promise<Outcome<CableListEntry[]>> {
   const result = await request<{ designs: CableListEntry[] }>(`${base}/designs`);
   return result.ok ? { ok: true, value: result.value.designs } : result;

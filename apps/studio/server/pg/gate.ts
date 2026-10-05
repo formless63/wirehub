@@ -7,9 +7,9 @@
  * | `codec-identity` | `render(explode(tree))` and the tree, byte for byte |
  * | `export-identity` | the pg snapshot rendered as files (the on-demand export) and the tree: text byte for byte, binaries by sha256 through the blob store |
  * | `sql-etags` | the database's generated `etag` of every record, revision, doc and model link, and `contentETag` of the body in JS |
- * | `validation` | `validateDb`, and `validateDesign` per design, over the file catalog and the pg snapshot |
- * | `documents` | per design: schematic SVG, build sheet, BOM and continuity spec, as strings |
- * | `refs-vs-usage` | `usageFromEdges(referencesOf …)` and the model's `definitionUsage`, for every definition |
+ * | `validation` | `validateDb`, and `validateDesign` per design (with the design library, `Db.assemblies`), over the file catalog and the pg snapshot |
+ * | `documents` | per design: schematic SVG, build sheet, BOM and continuity spec, as strings (sub-assemblies flattened alike) |
+ * | `refs-vs-usage` | `usageFromEdges(referencesOf …)` and the model's `definitionUsage`, for every definition; the `subassembly` edges and `subassemblyParents`, for every design |
  * | `api-parity` | every GET route × every id through `handleWorkbenchRequest`: status, body (JSON text, key order included), ETag header — files vs pg |
  *
  * The file side of `api-parity` is the file backend's stores themselves
@@ -22,7 +22,7 @@
 import { createCatalog, memoryCatalogSource, type Catalog } from '@wirehub/catalog';
 import { codePointCompare, contentSha, dataFileMap, explode, isBlobRef, render, sha256Hex, type CatalogFiles, type CatalogRows, type FileContent } from '@wirehub/catalog/src/codec/index.ts';
 import { bomToMarkdown, deriveBom, deriveTestSpec, renderBuildSheet, testSpecToMarkdown } from '@wirehub/docs';
-import { definitionUsage, validateDb, validateDesign, type UsageKind } from '@wirehub/model';
+import { definitionUsage, subassemblyParents, validateDb, validateDesign, withAssemblies, type UsageKind } from '@wirehub/model';
 import { renderSchematic } from '@wirehub/render-svg';
 import { sql } from 'kysely';
 
@@ -246,6 +246,9 @@ export async function runGate(options: GateOptions): Promise<GateReport> {
   const fileDb = fileCatalog.loadDb();
   const pgDb = pgCatalog.loadDb();
   const designIds = fileCatalog.listDesignIds();
+  // designs and documents read with the design library, so sub-assemblies are checked and flattened alike
+  const fileLib = withAssemblies(fileDb, { working: fileCatalog.loadDesigns() });
+  const pgLib = withAssemblies(pgDb, { working: pgCatalog.loadDesigns() });
 
   checks.push(
     await check('validation', (diff) => {
@@ -253,8 +256,8 @@ export async function runGate(options: GateOptions): Promise<GateReport> {
       if (JSON.stringify(validateDb(fileDb)) !== JSON.stringify(validateDb(pgDb))) diff('validateDb issues differ');
       if (JSON.stringify(designIds) !== JSON.stringify(pgCatalog.listDesignIds())) diff('design ids differ');
       for (const id of designIds) {
-        const a = validateDesign(fileCatalog.loadDesign(id), fileDb);
-        const b = validateDesign(pgCatalog.loadDesign(id), pgDb);
+        const a = validateDesign(fileCatalog.loadDesign(id), fileLib);
+        const b = validateDesign(pgCatalog.loadDesign(id), pgLib);
         if (JSON.stringify(a) !== JSON.stringify(b)) diff(`validateDesign(${id}) differs`);
       }
       return designIds.length + 2;
@@ -266,10 +269,10 @@ export async function runGate(options: GateOptions): Promise<GateReport> {
       for (const id of designIds) {
         const [fd, pd] = [fileCatalog.loadDesign(id), pgCatalog.loadDesign(id)];
         const views: [string, () => string, () => string][] = [
-          ['schematic', () => renderSchematic(fd, fileDb, { depictions: false }), () => renderSchematic(pd, pgDb, { depictions: false })],
-          ['build sheet', () => renderBuildSheet(fd, fileDb, { depictions: false }), () => renderBuildSheet(pd, pgDb, { depictions: false })],
-          ['BOM', () => bomToMarkdown(deriveBom(fd, fileDb)), () => bomToMarkdown(deriveBom(pd, pgDb))],
-          ['continuity spec', () => testSpecToMarkdown(deriveTestSpec(fd, fileDb)), () => testSpecToMarkdown(deriveTestSpec(pd, pgDb))],
+          ['schematic', () => renderSchematic(fd, fileLib, { depictions: false }), () => renderSchematic(pd, pgLib, { depictions: false })],
+          ['build sheet', () => renderBuildSheet(fd, fileLib, { depictions: false }), () => renderBuildSheet(pd, pgLib, { depictions: false })],
+          ['BOM', () => bomToMarkdown(deriveBom(fd, fileLib)), () => bomToMarkdown(deriveBom(pd, pgLib))],
+          ['continuity spec', () => testSpecToMarkdown(deriveTestSpec(fd, fileLib)), () => testSpecToMarkdown(deriveTestSpec(pd, pgLib))],
         ];
         for (const [name, a, b] of views) if (a() !== b()) diff(`${name} of ${id} differs`);
       }
@@ -293,6 +296,13 @@ export async function runGate(options: GateOptions): Promise<GateReport> {
           const got = usageFromEdges(edges, kind, id);
           if (JSON.stringify(want) !== JSON.stringify(got)) diff(`${kind}/${id}: model ${JSON.stringify(want)} ≠ edges ${JSON.stringify(got)}`);
         }
+      }
+      // a design placed as a sub-assembly: the designs that place it
+      for (const id of designIds) {
+        n += 1;
+        const want = subassemblyParents(designs, id).map((p) => p.id);
+        const got = [...new Set(edges.filter((e) => e.toKind === 'design' && e.toSlug === id && e.role === 'subassembly').map((e) => e.fromSlug))].sort();
+        if (JSON.stringify(want) !== JSON.stringify(got)) diff(`design/${id}: placed by ${JSON.stringify(want)} ≠ edges ${JSON.stringify(got)}`);
       }
       return n;
     }),

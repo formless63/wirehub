@@ -17,7 +17,7 @@ describe('initial catalogs', () => {
       if (kind === 'empty') {
         expect(db.connectors).toEqual([]);
         expect(catalog.listDesignIds()).toEqual([]);
-      } else expect(catalog.listDesignIds().length).toBe(4);
+      } else expect(catalog.listDesignIds().length).toBe(6);
     });
   }
 });
