@@ -223,6 +223,17 @@ services:
       WIREHUB_NOTIFY_FORMAT:
       WIREHUB_BACKUP_MARKER: ${WIREHUB_BACKUP_MARKER:-/backup-marker/.last-snapshot}
       WIREHUB_MODEL_SOURCES:
+      # optional: the git mirror, every change set as a commit to a remote (or a
+      # mounted repository); its key or token as a file you mount (docs/self-hosting.md)
+      WIREHUB_GIT_MIRROR_URL:
+      WIREHUB_GIT_MIRROR_PATH:
+      WIREHUB_GIT_MIRROR_BRANCH:
+      WIREHUB_GIT_MIRROR_DIR:
+      WIREHUB_GIT_MIRROR_CRON:
+      WIREHUB_GIT_MIRROR_USER:
+      WIREHUB_GIT_MIRROR_SSH_KEY_FILE:
+      WIREHUB_GIT_MIRROR_KNOWN_HOSTS_FILE:
+      WIREHUB_GIT_MIRROR_TOKEN_FILE:
       TZ: ${TZ:-UTC}
     volumes:
       - secrets:/run/wirehub:ro

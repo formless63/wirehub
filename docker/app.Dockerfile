@@ -21,7 +21,7 @@ LABEL org.opencontainers.image.title="WireHub" \
       org.opencontainers.image.version="${WIREHUB_VERSION}" \
       org.opencontainers.image.revision="${WIREHUB_REVISION}"
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates \
+ && apt-get install -y --no-install-recommends git openssh-client ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /data/auth /data/blobs /data/cache /data/packs /run/wirehub \
  && chown -R node:node /data /run/wirehub

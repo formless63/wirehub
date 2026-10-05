@@ -53,7 +53,6 @@ What was lost is mostly glue around the private parts:
 - documents no longer carry the organisation's identity;
 - a generic variant transform has no button;
 - part numbers are checked for format but never for duplicates;
-- history is invisible on the database backend;
 - the 3D board-model path has no way in;
 - the headless document scripts were not carried over;
 - six design specs are still waiting to be rewritten generically.
@@ -242,7 +241,7 @@ What was lost is mostly glue around the private parts:
 
 | Feature | Class | Notes / bead |
 | --- | --- | --- |
-| Every save a git commit by its author, pushed with retry; backup indicator | degraded | present on the file backend. On the default database backend there is no git export, and change history has no UI: cs-5k1.4 |
+| Every save a git commit by its author, pushed with retry; backup indicator | present | better since cs-5k1.4: every save is a change set on the database backend, with a History panel per record, a hub-wide History page, field-level diffs and restore on both backends, and an opt-in git mirror of every change set (`docs/self-hosting.md`) |
 | Model conversion in the background | present | now a job, with a worker on Postgres |
 | Board import jobs | missing, private | |
 | Login: local allow-list, OIDC, magic link | present | better: accounts, invitations, people page, API tokens |
@@ -269,7 +268,7 @@ What was lost is mostly glue around the private parts:
 | --- | --- | --- | --- |
 | cs-5k1.2 | Organisation identity on every document, set from the UI | degraded | M |
 | cs-5k1.3 | Part-number health: duplicates, unnumbered parts, disagreements | degraded | M |
-| cs-5k1.4 | Change history on the database backend; optional git mirror | degraded | L |
+| cs-5k1.4 | Change history on the database backend; optional git mirror (done) | degraded → present | L |
 | cs-5k1.7 | Headless document rendering: CLI and API | missing, generic | M |
 | cs-5k1.8 | Connect known pins by signal tags | missing, generic | M |
 | cs-5k1.10 | Make-variant: copy a cable onto another trunk stock | degraded | S |
@@ -315,4 +314,4 @@ cs-5k1.11 and cs-5k1.20 cross-reference it.
    compares two parts.
 3. **History on the database backend (cs-5k1.4).** Recommendation: a History panel and
    restore in the base. The git mirror would be an opt-in job, for hubs that want an
-   off-site, diffable trail.
+   off-site, diffable trail. **Decided and built** as recommended.
