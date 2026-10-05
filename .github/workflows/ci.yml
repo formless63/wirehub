@@ -94,4 +94,4 @@ jobs:
           cache-to: type=gha,mode=max
       # an empty directory, compose.yaml only, no .env — as a Docker UI deploys it
       - name: Deploy test (default stack, then the backup profile)
-        run: bash scripts/stack-smoke.sh --backup --restore wirehub:smoke
+        run: bash scripts/stack-smoke.sh --upgrade --backup --restore wirehub:smoke

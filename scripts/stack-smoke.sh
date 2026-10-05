@@ -8,8 +8,12 @@
 # upload lands in the bucket, Postgres runs with the generated passwords, and
 # the database's export is the starter catalog plus exactly that save.
 #
-#   bash scripts/stack-smoke.sh [--backup] [--restore] [image]
+#   bash scripts/stack-smoke.sh [--upgrade] [--backup] [--restore] [image]
 #
+# --upgrade  first, a hub on the file backend (as before v0.1.0) set up and
+#            edited, then started with this compose.yaml's defaults: migrate
+#            moves its catalog into the database, and the first admin claims
+#            the hub at /setup with the setup code.
 # --backup   runs again with COMPOSE_PROFILES=backup (a pack installed at
 #            setup this time): the dump (as studio_ro, with row counts), the
 #            restore check, a Backrest snapshot.
@@ -25,9 +29,11 @@
 set -euo pipefail
 backup=0
 restore=0
-while [ "${1:-}" = "--backup" ] || [ "${1:-}" = "--restore" ]; do
+upgrade=0
+while [ "${1:-}" = "--backup" ] || [ "${1:-}" = "--restore" ] || [ "${1:-}" = "--upgrade" ]; do
   [ "$1" = "--backup" ] && backup=1
   [ "$1" = "--restore" ] && restore=1
+  [ "$1" = "--upgrade" ] && upgrade=1
   shift
 done
 image="${1:-wirehub:smoke}"
@@ -57,13 +63,16 @@ fail() {
   exit 1
 }
 log_has() { # service, extended regex — retried: a log can lag behind the container
-  for _ in $(seq 1 30); do compose logs --no-log-prefix "$1" 2>/dev/null | grep -qE "$2" && return 0; sleep 1; done
+  for _ in $(seq 1 30); do compose logs --no-log-prefix "$1" 2>/dev/null | contains "$2" && return 0; sleep 1; done
   return 1
 }
 wait_for() { # url, seconds
   for _ in $(seq 1 "$2"); do curl -fsS -o /dev/null "$1" 2>/dev/null && return 0; sleep 1; done
   return 1
 }
+# a pattern in all of stdin — never `| grep -q`, which closes the pipe early and,
+# under pipefail, fails the writer (curl) with a broken pipe on a long answer
+contains() { local input; input="$(cat)"; grep -qE -- "$1" <<<"$input"; }
 cli() { # the database commands inside the app container
   compose exec -T wirehub node --experimental-strip-types --no-warnings --import ./server/boot-env.ts server/pg/cli.ts "$@"
 }
@@ -97,18 +106,18 @@ check_stack() { # $1: modules to enable at setup (JSON array)
   form="{\"org\":{\"name\":\"Smoke Shop\",\"slug\":\"smoke-shop\"},\"catalog\":\"starter\",\"modules\":$modules,\"admin\":{\"name\":\"Smoke Admin\",\"email\":\"$admin_email\",\"password\":\"$admin_password\"}"
   refused="$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -H "origin: $origin" -d "$form}" "$origin/api/setup")"
   [ "$refused" = 403 ] || fail "/api/setup without the code answered $refused, not 403"
-  curl -fsS -X POST -H 'content-type: application/json' -H "origin: $origin" -d "$form,\"code\":\"$code\"}" "$origin/api/setup" | grep -q '"created"' || fail "/setup did not create the organisation"
+  curl -fsS -X POST -H 'content-type: application/json' -H "origin: $origin" -d "$form,\"code\":\"$code\"}" "$origin/api/setup" | contains '"created"' || fail "/setup did not create the organisation"
   echo "smoke: /setup refused no code; with the code created the organisation, the starter catalog and the admin (modules: $modules)"
   [ "$(curl -s -o /dev/null -w '%{http_code}' "$origin/api/designs")" = 401 ] || fail "after setup, a request without a session was not refused"
   rm -f "$jar"
   curl -fsS -c "$jar" -X POST -H 'content-type: application/json' -H "origin: $origin" -d "{\"email\":\"$admin_email\",\"password\":\"$admin_password\"}" "$origin/api/auth/sign-in/email" -o /dev/null || fail "the admin could not sign in"
-  curl -fsS -b "$jar" "$origin/api/designs" | grep -q 'de9-crossover' || fail "the signed-in admin does not see the starter catalog"
+  curl -fsS -b "$jar" "$origin/api/designs" | contains 'de9-crossover' || fail "the signed-in admin does not see the starter catalog"
   echo "smoke: the admin signs in and sees the starter catalog"
   local etag design
   etag="$(curl -fsS -b "$jar" -D - -o "$scratch/design.json" "$origin/api/designs/dc-y-splitter" | tr -d '\r' | awk 'tolower($1)=="etag:"{print $2}')"
   design="$(sed 's/"label": *"[^"]*"/"label":"Saved by the smoke test"/' "$scratch/design.json")"
   curl -fsS -b "$jar" -X PUT -H 'content-type: application/json' -H "origin: $origin" -H "if-match: $etag" -d "$design" "$origin/api/designs/dc-y-splitter" -o /dev/null || fail "the admin could not save a design"
-  curl -fsS -b "$jar" "$origin/api/backup" | grep -q '"state": "database"' || fail "the indicator does not say the database holds the saves"
+  curl -fsS -b "$jar" "$origin/api/backup" | contains '"state": "database"' || fail "the indicator does not say the database holds the saves"
   echo "smoke: a design save lands; the indicator says Saved (the database)"
   local photo
   etag="$(curl -fsS -b "$jar" -D - -o /dev/null "$origin/api/drawings/dc-y-splitter" | tr -d '\r' | awk 'tolower($1)=="etag:"{print $2}')"
@@ -116,10 +125,10 @@ check_stack() { # $1: modules to enable at setup (JSON array)
   curl -fsS -b "$jar" -X PUT -H 'content-type: application/json' -H "origin: $origin" -H "if-match: $etag" -d "{\"photo\":\"$photo\"}" "$origin/api/drawings/dc-y-splitter/photo" >/dev/null || fail "photo upload"
   docker run --rm --network "${project}_internal" -v "${project}_secrets:/run/wirehub:ro" --entrypoint sh rclone/rclone:1.75.1 -c \
     'RCLONE_CONFIG_G_TYPE=s3 RCLONE_CONFIG_G_PROVIDER=Other RCLONE_CONFIG_G_ENDPOINT=http://garage:3900 RCLONE_CONFIG_G_REGION=garage RCLONE_CONFIG_G_FORCE_PATH_STYLE=true RCLONE_CONFIG_G_ACCESS_KEY_ID=$(cat /run/wirehub/s3_backup_access_key_id) RCLONE_CONFIG_G_SECRET_ACCESS_KEY=$(cat /run/wirehub/s3_backup_secret_access_key) rclone ls g:wirehub 2>/dev/null' \
-    | grep -qE '/sha256/' || fail "the upload is not in the Garage bucket"
+    | contains '/sha256/' || fail "the upload is not in the Garage bucket"
   echo "smoke: an uploaded photo is in the Garage bucket (keys created by Garage)"
   docker run --rm --network "${project}_internal" -v "${project}_secrets:/run/wirehub:ro" postgres:18.6-bookworm \
-    sh -c 'psql "$(cat /run/wirehub/database_url)" -tAc "select studio.org_count()"' | grep -q '^1$' || fail "Postgres did not take the generated password"
+    sh -c 'psql "$(cat /run/wirehub/database_url)" -tAc "select studio.org_count()"' | contains '^1$' || fail "Postgres did not take the generated password"
   echo "smoke: Postgres is up; studio_app connects with its generated password"
   if [ "$modules" = "[]" ]; then
     # S8: the database's export is the starter catalog plus exactly the save (and the setup record)
@@ -135,6 +144,39 @@ check_stack() { # $1: modules to enable at setup (JSON array)
     echo "smoke: the export is the starter catalog plus the save, the photo and the setup record — nothing else"
   fi
 }
+
+if [ "$upgrade" = 1 ]; then
+  echo "smoke: --upgrade — a file-backend hub first (WIREHUB_BACKEND=files, sign-in off)"
+  origin="http://127.0.0.1:$port"
+  WIREHUB_BACKEND=files WIREHUB_ALLOW_FILES_IN_PROD=1 AUTH_ENABLED=false compose up -d --quiet-pull >/dev/null 2>&1 || fail "the file-backend stack did not start"
+  wait_for "$origin/healthz" 180 || fail "the file-backend app did not answer"
+  code=""
+  for _ in $(seq 1 30); do
+    code="$(compose logs --no-log-prefix wirehub | grep -oE '^ +[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$' | tail -1 | tr -d ' ' || true)"
+    [ -n "$code" ] && break
+    sleep 1
+  done
+  curl -fsS -X POST -H 'content-type: application/json' -H "origin: $origin" -d "{\"modules\":[\"networking\"],\"code\":\"$code\"}" "$origin/api/setup" >/dev/null || fail "file-backend setup"
+  etag="$(curl -fsS -D - -o "$scratch/design.json" "$origin/api/designs/de9-crossover" | tr -d '\r' | awk 'tolower($1)=="etag:"{print $2}')"
+  curl -fsS -X PUT -H 'content-type: application/json' -H "origin: $origin" -H "if-match: $etag" -d "$(sed 's/"label": *"[^"]*"/"label":"Edited on the file backend"/' "$scratch/design.json")" "$origin/api/designs/de9-crossover" >/dev/null || fail "file-backend save"
+  echo "smoke: the file-backend hub is set up (networking) and has a save"
+  compose up -d --quiet-pull >/dev/null 2>&1 || fail "the upgraded stack did not start"
+  log_has migrate 'adopt: imported' || fail "migrate did not move the file catalog into the database"
+  echo "smoke: $(compose logs --no-log-prefix migrate | grep 'adopt:' | tail -1)"
+  wait_for "$origin/healthz" 180 || fail "the upgraded app did not answer"
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "$origin/api/designs")" = 503 ] || fail "an unclaimed hub answered other than 503"
+  curl -fsS "$origin/api/setup" | contains '"claim": true' || fail "/setup does not offer to make the first admin"
+  claim="{\"admin\":{\"name\":\"Smoke Admin\",\"email\":\"$admin_email\",\"password\":\"$admin_password\"}"
+  [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -H "origin: $origin" -d "$claim}" "$origin/api/setup")" = 403 ] || fail "the claim without the code was not refused"
+  curl -fsS -X POST -H 'content-type: application/json' -H "origin: $origin" -d "$claim,\"code\":\"$code\"}" "$origin/api/setup" >/dev/null || fail "the first admin's claim"
+  rm -f "$jar"
+  curl -fsS -c "$jar" -X POST -H 'content-type: application/json' -H "origin: $origin" -d "{\"email\":\"$admin_email\",\"password\":\"$admin_password\"}" "$origin/api/auth/sign-in/email" -o /dev/null || fail "the claimed admin could not sign in"
+  curl -sS -b "$jar" "$origin/api/designs/de9-crossover" > "$scratch/moved.json" || true
+  grep -q 'Edited on the file backend' "$scratch/moved.json" || fail "the save did not move into the database: $(head -c 300 "$scratch/moved.json")"
+  curl -fsS -b "$jar" "$origin/api/designs/rj45-patch-t568b" -o /dev/null || fail "the networking pack did not move into the database"
+  echo "smoke: the first admin claimed the hub with the setup code; the save and the pack moved into the database"
+  compose down -v >/dev/null 2>&1
+fi
 
 check_stack '[]'
 if [ "$backup" = 1 ]; then
@@ -159,10 +201,10 @@ if [ "$backup" = 1 ]; then
   snapshots=""
   for _ in $(seq 1 60); do
     snapshots="$(curl -fsS -X POST -H 'content-type: application/json' -d '{"repoId":"wirehub"}' "http://127.0.0.1:$backrest_port/v1.Backrest/ListSnapshots" || true)"
-    echo "$snapshots" | grep -q '"paths":\["/sources"\]' && break
+    echo "$snapshots" | contains '"paths":\["/sources"\]' && break
     sleep 2
   done
-  echo "$snapshots" | grep -q '"paths":\["/sources"\]' || fail "no snapshot of /sources"
+  echo "$snapshots" | contains '"paths":\["/sources"\]' || fail "no snapshot of /sources"
   echo "smoke: Backrest took a snapshot of /sources (dump, bucket mirror, catalog, auth, packs)"
 
   if [ "$restore" = 1 ]; then
@@ -181,8 +223,8 @@ if [ "$backup" = 1 ]; then
     origin2="http://127.0.0.1:$((port + 1))"
     rm -f "$jar"
     curl -fsS -c "$jar" -X POST -H 'content-type: application/json' -H "origin: $origin2" -d "{\"email\":\"$admin_email\",\"password\":\"$admin_password\"}" "$origin2/api/auth/sign-in/email" -o /dev/null || fail "the first stack's admin could not sign in to the restored one"
-    curl -fsS -b "$jar" "$origin2/api/designs/dc-y-splitter" | grep -q 'Saved by the smoke test' || fail "the restored hub does not have the save"
-    curl -fsS -b "$jar" "$origin2/api/drawings/dc-y-splitter" | grep -q 'data:image/png;base64' || fail "the restored hub does not serve the upload"
+    curl -fsS -b "$jar" "$origin2/api/designs/dc-y-splitter" | contains 'Saved by the smoke test' || fail "the restored hub does not have the save"
+    curl -fsS -b "$jar" "$origin2/api/drawings/dc-y-splitter" | contains 'data:image/png;base64' || fail "the restored hub does not serve the upload"
     echo "smoke: restore drill — $(grep -E 'restore: done|blob-restore: copied' "$scratch/restore.log" | tr '\n' ' ')"
     echo "smoke: on the second stack the first admin signs in, and finds the save and the upload"
   fi
