@@ -130,6 +130,7 @@ describePg('auth on Postgres', () => {
     const accepted = await post('/api/invitations/accept', { token, name: 'Viv Viewer', password: 'another long password' }, viv);
     expect(accepted.status).toBe(200);
     expect((await call('/api/designs/de9-crossover', {}, viv)).status).toBe(200);
+    expect((await call('/api/export', {}, viv)).status).toBe(403);
     const write = await call('/api/vocab/families', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ label: 'Nope', src: 'x' }) }, viv);
     expect(write.status).toBe(403);
     expect((await pgPeople(pgh.db, orgId).personByEmail('viv@example.test'))?.role).toBe('viewer');

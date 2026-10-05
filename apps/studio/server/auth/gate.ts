@@ -169,6 +169,7 @@ async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefi
   if (!holder.token.scopes.includes(scope)) return json(403, { error: `The token lacks scope ${scope}.` });
   // the person's current role still applies: a viewer's token only reads
   if (holder.person.role === 'viewer' && scope !== 'read') return json(403, { error: 'The token lacks scope catalog:write.' });
+  if (holder.person.role === 'viewer' && c.req.path === '/api/export') return json(403, { error: 'The catalog export is for owners and editors.' });
   const budget = limiter.take(`token:${holder.token.id}`, scope === 'read' ? READ_LIMITS : WRITE_LIMITS);
   if (budget > 0) return retryLater(budget);
   await tokens.touch(holder.token.id);
@@ -308,6 +309,8 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       }
       if (path === PEOPLE_PATH || path.startsWith(`${PEOPLE_PATH}/`)) return peopleRoute(c, people, person);
       if (person?.disabledAt !== undefined && person.disabledAt !== null) return json(403, { error: `${user.email} no longer has access to this hub.`, hint: 'Ask an owner.' });
+      // the whole catalog in one answer is for owners and editors (plan §7.6)
+      if (person?.role === 'viewer' && path === '/api/export') return json(403, { error: 'The catalog export is for owners and editors.', hint: 'Ask an owner for the editor role.' });
       // a viewer reads; every write needs an editor or an owner (plan §4.5)
       if (person?.role === 'viewer' && WRITE_METHODS.has(c.req.method) && !path.startsWith('/api/locks') && !path.startsWith(TOKENS_PATH)) {
         return json(403, { error: `${user.email} can view this hub but not change it.`, hint: 'Nothing was changed. Ask an owner for the editor role.' });
