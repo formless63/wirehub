@@ -233,12 +233,18 @@ describe('GET /api/designs/:id/documents/formboard', () => {
     expect(await get(`${path}?format=csv`)).toMatchObject({ status: 400, body: { hint: 'It comes as html, svg, pdf.' } });
   });
 
-  it('html carries every page; pdf is the overview then every tile, one image each', async () => {
+  it('html carries every page; pdf is the overview then every tile, as vector drawing (no image)', async () => {
     const html = text(await get(`${path}?format=html&scale=0.25`));
     expect(html).toContain('cs-formboard-page');
     const pdf = readPdf((await get(`${path}?format=pdf&scale=0.1`)).bytes!);
     expect(pdf.pages).toBe(2);
-    expect(pdf.images).toBe(2);
+    expect(pdf.images).toBe(0);
+    const content = pdf.streams.join('\n');
+    // lines and the rounded mould outlines are path operators, the labels are Helvetica text
+    expect(content).toMatch(/ m [\d. -]+ l\n/);
+    expect(content).toMatch(/\bBT \/F[12] [\d.]+ Tf 1 0 0 -1 /);
+    expect(content).toContain(' re W n');
+    expect(content).toContain('(print check: this bar must measure 100 mm)');
   });
 
   it('a straight run (no breakout) still has a board', async () => {
