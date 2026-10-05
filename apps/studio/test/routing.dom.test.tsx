@@ -233,6 +233,11 @@ describe('the index and library routes', () => {
     expect(screen.getByTestId('library-id').textContent).toBe('db23-male');
   });
 
+  it('/library/store is Browse store, not a kind called store', async () => {
+    render(<App router={buildRouter('/library/store')} />);
+    await waitFor(() => expect(screen.getByTestId('store-browser')).toBeDefined());
+    expect(screen.queryByTestId('library')).toBeNull();
+  });
 });
 
 describe('search params that look like numbers', () => {

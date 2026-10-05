@@ -179,10 +179,13 @@ describe('the Library', () => {
     expect((await screen.findByRole('status')).textContent).toContain('No importer takes parts.xyz');
   });
 
-  it('shows no Import button and no panels with no modules', async () => {
+  it('shows no Import button (only Browse store) and no panels with no modules', async () => {
     mount('/library/components', EMPTY_REGISTRY);
     await screen.findByTestId('library');
-    expect(seen.library?.['listActions']).toBeUndefined();
+    // each kind's list actions: [Import… (a module importer's), Browse store]
+    const actions = seen.library?.['listActions'] as Record<string, { props: { children: unknown[] } }>;
+    expect(actions['components']?.props.children[0]).toBeNull();
+    expect(actions['components']?.props.children[1]).not.toBeNull();
     expect(seen.library?.['detailExtras']).toBeUndefined();
   });
 });
