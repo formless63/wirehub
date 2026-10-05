@@ -2,12 +2,20 @@
 
 WireHub's base is generic. What only one shop needs — its ERP link, its numbering
 scheme, its importers for its own file layout, extra design rules, branding — goes in a
-**module**: a package that contributes to a fixed set of extension points, registered at
-build time in the deployment's manifest.
+**module**: a package that contributes to a fixed set of extension points. A module reaches a
+hub one of two ways, with the same module object:
 
-The skeleton exists today: `@wirehub/modules` (`packages/modules/src/index.ts`) defines
-the module shape and the registry; `apps/studio/modules.config.ts` is the manifest; the
-server and browser each build the registry from it. The base bundles five optional **domain
+- **Built in**: listed in `apps/studio/modules.config.ts` and bundled with the image. The
+  bundled modules below are built in.
+- **Installed at runtime** (a *code module*): everyone runs the same public image, and an owner
+  installs a module from a store or a signed upload in the UI; the hub loads it without a rebuild
+  and, for almost every extension point, without a restart (see "Runtime code modules" below and
+  `specs/runtime-modules.md`).
+
+`@wirehub/modules` (`packages/modules/src/index.ts`, `runtime.ts`) defines the module shape, the
+registry and the live registry runtime modules are swapped into; `apps/studio/modules.config.ts`
+lists the built-in modules; the server, the worker and the browser each build their registry
+from it and lay the installed code modules over it. The base bundles five optional **domain
 modules** there (`modules/pc-serial`, `modules/networking`, `modules/pro-audio`,
 `modules/av-video`, `modules/automotive`, below), and an **example module**
 (`modules/example`) that contributes to every extension point, off unless a dev flag is set
@@ -25,10 +33,13 @@ be copied as templates.
 
 ## Principles
 
-1. **Build-time registration, no runtime loading.** A module is an npm package (a workspace
-   package or a git dependency) that the manifest imports. It is type-checked and bundled
-   with the app. There is no plugin directory, no `eval`, no fetching code at runtime: what
-   runs is what was built and reviewed.
+1. **Trusted code, from the image or from a signed bundle.** A built-in module is an npm package
+   the manifest imports, type-checked and bundled with the app. A runtime code module is the same
+   kind of package built into a bundle (`wirehub-module build`) that runs only after an owner
+   installed it, signed by a publisher key the hub trusts, with the owner's consent to what it
+   declares it does; no code is fetched or run otherwise, and the server can turn every runtime
+   module off (`WIREHUB_ALLOW_CODE_MODULES=false`). Either way a module is trusted code: there is
+   no sandbox.
 2. **The model owns truth.** A module never changes the meaning of base data. It may add data
    of its own under `CableDesign.extensions[<module id>]`, add validation issues, add
    documents, add routes and UI. The base never reads a module's extension data.
@@ -455,6 +466,43 @@ It is installed once by `<App>` and removed when the app unmounts.
 - *House rules*: a validation rule `acme/no-unsleeved-splice` that warns when a splice has no
   heat-shrink instance attached.
 
+## Runtime code modules
+
+The design is `specs/runtime-modules.md`; this is the summary.
+
+- **The bundle is a pack.** `wirehub-pack.json` gains a `module` block (id, version, label, the
+  `apiVersion` of `@wirehub/modules` it was built against, its entries, the extension points and
+  permissions it uses), and the code sits at `code/<id>/server.mjs`, `browser.mjs` (UI) and
+  `browser.css`, pinned by the manifest's `files` and covered by `wirehub-pack.sig`. A pack may
+  carry data and code together; a code-only pack has no records. `wirehub-module build`
+  (`apps/studio/scripts/wirehub-module.ts`) makes one from a module package: Vite library builds
+  (no new dependency), `@wirehub/*` bundled in, React the host's (`globalThis.__wirehub.shared`).
+- **Installed like a pack**, through the same doors (Library → Modules → Install pack…, Library →
+  Browse store), the same diff, one change set, recorded in `packs.json` with the module and the
+  sha256 of its entries. The code lives in the pack's layer (files) or as catalog files in the blob
+  store (Postgres). Removing the pack removes the module.
+- **Trust.** Owners only (a signed-in session, never an API token). Signed by a publisher the store
+  index lists, or by a key an owner pins (`trustKey` on the upload, or Settings → Code modules).
+  The preview lists what it may do and the apply needs `consent: { code: "<id>@<version>" }`. A
+  module built for another major of the module API, or a newer minor, is refused (`MODULE_API_VERSION`,
+  now `1.1`). `migrations` cannot be used at runtime; `setup` and `catalogPacks` are ignored (the
+  pack is the data).
+- **Loading.** The server, the worker and the page load the enabled modules into a **live
+  registry** (`createLiveRegistry`, `composeRegistry`): the built-ins first, then runtime modules in
+  id order, each refused with the manifest sentence if it clashes (an id the image has — the
+  built-in wins —, a second scheme or commit hook, a duplicate importer, exporter or provider id).
+  Rules, importers, exporters, the scheme, panels, compare views, UI routes, integration routes,
+  the commit hook, documents, derived records, art, bench steps and auth providers (sign-in is
+  rebuilt in-process) apply live. Job queues on Postgres start at the next start: Settings → Code
+  modules → **Restart WireHub** drains the app and exits with code 75 for the container's restart
+  policy to bring it back, and tells the worker through the database. A module that throws at load
+  is disabled automatically, with its error shown; the hub stays up.
+- **Settings → Code modules**: the installed modules and their state, on and off, the kill switch,
+  pinned keys, Restart WireHub. `GET /api/code-modules`, `POST /api/code-modules/<id>/enable|disable`,
+  `PUT /api/code-modules/settings`, `POST|DELETE /api/code-modules/keys…`, `POST /api/system/restart`.
+- **Stores carry code modules**: the store template's workflow builds `modules/<name>/` packages
+  into signed packs (`templates/store/README.md`).
+
 ## A private module in its own repository
 
 A private module never lives in this repository. It is its own package, in its own
@@ -481,7 +529,11 @@ Rules for the module's package:
 
 ### Adding it to a deployment
 
-A deployment is a checkout of this repository (or a fork that tracks it) plus its manifest:
+The usual way: build it into a signed bundle and install it at runtime (above; the
+`wirehub-module` skill has the steps). No fork, no image of your own.
+
+To build it into the image instead, a deployment is a checkout of this repository (or a fork that
+tracks it) plus its manifest:
 
 1. Add the module as a dependency of the app — a git dependency, a private registry
    package, or a workspace folder:
@@ -506,6 +558,8 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 - The registry API (`@wirehub/modules`) and the model types are the module contract.
   Breaking changes to them bump the base's major version and are listed in the changelog.
+- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.1`) is what a runtime bundle records as its
+  `apiVersion`: a hub runs a bundle of the same major and a minor no newer than its own.
 - A module declares the base range it supports in `peerDependencies`; pnpm warns on a
   mismatch at install.
 - Module design data is the module's own: it should carry its own schema version inside
@@ -513,11 +567,12 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 ## Not in scope
 
-- Runtime installation of modules from the UI. (Catalog *data* packs can be installed at
-  runtime — `docs/catalog-store.md` — because they are data, not code.)
 - Modules overriding base routes, base validation, or base documents. A module adds; it
   does not replace. If a base behaviour needs to vary, the base grows an extension point.
-- Sandboxing. A module is trusted code, reviewed like the base.
+- Sandboxing. A module is trusted code, reviewed like the base; a runtime module's declared
+  permissions are checked against what it registers, so the consent is honest, but they are not a
+  sandbox.
+- Runtime module migrations (bead filed): a module with its own tables is built in for now.
 
 ## Next steps
 

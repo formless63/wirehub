@@ -56,7 +56,8 @@ acme-erp-1.2.0/
   nothing else under `code/`; each at most 4 MiB, all of a pack's code 8 MiB. A `code/` file the
   `module` block does not name is refused.
 - **apiVersion** is `<major>.<minor>` of `MODULE_API_VERSION` (`@wirehub/modules`, now `1.1`;
-  `1.0` was the build-time-only contract). A module is compatible when the major is equal and
+  `1.0` was the build-time-only contract). A breaking change to the module contract bumps the
+  major; anything added bumps the minor. A module is compatible when the major is equal and
   its minor is not newer than the hub's. Anything else is refused before a byte runs.
 - **Extension points** declared must cover what the module object contributes
   (`extensionPointsOf`); **permissions** must cover what it does (`permissionsOf`: `server-code`,
@@ -136,11 +137,14 @@ not quarantined.
   is built), on every catalog change notification, and before answering the module APIs.
 - **Hot reload where safe** (`applyModeOf(points)`): validation rules, importers, exporters, the
   part-number scheme, panels, compare views, UI routes, integration routes, the commit hook,
-  documents, derived records and **auth providers** apply live (sign-in is rebuilt in-process by
+  documents, derived records, art and bench steps (unregistered and registered again on every
+  swap, `installModuleArt`), and **auth providers** apply live (sign-in is rebuilt in-process by
   `liveStudioAuth`, the runtime-settings mechanism, now also on a provider change). **Restart
-  required:** integration job queues (pg-boss queues are bound at boot) and art (registered once,
-  first wins). A change to a module with a restart-required point is recorded and the module
-  loads on the next start; the API and the page say "restart required" with the Restart button.
+  required:** integration job queues on Postgres (pg-boss queues are created and worked when the
+  worker starts; on files they run in the app and apply live). A module with a queue loads live
+  all the same — its routes, rules and panels work at once — and its status says
+  `restartPending` for the queue until Restart WireHub; the install and enable answers say
+  `apply: 'restart'` and the page offers the Restart button.
 - **Isolation.** An import that throws, a default export that is not a module, a mismatch with
   the manifest, an undeclared point or permission, or a registry clash: the module is
   **quarantined** in that process (not registered, status `failed` with the error), the rest load,
@@ -154,28 +158,35 @@ not quarantined.
   every catalog event. When a module it already ran is removed or replaced and that module set a
   commit hook or carried CSS, a banner asks for a page refresh (old code cannot be unloaded from
   a page).
-- **Worker.** The worker builds the same live registry and host and follows the same
-  `LISTEN studio_catalog` notification; import jobs and derived records use the live set.
+- **Worker.** The worker builds the same live registry and host, loads it before it binds its
+  queues, and follows the same `LISTEN studio_catalog` notification; import jobs and derived
+  records use the live set.
+- **Art validation.** Art or bench rules of a runtime module that do not validate are left out
+  (the built-ins' stay) and logged; they never stop the hub.
 
 ## 4. Restart from the UI
 
 Settings → Code modules → **Restart WireHub** (owners, signed in), `POST /api/system/restart`:
 
-1. answers `202 { restarting: true, bootId }` at once, then **drains**: the HTTP server stops
-   accepting connections and waits for in-flight requests (at most 20 s), the write lock is taken
-   (so no write is half done), edit leases held by this process are released (memory leases on
-   files; the database's leases expire on their own), the job runner is stopped, pools and
-   LISTEN connections closed;
+1. answers `202 { restarting: true, bootId }` at once, then **drains** (`system.ts`, each step
+   bounded at 20 s): the HTTP server stops accepting connections and new requests on open ones
+   get 503 *restarting*; the requests in flight finish; the write lock is taken and held (no write
+   is half done, none starts); the worker is told; the code-module host stops following the
+   catalog; sign-in, the stores, the pools and LISTEN connections are closed; the remaining
+   connections (event streams) are closed. Edit leases belong to the people holding them, not to
+   the process: on Postgres they stay in the database, on files they are in memory and every
+   holder takes its lease again on its next heartbeat, as after any restart;
 2. logs `[restart] requested by <name>: exiting with code 75 (restart requested, not a crash)` and
    exits with **75** (`RESTART_EXIT_CODE`), distinct from a crash (1) and a stop (0).
 3. On Postgres the worker is told through `NOTIFY studio_control` (`{ org, action: 'restart' }`):
    it lets a running job finish (the pg-boss graceful stop, 30 s), logs the same line and exits 75.
 
-`restart: unless-stopped` (compose: `wirehub`, `worker` and every other long-running service;
-one-shots are `"no"`) brings both back. The page shows *Restarting WireHub…*, polls
-`GET /api/system/boot` until the boot id changes, then reloads. Without a supervisor (a checkout
-run by hand) the process simply exits; the button says so when `WIREHUB_RESTART_SUPERVISED` is not
-`true` (the image sets it).
+`restart: unless-stopped` (compose: `wirehub`, `worker` and every other long-running service —
+`postgres`, `garage`, `backup-dump`, `backup-mirror`, `backrest`, `pdf`; the one-shots `bootstrap`,
+`migrate`, `garage-init`, `backup-init` are `"no"`; verified 2026-10-05) brings both back. The page
+shows *Restarting WireHub…*, polls `GET /api/system/boot` until the boot id changes, then reloads.
+Without a supervisor (a checkout run by hand) the process simply exits; the page says so when
+`WIREHUB_RESTART_SUPERVISED` is not `true` (compose sets it for the app).
 
 Install, update, enable and disable answer `apply: 'live' | 'restart'` per §3 so the UI offers
 "Applied" or "Restart required — Restart now".
@@ -199,12 +210,25 @@ modules from `modules/<dir>` beside `packs/`.
 
 ## 7. Tests
 
-`packages/modules/test/runtime.test.ts` (API compatibility, points, permissions, live registry,
-composition), `apps/studio/test/code-modules.server.test.ts` and
-`test/pg/code-modules.server.test.ts` (the example module packaged as a runtime bundle: upload with
-a pinned key and from a signed test store; its rule, exporter, panel and route answer without a
-restart; disable, update, auto-quarantine of a module that throws, incompatible apiVersion,
-unsigned and untrusted refused, non-owner refused, kill switch; the restart drain and exit code,
-simulated), `test/code-modules.dom.test.tsx` (the SPA loads a browser entry and renders its panel
-without a reload). `scripts/restart-smoke.sh` runs the stack, presses Restart through the API and
-shows the container restart and the page reconnect.
+- `packages/modules/test/runtime.test.ts`: API compatibility, points, permissions, the live
+  registry, composition with built-ins.
+- `apps/studio/test/code-modules.server.test.ts` (files) and `test/pg/code-modules.server.test.ts`
+  (Postgres), one session (`test/code-modules-scenario.ts`): the example module built by
+  `wirehub-module build` into a signed bundle; unsigned, untrusted, wrong key, an editor, an
+  incompatible apiVersion, an undeclared point, no consent and the kill switch (Settings and
+  environment) refused; installed by upload with a pinned key, its route, rule, exporter, panel and
+  browser entry working without a restart; off and on; updated; a module that throws at load
+  never enabled by a click and quarantined at the next start with the hub answering; removed;
+  installed from a signed test store, and refused from a store that does not name its publisher.
+  On Postgres also: one change set each, the code in the blob store, and the worker told to restart
+  over `NOTIFY studio_control`. The restart drain and exit code, simulated.
+- `test/code-modules-contract.server.test.ts`: the example installed at runtime answers the module
+  contract (`storage-contract/modules.ts`) step for step as the built-in does.
+- `test/code-modules.dom.test.tsx`: the open page loads a verified browser entry on a catalog event
+  and renders its panel, drops it and asks for a refresh, refuses bytes that do not match.
+- `test/code-modules-ui.dom.test.tsx`: consent before Install; Settings lists, turns off, restarts
+  and reloads.
+- `test/store-template.server.test.ts`: a store builds a code module from `modules/`.
+- `scripts/restart-smoke.sh <image>` (port 5560 by default): the compose stack, a runtime install by
+  upload, Restart WireHub through the API, the app and the worker exiting 75 and restarted by their
+  policy, the page's reconnect, the module loaded again.
