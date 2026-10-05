@@ -5,7 +5,7 @@
  */
 
 import { inlineVectorAsset } from '@wirehub/render-svg';
-import { IconArrowsSplit, IconCircuitResistor, IconCpu, IconPlug, IconTarget } from '@tabler/icons-react';
+import { IconArrowsSplit, IconCircuitResistor, IconCpu, IconPlug, IconStack2, IconTarget } from '@tabler/icons-react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { useMemo, type JSX, type MouseEvent } from 'react';
 
@@ -20,6 +20,7 @@ const ICONS = {
   component: IconCircuitResistor,
   pcba: IconCpu,
   breakout: IconArrowsSplit,
+  subassembly: IconStack2,
 } as const;
 
 function Thumb({ instanceId, thumb }: { instanceId: string; thumb: NonNullable<CardNodeData['thumb']> }): JSX.Element {

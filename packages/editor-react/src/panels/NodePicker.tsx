@@ -16,6 +16,7 @@ import type { CableDesign, Db, InstanceKind, TerminalRef } from '@wirehub/model'
 import {
   IconCircuitResistor,
   IconCpu,
+  IconStack2,
   IconPlug,
   IconTarget,
 } from '@tabler/icons-react';
@@ -46,6 +47,7 @@ const KIND_ICON: Record<InstanceKind, ComponentType<{ size?: number }>> = {
   segment: IconTarget,
   component: IconCircuitResistor,
   pcba: IconCpu,
+  subassembly: IconStack2,
 };
 
 function KindIcon({ kind }: { kind: InstanceKind }): JSX.Element {

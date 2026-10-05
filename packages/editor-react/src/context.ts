@@ -31,6 +31,14 @@ export interface EditorApi {
   requestDelete?: (ids: readonly string[]) => void;
   /** the bench's strip steps, when the host serves them — the segment 3D view's presets */
   stripPractice?: readonly StripPractice[];
+  /**
+   * Place another design as a sub-assembly (`assemblies.ts`): fetches the
+   * design's ports first when the library does not hold it. Absent (a bare
+   * test harness): dispatch `add-instance` with kind `subassembly`.
+   */
+  placeSubassembly?: (def: string, position?: { x: number; y: number }) => void;
+  /** open a placed design in its own editor — the host navigates (`CableEditorProps.onOpenDesign`) */
+  openDesign?: (id: string) => void;
 }
 
 export const EditorContext = createContext<EditorApi | undefined>(undefined);

@@ -108,6 +108,8 @@ export function cardDataOf(node: EditorNode, docked: readonly string[] = []): Ca
       };
     case 'breakout':
       return { ...base, title: data.title, partNumber: data.instanceId, meta: data.subtitle, docked: [] };
+    case 'subassembly':
+      return { ...base, title: data.title, partNumber: data.partNumber ?? data.def, meta: [data.subtitle, data.role].filter(Boolean).join(' · '), docked: [] };
   }
 }
 

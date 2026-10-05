@@ -33,7 +33,7 @@ export interface Ranks {
 }
 
 /** How far a part sits from the wire it hangs off: nearer parts sit nearer. */
-const DISTANCE: Record<InstanceKind, number> = { segment: 0, component: 1, pcba: 2, connector: 3 };
+const DISTANCE: Record<InstanceKind, number> = { segment: 0, component: 1, pcba: 2, connector: 3, subassembly: 3 };
 
 type Dir = 1 | -1;
 
