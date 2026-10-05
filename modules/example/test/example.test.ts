@@ -41,7 +41,7 @@ describe('the example module', () => {
     expect(registry.partNumberScheme()?.id).toBe('example');
     expect(registry.commitHook()).toBe(recordEdit);
     expect(registry.importersFor('Parts.CSV').map((i) => i.id)).toEqual(['resistor-csv']);
-    expect(registry.exporters().map((e) => e.id)).toEqual(['joints-csv']);
+    expect(registry.exporters().map((e) => e.id)).toEqual(['joints-csv', 'tester-netlist']);
     expect(registry.integrations().flatMap((i) => (i.routes ?? []).map((r) => `${r.method} ${r.path}${r.writes === true ? ' (writes)' : ''}`))).toEqual(['GET status', 'POST recount', 'GET recount', 'POST echo (writes)']);
     for (const slot of ['cable-inspector', 'cable-documents', 'library-detail', 'settings'] as const) expect(registry.panels(slot), slot).toHaveLength(1);
     expect(registry.compareViews().map((v) => v.id)).toEqual(['example-compare']);

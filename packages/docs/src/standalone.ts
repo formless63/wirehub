@@ -20,6 +20,7 @@ import { designStatus, type CableDesign, type Db } from '@wirehub/model';
 import { bomSheetBody, bomSheetMarkdown, deriveBomSheet } from './bom-sheet.ts';
 import { benchOptions, type BuildSheetOptions, type SheetOptions } from './build-sheet.ts';
 import { SHEET_STYLESHEET } from './styles.ts';
+import { resolveTestParameters } from './exports/test-params.ts';
 import { deriveTestSpec } from './test-spec.ts';
 import { testSpecToHtml } from './test-spec-render.ts';
 import { escapeHtml, facts } from './text.ts';
@@ -118,10 +119,11 @@ export function renderTestSpecSheet(
   db: Db,
   options: SheetOptions = {},
 ): string {
+  const parameters = resolveTestParameters(options.testParameters, options.testDefaults);
   const body = documentBody(
     'CONTINUITY & TEST SPEC',
     design,
-    testSpecToHtml(deriveTestSpec(design, db)),
+    testSpecToHtml(deriveTestSpec(design, db, { continuityOhmsMax: parameters.continuityOhmsMax }), parameters),
     options,
   );
   return standaloneDocument(

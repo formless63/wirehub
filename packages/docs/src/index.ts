@@ -87,6 +87,8 @@ export {
 } from './standalone.ts';
 export { SHEET_STYLESHEET } from './styles.ts';
 
+export * from './exports/index.ts';
+
 export { feetAttribute, feetFromMm, feetText, lengthFromMm, mmFromFeet, num, round } from './units.ts';
 export type { Length } from './units.ts';
 

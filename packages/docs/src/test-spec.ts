@@ -402,8 +402,18 @@ export function isolationRules(kinds: Iterable<SignalClass>): IsolationRule[] {
   return rules;
 }
 
-/** Reserved for options a host may pass; none today. */
-export type TestSpecOptions = Record<string, never>;
+export interface TestSpecOptions {
+  /**
+   * The continuity threshold the expected readings quote (Ω). The default is
+   * the base's (`DEFAULT_TEST_PARAMETERS.continuityOhmsMax`, 5 Ω).
+   */
+  continuityOhmsMax?: number;
+}
+
+/** The threshold the derivations' wording is written for; another value is substituted into it. */
+const WORDED_OHMS = 5;
+const withThreshold = (text: string, ohms: number | undefined): string =>
+  ohms === undefined || ohms === WORDED_OHMS ? text : text.replace(`< ${WORDED_OHMS} Ω`, `< ${ohms} Ω`);
 
 export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOptions = {}): TestSpec {
   const nets = deriveNets(design, db);
@@ -425,7 +435,7 @@ export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOpt
       ports: members,
       ends,
       signal,
-      expected: 'Continuity between every pair listed — meter beeps, < 5 Ω.',
+      expected: withThreshold('Continuity between every pair listed — meter beeps, < 5 Ω.', options.continuityOhmsMax),
       rationale: spans
         ? `One galvanic net of plain copper spanning both ends of the assembly (${signal}). Every port listed is the same node; probe any pair.`
         : `One galvanic net of plain copper (${signal}), ${ends.map((end) => SIDE_WORD[end]).join(' + ')}. Every port listed is the same node; probe any pair.`,
@@ -482,6 +492,7 @@ export function deriveTestSpec(design: CableDesign, db: Db, options: TestSpecOpt
     );
   }
   pathChecks.sort(byKeys<PathCheck>((check) => check.from.key, (check) => check.to.key));
+  for (const check of pathChecks) check.expected = withThreshold(check.expected, options.continuityOhmsMax);
 
   /* --- isolation --------------------------------------------------- */
   // net pairs a path already joins are *related by design* — a core and the

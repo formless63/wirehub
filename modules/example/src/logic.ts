@@ -5,7 +5,7 @@
  */
 
 import type { CableDesign, ComponentDefinition, Db, Issue } from '@wirehub/model';
-import type { ExportOutput, ImportResult, JobQueueContext } from '@wirehub/modules';
+import type { ContinuityData, ExportOutput, ImportResult, JobQueueContext } from '@wirehub/modules';
 
 export const MODULE_ID = 'example';
 
@@ -49,6 +49,24 @@ export function jointsCsv(design: CableDesign): ExportOutput {
   const cell = (text: string): string => (/[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
   const rows = ['a,b,note', ...design.joints.map((j) => [ref(j.a), ref(j.b), j.note ?? ''].map(cell).join(','))];
   return { mimeType: 'text/csv', fileName: `${design.id}-joints.csv`, body: `${rows.join('\n')}\n` };
+}
+
+/**
+ * Exporter for a continuity tester: a made-up line-oriented netlist, written
+ * from the neutral `ContinuityData` the host passes (`source: 'continuity'`).
+ * A real tester module changes only this function's output format.
+ */
+export function testerNetlist(design: CableDesign, continuity: ContinuityData | undefined): ExportOutput {
+  if (continuity === undefined) throw new Error('The host passed no continuity data.');
+  const p = continuity.parameters;
+  const lines = [
+    `; ${design.id} — EXAMPLE tester format`,
+    `CONT_MAX ${p.continuityOhmsMax}`,
+    `ISO ${p.isolationVolts}V ${p.isolationMinMohm}MOHM ${p.isolationSeconds}S`,
+    ...continuity.nets.map((net) => `NET ${net.net} ${net.points.join(' ')}`),
+    ...continuity.isolation.map((pair) => `OPEN ${pair.a} ${pair.b}`),
+  ];
+  return { mimeType: 'text/plain', fileName: `${design.id}-tester.net`, body: `${lines.join('\n')}\n` };
 }
 
 /** The module's data on a design, under `extensions.example`. */

@@ -76,11 +76,64 @@ export interface ExportOutput {
   body: string | Uint8Array;
 }
 
+/**
+ * The continuity spec as neutral data: what a tester-specific exporter reads
+ * (`ExporterContribution.source: 'continuity'`). Point ids are
+ * `<instance>.<terminal>`. The base's own CSV and JSON exports are renderings of
+ * this same shape (`docs/exports.md`), so a module adds a tester's dialect
+ * without re-deriving a single connection.
+ */
+export interface ContinuityData {
+  format: 'wirehub.continuity';
+  version: 1;
+  design: { id: string; label: string; productRef?: string };
+  /** the test parameters in force: the design's own over the organisation's over the base's */
+  parameters: {
+    /** a continuity reading at or below this passes (Ω) */
+    continuityOhmsMax: number;
+    /** DC volts applied for isolation checks */
+    isolationVolts: number;
+    /** an isolation reading at or above this passes (MΩ) */
+    isolationMinMohm: number;
+    /** how long the isolation voltage is held (s) */
+    isolationSeconds: number;
+    /** withstand test volts and duration; absent = no hipot step */
+    hipotVolts?: number;
+    hipotSeconds?: number;
+    hipotMaxMicroamps?: number;
+  };
+  /** every probe point */
+  points: { id: string; instance: string; terminal: string; label?: string; end: string; signal: string; net?: string }[];
+  /** the net-to-pin pairs: every point of one net is the same node */
+  nets: { net: string; signal: string; points: string[] }[];
+  /** pairs that are connected, and how a meter reads them */
+  connections: {
+    id: string;
+    kind: 'path' | 'commoned';
+    from: string;
+    to: string;
+    expect: 'continuity' | 'resistance' | 'open-dc' | 'conditional' | 'unverified';
+    ohms?: number;
+    through?: string;
+  }[];
+  /** pairs that must read open */
+  isolation: { id: string; a: string; b: string; end: string; rule: string; netA?: string; netB?: string }[];
+  /** deliberate opens */
+  opens: { id: string; kind: string; point: string; why: string }[];
+}
+
 export interface ExporterContribution {
   id: string;
   label: string;
   /** one sentence for the Documents view */
   description?: string;
+  /**
+   * What the host hands `render` besides the design. `'design'` (the default):
+   * nothing more. `'continuity'`: `options.continuity` is the design's
+   * `ContinuityData`, derived by the host with the design's test parameters —
+   * the way to write a continuity tester's own format.
+   */
+  source?: 'design' | 'continuity';
   render(design: CableDesign, db: Db, options?: Readonly<Record<string, unknown>>): ExportOutput | Promise<ExportOutput>;
 }
 

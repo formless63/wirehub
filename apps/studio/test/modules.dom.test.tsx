@@ -121,6 +121,14 @@ describe('cable panels and exports', () => {
     expect(String((window as unknown as { exported: { body: string } }).exported.body)).toMatch(/^a,b,note\n/);
   });
 
+  it('a tester exporter gets the continuity data, derived by the host from the design', async () => {
+    mount('/cables/de9-crossover');
+    await waitFor(() => expect(screen.getByTestId('export-example/tester-netlist')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('export-example/tester-netlist'));
+    await waitFor(() => expect((window as unknown as { exported?: { fileName: string } }).exported?.fileName).toBe('de9-crossover-tester.net'));
+    expect(String((window as unknown as { exported: { body: string } }).exported.body)).toMatch(/^; de9-crossover — EXAMPLE tester format\nCONT_MAX 5\n.*\nNET net-1 j1\.1 j1\.4 j1\.6\n/s);
+  });
+
   it('mounts the same panels and exporters over a saved revision (frozen design, read-only)', async () => {
     const saved = await handleWorkbenchRequest({ method: 'POST', path: '/api/designs/de9-crossover/versions', body: { note: 'First release' } }, deps);
     expect(saved.status, JSON.stringify(saved.body)).toBe(201);

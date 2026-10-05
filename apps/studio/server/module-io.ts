@@ -17,7 +17,7 @@
  */
 
 import type { CableDesign, Db } from '@wirehub/model';
-import type { ImportResult, ModuleRegistry } from '@wirehub/modules';
+import type { ContinuityData, ImportResult, ModuleRegistry } from '@wirehub/modules';
 
 import type { ApiResponse } from './api.ts';
 import type { BatchRequestItem } from './batch.ts';
@@ -121,6 +121,8 @@ export async function runExporter(
   query: URLSearchParams,
   load: (id: string) => Promise<CableDesign | undefined>,
   db: Db,
+  /** the design's continuity data, for an exporter with `source: 'continuity'` */
+  continuity?: (design: CableDesign, db: Db) => Promise<ContinuityData> | ContinuityData,
 ): Promise<ApiResponse> {
   const exporter = registry?.exporter(io.module, io.id);
   if (exporter === undefined) return refuse(404, `${io.module} has no exporter ${io.id}.`, "Check the deployment's modules.config.ts.");
@@ -130,6 +132,7 @@ export async function runExporter(
   if (design === undefined) return refuse(404, `There is no design '${id}'.`, 'Check the id.');
   const options: Record<string, unknown> = {};
   for (const [key, value] of query) if (key !== 'design') options[key] = value;
+  if (exporter.source === 'continuity' && continuity !== undefined) options['continuity'] = await continuity(design, db);
   let out;
   try {
     out = await exporter.render(design, db, options);

@@ -27,6 +27,12 @@ import { errors, validateDesign, type CableDesign, type Db, type Issue, type Kno
 import type { Outcome } from './persistence.ts';
 import {
   deriveTestSpec,
+  resolveTestParameters,
+  sheetRenderOptions,
+  baseExport,
+  type FormatOptions,
+  type FormatOutput,
+  type TestParameters,
   testSpecToMarkdown,
   renderBomMarkdown,
   renderBomSheet,
@@ -87,6 +93,10 @@ export interface DocumentOptions {
   variation?: string;
   /** the saved revision being printed */
   revisionNumber?: number;
+  /** the design's continuity test parameters (the drawing sidecar's `test`) */
+  testParameters?: TestParameters;
+  /** the organisation's defaults under them */
+  testDefaults?: TestParameters;
 }
 
 /** The build sheet's and BOM's options from the pane's (sidecar meta, part numbers, facts). */
@@ -97,35 +107,11 @@ function benchInput(options: DocumentOptions): Record<string, unknown> {
     ...(options.facts === undefined ? {} : { facts: options.facts }),
     ...(options.variation === undefined ? {} : { variation: options.variation }),
     ...(options.revisionNumber === undefined ? {} : { revisionNumber: options.revisionNumber }),
+    ...(options.testDefaults === undefined ? {} : { testDefaults: options.testDefaults }),
   };
 }
 
-/**
- * The sheet options a design's drawing sidecar asks for
- * as renderer options. The document number defaults to the part number — the
- * owners use part numbers as document numbers — and the revision to the
- * drawing's. `today` is only read when the stamp is on, so the renderers stay
- * deterministic unless someone asked for a date.
- */
-export function sheetRenderOptions(
-  meta: DrawingMeta,
-  design: CableDesign,
-  today: () => string,
-): Pick<DocumentOptions, 'paper' | 'generatedAt' | 'document'> {
-  const sheet: SheetSettings = meta.sheet ?? {};
-  const number = sheet.number ?? meta.partNumber ?? design.productRef;
-  const revision = sheet.revision ?? meta.revision;
-  const document: DocumentIdentity = {
-    ...(number === undefined ? {} : { number }),
-    ...(revision === undefined ? {} : { revision }),
-    ...(sheet.status === undefined ? {} : { status: sheet.status }),
-  };
-  return {
-    ...(sheet.paper === undefined ? {} : { paper: sheet.paper }),
-    ...(sheet.stampDate === true ? { generatedAt: today() } : {}),
-    ...(Object.keys(document).length === 0 ? {} : { document }),
-  };
-}
+export { sheetRenderOptions };
 
 export type DocumentResult = { html: string } | { error: string };
 
@@ -155,7 +141,13 @@ export function renderDocument(
       case 'bom':
         return { html: renderBomSheet(design, db, { ...shared, ...benchInput(options), depictions: options.depictions ?? false }) };
       case 'test-spec':
-        return { html: renderTestSpecSheet(design, db, shared) };
+        return {
+          html: renderTestSpecSheet(design, db, {
+            ...shared,
+            ...(options.testParameters === undefined ? {} : { testParameters: options.testParameters }),
+            ...(options.testDefaults === undefined ? {} : { testDefaults: options.testDefaults }),
+          }),
+        };
       case 'drawing':
         return {
           html: renderDrawingSheet(design, db, {
@@ -177,11 +169,31 @@ export function renderDocument(
 export function documentMarkdown(kind: DocumentKind, design: CableDesign, db: Db, options: DocumentOptions = {}): string | undefined {
   try {
     if (kind === 'bom') return renderBomMarkdown(design, db, { ...(options.document === undefined ? {} : { document: options.document }), ...benchInput(options), depictions: options.depictions ?? false });
-    if (kind === 'test-spec') return testSpecToMarkdown(deriveTestSpec(design, db));
+    if (kind === 'test-spec') return testSpecToMarkdown(deriveTestSpec(design, db), resolveTestParameters(options.testParameters, options.testDefaults));
   } catch {
     return undefined;
   }
   return undefined;
+}
+
+/**
+ * One of the base exports (`@wirehub/docs`'s `BASE_EXPORTS`: CSV, XLSX, JSON,
+ * label sheet) for the design shown, with the same sidecar, part-number and
+ * revision inputs the printed sheets use. Never throws.
+ */
+export function renderExport(
+  id: string,
+  design: CableDesign,
+  db: Db,
+  options: FormatOptions = {},
+): { output: FormatOutput } | { error: string } {
+  const format = baseExport(id);
+  if (format === undefined) return { error: `There is no export called '${id}'.` };
+  try {
+    return { output: format.render(design, db, options) };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
 }
 
 /**
@@ -318,6 +330,8 @@ export interface DrawingSidecar {
   meta: DrawingMeta;
   /** a `data:image/…` URI */
   photo?: string;
+  /** the organisation's default test parameters, when the server has any (`WIREHUB_TEST_DEFAULTS`) */
+  testDefaults?: TestParameters;
 }
 
 /**
@@ -384,6 +398,7 @@ const DRAWING_META_KEYS: (keyof DrawingMeta)[] = [
   'remarks',
   'cutaway',
   'sheet',
+  'test',
   'src',
 ];
 
@@ -420,6 +435,7 @@ export const DRAWING_FIELD_LABELS: Record<keyof DrawingMeta, string> = {
   remarks: 'Extra remarks',
   cutaway: 'Cable illustration',
   sheet: 'Sheet options',
+  test: 'Test parameters',
   src: 'Source',
 };
 

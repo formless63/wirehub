@@ -6,6 +6,7 @@
  * contained: it shows its own error line and the rest of the page stays up.
  */
 
+import { deriveContinuityExport } from '@wirehub/docs';
 import type { EditorExtensions, ExtraExporter } from '@wirehub/editor-react';
 import type { CableDesign, Db } from '@wirehub/model';
 import type { ModuleRegistry, PanelProps, PanelSlot } from '@wirehub/modules';
@@ -80,7 +81,15 @@ export function extraExporters(registry: ModuleRegistry): ExtraExporter[] {
     id: `${exporter.module}/${exporter.id}`,
     label: exporter.label,
     ...(exporter.description === undefined ? {} : { description: exporter.description }),
-    render: (design, db) => exporter.render(design, db),
+    // a tester exporter reads the continuity data; the host derives it with the design's test parameters
+    render: (design, db, context) =>
+      exporter.render(
+        design,
+        db,
+        exporter.source === 'continuity'
+          ? { continuity: deriveContinuityExport(design, db, { ...(context?.testParameters === undefined ? {} : { parameters: context.testParameters }), ...(context?.testDefaults === undefined ? {} : { defaults: context.testDefaults }) }) }
+          : undefined,
+      ),
   }));
 }
 

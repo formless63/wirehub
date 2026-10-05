@@ -21,14 +21,14 @@
  */
 
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
-import { variationsOf, type DocumentFacts, type DrawingMeta } from '@wirehub/docs';
+import { BASE_EXPORTS, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 import { IconDownload, IconMarkdown, IconPrinter } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import type { AssetsAdapter } from '../assets.ts';
 import { classes } from '../context.ts';
-import { downloadOutput, type EditorExtensions, type ExtraExporter } from '../extensions.ts';
+import { downloadOutput, type EditorExtensions, type ExtraExportContext, type ExtraExporter } from '../extensions.ts';
 import {
   DOCUMENT_BLURBS,
   DOCUMENT_KINDS,
@@ -42,6 +42,7 @@ import {
   draftStatus,
   isEmptyDesign,
   isStaleWrite,
+  renderExport,
   mergeDrawingMeta,
   mergeField,
   renderDocument,
@@ -62,6 +63,7 @@ import {
 import type { PartNumberData } from '../part-numbers.ts';
 import { DrawingForm, drawingDate } from './DrawingForm.tsx';
 import { SheetOptions } from './SheetOptions.tsx';
+import { TestParametersRow } from './TestParametersRow.tsx';
 import { JsonPane } from './JsonPane.tsx';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 import { useEditLocked } from './edit-session.ts';
@@ -120,6 +122,8 @@ export interface DocumentsProps {
    * as its cable list shows them. Absent: derived.
    */
   facts?: (design: CableDesign, db: Db) => DocumentFacts;
+  /** the organisation's default test parameters (under the design's own) */
+  testDefaults?: TestParameters;
 }
 
 const EMPTY_SIDECAR: DrawingSidecar = { meta: {} };
@@ -137,6 +141,8 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
   const [draft, setDraft] = useState<DrawingSidecar>(EMPTY_SIDECAR);
   const [saved, setSaved] = useState<DrawingSidecar>(EMPTY_SIDECAR);
   const [status, setStatus] = useState<string>();
+  // the organisation's test-parameter defaults, as the server's last answer carried them
+  const [orgDefaults, setOrgDefaults] = useState<TestParameters>();
   // a failure worth a banner, not the small print — a load or save that did
   // not go through at all (unreachable, refused, not a stale write, or a
   // stale write whose re-fetch itself failed)
@@ -162,6 +168,7 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
       if (result.ok) {
         setDraft(result.value);
         setSaved(result.value);
+        setOrgDefaults(result.value.testDefaults);
         setGeneration((g) => g + 1);
       } else {
         setError(`${result.message}${result.hint === undefined ? '' : ` ${result.hint}`}`);
@@ -287,6 +294,7 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
     resolveField,
     resolvePhoto,
     generation,
+    orgDefaults,
     setMeta: (meta: DrawingMeta) => setDraft((d) => ({ ...d, meta })),
     setPhoto: (photo: string | undefined) =>
       setDraft((d) => (photo === undefined ? { meta: d.meta } : { ...d, photo })),
@@ -341,10 +349,12 @@ export function DocumentsPane({
   release,
   partNumbers,
   facts,
+  testDefaults: testDefaultsProp,
   extensions,
   readOnly = false,
 }: DocumentsProps): JSX.Element {
   const sidecar = useDrawingSidecar(design.id, drawings);
+  const testDefaults = testDefaultsProp ?? sidecar.orgDefaults;
   // someone else holds this cable's edit lock: the forms stay, disabled
   const editLocked = useEditLocked();
   // which revision prints: the viewed rev, else the latest saved one
@@ -476,6 +486,8 @@ export function DocumentsPane({
           ...(docFacts === undefined ? {} : { facts: docFacts }),
           ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
           ...(typeof target === 'number' ? { revisionNumber: target } : {}),
+          ...(kind === 'test-spec' && sidecar.draft.meta.test !== undefined ? { testParameters: sidecar.draft.meta.test } : {}),
+          ...((kind === 'test-spec' || kind === 'build-sheet') && testDefaults !== undefined ? { testDefaults } : {}),
         });
       setRendered({
         kind,
@@ -485,7 +497,7 @@ export function DocumentsPane({
     }, debounceMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- target only matters as the revision number
-  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, typeof target === 'number' ? target : -1]);
+  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
 
   const result = rendered?.kind === kind ? rendered.result : undefined;
   const html = result !== undefined && 'html' in result ? result.html : undefined;
@@ -510,13 +522,45 @@ export function DocumentsPane({
   const runExporter = useCallback(
     async (exporter: ExtraExporter): Promise<void> => {
       try {
-        downloadOutput(await exporter.render(docDesign, docDb));
+        const context: ExtraExportContext = {
+          ...(sidecar.draft.meta.test === undefined ? {} : { testParameters: sidecar.draft.meta.test }),
+          ...(testDefaults === undefined ? {} : { testDefaults }),
+        };
+        // an exporter that wants no test parameters is called as it always was
+        downloadOutput(await (Object.keys(context).length === 0 ? exporter.render(docDesign, docDb) : exporter.render(docDesign, docDb, context)));
         setCopyNote(undefined);
       } catch (error) {
         setCopyNote(`${exporter.label}: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
-    [docDesign, docDb],
+    [docDesign, docDb, sidecar.draft.meta.test, testDefaults],
+  );
+  const downloadExport = useCallback(
+    (id: string): void => {
+      if (id === '') return;
+      const meta = sidecar.draft.meta;
+      const options: FormatOptions = {
+        ...sheetRenderOptions(
+          { ...(meta.sheet === undefined ? {} : { sheet: meta.sheet }), ...(meta.partNumber === undefined ? {} : { partNumber: meta.partNumber }), ...(revisionFixed ?? meta.revision) === undefined ? {} : { revision: (revisionFixed ?? meta.revision) as string } },
+          docDesign,
+          () => drawingDate(new Date()),
+        ),
+        drawing: meta,
+        ...(pnInputs === undefined ? {} : { partNumbers: pnInputs }),
+        ...(docFacts === undefined ? {} : { facts: docFacts }),
+        ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
+        ...(typeof target === 'number' ? { revisionNumber: target } : {}),
+        ...(meta.test === undefined ? {} : { testParameters: meta.test }),
+        ...(testDefaults === undefined ? {} : { testDefaults }),
+      };
+      const made = renderExport(id, docDesign, docDb, options);
+      if ('error' in made) setCopyNote(made.error);
+      else {
+        downloadOutput(made.output);
+        setCopyNote(undefined);
+      }
+    },
+    [sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, target, revisionFixed, testDefaults],
   );
   const tabLabel = kind === 'json' ? 'JSON' : DOCUMENT_LABELS[kind];
 
@@ -607,6 +651,28 @@ export function DocumentsPane({
             <IconMarkdown size={14} aria-hidden /> Copy
           </button>
         ) : null}
+        <select
+          className="cs-input cs-doc-export"
+          aria-label="Export"
+          title="Download the BOM, wire list, cut list, continuity data or wire labels as a file"
+          disabled={empty || pending}
+          value=""
+          onChange={(event) => {
+            downloadExport(event.target.value);
+            event.target.value = '';
+          }}
+        >
+          <option value="">Export…</option>
+          {(['production', 'tester', 'labels'] as const).map((group) => (
+            <optgroup key={group} label={{ production: 'Production', tester: 'Continuity tester', labels: 'Labels' }[group]}>
+              {BASE_EXPORTS.filter((format) => format.group === group).map((format) => (
+                <option key={format.id} value={format.id} title={format.description}>
+                  {format.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
         {(extensions?.exporters ?? []).map((exporter) => (
           <button
             key={exporter.id}
@@ -696,6 +762,7 @@ export function DocumentsPane({
           dirty={sidecar.dirty}
           saving={sidecar.saving}
         />
+        {kind === 'test-spec' ? <TestParametersRow meta={sidecar.draft.meta} onMeta={sidecar.setMeta} {...(testDefaults === undefined ? {} : { defaults: testDefaults })} /> : null}
         </fieldset>
       ) : null}
 
