@@ -2,10 +2,10 @@
  * Documents and exports without a browser — `/api/designs/:id/documents/:kind`
  * and `/api/designs/:id/exports/:format` (`docs/exports.md`).
  *
- *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…
+ *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&quantity=…
  *       kind: schematic · build-sheet · bom · test-spec · drawing · labels
  *       format: html · svg · pdf · csv (which a kind comes in: `render/index.ts`)
- *   GET /api/designs/:id/exports/:format?rev=…
+ *   GET /api/designs/:id/exports/:format?rev=…&quantity=…
  *       format: bom.csv · wire-list.csv · cut-list.csv · crimp-list.csv · production.xlsx ·
  *       continuity.csv · continuity.json · labels.csv · labels.svg
  *   GET /api/exports   the list of export formats
@@ -172,6 +172,8 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   if (typeof page === 'object') return page;
   const copies = positive(query.get('copies'), 'copies');
   if (typeof copies === 'object') return copies;
+  const quantity = positive(query.get('quantity'), 'quantity');
+  if (typeof quantity === 'object') return quantity;
   const paper = query.get('paper');
   if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
   const variation = query.get('variation') ?? undefined;
@@ -190,6 +192,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
       ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
       ...(page === undefined ? {} : { page }),
       ...(copies === undefined ? {} : { copies }),
+      ...(quantity === undefined ? {} : { buildQty: quantity }),
     };
     try {
       return file(format.render(loaded.design, loaded.db, options), false);
@@ -215,6 +218,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(variation === undefined ? {} : { variation }),
     ...(page === undefined ? {} : { page }),
     ...(copies === undefined ? {} : { copies }),
+    ...(quantity === undefined ? {} : { buildQty: quantity }),
     ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
     today: today(),
   });

@@ -93,6 +93,8 @@ export interface DocumentOptions {
   variation?: string;
   /** the saved revision being printed */
   revisionNumber?: number;
+  /** cables in the build: the BOM's quantity breaks are read at this (default 1) */
+  buildQty?: number;
   /** the design's continuity test parameters (the drawing sidecar's `test`) */
   testParameters?: TestParameters;
   /** the organisation's defaults under them */
@@ -107,6 +109,7 @@ function benchInput(options: DocumentOptions): Record<string, unknown> {
     ...(options.facts === undefined ? {} : { facts: options.facts }),
     ...(options.variation === undefined ? {} : { variation: options.variation }),
     ...(options.revisionNumber === undefined ? {} : { revisionNumber: options.revisionNumber }),
+    ...(options.buildQty === undefined ? {} : { buildQty: options.buildQty }),
     ...(options.testDefaults === undefined ? {} : { testDefaults: options.testDefaults }),
   };
 }

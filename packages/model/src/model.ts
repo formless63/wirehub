@@ -1020,6 +1020,8 @@ export interface CableDesign {
   joints: Joint[];
   /** build-level annotations (drain policy etc.) */
   notes?: string[];
+  /** hand labour to build one cable, in minutes (the cost roll-up prices it at the organisation's rate); absent = not recorded */
+  labourMinutes?: number;
   src: string;
   /**
    * Data owned by modules, keyed by module id (`docs/modules.md`). The base

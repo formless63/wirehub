@@ -104,10 +104,10 @@ describe('ModelPanel', () => {
 
   it('says an imported model is not built yet, in words, instead of drawing', async () => {
     const models = adapter({ ...LINK, built: false });
-    models.fetchModel = async () => ({ ok: false, message: 'This 3D model has not been built on this studio yet.', hint: 'Run import-models --build-cache.', status: 404 });
+    models.fetchModel = async () => ({ ok: false, message: 'This 3D model has not been built on this studio yet.', hint: 'Run the model-cache job.', status: 404 });
     render(<ModelPanel kind="mechanicals" id="shell-hd15-coax" label="HD15 shell" models={models} />);
     expect(await screen.findByText('Resin print · Rev1 · not built yet')).toBeTruthy();
-    expect(await screen.findByText(/not been built on this studio yet\. Run import-models --build-cache\./)).toBeTruthy();
+    expect(await screen.findByText(/not been built on this studio yet\. Run the model-cache job\./)).toBeTruthy();
   });
 
   it("is read-only while someone else holds the record's lock", async () => {

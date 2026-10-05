@@ -890,6 +890,11 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
     );
   }
 
+  const labour: unknown = (design as { labourMinutes?: unknown }).labourMinutes;
+  if (labour !== undefined && !(typeof labour === 'number' && Number.isFinite(labour) && labour >= 0)) {
+    issues.push(issue('invalid-labour', 'labourMinutes must be a number of minutes, zero or more', 'labourMinutes'));
+  }
+
   // module-owned data (`extensions`): an object keyed by module id; the base never looks inside
   const extensions: unknown = (design as { extensions?: unknown }).extensions;
   if (extensions !== undefined && (typeof extensions !== 'object' || extensions === null || Array.isArray(extensions))) {

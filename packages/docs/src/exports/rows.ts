@@ -13,6 +13,7 @@ import { designCavities, findConnector, findWire, inScope, type CableDesign, typ
 import { deriveBench, stockElements, type Landing } from '../bench/model.ts';
 import { benchOptions, type BuildSheetOptions } from '../build-sheet.ts';
 import { deriveBomSheet, BOM_SECTIONS } from '../bom-sheet.ts';
+import { costLineOf } from '../cost.ts';
 import { sheetHeader } from '../bench/header.ts';
 import { trunkSegment } from '../drawing/model.ts';
 import { suppliedEnds } from '../supplied.ts';
@@ -28,14 +29,16 @@ export type ExportOptions = BuildSheetOptions;
 
 export const BOM_HEADERS = ['section', 'part_number', 'description', 'quantity', 'unit', 'location', 'instances', 'variation_pn', 'notes'] as const;
 
+/** Appended to the BOM columns only when some part is priced (`docs/exports.md`, costing). */
+export const BOM_COST_HEADERS = ['unit_cost', 'extended_cost', 'currency'] as const;
+
 /** One row per printed BOM line (a length family's trunk: one per variation). */
 export function bomTable(design: CableDesign, db: Db, options: ExportOptions = {}): Table {
   const sheet = deriveBomSheet(design, db, benchOptions(options));
   const title = new Map(BOM_SECTIONS.map((s) => [s.id, s.title]));
-  return {
-    name: 'BOM',
-    headers: BOM_HEADERS,
-    rows: sheet.lines.map((line) => [
+  const cost = sheet.cost;
+  const rows: (string | number)[][] = sheet.lines.map((line) => {
+    const base: (string | number)[] = [
       title.get(line.section) ?? line.section,
       line.sku ?? '',
       line.label,
@@ -45,8 +48,18 @@ export function bomTable(design: CableDesign, db: Db, options: ExportOptions = {
       line.instances.join(' '),
       line.variationPn ?? '',
       line.notes,
-    ]),
-  };
+    ];
+    if (cost === undefined) return base;
+    const priced = costLineOf(cost, line);
+    return [...base, priced === undefined ? '' : priced.unitPrice, priced === undefined ? '' : priced.extended, priced?.currency ?? ''];
+  });
+  if (cost === undefined) return { name: 'BOM', headers: BOM_HEADERS, rows };
+  // the summary rows: a total is a row of its own, never folded into a part's
+  const summary = (what: string, amount: number | '', note: string): (string | number)[] => [what, '', note, '', '', '', '', '', '', '', amount, cost.currency ?? ''];
+  if (cost.labour !== undefined) rows.push(summary('Labour', cost.labour.cost ?? '', `${cost.labour.minutes} min${cost.labour.ratePerHour === undefined ? ', no rate set' : ` at ${cost.labour.ratePerHour} per hour`}`));
+  rows.push(summary('Total', cost.total, `one cable${cost.unpriced.length === 0 ? '' : `; ${cost.unpriced.length} unpriced line(s) not included`}`));
+  if (cost.buildQty > 1) rows.push(summary(`Total x ${cost.buildQty}`, cost.buildTotal, `${cost.buildQty} cables`));
+  return { name: 'BOM', headers: [...BOM_HEADERS, ...BOM_COST_HEADERS], rows };
 }
 
 /* ------------------------------------------------------------------ *

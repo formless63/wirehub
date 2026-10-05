@@ -53,6 +53,7 @@ import {
   type SignalRef,
   type WireDefinition,
   type WireLayOrder,
+  type PartCost,
   type WireBondedSet,
   type WireProfile,
   type WireVendorDoc,
@@ -685,6 +686,8 @@ export interface WireDraft {
   jacket?: InsulationDraft;
   /** bonded screen sets (shield bonding), kept as read — no form control yet */
   bonded?: WireBondedSet[];
+  /** the part's price (cs-5k1.17), edited in the stock form's Cost section */
+  cost?: PartCost;
   /** the colour code on the record itself (vocab `colour-codes`), kept as read — no form control yet */
   colourCode?: string;
   lay?: {
@@ -875,6 +878,7 @@ export function wireFormOf(wire: WireDefinition): WireDraft | undefined {
     manufacturer: text(wire.manufacturer),
     ...(wire.vendorDocs === undefined ? {} : { vendorDocs: wire.vendorDocs.map((doc) => ({ ...doc })) }),
     ...(wire.profile === undefined ? {} : { profile: { ...wire.profile } }),
+    ...(wire.cost === undefined ? {} : { cost: structuredClone(wire.cost) }),
     odMm: mmField(wire.odMm),
     src: wire.src,
     structureId: wire.structure.id,
@@ -992,6 +996,7 @@ export function wireDefinitionOf(draft: WireDraft): WireDefinition {
     ...(draft.vendorDocs === undefined || draft.vendorDocs.length === 0 ? {} : { vendorDocs: draft.vendorDocs.map((doc) => ({ ...doc })) }),
     ...(numberOf(draft.odMm) === undefined ? {} : { odMm: numberOf(draft.odMm) as number }),
     ...(draft.profile === undefined ? {} : { profile: { ...draft.profile } }),
+    ...(draft.cost === undefined ? {} : { cost: structuredClone(draft.cost) }),
     src: draft.src.trim(),
     ...(draft.lay === undefined
       ? {}

@@ -82,7 +82,7 @@ details"); `modules/example/src/index.ts` has one working instance of each. Quic
 | Ship catalog data | `catalogPacks: [{ id, label, version, root, license }]` | pack format: `wirehub-catalog-pack` skill |
 | Part numbers | `partNumberScheme` | build with `prefixPartNumberScheme` from `@wirehub/model`, or implement `PartNumberScheme` (`packages/model/src/part-numbers.ts`); singleton |
 | House rules | `validationRules: [{ id, label, check(design, db) }]` | returns `Issue[]`; code is namespaced `<module>/<code>` by the host; runs on every save, in browser and server |
-| Read a file | `importers: [{ id, label, accepts: ['.csv'], import(input, db) }]` | returns `{ definitions?, designs?, notes }`; proposes, never writes; deterministic; ids the library has are skipped, never overwritten |
+| Read a file | `importers: [{ id, label, accepts: ['.csv'], import(input, db) }]` | returns `{ definitions?, designs?, boardParts?, depictions?, notes }`; proposes, never writes; deterministic in the file and `input.options` (the review step's text choices); ids the library has are skipped, never overwritten; board art is sanitised and validated by the host. A worked importer with a review page: `modules/board-import` |
 | Write a file | `exporters: [{ id, label, source?, render(design, db, options) }]` | returns `{ mimeType, fileName, body }`; `source: 'continuity'` passes the neutral `ContinuityData` as `options.continuity` for a tester's format (`docs/exports.md`) |
 | Server routes | `integrations: [{ id, label, env?, routes: [{ method, path, writes?, handle }] }]` | served at `/api/modules/<module>/<path>`; `writes: true` takes the write lock |
 | Job queues | `integrations: [{ …, queues: [{ id, label, schedule?, run({ request, step, db }) }] }]` | kind `<module>:<queue>`; run by the worker (Postgres) or the studio process (files), never retried; routes enqueue and read them through `request.jobs` (own queues only); `modules/example` has `example:recount` (docs/modules.md, "Job queues") |
@@ -146,6 +146,15 @@ The example module is in the manifest only when `WIREHUB_EXAMPLE_MODULE=1`
 the deployment's single part-number scheme and commit hook, so use a scratch checkout. To try your
 own module the same way, list it in the manifest behind a similar flag while developing, and
 remove the flag before you contribute it. `WIREHUB_SUGGESTED_MODULES=<id>,<id>` pre-ticks modules at `/setup`.
+
+## Interop modules
+
+`modules/wireviz` (importer for `.yml`/`.yaml` plus an exporter) and `modules/csv-library` (importer for
+`.csv`) are small always-on modules without a pack: copy them when a module only moves data in or out. An
+importer returns `definitions` and `designs` together (a design may use the definitions it proposes), plus
+`notes` that say what is lossy or inferred; the review step shows them. Keep importers deterministic and
+write their mapping from the format's public documentation (WireViz is GPL-3.0: never copy its code). See
+`docs/interop.md`.
 
 ## Checklist
 

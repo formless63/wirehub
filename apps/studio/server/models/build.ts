@@ -19,7 +19,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 
-import { boardAssemblyPlan, modelMatrix, type AssemblyPlan } from './assembly.ts';
+import { boardAssemblyPlan, boardLibraryRefs, modelMatrix, type AssemblyPlan } from './assembly.ts';
 import type { BoardArt } from './board-texture.ts';
 import { isArtFile, sha256Hex, sourceKey, type ModelBuild, type SourceFile } from './cache.ts';
 import { convertAssembly, convertModel, convertModelFiles, ModelRefusal, type ConvertedModel } from './convert.ts';
@@ -85,7 +85,13 @@ const baseName = (path: string): string => path.slice(path.lastIndexOf('/') + 1)
  * when a source is missing or changed, when the key is stale, or when the
  * conversion refuses.
  */
-export async function buildLinkedModel(link: ModelLink, read: SourceReader, convert: Converter = REAL): Promise<BuildOutcome> {
+export async function buildLinkedModel(
+  link: ModelLink,
+  read: SourceReader,
+  convert: Converter = REAL,
+  /** where a board's KiCad library models come from at a commit (`library-source.ts`); default `read` */
+  library?: (commit: string) => SourceReader,
+): Promise<BuildOutcome> {
   const files = link.files;
   if (files === undefined) throw new ModelRefusal(`${link.record}'s model is an upload, not built from sources.`, 'Uploads are stored as they were converted.');
   const budget = budgetOf(link);
@@ -103,13 +109,34 @@ export async function buildLinkedModel(link: ModelLink, read: SourceReader, conv
   const geometry = files.filter((f) => !isArtFile(f.path));
   const name = link.name ?? baseName(geometry[0]?.path ?? link.record);
   const options = { maxTriangles: budget, ...(art === undefined ? {} : { boardArt: art }) };
-  const converted = await convertWith(convert, link.build, geometry, bytes, name, options);
+  // a board whose library models are fetched at a pinned commit: read the ones it names
+  const fetched: { kind: 'source'; ref: string; sha256: string }[] = [];
+  if (link.build?.kind === 'assembly' && link.build.library !== undefined) {
+    const pcb = geometry.find((f) => isBoardFile(f.path));
+    if (pcb !== undefined) {
+      const reader = library?.(link.build.library) ?? read;
+      for (const ref of boardLibraryRefs(parseKicadPcb(new TextDecoder().decode(bytes.get(pcb.path))))) {
+        const path = `${KICAD_ROOT}/${ref}`;
+        const got = await reader(path);
+        if (got === undefined) continue;
+        bytes.set(path, got);
+        fetched.push({ kind: 'source', ref: `${path}@${link.build.library}`, sha256: sha256Hex(got) });
+      }
+    }
+  }
+  const libraryFiles: SourceFile[] = [...bytes.keys()].filter((p) => p.startsWith(`${KICAD_ROOT}/`) && !geometry.some((f) => f.path === p)).map((p) => ({ path: p, sha256: '' }));
+  const converted = await convertWith(convert, link.build, [...geometry, ...libraryFiles], bytes, name, options);
   return {
     key: link.asset,
     glb: converted.glb,
     converted,
-    inputs: files.map((f) => ({ kind: 'source' as const, ref: f.path, sha256: f.sha256 })),
+    inputs: [...files.map((f) => ({ kind: 'source' as const, ref: f.path, sha256: f.sha256 })), ...fetched],
   };
+}
+
+/** A board file among a link's sources: a `.kicad_pcb`, or one uploaded as a catalog document (`….kicad_pcb.txt`). */
+export function isBoardFile(path: string): boolean {
+  return path.endsWith('.kicad_pcb') || path.endsWith('.kicad_pcb.txt');
 }
 
 function boardArt(files: readonly SourceFile[], bytes: ReadonlyMap<string, Uint8Array>): BoardArt | undefined {
@@ -149,7 +176,7 @@ async function convertWith(
     };
     return convert.assembly(plan, name, options);
   }
-  const pcb = geometry.find((f) => f.path.endsWith('.kicad_pcb'));
+  const pcb = geometry.find((f) => isBoardFile(f.path));
   if (pcb === undefined) throw new ModelRefusal(`${name} is built from a KiCad board, but no .kicad_pcb is among its sources.`, 'Run the importer again.');
   const board = parseKicadPcb(new TextDecoder().decode(of(pcb)));
   if (build.kind === 'embedded') {

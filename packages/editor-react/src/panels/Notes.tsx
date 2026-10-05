@@ -26,6 +26,8 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
   // drafts, so typing does not commit (and validate) per keystroke
   const [drafts, setDrafts] = useState<string[]>(notes);
   const [adding, setAdding] = useState(false);
+  const [labour, setLabour] = useState(state.design.labourMinutes === undefined ? '' : String(state.design.labourMinutes));
+  useEffect(() => setLabour(state.design.labourMinutes === undefined ? '' : String(state.design.labourMinutes)), [state.design.labourMinutes]);
   useEffect(() => {
     setDrafts(state.design.notes ?? []);
   }, [state.design.notes]);
@@ -109,6 +111,25 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
             </li>
           ) : null}
         </ol>
+        <label className="cs-field" title="Hand labour to build one cable, in minutes. The BOM prices it at the hub's labour rate (engineering settings).">
+          <span>Build labour (min)</span>
+          <input
+            className="cs-input cs-mono"
+            inputMode="decimal"
+            aria-label="build labour minutes"
+            value={labour}
+            onChange={(event) => setLabour(event.target.value)}
+            onBlur={() => {
+              const text = labour.trim();
+              const minutes = text === '' ? undefined : Number(text);
+              if (minutes !== undefined && !(Number.isFinite(minutes) && minutes >= 0)) {
+                setLabour(state.design.labourMinutes === undefined ? '' : String(state.design.labourMinutes));
+                return;
+              }
+              dispatch({ type: 'set-labour', minutes });
+            }}
+          />
+        </label>
       </div>
     </div>
   );

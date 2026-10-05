@@ -135,7 +135,7 @@ async function handleImportUpload(
       send(res, refusal.status, refusal.body);
       return;
     }
-    const response = await startImportUpload({ method: 'PUT', path: path.split('?')[0] ?? path, fileName, bytes }, io, deps);
+    const response = await startImportUpload({ method: 'PUT', path: path.split('?')[0] ?? path, fileName, bytes, query: new URLSearchParams(path.split('?')[1] ?? '') }, io, deps);
     send(res, response.status, response.body, response.headers);
   } catch (error) {
     send(res, 500, {

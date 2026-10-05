@@ -4,9 +4,14 @@
  * each module is a workspace or git dependency imported here and bundled
  * with the app.
  *
+ * The base also bundles two interop modules that are always on and offer no
+ * catalog data (`wireviz`, WireViz YAML in and out; the bulk CSV importer).
+ *
  * The base bundles its **domain modules** here. They are optional: each is
  * offered at first-run setup (`/setup`), and only the ones a person picks
- * have their catalog packs installed. A private module is added the same way:
+ * have their catalog packs installed. It also bundles **board import**
+ * (`modules/board-import`): importers for KiCad, Gerber and fab BOM files, with
+ * no data of its own, so it is always on. A private module is added the same way:
  *
  *   import { erpLink } from '@acme/wirehub-erp-link';
  *   export const modules = [pcSerial, networking, proAudio, avVideo, automotive, erpLink];
@@ -14,10 +19,13 @@
 
 import { automotive } from '@wirehub/module-automotive';
 import { avVideo } from '@wirehub/module-av-video';
+import { csvLibrary } from '@wirehub/module-csv-library';
+import { boardImport } from '@wirehub/module-board-import';
 import { example } from '@wirehub/module-example';
 import { networking } from '@wirehub/module-networking';
 import { pcSerial } from '@wirehub/module-pc-serial';
 import { proAudio } from '@wirehub/module-pro-audio';
+import { wireviz } from '@wirehub/module-wireviz';
 import type { WireHubModule } from '@wirehub/modules';
 
 /**
@@ -32,4 +40,4 @@ function exampleFlag(): boolean {
   return node?.WIREHUB_EXAMPLE_MODULE === '1' || vite?.VITE_WIREHUB_EXAMPLE_MODULE === '1';
 }
 
-export const modules: readonly WireHubModule[] = [pcSerial, networking, proAudio, avVideo, automotive, ...(exampleFlag() ? [example] : [])];
+export const modules: readonly WireHubModule[] = [pcSerial, networking, proAudio, avVideo, automotive, boardImport, wireviz, csvLibrary, ...(exampleFlag() ? [example] : [])];

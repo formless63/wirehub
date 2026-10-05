@@ -186,7 +186,7 @@ async function handleImportUpload(io: NonNullable<ReturnType<typeof parseModuleI
   try {
     const user = signedInUser(request);
     const response = await perform(backup, { method: 'PUT', path: `/api/modules/${io.module}/_import/${io.id}`, user }, () =>
-      startImportUpload({ method: 'PUT', path: new URL(request.url).pathname, fileName, bytes, ...(user === undefined ? {} : { user }) }, io, deps),
+      startImportUpload({ method: 'PUT', path: new URL(request.url).pathname, fileName, bytes, query: new URL(request.url).searchParams, ...(user === undefined ? {} : { user }) }, io, deps),
     );
     return jsonResponse(response.status, response.body, response.headers);
   } catch (error) {

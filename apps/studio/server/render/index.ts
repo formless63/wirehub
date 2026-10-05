@@ -93,6 +93,8 @@ export interface DocumentRequest {
   /** label sheet: 1-based page and copies of each label */
   page?: number;
   copies?: number;
+  /** cables in the build, for the BOM's quantity breaks */
+  buildQty?: number;
   /** the organisation's default test parameters */
   testDefaults?: TestParameters;
   /** print the working copy marked UNRELEASED (html) — set when the studio keeps saved revisions */
@@ -142,6 +144,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     ...(request.testDefaults === undefined ? {} : { testDefaults: request.testDefaults }),
     ...(request.page === undefined ? {} : { page: request.page }),
     ...(request.copies === undefined ? {} : { copies: request.copies }),
+    ...(request.buildQty === undefined ? {} : { buildQty: request.buildQty }),
     depictions: true,
   };
   const out = (body: string | Uint8Array, fileFormat: DocumentFormat = format): DocumentResult => ({

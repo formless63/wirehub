@@ -289,7 +289,7 @@ describe('/api/models', () => {
       const missing = await call('GET', `/api/assets/${key}`);
       expect(missing.status).toBe(404);
       expect(missing.body).toMatchObject({ state: 'not-built', error: expect.stringMatching(/not been built/) });
-      expect(missing.body.hint).toMatch(/model importer/);
+      expect(missing.body.hint).toMatch(/model-cache job/);
 
       await cache.put(key, writeGlb([parseStl(TETRA, 'tetra')]));
       const served = await call('GET', `/api/assets/${key}`);

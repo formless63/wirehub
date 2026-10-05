@@ -17,6 +17,7 @@ interface Draft {
   test: Record<string, string>;
   rules: { enabled: boolean; ampacityDerate: string; contactDerate: string; maxDropV: string; maxDropPct: string };
   approvals: { enabled: boolean; editors: boolean };
+  costing: { currency: string; labourRatePerHour: string };
 }
 
 const text = (n: number | undefined): string => (n === undefined ? '' : String(n));
@@ -31,6 +32,7 @@ const draftOf = (view: EngineeringView | undefined): Draft => ({
     maxDropPct: text(view?.electrical?.maxDropPct),
   },
   approvals: { enabled: view?.approvals?.enabled === true, editors: view?.approvals?.approverRoles?.includes('editor') === true },
+  costing: { currency: view?.costing?.currency ?? '', labourRatePerHour: text(view?.costing?.labourRatePerHour) },
 });
 
 function numbers(fields: Record<string, string>): { value: Record<string, number>; bad?: string } {
@@ -64,9 +66,20 @@ export function EngineeringSettings(): JSX.Element {
       toast.error(`${bad} must be a positive number or empty.`);
       return;
     }
+    const currency = draft.costing.currency.trim().toUpperCase();
+    if (currency !== '' && !/^[A-Z]{3}$/.test(currency)) {
+      toast.error('The currency is a three-letter code such as USD or EUR.');
+      return;
+    }
+    const rateText = draft.costing.labourRatePerHour.trim();
+    if (rateText !== '' && !(Number.isFinite(Number(rateText)) && Number(rateText) >= 0)) {
+      toast.error('The labour rate must be a number, zero or more.');
+      return;
+    }
     setBusy(true);
     const out = await saveEngineering(
       {
+        ...(currency === '' && rateText === '' ? {} : { costing: { ...(currency === '' ? {} : { currency }), ...(rateText === '' ? {} : { labourRatePerHour: Number(rateText) }) } }),
         ...(Object.keys(test.value).length === 0 ? {} : { testDefaults: test.value }),
         electrical: { ...(draft.rules.enabled ? {} : { enabled: false }), ...rules.value },
         approvals: { enabled: draft.approvals.enabled, ...(draft.approvals.editors ? { approverRoles: ['owner', 'editor'] as const } : {}) } as never,
@@ -128,6 +141,15 @@ export function EngineeringSettings(): JSX.Element {
         {input('Largest drop of a declared voltage (%)', draft.rules.maxDropPct, (v) => setDraft({ ...draft, rules: { ...draft.rules, maxDropPct: v } }), String(built?.maxDropPct ?? 5))}
         {input('Conductor ampacity derating (0 to 1)', draft.rules.ampacityDerate, (v) => setDraft({ ...draft, rules: { ...draft.rules, ampacityDerate: v } }), '1')}
         {input('Contact rating derating (0 to 1)', draft.rules.contactDerate, (v) => setDraft({ ...draft, rules: { ...draft.rules, contactDerate: v } }), '1')}
+      </section>
+
+      <section className="flex flex-col gap-1.5">
+        <h2 className="text-[13px] font-semibold">Costing</h2>
+        <p className="text-faint">
+          The currency prices are read in when a part's price names none, and the BOM total is printed in. The labour rate prices each design's labour minutes. A BOM shows cost only where parts are priced.
+        </p>
+        {input('Currency (ISO code)', draft.costing.currency, (v) => setDraft({ ...draft, costing: { ...draft.costing, currency: v } }), 'USD')}
+        {input('Labour rate (per hour)', draft.costing.labourRatePerHour, (v) => setDraft({ ...draft, costing: { ...draft.costing, labourRatePerHour: v } }), '')}
       </section>
 
       <section className="flex flex-col gap-1.5">

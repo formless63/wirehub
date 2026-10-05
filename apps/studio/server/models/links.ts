@@ -27,6 +27,14 @@ import type { ModelBuild, SourceFile } from './cache.ts';
 export const MODEL_SOURCE_KINDS = ['kicad-board', 'resin-print', 'vendor', 'uploaded', 'kicad-library'] as const;
 export type ModelSourceKind = (typeof MODEL_SOURCE_KINDS)[number];
 
+/**
+ * Where a board file uploaded as a model source is kept: a catalog document
+ * (text, so it travels with the catalog on both backends and in its git
+ * export), named by the sha256 of its bytes —
+ * `data/model-sources/<sha256>.kicad_pcb.txt`.
+ */
+export const MODEL_SOURCES_DIR = 'data/model-sources';
+
 export function isModelSourceKind(value: unknown): value is ModelSourceKind {
   return typeof value === 'string' && (MODEL_SOURCE_KINDS as readonly string[]).includes(value);
 }

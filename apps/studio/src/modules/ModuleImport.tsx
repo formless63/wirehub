@@ -24,6 +24,8 @@ interface Proposal {
   existing: string[];
   designs: { id: string; label: string }[];
   existingDesigns: string[];
+  boardParts?: string[];
+  depictions?: string[];
   notes: string[];
 }
 
@@ -115,7 +117,7 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
   };
 
   const proposal = pending?.proposal;
-  const added = proposal === undefined ? 0 : Object.values(proposal.definitions).reduce((n, list) => n + list.length, 0) + proposal.designs.length;
+  const added = proposal === undefined ? 0 : Object.values(proposal.definitions).reduce((n, list) => n + list.length, 0) + proposal.designs.length + (proposal.boardParts?.length ?? 0) + (proposal.depictions?.length ?? 0);
   return (
     <>
       <input
@@ -150,6 +152,8 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
             </div>
           ))}
           {proposal.designs.length === 0 ? null : <div>{proposal.designs.length} new designs: {proposal.designs.map((d) => d.id).join(', ')}</div>}
+          {(proposal.boardParts ?? []).length === 0 ? null : <div>Placed parts of: {proposal.boardParts!.join(', ')}</div>}
+          {(proposal.depictions ?? []).length === 0 ? null : <div>Board art for: {proposal.depictions!.join(', ')}</div>}
           {proposal.existing.length + proposal.existingDesigns.length === 0 ? null : (
             <div>Already in the library, skipped: {[...proposal.existing, ...proposal.existingDesigns].join(', ')}</div>
           )}

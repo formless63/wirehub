@@ -75,9 +75,9 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `src/catalog.ts`, `src/source.ts`, `src/index.ts` | BASE-gen | every file but `connectors.json`, `wires.json`, `components.json` is optional; the PN scheme is read from `part-numbers.json`; device/rule/identity/register/reconciliation/pin-table/legacy-board loaders removed |
 | `src/depictions/{model,load,validate,svg,anchors,color,outline,import}.ts` | BASE | presentation artwork and the artwork upload normaliser |
 | `src/depictions/components.ts` | BASE-gen | only the pure `componentsFor` placement kept |
-| `src/depictions/{generate,gerber}.ts` | MODULE | pinmaps-driven generation and the gerber art pipeline over the board designer's share |
+| `src/depictions/{generate,gerber}.ts` | MODULE | pinmaps-driven generation and the gerber art pipeline over the board designer's share. Gerber art from an uploaded Gerber set is now public: `modules/board-import` (§10.1) |
 | `src/tags/{build,classify}.ts` | BASE | scrubbed; report text generalised |
-| `src/importer/*`, `src/kicad/*`, `src/easyeda/*`, `src/components/*`, `src/readme/*` | MODULE | the board importers (pinmaps, KiCad-direct, EasyEDA, fab BOM/CPL, board READMEs) — tied to the share's layout; a generic importer contract now lives in `@wirehub/modules` |
+| `src/importer/*`, `src/kicad/*`, `src/easyeda/*`, `src/components/*`, `src/readme/*` | MODULE | the board importers (pinmaps, KiCad-direct, EasyEDA, fab BOM/CPL, board READMEs) as tied to the share's layout. The open formats (KiCad board and netlist, Gerber, fab BOM/CPL) are now read by the public `modules/board-import`, reimplemented over the importer contract (§10.1); the share's discovery, the pinmaps extraction, EasyEDA and the board READMEs stay private |
 | `src/recipe-check.ts` | MODULE | the recipe report |
 | `scripts/*` (40 scripts) | MODULE / DROP | board pipelines, imports and one-shot data migrations of the private catalog; none copied |
 | `data/` (every file and folder) | DROP | replaced by a synthetic starter catalog (§4) |
@@ -150,12 +150,12 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `server/auth/*` | BASE-gen | Better Auth: local allow-list, OIDC against any provider (default claim `email`), magic link; no provider-specific defaults |
 | `server/locks/*` | BASE | edit leases |
 | `server/backup/*` | BASE-gen | the optional git export of saves (`WIREHUB_GIT_AUTOCOMMIT`), with neutral identities and no remote-specific wording |
-| `server/models/*` | BASE-gen | 3D model links, uploads, STEP/STL/GLB conversion, KiCad library mapping kept; the share matcher (`match.ts`) and the revision art/import/API left behind; importer-specific paths generalised |
+| `server/models/*` | BASE-gen | 3D model links, uploads, STEP/STL/GLB conversion, KiCad library mapping kept; the share matcher (`match.ts`) and the revision art/import/API left behind; importer-specific paths generalised. The board assembly's way in is a `.kicad_pcb` uploaded on a board, built by the model-cache job with the KiCad library models fetched at a pinned commit (`library-source.ts`, cs-5k1.12) |
 | the ERP server module | MODULE | the ERP push/dry-run endpoints and their environment |
-| `server/board-import.ts` | MODULE | the board import runner over the share |
+| `server/board-import.ts` | MODULE | the board import runner over the share; uploads of open-format files go through `modules/board-import` instead |
 | `server/lineup.ts`, `server/products.ts`, `server/proposals.ts` | MODULE | lineup, product grouping, declined proposals |
 | `server/models/{match,revision-art,revision-import,revisions-api,revisions}.ts` | MODULE | the share's model matcher and board revisions |
-| `server/scripts/{import-models,kicad-fetch,migrate-drawing-photos}.ts` | MODULE / DROP | importer and a one-shot migration |
+| `server/scripts/{import-models,kicad-fetch,migrate-drawing-photos}.ts` | MODULE / DROP | importer and a one-shot migration; the KiCad library fetch is now the model-cache job's (`server/models/library-source.ts`) |
 | `src/cable-list.ts` | BASE-gen | rewritten: destination, wire, boards, features, PN from `productRef`/drawing; no sync column, product grouping or routes |
 | `src/routes/CablesRoute.tsx` | BASE-gen | sync filter, product merge/split, lineup link and register-only rows removed |
 | `src/routes/{CableRoute,LibraryRoute}.tsx`, `src/versions/*`, `src/shell/*`, `src/commands/*`, `src/locks/*` | BASE-gen | ERP export, compare and import links removed; neutral wordmark and placeholder icon |
@@ -196,7 +196,7 @@ starter holds now.
 | `postgres-backend.questions.json`, a private host's capacity script, `prototypes/postgres-backend/*` | DROP | answered questions and host-specific tooling |
 | `data-model-v2.md`, `prototypes/data-model-v2-resolver.mjs` | MODULE | the resolver's data model |
 | the three ERP API / BOM integration specs | MODULE | the ERP contract |
-| `pcba-importer.md`, `board-landings.md` | MODULE | board import over the share |
+| `pcba-importer.md`, `board-landings.md` | MODULE | board import over the share (its derivation rules, reimplemented generically, are in `modules/board-import/README.md`) |
 | `standard-work.md`, `prototypes/standard-work-compose.mjs`, `standard-work.questions.json` | MODULE | the shop's work instructions |
 | `shield-bonding.md`, `schematic-svg.md`, `depictions.md`, `connector-art-review.md`, `studio-workbench.md`, `library-overhaul.md`, `ui-redesign.md`, `mockups/` | DROP (for now) | design history of the shared code; full of private examples. Their rules survive in the code's comments and in `SPEC.md`; re-specifying them generically is a follow-up (bead) |
 
@@ -286,7 +286,8 @@ starter designs (the existing goldens use the frozen fixture catalog).
 | Part numbers | BASE-gen (pluggable scheme) |
 | Console resolver, recipes, journey, board proposals, lineup, products, routes | MODULE |
 | ERP integration (contract, transport, push, identity table, PN reconciliation) | MODULE |
-| Board/model/gerber importers over the board designer's share; board revision compare | MODULE |
+| Board, model and Gerber importers for open file formats (KiCad, Gerber, fab BOM/CPL), the board model from its KiCad file | BASE (new): `modules/board-import`, server `models/*` |
+| Discovering those files on the board designer's share; board revision compare | MODULE |
 | Shop work instructions, brand font, logo, traced drawing art | MODULE |
 | Live-clone deploy, proxy/tailnet/host specifics, private remote backup | DROP |
 
@@ -330,3 +331,26 @@ hard-coded video words; the wizard's bare-SCART option (a transform of one shop'
 and the fleet colour code were dropped, not moved. A second domain module,
 `modules/automotive`, shows the pattern with public OBD-II facts. Both are offered at
 first-run setup (`docs/modules.md`).
+
+### 10.1 Board import, public (cs-5k1.13, cs-5k1.12)
+
+The board importers were left private because they read one file share. The formats
+they read are public, so the owner decided (2026-10-05) to rebuild that part in the
+open: `modules/board-import` (MIT) imports a KiCad `.kicad_pcb` or netlist as a PCBA
+(terminals, pads, internal links, integrated connectors, outline art), renders a Gerber
+set as the board's top and bottom art anchored on its pads, and reads a fab BOM and
+placement file into component records and the board's placed parts — each through the
+importer contract, as a job whose plan a person reviews and publishes. It was written
+from the formats' public specifications and tested on synthetic boards only; no code,
+board, part number or path was copied from the private repository.
+
+The importer contract grew to carry it: review-step `options`, proposed `boardParts`
+and proposed board art (`depictions`), staged beside the records in one change set
+(`docs/modules.md`). The 3D path the split kept in `server/models/*` got its way in: a
+`.kicad_pcb` uploaded on a board is its model source, and the model-cache job fetches
+the KiCad library models it names (CC-BY-SA; fetched into the cache, never committed).
+
+**What stays private** is only the discovery of those files on one shop's share (which
+folder, which revision is released) and the importers that are specific to it
+(pinmaps, EasyEDA, board READMEs, revision compare).
+
