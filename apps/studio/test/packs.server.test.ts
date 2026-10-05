@@ -118,17 +118,27 @@ describe('update with a diff', () => {
     expect((await call('POST', '/api/packs/demo/update')).body).toMatchObject({ updated: false });
   });
 
-  it('refuses a dropped record that is still in use and changes nothing', async () => {
+  it('retires a dropped record that is still in use: it stays, as the deployment\'s own', async () => {
     const interfaces = JSON.parse(read(join(dir, 'interfaces.json'))) as unknown[];
     writeFileSync(join(dir, 'interfaces.json'), json([...interfaces, { id: 'my-can', label: 'My CAN', bodies: ['de9-female'], pins: { '2': { signal: 'can-l' } }, src: 'local' }]));
     const v3 = join(root, 'demo-3');
     writePack(v3, '1.2.0', { r60: '60 Ω', dropCanL: true });
     bundle('1.2.0', v3);
-    const refused = await call('POST', '/api/packs/demo/update');
-    expect(refused.status).toBe(409);
-    expect(refused.body.plan.references.map((r: { from: { id: string }; to: string }) => `${r.from.id}->${r.to}`)).toEqual(['my-can->can-l']);
-    expect(readInstalledPacks(packs).packs[0]?.version).toBe('1.0.0');
-    expect(afterInstalls).toBe(0);
+    const preview = await call('GET', '/api/packs/demo/update');
+    expect(preview.body.retired.map((r: { id: string }) => r.id)).toEqual(['can-l']);
+    expect(preview.body.applicable).toBe(true);
+    const done = await call('POST', '/api/packs/demo/update');
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    expect(done.body).toMatchObject({ updated: true, retired: 1 });
+    expect(done.body.plan.retiredRecords).toBeUndefined();
+    expect(readInstalledPacks(packs).packs[0]?.version).toBe('1.2.0');
+    expect(afterInstalls).toBe(1);
+    // the record outside the pack still resolves, and the pack no longer owns the signal
+    const db = hub().loadDb();
+    expect(db.interfaces.some((i) => i.id === 'my-can')).toBe(true);
+    const local = JSON.parse(read(join(dir, 'vocab/signals.json'))) as { entries: { id: string }[] };
+    expect(local.entries.map((e) => e.id)).toContain('can-l');
+    expect(readInstalledPacks(packs).packs[0]?.added['vocab/signals.json']).not.toContain('can-l');
   });
 
   it('wants a major version accepted', async () => {
@@ -180,6 +190,45 @@ describe('disable', () => {
     expect(scopeFor('GET', '/api/packs')).toBe('read');
     expect(scopeFor('DELETE', '/api/packs/demo')).toBeUndefined();
     expect(scopeFor('POST', '/api/packs/demo/update')).toBeUndefined();
+  });
+});
+
+describe('a pack\'s vocabulary entries and designs are read-only too', () => {
+  it('refuses to change a pack\'s vocabulary entry, and still takes entries of your own', async () => {
+    const vocab = new Map<string, any>([['signals', JSON.parse(read(join(packs, 'demo/vocab/signals.json')))]]);
+    deps = {
+      ...deps,
+      vocab: {
+        list: () => [...vocab.keys()],
+        read: (id: string) => structuredClone(vocab.get(id)),
+        write: (list: any) => void vocab.set(list.id, structuredClone(list)),
+      } as any,
+    };
+    const list = (await call('GET', '/api/vocab/signals')).body;
+    const etag = (await handleWorkbenchRequest({ method: 'GET', path: '/api/vocab/signals' }, deps)).headers?.['ETag'];
+    const refused = await handleWorkbenchRequest({ method: 'PATCH', path: '/api/vocab/signals/can-h', body: { note: 'mine' }, ...(etag === undefined ? {} : { ifMatch: etag }) } as any, deps);
+    expect(list).toBeDefined();
+    expect(refused.status).toBe(409);
+    expect((refused.body as { error: string }).error).toContain("comes from the demo pack (1.0.0) and is read-only");
+    expect((refused.body as { hint: string }).hint).toContain('Fork it to edit');
+  });
+
+  it('refuses to save, rename or delete a design a pack ships, pointing at duplicate', async () => {
+    const design = { id: 'demo-cable', label: 'Demo cable', instances: [], joints: [], src: 'x' };
+    deps = {
+      ...deps,
+      designs: { list: () => [{ id: 'demo-cable' }], has: () => true, read: () => design, write: () => ({ changed: true }), remove: () => undefined } as any,
+      installedPacks: () => ({ src: 'x', packs: [{ id: 'demo', version: '1.0.0', license: 'CC0-1.0', added: { 'designs/demo-cable.json': [] } }] }),
+    };
+    for (const [method, path, body] of [['PUT', '/api/designs/demo-cable', design], ['POST', '/api/designs/demo-cable/rename', { newId: 'mine' }], ['DELETE', '/api/designs/demo-cable', { confirm: 'demo-cable' }]] as const) {
+      const out = await call(method, path, body);
+      expect(out.status, `${method} ${path}`).toBe(409);
+      expect(out.body.hint).toContain('Fork it to edit');
+      expect(out.body.hint).toContain('duplicate');
+    }
+    // a design the pack did not ship is not guarded: this one is not found only because the stub says so
+    deps = { ...deps, installedPacks: () => ({ src: 'x', packs: [] }) };
+    expect((await call('DELETE', '/api/designs/demo-cable', { confirm: 'demo-cable' })).status).toBe(200);
   });
 });
 

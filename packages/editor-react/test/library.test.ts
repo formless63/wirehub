@@ -252,3 +252,15 @@ describe('a new definition\'s id follows its name', () => {
     expect(followNameId(a, { ...a, id: 'typed' }, []).id).toBe('typed');
   });
 });
+
+describe('the pack badge', () => {
+  it('flags the rows an installed pack supplied, first, with the pack on the row', async () => {
+    const { libraryRows } = await import('../src/library-table.ts');
+    const [first, second] = db.components;
+    const rows = libraryRows('components', [first!, second!] as never, [], { db, packs: { [second!.id]: { pack: 'demo', version: '1.0.0' } } });
+    expect(rows[0]?.flags).not.toContain('Pack');
+    expect(rows[0]?.pack).toBeUndefined();
+    expect(rows[1]?.flags[0]).toBe('Pack');
+    expect(rows[1]?.pack).toEqual({ pack: 'demo', version: '1.0.0' });
+  });
+});

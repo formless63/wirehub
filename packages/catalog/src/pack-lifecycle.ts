@@ -15,8 +15,10 @@
  * - **Update.** The records of the installed version are compared with the
  *   new version's, field by field (`PackDiff`). A new record that clashes with
  *   a different one outside the pack is a conflict; a record the new version
- *   drops while something outside the pack still uses it is refused (naming
- *   the users); the resulting library is validated and only *new* errors block.
+ *   drops while something outside the pack still uses it is **retired**: it
+ *   stays in the catalog as a record of the deployment's own (with its licence
+ *   and `derivedFrom` kept), no longer the pack's, and the plan names it and
+ *   its users; the resulting library is validated and only *new* errors block.
  * - **Disable.** The pack's records go, unless a record outside the pack
  *   references one of them, in which case nothing changes and the references
  *   are listed.
@@ -24,7 +26,7 @@
  * Pure apart from reading directories: no clock, no network.
  */
 
-import { readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { errors, validateDb, validateDesign, type Issue } from '@wirehub/model';
@@ -335,7 +337,8 @@ function fileWrites(view: CatalogSource, packDir: string | undefined, drop: Read
   for (const file of [...files].sort()) {
     const dropIds = new Set([...drop.values()].filter((r) => r.file === file).map((r) => r.id));
     const putMap = new Map([...put.values()].filter((r) => r.file === file).map((r) => [r.id, r.record] as const));
-    const packText = packDir === undefined || !putMap.size ? undefined : readFileSync(join(packDir, file), 'utf8');
+    // a retired record is put from the catalog's own copy: the new pack version may not have the file
+    const packText = packDir === undefined || !putMap.size || !existsSync(join(packDir, file)) ? undefined : readFileSync(join(packDir, file), 'utf8');
     const out = mergeFile(file, view.read(file), dropIds, putMap, packText);
     if (out !== undefined) writes.set(file, out);
   }
@@ -385,7 +388,9 @@ export interface PackUpdatePlan {
   diff: PackDiff;
   /** new records that clash with a different record outside the pack */
   conflicts: string[];
-  /** records the new version drops (or changes the id of) that something outside the pack still uses */
+  /** records the new version drops that something outside the pack still uses: they are kept, as `retired` */
+  retired: RecordRef[];
+  /** what outside the pack uses the retired records (informational: nothing is refused for it) */
   references: PackReference[];
   /** errors the new version would add to the library or its designs */
   issues: Issue[];
@@ -395,6 +400,17 @@ export interface PackUpdatePlan {
   writes: FileWrites;
   /** the pack's `added` after the update */
   added: Record<string, string[]>;
+  /** the retired records as they are kept (marked), for a layered pack's catalog files (not part of the answer shown to people) */
+  retiredRecords: LocatedRecord[];
+}
+
+/** A retired record as the deployment keeps it: its licence stays what it was, and it says where it began. */
+function retiredAs(record: LocatedRecord, pack: { id: string; version: string; license: string }): LocatedRecord {
+  if (!isPlainObject(record.record) || !RECORD_FILES.includes(record.file)) return record;
+  const kept: Record<string, Json> = { ...record.record };
+  if (kept['license'] === undefined) kept['license'] = pack.license;
+  if (kept['derivedFrom'] === undefined) kept['derivedFrom'] = { pack: pack.id, id: record.id, version: pack.version };
+  return { ...record, record: kept };
 }
 
 /** Plan `installed`'s pack `<manifest.id>` replaced by the pack in `packDir`. Throws when it is not installed. */
@@ -416,11 +432,16 @@ export function planPackUpdate(view: CatalogSource, installed: readonly Installe
     // identical to a record outside the pack: shared, not the pack's
   }
   const diff = diffRecords(owned, next);
-  const dropped = new Map([...owned].filter(([key]) => !next.has(key)));
+  const gone = new Map([...owned].filter(([key]) => !next.has(key)));
+  // a dropped record something outside the pack still uses is kept (retired), not removed under its users
+  const references = referencesTo(others, new Set([...gone.values()].filter((r) => !r.file.startsWith('designs/')).map((r) => r.id)));
+  const used = new Set(references.map((r) => r.to));
+  const retiring = new Map([...gone].filter(([, r]) => !r.file.startsWith('designs/') && used.has(r.id)));
+  const dropped = new Map([...gone].filter(([key]) => !retiring.has(key)));
+  const retiredMarked = new Map([...retiring].map(([key, r]) => [key, retiredAs(r, { id: entry.id, version: entry.version, license: entry.license })] as const));
   const puts = new Map([...next].filter(([key, r]) => !owned.has(key) || !same(owned.get(key)!.record, r.record)));
-  const writes = fileWrites(view, packDir, dropped, puts);
-  const references = referencesTo(others, new Set([...dropped.values()].filter((r) => !r.file.startsWith('designs/')).map((r) => r.id)));
-  const issues = conflicts.length === 0 && references.length === 0 ? newErrors(view, overlay(view, writes)) : [];
+  const writes = fileWrites(view, packDir, dropped, new Map([...puts, ...retiredMarked]));
+  const issues = conflicts.length === 0 ? newErrors(view, overlay(view, writes)) : [];
   const cmp = compareVersions(manifest.version, entry.version);
   return {
     pack: { id: manifest.id, name: manifest.name, license: manifest.license, from: entry.version, to: manifest.version, fromLicense: entry.license },
@@ -429,11 +450,13 @@ export function planPackUpdate(view: CatalogSource, installed: readonly Installe
     licenseChanged: manifest.license !== entry.license,
     diff,
     conflicts,
-    references,
+    retired: [...retiring.values()].map(refOf),
+    references: references.filter((r) => retiring.size > 0),
     issues,
-    ok: conflicts.length === 0 && references.length === 0 && issues.length === 0,
+    ok: conflicts.length === 0 && issues.length === 0,
     writes,
     added: addedOf(next.values()),
+    retiredRecords: [...retiredMarked.values()],
   };
 }
 
@@ -481,6 +504,17 @@ function saveInstalled(dir: string, mutate: (packs: InstalledPack[]) => Installe
   writeFileReplacing(join(dir, PACKS_FILE), canonical(installed));
 }
 
+/** Append retired records to the catalog's own record files (`layer`: the old layer's file gives a new file its shape). */
+function keepRetired(dataDir: string, layerDir: string, retired: readonly LocatedRecord[]): void {
+  const local = fsCatalogSource(dataDir);
+  for (const file of [...new Set(retired.map((r) => r.file))].sort()) {
+    const put = new Map(retired.filter((r) => r.file === file).map((r) => [r.id, r.record] as const));
+    const shape = existsSync(join(layerDir, file)) ? readFileSync(join(layerDir, file), 'utf8') : undefined;
+    const text = mergeFile(file, local.read(file), new Set(), put, shape);
+    if (typeof text === 'string') writeFileReplacing(join(dataDir, file), text);
+  }
+}
+
 /**
  * Apply an update plan: a layered pack is replaced as a layer (`installPackLayer`,
  * one directory swap); a pack merged into the catalog directory has its records
@@ -488,6 +522,8 @@ function saveInstalled(dir: string, mutate: (packs: InstalledPack[]) => Installe
  */
 export function applyPackUpdate(dataDir: string, packsDir: string | undefined, packDir: string, plan: PackUpdatePlan, where: 'layer' | 'merged'): void {
   if (where === 'layer' && packsDir !== undefined) {
+    // records the new version dropped but something still uses leave with the old layer: keep them in the catalog's own files first
+    keepRetired(dataDir, installedPackDir(packsDir, plan.pack.id), plan.retiredRecords);
     installPackLayer(dataDir, packsDir, packDir);
     return;
   }

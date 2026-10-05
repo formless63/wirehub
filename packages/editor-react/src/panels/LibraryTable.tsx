@@ -125,7 +125,7 @@ function Cell({ row, column, marker }: { row: LibraryRow; column: LibraryColumn;
     return (
       <span className="cs-lt-flags">
         {row.flags.map((flag) => (
-          <span key={flag} className={classes('cs-lt-flag', `is-${flag.toLowerCase()}`)}>
+          <span key={flag} className={classes('cs-lt-flag', `is-${flag.toLowerCase()}`)} title={flag === 'Pack' && row.pack !== undefined ? `From pack ${row.pack.pack} ${row.pack.version} — read-only; fork to edit` : undefined}>
             {flag}
           </span>
         ))}

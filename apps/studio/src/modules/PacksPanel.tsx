@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import { loadMe } from '../me.browser.ts';
 
 import {
   applyInstall,
@@ -67,8 +68,14 @@ function PlanView({ plan }: { plan: PackPlan }): JSX.Element {
       {(plan.issues ?? []).map((i) => (
         <div key={`${i.code}-${i.message}`} className="text-err">{i.code}: {i.message}</div>
       ))}
+      {(plan.retired ?? []).length > 0 ? (
+        <div data-testid="pack-retired">
+          {plan.retired?.length} record{plan.retired?.length === 1 ? ' is' : 's are'} dropped by the new version but still used, so {plan.retired?.length === 1 ? 'it is' : 'they are'} kept as your own (retired from the pack, editable):{' '}
+          {plan.retired?.map((r) => r.id).join(', ')}.
+        </div>
+      ) : null}
       {(plan.references ?? []).length > 0 ? (
-        <ul data-testid="pack-references" className="ml-4 list-disc text-err">
+        <ul data-testid="pack-references" className={plan.retired === undefined ? 'ml-4 list-disc text-err' : 'ml-4 list-disc'}>
           {plan.references?.map((r) => (
             <li key={`${r.from.file}-${r.from.id}-${r.field}`}>
               {r.from.kind} {r.from.id} uses {r.to} ({r.field})
@@ -90,6 +97,8 @@ export function PacksPanel(): JSX.Element {
   const [pending, setPending] = useState<{ kind: 'update' | 'disable' | 'install'; id: string; plan: PackPlan; applicable: boolean; source?: PackSource; sha256?: string } | undefined>(undefined);
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
+  // a viewer reads: no install, update or disable (the server refuses them too)
+  const [canWrite, setCanWrite] = useState(true);
 
   const reload = useCallback(async (): Promise<void> => {
     const answer = await listPacks();
@@ -98,6 +107,7 @@ export function PacksPanel(): JSX.Element {
   }, []);
   useEffect(() => {
     void reload();
+    void loadMe().then((me) => setCanWrite(me.role !== 'viewer'));
   }, [reload]);
 
   const finish = async (text: string): Promise<void> => {
@@ -153,19 +163,19 @@ export function PacksPanel(): JSX.Element {
         {(packs ?? []).map((p) => (
           <li key={p.id} className="my-1" data-pack={p.id}>
             <b>{p.id}</b> {p.version} · {p.license} · {p.records} records
-            {p.available === undefined ? null : (
+            {!canWrite || p.available === undefined ? null : (
               <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void run(async () => showPlan(await previewUpdate(p.id), 'update', p.id))}>
                 Update to {p.available}…
               </button>
             )}
-            <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void run(async () => showPlan(await previewDisable(p.id), 'disable', p.id))}>
+            {!canWrite ? null : <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void run(async () => showPlan(await previewDisable(p.id), 'disable', p.id))}>
               Disable…
-            </button>
+            </button>}
           </li>
         ))}
       </ul>
 
-      <div className="mt-2">
+      {!canWrite ? null : <div className="mt-2">
         <b>Install pack…</b> from a file (zip or JSON bundle) or an https address.
         <div className="mt-1">
           <input
@@ -200,7 +210,7 @@ export function PacksPanel(): JSX.Element {
             Fetch and preview
           </button>
         </div>
-      </div>
+      </div>}
 
       {message === undefined ? null : <div role="status" className="mt-2">{message}</div>}
       {pending === undefined ? null : (

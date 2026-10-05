@@ -119,7 +119,7 @@ describe('update with a diff (layered)', () => {
     expect(plan.licenseChanged).toBe(true);
   });
 
-  it('refuses a dropped record that something outside the pack still uses, naming it', () => {
+  it('retires a dropped record that something outside the pack still uses: kept, as the deployment\'s own', () => {
     installPackLayer(catalogDir, packsDir, v1);
     // a local interface of the shop's uses the pack's can-l signal
     const local = JSON.parse(read(join(catalogDir, 'interfaces.json'))) as unknown[];
@@ -127,8 +127,16 @@ describe('update with a diff (layered)', () => {
     writeFileSync(join(catalogDir, 'interfaces.json'), json(local));
     const plan = planPackUpdate(layered(), readInstalledPacks(packsDir).packs, v3);
     expect(plan.diff.removed.map((r) => r.id)).toEqual(['can-l']);
-    expect(plan.ok).toBe(false);
+    expect(plan.ok).toBe(true);
+    expect(plan.retired.map((r) => `${r.file}#${r.id}`)).toEqual(['vocab/signals.json#can-l']);
     expect(plan.references.map((r) => `${r.from.id} ${r.field} -> ${r.to}`)).toEqual(['my-can pins.2.signal -> can-l']);
+    expect('retiredRecords' in plan).toBe(true);
+    applyPackUpdate(catalogDir, packsDir, v3, plan, 'layer');
+    // the signal is still there (in the catalog's own vocabulary now), the pack no longer owns it
+    const kept = JSON.parse(read(join(catalogDir, 'vocab/signals.json'))) as { entries: { id: string }[] };
+    expect(kept.entries.map((e) => e.id)).toContain('can-l');
+    expect(readInstalledPacks(packsDir).packs[0]?.added['vocab/signals.json']).not.toContain('can-l');
+    expect(createCatalog(layered()).loadDb().interfaces.some((i) => i.id === 'my-can')).toBe(true);
   });
 
   it('refuses an update whose new records clash with a different local record', () => {
