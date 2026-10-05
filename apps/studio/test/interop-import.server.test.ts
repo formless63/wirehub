@@ -54,6 +54,34 @@ describe('bulk CSV through the import job', () => {
   }, 30_000);
 });
 
+describe('connection list through the import job (cs-8c4)', () => {
+  it('proposes a design from from/to pins and publishes it, options and all', async () => {
+    const deps = serve();
+    const csv = ['from,to', 'J1.2,J2.3', 'J1.3,J2.2', 'J1.9,J2.99'].join('\r\n');
+    const started = await handleWorkbenchRequest(
+      {
+        method: 'POST',
+        path: '/api/modules/csv-library/_import/connection-list',
+        body: { fileName: 'lead.csv', base64: Buffer.from(csv).toString('base64'), job: true, options: { parts: JSON.stringify({ J1: 'de9-male', J2: 'de9-female' }), design: 'lead-from-csv', label: 'Lead from CSV' } },
+        user: { name: 'Ada', source: 'session' },
+      },
+      deps,
+    );
+    expect(started.status, JSON.stringify(started.body)).toBe(202);
+    const id = (started.body as { job: { id: string } }).job.id;
+    await deps.jobs!.wait(id, 20_000);
+    const got = (await handleWorkbenchRequest({ method: 'GET', path: `/api/jobs/${id}` }, deps)).body as { job: { status: string; result: { proposal: { designs: { id: string }[] }; notes: string[] } } };
+    expect(got.job.status).toBe('done');
+    expect(got.job.result.proposal.designs.map((d) => d.id)).toEqual(['lead-from-csv']);
+    expect(got.job.result.notes.join('\n')).toContain("de9-female has no pin '99'");
+    expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/lead-from-csv' }, deps)).status).toBe(404);
+    expect((await handleWorkbenchRequest({ method: 'POST', path: `/api/jobs/${id}/publish`, user: { name: 'Ada', source: 'session' } }, deps)).status).toBe(200);
+    const design = await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/lead-from-csv' }, deps);
+    expect(design.body).toMatchObject({ id: 'lead-from-csv', label: 'Lead from CSV' });
+    expect((design.body as { joints: unknown[] }).joints).toHaveLength(2);
+  }, 30_000);
+});
+
 const HARNESS = `metadata:
   title: Bench lead
 connectors:

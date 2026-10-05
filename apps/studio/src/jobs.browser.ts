@@ -78,8 +78,8 @@ export function uploadImportJob(module: string, importer: string, fileName: stri
 }
 
 /** Queue an import: the file is kept for the job and the importer runs there (202). 501: this studio runs no import jobs. */
-export function startImportJob(module: string, importer: string, fileName: string, base64: string): Promise<JobAnswer<{ job: JobView }>> {
-  return call('POST', `/api/modules/${encodeURIComponent(module)}/_import/${encodeURIComponent(importer)}`, { fileName, base64, job: true });
+export function startImportJob(module: string, importer: string, fileName: string, base64: string, options?: Record<string, string>): Promise<JobAnswer<{ job: JobView }>> {
+  return call('POST', `/api/modules/${encodeURIComponent(module)}/_import/${encodeURIComponent(importer)}`, { fileName, base64, job: true, ...(options === undefined || Object.keys(options).length === 0 ? {} : { options }) });
 }
 
 export function fetchJob(id: string): Promise<JobAnswer<{ job: JobView; files?: PlanFileView[] }>> {

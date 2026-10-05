@@ -65,6 +65,24 @@ have the canonical columns and one worked example row. Columns, in order:
 A blank `id` is derived from the name. A file uploaded straight through **Import…** must already use the
 canonical headers (a `type` column and the field keys); the mapping dialog writes that file.
 
+### Connection list → design
+
+**Library, Connections CSV…** makes a design from a two-column **from/to** pin CSV: one row per
+connection, each end written `part.pin` (`J1.3`, or `J2:A.1` where a pin id has a dot). Optional
+columns: `core` (with a wire stock) and `note`.
+
+1. Pick the file. A part is a connector instance; the dialog lists each part with the connector
+   it resolved to (a part named after a library connector's id, label or part number resolves by
+   itself) and lets you pick the rest. A part nothing names is never guessed: its rows are left out.
+2. **Carried on.** *Direct pin to pin* (the default) makes a joint per row (a loopback, a patch
+   lead). With a wire stock the rows are conductors of one segment of it, in order or by the `core`
+   column (a conductor's path, colour or 1-based number); `from` lands on end `a`, `to` on end `b`.
+3. **Dry run.** The rows that become joints, and each row left out with its reason (a pin the
+   connector lacks, an unknown part, a repeated pair, a conductor already used, none left).
+4. **Review** sends the file and these choices to the `connection-list` import job; **Publish**
+   commits the proposed design (new id; one the catalog has is kept) as one change set. The same
+   importer takes the options `parts` (JSON: part → connector id), `design`, `label` and `wire`.
+
 ## Costing
 
 A library record may carry an optional **price** (additive; records without one are unpriced):

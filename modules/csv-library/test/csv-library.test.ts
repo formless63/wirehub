@@ -3,7 +3,7 @@ import { validateDb, type Db } from '@wirehub/model';
 import { createRegistry } from '@wirehub/modules';
 import { describe, expect, it } from 'vitest';
 
-import { LIBRARY_KINDS, analyseCsv, applyMapping, csvLibrary, detectKind, importLibraryCsv, parseCsv, suggestMapping, templateCsv, toCsv } from '../src/index.ts';
+import { LIBRARY_KINDS, analyseConnections, analyseCsv, applyMapping, csvLibrary, detectKind, importConnectionList, importLibraryCsv, parseCsv, splitEnd, suggestMapping, templateCsv, toCsv } from '../src/index.ts';
 
 const db = loadDb();
 const bytes = (t: string): Uint8Array => new TextEncoder().encode(t);
@@ -134,6 +134,94 @@ describe('column mapping', () => {
 
 describe('module', () => {
   it('registers a CSV importer', () => {
-    expect(createRegistry([csvLibrary]).importersFor('parts.csv').map((i) => i.id)).toEqual(['library-csv']);
+    expect(createRegistry([csvLibrary]).importersFor('parts.csv').map((i) => i.id)).toEqual(['library-csv', 'connection-list']);
+  });
+});
+
+describe('connection list → design (cs-8c4)', () => {
+  const LIST = `From,To,Note
+J1.2,J2.3,crossover
+J1.3,J2.2,crossover
+J1.5,J2.5,ground
+J1.2,J2.3,again
+J1.9,J2.99,no such pin
+X7.1,J2.1,unknown part
+J1.1,J1.1,itself
+bad,J2.1,
+`;
+  const options = { parts: JSON.stringify({ J1: 'de9-male', J2: 'de9-female' }), design: 'my-crossover', label: 'My crossover' };
+
+  it('reads from/to pins as direct joints between connector instances, and says why a row was left out', () => {
+    const a = analyseConnections('lead.csv', LIST, db, { parts: { J1: 'de9-male', J2: 'de9-female' }, design: 'my-crossover', label: 'My crossover' });
+    expect(a.design).toMatchObject({ id: 'my-crossover', label: 'My crossover', schemaVersion: 4 });
+    expect(a.design!.instances.connectors).toEqual([
+      { id: 'j1', def: 'de9-male' },
+      { id: 'j2', def: 'de9-female' },
+    ]);
+    expect(a.design!.joints).toEqual([
+      { a: { instance: 'j1', terminal: '2' }, b: { instance: 'j2', terminal: '3' }, note: 'crossover' },
+      { a: { instance: 'j1', terminal: '3' }, b: { instance: 'j2', terminal: '2' }, note: 'crossover' },
+      { a: { instance: 'j1', terminal: '5' }, b: { instance: 'j2', terminal: '5' }, note: 'ground' },
+    ]);
+    const why = new Map(a.rows.map((r) => [r.row, r.problems.join('; ')]));
+    expect(why.get(5)).toContain('already joined');
+    expect(why.get(6)).toContain("de9-female has no pin '99'");
+    expect(why.get(7)).toContain("part 'X7' is not a library connector");
+    expect(why.get(8)).toContain('joined to itself');
+    expect(why.get(9)).toContain('is not <part>.<pin>');
+    expect(a.rows.filter((r) => r.status === 'joint').map((r) => r.row)).toEqual([2, 3, 4]);
+    expect(a.parts.map((p) => [p.name, p.connector])).toEqual([['J1', 'de9-male'], ['J2', 'de9-female'], ['X7', undefined]]);
+    expect(a.notes.join('\n')).toContain('X7');
+    expect(a.notes.join('\n')).toContain('direct pin to pin');
+  });
+
+  it('finds a connector by its own name when the part is named after one, by id, label or part number', () => {
+    const csv = 'from,to\nde9-male.1,de9-female.1\n"DE-9 male, pins by number".2,DE-9 female, pins by number.2\n';
+    const a = analyseConnections('x.csv', csv, db);
+    expect(a.parts.map((p) => p.connector)).toEqual(['de9-male', 'de9-female']);
+    expect(a.design?.joints.length).toBe(1);
+    // J1:3 splits at the colon, so a dotted pin id survives
+    expect(splitEnd('J1:A.1')).toEqual({ part: 'J1', pin: 'A.1' });
+    expect(splitEnd('J1.3')).toEqual({ part: 'J1', pin: '3' });
+    expect(splitEnd('J13')).toBeUndefined();
+  });
+
+  it('with a wire stock the rows are its conductors, in order or by the core column', () => {
+    const csv = 'from,to,core\nJ1.2,J2.3,red\nJ1.3,J2.2,\nJ1.5,J2.5,black\nJ1.1,J2.1,\n';
+    const a = analyseConnections('lead.csv', csv, db, { parts: { J1: 'de9-male', J2: 'de9-female' }, wire: 'dc-2core-24awg' });
+    expect(a.design!.instances.segments).toEqual([{ id: 'w1', def: 'dc-2core-24awg' }]);
+    expect(a.design!.joints).toEqual([
+      { a: { instance: 'j1', terminal: '2' }, b: { instance: 'w1', terminal: 'red', end: 'a' } },
+      { a: { instance: 'w1', terminal: 'red', end: 'b' }, b: { instance: 'j2', terminal: '3' } },
+      { a: { instance: 'j1', terminal: '3' }, b: { instance: 'w1', terminal: 'black', end: 'a' } },
+      { a: { instance: 'w1', terminal: 'black', end: 'b' }, b: { instance: 'j2', terminal: '2' } },
+    ]);
+    // row 3 took the next free conductor (black), so row 4's black is used and row 5 has none left
+    expect(a.rows.map((r) => r.status)).toEqual(['joint', 'joint', 'skipped', 'skipped']);
+    expect(a.rows[2]!.problems.join()).toContain('already used');
+    expect(a.rows[3]!.problems.join()).toContain('no conductor left');
+    expect(() => analyseConnections('x.csv', csv, db, { wire: 'no-such-stock' })).toThrow(/no wire stock/);
+  });
+
+  it('the proposed design passes the library checks, and the importer returns it with notes', () => {
+    const out = importConnectionList({ fileName: 'lead.csv', bytes: bytes(LIST), options }, db);
+    expect(out.designs).toHaveLength(1);
+    expect(validateDb({ ...db, designs: undefined } as Db).filter((i) => i.severity === 'error')).toEqual([]);
+    expect(out.notes[0]).toBe('3 joint(s) from 3 connection(s).');
+    // deterministic
+    expect(JSON.stringify(importConnectionList({ fileName: 'lead.csv', bytes: bytes(LIST), options }, db))).toBe(JSON.stringify(out));
+  });
+
+  it('refuses a file with no from/to columns, or no usable row', () => {
+    expect(() => analyseConnections('x.csv', 'a,b\n1,2\n', db)).not.toThrow(); // a and b are valid column names
+    expect(() => analyseConnections('x.csv', 'pin,thing\n1,2\n', db)).toThrow(/needs a from column and a to column/);
+    expect(() => importConnectionList({ fileName: 'x.csv', bytes: bytes('from,to\nX.1,Y.1\n') }, db)).toThrow(/no usable connection/);
+    expect(() => importConnectionList({ fileName: 'x.csv', bytes: bytes(LIST), options: { parts: '{oops' } }, db)).toThrow(/not JSON/);
+  });
+
+  it('is a second importer of the module, beside the library CSV', () => {
+    expect(csvLibrary.importers?.map((i) => i.id)).toEqual(['library-csv', 'connection-list']);
+    const registry = createRegistry([csvLibrary]);
+    expect(registry.importers().map((i) => `${i.module}/${i.id}`)).toEqual(['csv-library/library-csv', 'csv-library/connection-list']);
   });
 });

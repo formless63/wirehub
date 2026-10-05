@@ -38,6 +38,7 @@ import { LockMarker } from '../locks/LockMarker.tsx';
 import { definitionRecord } from '../locks/records.ts';
 import { browserDepictions } from '../depictions.browser.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
+import { ConnectionsImport } from '../modules/ConnectionsImport.tsx';
 import { CsvImport } from '../modules/CsvImport.tsx';
 import { ModuleImport } from '../modules/ModuleImport.tsx';
 import { ModulePanels } from '../modules/slots.tsx';
@@ -135,10 +136,12 @@ export function LibraryRoute(): JSX.Element {
     );
     const button = modules.importers().length === 0 ? null : <ModuleImport registry={modules} onImported={studio.onDefinitionsChange} />;
     const bulk = modules.importers().some((i) => i.module === 'csv-library') ? <CsvImport onImported={studio.onDefinitionsChange} /> : null;
+    const connections = modules.importers().some((i) => i.module === 'csv-library' && i.id === 'connection-list') ? <ConnectionsImport onImported={studio.onDefinitionsChange} /> : null;
     const both = (
       <>
         {button}
         {bulk}
+        {connections}
         {store}
       </>
     );
