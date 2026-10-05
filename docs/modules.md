@@ -14,7 +14,7 @@ app yet — the table below says which.
 
 **Licensing.** `@wirehub/modules` is **MIT**, so a module can depend on it whatever its own
 licence. WireHub itself is AGPL-3.0-only with the **WireHub Module Exception**
-(`LICENSE-EXCEPTION.md`): a module that talks to WireHub only through the module API — this
+(`MODULE-EXCEPTION.md`): a module that talks to WireHub only through the module API — this
 package, plus the public exports of `@wirehub/model` and `@wirehub/catalog` — and the
 catalog-pack formats may be licensed on any terms, open or closed, and a WireHub image that
 includes it can be distributed without the module becoming AGPL. Changes to WireHub itself
@@ -175,7 +175,7 @@ A private module never lives in this repository. It is its own package, in its o
 acme-wirehub-module/          (private repo)
   package.json                     name: @acme/wirehub-module
                                    peerDependencies: @wirehub/model, @wirehub/modules
-                                   license: any (see LICENSE-EXCEPTION.md)
+                                   license: any (see MODULE-EXCEPTION.md)
   src/index.ts                     export const acme = defineModule({...})
   src/panels/*.tsx                 (peer: react)
   data/                            a catalog pack, if it ships one

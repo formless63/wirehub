@@ -170,7 +170,7 @@ install path; a domain module's packs are installed at first-run setup when a pe
 picks the module (`docs/modules.md`).
 
 **Licences are per pack and per record.** Packs are data, not code: the AGPL of WireHub
-does not reach them (`LICENSE-EXCEPTION.md` §3). A pack names its licence in its manifest
+does not reach them (`MODULE-EXCEPTION.md` §3). A pack names its licence in its manifest
 (SPDX), a record may name its own, and the install plan shows every licence a deployment
 is accepting. The starter catalog (`packages/catalog/data`) and the bundled packs are
 CC0-1.0, each directory with a `LICENSE` file saying so; the catalog's code stays

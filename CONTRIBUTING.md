@@ -63,7 +63,7 @@ marker `privacy-check: allow`.
 ## Licence of contributions
 
 WireHub is `AGPL-3.0-only` with the WireHub Module Exception
-(`LICENSE`, `LICENSE-EXCEPTION.md`); `packages/modules` is MIT. By
+(`LICENSE`, `MODULE-EXCEPTION.md`); `packages/modules` is MIT. By
 contributing you agree that your contribution is licensed under the same
 terms as the files it changes — including the Module Exception, so that
 modules keep the freedom to choose their own licence — and you confirm you

@@ -6,7 +6,7 @@ field. Records a deployment adds to its own copy of the catalog belong to
 whoever wrote them; this dedication does not cover them unless they say so.
 
 The code of @wirehub/catalog (packages/catalog/src) is AGPL-3.0-only with the WireHub
-Module Exception (the repository's LICENSE and LICENSE-EXCEPTION.md).
+Module Exception (the repository's LICENSE and MODULE-EXCEPTION.md).
 
 ------------------------------------------------------------------------
 

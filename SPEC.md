@@ -324,7 +324,7 @@ importers, exporters / document types, a part-number scheme, validation rules, i
 commit hook, and — for an optional **domain module** — a setup entry that first-run setup
 (`/setup`) offers. A deployment lists its modules in `apps/studio/modules.config.ts`; the
 registry is built at build time. There is no runtime plugin loading. `@wirehub/modules` is
-MIT; modules that use only the module API may take any licence (`LICENSE-EXCEPTION.md`).
+MIT; modules that use only the module API may take any licence (`MODULE-EXCEPTION.md`).
 Full design: `docs/modules.md`.
 
 ## The starter catalog (`packages/catalog/data`)

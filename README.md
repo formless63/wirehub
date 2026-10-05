@@ -123,7 +123,7 @@ emails out of commits (`CONTRIBUTING.md`).
 
 WireHub is free software under the **GNU Affero General Public License v3.0 only**
 (`LICENSE`), with one additional permission, the **WireHub Module Exception**
-(`LICENSE-EXCEPTION.md`). In plain language:
+(`MODULE-EXCEPTION.md`). In plain language:
 
 - **WireHub itself stays open.** If you modify WireHub and run it for others — including
   over a network — you offer them the source of your modified WireHub, under the AGPL.
@@ -138,7 +138,7 @@ WireHub is free software under the **GNU Affero General Public License v3.0 only
   (`docs/catalog-store.md`).
 - Third-party material keeps its own licence (`NOTICE`).
 
-There are no per-file licence headers: `LICENSE`, `LICENSE-EXCEPTION.md` and each
+There are no per-file licence headers: `LICENSE`, `MODULE-EXCEPTION.md` and each
 package's `license` field are the record (`SPDX: AGPL-3.0-only WITH
 AdditionRef-WireHub-Module-Exception-1.0`, `packages/modules`: `MIT`; `packages/catalog`: `AGPL-3.0-only AND CC0-1.0`, the code and
 its data; bundled modules: `MIT`, their packs `CC0-1.0`). This summary is
