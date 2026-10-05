@@ -41,7 +41,7 @@ describe('electrical rules', () => {
     expect(issues.length).toBeGreaterThan(0);
     expect(issues[0]!.message).toContain('5 A');
     expect(issues[0]!.message).toContain('3.5 A');
-    expect(issues[0]!.message).toContain('inferred');
+    expect(issues[0]!.message).toContain('PowerStream');
     expect(codes(dbWith({ amps: 0.5, area: 0.205 }))).not.toContain('conductor-ampacity');
   });
 
@@ -106,5 +106,37 @@ describe('electrical rules', () => {
     const over = withContact(1, 10);
     expect(over).toHaveLength(1);
     expect(over[0]!.message).toContain("contact 'rated-contact'");
+  });
+});
+
+describe('per-design current overrides', () => {
+  const db = dbWith({ amps: 0.5, area: 0.205 });
+  const withElectrical = (electrical: unknown) => ({ ...design, electrical }) as typeof design;
+
+  it('a design states its own current for a pin, higher or lower than the library\'s', () => {
+    expect(electricalReport(design, db).issues.filter((i) => i.code === 'conductor-ampacity')).toEqual([]);
+    const higher = electricalReport(withElectrical({ currents: { 'j1:3': 5 } }), db);
+    expect(higher.issues.filter((i) => i.code === 'conductor-ampacity').length).toBeGreaterThan(0);
+    expect(higher.rows.some((r) => r.currentA === 5)).toBe(true);
+    // lower: the override wins over the pin's declared 5 A as well
+    const heavy = dbWith({ amps: 5, area: 0.205 });
+    expect(electricalReport(design, heavy).issues.filter((i) => i.code === 'conductor-ampacity').length).toBeGreaterThan(0);
+    expect(electricalReport(withElectrical({ currents: { 'j1:3': 1, 'j2:3': 1 } }), heavy).issues.filter((i) => i.code === 'conductor-ampacity')).toEqual([]);
+  });
+
+  it('a design can carry its own thresholds, over the organisation\'s', () => {
+    const d = withElectrical({ currents: { 'j1:3': 3 }, rules: { ampacityDerate: 0.5 } });
+    expect(electricalReport(d, db).issues.some((i) => i.code === 'conductor-ampacity' && i.message.includes('derated to 50 percent'))).toBe(true);
+    expect(electricalReport(withElectrical({ currents: { 'j1:3': 3 }, rules: { enabled: false } }), db)).toEqual({ rows: [], contacts: [], issues: [] });
+  });
+
+  it('refuses a key that names no pin, a bad current and unknown settings', () => {
+    const messages = (electrical: unknown): string[] => validateDesign(withElectrical(electrical), db).filter((i) => i.code === 'invalid-electrical').map((i) => i.message);
+    expect(messages({ currents: { 'j1:3': 2 } })).toEqual([]);
+    expect(messages({ currents: { 'nope:3': 2 } })[0]).toContain("'nope:3'");
+    expect(messages({ currents: { 'j1:99': 2 } })).toHaveLength(1);
+    expect(messages({ currents: { 'j1:3': 0 } })[0]).toContain('above 0');
+    expect(messages({ wat: 1 })[0]).toContain('electrical.wat');
+    expect(messages({ rules: { maxDropV: -1 } })[0]).toContain('maxDropV');
   });
 });

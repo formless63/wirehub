@@ -14,10 +14,14 @@
  * - **voltage drop** — `I × R × L` over a segment's conductor, `R` from the
  *   stock's `resistanceOhmPerKm`, else the conductor's material and area.
  *
- * Where a current comes from, first match wins, per terminal: the pin's own
- * `currentA`, then the default current of the signal it carries (vocab
- * `signals` `currentA`). A net's current is the largest declared on any of its
- * terminals (they are the same copper). The thresholds are an organisation's
+ * Where a current comes from, first match wins, per terminal: the design's own
+ * override (`CableDesign.electrical.currents`, keyed `instance:terminal`), then
+ * the pin's own `currentA`, then the default current of the signal it carries
+ * (vocab `signals` `currentA`). A net's current is the largest declared on any
+ * of its terminals (they are the same copper); a net with a design override
+ * takes the largest override only, so a design can state a lower load than the
+ * library's default as well as a higher one. A design may also carry its own
+ * rule thresholds (`CableDesign.electrical.rules`), over the organisation's. The thresholds are an organisation's
  * to set (`Db.rules.electrical`, kept in the hub settings); the defaults are
  * here. Pure: definitions in, numbers and issues out.
  */
@@ -36,7 +40,7 @@ import {
 import { elementPaths, resolveElementPath } from './paths.ts';
 import { inScope } from './breakouts.ts';
 import { signalOf } from './signals.ts';
-import { terminalKey } from './validate.ts';
+import { pcbaTerminalIds, terminalKey } from './validate.ts';
 import { vocabEntry, type SignalEntry } from './vocab.ts';
 
 /** One row of the conductor-area to current table. */
@@ -78,13 +82,16 @@ export interface DbRules {
 
 /**
  * Conservative chassis-wiring maximum current by conductor area (single
- * conductor, free air). Values are the commonly published chassis-wiring chart
- * per AWG, rounded, with the AWG's nominal area. INFERRED: a general rule of
- * thumb, not a standard for any one insulation; set the stock's `ratedCurrentA`
- * or replace the table in the hub settings where a datasheet says otherwise.
+ * conductor, free air): the "Maximum amps for chassis wiring" column, AWG 30 to
+ * 10, of PowerStream's public "Wire Gauge and Current Limits" table
+ * (powerstream.com/Wire_Size.htm, which follows the Handbook of Electronic
+ * Tables and Formulas), checked row by row on 2026-10-05, with the AWG's
+ * nominal area. It is a published rule of thumb, not a standard for any one
+ * insulation; set the stock's `ratedCurrentA` or replace the table in the hub
+ * settings where a datasheet says otherwise.
  */
 export const AMPACITY_SRC =
-  'chassis-wiring maximum current by AWG (published chart, rounded; inferred rule of thumb, not an insulation-specific rating)';
+  'PowerStream, Wire Gauge and Current Limits, "maximum amps for chassis wiring" by AWG (a published rule of thumb, not an insulation-specific rating)';
 
 export const DEFAULT_AMPACITY: readonly AmpacityRow[] = [
   { areaMm2: 0.0507, amps: 0.86 },
@@ -168,9 +175,16 @@ function fmt(n: number): string {
   return String(Math.round(n * 1000) / 1000);
 }
 
-function terminalCurrent(db: Db, kind: 'connector' | 'pcba', def: string, terminal: string): { amps?: number; volts?: number } {
+function terminalCurrent(db: Db, kind: 'connector' | 'pcba', def: string, terminal: string, instance: string, design: CableDesign): { amps?: number; volts?: number; overridden?: boolean } {
   let amps: number | undefined;
   let volts: number | undefined;
+  const set = design.electrical?.currents?.[`${instance}:${terminal}`];
+  if (positive(set)) {
+    // the design's own figure: the voltage still comes from the signal
+    const signal = signalOf(db, kind, def, terminal)?.signal;
+    const entry = typeof signal === 'string' ? vocabEntry<SignalEntry>(db.vocab, 'signals', signal) : undefined;
+    return { amps: set, overridden: true, ...(positive(entry?.voltageV) ? { volts: entry.voltageV } : {}) };
+  }
   if (kind === 'connector') {
     const pin = findConnector(db, def)?.pins.find((p) => p.id === terminal);
     if (positive(pin?.currentA)) amps = pin.currentA;
@@ -195,12 +209,15 @@ function netLoads(design: CableDesign, db: Db): Map<string, NetLoad> {
   for (const net of deriveNets(design, db)) {
     let amps: number | undefined;
     let volts: number | undefined;
+    let set: number | undefined;
     for (const t of net.terminals) {
       if (t.instanceKind !== 'connector' && t.instanceKind !== 'pcba') continue;
-      const got = terminalCurrent(db, t.instanceKind, t.def, t.terminal);
-      if (got.amps !== undefined) amps = Math.max(amps ?? 0, got.amps);
+      const got = terminalCurrent(db, t.instanceKind, t.def, t.terminal, t.instance, design);
+      if (got.overridden === true) set = Math.max(set ?? 0, got.amps as number);
+      else if (got.amps !== undefined) amps = Math.max(amps ?? 0, got.amps);
       if (got.volts !== undefined) volts = Math.max(volts ?? 0, got.volts);
     }
+    amps = set ?? amps;
     if (amps === undefined) continue;
     const load: NetLoad = { net, amps, ...(volts === undefined ? {} : { volts }) };
     for (const t of net.terminals) loads.set(t.key, load);
@@ -214,7 +231,7 @@ function netLoads(design: CableDesign, db: Db): Map<string, NetLoad> {
  * anywhere or the rules are switched off.
  */
 export function electricalReport(design: CableDesign, db: Db): ElectricalReport {
-  const rules = { ...DEFAULT_ELECTRICAL_RULES, ...(db.rules?.electrical ?? {}) };
+  const rules = { ...DEFAULT_ELECTRICAL_RULES, ...(db.rules?.electrical ?? {}), ...(design.electrical?.rules ?? {}) };
   if (rules.enabled === false) return EMPTY;
   const loads = netLoads(design, db);
   if (loads.size === 0) return EMPTY;
@@ -312,6 +329,47 @@ export function electricalReport(design: CableDesign, db: Db): ElectricalReport 
 /** Just the warnings (`validateDesign` folds these in). */
 export function electricalIssues(design: CableDesign, db: Db): Issue[] {
   return electricalReport(design, db).issues;
+}
+
+/** The design's own electrical data: current overrides and rule thresholds. */
+export interface DesignElectrical {
+  /** the current a terminal carries in this design, amps, keyed `instance:terminal` of a connector or board instance; wins over the library's figures */
+  currents?: Record<string, number>;
+  /** this design's thresholds, over the organisation's (the built-in table is replaced by `ampacity` here too) */
+  rules?: ElectricalRules;
+}
+
+/** Problems with a design's electrical block: keys that name no instance terminal, bad numbers, bad rules. */
+export function designElectricalProblems(design: CableDesign, db: Db): { path: string; message: string }[] {
+  const block: unknown = design.electrical;
+  if (block === undefined) return [];
+  if (typeof block !== 'object' || block === null || Array.isArray(block)) return [{ path: 'electrical', message: 'electrical must be an object with currents and rules' }];
+  const out: { path: string; message: string }[] = [];
+  const b = block as Record<string, unknown>;
+  for (const key of Object.keys(b)) if (key !== 'currents' && key !== 'rules') out.push({ path: `electrical.${key}`, message: `electrical.${key} is not a design electrical setting (currents, rules)` });
+  const currents = b['currents'];
+  if (currents !== undefined) {
+    if (typeof currents !== 'object' || currents === null || Array.isArray(currents)) out.push({ path: 'electrical.currents', message: 'electrical.currents is an object of amps by instance:terminal' });
+    else {
+      for (const [key, amps] of Object.entries(currents)) {
+        const colon = key.indexOf(':');
+        const instance = colon < 0 ? undefined : key.slice(0, colon);
+        const terminal = colon < 0 ? '' : key.slice(colon + 1);
+        const connector = design.instances.connectors.find((c) => c.id === instance);
+        const board = design.instances.pcbas.find((c) => c.id === instance);
+        const known = connector !== undefined ? findConnector(db, connector.def)?.pins.some((p) => p.id === terminal) : board !== undefined ? pcbaHas(db, board.def, terminal) : false;
+        if (!known) out.push({ path: `electrical.currents.${key}`, message: `electrical.currents names '${key}', which is not a pin of a connector instance or a terminal of a board instance in this design` });
+        if (!positive(amps)) out.push({ path: `electrical.currents.${key}`, message: `the current for '${key}' must be a number of amps above 0` });
+      }
+    }
+  }
+  for (const message of electricalRulesProblems(b['rules'])) out.push({ path: 'electrical.rules', message });
+  return out;
+}
+
+function pcbaHas(db: Db, def: string, terminal: string): boolean {
+  const pcba = db.pcbas.find((p) => p.id === def);
+  return pcba !== undefined && pcbaTerminalIds(pcba, db).includes(terminal);
 }
 
 /** Problems with a rules document (settings validation); empty = fine. */

@@ -219,6 +219,14 @@ Every definition record may carry an optional `cost` (`{ unit, currency?, per?, 
 `docs/interop.md`, "Costing"), and a design an optional `labourMinutes`: additive fields that feed the
 BOM's cost roll-up and change nothing else.
 
+The electrical rules (`packages/model/src/electrical.ts`: conductor ampacity, contact rating, voltage
+drop; warnings, silent without declared currents) read a pin's `currentA` or its signal's default
+current. A design may state its own: `electrical: { currents: { "j1:3": 2.5 }, rules?: { ampacityDerate?,
+contactDerate?, maxDropV?, maxDropPct?, enabled?, ampacity? } }`, keyed `instance:terminal`, which wins
+over the library's figures for that net (so it can lower a load as well as raise it) and over the
+organisation's thresholds. The built-in ampacity table is PowerStream's published "maximum amps for
+chassis wiring" by AWG (a rule of thumb, not a standard; a stock's `ratedCurrentA` or a hub table replaces it).
+
 ### The design document
 
 ```ts
