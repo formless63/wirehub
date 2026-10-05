@@ -19,6 +19,8 @@ import { HEARTBEAT_MS, LOCK_HEADER, recordsOfWrite, type LockView } from './reco
 
 /** a lock-list poll while the page is visible — how a viewer notices a record freeing up */
 export const POLL_MS = 5_000;
+/** with the event stream open the list is still refreshed now and then, as a safety net */
+export const LIVE_POLL_MS = 60_000;
 export const DEFAULT_NAME = 'This browser';
 
 const CLIENT_KEY = 'wirehub/locks/1/client-id';
@@ -72,6 +74,8 @@ export interface LockClient {
   headerFor(method: string, path: string, body?: unknown): string | undefined;
   /** a 423 came back: the record's lease is someone else's — refresh the list */
   noteRefused(): void;
+  /** the server's event stream is open: lease changes arrive as events, so the list is polled far less often */
+  setLive(live: boolean): void;
   /** start the heartbeat and poll timers, and the pagehide release; returns stop */
   start(): () => void;
   /** wrap `window.fetch` so held tokens ride along on writes; returns the uninstall */
@@ -167,6 +171,7 @@ export function createLockClient(options: LockClientOptions = {}): LockClient {
   let lost = new Map<string, LostLock>();
   let requested = new Set<string>();
   let ready = false;
+  let live = false;
   let snap: LockSnapshot | undefined;
   const listeners = new Set<() => void>();
 
@@ -343,10 +348,18 @@ export function createLockClient(options: LockClientOptions = {}): LockClient {
       void client.refresh();
     },
 
+    setLive(value) {
+      live = value;
+    },
+
     start() {
       const beat = setInterval(() => void client.heartbeat(), HEARTBEAT_MS);
+      let sincePoll = 0;
       const poll = setInterval(() => {
         if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+        sincePoll += POLL_MS;
+        if (live && sincePoll < LIVE_POLL_MS) return;
+        sincePoll = 0;
         void client.refresh();
       }, POLL_MS);
       const onVisible = (): void => {
