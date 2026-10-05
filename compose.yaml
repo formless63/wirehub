@@ -16,6 +16,8 @@
 #                accounts and the history of every save
 #   migrate      one-shot: the database roles, every pending migration, and
 #                (once) a file catalog from before the database moved in
+#   worker       background jobs: module imports, 3D model conversion and
+#                builds, and housekeeping (blob clean-up, the backup watch)
 #   garage       S3-compatible store for uploaded files (photos, datasheets,
 #                3D models) — Garage, single node
 #   garage-init  one-shot: Garage's layout, its access keys and the bucket
@@ -112,6 +114,8 @@ services:
       AUTH_SMTP_PASS:
       AUTH_SMTP_FROM:
       WIREHUB_LOCAL_USER:
+      # jobs run in the worker service; off = in the app (then drop the worker service)
+      WIREHUB_WORKER:
       TZ: ${TZ:-UTC}
     ports:
       - "${WIREHUB_BIND:-127.0.0.1}:${WIREHUB_PORT:-5183}:5183"
@@ -183,6 +187,61 @@ services:
       # <<< bundled-s3
     mem_limit: 256m
     restart: "no"
+    networks: [internal, public]
+
+  worker:
+    image: *wirehub-image
+    command: ["node", "--experimental-strip-types", "--no-warnings", "server/worker.ts"]
+    environment:
+      WIREHUB_BACKEND: ${WIREHUB_BACKEND:-pg}
+      WIREHUB_ENV: ${WIREHUB_ENV:-prod}
+      WIREHUB_ORG:
+      WIREHUB_PROD_MARKERS:
+      WIREHUB_ALLOW_FILES_IN_PROD:
+      WIREHUB_BLOBS: ${WIREHUB_BLOBS:-s3}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
+      S3_REGION: ${S3_REGION:-garage}
+      S3_BUCKET: ${S3_BUCKET:-wirehub}
+      DATABASE_URL:
+      DATABASE_URL_FILE: /run/wirehub/database_url
+      S3_ACCESS_KEY_ID:
+      S3_ACCESS_KEY_ID_FILE: /run/wirehub/s3_access_key_id
+      S3_SECRET_ACCESS_KEY:
+      S3_SECRET_ACCESS_KEY_FILE: /run/wirehub/s3_secret_access_key
+      # the backup profile's volume, read-only: GC deletes an orphan only after a later backup
+      WIREHUB_BACKUP_DIR: /backups
+      # one STEP conversion at a time, stopped past this size (MB) to stay inside mem_limit
+      WIREHUB_STEP_RSS_LIMIT_MB: ${WIREHUB_STEP_RSS_LIMIT_MB:-1280}
+      # optional: convert only in this window (HH:MM-HH:MM), alerts to a webhook,
+      # a folder of model source files (mount it here) for imported models
+      WIREHUB_CONVERT_WINDOW:
+      WIREHUB_NOTIFY_URL:
+      WIREHUB_NOTIFY_FORMAT:
+      WIREHUB_BACKUP_MARKER:
+      WIREHUB_MODEL_SOURCES:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - secrets:/run/wirehub:ro
+      # WIREHUB_BLOBS=fs:/data/blobs keeps uploaded files here, shared with the app
+      - blobs:/data/blobs
+      - backups:/backups:ro
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+      # >>> bundled-s3
+      garage-init:
+        condition: service_completed_successfully
+      # <<< bundled-s3
+    healthcheck:
+      # the worker touches this file with every heartbeat (each minute)
+      test: ["CMD-SHELL", "test -n \"$$(find /tmp/wirehub-worker.beat -mmin -3 2>/dev/null)\""]
+      interval: 60s
+      timeout: 5s
+      start_period: 60s
+    mem_limit: 1536m
+    restart: unless-stopped
     networks: [internal, public]
 
   # >>> bundled-postgres: the bundled PostgreSQL 18. Using your own? Delete down to "<<< bundled-postgres" and set DATABASE_ADMIN_URL.

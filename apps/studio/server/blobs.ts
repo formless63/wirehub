@@ -24,7 +24,7 @@
  */
 
 import { createHash, createHmac } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import { writeFileAtomic } from './atomic-write.ts';
@@ -37,6 +37,14 @@ export interface BlobStore {
   has(key: string): Promise<boolean>;
   put(key: string, bytes: Buffer, contentType: string): Promise<void>;
   delete(key: string): Promise<void>;
+  /** every object under `prefix` (GC, plan §5.4); optional — a store without it is never swept */
+  list?(prefix: string): Promise<BlobListing[]>;
+}
+
+export interface BlobListing {
+  key: string;
+  size: number;
+  modified: Date;
 }
 
 /** Keys are relative, slash-separated, without `..` — they are content addresses. */
@@ -77,6 +85,22 @@ export function fsBlobStore(dir: string): BlobStore {
     },
     async delete(key) {
       rmSync(pathOf(key), { force: true });
+    },
+    async list(prefix) {
+      const out: BlobListing[] = [];
+      const walk = (dir: string, rel: string): void => {
+        if (!existsSync(dir)) return;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const key = rel === '' ? entry.name : `${rel}/${entry.name}`;
+          if (entry.isDirectory()) walk(join(dir, entry.name), key);
+          else if (entry.isFile() && key.startsWith(prefix) && isBlobKey(key)) {
+            const st = statSync(join(dir, entry.name));
+            out.push({ key, size: st.size, modified: st.mtime });
+          }
+        }
+      };
+      walk(root, '');
+      return out.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     },
   };
 }
@@ -149,6 +173,10 @@ export function signV4(input: SignInput): string {
   return `AWS4-HMAC-SHA256 Credential=${input.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 }
 
+function decodeXml(text: string): string {
+  return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+
 function amzDateOf(now: Date): string {
   return now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }
@@ -161,9 +189,10 @@ export function s3BlobStore(
   const now = options.now ?? (() => new Date());
   const base = config.endpoint.replace(/\/+$/, '');
 
-  async function request(method: string, key: string | undefined, body?: Buffer, extra: Record<string, string> = {}): Promise<Response> {
+  async function request(method: string, key: string | undefined, body?: Buffer, extra: Record<string, string> = {}, query: Record<string, string> = {}): Promise<Response> {
     if (key !== undefined) checkKey(key);
     const url = new URL(`${base}/${encodeRfc3986(config.bucket)}${key === undefined ? '' : `/${key.split('/').map(encodeRfc3986).join('/')}`}`);
+    for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
     const payloadHash = sha256Hex(body ?? Buffer.alloc(0));
     const amzDate = amzDateOf(now());
     const headers: Record<string, string> = {
@@ -228,6 +257,25 @@ export function s3BlobStore(
       const response = await request('DELETE', key);
       if (!response.ok && response.status !== 404) return fail(`DELETE ${key}`, response);
       await response.arrayBuffer().catch(() => undefined);
+    },
+    /** ListObjectsV2, every page. */
+    async list(prefix) {
+      const out: BlobListing[] = [];
+      let token: string | undefined;
+      const text = (xml: string, tag: string): string | undefined => new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml)?.[1];
+      do {
+        const response = await request('GET', undefined, undefined, {}, { 'list-type': '2', prefix, 'max-keys': '1000', ...(token === undefined ? {} : { 'continuation-token': token }) });
+        if (!response.ok) return fail(`LIST ${prefix}`, response);
+        const xml = await response.text();
+        for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+          const item = m[1] as string;
+          const key = text(item, 'Key');
+          if (key === undefined) continue;
+          out.push({ key: decodeXml(key), size: Number(text(item, 'Size') ?? 0), modified: new Date(text(item, 'LastModified') ?? 0) });
+        }
+        token = text(xml, 'IsTruncated') === 'true' ? text(xml, 'NextContinuationToken') : undefined;
+      } while (token !== undefined);
+      return out;
     },
     /** Create the bucket when it is missing (a no-op when it exists and is ours). */
     async ensureBucket() {

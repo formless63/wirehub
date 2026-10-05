@@ -58,6 +58,8 @@ import type { DepictionDeps, DepictionStore } from './depictions.ts';
 import { isDocPath, type DocStore } from './storage/doc-store.ts';
 import { parseModuleIoPath, proposalOf, runExporter, runImporter, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
+import type { JobService } from './jobs/types.ts';
+import { handleJobRequest, isJobPath, JOB_ROUTES, startImportJob } from './jobs/api.ts';
 import type { EventHub } from './events.ts';
 
 /* ------------------------------------------------------------------ *
@@ -245,6 +247,14 @@ export interface WorkbenchDeps {
    * from a pack. Those are read-only through the definition routes (fork to edit).
    */
   installedPacks?: () => Awaitable<InstalledPacks>;
+  /**
+   * Jobs (`jobs/`, plan §2): module imports, model conversion and builds, and
+   * the worker's housekeeping — run in this process (files) or by the worker
+   * (pg). Absent → `/api/jobs` answers 501.
+   */
+  jobs?: JobService;
+  /** Called after every committed change set (the model-cache trigger, §5.5). Never fails the request. */
+  afterCommit?: (set: ChangeSet) => void | Promise<void>;
 }
 
 /** `GET /api/part-numbers`' file half; `designs` and `drawings` come from the stores. */
@@ -825,6 +835,7 @@ const ROUTES = [
   ...ME_ROUTES,
   'GET    /api/backup',
   'POST   /api/backup/retry',
+  ...JOB_ROUTES,
   'ANY    /api/modules/:module/…',
   'POST   /api/modules/:module/_import/:importer',
   'GET    /api/modules/:module/_export/:exporter',
@@ -894,6 +905,8 @@ async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: Workb
     return runExporter(deps.modules, io, query, async (id) => (isDesignId(id) ? deps.designs.read(id) : undefined), await deps.loadDb());
   }
   if (method !== 'POST') return methodNotAllowed(method, ['POST']);
+  // `job: true`: the importer runs as a job (the worker on Postgres) and keeps a plan to publish (§7.5)
+  if ((request.body as { job?: unknown } | undefined)?.job === true) return startImportJob(request, io, deps);
   const db = await deps.loadDb();
   const ran = await runImporter(deps.modules, io, request.body, db);
   if (!ran.ok) return ran.response;
@@ -927,6 +940,8 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   if (deps.setupMode?.() === true && !isSetupPath(request.path) && !['/api', '/api/me'].includes((request.path.split('?')[0] ?? '').replace(/\/+$/, ''))) {
     return { status: 503, body: { state: 'setup', error: 'This hub is not set up yet.', hint: 'Open /setup to create the organisation, its catalog and the admin.' } };
   }
+  // jobs: a job's state, an import's plan published (§7.5)
+  if (isJobPath(request.path)) return handleJobRequest(request, deps);
   const io = parseModuleIoPath(request.path);
   if (io !== undefined) return handleModuleIo(request, io, deps);
   const moduleRoute = findModuleRoute(request, deps.modules);

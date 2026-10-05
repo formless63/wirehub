@@ -29,6 +29,7 @@ import { editLockLayer, type EditLockDeps } from './locks/lock-api.ts';
 import { LOCK_HEADER } from '../src/locks/records.ts';
 
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
+import { isImportPath } from './jobs/api.ts';
 import { legacyEnvWarning } from './env.ts';
 import { MAX_JSON_BODY_BYTES as MAX_JSON_BYTES, contentTypeRefusal, crossSiteRefusal, type GuardRefusal } from './request-guard.ts';
 
@@ -53,8 +54,8 @@ export function guardWrite(req: IncomingMessage, upload: boolean, hasBody: boole
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
-  // a model upload is a base64 file, bigger than any document
-  const MAX_BODY_BYTES = isModelPath(req.url ?? '') ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BYTES;
+  // a model upload (50a.55) is a base64 file, bigger than any document
+  const MAX_BODY_BYTES = isModelPath(req.url ?? '') || isImportPath(req.url ?? '') ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BYTES;
   return new Promise((resolve, reject) => {
     let text = '';
     let size = 0;

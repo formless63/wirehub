@@ -38,24 +38,7 @@ export function pgModelCache(db: Db, orgId: string, blobs: BlobStore | undefined
       const found = await row(key);
       return found === undefined ? undefined : blobs.get(found.object_key);
     },
-    async put(key, glb) {
-      if (!KEY.test(key)) throw new Error(`'${key}' is not a model cache key`);
-      if (blobs === undefined) throw new Error('the model cache needs a blob store (WIREHUB_BLOBS)');
-      const sha = createHash('sha256').update(glb).digest('hex');
-      await inOrg(db, orgId, async (tx) => {
-        const existing = (await sql<{ object_key: string }>`SELECT object_key FROM studio.blob WHERE sha256 = ${sha}`.execute(tx)).rows[0];
-        const objectKey = existing?.object_key ?? derivedObjectKey(orgId, sha);
-        if (!(await blobs.has(objectKey))) await blobs.put(objectKey, Buffer.from(glb), 'model/gltf-binary');
-        await sql`
-          INSERT INTO studio.blob (org_id, sha256, size, media_type, class, object_key, state)
-          VALUES (${orgId}::uuid, ${sha}, ${glb.byteLength}, 'model/gltf-binary', 'derived', ${objectKey}, 'stored')
-          ON CONFLICT (org_id, sha256) DO NOTHING`.execute(tx);
-        await sql`
-          INSERT INTO studio.derived_blob (org_id, cache, key, part, sha256, builder_version, inputs)
-          VALUES (${orgId}::uuid, 'model', ${key}, '', ${sha}, ${builder}, '[]'::jsonb)
-          ON CONFLICT (org_id, cache, key, part) DO UPDATE SET sha256 = EXCLUDED.sha256, builder_version = EXCLUDED.builder_version, built_at = now()`.execute(tx);
-      });
-    },
+    put: (key, glb) => putDerivedModel(db, orgId, blobs, key, glb, { builderVersion: builder }),
     async keys() {
       return inOrg(db, orgId, async (tx) =>
         (await sql<{ key: string }>`SELECT key FROM studio.derived_blob WHERE cache = 'model' AND part = '' AND builder_version = ${builder} ORDER BY key`.execute(tx)).rows.map((r) => r.key),
@@ -65,4 +48,35 @@ export function pgModelCache(db: Db, orgId: string, blobs: BlobStore | undefined
       await inOrg(db, orgId, async (tx) => void (await sql`DELETE FROM studio.derived_blob WHERE cache = 'model' AND key = ${key}`.execute(tx)));
     },
   };
+}
+
+/** What a build records with its derived blob (§3.11): what it was built from, its triangles, the job. */
+export interface DerivedModelMeta {
+  builderVersion?: string;
+  inputs?: unknown;
+  triangles?: number;
+  jobId?: string;
+}
+
+/** Store a built model under its cache key: the bytes as a derived blob, then its `derived_blob` row. */
+export async function putDerivedModel(db: Db, orgId: string, blobs: BlobStore | undefined, key: string, glb: Uint8Array, meta: DerivedModelMeta = {}): Promise<void> {
+  if (!KEY.test(key)) throw new Error(`'${key}' is not a model cache key`);
+  if (blobs === undefined) throw new Error('the model cache needs a blob store (WIREHUB_BLOBS)');
+  const builder = meta.builderVersion ?? CONVERTER_VERSION;
+  const sha = createHash('sha256').update(glb).digest('hex');
+  await inOrg(db, orgId, async (tx) => {
+    const existing = (await sql<{ object_key: string }>`SELECT object_key FROM studio.blob WHERE sha256 = ${sha}`.execute(tx)).rows[0];
+    const objectKey = existing?.object_key ?? derivedObjectKey(orgId, sha);
+    if (!(await blobs.has(objectKey))) await blobs.put(objectKey, Buffer.from(glb), 'model/gltf-binary');
+    await sql`
+      INSERT INTO studio.blob (org_id, sha256, size, media_type, class, object_key, state)
+      VALUES (${orgId}::uuid, ${sha}, ${glb.byteLength}, 'model/gltf-binary', 'derived', ${objectKey}, 'stored')
+      ON CONFLICT (org_id, sha256) DO NOTHING`.execute(tx);
+    await sql`
+      INSERT INTO studio.derived_blob (org_id, cache, key, part, sha256, builder_version, inputs, triangles, job_id)
+      VALUES (${orgId}::uuid, 'model', ${key}, '', ${sha}, ${builder}, ${JSON.stringify(meta.inputs ?? [])}::jsonb, ${meta.triangles ?? null}, ${meta.jobId ?? null}::uuid)
+      ON CONFLICT (org_id, cache, key, part) DO UPDATE
+        SET sha256 = EXCLUDED.sha256, builder_version = EXCLUDED.builder_version, inputs = EXCLUDED.inputs,
+            triangles = EXCLUDED.triangles, job_id = EXCLUDED.job_id, built_at = now()`.execute(tx);
+  });
 }

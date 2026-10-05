@@ -108,6 +108,12 @@ export class SnapshotCache {
     this.checked = undefined;
   }
 
+  /** Forget the loaded snapshot too: the next read reloads every row (a repair must see what bypassed a commit). */
+  discard(): void {
+    this.current = undefined;
+    this.checked = undefined;
+  }
+
   /** A commit in this process hands over the snapshot it produced: no reload for it. */
   prime(snapshot: Snapshot): void {
     if (this.current === undefined || BigInt(snapshot.version) >= BigInt(this.current.version)) this.current = snapshot;
