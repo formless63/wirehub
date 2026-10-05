@@ -114,7 +114,7 @@ describe('the rewrite', () => {
     // messages in order, minus the commit that only touched settings
     expect(git(['log', '--format=%s', '--topo-order', '--reverse']).split('\n').filter((l) => l !== '')).toEqual(messages.filter((m) => m !== 'settings only'));
     // authorship and dates survive
-    expect(git(['log', '--format=%an|%ae|%cn|%ce|%aI', '--reverse', '-1', '--grep=first'])).toBe('Ann Author|ann@example.com|WireHub|wirehub@example.com|2026-01-01T10:00:00+00:00\n');
+    expect(git(['log', '--format=%an|%ae|%cn|%ce|%at', '--reverse', '-1', '--grep=first'])).toBe('Ann Author|ann@example.com|WireHub|wirehub@example.com|1767261600\n');
     // the merge is still a merge, the branch still exists, the repository is sound
     expect(git(['log', '--merges', '--format=%s'])).toBe('merge side\n');
     expect(git(['fsck', '--no-dangling', '--strict'])).toBe('');
