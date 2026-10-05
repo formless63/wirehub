@@ -154,7 +154,9 @@ a time; a model build window (Settings > Jobs & limits, for example
 `01:00-06:00`) keeps the model builds (not a person's upload) to the night on
 a small machine. Alerts (a stale backup, models that could not be built, a GC
 error) go to the log, and to the webhook when one is set (Settings >
-Notifications).
+Notifications). That alert webhook is for the operator; to tell another system what happened in
+WireHub (a version released, a number assigned), use **event webhooks** (Settings > Webhooks,
+`docs/webhooks.md`), whose deliveries are jobs of kind `webhook` run by the worker with retries.
 
 Without a worker, set `WIREHUB_WORKER=off` on the app and remove the
 `worker` service: the app then runs the jobs itself, one at a time, and
@@ -286,6 +288,8 @@ remotes, so they are owner-only everywhere: `GET /api/export` leaves them out
 for editors and viewers (an owner's export includes them, listed under
 `owner_only`), the git mirror and the file backend's git export never commit
 them, and the history shows an editor that one changed but not what it held.
+The webhook subscriptions (`data/settings/webhooks.json`, Settings > Webhooks) are owner-only in the
+same way, and each one's signing secret is kept encrypted like the others above.
 
 The variables most people set in `.env` (every one is explained in `.env.example`):
 
@@ -358,6 +362,7 @@ but is no longer in the default `compose.yaml`.
 | Jobs & limits (editor) | `WIREHUB_CONVERT_WINDOW` | when the night's model builds run; the worker re-schedules |
 | | `WIREHUB_IMPORT_MAX_MB` | the largest import file, read at each upload |
 | | `WIREHUB_BACKUP_MAX_AGE_HOURS` | when a backup counts as stale for the health check and the backup watch (new; was fixed at 30) |
+| | `WIREHUB_WEBHOOK_BACKOFF` | seconds to wait before each retry of a failed event webhook, comma-separated, at most five (default `30,120,600,3600,21600`; `docs/webhooks.md`); an environment variable only, there is no Settings field for it |
 
 \* a secret: write-only and encrypted in Settings. In the environment each
 can also be given as a file (`NAME_FILE`).

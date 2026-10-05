@@ -16,7 +16,7 @@
  * can never mutate a shared singleton.
  */
 
-import { DEFAULT_PART_NUMBER_SCHEME, boardPartsWithBuilds, composeConnectors, composePcbas, parsePrefixSchemeConfig, prefixPartNumberScheme, withPcbaPads, type BoardPartsEntry, type PcbaStatusEntry } from '@wirehub/model';
+import { DEFAULT_PART_NUMBER_SCHEME, boardPartsWithBuilds, composeConnectors, composePcbas, schemeFromConfig, withPcbaPads, type BoardPartsEntry, type PcbaStatusEntry } from '@wirehub/model';
 import type {
   BoardBuilds,
   CableDesign,
@@ -25,6 +25,7 @@ import type {
   ConnectorDefinition,
   ConnectorRecord,
   DbRules,
+  ValidationRule,
   CostingRules,
   ElectricalRules,
   Db,
@@ -184,8 +185,11 @@ export function createCatalog(source: CatalogSource) {
     const pcbas = loadPcbas();
     const boardParts = loadBoardPartsFile();
     const rules = loadRules();
+    // the declarative validation rules (`validation-rules.json`, an array of rule records; a pack may ship them)
+    const validationRules = readOptional<ValidationRule[]>('validation-rules.json');
     return {
       ...(rules === undefined ? {} : { rules }),
+      ...(Array.isArray(validationRules) && validationRules.length > 0 ? { validationRules } : {}),
       connectors: loadConnectors(),
       wires: loadWires(),
       components: loadComponents(),
@@ -210,7 +214,7 @@ export function createCatalog(source: CatalogSource) {
    */
   function loadPartNumberScheme(): PartNumberScheme {
     const json = readOptional<unknown>('part-numbers.json');
-    return json === undefined ? DEFAULT_PART_NUMBER_SCHEME : prefixPartNumberScheme(parsePrefixSchemeConfig(json));
+    return json === undefined ? DEFAULT_PART_NUMBER_SCHEME : schemeFromConfig(json);
   }
 
   /** Every board's build file (`builds/*.json`), in file-name order — optional directory. */

@@ -164,6 +164,44 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
       : await handleDepictionRequest({ method: 'GET', path: '/api/depictions/de9-female' }, backend.depictionDeps);
   log.push(`artwork detail: ${summary(artworkDetail)}`);
 
+  // declarative part-number scheme and validation rules: settings documents, checked and enforced on every backend
+  const pnView = await call('read pn settings', { method: 'GET', path: '/api/settings/part-numbers' }, 200);
+  const levelType = {
+    type: 'declarative',
+    id: 'level-type-seq',
+    template: '{level}{type}-{seq}-{variant}',
+    segments: [
+      { id: 'level', type: 'choice', values: [{ value: '1', kinds: ['connector', 'wire', 'component'] }, { value: '2', kinds: ['design'] }] },
+      { id: 'type', type: 'choice', values: [{ value: 'C', kinds: ['connector'] }, { value: 'W', kinds: ['wire'] }, { value: 'E', kinds: ['component'] }, { value: 'A', kinds: ['design'] }] },
+      { id: 'seq', type: 'counter', width: 6, per: ['level', 'type'] },
+      { id: 'variant', type: 'variant', style: 'numeric', width: 2, first: '00' },
+    ],
+    immutable: true,
+    src: 'contract test',
+  };
+  await call('preview pn scheme', { method: 'POST', path: '/api/settings/part-numbers/preview', body: { scheme: levelType, samples: ['1C-000001-00', 'CON-00001'], suggest: [{ kind: 'connector' }, { kind: 'design' }] } }, 200);
+  await call('bad pn scheme refused', { method: 'PUT', path: '/api/settings/part-numbers', body: { scheme: { type: 'declarative', template: '{nope}', segments: [] } }, headers: { 'if-match': etag(pnView) } }, 422);
+  await call('save pn scheme', { method: 'PUT', path: '/api/settings/part-numbers', body: { scheme: levelType }, headers: { 'if-match': etag(pnView) } }, 200);
+  await call('stale pn scheme', { method: 'PUT', path: '/api/settings/part-numbers', body: { scheme: null }, headers: { 'if-match': etag(pnView) } }, 409);
+  await call('pn data reads the scheme', { method: 'GET', path: '/api/part-numbers' }, 200);
+  const numbered = await call('read numbered drawing', { method: 'GET', path: '/api/drawings/dc-led-lead-renamed' }, 200);
+  await call('an existing number never changes', { method: 'PUT', path: '/api/drawings/dc-led-lead-renamed', body: { title: 'LED lead', partNumber: '2A-000001-00', src: 'contract test' }, headers: { 'if-match': etag(numbered) } }, 422);
+  const pnAfter = await call('read pn settings again', { method: 'GET', path: '/api/settings/part-numbers' }, 200);
+  await call('back to the default scheme', { method: 'PUT', path: '/api/settings/part-numbers', body: { scheme: null }, headers: { 'if-match': etag(pnAfter) } }, 200);
+
+  const rulesView = await call('read rules', { method: 'GET', path: '/api/rules' }, 200);
+  const blocker = { id: 'contract-two-notes', severity: 'error', each: 'design', where: { contains: [{ path: 'tags' }, 'contract'] }, require: { gte: [{ length: 'tags' }, 2] }, message: '{id} is tagged contract and needs a second tag', src: 'contract test' };
+  await call('bad rule refused', { method: 'PUT', path: '/api/rules', body: { rules: [{ ...blocker, require: { eval: 'x' } }] }, headers: { 'if-match': etag(rulesView) } }, 422);
+  await call('preview rule', { method: 'POST', path: '/api/rules/preview', body: { rule: blocker } }, 200);
+  const rulesSaved = await call('save rules', { method: 'PUT', path: '/api/rules', body: { rules: [blocker] }, headers: { 'if-match': etag(rulesView) } }, 200);
+  await call('stale rules', { method: 'PUT', path: '/api/rules', body: { rules: [] }, headers: { 'if-match': etag(rulesView) } }, 409);
+  const tagTarget = await call('read design to tag', { method: 'GET', path: '/api/designs/contract-new' }, 200);
+  const refused = await call('a rule blocks a save', { method: 'PUT', path: '/api/designs/contract-new', body: { ...(tagTarget.body as object), tags: ['contract'] }, headers: { 'if-match': etag(tagTarget) } }, 422);
+  expect(JSON.stringify(refused.body)).toContain('rule:contract-two-notes');
+  const allowed = await call('the rule is satisfied', { method: 'PUT', path: '/api/designs/contract-new', body: { ...(tagTarget.body as object), tags: ['contract', 'second'] }, headers: { 'if-match': etag(tagTarget) } }, 200);
+  expect((allowed.body as { tags: string[] }).tags).toEqual(['contract', 'second']);
+  await call('rules removed', { method: 'PUT', path: '/api/rules', body: { rules: [] }, headers: { 'if-match': etag(rulesSaved) } }, 200);
+
   // delete (with its confirm token)
   await call('delete copy', { method: 'DELETE', path: '/api/designs/de9-crossover-copy', body: { confirm: 'de9-crossover-copy' } }, 200);
 

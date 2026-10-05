@@ -5,12 +5,13 @@
  * browser's last copy stands in, flagged `live: false`: it only ever feeds
  * suggestions and read-only views, never a write.
  *
- * The scheme is the built-in prefix scheme configured by the catalog's
- * `part-numbers.json` (absent: its defaults). A module that brings its own
+ * The scheme is the one the catalog's `part-numbers.json` describes — the
+ * built-in prefix scheme's configuration or a declarative definition
+ * (`pn-declarative.ts`); absent: the prefix defaults. A module that brings its own
  * scheme registers it at build time (`docs/modules.md`).
  */
 
-import { DEFAULT_PART_NUMBER_SCHEME, parsePrefixSchemeConfig, prefixPartNumberScheme, type CableDesign, type PartNumberScheme } from '@wirehub/model';
+import { DEFAULT_PART_NUMBER_SCHEME, schemeFromConfig, type CableDesign, type PartNumberScheme } from '@wirehub/model';
 import type { DrawingMeta } from '@wirehub/docs';
 import type { PartNumberData } from '@wirehub/editor-react';
 
@@ -37,7 +38,7 @@ function schemeOf(json: unknown): PartNumberScheme {
   if (registered !== undefined) return registered;
   if (json === undefined || json === null) return DEFAULT_PART_NUMBER_SCHEME;
   try {
-    return prefixPartNumberScheme(parsePrefixSchemeConfig(json));
+    return schemeFromConfig(json);
   } catch {
     return DEFAULT_PART_NUMBER_SCHEME;
   }

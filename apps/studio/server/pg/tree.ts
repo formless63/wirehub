@@ -15,7 +15,7 @@
  * kept in `bytes` (and are uploaded before the transaction).
  */
 
-import { createCatalog, type Catalog, type CatalogSource } from '@wirehub/catalog';
+import { createCatalog, type Catalog, type CatalogSource, type InstalledPacks } from '@wirehub/catalog';
 import { ASSET_MIME_EXT, canonicalJson, codePointCompare, isBlobRef, mediaTypeOf, render, sha256Hex, type BlobRef, type FileContent } from '@wirehub/catalog/src/codec/index.ts';
 import { buildTags, type TagReview } from '@wirehub/catalog/src/tags/build.ts';
 import { decomposeConnector, formatVersionJson, type CableDesign, type ConnectorDefinition, type DesignVersionFile, type WireDefinition } from '@wirehub/model';
@@ -418,5 +418,14 @@ export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; b
       return bytes === undefined ? undefined : { bytes: new Uint8Array(bytes), mediaType: mediaTypeOf(path) };
     },
     loadDb: () => tree.catalog.loadDb(),
+    // what the Postgres deps give from the snapshot: the numbering scheme file and the pack install record
+    loadPartNumberFiles: () => {
+      const text = tree.source.read('part-numbers.json');
+      return text === undefined ? {} : { scheme: JSON.parse(text) as unknown };
+    },
+    installedPacks: () => {
+      const text = tree.source.read('packs.json');
+      return text === undefined ? { src: 'installed catalog packs', packs: [] } : (JSON.parse(text) as InstalledPacks);
+    },
   };
 }

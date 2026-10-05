@@ -8,7 +8,8 @@
 // 3. installs the pack into a temporary copy of the starter catalog (no conflicts);
 // 4. with other pack directories: installs each of them first into the same copy,
 //    then this pack, and again in the opposite order (the order must not matter);
-// 5. checks the pack's own files for a `src` on every record;
+// 5. checks the pack's own files for a `src` on every record, the manifest's `partNumberScheme`
+//    (a declarative numbering scheme it offers) and `validation-rules.json` (declarative rules);
 // 6. for a pack that carries a code module (`module` in the manifest, specs/runtime-modules.md):
 //    the block is sound and names entries the pack has, and no other file sits under code/.
 // Writes nothing outside a temporary directory. Exits 1 on any problem.
@@ -22,7 +23,7 @@ const root = fileURLToPath(new URL('../../../../', import.meta.url));
 const { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, packFiles, readPackManifest } = await import(
   new URL('packages/catalog/src/index.ts', `file://${root}`).href
 );
-const { validateDb, validateDesign } = await import(new URL('packages/model/src/index.ts', `file://${root}`).href);
+const { declarativeSchemeProblems, ruleListProblems, validateDb, validateDesign } = await import(new URL('packages/model/src/index.ts', `file://${root}`).href);
 const { codeModuleManifestProblems, isCodeFilePath } = await import(new URL('packages/modules/src/index.ts', `file://${root}`).href);
 
 const dirs = process.argv.slice(2).map((d) => resolve(d));
@@ -46,6 +47,10 @@ for (const dir of dirs) {
 
 const manifest = readPackManifest(packDir);
 console.log(`pack ${manifest.id}@${manifest.version} (${manifest.license})`);
+
+// a numbering scheme the manifest offers, and the declarative rules the pack ships, must be usable
+if (manifest.partNumberScheme !== undefined) for (const problem of declarativeSchemeProblems(manifest.partNumberScheme)) fail(`manifest partNumberScheme: ${problem}`);
+if (existsSync(join(packDir, 'validation-rules.json'))) for (const problem of ruleListProblems(JSON.parse(readFileSync(join(packDir, 'validation-rules.json'), 'utf8')))) fail(`validation-rules.json: ${problem}`);
 
 // every record of the pack's own files cites a source
 for (const relative of packFiles(packDir)) {

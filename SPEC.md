@@ -58,7 +58,7 @@ packages/catalog/               @wirehub/catalog — the file-backed catalog: lo
   data/                         CatalogSource (filesystem or in-memory), the starter catalog,
   fixtures/v1/                  its frozen copy for snapshot tests, signal-tag builder,
   src/                          artwork (depiction) loading and import
-packages/modules/               @wirehub/modules — the build-time module registry
+packages/modules/               @wirehub/modules — the module registry (built-in and runtime)
 packages/layout/                ELK layout of a design into a drawable graph
 packages/render-svg/            deterministic SVG schematics and cross-sections
 packages/docs/                  build sheet, BOM, continuity spec, drawing sheet, wire spec
@@ -367,8 +367,9 @@ versions and serialization, and never reads it.
 - Serialization is plain JSON of the types above — no classes, no Maps in the model.
 
 `Db` is the bundle `{ connectors, wires, components, pcbas, mechanicals?, bodies?,
-interfaces?, kits?, vocab?, tags? }` the catalog loads, plus — given by the host, for a design
-placing sub-assemblies — `assemblies?` (the designs those reach).
+interfaces?, kits?, vocab?, tags?, validationRules? }` the catalog loads, plus — given by the host,
+for a design placing sub-assemblies — `assemblies?` (the designs those reach). A design may carry
+free `tags?: string[]` that declarative validation rules select by.
 
 ### Part numbers — a pluggable scheme
 
@@ -378,6 +379,8 @@ interface PartNumberScheme {
   parse(text: string): string | undefined;          // canonical form, or not one of ours
   check(pn: string, kind?: PnKind): PnIssue[];      // warnings only
   suggest(subject: PnSubject, known: readonly KnownPartNumber[]): PnSuggestion | undefined;
+  shape?: string;       // the layout in words, for messages and forms
+  immutable?: boolean;  // existing numbers never change: a saved number cannot be edited into another
 }
 ```
 
@@ -386,8 +389,34 @@ The built-in **prefix scheme** numbers each kind with a prefix and a zero-padded
 boards, `SHL-` shells, `HW-` fasteners, `MEC-` other mechanicals, `KIT-` kits, `CBL-` cable
 designs; a drawing may name a length family `CBL-00010-XX` whose variations are
 `CBL-00010-03`, `-05`, …. A catalog configures it with an optional `part-numbers.json`
-(`{ id?, label?, prefixes, digits?, separator?, allowRevisionSuffix? }`); a module may register a different scheme. A
-suggestion is a proposal — nothing writes a number without a person accepting it.
+(`{ id?, label?, prefixes, digits?, separator?, allowRevisionSuffix? }`) — or with a
+**declarative scheme** (`"type": "declarative"`; `pn-declarative.ts`, `docs/part-numbers.md`): a
+template of segments (`<Level><Type>-NNNNNN-VV`), allowed values per record kind, zero-padded
+counters per combination of segments with ranges, a variant suffix, separators, a validation
+regex and `immutable` ("existing numbers never change"), edited in Settings and offered by a data
+pack's manifest (`partNumberScheme`; installing never switches it, an owner confirms). A module may
+register a code scheme for what data cannot say. A suggestion is a proposal — nothing writes a
+number without a person accepting it.
+
+### Validation rules as data
+
+`validateDesign` and `validateDb` also run the **declarative rules** in `Db.validationRules`
+(`validation-rules.json`, an array of rule records a data pack may ship; `rules.ts`,
+`docs/validation-rules.md`): a bounded JSON condition language (`all`, `any`, `not`, comparisons,
+`contains`, `some`/`every`/`none` over lists, counts) over a design and its library records, with a
+subject (`connector`, `conductor`, `signal-path`, `connector-def` …), a severity and a message
+template. No code runs: evaluation is bounded (depth, node count, a step budget). Their issues
+carry the code `rule:<id>`. Code rules in a module remain for the complex cases.
+
+### Event webhooks
+
+Integrations are configuration, not code: owners subscribe URLs to events (design saved, version
+submitted / approved / released, part number assigned, pack installed, job finished, catalog
+changed) in Settings; each delivery is a `webhook` job carrying a versioned JSON payload
+(`wirehub.event/1`: ids, links, the actor, a diff summary, fetch URLs) signed with HMAC-SHA256
+under the subscription's secret (kept encrypted in the settings secrets store), retried with
+backoff, logged and redeliverable. The receiver pulls full data through the API with a token
+(`docs/webhooks.md`).
 
 ---
 
@@ -397,8 +426,11 @@ A module is a plain object contributing to fixed extension points — catalog pa
 importers, exporters / document types, a part-number scheme, validation rules, integrations
 (server routes under `/api/modules/<id>/…`), UI panels and routes, auth providers, an editor
 commit hook, and — for an optional **domain module** — a setup entry that first-run setup
-(`/setup`) offers. A deployment lists its modules in `apps/studio/modules.config.ts`; the
-registry is built at build time. There is no runtime plugin loading. `@wirehub/modules` is
+(`/setup`) offers. The image's built-in modules are listed in `apps/studio/modules.config.ts`;
+on top of them an owner installs **runtime code modules** from a store or a signed upload in the
+UI (owner decision 2026-10-05: one public image for everyone), loaded into a live registry without
+a rebuild, and Settings can restart WireHub when a change needs a fresh process
+(`specs/runtime-modules.md`). `@wirehub/modules` is
 MIT; modules that use only the module API may take any licence (`MODULE-EXCEPTION.md`).
 Full design: `docs/modules.md`.
 

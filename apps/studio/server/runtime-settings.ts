@@ -155,7 +155,11 @@ export const fieldByKey = (key: string): (SettingDef & { group: SettingGroupId }
  * left out of the export for everyone else, never reach the git mirror, and their history
  * bodies are shown to owners only.
  */
-export const OWNER_ONLY_SETTINGS_PATHS: readonly string[] = SETTING_GROUPS.filter((g) => g.role === 'owner').map((g) => g.path);
+export const OWNER_ONLY_SETTINGS_PATHS: readonly string[] = [
+  ...SETTING_GROUPS.filter((g) => g.role === 'owner').map((g) => g.path),
+  // the outbound webhook subscriptions (`webhooks/subscriptions.ts`): URLs of outside systems, owner-only like the groups
+  'data/settings/webhooks.json',
+];
 
 /** Whether `path` (`data/settings/sign-in.json`, or the same without `data/`) is an owner-only settings document. */
 export const isOwnerOnlySettingsPath = (path: string): boolean => OWNER_ONLY_SETTINGS_PATHS.some((p) => path === p || p === `data/${path}`);

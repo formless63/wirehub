@@ -8,11 +8,33 @@
  * design's own two copies (product reference, drawing) are one part.
  */
 
-import { holdersOfNumber, partNumberHolders, type CableDesign, type Db } from '@wirehub/model';
+import { canonicalPartNumber, holdersOfNumber, partNumberHolders, type CableDesign, type Db, type PartNumberScheme } from '@wirehub/model';
 
 import type { ApiResponse, WorkbenchDeps } from './api.ts';
 import { readAllDesigns } from './designs.ts';
 import { partNumberSchemeOf } from './part-number-scheme.ts';
+
+/**
+ * "Existing numbers never change" (a scheme with `immutable`): a record that
+ * carries a number cannot be saved with another one, or none. Absent a number
+ * (a new record, or one not numbered yet) the first assignment is free.
+ * `undefined` = fine to save.
+ */
+export function refuseChangedNumber(scheme: PartNumberScheme, where: string, next: string | undefined, current: string | undefined): ApiResponse | undefined {
+  if (scheme.immutable !== true) return undefined;
+  const was = canonicalPartNumber(current, scheme);
+  if (was === undefined) return undefined;
+  const now = canonicalPartNumber(next, scheme);
+  if (now === was) return undefined;
+  return {
+    status: 422,
+    body: {
+      error: `${where} already has the part number '${current?.trim() ?? was}', and this scheme never changes an existing number.`,
+      hint: 'Nothing was saved. Leave the number as it is (a new variant or a new part gets a new number), or turn off "existing numbers never change" in Settings, Part numbers.',
+      issues: [{ code: 'pn-immutable', severity: 'warning', message: `'${was}' cannot be changed to '${now ?? '(empty)'}'`, where }],
+    },
+  };
+}
 
 export async function refuseTakenDesignNumber(
   deps: WorkbenchDeps,
@@ -24,8 +46,11 @@ export async function refuseTakenDesignNumber(
   current: string | undefined,
 ): Promise<ApiResponse | undefined> {
   const pn = next?.trim();
-  if (pn === undefined || pn === '' || pn === current?.trim()) return undefined;
+  if (pn === current?.trim()) return undefined;
   const scheme = await partNumberSchemeOf(deps);
+  const changed = refuseChangedNumber(scheme, field === 'drawing' ? `The drawing of '${designId}'` : `The cable '${designId}'`, next, current);
+  if (changed !== undefined) return changed;
+  if (pn === undefined || pn === '') return undefined;
   const db: Db = await deps.loadDb();
   const designs: CableDesign[] = await readAllDesigns(deps.designs);
   const drawings: Record<string, { partNumber?: string }> = {};

@@ -30,6 +30,7 @@ import {
 import { compatibilityIssues } from './compat.ts';
 import { cavityIssues, terminationDbIssues } from './crimp.ts';
 import { pnDuplicateIssues } from './part-number-health.ts';
+import { ruleIssuesForDesign, ruleIssuesForLibrary } from './rules.ts';
 import type { PartNumberScheme } from './part-numbers.ts';
 import { breakoutFates, breakoutIssues, inScope, segmentElectricalPaths } from './breakouts.ts';
 import { viaText } from './link-elements.ts';
@@ -814,6 +815,8 @@ export function validateDb(db: Db, options: { scheme?: PartNumberScheme } = {}):
   issues.push(...validateKits(db));
   // crimp contacts, seals, plugs and tools (`crimp.ts`)
   issues.push(...terminationDbIssues(db));
+  // declarative validation rules over the library, and rules that cannot be used (`rules.ts`)
+  issues.push(...ruleIssuesForLibrary(db));
 
   return issues;
 }
@@ -888,6 +891,11 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
         'status',
       ),
     );
+  }
+
+  const tags: unknown = (design as { tags?: unknown }).tags;
+  if (tags !== undefined && !(Array.isArray(tags) && tags.length <= 50 && tags.every((t) => typeof t === 'string' && /^[A-Za-z0-9][A-Za-z0-9 _.\-/]{0,39}$/.test(t)))) {
+    issues.push(issue('invalid-tags', 'tags must be a list of short words (letters, digits, spaces, dash, dot, slash)', 'tags'));
   }
 
   const labour: unknown = (design as { labourMinutes?: unknown }).labourMinutes;
@@ -1168,6 +1176,8 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
   issues.push(...cavityIssues(design, db));
   // electrical rules: silent unless currents are declared (electrical.ts)
   issues.push(...electricalIssues(design, db));
+  // declarative validation rules over this design (`rules.ts`)
+  issues.push(...ruleIssuesForDesign(design, db));
 
   return issues;
 }

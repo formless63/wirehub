@@ -79,6 +79,21 @@ Non-secret values are **catalog documents**, one per group:
 | Integrations (store options, PDF engine, git mirror) | `data/settings/integrations.json` | owner |
 | Jobs & limits | `data/settings/jobs.json` | owner or editor |
 
+Three more settings are documents of their own, not groups of environment-named fields (they have
+no environment variable, so there is nothing for the server to pin):
+
+| Setting | Document | Who changes it | API |
+| --- | --- | --- | --- |
+| Part numbers (`docs/part-numbers.md`) | `data/part-numbers.json` | owner or editor; adopting a pack's offered scheme is an owner's confirmation | `/api/settings/part-numbers` |
+| Validation rules (`docs/validation-rules.md`) | `data/validation-rules.json` | owner or editor | `/api/rules` |
+| Webhooks (`docs/webhooks.md`) | `data/settings/webhooks.json` | owner (session only) | `/api/settings/webhooks` |
+
+The first two are catalog records a data pack may also ship. The webhooks document is owner-only
+like the groups above (it is in `OWNER_ONLY_SETTINGS_PATHS`, so §2.2 applies to it), and a
+subscription's signing secret is a secret of §4 (name `webhook.wh<id>`), never in the document.
+Webhook deliveries are `webhook` jobs; the only environment variable is `WIREHUB_WEBHOOK_BACKOFF`
+(retry waits, an install-level tuning).
+
 `{ values: { "<area>.<name>": value }, secrets?: { "<key>": "<ISO time set>" }, src }`. They are
 written through the unit of work like every other setting: `If-Match` on the group's ETag, both
 backends, one change set in the history, in the export. The owner-only ones are not in anyone else's
@@ -88,8 +103,10 @@ session), and their values are not shown to anyone but an owner.
 
 ## 4. Secrets entered in Settings
 
-The webhook URL (often a credential in itself), the webhook's bearer token, the OIDC client secret,
-the SMTP password, and the git mirror's HTTPS token and SSH deploy key.
+The alert webhook URL (often a credential in itself), the alert webhook's bearer token, the OIDC
+client secret, the SMTP password, the git mirror's HTTPS token and SSH deploy key, and each
+outbound event webhook's signing secret (`webhook.wh<id>`, created with the subscription:
+`docs/webhooks.md`).
 
 - **Never a catalog document.** The catalog is exported, git-mirrored and kept in the change
   history; none of those may carry a secret. A secret lives in a store of its own:

@@ -68,6 +68,7 @@ import type { Awaitable } from './storage/change-set.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import { approvalPolicy } from './settings.ts';
 import { withDesignLibrary } from './assemblies.ts';
+import type { DomainEvent } from './webhooks/events.ts';
 
 export const VERSION_ROUTES = [
   'GET    /api/designs/:id/versions',
@@ -572,7 +573,12 @@ async function saveVersion(deps: VersionDeps, store: VersionStore, id: string, b
   // ETag, so that form's own stale-write guard does not have to find out the
   // hard way — a 409 on its very next save
   const drawingTag = drawingRewritten ? { drawingTag: contentETag(await deps.drawings?.read(id)) } : {};
-  return ok({ version: versionSummary(file), ...drawingTag, ...await listing(deps, store, id) }, 201);
+  const subject = { kind: 'design', id, label: design.label, rev };
+  const approvalsOn = (await approvalPolicy(deps.docs)).enabled;
+  const events: DomainEvent[] = [{ type: 'version.saved', subject, summary: { rev, note, ...(status.basedOnRev === undefined ? {} : { basedOnRev: status.basedOnRev }) } }];
+  // with approvals off a saved revision is the released one; with them on it is released when approved
+  if (!approvalsOn) events.push({ type: 'version.released', subject, summary: { rev, note, approved: false } });
+  return { ...ok({ version: versionSummary(file), ...drawingTag, ...await listing(deps, store, id) }, 201), events };
 }
 
 async function readVersion(store: VersionStore, id: string, rev: number): Promise<{ ok: true; file: DesignVersionFile } | { ok: false; response: ApiResponse }> {
@@ -624,7 +630,15 @@ async function approvalStep(
   const at = (deps.now ?? (() => new Date().toISOString()))();
   const next = (step === 'submit' ? submitVersion : step === 'approve' ? approveVersion : rejectVersion)(file, at, user.name, comment);
   await store.write(next);
-  return ok({ version: versionSummary(next), ...await listing(deps, store, file.designId) });
+  const subject = { kind: 'design', id: file.designId, label: file.design.label, rev: file.rev };
+  const summary = { rev: file.rev, comment, by: user.name };
+  const events: DomainEvent[] =
+    step === 'submit'
+      ? [{ type: 'version.submitted', subject, summary }]
+      : step === 'approve'
+        ? [{ type: 'version.approved', subject, summary }, { type: 'version.released', subject, summary: { ...summary, approved: true } }]
+        : [{ type: 'version.rejected', subject, summary }];
+  return { ...ok({ version: versionSummary(next), ...await listing(deps, store, file.designId) }), events };
 }
 
 async function editLocked(deps: VersionDeps, store: VersionStore, file: DesignVersionFile, body: unknown, user: StudioUser): Promise<ApiResponse> {

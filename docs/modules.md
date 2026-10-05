@@ -1,9 +1,11 @@
 # Modules
 
-WireHub's base is generic. What only one shop needs — its ERP link, its numbering
-scheme, its importers for its own file layout, extra design rules, branding — goes in a
-**module**: a package that contributes to a fixed set of extension points. A module reaches a
-hub one of two ways, with the same module object:
+WireHub's base is generic. What only one shop needs — its importers for its own file
+layout, its own screens, rules and numbering that data cannot express, branding — goes in a
+**module**. (Numbering schemes, most design rules and integrations with other systems are
+configuration, not modules: see "Configuration or code?" below.) A module is a package that
+contributes to a fixed set of extension points. A module reaches a hub one of two ways, with the
+same module object:
 
 - **Built in**: listed in `apps/studio/modules.config.ts` and bundled with the image. The
   bundled modules below are built in.
@@ -54,6 +56,39 @@ be copied as templates.
 5. **Namespaced.** Module ids are kebab-case. A rule's issue codes are prefixed
    `<module>/`; a module's server routes live under `/api/modules/<module>/…`; its UI routes
    under `/m/<module>/…`; its design data under `extensions.<module>`.
+
+## Configuration or code?
+
+Reach for a module last. Most of what looks like a code module is **plain configuration**, which
+needs no build, no restart and no review of someone's code, and which an owner can edit and a data
+pack can ship:
+
+| You want | Use | Where |
+| --- | --- | --- |
+| a numbering convention (`<Level><Type>-NNNNNN-VV`, prefixes, ranges, variants) | a **declarative part-number scheme** | Settings, Part numbers; a pack's manifest (`docs/part-numbers.md`) |
+| design rules ("a boot on every connector of family F", "power conductors at least 0.5 mm²") | **validation rules** | Settings, Validation rules; a pack's `validation-rules.json` (`docs/validation-rules.md`) |
+| another system told when something happens (an ERP, a chat channel) | **event webhooks**, and the API with a token | Settings, Webhooks (`docs/webhooks.md`) |
+| your catalog: connectors, wires, signals, example cables | a **catalog pack** | `docs/catalog-store.md` |
+| the organisation's name, logo, thresholds, approvals, alerts | **Settings** | `specs/runtime-settings.md` |
+
+An integration is rarely code: the system subscribes to **version released** and pulls the BOM
+(`GET /api/designs/:id/exports/…`) with a token, and writes back through the API with the same
+token. A module is for what only code can do:
+
+- a **numbering scheme** that looks something up or computes a check digit (`partNumberScheme`);
+- a **rule** the language cannot express: it needs a calculation, another record's history, an
+  algorithm (`validationRules`: pure functions; they run beside the declarative ones);
+- an **importer or exporter** for a file format, a **screen or panel** inside WireHub, a **job queue**
+  with its own code, a **route** the API does not have, **derived data** a save must recompute,
+  **branding art**, a **sign-in provider**.
+
+The declarative forms are not a lesser kind: both feed the same checks as the code (the
+`PartNumberScheme` interface, `validateDb` and `validateDesign`), and the code extension points
+below stay for the exotic cases. Start from the data form; a definition can grow into a module
+later (`declarativePartNumberScheme` builds a `PartNumberScheme` from a definition).
+
+When code it is, it still needs no build of your own: a module ships as a signed bundle an owner
+installs from a store or an upload ("Runtime code modules" below).
 
 ## Domain modules
 

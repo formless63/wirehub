@@ -26,6 +26,8 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
   // drafts, so typing does not commit (and validate) per keystroke
   const [drafts, setDrafts] = useState<string[]>(notes);
   const [adding, setAdding] = useState(false);
+  const [tagText, setTagText] = useState((state.design.tags ?? []).join(', '));
+  useEffect(() => setTagText((state.design.tags ?? []).join(', ')), [state.design.tags]);
   const [labour, setLabour] = useState(state.design.labourMinutes === undefined ? '' : String(state.design.labourMinutes));
   useEffect(() => setLabour(state.design.labourMinutes === undefined ? '' : String(state.design.labourMinutes)), [state.design.labourMinutes]);
   useEffect(() => {
@@ -111,6 +113,17 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
             </li>
           ) : null}
         </ol>
+        <label className="cs-field" title="Free tags (comma-separated) the hub's validation rules can select designs by, such as mil-spec or export.">
+          <span>Design tags</span>
+          <input
+            className="cs-input"
+            aria-label="design tags"
+            placeholder="mil-spec, export"
+            value={tagText}
+            onChange={(event) => setTagText(event.target.value)}
+            onBlur={() => dispatch({ type: 'set-tags', tags: tagText.split(',') })}
+          />
+        </label>
         <label className="cs-field" title="Hand labour to build one cable, in minutes. The BOM prices it at the hub's labour rate (engineering settings).">
           <span>Build labour (min)</span>
           <input

@@ -24,6 +24,8 @@ the validators run. Write a record, then validate it (section 6).
 | PCBA | `pcbas.json` | `id`, `label`, `partNumber`, `revision`, `terminals[]`, `internalLinks[]`, `src` |
 | vocabulary list | `vocab/<list>.json` | `{ id, label, src, entries[] }`; each entry `id`, `label`, `src` |
 | design | `designs/<id>.json` | the `CableDesign` (SPEC.md), `src` |
+| validation rule | `validation-rules.json` (array) | `id`, `severity`, `each`, `require`, `message`, `src` (below) |
+| numbering scheme | `part-numbers.json` (one object) | the prefix config, or a declarative definition (below) |
 
 Any definition may also carry an optional `cost` (`unit`, `currency`, `per`, `breaks[]`, `moq`; a price
 per piece, or per metre for a wire stock). Pack data does not need prices; see `docs/interop.md`.
@@ -31,9 +33,36 @@ Many records at once can come from a CSV through the Library's **Bulk CSV…** (
 `src` on every row, a template per kind, one change set on publish).
 
 Only `connectors.json`, `wires.json` and `components.json` must exist; the rest are optional.
-There is **no data file for rules**: design rules are module code (`validationRules`, see
-`wirehub-module`), and a shop's own rule data was deliberately left out of the base
+**Rules and numbering are data too.** Declarative design rules are records of `validation-rules.json`
+(`docs/validation-rules.md`; a pack may ship the file) and a numbering scheme is `part-numbers.json`
+(`docs/part-numbers.md`). Rules that need code stay module code (`validationRules`, see
+`wirehub-module`); a shop's own private rule data was deliberately left out of the base
 (`docs/boundaries.md`).
+
+A rule record, for example (a rule cites its `src` like any record; no shop names):
+
+```json
+{ "id": "dsub-boot", "severity": "warning", "each": "connector",
+  "where": { "eq": [{ "path": "family" }, "d-sub"] },
+  "require": { "contains": [{ "path": "mechanicalKinds" }, "boot"] },
+  "message": "{id} has no strain-relief boot", "src": "synthetic example" }
+```
+
+`each` is `design`, `connector`, `segment`, `conductor`, `component`, `pcba`, `mechanical`,
+`signal-path` or a library subject (`connector-def` …); a condition has exactly one key (`all`,
+`any`, `not`, `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `startsWith`, `endsWith`,
+`exists`, `empty`, `some`, `every`, `none`); a missing value makes a comparison false. Rule ids are
+kebab-case, the issue code is `rule:<id>`. Check a rule with `ruleProblems` / `ruleListProblems`
+(`@wirehub/model`) and run it: `validateDesign(design, { ...db, validationRules: [rule] })`.
+A design may carry `tags` (`["shielded"]`) for a rule's `where` to select by; a mechanical may be of
+kind `boot`.
+
+A numbering scheme in `part-numbers.json` is either `{ prefixes, digits?, separator?, … }` or
+`{ "type": "declarative", "template": "{level}{type}-{seq}-{variant}", "segments": [ … ],
+"validation"?, "immutable"? }` (segments `choice`, `counter`, `variant`; allowed values per record
+kind, counters per combination with ranges). Check one with `declarativeSchemeProblems`. The starter
+and bundled packs carry no shop numbering, so do not add a `part-numbers.json` to a pack: a pack
+**offers** a scheme in its manifest (`wirehub-catalog-pack`).
 
 ## Ids
 
@@ -47,7 +76,8 @@ There is **no data file for rules**: design rules are module code (`validationRu
 - Pin ids are strings (`"1"`, `"shell"`, `"tip"`); wire element ids are unique among siblings and
   address as dot paths (`pair-1.a`). Wire ends: `a` = source side, `b` = destination side.
 - Part numbers: never hard-code a numbering pattern. A pack record carries **no shop part
-  number**; a deployment numbers records through its `PartNumberScheme`. Use `mpn` and
+  number**; a deployment numbers records through its `PartNumberScheme` (usually a declarative
+  definition in Settings, `docs/part-numbers.md`). Use `mpn` and
   `manufacturer` for a specific product (components) and leave `partNumber` out.
 
 ## `src`: the citation (mandatory)

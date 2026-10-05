@@ -204,9 +204,10 @@ export async function startBoss(url: string, role: 'studio' | 'worker', log: (li
 export function bossJobRunner(boss: () => Promise<PgBoss>, orgId: () => string): JobRunner {
   return {
     describe: 'the worker (pg-boss)',
-    async submit(job) {
+    async submit(job, options) {
       const payload: BossPayload = { id: job.id, org: orgId() };
-      await (await boss()).send(bossQueueName(job.kind), payload as unknown as object);
+      // a delayed job (a webhook's retry backoff) is held by the queue until its time
+      await (await boss()).send(bossQueueName(job.kind), payload as unknown as object, options?.delayMs === undefined || options.delayMs <= 0 ? {} : { startAfter: Math.ceil(options.delayMs / 1000) });
     },
   };
 }

@@ -35,6 +35,7 @@ export interface MechanicalEditorProps {
 const KIND_LABEL: Record<MechanicalDraft['kind'], string> = {
   shell: 'Shell / housing',
   fastener: 'Fastener',
+  boot: 'Strain-relief boot',
   other: 'Other',
   contact: 'Crimp contact',
   seal: 'Wire / cavity seal',

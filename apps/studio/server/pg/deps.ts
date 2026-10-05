@@ -42,6 +42,7 @@ import { stageImportInput } from '../jobs/import.ts';
 import { modelCacheTrigger } from '../jobs/model-cache.ts';
 import { liveNotifier, notifierFromEnv } from '../notify.ts';
 import { createJobService, inlineJobRunner } from '../jobs/service.ts';
+import { createWebhookEmitter } from '../webhooks/emitter.ts';
 import { JOB_KINDS } from '../jobs/types.ts';
 import { moduleJobKinds } from '../jobs/module-queues.ts';
 import { bossJobRunner, lastBeat, pgJobHandlers, pgJobStore, startBoss } from './jobs.ts';
@@ -255,7 +256,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
               if (closing) return Promise.reject(new Error('the studio is shutting down'));
               return (boss ??= startBoss(config.url, 'studio', undefined, moduleJobKinds(real.modules)));
             }, () => id)
-          : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, liveEnv, notify }));
+          : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, liveEnv, notify }), undefined, (job) => real.webhooks?.jobFinished(job));
       // git-mirror is always a kind: it may be set up in Settings at any time (a run without one skips)
       // the module kinds follow the (live) registry: a runtime code module's queue counts once it is loaded
       const kinds = () => [...JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)), ...moduleJobKinds(real.modules)];
@@ -295,7 +296,14 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
         timers.push(timer);
         void tick().catch(() => undefined);
       }
-      real.afterCommit = modelCacheTrigger(() => deps.jobs);
+      // outbound event webhooks: the live settings hold the signing secrets; the emitter queues deliveries as jobs
+      if (options.runtimeSettings !== undefined) real.runtimeSettings = options.runtimeSettings;
+      real.webhooks = createWebhookEmitter({ docs: () => real.docs, jobs: () => real.jobs, env: liveEnv });
+      const trigger = modelCacheTrigger(() => deps.jobs);
+      real.afterCommit = async (set) => {
+        await trigger(set);
+        await real.webhooks?.catalogChanged(set);
+      };
       // a STEP upload converts in the worker, whose memory budget is sized for it (S6)
       if (jobMode === 'worker' && options.blobs !== undefined) real.convertModel = remoteConvert({ jobs: real.jobs, blobs: options.blobs, orgId: () => id });
       // first-run setup installs the domain modules' packs into the database (WIREHUB_SETUP_PROMPT as on files)

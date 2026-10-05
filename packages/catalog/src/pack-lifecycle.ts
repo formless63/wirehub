@@ -29,7 +29,7 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { errors, validateDb, validateDesign, type Issue } from '@wirehub/model';
+import { declarativeSchemeProblems, errors, ruleListProblems, validateDb, validateDesign, type Issue } from '@wirehub/model';
 
 import { createCatalog } from './catalog.ts';
 import {
@@ -580,6 +580,17 @@ export function packSourceProblems(packDir: string): string[] {
     return [error instanceof Error ? error.message : String(error)];
   }
   if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(manifest.version)) problems.push(`the manifest's version '${manifest.version}' is not semver (1.2.0)`);
+  if (manifest.partNumberScheme !== undefined) {
+    for (const p of declarativeSchemeProblems(manifest.partNumberScheme)) problems.push(`the manifest's partNumberScheme: ${p}`);
+  }
+  const rulesPath = join(packDir, 'validation-rules.json');
+  if (existsSync(rulesPath)) {
+    try {
+      for (const p of ruleListProblems(JSON.parse(readFileSync(rulesPath, 'utf8')))) problems.push(`validation-rules.json: ${p}`);
+    } catch {
+      // not JSON: reported with the other files below
+    }
+  }
   const files = packFiles(packDir);
   // a pack that carries a code module may have no records of its own
   if (files.length === 0 && manifest.module === undefined) problems.push('the pack has no data files');

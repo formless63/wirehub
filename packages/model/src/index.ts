@@ -308,7 +308,17 @@ export {
   knownPartNumbers,
   parsePrefixSchemeConfig,
   prefixPartNumberScheme,
+  schemeFromConfig,
 } from './part-numbers.ts';
+export {
+  MAX_SEGMENTS,
+  declarativePartNumberScheme,
+  declarativeSchemeProblems,
+  isDeclarativeSchemeConfig,
+  parseDeclarativeSchemeConfig,
+  regexProblem,
+} from './pn-declarative.ts';
+export type { ChoiceSegment, ChoiceValue, CounterRange, CounterSegment, DeclarativeSchemeConfig, SchemeSegment, VariantSegment } from './pn-declarative.ts';
 export type {
   KnownPartNumber,
   PartNumberScheme,
@@ -496,6 +506,19 @@ export type {
   SubassemblyPort,
   SubassemblyPortKind,
 } from './subassemblies.ts';
+
+export {
+  DESIGN_RULE_SUBJECTS,
+  LIBRARY_RULE_SUBJECTS,
+  MAX_RULES,
+  RULE_SUBJECTS,
+  fillTemplate,
+  ruleIssuesForDesign,
+  ruleIssuesForLibrary,
+  ruleListProblems,
+  ruleProblems,
+} from './rules.ts';
+export type { Aggregated, Condition, Literal, Operand, Quantified, RuleSubject, ValidationRule } from './rules.ts';
 
 // ---- bench build sheet types and the work-instruction hook ----
 export { benchRuleProblems, benchRulesProvider } from './bench-types.ts';

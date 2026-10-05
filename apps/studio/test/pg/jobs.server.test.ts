@@ -141,7 +141,7 @@ describePg('jobs on Postgres', () => {
     let studioBoss: Awaited<ReturnType<typeof startBoss>> | undefined;
     try {
       expect(worker).toBeDefined();
-      expect([...worker!.kinds].sort()).toEqual(['backup', 'blob-gc', 'convert', 'derive', 'git-mirror', 'import', 'model-cache']);
+      expect([...worker!.kinds].sort()).toEqual(['backup', 'blob-gc', 'convert', 'derive', 'git-mirror', 'import', 'model-cache', 'webhook']);
       // the boot sweep
       const deadline = Date.now() + 60_000;
       while (!(await deps.modelCache!.has(key)) && Date.now() < deadline) await new Promise((done) => setTimeout(done, 250));

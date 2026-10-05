@@ -60,6 +60,12 @@ export interface PackManifest {
    */
   files?: Record<string, string>;
   /**
+   * A numbering scheme this pack offers (a declarative definition,
+   * `@wirehub/model` `pn-declarative.ts`). Installing the pack never switches
+   * the hub's scheme: Settings offers it, and an owner confirms.
+   */
+  partNumberScheme?: unknown;
+  /**
    * The code module the pack carries (`specs/runtime-modules.md`): its entries
    * under `code/<module id>/`, the module API it was built against, and what it
    * declares it uses. Checked by the host (`@wirehub/modules`
@@ -125,7 +131,12 @@ export interface InstalledPack {
   origin?: { index: string; publisher?: string; signedBy?: string[] };
   /** the code module the pack carries (`PackManifest.module`), with the sha256 of its files */
   module?: InstalledModule;
+  /** the numbering scheme the pack's manifest offers, as it was when installed (an owner may adopt it in Settings) */
+  partNumberScheme?: unknown;
 }
+
+/** What an installed pack's record keeps of its manifest. */
+export const manifestOffers = (manifest: PackManifest): Pick<InstalledPack, 'partNumberScheme'> => (manifest.partNumberScheme === undefined ? {} : { partNumberScheme: manifest.partNumberScheme });
 
 /** `packs.json`: the packs installed into this catalog. */
 export interface InstalledPacks {
@@ -268,7 +279,7 @@ export function packAssetFiles(dir: string): string[] {
  * that carries code, the module with the sha256 of its entries.
  */
 export function installedRecordOf(manifest: PackManifest, added: Record<string, string[]>, assets: Record<string, string>, packDir: string): InstalledPack {
-  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added, ...(Object.keys(assets).length === 0 ? {} : { assets }) };
+  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added, ...(Object.keys(assets).length === 0 ? {} : { assets }), ...manifestOffers(manifest) };
   const m = manifest.module;
   if (m === undefined) return record;
   const sha = (relative: string): string => createHash('sha256').update(readFileSync(join(packDir, relative))).digest('hex');

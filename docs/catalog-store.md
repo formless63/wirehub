@@ -60,6 +60,7 @@ fieldbus-1.4.0/
   mechanicals.json  kits.json  pcbas.json        (each optional)
   vocab/signals.json …                           (vocabulary additions)
   designs/*.json                                 (example designs, optional)
+  validation-rules.json                          (declarative design rules, optional; docs/validation-rules.md)
   depictions/<id>/…                              (artwork, optional: <id> a connector, body or wire id)
   art/connectors/<id>.json, art/body-layouts.json   (connector drawings and body layouts, optional; specs/drawing-language.md §7)
   wirehub-pack.sig      the publisher's signature over the manifest (§4, phase 5)
@@ -77,6 +78,7 @@ fieldbus-1.4.0/
   "catalogSchema": 4,                     // the CableDesign / record schema it targets
   "requires": { "wirehub": ">=1.0 <2", "packs": { "core-bodies": "^2.1.0" } },
   "idPrefix": "fb-",                      // optional: every record id starts with it
+  "partNumberScheme": { "type": "declarative", "template": "…", "segments": [ … ] },   // optional: a numbering scheme the pack offers (docs/part-numbers.md)
   "files": { "connectors.json": "…64 hex…", "wires.json": "…64 hex…" },   // written by sign-pack (§4)
   "counts": { "connectors": 42, "wires": 9, "interfaces": 18 },
   "homepage": "https://…", "source": "https://…"   // where the pack is built from
@@ -107,6 +109,13 @@ know. Each record keeps the mandatory `src`, and a pack record adds two optional
   `manufacturer`) where a record is a specific product, never a shop's internal number. A
   deployment assigns its own numbers through its `PartNumberScheme` when it adopts a
   record (the scheme's `suggest` proposes one).
+- **A pack may carry configuration as data**, not only records. `validation-rules.json` is an array
+  of rule records (each with `src`, merged by id like any record file): the rules install with the
+  pack, run inside the validators, and an install that would add errors to the library is refused.
+  The manifest's `partNumberScheme` is a numbering scheme the pack **offers**: installing the pack
+  never switches the hub's scheme; Settings lists the offer and an owner confirms the switch
+  (`docs/part-numbers.md`). The manifest is covered by the publisher's signature, so a signed pack's
+  scheme is too.
 - **Ids are stable.** A record id never changes meaning within a major version.
 - **Inferred values say so** in `src`, as everywhere in the catalog.
 

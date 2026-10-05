@@ -48,6 +48,7 @@ import { exportTree } from './pg/export.ts';
 import { gitHistorySource } from './history/git.ts';
 import { backendFromEnv, type Backend } from './pg/config.ts';
 import { baseJobHandlers } from './jobs/handlers.ts';
+import { createWebhookEmitter } from './webhooks/emitter.ts';
 import { moduleJobHandlers, moduleJobKinds } from './jobs/module-queues.ts';
 import { modelCacheTrigger } from './jobs/model-cache.ts';
 import { createJobService, inlineJobRunner, memoryJobStore } from './jobs/service.ts';
@@ -195,11 +196,17 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
   const jobStore = memoryJobStore();
   deps.jobs = createJobService({
     store: jobStore,
-    runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, liveEnv: () => deps.runtimeSettings?.env() ?? process.env, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps) })),
+    runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, liveEnv: () => deps.runtimeSettings?.env() ?? process.env, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps) }), undefined, (job) => deps.webhooks?.jobFinished(job)),
     // the module queues follow the registry: a runtime code module's queue runs here as soon as it is loaded
-    kinds: () => ['import', 'model-cache', ...moduleJobKinds(deps.modules)],
+    kinds: () => ['import', 'model-cache', 'webhook', ...moduleJobKinds(deps.modules)],
   });
-  deps.afterCommit = modelCacheTrigger(() => deps.jobs);
+  // outbound event webhooks: deliveries are jobs, signed with a secret kept in the settings secrets store
+  deps.webhooks = createWebhookEmitter({ docs: () => deps.docs, jobs: () => deps.jobs, env: () => deps.runtimeSettings?.env() ?? process.env });
+  const trigger = modelCacheTrigger(() => deps.jobs);
+  deps.afterCommit = async (set) => {
+    await trigger(set);
+    await deps.webhooks?.catalogChanged(set);
+  };
   // what Settings changes without a restart (runtime-settings.ts), over this environment
   deps.runtimeSettings = fileRuntimeSettings(deps, options.env ?? process.env);
   void deps.runtimeSettings.refresh().catch((error: unknown) => console.warn(`[settings] ${error instanceof Error ? error.message : String(error)}`));
