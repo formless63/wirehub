@@ -109,3 +109,38 @@ export async function sourceOfFile(file: File): Promise<PackSource> {
 export const previewInstall = (source: PackSource, base = '/api'): Promise<PackAnswer> => call('POST', `${base}/packs/install`, source);
 export const applyInstall = (source: PackSource, sha256: string, acceptMajor: boolean, base = '/api'): Promise<PackAnswer> =>
   call('POST', `${base}/packs/install`, { ...source, apply: true, sha256, acceptMajor });
+
+/* ------------------------------------------------------------------ *
+ * The store (`/api/packs/store`, `server/store.ts`)
+ * ------------------------------------------------------------------ */
+
+/** One pack a trusted, verified store index lists. Licence and author are the author's statement, shown as information. */
+export interface StorePackView {
+  index: string;
+  store: { id: string; name: string; homepage?: string };
+  id: string;
+  name: string;
+  description?: string;
+  domain: string;
+  license: string;
+  author: { id?: string; name: string };
+  homepage?: string;
+  latest?: { version: string; size: number };
+  versions: string[];
+  /** the version installed here, if any */
+  installed?: string;
+  action: 'install' | 'update' | 'current' | 'newer-installed';
+}
+export interface StoreIndexView {
+  url: string;
+  ok: boolean;
+  store?: { id: string; name: string };
+  packs?: number;
+  error?: string;
+}
+
+export const listStore = (base = '/api'): Promise<PackAnswer> => call('GET', `${base}/packs/store`);
+export const previewStoreInstall = (pack: { index: string; id: string; version?: string }, base = '/api'): Promise<PackAnswer> =>
+  call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, ...(pack.version === undefined ? {} : { version: pack.version }) });
+export const applyStoreInstall = (pack: { index: string; id: string; version: string }, sha256: string, acceptMajor: boolean, base = '/api'): Promise<PackAnswer> =>
+  call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, version: pack.version, apply: true, sha256, acceptMajor });

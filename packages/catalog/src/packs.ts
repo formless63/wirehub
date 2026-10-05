@@ -50,6 +50,8 @@ export interface PackManifest {
   counts?: Record<string, number>;
   homepage?: string;
   source?: string;
+  /** the field it serves (`pro-audio`, `fieldbus` …), for the store index; the id when absent */
+  domain?: string;
 }
 
 export const PACK_MANIFEST = 'wirehub-pack.json';

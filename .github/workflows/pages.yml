@@ -4,6 +4,12 @@ name: Pages
 # https://formless63.github.io/wirehub/. One self-contained page with the
 # repository's compose.yaml embedded, rebuilt whenever it or the generator
 # changes. (Settings → Pages → Source: GitHub Actions.)
+#
+# It also publishes the official catalog store index of WireHub's bundled
+# packs at https://formless63.github.io/wirehub/store/index.json (the packs
+# zipped beside it), signed with the WIREHUB_STORE_SIGNING_KEY secret
+# (docs/catalog-store.md §4). Without the secret the index is published
+# unsigned, with a warning, and deployments refuse it until it is signed.
 
 on:
   push:
@@ -13,6 +19,11 @@ on:
       - compose.yaml
       - brand/**
       - modules/*/src/index.ts
+      - modules/*/pack/**
+      - scripts/store-index.mjs
+      - packages/catalog/src/store-index.ts
+      - apps/studio/server/pack-archive.ts
+      - apps/studio/server/store.ts
       - apps/studio/modules.config.ts
       - .github/workflows/pages.yml
   workflow_dispatch:
@@ -40,6 +51,29 @@ jobs:
       # the generator's default output must be the repository's compose.yaml
       - run: pnpm --filter site test
       - run: node site/build.mjs site/dist
+      # the official store index: every bundled pack zipped, and index.json listing them
+      - run: node scripts/store-index.mjs official --out site/dist/store
+      - name: Sign the store index
+        env:
+          WIREHUB_STORE_SIGNING_KEY: ${{ secrets.WIREHUB_STORE_SIGNING_KEY }}
+        run: |
+          if [ -z "$WIREHUB_STORE_SIGNING_KEY" ]; then
+            echo "::warning title=Store index not signed::The WIREHUB_STORE_SIGNING_KEY secret is not set, so store/index.json is published unsigned and deployments will refuse it. See docs/catalog-store.md section 4 to create the key."
+            exit 0
+          fi
+          node scripts/store-index.mjs sign site/dist/store/index.json --required
+          pub="$(node scripts/store-index.mjs pubkey)"
+          node scripts/store-index.mjs verify site/dist/store/index.json --pubkey "$pub"
+          printf 'untrusted comment: WireHub official store public key\n%s\n' "$pub" > site/dist/store/wirehub-store.pub
+          # the key deployments trust (OFFICIAL_STORE_PUBLIC_KEY) must be this one, once it is recorded
+          recorded="$(node scripts/store-index.mjs official-pubkey)"
+          if [ -n "$recorded" ] && [ "$recorded" != "$pub" ]; then
+            echo "::error title=Store key mismatch::The signing secret's public key ($pub) is not OFFICIAL_STORE_PUBLIC_KEY in apps/studio/server/store.ts ($recorded)."
+            exit 1
+          fi
+          if [ -z "$recorded" ]; then
+            echo "::notice title=Store public key::Record $pub as OFFICIAL_STORE_PUBLIC_KEY in apps/studio/server/store.ts so deployments trust the official index."
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site/dist
