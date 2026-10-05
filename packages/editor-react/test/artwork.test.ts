@@ -228,7 +228,7 @@ describe('the derived view is computed, never entered', () => {
  * ------------------------------------------------------------------ */
 
 const TERMINALS: ArtworkTerminal[] = [
-  { id: '1', label: 'CVBS' },
+  { id: '1', label: 'DATA' },
   { id: '2', label: 'GND', aliases: ['ground'] },
   { id: '3', label: '+5V' },
 ];
@@ -329,11 +329,11 @@ describe('click a pin, click the picture', () => {
   });
 
   it('says what the missing anchors cost, in a builder’s words', () => {
-    expect(unanchoredSentence(anchorProgress(TERMINALS, {}), 'SCART male')).toContain(
+    expect(unanchoredSentence(anchorProgress(TERMINALS, {}), 'DE-9 male')).toContain(
       'plain pin table',
     );
     expect(
-      unanchoredSentence(anchorProgress(TERMINALS, { '1': { x: 0, y: 0 } }), 'SCART male'),
+      unanchoredSentence(anchorProgress(TERMINALS, { '1': { x: 0, y: 0 } }), 'DE-9 male'),
     ).toContain('2 of 3 pins');
     expect(
       unanchoredSentence(
@@ -342,18 +342,18 @@ describe('click a pin, click the picture', () => {
           '2': { x: 0, y: 0 },
           '3': { x: 0, y: 0 },
         }),
-        'SCART male',
+        'DE-9 male',
       ),
     ).toBeUndefined();
   });
 
   it('counts only the pins cables solder to, when the host says which', () => {
     const none = anchorProgress(TERMINALS, {});
-    expect(unanchoredSentence(none, 'SCART male', {})).toBeUndefined();
-    const one = unanchoredSentence(none, 'SCART male', { '2': ['a-cable'] });
+    expect(unanchoredSentence(none, 'DE-9 male', {})).toBeUndefined();
+    const one = unanchoredSentence(none, 'DE-9 male', { '2': ['a-cable'] });
     expect(one).toContain('One pin that cables solder to has no spot yet (2)');
     expect(one).toContain('that cable draws the pin table');
-    expect(unanchoredSentence(none, 'SCART male', { '1': ['x', 'y'], '3': ['y'] })).toContain('2 pins that cables solder to have no spot yet (1, 3) — those 2 cables');
+    expect(unanchoredSentence(none, 'DE-9 male', { '1': ['x', 'y'], '3': ['y'] })).toContain('2 pins that cables solder to have no spot yet (1, 3) — those 2 cables');
   });
 });
 

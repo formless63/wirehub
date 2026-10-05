@@ -45,11 +45,11 @@ describe('the unsaved-changes guard (Bug 2)', () => {
 describe('picker groups (Bug 10)', () => {
   it('brings each group together, in first-seen order, members in their own order', () => {
     const options = [
-      { value: 'a1', group: 'SCART' },
-      { value: 'b1', group: 'RCA' },
-      { value: 'a2', group: 'SCART' },
+      { value: 'a1', group: 'DE-9' },
+      { value: 'b1', group: 'JST XH' },
+      { value: 'a2', group: 'DE-9' },
       { value: 'c1', group: 'Console multi-out' },
-      { value: 'b2', group: 'RCA' },
+      { value: 'b2', group: 'JST XH' },
     ];
     expect(groupContiguous(options).map((o) => o.value)).toEqual(['a1', 'a2', 'b1', 'b2', 'c1']);
   });

@@ -240,8 +240,8 @@ describe('the list', () => {
 describe('a new definition\'s id follows its name', () => {
   const blank = { id: '', label: '' };
   it('suggests from the name, unique across the whole library', () => {
-    expect(followNameId(blank, { id: '', label: 'SCART male' }, []).id).toBe('scart-male');
-    expect(followNameId(blank, { id: '', label: 'SCART male' }, ['scart-male']).id).toBe('scart-male-2');
+    expect(followNameId(blank, { id: '', label: 'DE-9 male' }, []).id).toBe('de-9-male');
+    expect(followNameId(blank, { id: '', label: 'DE-9 male' }, ['de-9-male']).id).toBe('de-9-male-2');
   });
   it('keeps following while the id is still the suggestion, and stops once the user types one', () => {
     const a = followNameId(blank, { id: '', label: 'Cap' }, []);

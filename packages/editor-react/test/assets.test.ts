@@ -20,24 +20,24 @@ function asset(id: string, originalName: string, src = 'test fixture'): SharedAs
 }
 
 describe('matchesAssetQuery', () => {
-  const scart = asset('a', 'scart-connector.jpg', 'Photographed on the bench, 2026-01-04');
+  const de9 = asset('a', 'de9-connector.jpg', 'Photographed on the bench, 2026-01-04');
 
   it('matches everything for an empty query', () => {
-    expect(matchesAssetQuery(scart, '')).toBe(true);
-    expect(matchesAssetQuery(scart, '   ')).toBe(true);
+    expect(matchesAssetQuery(de9, '')).toBe(true);
+    expect(matchesAssetQuery(de9, '   ')).toBe(true);
   });
 
   it('matches the filename, case-insensitively', () => {
-    expect(matchesAssetQuery(scart, 'SCART')).toBe(true);
-    expect(matchesAssetQuery(scart, 'connector')).toBe(true);
+    expect(matchesAssetQuery(de9, 'DE9')).toBe(true);
+    expect(matchesAssetQuery(de9, 'connector')).toBe(true);
   });
 
   it('also matches the src/provenance text', () => {
-    expect(matchesAssetQuery(scart, 'bench')).toBe(true);
+    expect(matchesAssetQuery(de9, 'bench')).toBe(true);
   });
 
   it('does not match unrelated text', () => {
-    expect(matchesAssetQuery(scart, 'hdmi')).toBe(false);
+    expect(matchesAssetQuery(de9, 'jst')).toBe(false);
   });
 });
 

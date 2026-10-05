@@ -84,7 +84,7 @@ const TOY_DB: Db = {
       partNumber: 'TB-1',
       revision: 'Rev1',
       terminals: [
-        { id: 'IN', label: 'Video in', note: 'pad is gold' },
+        { id: 'IN', label: 'Signal in', note: 'pad is gold' },
         { id: 'GND' },
       ],
       integratedConnectors: [{ connectorDefId: 'plug-2', terminalPrefix: 'j' }],
@@ -237,7 +237,7 @@ describe('terminalsOf', () => {
       'j.sleeve',
     ]);
     // a pad describes itself; an integrated pin borrows the pin it *is*
-    expect(terminals[0]?.label).toBe('Video in');
+    expect(terminals[0]?.label).toBe('Signal in');
     expect(terminals[0]?.note).toBe('pad is gold');
     expect(terminals[1]?.label).toBeUndefined();
     expect(terminals[2]?.label).toBe('Signal');

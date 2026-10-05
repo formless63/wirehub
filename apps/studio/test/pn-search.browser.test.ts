@@ -19,7 +19,7 @@ describe('PN matching', () => {
     expect(pnMatches('cbl-00012-3x', 'CBL-00012-34')).toBe(true);
     expect(pnMatches('CBL-00012-35', 'CBL-00012-3X')).toBe(true);
     expect(pnMatches('CBL-00012-45', 'CBL-00012-3X')).toBe(false);
-    expect(looksLikePartNumber('xlr cable')).toBe(false);
+    expect(looksLikePartNumber('jst cable')).toBe(false);
   });
 
   it("a drawing's lengths are its variation PNs; the X is notation only", () => {

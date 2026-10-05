@@ -37,7 +37,7 @@ describe('connector naming', () => {
 
   it('takes the use from an interface label without its note', () => {
     expect(useOfInterface({ label: 'RS-232 DTE — pins by number (TIA-574)' })).toBe('RS-232 DTE');
-    expect(useOfInterface({ label: 'VGA (VESA DDC)' })).toBe('VGA');
+    expect(useOfInterface({ label: 'RS-485 (TIA-485)' })).toBe('RS-485');
     expect(useOfInterface(undefined)).toBe('');
   });
 

@@ -196,7 +196,7 @@ describe('the lazy source', () => {
     const lazy = lazyDepictions({ meta: { [`${DIR}/board-1/meta.json`]: metaLoader }, vector: { [`${DIR}/board-1/board-top.svg`]: svgLoader } });
     const before = lazy.current();
     expect(before.meta('board-1')).toBeUndefined();
-    await lazy.load(['board-1', 'rca-male']);
+    await lazy.load(['board-1', 'jst-xh-male']);
     const after = lazy.current();
     expect(after).not.toBe(before);
     expect(after.meta('board-1')?.defId).toBe('board-1');
@@ -238,8 +238,8 @@ describe('the bundled tree', () => {
   const lazy = browserDepictions();
 
   it('says nothing about a definition with no depiction', () => {
-    expect(lazy.current().meta('rca-male')).toBeUndefined();
-    expect(lazy.current().artwork('rca-male', 'mating-face')).toBeUndefined();
+    expect(lazy.current().meta('jst-xh-male')).toBeUndefined();
+    expect(lazy.current().artwork('jst-xh-male', 'mating-face')).toBeUndefined();
   });
 
   it('is one memoised loader, so what is fetched is shared', () => {

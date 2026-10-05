@@ -199,18 +199,18 @@ describe('Save', () => {
 describe('undo / redo', () => {
   it('carry the edit description and the shortcut in their tooltip', async () => {
     await readyOnCable();
-    reportState({ canUndo: true, undoLabel: 'add connector rca-male as j2' });
+    reportState({ canUndo: true, undoLabel: 'add connector jst-xh-male as j2' });
     await waitFor(() =>
-      expect(screen.getByTitle(/Undo: add connector rca-male as j2/)).toBeTruthy(),
+      expect(screen.getByTitle(/Undo: add connector jst-xh-male as j2/)).toBeTruthy(),
     );
-    const undo = screen.getByTitle(/Undo: add connector rca-male as j2/);
+    const undo = screen.getByTitle(/Undo: add connector jst-xh-male as j2/);
     expect(undo.getAttribute('title')).toContain('Ctrl Z');
 
     fireEvent.click(undo);
     expect(handle.undo).toHaveBeenCalledTimes(1);
 
-    reportState({ canRedo: true, redoLabel: 'add connector rca-male as j2' });
-    const redo = await screen.findByTitle(/Redo: add connector rca-male as j2/);
+    reportState({ canRedo: true, redoLabel: 'add connector jst-xh-male as j2' });
+    const redo = await screen.findByTitle(/Redo: add connector jst-xh-male as j2/);
     expect(redo.getAttribute('title')).toContain('Ctrl Shift Z');
     fireEvent.click(redo);
     expect(handle.redo).toHaveBeenCalledTimes(1);

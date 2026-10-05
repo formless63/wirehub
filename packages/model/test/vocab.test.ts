@@ -96,29 +96,29 @@ const sample: VocabList = {
   label: 'Signals',
   src: 'test',
   entries: [
-    { id: 'csync', label: 'CSync', aliases: ['Composite sync'], src: 'test' },
-    { id: 'sync-composite', label: 'Composite (old)', deprecatedBy: 'csync', src: 'test' },
-    { id: 'gun', label: 'Gun', pending: true, src: 'test' },
+    { id: 'supply', label: 'Supply', aliases: ['Power supply'], src: 'test' },
+    { id: 'supply-old', label: 'Supply (old)', deprecatedBy: 'supply', src: 'test' },
+    { id: 'bias', label: 'Bias', pending: true, src: 'test' },
   ],
 };
 const one = { signals: sample };
 
 describe('lookups', () => {
   it('resolve an id, a label or an alias, any case and spacing', () => {
-    expect(resolveVocab(one, 'signals', 'csync')?.via).toBe('id');
-    expect(resolveVocab(one, 'signals', ' CSYNC ')?.entry.id).toBe('csync');
-    expect(resolveVocab(one, 'signals', 'composite  SYNC')).toMatchObject({ via: 'alias', entry: { id: 'csync' } });
+    expect(resolveVocab(one, 'signals', 'supply')?.via).toBe('id');
+    expect(resolveVocab(one, 'signals', ' SUPPLY ')?.entry.id).toBe('supply');
+    expect(resolveVocab(one, 'signals', 'power  SUPPLY')).toMatchObject({ via: 'alias', entry: { id: 'supply' } });
     expect(resolveVocab(one, 'signals', 'nothing like it')).toBeUndefined();
   });
 
   it('follow a merge forward', () => {
-    expect(vocabEntry(one, 'signals', 'sync-composite')?.id).toBe('csync');
-    expect(resolveVocab(one, 'signals', 'Composite (old)')).toMatchObject({ deprecated: true, entry: { id: 'csync' } });
+    expect(vocabEntry(one, 'signals', 'supply-old')?.id).toBe('supply');
+    expect(resolveVocab(one, 'signals', 'Supply (old)')).toMatchObject({ deprecated: true, entry: { id: 'supply' } });
   });
 
   it('hide a pending entry unless asked', () => {
-    expect(vocabEntry(one, 'signals', 'gun')).toBeUndefined();
-    expect(vocabEntry(one, 'signals', 'gun', { includePending: true })?.id).toBe('gun');
+    expect(vocabEntry(one, 'signals', 'bias')).toBeUndefined();
+    expect(vocabEntry(one, 'signals', 'bias', { includePending: true })?.id).toBe('bias');
   });
 });
 
@@ -130,10 +130,10 @@ describe('list rules', () => {
   const codes = (list: VocabList): string[] => validateVocabList(list).map((i) => i.code).sort();
 
   it('refuse a missing src, a duplicate id, a bad id and an ambiguous spelling', () => {
-    expect(codes({ ...sample, entries: [...sample.entries, { id: 'luma', label: 'Luma', src: '' }] })).toEqual(['missing-src']);
-    expect(codes({ ...sample, entries: [...sample.entries, { id: 'csync', label: 'Again', src: 'x' }] })).toEqual(['duplicate-id']);
-    expect(codes({ ...sample, entries: [...sample.entries, { id: 'Luma', label: 'Luma', src: 'x' }] })).toEqual(['vocab-bad-id']);
-    expect(codes({ ...sample, entries: [...sample.entries, { id: 'luma', label: 'Luma', aliases: ['composite sync'], src: 'x' }] })).toEqual(['vocab-ambiguous']);
+    expect(codes({ ...sample, entries: [...sample.entries, { id: 'sense', label: 'Sense', src: '' }] })).toEqual(['missing-src']);
+    expect(codes({ ...sample, entries: [...sample.entries, { id: 'supply', label: 'Again', src: 'x' }] })).toEqual(['duplicate-id']);
+    expect(codes({ ...sample, entries: [...sample.entries, { id: 'Sense', label: 'Sense', src: 'x' }] })).toEqual(['vocab-bad-id']);
+    expect(codes({ ...sample, entries: [...sample.entries, { id: 'sense', label: 'Sense', aliases: ['power supply'], src: 'x' }] })).toEqual(['vocab-ambiguous']);
   });
 
   it('refuse a merge into nothing, and a merge round a circle', () => {
@@ -146,9 +146,9 @@ describe('list rules', () => {
 
 describe('append-only', () => {
   it('appends a well-formed entry, accepted by default and pending when asked (Q8)', () => {
-    const added = appendVocabEntry(sample, { id: 'luma', label: 'Luma (Y)', src: 'video.md §2' });
-    expect(added.ok && added.list.entries.at(-1)).toEqual({ id: 'luma', label: 'Luma (Y)', src: 'video.md §2' });
-    const proposed = appendVocabEntry(sample, { id: 'luma', label: 'Luma (Y)', src: 'x' }, { pending: true });
+    const added = appendVocabEntry(sample, { id: 'sense', label: 'Sense (S)', src: 'signals.md §2' });
+    expect(added.ok && added.list.entries.at(-1)).toEqual({ id: 'sense', label: 'Sense (S)', src: 'signals.md §2' });
+    const proposed = appendVocabEntry(sample, { id: 'sense', label: 'Sense (S)', src: 'x' }, { pending: true });
     expect(proposed.ok && proposed.list.entries.at(-1)?.pending).toBe(true);
     expect(sample.entries).toHaveLength(3);
   });
@@ -158,18 +158,18 @@ describe('append-only', () => {
       const result = appendVocabEntry(sample, entry);
       return result.ok ? [] : result.issues.map((i) => i.code).sort();
     };
-    expect(codes({ id: 'luma', label: 'Luma', src: ' ' })).toEqual(['missing-src']);
-    expect(codes({ id: 'csync', label: 'CSync 2', src: 'x' })).toEqual(['duplicate-id']);
-    expect(codes({ id: 'c-sync', label: 'Composite sync', src: 'x' })).toEqual(['vocab-ambiguous']);
+    expect(codes({ id: 'sense', label: 'Sense', src: ' ' })).toEqual(['missing-src']);
+    expect(codes({ id: 'supply', label: 'Supply 2', src: 'x' })).toEqual(['duplicate-id']);
+    expect(codes({ id: 'sup-ply', label: 'Power supply', src: 'x' })).toEqual(['vocab-ambiguous']);
   });
 
   it('allows a rename that keeps the old label, an added alias, a merge and an acceptance', () => {
     const after: VocabList = {
       ...sample,
       entries: [
-        { id: 'csync', label: 'Composite sync (CSync)', aliases: ['Composite sync', 'CSync', 'CS'], src: 'test' },
-        { id: 'sync-composite', label: 'Composite (old)', deprecatedBy: 'csync', src: 'test' },
-        { id: 'gun', label: 'Gun', src: 'test', deprecatedBy: 'csync' },
+        { id: 'supply', label: 'Power supply (Supply)', aliases: ['Power supply', 'Supply', 'SUP'], src: 'test' },
+        { id: 'supply-old', label: 'Supply (old)', deprecatedBy: 'supply', src: 'test' },
+        { id: 'bias', label: 'Bias', src: 'test', deprecatedBy: 'supply' },
       ],
     };
     expect(vocabChangeIssues(sample, after)).toEqual([]);
@@ -179,8 +179,8 @@ describe('append-only', () => {
     const after: VocabList = {
       ...sample,
       entries: [
-        { id: 'csync', label: 'Sync', src: 'test' },
-        { id: 'sync-composite', label: 'Composite (old)', src: 'test', pending: true },
+        { id: 'supply', label: 'Sup', src: 'test' },
+        { id: 'supply-old', label: 'Supply (old)', src: 'test', pending: true },
       ],
     };
     expect(vocabChangeIssues(sample, after).map((i) => i.code).sort()).toEqual([
@@ -203,13 +203,13 @@ describe('references into the lists', () => {
       {
         id: 'plug',
         label: 'Plug',
-        family: 'SCART',
+        family: 'D-sub',
         pins: [
-          { id: '1', label: 'CSync', signal: 'csync' },
-          { id: '2', label: 'Old', signal: 'sync-composite' },
-          { id: '3', label: 'Gun', signal: 'gun' },
+          { id: '1', label: 'Supply', signal: 'supply' },
+          { id: '2', label: 'Old', signal: 'supply-old' },
+          { id: '3', label: 'Bias', signal: 'bias' },
           { id: '4', label: '?', signal: 'no-such-signal' },
-          { id: '5', label: 'Either', signal: { oneOf: ['csync', 'nope'] } },
+          { id: '5', label: 'Either', signal: { oneOf: ['supply', 'nope'] } },
         ],
         src: 'test',
       },
@@ -227,7 +227,7 @@ describe('references into the lists', () => {
         src: 'test',
       },
     ],
-    vocab: { ...one, 'pad-roles': { id: 'pad-roles', label: 'Pad roles', src: 'x', entries: [{ id: 'sync', label: 'Sync', src: 'x' }] }, families: { id: 'families', label: 'F', src: 'x', entries: [{ id: 'din', label: 'DIN', src: 'x' }] } },
+    vocab: { ...one, 'pad-roles': { id: 'pad-roles', label: 'Pad roles', src: 'x', entries: [{ id: 'rail', label: 'Rail', src: 'x' }] }, families: { id: 'families', label: 'F', src: 'x', entries: [{ id: 'din', label: 'DIN', src: 'x' }] } },
     tags: { src: 'test', wires: { stock: { colourCode: 'mystery' } } },
   });
 

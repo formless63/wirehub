@@ -80,7 +80,7 @@ describe('<Pick>', () => {
   it('offers no Add row without a host that can add', async () => {
     render(<Harness list="families" />);
     fireEvent.keyDown(screen.getByRole('button', { name: 'Signal' }), { key: 'S' });
-    fireEvent.change(await screen.findByRole('combobox', { name: /^filter/ }), { target: { value: 'S-Video' } });
-    expect(screen.queryByText(/Add ‘S-Video’/)).toBeNull();
+    fireEvent.change(await screen.findByRole('combobox', { name: /^filter/ }), { target: { value: 'Spare tag' } });
+    expect(screen.queryByText(/Add ‘Spare tag’/)).toBeNull();
   });
 });

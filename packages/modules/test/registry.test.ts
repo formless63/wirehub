@@ -68,22 +68,22 @@ describe('module registry', () => {
 });
 
 describe('domain modules', () => {
-  const video = defineModule({
-    id: 'video',
-    label: 'Video',
+  const bus = defineModule({
+    id: 'bus',
+    label: 'Bus',
     version: '0.1.0',
-    setup: { kind: 'domain', description: 'Video signals and connectors.', suggested: true },
-    catalogPacks: [{ id: 'video', label: 'Video', version: '0.1.0', root: 'file:///packs/video/' }],
+    setup: { kind: 'domain', description: 'Bus signals and connectors.', suggested: true },
+    catalogPacks: [{ id: 'bus', label: 'Bus', version: '0.1.0', root: 'file:///packs/bus/' }],
   });
 
   it('lists the optional domain modules setup offers, and only those', () => {
-    const registry = createRegistry([example, video]);
-    expect(registry.domains().map((m) => m.id)).toEqual(['video']);
+    const registry = createRegistry([example, bus]);
+    expect(registry.domains().map((m) => m.id)).toEqual(['bus']);
   });
 
   it('refuses a domain module with nothing to install', () => {
-    const { catalogPacks: _packs, ...empty } = video;
-    expect(manifestProblems([empty])).toEqual(["domain module 'video' ships no catalog pack for setup to install"]);
+    const { catalogPacks: _packs, ...empty } = bus;
+    expect(manifestProblems([empty])).toEqual(["domain module 'bus' ships no catalog pack for setup to install"]);
   });
 });
 

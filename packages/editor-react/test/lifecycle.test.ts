@@ -51,10 +51,10 @@ describe('ids and names', () => {
   });
 
   it('suggests an id from what the user typed as the name', () => {
-    expect(slugify('Mixer (Main) → Stage, 75 Ω coax — csync')).toBe('mixer-main-stage-75-coax-csync');
+    expect(slugify('Panel (Main) → Rack, 75 Ω coax — sync')).toBe('panel-main-rack-75-coax-sync');
     expect(slugify('Café Studio')).toBe('cafe-studio');
     expect(slugify('   ')).toBe('');
-    expect(isDesignId(slugify('XLR → Mixer: hot!'))).toBe(true);
+    expect(isDesignId(slugify('DE-9 → Panel: live!'))).toBe(true);
   });
 
   it('steps around the ids already in use rather than suggesting a clash', () => {
@@ -209,12 +209,12 @@ describe('Duplicate', () => {
   it('copies every part and joint under the new name, leaving the original alone', async () => {
     const adapter = host();
     const result = await duplicateDesign(adapter, REAL.id, {
-      id: 'xlr-experiment',
-      label: 'XLR experiment',
+      id: 'de9-experiment',
+      label: 'DE-9 experiment',
     });
 
     expect(result.ok).toBe(true);
-    const copy = adapter.stored.get('xlr-experiment');
+    const copy = adapter.stored.get('de9-experiment');
     expect(copy?.joints).toEqual(REAL.joints);
     expect(copy?.instances).toEqual(REAL.instances);
     expect(copy?.src).toContain(`duplicated from design '${REAL.id}'`);
@@ -223,7 +223,7 @@ describe('Duplicate', () => {
 
   it('tells the host what it came from, so the host can open it', async () => {
     const adapter = host();
-    const result = await duplicateDesign(adapter, REAL.id, { id: 'xlr-copy', label: 'Copy' });
+    const result = await duplicateDesign(adapter, REAL.id, { id: 'de9-copy', label: 'Copy' });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.change).toMatchObject({ kind: 'duplicated', from: REAL.id });

@@ -39,7 +39,7 @@ import type { Outcome } from '../src/persistence.ts';
 export interface MemoryDefinitions extends DefinitionsAdapter {
   /** what is "on disk", per kind, in file order */
   stored: Map<DefinitionKind, DefinitionRecord[]>;
-  /** every call made, in order — `save:connectors/scart-male` */
+  /** every call made, in order — `save:connectors/de9-male` */
   calls: string[];
   /** the library as it now stands, the way `loadDb` assembles it */
   db(): Db;

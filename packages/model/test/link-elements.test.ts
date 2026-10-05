@@ -44,7 +44,7 @@ describe('parseVia', () => {
   });
 
   it('names only the parts in the path, never the ones the prose mentions', () => {
-    const link = { via: 'JP2 0 Ω (bridged — CSync (JP2 CS closed, JP1 CV open))' };
+    const link = { via: 'JP2 0 Ω (bridged — Option A (JP2 A closed, JP1 C open))' };
     expect(linkDesignators(link)).toEqual(['JP2']);
   });
 });

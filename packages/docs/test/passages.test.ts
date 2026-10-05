@@ -43,11 +43,11 @@ describe('parsePassageElement', () => {
   });
 
   it('reads silicon as active, whether or not it has a designator', () => {
-    expect(parsePassageElement('U201 LM1881 sync stripper').dc).toBe('active');
-    expect(parsePassageElement('U1 SN74AHCT1G125 sync buffer').dc).toBe('active');
+    expect(parsePassageElement('U201 LM393 level detector').dc).toBe('active');
+    expect(parsePassageElement('U1 SN74AHCT1G125 signal buffer').dc).toBe('active');
     expect(
       parsePassageElement(
-        'sync/mode-select combiner (74HC123PW monostable + 74HC2G00DP NAND + SN74AHCT86PWR XOR + 74HC1G32GW OR + JS202011CQN DPDT 15/31 kHz switch — BOM-only, not net-verified; modeled as a pass-through in 15 kHz/SCART strap mode pending schematic/bench confirmation)',
+        'mode-select combiner (74HC123PW monostable + 74HC2G00DP NAND + SN74AHCT86PWR XOR + 74HC1G32GW OR + JS202011CQN DPDT DPDT mode switch — BOM-only, not net-verified; modeled as a pass-through in strap mode pending schematic/bench confirmation)',
       ).dc,
     ).toBe('active');
   });
@@ -105,7 +105,7 @@ describe('pathBehaviour', () => {
 
   it('calls an LM1881 path active — regenerated, not conducted', () => {
     const behaviour = pathBehaviour(
-      [via('u2', 'C201 0.1 µF → U201 LM1881 sync stripper → R202 470 Ω')],
+      [via('u2', 'C201 0.1 µF → U201 LM393 level detector → R202 470 Ω')],
       db,
     );
     expect(behaviour.verdict).toBe('active');
@@ -117,7 +117,7 @@ describe('pathBehaviour', () => {
   });
 
   it('ranks active silicon above a blocking capacitor', () => {
-    const both = pathBehaviour([via('u1', 'C1 0.1 µF → U1 LM1881 sync stripper')], db);
+    const both = pathBehaviour([via('u1', 'C1 0.1 µF → U1 LM1881 level detector')], db);
     expect(both.verdict).toBe('active');
   });
 

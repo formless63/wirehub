@@ -71,7 +71,7 @@ describe('checkDefinition', () => {
   it('knows a usable id when it sees one', () => {
     expect(isDefinitionId('pca-00101-rev6-basic')).toBe(true);
     expect(isDefinitionId('cap-220uf-tant')).toBe(true);
-    expect(isDefinitionId('Scart_Male')).toBe(false);
+    expect(isDefinitionId('De9_Male')).toBe(false);
     expect(isDefinitionId('../etc/passwd')).toBe(false);
   });
 });
@@ -129,9 +129,9 @@ describe('createDefinition', () => {
 describe('deleteDefinition', () => {
   it('needs the id confirmed, and says so without asking the host', async () => {
     const adapter = host();
-    const result = await deleteDefinition(adapter, 'connectors', 'scart-male', 'scart');
+    const result = await deleteDefinition(adapter, 'connectors', 'de9-male', 'de9');
     expect(result.ok).toBe(false);
-    expect(result.ok === false && result.problem.hint).toContain('scart-male');
+    expect(result.ok === false && result.problem.hint).toContain('de9-male');
     expect(adapter.calls).toEqual([]);
   });
 
@@ -164,7 +164,7 @@ describe('the caution line', () => {
   it('counts designs and other definitions separately, in words', () => {
     const sentence = usageSentence({
       kind: 'connectors',
-      id: 'scart-male',
+      id: 'de9-male',
       designs: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }],
       definitions: ['pcbas/x'],
       count: 3,

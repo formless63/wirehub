@@ -27,7 +27,7 @@ import type { Diagram } from '../src/model.ts';
  * ------------------------------------------------------------------ */
 
 /**
- * A 3.5 mm TRS plug, shaped like the catalog's `trs-3-5mm`: tip / ring /
+ * A 3-contact plug: tip / ring /
  * sleeve, with the sleeve bonding both channel shields.
  */
 const PLUG: ConnectorDefinition = {
@@ -36,8 +36,8 @@ const PLUG: ConnectorDefinition = {
   family: 'test',
   gender: 'male',
   pins: [
-    { id: 'tip', label: 'Audio L' },
-    { id: 'ring', label: 'Audio R' },
+    { id: 'tip', label: 'Channel A' },
+    { id: 'ring', label: 'Channel B' },
     { id: 'sleeve', label: 'Ground / shield' },
   ],
   src: 'synthetic fixture for',
@@ -58,7 +58,7 @@ const SINK: ConnectorDefinition = {
 };
 
 /**
- * A 2-core shielded whip, shaped like the catalog's `audio-whip-2core`: two
+ * A 2-core shielded whip, two
  * shielded-core groups, so the band carries **four** electrical tracks against
  * the plug's **three** pin rows. That mismatch is the whole point — port rows
  * are pitched at `portPitch` (6.5 mm) and tracks at `trackPitch` (7 mm), and
@@ -76,23 +76,23 @@ const WHIP: WireDefinition = {
       {
         kind: 'group',
         id: 'left',
-        label: 'Audio L shielded core',
+        label: 'Pair A shielded core',
         role: 'shielded-core',
         children: [
-          { kind: 'conductor', id: 'center', label: 'Audio L centre', color: 'white' },
+          { kind: 'conductor', id: 'center', label: 'Pair A centre', color: 'white' },
           { kind: 'insulation', id: 'insulation', label: 'Core insulation' },
-          { kind: 'shield', id: 'shield', label: 'Audio L shield', construction: 'spiral' },
+          { kind: 'shield', id: 'shield', label: 'Pair A shield', construction: 'spiral' },
         ],
       },
       {
         kind: 'group',
         id: 'right',
-        label: 'Audio R shielded core',
+        label: 'Pair B shielded core',
         role: 'shielded-core',
         children: [
-          { kind: 'conductor', id: 'center', label: 'Audio R centre', color: 'red' },
+          { kind: 'conductor', id: 'center', label: 'Pair B centre', color: 'red' },
           { kind: 'insulation', id: 'insulation', label: 'Core insulation' },
-          { kind: 'shield', id: 'shield', label: 'Audio R shield', construction: 'spiral' },
+          { kind: 'shield', id: 'shield', label: 'Pair B shield', construction: 'spiral' },
         ],
       },
     ],

@@ -29,7 +29,7 @@ import {
 describe('nextInstanceId', () => {
   it('assigns the per-kind prefix, next free number', () => {
     const design = loadDesign('de9-terminal-board');
-    expect(nextInstanceId(design, 'connector', 'rca-male')).toMatch(/^j\d+$/);
+    expect(nextInstanceId(design, 'connector', 'jst-xh-male')).toMatch(/^j\d+$/);
     expect(nextInstanceId(design, 'segment', 'cat5e-utp')).toBe('w2');
     expect(nextInstanceId(design, 'pcba', 'anything')).toBe('u2');
   });
@@ -48,15 +48,15 @@ describe('nextInstanceId', () => {
       ...design.instances.components.map((i) => i.id),
       ...design.instances.pcbas.map((i) => i.id),
     ]);
-    expect(taken.has(nextInstanceId(design, 'connector', 'rca-male'))).toBe(false);
+    expect(taken.has(nextInstanceId(design, 'connector', 'jst-xh-male'))).toBe(false);
   });
 });
 
 describe('addInstance', () => {
   it('appends the instance to its own list and leaves the rest untouched', () => {
     const design = loadDesign('de9-terminal-board');
-    const next = addInstance(design, 'connector', 'rca-male', 'j99');
-    expect(next.instances.connectors.at(-1)).toEqual({ id: 'j99', def: 'rca-male' });
+    const next = addInstance(design, 'connector', 'jst-xh-male', 'j99');
+    expect(next.instances.connectors.at(-1)).toEqual({ id: 'j99', def: 'jst-xh-male' });
     expect(next.instances.segments).toBe(design.instances.segments);
     expect(next.instances.components).toBe(design.instances.components);
     expect(next.instances.pcbas).toBe(design.instances.pcbas);

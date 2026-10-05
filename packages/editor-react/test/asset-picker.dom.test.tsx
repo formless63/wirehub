@@ -17,21 +17,21 @@ import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 
 afterEach(cleanup);
 
-const SCART: SharedAsset = {
-  id: 'sha-scart',
+const DE9: SharedAsset = {
+  id: 'sha-de9',
   mime: 'image/jpeg',
-  originalName: 'scart-connector.jpg',
+  originalName: 'de9-connector.jpg',
   src: 'Photographed on the bench.',
   bytes: 2048,
-  dataUri: 'data:image/jpeg;base64,c2NhcnQ=',
+  dataUri: 'data:image/jpeg;base64,ZGU5',
 };
-const HDMI: SharedAsset = {
-  id: 'sha-hdmi',
+const JST: SharedAsset = {
+  id: 'sha-jst',
   mime: 'image/png',
-  originalName: 'hdmi-cable.png',
+  originalName: 'jst-lead.png',
   src: 'Vendor product page.',
   bytes: 4096,
-  dataUri: 'data:image/png;base64,aGRtaQ==',
+  dataUri: 'data:image/png;base64,anN0',
 };
 
 function stubAssets(assets: SharedAsset[]): AssetsAdapter & { noted: string[] } {
@@ -46,20 +46,20 @@ function stubAssets(assets: SharedAsset[]): AssetsAdapter & { noted: string[] } 
 
 describe('<AssetPicker>', () => {
   it('lists every asset, filters by search, and picking one calls onPick and noteUsed', async () => {
-    const adapter = stubAssets([SCART, HDMI]);
+    const adapter = stubAssets([DE9, JST]);
     const onPick = vi.fn();
     render(<AssetPicker assets={adapter} onPick={onPick} onClose={() => {}} />);
 
-    expect(await screen.findByText('scart-connector.jpg')).toBeTruthy();
-    expect(screen.getByText('hdmi-cable.png')).toBeTruthy();
+    expect(await screen.findByText('de9-connector.jpg')).toBeTruthy();
+    expect(screen.getByText('jst-lead.png')).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText('Search assets'), { target: { value: 'hdmi' } });
-    expect(screen.queryByText('scart-connector.jpg')).toBeNull();
-    expect(screen.getByText('hdmi-cable.png')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Search assets'), { target: { value: 'jst' } });
+    expect(screen.queryByText('de9-connector.jpg')).toBeNull();
+    expect(screen.getByText('jst-lead.png')).toBeTruthy();
 
-    fireEvent.click(screen.getByTitle(`${HDMI.originalName} — ${HDMI.src}`));
-    expect(onPick).toHaveBeenCalledWith(HDMI);
-    expect(adapter.noted).toEqual([HDMI.id]);
+    fireEvent.click(screen.getByTitle(`${JST.originalName} — ${JST.src}`));
+    expect(onPick).toHaveBeenCalledWith(JST);
+    expect(adapter.noted).toEqual([JST.id]);
   });
 
   it('says so in plain words when the list comes back empty', async () => {
@@ -75,11 +75,11 @@ describe('<AssetPicker>', () => {
   });
 
   it('Cancel closes without picking anything', async () => {
-    const adapter = stubAssets([SCART]);
+    const adapter = stubAssets([DE9]);
     const onPick = vi.fn();
     const onClose = vi.fn();
     render(<AssetPicker assets={adapter} onPick={onPick} onClose={onClose} />);
-    await screen.findByText('scart-connector.jpg');
+    await screen.findByText('de9-connector.jpg');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onPick).not.toHaveBeenCalled();
@@ -91,7 +91,7 @@ describe('the drawing sheet photo field, with a shared asset library', () => {
   const design: CableDesign = loadDesignFromDisk('de9-terminal-board');
 
   it('offers "Choose from library…", and picking an asset drives the same preview an upload would', async () => {
-    const adapter = stubAssets([SCART]);
+    const adapter = stubAssets([DE9]);
     const drawings = {
       load: async () => ({ ok: true as const, value: { meta: {} } }),
       save: async (id: string, meta: unknown) => ({ ok: true as const, value: meta as never }),
@@ -104,9 +104,9 @@ describe('the drawing sheet photo field, with a shared asset library', () => {
     await screen.findByText('Title block, lengths & photo');
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose from library…' }));
-    await screen.findByText('scart-connector.jpg');
+    await screen.findByText('de9-connector.jpg');
 
-    fireEvent.click(screen.getByTitle(`${SCART.originalName} — ${SCART.src}`));
+    fireEvent.click(screen.getByTitle(`${DE9.originalName} — ${DE9.src}`));
 
     // the picker closes, the field now shows a photo is set, and Save is
     // live — exactly what a fresh upload would have done via `onPhoto`

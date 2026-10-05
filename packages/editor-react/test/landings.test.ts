@@ -9,7 +9,7 @@
  * "Outward" is the catalog's `approach` (the pad's long axis, pointed off the
  * board by the Edge.Cuts outline), turned and mirrored exactly as the pad is.
  * A pad the board file gives no axis for (a round/square pad — a bodge pad,
- * or the SCART family's V+/GND squares, whose rotation alone names an angle)
+ * or a family's V+/GND squares, whose rotation alone names an angle)
  * has no outward direction of its own; it is held to the no-crossing half
  * only. Stub edges (a mounted connector's shell legs) are not wires
  * and come in from the connector's side; they are left out.

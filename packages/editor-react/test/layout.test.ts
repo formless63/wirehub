@@ -39,7 +39,7 @@ function rectsOf(design: CableDesign, positions?: Record<string, { x: number; y:
 describe('text metrics', () => {
   it('grows with the string and scales with the size', () => {
     expect(textWidth('mmmm', 10)).toBeGreaterThan(textWidth('ii', 10));
-    expect(textWidth('SCART', 20)).toBeCloseTo(textWidth('SCART', 10) * 2, 5);
+    expect(textWidth('DE-9', 20)).toBeCloseTo(textWidth('DE-9', 10) * 2, 5);
     expect(textWidth('', 10)).toBe(0);
   });
 });
@@ -60,7 +60,7 @@ describe('node sizes', () => {
         // wireNodeSize) — estimateNodeSize deliberately returns before the
         // headroom clamp for these, so the clamp is only a promise about the
         // generic pin-list/pad-list fallback row a part with no artwork
-        // draws. audio-lead-trs-straight / audio-lead-trs-ra's long labels
+        // draws. a pack's long-label wire heads' long labels
         // are the first real-art wire heads wide enough
         // to show the difference.
         const hasArt =

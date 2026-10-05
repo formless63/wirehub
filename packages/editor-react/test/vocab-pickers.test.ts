@@ -43,8 +43,8 @@ describe('the mapping carries tags and unknown fields', () => {
       ...(db.connectors[0] as ConnectorDefinition),
       body: 'din8-270',
       pins: [
-        { id: '1', label: 'Red', signal: 'video-r' },
-        { id: '2', label: 'Sync', signal: { oneOf: ['csync', 'cvbs'] }, confidence: 'measured' },
+        { id: '1', label: 'Anode', signal: 'led-anode' },
+        { id: '2', label: 'Supply', signal: { oneOf: ['pwr-5v', 'pwr-12v'] }, confidence: 'measured' },
       ],
     } as ConnectorDefinition;
     const back = connectorOf(connectorDraftOf(connector));
@@ -139,8 +139,8 @@ describe('the component journey', () => {
 describe('vocab options', () => {
 
   it('holds a one-of signal as text and back', () => {
-    expect(signalText({ oneOf: ['cvbs', 'csync'] })).toBe('cvbs|csync');
-    expect(signalRefOf('cvbs|csync')).toEqual({ oneOf: ['cvbs', 'csync'] });
+    expect(signalText({ oneOf: ['pwr-12v', 'pwr-5v'] })).toBe('pwr-12v|pwr-5v');
+    expect(signalRefOf('pwr-12v|pwr-5v')).toEqual({ oneOf: ['pwr-12v', 'pwr-5v'] });
     expect(signalRefOf('gnd')).toBe('gnd');
     expect(signalRefOf('')).toBeUndefined();
   });
