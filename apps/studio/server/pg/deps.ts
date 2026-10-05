@@ -26,7 +26,8 @@ import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
 import { pgModelCache } from './model-cache.ts';
 import { pgSetupDeps } from './setup.ts';
-import { emptyDepictionStore, setupModeDeps } from './setup-mode.ts';
+import { claimSetupDeps, emptyDepictionStore, ownerCount, setupModeDeps } from './setup-mode.ts';
+import { authRequested } from '../auth/config.ts';
 import type { StudioAuth } from '../auth/studio-auth.ts';
 import { parseSuggestedModules } from '../setup.ts';
 import { pgLockStore } from './locks.ts';
@@ -179,6 +180,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     const depictionDeps = {} as DepictionDeps;
     const events = deliveredEventHub();
     let current: SnapshotCache | undefined;
+    let claimPending = false;
     let auth: StudioAuth | undefined;
     const suggested = parseSuggestedModules(env.WIREHUB_SUGGESTED_MODULES);
 
@@ -201,6 +203,25 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
         ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
         ...(suggested === undefined ? {} : { suggested }),
       });
+      // an org nobody owns yet (a file deployment the migrate step adopted) with sign-in on: the first
+      // admin is claimed at /setup with the setup code; until then the hub stays in setup mode
+      if (authRequested(env) && (await ownerCount(handle.db, id)) === 0) {
+        claimPending = true;
+        const realSetup = real.setup;
+        real.setupMode = () => claimPending;
+        real.setup = claimSetupDeps({
+          db: handle.db,
+          orgId: id,
+          base: realSetup,
+          ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
+          auth: () => auth,
+          done: () => {
+            claimPending = false;
+            delete deps.setupMode;
+            deps.setup = realSetup;
+          },
+        });
+      }
       for (const key of Object.keys(deps)) delete (deps as unknown as Record<string, unknown>)[key];
       Object.assign(deps, real);
       Object.assign(depictionDeps, { store: real.depictions as DepictionStore, loadDb: real.loadDb, loadDesigns: async () => (await cache.get()).catalog.loadDesigns() });
@@ -235,7 +256,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       deps,
       depictionDeps,
       orgId: () => orgId,
-      setupMode: () => current === undefined,
+      setupMode: () => current === undefined || claimPending,
       attachAuth: (value) => {
         auth = value;
       },

@@ -39,13 +39,14 @@ export interface SetupView {
    * the admin signs in: an email + password made here, the identity
    * provider, or no sign-in at all.
    */
-  create?: { catalogs: ('starter' | 'empty')[]; admin: 'password' | 'oidc' | 'none'; minPassword: number };
+  create?: { catalogs: ('starter' | 'empty')[]; admin: 'password' | 'oidc' | 'none'; minPassword: number; claim?: boolean };
 }
 
 /** What first-run setup creates on a hub with no organisation. */
 export interface SetupCreate {
-  org: { name: string; slug: string };
-  catalog: 'starter' | 'empty';
+  /** absent when the organisation exists and only its first admin is made (`create.claim`) */
+  org?: { name: string; slug: string };
+  catalog?: 'starter' | 'empty';
   admin?: { name: string; email: string; password?: string };
 }
 

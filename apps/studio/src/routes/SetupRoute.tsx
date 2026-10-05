@@ -66,7 +66,7 @@ export function SetupRoute(): JSX.Element {
       [...picked],
       '/api',
       view?.codeRequired === true ? code : undefined,
-      create === undefined ? undefined : { org: { name: orgName.trim(), slug: slug.trim() }, catalog, ...(admin === undefined ? {} : { admin }) },
+      create === undefined ? undefined : { ...(create.claim === true ? {} : { org: { name: orgName.trim(), slug: slug.trim() }, catalog }), ...(admin === undefined ? {} : { admin }) },
     );
     if (!out.ok) {
       setBusy(false);
@@ -115,6 +115,9 @@ export function SetupRoute(): JSX.Element {
           <>
             {view.create === undefined ? null : (
               <>
+                {view.create.claim === true ? (
+                  <p className="m-0 text-[13px] text-dim">This hub's catalog came over from its file storage. Make its first admin to finish.</p>
+                ) : (
                 <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
                   <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Organisation</legend>
                   <label className="flex flex-col gap-1 text-[12px] text-dim">
@@ -144,6 +147,7 @@ export function SetupRoute(): JSX.Element {
                     />
                   </label>
                 </fieldset>
+                )}
                 <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
                   <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Admin</legend>
                   {view.create.admin === 'none' ? (
@@ -169,6 +173,7 @@ export function SetupRoute(): JSX.Element {
                     </label>
                   ) : null}
                 </fieldset>
+                {view.create.claim === true ? null : (
                 <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
                   <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Catalog</legend>
                   <label className="flex items-start gap-2 text-[13px] text-ink">
@@ -184,6 +189,7 @@ export function SetupRoute(): JSX.Element {
                     </span>
                   </label>
                 </fieldset>
+                )}
               </>
             )}
 
@@ -264,7 +270,7 @@ export function SetupRoute(): JSX.Element {
                   busy ||
                   (view.codeRequired === true && code.trim() === '') ||
                   (view.create !== undefined &&
-                    (orgName.trim() === '' || slug.trim() === '' || (view.create.admin !== 'none' && (adminName.trim() === '' || adminEmail.trim() === '')) || (view.create.admin === 'password' && password.length < view.create.minPassword)))
+                    ((view.create.claim !== true && (orgName.trim() === '' || slug.trim() === '')) || (view.create.admin !== 'none' && (adminName.trim() === '' || adminEmail.trim() === '')) || (view.create.admin === 'password' && password.length < view.create.minPassword)))
                 }
                 onClick={() => void submit()}
               >

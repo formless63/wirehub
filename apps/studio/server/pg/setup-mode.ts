@@ -200,3 +200,62 @@ async function removeOrg(db: Db, orgId: string): Promise<void> {
     await sql`DELETE FROM studio.org WHERE id = ${orgId}::uuid`.execute(tx);
   });
 }
+
+/** Owners of an org who may still sign in. */
+export async function ownerCount(db: Db, orgId: string): Promise<number> {
+  return inOrg(db, orgId, async (tx) => Number((await sql<{ n: string }>`SELECT count(*)::text AS n FROM studio.person WHERE role = 'owner' AND disabled_at IS NULL`.execute(tx)).rows[0]?.n ?? 0));
+}
+
+export interface ClaimOptions {
+  db: Db;
+  orgId: string;
+  /** the org's ordinary setup (domains, setup.json) */
+  base: SetupDeps | undefined;
+  code?: string;
+  auth: () => StudioAuth | undefined;
+  /** the admin exists: leave setup mode */
+  done: () => void;
+}
+
+/**
+ * An organisation with sign-in on and no owner (a file deployment the
+ * migrate step adopted): `/setup` asks for the setup code and makes the
+ * first admin; every other route waits (503) until then.
+ */
+export function claimSetupDeps(options: ClaimOptions): SetupDeps {
+  return {
+    dataDir: '',
+    prompt: true,
+    now: () => new Date().toISOString(),
+    ...(options.code === undefined ? {} : { code: options.code }),
+    create: async (request) => {
+      const method = request.method.toUpperCase();
+      const auth = options.auth();
+      const mode = adminMode(auth);
+      if (method === 'GET') {
+        const base = options.base === undefined ? undefined : await handleSetupRequest({ method: 'GET' }, options.base, registry);
+        return json(200, {
+          ...((base?.body as object | undefined) ?? { domains: [], suggestions: [] }),
+          needed: true,
+          completed: false,
+          codeRequired: options.code !== undefined,
+          create: { claim: true, catalogs: [], admin: mode, minPassword: MIN_PASSWORD },
+        });
+      }
+      if (method !== 'POST') return refuse(405, `${method} is not something this address accepts.`, 'It answers GET and POST.');
+      const body = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as { code?: unknown; admin?: { name?: unknown; email?: unknown; password?: unknown } };
+      if (options.code !== undefined && !codeMatches(options.code, body.code)) return refuse(403, body.code === undefined || body.code === '' ? 'Enter the setup code.' : 'That is not the setup code.');
+      const name = typeof body.admin?.name === 'string' ? body.admin.name.trim() : '';
+      const email = typeof body.admin?.email === 'string' ? body.admin.email.trim().toLowerCase() : '';
+      const password = typeof body.admin?.password === 'string' ? body.admin.password : '';
+      if (name === '') return refuse(400, 'Give the admin a name.');
+      if (!EMAIL.test(email)) return refuse(400, `${JSON.stringify(email)} is not an email address.`);
+      if (mode === 'password' && password.length < MIN_PASSWORD) return refuse(400, `The admin's password needs ${MIN_PASSWORD} characters or more.`);
+      await pgPeople(options.db, options.orgId).ensurePerson(email, name, 'owner');
+      await inOrg(options.db, options.orgId, async (tx) => void (await sql`UPDATE studio.person SET role = 'owner', disabled_at = NULL WHERE email = ${email}`.execute(tx)));
+      if (mode === 'password' && auth?.createAccount !== undefined) await auth.createAccount(email, name, password);
+      options.done();
+      return json(200, { needed: false, completed: true, domains: [], suggestions: [], created: { org: null, admin: email, signIn: mode } });
+    },
+  };
+}

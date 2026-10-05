@@ -6,6 +6,7 @@
  *   pnpm --filter studio db:migrate                   every pending migration (DATABASE_OWNER_URL)
  *   pnpm --filter studio pg:import --from <dir> --org <slug> [--create-org] [--name <org name>] [--dry-run] [--if-empty]
  *   pnpm --filter studio pg:export --out <dir> [--with-blobs]
+ *   cli.ts adopt --from <dir> --packs <dir> --starter <pristine data dir>   the compose migrate step
  *   pnpm --filter studio pg:gate --from <dir>         the S1 gate: files vs the database
  *
  * `--packs <dir>` (default WIREHUB_PACKS_DIR): a file deployment's installed
@@ -33,6 +34,7 @@ import { catalogHeadVersion, openPg, resolveOrgId } from './db.ts';
 import { writeExport } from './export.ts';
 import { formatGateReport, runGate } from './gate.ts';
 import { ImportError, importCatalog } from './import.ts';
+import { adoptFileCatalog } from './adopt.ts';
 import { migrateToLatest } from './migrate.ts';
 import { SnapshotCache } from './snapshot.ts';
 
@@ -107,6 +109,33 @@ async function importCommand(args: string[]): Promise<void> {
     await handle.close();
   }
 }
+/**
+ * `adopt`: the compose stack's migrate step. On a database with no org yet,
+ * a file deployment that was in use (its first-run setup completed, or its
+ * catalog differs from the pristine starter the image carries) is imported as
+ * the org `main`, its packs flattened in; a fresh install is left for
+ * first-run setup to create (plan §9.1). Does nothing once any org exists.
+ */
+async function adoptCommand(args: string[]): Promise<void> {
+  const { values } = parseArgs({ args, options: { from: { type: 'string' }, packs: { type: 'string' }, starter: { type: 'string' }, org: { type: 'string' }, name: { type: 'string' } } });
+  const packs = values.packs ?? (env.WIREHUB_PACKS_DIR?.trim() || undefined);
+  const handle = openPg(pgAppConfigFromEnv(env).url, { max: 2, applicationName: 'wirehub-adopt' });
+  try {
+    const store = blobs();
+    const outcome = await adoptFileCatalog(handle.db, {
+      root: from(values.from ?? dataPath('..')),
+      ...(packs === undefined ? {} : { packs: from(packs) }),
+      ...(values.starter === undefined ? {} : { starter: from(values.starter) }),
+      ...(values.org === undefined ? {} : { org: values.org }),
+      ...(values.name === undefined ? {} : { name: values.name }),
+      ...(store === undefined ? {} : { blobs: store }),
+    });
+    log(`adopt: ${outcome.message}`);
+  } finally {
+    await handle.close();
+  }
+}
+
 async function exportCommand(args: string[]): Promise<void> {
   const { values } = parseArgs({ args, options: { out: { type: 'string' }, 'with-blobs': { type: 'boolean' } } });
   if (values.out === undefined) throw new PgConfigError('pg:export needs --out <dir>.');
@@ -163,6 +192,9 @@ try {
       break;
     case 'export':
       await exportCommand(rest);
+      break;
+    case 'adopt':
+      await adoptCommand(rest);
       break;
     case 'gate':
       if (!(await gateCommand(rest))) process.exitCode = 1;
