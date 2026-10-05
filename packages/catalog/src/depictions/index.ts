@@ -116,6 +116,7 @@ export {
   pngSize,
   prepareDepictionImport,
   sanitizeSvgBody,
+  stripUnsafeSvg,
 } from './import.ts';
 export type {
   DepictionImportPlan,
