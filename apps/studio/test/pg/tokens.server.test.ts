@@ -26,7 +26,7 @@ import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { createStandaloneApp } from '../../server/standalone-app.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 const BASE = 'http://studio.test';
 
@@ -52,7 +52,7 @@ describePg('personal API tokens', () => {
     work = mkdtempSync(join(tmpdir(), 'wirehub-pg-tokens-'));
     mkdirSync(join(work, 'dist'));
     writeFileSync(join(work, 'dist', 'index.html'), '<!doctype html><title>studio</title>');
-    orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) })).orgId;
+    orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() })).orgId;
     const people = pgPeople(pgh.db, orgId);
     editor = await people.ensurePerson('ed@example.test', 'Ed Editor', 'editor');
     viewer = await people.ensurePerson('vi@example.test', 'Vi Viewer', 'viewer');

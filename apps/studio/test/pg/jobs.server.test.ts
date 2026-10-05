@@ -18,11 +18,12 @@ import { sql } from 'kysely';
 import pg from 'pg';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 const work = mkdtempSync(join(tmpdir(), 'wirehub-pg-jobs-'));
 const catalogPackage = fileURLToPath(new URL('../../../../packages/catalog', import.meta.url));
 cpSync(join(catalogPackage, 'data'), join(work, 'catalog', 'data'), { recursive: true });
+cpSync(join(catalogPackage, 'depictions'), join(work, 'catalog', 'depictions'), { recursive: true });
 // the file side of the comparison edits this copy, never the repository
 process.env.WIREHUB_CATALOG_DIR = join(work, 'catalog', 'data');
 afterAll(() => {
@@ -65,7 +66,7 @@ describePg('jobs on Postgres', () => {
     const { pgWorkbenchDeps } = await import('../../server/pg/deps.ts');
     const { fsBlobStore } = await import('../../server/blobs.ts');
     const handle = openPg(db.appUrl, { max: 4 });
-    const { orgId } = await importCatalog(handle.db, { org: { slug, create: true }, files: readCatalogTree(catalogPackage) });
+    const { orgId } = await importCatalog(handle.db, { org: { slug, create: true }, files: readCatalogTree(catalogPackage), blobs: testBlobs() });
     const blobs = fsBlobStore(join(work, `blobs-${slug}`));
     const cache = new SnapshotCache(handle.db, orgId, { reuseMs: 0 });
     const deps = pgWorkbenchDeps({ cache, db: handle.db, blobs });

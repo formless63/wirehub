@@ -14,10 +14,14 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import pg from 'pg';
 import { describe } from 'vitest';
 
+import { fsBlobStore, type BlobStore } from '../../server/blobs.ts';
 import { bootstrapDatabase } from '../../server/pg/bootstrap.ts';
 import { openPg } from '../../server/pg/db.ts';
 import { migrateToLatest, migrationFiles } from '../../server/pg/migrate.ts';
@@ -114,4 +118,19 @@ export async function freshDatabase(): Promise<TestDatabase> {
     roUrl: urlFor(base, name, { name: 'studio_ro', password: PASSWORDS.ro }),
     drop: () => withAdmin(async (admin) => void (await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`))),
   };
+}
+
+/**
+ * A blob store shared by the whole test process (a temporary directory, removed at exit): the starter
+ * catalog holds binary files (depiction art), so an import and the stores that serve it need somewhere
+ * to put them — as a deployment's `WIREHUB_BLOBS` is.
+ */
+let sharedBlobs: BlobStore | undefined;
+export function testBlobs(): BlobStore {
+  if (sharedBlobs === undefined) {
+    const dir = mkdtempSync(join(tmpdir(), 'wirehub-pg-test-blobs-'));
+    process.on('exit', () => rmSync(dir, { recursive: true, force: true }));
+    sharedBlobs = fsBlobStore(dir);
+  }
+  return sharedBlobs;
 }

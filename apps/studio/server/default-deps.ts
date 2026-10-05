@@ -42,6 +42,7 @@ import { fileDocStore } from './storage/doc-store.ts';
 import { checkoutPacksDir } from './env.ts';
 import { parseSuggestedModules } from './setup.ts';
 import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
+import { createHash } from 'node:crypto';
 import { exportTree } from './pg/export.ts';
 import { backendFromEnv, type Backend } from './pg/config.ts';
 import { baseJobHandlers } from './jobs/handlers.ts';
@@ -60,6 +61,23 @@ export interface DefaultDepsOptions {
   blobs?: BlobStore;
   /** the first-run setup code (`WIREHUB_SETUP_CODE`, or one `serve.ts` made up); absent: none asked */
   setupCode?: string;
+}
+
+const DEPICTION_MEDIA: Readonly<Record<string, string>> = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+
+/**
+ * A depiction file (the base's `depictions/`, a pack's) by content address:
+ * the database backend serves every binary file of the catalog from its blob
+ * store, so the file backend answers for the same set (S1).
+ */
+function depictionBlob(sha: string, packsDir: string | undefined): { bytes: Uint8Array; mediaType: string } | undefined {
+  for (const [path, content] of readFlattenedCatalog(dataPath('..'), packsDir)) {
+    if (typeof content === 'string' || !path.startsWith('depictions/')) continue;
+    const bytes = content as Uint8Array;
+    if (createHash('sha256').update(bytes).digest('hex') !== sha) continue;
+    return { bytes: new Uint8Array(bytes), mediaType: DEPICTION_MEDIA[path.slice(path.lastIndexOf('.') + 1)] ?? 'application/octet-stream' };
+  }
+  return undefined;
 }
 
 export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): WorkbenchDeps {
@@ -105,7 +123,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     // GET /api/blobs/:sha: the file backend's content-addressed files are its uploads
     blob: async (sha) => {
       const found = await assets.get(sha);
-      return found === undefined ? undefined : { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime };
+      if (found !== undefined) return { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime };
+      return depictionBlob(sha, livePacksDir());
     },
     // GET /api/export: the catalog's text files, the same shape the database backend answers
     exportCatalog: async () => exportTree(readFlattenedCatalog(dataPath('..'), livePacksDir()), fileCatalogVersion(dataPath(''))),

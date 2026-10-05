@@ -25,7 +25,7 @@ import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { createStandaloneApp } from '../../server/standalone-app.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 const BASE = 'http://studio.test';
 const OWNER = 'owner@example.test';
@@ -61,7 +61,7 @@ describePg('auth on Postgres', () => {
     work = mkdtempSync(join(tmpdir(), 'wirehub-pg-auth-'));
     mkdirSync(join(work, 'dist'));
     writeFileSync(join(work, 'dist', 'index.html'), '<!doctype html><title>studio</title>');
-    orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) })).orgId;
+    orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() })).orgId;
     const config = readAuthConfig({
       AUTH_ENABLED: 'true',
       BETTER_AUTH_SECRET: 'test-only-secret-test-only-secret-0123456789',

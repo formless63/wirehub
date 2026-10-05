@@ -19,7 +19,7 @@ import { editLockLayer } from '../../server/locks/lock-api.ts';
 import { openPg } from '../../server/pg/db.ts';
 import { openPgBackend, type PgBackend } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 describePg('two processes, one database', () => {
   let database: TestDatabase;
@@ -29,7 +29,7 @@ describePg('two processes, one database', () => {
   beforeAll(async () => {
     database = await freshDatabase();
     const setup = openPg(database.appUrl, { max: 1 });
-    await importCatalog(setup.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) });
+    await importCatalog(setup.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
     await setup.close();
     work = mkdtempSync(join(tmpdir(), 'wirehub-pg-events-'));
     const blobs = fsBlobStore(join(work, 'blobs'));

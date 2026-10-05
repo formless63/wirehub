@@ -28,7 +28,7 @@ import { pgLockStore } from '../../server/pg/locks.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { createStandaloneApp } from '../../server/standalone-app.ts';
 import { ApiClient, pull, push, type FetchLike } from '../../scripts/studio-api-lib.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 const BASE = 'http://studio.test';
 
@@ -52,7 +52,7 @@ describePg('studio-api against pg with a personal token', () => {
   }, 60_000);
 
   it('pulls, pushes one change set as the person, leases, and refuses what it should', async () => {
-    const orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) })).orgId;
+    const orgId = (await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() })).orgId;
     const people = pgPeople(pgh.db, orgId);
     const ed = await people.ensurePerson('ed@example.test', 'Ed Editor', 'editor');
     const viewer = await people.ensurePerson('vi@example.test', 'Vi Viewer', 'viewer');
