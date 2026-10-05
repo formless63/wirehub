@@ -96,38 +96,38 @@ export function pgPeople(db: Db, orgId: string, options: { now?: () => Date } = 
     async createInvitation({ email, role, invitedBy, days }) {
       const token = randomBytes(32).toString('base64url');
       const expires = new Date(now().getTime() + (days ?? 7) * 86_400_000);
-      const row = (
+      const row = await inOrg(db, orgId, async (tx) => (
         await sql<InvitationRow>`
           INSERT INTO auth.invitation (org_id, email, role, token_sha256, invited_by, expires_at)
           VALUES (${orgId}::uuid, ${email.toLowerCase()}, ${role}, ${sha(token)}, ${invitedBy}::uuid, ${expires.toISOString()}::timestamptz)
-          RETURNING id::text AS id, email, role, expires_at, accepted_at, created_at`.execute(db)
-      ).rows[0] as InvitationRow;
+          RETURNING id::text AS id, email, role, expires_at, accepted_at, created_at`.execute(tx)
+      ).rows[0] as InvitationRow);
       return { invitation: invitationOf(row), token };
     },
 
     async invitationByToken(token) {
-      const row = (
+      const row = await inOrg(db, orgId, async (tx) => (
         await sql<InvitationRow>`
           SELECT id::text AS id, email, role, expires_at, accepted_at, created_at FROM auth.invitation
-           WHERE org_id = ${orgId}::uuid AND token_sha256 = ${sha(token)} AND accepted_at IS NULL AND expires_at > ${now().toISOString()}::timestamptz`.execute(db)
-      ).rows[0];
+           WHERE org_id = ${orgId}::uuid AND token_sha256 = ${sha(token)} AND accepted_at IS NULL AND expires_at > ${now().toISOString()}::timestamptz`.execute(tx)
+      ).rows[0]);
       return row === undefined ? undefined : invitationOf(row);
     },
 
     async markAccepted(id) {
-      await sql`UPDATE auth.invitation SET accepted_at = now() WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid`.execute(db);
+      await inOrg(db, orgId, async (tx) => void (await sql`UPDATE auth.invitation SET accepted_at = now() WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid`.execute(tx)));
     },
 
     async listInvitations() {
-      return (
+      return inOrg(db, orgId, async (tx) => (
         await sql<InvitationRow>`
           SELECT id::text AS id, email, role, expires_at, accepted_at, created_at FROM auth.invitation
-           WHERE org_id = ${orgId}::uuid ORDER BY created_at DESC`.execute(db)
-      ).rows.map(invitationOf);
+           WHERE org_id = ${orgId}::uuid ORDER BY created_at DESC`.execute(tx)
+      ).rows.map(invitationOf));
     },
 
     async revokeInvitation(id) {
-      const result = await sql`DELETE FROM auth.invitation WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid AND accepted_at IS NULL`.execute(db);
+      const result = await inOrg(db, orgId, (tx) => sql`DELETE FROM auth.invitation WHERE id = ${id}::uuid AND org_id = ${orgId}::uuid AND accepted_at IS NULL`.execute(tx));
       return Number(result.numAffectedRows ?? 0) > 0;
     },
   };

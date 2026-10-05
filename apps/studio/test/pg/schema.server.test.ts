@@ -20,7 +20,7 @@ describe('migration files', () => {
   it('are pinned by CHECKSUMS (a released migration is never edited)', () => {
     const sums = readChecksums();
     const files = migrationFiles();
-    expect(files.length).toBeGreaterThanOrEqual(14);
+    expect(files.length).toBeGreaterThanOrEqual(15);
     expect(Object.fromEntries(files.map((f) => [f.name, f.sha256]))).toEqual(Object.fromEntries(sums));
   });
 
@@ -100,6 +100,15 @@ describePg('the migrated schema', () => {
     const notForced = tables.rows.filter((t) => !t.forced).map((t) => t.relname);
     expect(notForced).toEqual(['audit_log', 'org']);
     expect(tables.rows.filter((t) => !t.rls)).toEqual([]);
+    // the org-scoped tables of the auth schema too (0014)
+    const auth = await owner.query<{ relname: string; forced: boolean }>(
+      `SELECT c.relname, c.relforcerowsecurity AS forced FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'auth' AND c.relname IN ('api_token', 'invitation') ORDER BY c.relname`,
+    );
+    expect(auth.rows).toEqual([
+      { relname: 'api_token', forced: true },
+      { relname: 'invitation', forced: true },
+    ]);
   });
 
   it('isolates orgs: a session sees and writes its own org only, and nothing without one', async () => {

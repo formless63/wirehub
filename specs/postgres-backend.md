@@ -1153,6 +1153,19 @@ CREATE INDEX api_token_person ON auth.api_token (person_id) WHERE revoked_at IS 
 GRANT SELECT, INSERT, UPDATE ON auth.api_token TO studio_app;   -- no DELETE: a revoked token stays, for the audit
 ```
 
+Phase B added RLS on the token table (the RLS suite covers auth tokens, §10; decided
+2026-10-04) as its own migration, since `0013` was already pinned:
+
+```sql ddl
+-- 0014_api_token_rls — the token table is org-scoped like every studio table
+ALTER TABLE auth.api_token ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auth.api_token FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON auth.api_token USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+ALTER TABLE auth.invitation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auth.invitation FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON auth.invitation USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+```
+
 ---
 
 ## 4. PgStore

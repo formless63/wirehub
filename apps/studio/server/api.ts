@@ -954,6 +954,7 @@ export async function commitUnit(uow: UnitOfWork, request: Pick<ApiRequest, 'met
       path: request.path,
       ...(request.user === undefined ? {} : { user: request.user }),
       ...(request.body === undefined ? {} : { body: request.body }),
+      ...(request.user?.apiTokenId === undefined ? {} : { apiTokenId: request.user.apiTokenId }),
     });
   } catch (error) {
     if (error instanceof StaleRecordError) return staleWriteResponse(error.kind, error.key);

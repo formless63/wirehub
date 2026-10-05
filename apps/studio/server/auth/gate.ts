@@ -20,8 +20,9 @@
 import type { Context, Hono } from 'hono';
 
 import { sessionStudioUser, type StudioUser } from '../me.ts';
-import { renderInvitePage, renderSignInPage } from './sign-in-page.ts';
+import { renderInvitePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
 import { ROLES, type PeopleStore, type Person, type Role } from './people.ts';
+import { parseToken, READ_LIMITS, scopeFor, TOKEN_DAYS, TOKEN_SCOPES, WRITE_LIMITS, type TokenEnv, type TokenStore } from './tokens.ts';
 import { AUTH_BASE_PATH, EMAIL_NOT_ALLOWED, SIGN_IN_PATH, type StudioAuth } from './studio-auth.ts';
 
 export const USER_HEADER = 'x-studio-user';
@@ -93,6 +94,87 @@ async function invitationsRoute(c: Context, people: PeopleStore, person: Person 
   return json(405, { error: `${c.req.method} is not something this address accepts.`, hint: 'It answers DELETE.' });
 }
 
+export const TOKENS_PATH = '/api/account/tokens';
+export const TOKENS_PAGE = '/account/tokens';
+
+/** Every refusal of a token looks the same: no detail beyond this (§4.5). */
+function tokenRefused(): Response {
+  const res = json(401, { error: 'Invalid or expired token.' });
+  res.headers.set('www-authenticate', 'Bearer');
+  return res;
+}
+
+/** The client's address, for the failed-attempt budget. */
+function addressOf(c: Context): string {
+  return (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress ?? 'unknown';
+}
+
+/** Check a bearer token and let the request through as its person, or answer the refusal. */
+async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefined, value: string): Promise<Response | undefined> {
+  const tokens = auth.tokens;
+  const limiter = auth.limiter;
+  if (tokens === undefined || limiter === undefined || people === undefined) return tokenRefused();
+  const address = addressOf(c);
+  const wait = limiter.blockedFor(address);
+  if (wait > 0) return retryLater(wait);
+  const parsed = parseToken(value);
+  // a token of the other environment is refused before any lookup
+  if (parsed === undefined || parsed.env !== auth.tokenEnv) {
+    limiter.failure(address);
+    return tokenRefused();
+  }
+  const holder = await tokens.resolve(value);
+  if (holder === undefined) {
+    limiter.failure(address);
+    return tokenRefused();
+  }
+  const scope = scopeFor(c.req.method, c.req.path);
+  if (scope === undefined) return json(403, { error: 'That needs a signed-in session, not a token.' });
+  if (!holder.token.scopes.includes(scope)) return json(403, { error: `The token lacks scope ${scope}.` });
+  // the person's current role still applies: a viewer's token only reads
+  if (holder.person.role === 'viewer' && scope !== 'read') return json(403, { error: 'The token lacks scope catalog:write.' });
+  const budget = limiter.take(`token:${holder.token.id}`, scope === 'read' ? READ_LIMITS : WRITE_LIMITS);
+  if (budget > 0) return retryLater(budget);
+  await tokens.touch(holder.token.id);
+  signedIn.set(c.req.raw, { ...sessionStudioUser({ name: holder.person.name, email: holder.person.email }), apiTokenId: holder.token.id });
+  return undefined;
+}
+
+function retryLater(seconds: number): Response {
+  const res = json(429, { error: 'Too many requests.', hint: `Try again in ${seconds} s.` });
+  res.headers.set('retry-after', String(seconds));
+  return res;
+}
+
+/** `/api/account/tokens` — a person's own tokens (an owner also sees and revokes everyone's); session only. */
+async function tokensRoute(c: Context, tokens: TokenStore, person: Person | undefined, env: TokenEnv): Promise<Response> {
+  if (person === undefined) return json(403, { error: 'Only a person of this hub has tokens.' });
+  const id = c.req.path.slice(TOKENS_PATH.length + 1);
+  if (id === '') {
+    if (c.req.method === 'GET') {
+      const all = c.req.query('all') === '1' && person.role === 'owner';
+      return json(200, { tokens: await tokens.list(all ? undefined : person.id) });
+    }
+    if (c.req.method === 'POST') {
+      const body = (await c.req.json().catch(() => ({}))) as { name?: unknown; scopes?: unknown; days?: unknown };
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (name === '' || name.length > 80) return json(400, { error: 'Name the token (what it is for), in at most 80 characters.' });
+      const scopes = Array.isArray(body.scopes) ? body.scopes.filter((s): s is string => typeof s === 'string') : ['read'];
+      const unknown = scopes.filter((s) => !(TOKEN_SCOPES as readonly string[]).includes(s));
+      if (unknown.length > 0) return json(400, { error: `Unknown scope ${unknown.join(', ')}.`, hint: `One of: ${TOKEN_SCOPES.join(', ')}.` });
+      const days = body.days === undefined ? 7 : body.days;
+      if (!(TOKEN_DAYS as readonly unknown[]).includes(days)) return json(400, { error: `A token lasts ${TOKEN_DAYS.join(', ')} days.` });
+      const { token, secret } = await tokens.create({ person, name, scopes, days: days as number, env });
+      console.log(`[tokens] ${person.email} created '${name}' (${token.scopes.join(' ')}, until ${token.expiresAt})`);
+      // shown once: only its hash is stored
+      return json(201, { token, secret });
+    }
+    return json(405, { error: `${c.req.method} is not something this address accepts.`, hint: 'It answers GET and POST.' });
+  }
+  if (c.req.method === 'DELETE') return (await tokens.revoke(id, person)) ? json(200, { revoked: id }) : json(404, { error: 'No live token of yours by that id.' });
+  return json(405, { error: `${c.req.method} is not something this address accepts.`, hint: 'It answers DELETE.' });
+}
+
 export function mountAuth(app: Hono, auth: StudioAuth): void {
   const { config } = auth;
 
@@ -132,6 +214,13 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
     if (path === SIGN_IN_PATH || path === AUTH_BASE_PATH || path.startsWith(`${AUTH_BASE_PATH}/`)) return next();
     if (people !== undefined && (path === INVITE_PATH || path === `${INVITATIONS_PATH}/accept`)) return next();
     const api = isApiPath(path);
+    // a personal API token (B12): `/api/*` only, and instead of a session
+    const authorization = c.req.header('authorization');
+    if (api && authorization !== undefined && /^bearer\s/i.test(authorization)) {
+      const refused = await bearer(c, auth, people, authorization.replace(/^bearer\s+/i, '').trim());
+      if (refused !== undefined) return refused;
+      return next();
+    }
     const user = await auth.sessionUser(c.req.raw.headers);
 
     if (user === null) {
@@ -163,10 +252,14 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       // the account is committed by now: link it to its person once
       if (person !== undefined && person.authUserId !== user.id) await people.linkAuthUser(user.email, user.id);
       // a viewer reads; every write needs an editor or an owner (plan §4.5)
-      if (person?.role === 'viewer' && WRITE_METHODS.has(c.req.method) && !path.startsWith('/api/locks')) {
+      if (person?.role === 'viewer' && WRITE_METHODS.has(c.req.method) && !path.startsWith('/api/locks') && !path.startsWith(TOKENS_PATH)) {
         return json(403, { error: `${user.email} can view this hub but not change it.`, hint: 'Nothing was changed. Ask an owner for the editor role.' });
       }
       if (path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`)) return invitationsRoute(c, people, person, config.baseURL);
+      if (auth.tokens !== undefined && (path === TOKENS_PATH || path.startsWith(`${TOKENS_PATH}/`))) return tokensRoute(c, auth.tokens, person, auth.tokenEnv ?? 'dev');
+    }
+    if (people !== undefined && auth.tokens !== undefined && path === TOKENS_PAGE && c.req.method === 'GET') {
+      return html(renderTokensPage());
     }
     await next();
 

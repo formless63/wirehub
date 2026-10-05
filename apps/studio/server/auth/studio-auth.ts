@@ -41,6 +41,7 @@ import pg from 'pg';
 
 import { readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
 import type { PeopleStore, Role } from './people.ts';
+import { RateLimiter, type TokenEnv, type TokenStore } from './tokens.ts';
 import { magicLinkMessage, smtpTransport, type MailTransport } from './mailer.ts';
 
 export const AUTH_BASE_PATH = '/api/auth';
@@ -73,6 +74,11 @@ export interface StudioAuth {
   isAllowed(email: string): boolean | Promise<boolean>;
   /** the database backend's people and invitations (B8); absent on files */
   people?: PeopleStore;
+  /** personal API tokens (database backend, B12), and the environment they must carry */
+  tokens?: TokenStore;
+  tokenEnv?: TokenEnv;
+  /** the token request budgets (§4.5) */
+  limiter?: RateLimiter;
   /** close what the store holds open (the database backend's pool) */
   close?(): Promise<void>;
   /** accept an invitation: make the local account and sign it in (the response carries the session cookie) */
@@ -93,7 +99,7 @@ export interface StudioAuthOverrides {
    * of the app's database (migration 0012, never migrated at boot), and the
    * people and invitations decide who may sign in.
    */
-  pg?: { url: string; people: PeopleStore };
+  pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter };
 }
 
 function forbidden(email: string): APIError {
@@ -286,6 +292,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
       return { id: session.user.id, email: session.user.email, name: session.user.name };
     },
     isAllowed,
+    ...(overrides.pg?.tokens === undefined ? {} : { tokens: overrides.pg.tokens, tokenEnv: overrides.pg.tokenEnv ?? 'dev', limiter: overrides.pg.limiter ?? new RateLimiter() }),
     close: async () => {
       if (database instanceof pg.Pool) await database.end();
     },

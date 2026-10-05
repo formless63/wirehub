@@ -27,6 +27,7 @@ import { serve } from '@hono/node-server';
 import { AuthConfigError } from './auth/config.ts';
 import { studioAuthFromEnv, type StudioAuth } from './auth/studio-auth.ts';
 import { pgPeople } from './auth/people.ts';
+import { pgTokens, tokenEnvOf } from './auth/tokens.ts';
 import { studioBackupFromEnv } from './backup/backup.ts';
 import { createStandaloneApp } from './standalone-app.ts';
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
@@ -113,7 +114,9 @@ try {
 // on the database backend its accounts, people and invitations are in Postgres
 let auth: StudioAuth | undefined;
 try {
-  auth = await studioAuthFromEnv(process.env, workbench.pg === undefined ? {} : { pg: { url: workbench.pg.url, people: pgPeople(workbench.pg.db, workbench.pg.orgId) } });
+  auth = await studioAuthFromEnv(process.env, workbench.pg === undefined
+      ? {}
+      : { pg: { url: workbench.pg.url, people: pgPeople(workbench.pg.db, workbench.pg.orgId), tokens: pgTokens(workbench.pg.db, workbench.pg.orgId), tokenEnv: tokenEnvOf(process.env) } });
 } catch (error) {
   if (!(error instanceof AuthConfigError)) throw error;
   console.error(error.message);

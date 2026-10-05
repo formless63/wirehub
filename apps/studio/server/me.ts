@@ -18,6 +18,8 @@ export interface StudioUser {
   email?: string;
   /** `session` — signed in through the studio's login; `local` — auth is off */
   source: 'session' | 'local';
+  /** the personal API token this request came with (its id, for the change set's audit only) */
+  apiTokenId?: string;
 }
 
 export const ME_ROUTES = ['GET    /api/me'] as const;

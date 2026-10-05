@@ -169,3 +169,32 @@ if(acc)acc.addEventListener('submit',function(e){e.preventDefault();var b=acc.qu
 var out=document.getElementById`,
     );
 }
+
+/** Account → API tokens (B12): a person's own tokens; create one (shown once), revoke one. */
+export function renderTokensPage(): string {
+  const body = `<p class="who">Tokens let a script or an agent use the studio as you. Each is shown once.</p>
+<form id="create" novalidate>
+<label for="tname">What is it for?</label>
+<input id="tname" name="tname" maxlength="80" required placeholder="laptop scripts">
+<label><input type="checkbox" id="write"> may change the catalog (catalog:write)</label>
+<label><input type="checkbox" id="imports"> may write imported documents (imports)</label>
+<label for="days">Expires after</label>
+<select id="days" name="days"><option>1</option><option selected>7</option><option>30</option><option>90</option></select>
+<button class="btn primary" type="submit">Create token</button>
+</form>
+<p class="msg ok" id="secret" style="word-break:break-all"></p>
+<ul id="list" class="who"></ul>`;
+  return renderSignInPage({ magicLink: false, next: '/' })
+    .replace('<title>Sign in · WireHub</title>', '<title>API tokens · WireHub</title>')
+    .replace('<h1>WireHub <span>· sign in</span></h1>', '<h1>WireHub <span>· API tokens</span></h1>')
+    .replace('max-width:300px', 'max-width:520px')
+    .replace(/<p class="msg" id="status"/, `${body}\n<p class="msg" id="status"`)
+    .replace(
+      'var out=document.getElementById',
+      `function api(m,b){return fetch('/api/account/tokens'+(m==='DELETE'?'/'+b:''),{method:m,headers:{'content-type':'application/json'},credentials:'same-origin',body:m==='POST'?JSON.stringify(b):undefined}).then(function(r){return r.json().then(function(j){return {ok:r.ok,body:j}})})}
+function load(){fetch('/api/account/tokens',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){var ul=document.getElementById('list');ul.textContent='';(j.tokens||[]).forEach(function(t){var li=document.createElement('li');li.textContent=t.name+' · cst_'+t.env+'_'+t.prefix+'… · '+t.scopes.join(' ')+' · expires '+t.expiresAt.slice(0,10)+(t.revokedAt?' · revoked':'')+(t.lastUsedAt?' · last used '+t.lastUsedAt.slice(0,16):'');if(!t.revokedAt){var b=document.createElement('button');b.className='btn';b.textContent='Revoke';b.onclick=function(){api('DELETE',t.id).then(load)};li.appendChild(b)}ul.appendChild(li)})})}
+var cr=document.getElementById('create');
+if(cr){load();cr.addEventListener('submit',function(e){e.preventDefault();var scopes=['read'];if(document.getElementById('write').checked)scopes.push('catalog:write');if(document.getElementById('imports').checked)scopes.push('imports');api('POST',{name:cr.tname.value,scopes:scopes,days:Number(cr.days.value)}).then(function(r){if(r.ok){document.getElementById('secret').textContent='Copy it now — it is not shown again: '+r.body.secret;load()}else{say(r.body.error||'Could not create the token.','err')}})})}
+var out=document.getElementById`,
+    );
+}
