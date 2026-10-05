@@ -1,0 +1,27 @@
+[
+  {
+    "id": "dsub-solder-cup-prep",
+    "phase": "end",
+    "when": { "family": ["d-sub"] },
+    "steps": [
+      {
+        "text": "EXAMPLE ONLY: tin each solder cup, then hold the cable still while the joint cools.",
+        "src": "synthetic example (CC0)",
+        "tools": ["flux pen", "helping hands"],
+        "checks": ["Cup is filled, not overfilled"]
+      }
+    ]
+  },
+  {
+    "id": "example-assembly",
+    "phase": "assembly",
+    "steps": [
+      {
+        "text": "EXAMPLE ONLY: close the hood and tighten both screws to hand-tight.",
+        "src": "synthetic example (CC0)",
+        "tools": ["screwdriver"],
+        "checks": ["Strain relief grips the jacket"]
+      }
+    ]
+  }
+]

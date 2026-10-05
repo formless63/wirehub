@@ -20,6 +20,8 @@
     "db:migrate": "node --experimental-strip-types server/pg/cli.ts migrate",
     "pg:import": "node --experimental-strip-types server/pg/cli.ts import",
     "pg:export": "node --experimental-strip-types server/pg/cli.ts export",
+    "mirror:purge": "node --experimental-strip-types scripts/mirror-purge.ts",
+    "settings-key": "node --experimental-strip-types --import ./server/boot-env.ts server/settings-key-cli.ts",
     "pg:gate": "node --experimental-strip-types server/pg/cli.ts gate"
   },
   "dependencies": {

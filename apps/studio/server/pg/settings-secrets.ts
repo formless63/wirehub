@@ -22,6 +22,12 @@ export function pgSecretStore(db: Db, orgId: string): SecretStore {
                   ON CONFLICT (org_id, name) DO UPDATE SET ciphertext = EXCLUDED.ciphertext, updated_at = now()`.execute(tx);
       });
     },
+    async swap(name, expected, next) {
+      return inOrg(db, orgId, async (tx) => {
+        const done = await sql`UPDATE studio.settings_secret SET ciphertext = ${next}, updated_at = now() WHERE name = ${name} AND ciphertext = ${expected}`.execute(tx);
+        return Number(done.numAffectedRows ?? 0) > 0;
+      });
+    },
     async remove(name) {
       await inOrg(db, orgId, async (tx) => {
         await sql`DELETE FROM studio.settings_secret WHERE name = ${name}`.execute(tx);

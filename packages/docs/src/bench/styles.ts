@@ -46,6 +46,8 @@ export const BENCH_STYLESHEET = `@layer wirehub.docs{
 .cs-steps li{display:flex;gap:1.8mm;margin:0 0 1mm;break-inside:avoid}
 .cs-steps li::before{counter-increment:cs-step;content:counter(cs-step);flex:0 0 4.2mm;height:4.2mm;border:0.7pt solid #000;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:6.4pt;font-weight:700;margin-top:0.2mm}
 .cs-steps .cs-src{display:block;color:var(--cs-faint);font-size:6pt}
+.cs-steps .cs-stepimg{display:block;max-width:100%;max-height:30mm;margin:0.6mm 0}
+.cs-steps .cs-tools,.cs-steps .cs-stepcheck{display:block;font-size:6.6pt}
 .cs-check{display:inline-block;width:3.2mm;height:3.2mm;border:0.7pt solid #000;border-radius:0.4mm;vertical-align:-0.5mm}
 .cs-pull td:first-child{width:5mm}
 .cs-sku{font-family:var(--cs-mono);font-weight:700;white-space:nowrap}

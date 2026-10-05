@@ -45,7 +45,7 @@ import { withWriteLock } from './storage/write-lock.ts';
 import { deepHealthCheck, startHealthMonitor } from './health.ts';
 import { liveNotifier, notifierFromEnv } from './notify.ts';
 import { backupMaxAgeHours } from './runtime-settings.ts';
-import { settingsKeyFromEnv } from './settings-secrets.ts';
+import { previousSettingsKeys, settingsKeyFromEnv } from './settings-secrets.ts';
 import { generateSetupCode, parseSuggestedModules, setupBanner, setupNeeded } from './setup.ts';
 
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
@@ -134,7 +134,7 @@ if (unknownSuggested.length > 0) {
 // values the server's environment sets that it would refuse stop the start, with one line naming them
 try {
   notifierFromEnv(process.env);
-  settingsKeyFromEnv(process.env);
+  previousSettingsKeys(process.env, settingsKeyFromEnv(process.env));
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

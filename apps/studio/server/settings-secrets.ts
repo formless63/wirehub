@@ -15,11 +15,18 @@
  * derived from the install key with HKDF-SHA256, and the organisation and the
  * secret's name are its additional data, so a value copied to another row or
  * another organisation does not decrypt.
+ *
+ * **Rotation** (`specs/runtime-settings.md` §4): the cipher holds a key ring,
+ * the current key (`WIREHUB_SETTINGS_KEY`) and any previous ones
+ * (`WIREHUB_SETTINGS_KEY_PREVIOUS`, or the secrets volume's
+ * `settings_key_previous`). It always encrypts with the current key and reads
+ * with any of them, so a hub keeps working while stored secrets are moved
+ * from the old key to the new (`rotateSecrets`).
  */
 
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import type { Env } from './env.ts';
 
@@ -36,16 +43,67 @@ export function settingsKeyFromEnv(env: Env): string | undefined {
   return key;
 }
 
-export interface SettingsCipher {
-  encrypt(org: string, name: string, plaintext: string): string;
-  /** the plain text, or `undefined` when it does not decrypt (another key, another org or name, damaged) */
-  decrypt(org: string, name: string, ciphertext: string): string | undefined;
+/** Where the compose stack's bootstrap keeps retired keys, one per line, beside `settings_key`. */
+export const PREVIOUS_KEY_FILE = 'settings_key_previous';
+
+/**
+ * The keys a rotation still reads with: `WIREHUB_SETTINGS_KEY_PREVIOUS` (keys separated by commas or
+ * whitespace) and the secrets volume's `settings_key_previous` file. Newest first, without
+ * duplicates and without the current key. Throws when one is too short to be a key.
+ */
+export function previousSettingsKeys(env: Env, current?: string): string[] {
+  const listed = (env['WIREHUB_SETTINGS_KEY_PREVIOUS'] ?? '').split(/[\s,]+/);
+  const file = join((env['WIREHUB_SECRETS_DIR'] ?? '').trim() || '/run/wirehub', PREVIOUS_KEY_FILE);
+  const stored = existsSync(file) ? readFileSync(file, 'utf8').split(/\s+/) : [];
+  const out: string[] = [];
+  for (const key of [...listed, ...stored]) {
+    if (key === '' || key === current || out.includes(key)) continue;
+    if (key.length < MIN_SETTINGS_KEY_LENGTH) throw new SettingsKeyError(`A previous settings key (WIREHUB_SETTINGS_KEY_PREVIOUS or ${PREVIOUS_KEY_FILE}) must be at least ${MIN_SETTINGS_KEY_LENGTH} characters.`);
+    out.push(key);
+  }
+  return out;
 }
 
-export function settingsCipher(installKey: string): SettingsCipher {
-  const key = Buffer.from(hkdfSync('sha256', installKey, 'wirehub-settings-secrets', 'aes-256-gcm v1', 32));
+/** A new install key: 32 random bytes, base64url (the same shape the stack's bootstrap generates). */
+export function generateSettingsKey(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+export interface SettingsCipher {
+  /** always under the current key */
+  encrypt(org: string, name: string, plaintext: string): string;
+  /** the plain text under the current key or a previous one, or `undefined` when none decrypts it (another org or name, damaged) */
+  decrypt(org: string, name: string, ciphertext: string): string | undefined;
+  /** whether the current key (not only a previous one) decrypts this ciphertext */
+  isCurrent(org: string, name: string, ciphertext: string): boolean;
+  /** how many previous keys this cipher still reads with */
+  readonly previousKeys: number;
+}
+
+function derive(installKey: string): Buffer {
+  return Buffer.from(hkdfSync('sha256', installKey, 'wirehub-settings-secrets', 'aes-256-gcm v1', 32));
+}
+
+function open(key: Buffer, aad: Buffer, ciphertext: string): string | undefined {
+  const [version, iv, body, tag, ...rest] = ciphertext.split('.');
+  if (version !== 'v1' || iv === undefined || body === undefined || tag === undefined || rest.length > 0) return undefined;
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+    decipher.setAAD(aad);
+    decipher.setAuthTag(Buffer.from(tag, 'base64url'));
+    return Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+/** The cipher for an install key, reading also with `previous` keys (a rotation in progress). */
+export function settingsCipher(installKey: string, previous: readonly string[] = []): SettingsCipher {
+  const key = derive(installKey);
+  const older = previous.filter((k) => k !== installKey).map(derive);
   const aad = (org: string, name: string): Buffer => Buffer.from(`${org}\u0000${name}`, 'utf8');
   return {
+    previousKeys: older.length,
     encrypt(org, name, plaintext) {
       const iv = randomBytes(12);
       const cipher = createCipheriv('aes-256-gcm', key, iv);
@@ -54,18 +112,25 @@ export function settingsCipher(installKey: string): SettingsCipher {
       return ['v1', iv.toString('base64url'), body.toString('base64url'), cipher.getAuthTag().toString('base64url')].join('.');
     },
     decrypt(org, name, ciphertext) {
-      const [version, iv, body, tag, ...rest] = ciphertext.split('.');
-      if (version !== 'v1' || iv === undefined || body === undefined || tag === undefined || rest.length > 0) return undefined;
-      try {
-        const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
-        decipher.setAAD(aad(org, name));
-        decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-        return Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8');
-      } catch {
-        return undefined;
+      for (const candidate of [key, ...older]) {
+        const plain = open(candidate, aad(org, name), ciphertext);
+        if (plain !== undefined) return plain;
       }
+      return undefined;
     },
+    isCurrent: (org, name, ciphertext) => open(key, aad(org, name), ciphertext) !== undefined,
   };
+}
+
+/** The cipher the environment describes: the current key and any previous ones; `undefined` (one log line) when there is none or it is unusable. */
+export function settingsCipherFromEnv(env: Env, log: (line: string) => void = (line) => console.warn(line)): SettingsCipher | undefined {
+  try {
+    const key = settingsKeyFromEnv(env);
+    return key === undefined ? undefined : settingsCipher(key, previousSettingsKeys(env, key));
+  } catch (error) {
+    log(`[settings] ${error instanceof Error ? error.message : String(error)} Secrets cannot be saved in Settings.`);
+    return undefined;
+  }
 }
 
 /** Where ciphertexts are kept. Names are setting keys (`notify.url`, `smtp.pass` …). */
@@ -74,6 +139,11 @@ export interface SecretStore {
   all(): Promise<Record<string, string>>;
   put(name: string, ciphertext: string): Promise<void>;
   remove(name: string): Promise<void>;
+  /**
+   * Replace `name`'s ciphertext with `next` only if it is still `expected`; `false` when it
+   * changed meanwhile (a person saved the secret during a rotation), which then keeps the newer value.
+   */
+  swap(name: string, expected: string, next: string): Promise<boolean>;
 }
 
 export function memorySecretStore(initial: Record<string, string> = {}): SecretStore & { rows: Map<string, string> } {
@@ -83,6 +153,11 @@ export function memorySecretStore(initial: Record<string, string> = {}): SecretS
     all: async () => Object.fromEntries(rows),
     put: async (name, ciphertext) => void rows.set(name, ciphertext),
     remove: async (name) => void rows.delete(name),
+    swap: async (name, expected, next) => {
+      if (rows.get(name) !== expected) return false;
+      rows.set(name, next);
+      return true;
+    },
   };
 }
 
@@ -115,5 +190,67 @@ export function fileSecretStore(path: string): SecretStore {
       delete rows[name];
       write(rows);
     },
+    swap: async (name, expected, next) => {
+      const rows = read();
+      if (rows[name] !== expected) return false;
+      write({ ...rows, [name]: next });
+      return true;
+    },
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Rotation
+ * ------------------------------------------------------------------ */
+
+export interface RotationReport {
+  /** secrets stored */
+  total: number;
+  /** re-encrypted under the current key just now */
+  rotated: string[];
+  /** already under the current key */
+  current: number;
+  /** changed by someone while rotating: left as they now are (a new save is under the current key anyway) */
+  skipped: string[];
+  /** no key in the ring decrypts them: left untouched, to be entered again */
+  unreadable: string[];
+}
+
+/**
+ * Re-encrypt every stored secret under the cipher's current key. Secrets
+ * the current key already opens are left alone, so a second run does nothing;
+ * one no key opens is left untouched and reported. Reads keep working
+ * throughout (a value is swapped from the old ciphertext to the new in one
+ * step), so there is no downtime; a save made meanwhile wins.
+ */
+export async function rotateSecrets(store: SecretStore, cipher: SettingsCipher, org: string): Promise<RotationReport> {
+  const rows = await store.all();
+  const report: RotationReport = { total: Object.keys(rows).length, rotated: [], current: 0, skipped: [], unreadable: [] };
+  for (const [name, ciphertext] of Object.entries(rows).sort(([a], [b]) => a.localeCompare(b))) {
+    if (cipher.isCurrent(org, name, ciphertext)) {
+      report.current += 1;
+      continue;
+    }
+    const plain = cipher.decrypt(org, name, ciphertext);
+    if (plain === undefined) {
+      report.unreadable.push(name);
+      continue;
+    }
+    const swapped = await store.swap(name, ciphertext, cipher.encrypt(org, name, plain));
+    (swapped ? report.rotated : report.skipped).push(name);
+  }
+  return report;
+}
+
+/** How many stored secrets the current key does not open yet (the ones a rotation would move), and how many no key opens. */
+export async function rotationStatus(store: SecretStore, cipher: SettingsCipher, org: string): Promise<{ total: number; stale: number; unreadable: number }> {
+  const rows = await store.all();
+  let stale = 0;
+  let unreadable = 0;
+  for (const [name, ciphertext] of Object.entries(rows)) {
+    if (cipher.isCurrent(org, name, ciphertext)) continue;
+    if (cipher.decrypt(org, name, ciphertext) === undefined) unreadable += 1;
+    else stale += 1;
+  }
+  return { total: Object.keys(rows).length, stale, unreadable };
 }

@@ -496,3 +496,7 @@ export type {
   SubassemblyPort,
   SubassemblyPortKind,
 } from './subassemblies.ts';
+
+// ---- bench build sheet types and the work-instruction hook ----
+export { benchRuleProblems, benchRulesProvider } from './bench-types.ts';
+export type { Bench, BenchEnd, BenchPhase, BenchStepRule, BenchStepsProvider, BoardFace, Bridge, EndSide, Landing, LandingElement, LandingTarget, SegmentEnd, ShellSet, Step, StockElement, StripRow, StripTreatment, Termination } from './bench-types.ts';

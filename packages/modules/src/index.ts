@@ -20,7 +20,7 @@
  * package needs no React).
  */
 
-import type { BoardPartsEntry, CableDesign, Db, Issue, PartNumberScheme } from '@wirehub/model';
+import type { BenchStepRule, BenchStepsProvider, BoardPartsEntry, CableDesign, Db, Issue, PartNumberScheme } from '@wirehub/model';
 
 /* ------------------------------------------------------------------ *
  * Extension points
@@ -433,6 +433,19 @@ export interface ArtContribution {
   drawing?: unknown;
 }
 
+/**
+ * A shop's bench work instructions, printed on the build sheet instead of the
+ * generic steps (`specs/drawing-language.md` §8). Either as data — `rules`,
+ * plain JSON a catalog pack can ship (text, images, tools, checks per
+ * connector family, connector, stock) — or as code, a `provider` that sees the
+ * bench facts. Both may be set; the rules answer first. The host validates the
+ * rules at start (`benchRuleProblems`) and registers them with the docs.
+ */
+export interface BenchContribution {
+  rules?: readonly BenchStepRule[];
+  provider?: BenchStepsProvider;
+}
+
 /* ------------------------------------------------------------------ *
  * The module
  * ------------------------------------------------------------------ */
@@ -465,6 +478,8 @@ export interface WireHubModule {
   derived?: readonly DerivedContribution[];
   /** drawings for the shapes the module's pack adds */
   art?: ArtContribution;
+  /** the shop's own bench work instructions for the build sheet */
+  bench?: BenchContribution;
   /** SQL for the module's own tables on the Postgres backend */
   migrations?: ModuleMigrationsContribution;
 }
@@ -491,6 +506,8 @@ export interface ModuleRegistry {
   derived(): readonly (DerivedContribution & { module: string })[];
   /** every module's art contribution, in manifest order */
   art(): readonly (ArtContribution & { module: string })[];
+  /** every module's bench work instructions, in manifest order */
+  bench(): readonly (BenchContribution & { module: string })[];
   /**
    * The catalog directories (relative to `data/`, `''` = the top level) holding
    * files modules own — their documents and derived records — so the file
@@ -644,6 +661,7 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     importers: () => list.flatMap((m) => tag(m, m.importers)),
     derived: () => list.flatMap((m) => tag(m, m.derived)),
     art: () => list.flatMap((m) => (m.art === undefined ? [] : [{ ...m.art, module: m.id }])),
+    bench: () => list.flatMap((m) => (m.bench === undefined ? [] : [{ ...m.bench, module: m.id }])),
     catalogDirs: () => {
       const dirs = new Set<string>();
       for (const m of list) {

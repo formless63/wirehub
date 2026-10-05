@@ -22,14 +22,16 @@
  * | commit hook        | counts edits under `extensions.example`                       |
  * | documents          | `data/example/` for imported files and reports                |
  * | derived records    | `data/derived/example/summary.{json,md}`                      |
+ * | bench work steps   | data rules (`standard-work.json`) and a code `qa` provider    |
  *
  * MIT; the pack's data is CC0-1.0.
  */
 
-import { prefixPartNumberScheme } from '@wirehub/model';
+import { prefixPartNumberScheme, type BenchStepRule } from '@wirehub/model';
 import { defineModule, type ContinuityData } from '@wirehub/modules';
 
 import { deriveSummary, importResistors, jointsCsv, MODULE_ID, recordEdit, recountCatalog, testerNetlist, todoLabelRule } from './logic.ts';
+import standardWork from './standard-work.json' with { type: 'json' };
 import { CompareView, DocumentsPanel, InspectorPanel, LibraryPanel, SettingsPanel, StatusPage } from './ui.ts';
 
 export { dataOf, deriveSummary, importResistors, jointsCsv, recordEdit, recountCatalog, todoLabelRule } from './logic.ts';
@@ -123,5 +125,11 @@ export const example = defineModule({
   ],
   commitHook: recordEdit,
   documents: [{ path: 'data/example/', class: 'report' }],
+  bench: {
+    // data: steps per connector family and phase (a pack or module can ship this file without code) ...
+    rules: standardWork as BenchStepRule[],
+    // ... and code: the same hook with the bench facts in hand
+    provider: { qa: [{ text: 'EXAMPLE ONLY: tug-test every contact.', src: 'synthetic example (CC0)', checks: ['No contact pulls out'] }] },
+  },
   derived: [{ id: 'summary', label: 'Design summary', files: ['summary.json', 'summary.md'], derive: deriveSummary }],
 });
