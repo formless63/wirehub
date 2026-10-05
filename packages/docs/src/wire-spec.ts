@@ -44,6 +44,7 @@ import {
 } from '@wirehub/model';
 import { renderCrossSection } from '@wirehub/render-svg';
 
+import { registeredTitleBlock } from './drawing/assets.ts';
 import { escapeHtml } from './text.ts';
 
 export interface WireSpecOptions {
@@ -275,8 +276,10 @@ function layNote(wire: WireDefinition, rows: CoreRow[]): string {
 
 /** The spec sheet, as a standalone printable HTML document (or a fragment). */
 export function renderWireSpecSheet(wire: WireDefinition, options: WireSpecOptions = {}): string {
-  const organisation = options.organisation ?? 'WireHub';
-  const standard = options.standard ?? WIRE_SPEC_STANDARD;
+  const branding = registeredTitleBlock();
+  const organisation = options.organisation ?? branding.organisation ?? 'WireHub';
+  const standard = options.standard ?? branding.standard ?? WIRE_SPEC_STANDARD;
+  const rightsNotice = options.rightsNotice ?? branding.rights;
   const recipe = options.recipe;
   const parts = new Map((options.parts ?? []).map((part) => [part.id, part]));
   const rows = coreRows(wire, recipe);
@@ -556,7 +559,7 @@ export function renderWireSpecSheet(wire: WireDefinition, options: WireSpecOptio
     '<h3 class="cs-ws-h">Sources</h3>',
     `<ol>${sourceList.map((s) => `<li>${e(s)}</li>`).join('')}</ol>`,
     '</section>',
-    `<footer class="cs-ws-foot"><span>${e(standard)} · ${e(docNumber)} · Rev ${e(revision)}</span>${options.rightsNotice === undefined ? '' : `<span>${e(options.rightsNotice)}</span>`}<span>Derived from the stock record — one derivation, however it is printed</span></footer>`,
+    `<footer class="cs-ws-foot"><span>${e(standard)} · ${e(docNumber)} · Rev ${e(revision)}</span>${rightsNotice === undefined ? '' : `<span>${e(rightsNotice)}</span>`}<span>Derived from the stock record — one derivation, however it is printed</span></footer>`,
     '</div>',
   ].join('');
 

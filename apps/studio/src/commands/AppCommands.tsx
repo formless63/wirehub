@@ -50,6 +50,12 @@ export function AppCommands(): null {
         run: () => void navigate({ to: '/setup' }),
       },
       {
+        id: 'nav.settings',
+        title: 'Hub settings (organisation, logo, rights line)',
+        keywords: ['branding', 'organisation', 'logo', 'title block', 'identity'],
+        run: () => void navigate({ to: '/settings' }),
+      },
+      {
         id: 'view.theme.toggle',
         title: studio.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
         keywords: ['theme', 'dark', 'light', 'appearance'],

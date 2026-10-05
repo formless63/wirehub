@@ -6,7 +6,7 @@
  */
 
 import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconChecklist, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
+import { IconBox, IconBuilding, IconChecklist, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { LockNameAvatar } from '../locks/LockNameAvatar.tsx';
@@ -71,6 +71,9 @@ export function Rail(): JSX.Element {
           <IconChecklist size={18} />
         </Link>
       ) : null}
+      <Link to="/settings" aria-label="Hub settings" title="Hub settings — organisation, logo, rights line" className={railIcon(pathname === '/settings')}>
+        <IconBuilding size={18} />
+      </Link>
       {hasSettings ? (
         <Link to="/modules" aria-label="Modules" title="Modules and their settings" className={railIcon(pathname === '/modules')}>
           <IconSettings size={18} />

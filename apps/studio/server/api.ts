@@ -39,6 +39,7 @@ import { readDrawingMeta, readPhoto, type DrawingStore } from './drawings.ts';
 import type { DesignStore } from './designs.ts';
 import { handleWireLibraryRequest, WIRE_LIBRARY_ROUTES, type WireLibraryStore } from './wire-library.ts';
 import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
+import { SETTINGS_ROUTES, handleSettingsRequest } from './settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
 import { LOCAL_FALLBACK, ME_ROUTES, type StudioUser } from './me.ts';
@@ -846,6 +847,7 @@ const ROUTES = [
   'GET    /api/assets/:id',
   ...DEFINITION_ROUTES,
   ...MODEL_ROUTES,
+  ...SETTINGS_ROUTES,
   ...VOCAB_ROUTES,
   ...WIRE_LIBRARY_ROUTES,
   ...BUILDS_ROUTES,
@@ -1213,6 +1215,9 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     // the commit rebuilds the table with the save (unit-of-work.ts, derivedFor)
     return definitions;
   }
+
+  const settings = await handleSettingsRequest(method, parts, request.body, deps, ifMatch);
+  if (settings !== undefined) return settings;
 
   const vocab = await handleVocabRequest(method, parts, request.body, deps, ifMatch);
   if (vocab !== undefined) return vocab;
