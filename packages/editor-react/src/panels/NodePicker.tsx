@@ -32,13 +32,15 @@ import {
 
 import { classes, useEditorApi } from '../context.ts';
 import { autoWireTerminal, rankDefinitions, rankTerminals } from '../picker.ts';
-import { matchesQuery, paletteEntries, type PaletteEntry } from './Palette.tsx';
+import { matchesQuery, paletteEntries, subassemblyEntries, type PaletteEntry } from './Palette.tsx';
 
 export interface NodePickerProps {
   /** the free handle this was opened from — `undefined` for Tab-at-centre / "Add part…" */
   anchor?: TerminalRef;
   design: CableDesign;
   db: Db;
+  /** the host's other designs, offered as sub-assemblies */
+  designs?: readonly { id: string; label: string }[] | undefined;
   onClose: () => void;
 }
 
@@ -88,15 +90,15 @@ function PickerRow({
   );
 }
 
-export function NodePicker({ anchor, design, db, onClose }: NodePickerProps): JSX.Element {
-  const { dispatch } = useEditorApi();
+export function NodePicker({ anchor, design, db, designs, onClose }: NodePickerProps): JSX.Element {
+  const { dispatch, ensureAssembly } = useEditorApi();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => inputRef.current?.focus(), []);
 
-  const allEntries = useMemo(() => paletteEntries(db), [db]);
+  const allEntries = useMemo(() => [...paletteEntries(db), ...subassemblyEntries(designs ?? [], design.id)], [db, designs, design.id]);
 
   // ranked once per open against the same design/db/anchor; typing in the
   // search box only filters it
@@ -126,19 +128,27 @@ export function NodePicker({ anchor, design, db, onClose }: NodePickerProps): JS
   }, [flat.length]);
 
   const choose = (entry: PaletteEntry): void => {
-    let wireTerminal: { terminal: string; end?: 'a' | 'b' } | undefined;
-    if (anchor !== undefined) {
-      // only an unambiguous best terminal is wired; a tie places + selects
-      wireTerminal = autoWireTerminal(rankTerminals(design, db, anchor, entry.kind, entry.def));
-    }
-    dispatch({
-      type: 'add-instance-near',
-      kind: entry.kind,
-      def: entry.def,
-      ...(anchor === undefined ? {} : { anchor }),
-      ...(wireTerminal === undefined ? {} : { wireTerminal }),
-    });
+    const place = (rankDb: Db): void => {
+      let wireTerminal: { terminal: string; end?: 'a' | 'b' } | undefined;
+      if (anchor !== undefined) {
+        // only an unambiguous best terminal is wired; a tie places + selects
+        wireTerminal = autoWireTerminal(rankTerminals(design, rankDb, anchor, entry.kind, entry.def));
+      }
+      dispatch({
+        type: 'add-instance-near',
+        kind: entry.kind,
+        def: entry.def,
+        ...(anchor === undefined ? {} : { anchor }),
+        ...(wireTerminal === undefined ? {} : { wireTerminal }),
+      });
+    };
     onClose();
+    if (entry.kind === 'subassembly' && ensureAssembly !== undefined) {
+      // the design's ports must be known before ranking and before the edit is validated
+      void ensureAssembly(entry.def).then(place);
+    } else {
+      place(db);
+    }
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {

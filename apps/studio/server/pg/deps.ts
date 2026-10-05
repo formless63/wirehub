@@ -126,6 +126,11 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     ...(options.db === undefined ? {} : { backup: databaseBackupControl(options.db, cache.orgId) }),
     // change history: the change sets themselves (cs-5k1.4)
     ...(options.db === undefined ? {} : { history: pgHistorySource(options.db, cache.orgId) }),
+    // by hash alone: an earlier photo, no longer named by the catalog, is still in the store until swept
+    blobByHash: async (sha) => {
+      const bytes = options.blobs === undefined ? undefined : await options.blobs.get(blobObjectKey(cache.orgId, sha));
+      return bytes === undefined ? undefined : new Uint8Array(bytes);
+    },
     blob: async (sha) => {
       const row = (await cache.get()).rows?.blobs.find((b) => b.sha256 === sha);
       if (row === undefined || options.blobs === undefined) return undefined;

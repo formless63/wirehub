@@ -12,8 +12,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CableEditor, type CatalogChange, type DocumentRelease, type EditorView } from '@wirehub/editor-react';
 import { versionDb } from '@wirehub/model';
 import { toast } from 'sonner';
@@ -33,7 +33,7 @@ import { VersionView } from '../versions/VersionView.tsx';
 import { EditLockScope } from '../locks/EditLockScope.tsx';
 import { designRecord } from '../locks/records.ts';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';
-import { withAssemblyLibrary, workbenchAssemblies } from '../persistence.browser.ts';
+import { fetchDesignUse, withAssemblyLibrary, workbenchAssemblies } from '../persistence.browser.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { editorExtensions } from '../modules/slots.tsx';
 
@@ -41,6 +41,54 @@ function editorViewOf(routeView: CableView): EditorView {
   if (routeView === 'documents') return 'documents';
   if (routeView === 'schematic') return 'schematic';
   return 'canvas';
+}
+
+/**
+ * "Used in": the designs (and saved versions) that place this cable as a
+ * sub-assembly — one line under the header, absent when nothing does.
+ */
+export function UsedInPanel({ id }: { id: string }): JSX.Element | null {
+  const query = useQuery({
+    queryKey: ['studio', 'used-in', id],
+    queryFn: async () => {
+      const out = await fetchDesignUse(id);
+      return out.ok ? out.value : undefined;
+    },
+  });
+  const use = query.data;
+  if (use === undefined || (use.designs.length === 0 && use.versions.length === 0)) return null;
+  return (
+    <div
+      data-testid="used-in"
+      className="flex min-h-8 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-raised px-3 py-1 text-[12px] text-dim"
+    >
+      <span className="font-medium text-ink">Used in</span>
+      {use.designs.map((d) => (
+        <Link
+          key={d.id}
+          to="/cables/$id"
+          params={{ id: d.id }}
+          search={{ view: 'build' }}
+          title={`${d.label} — as ${d.instances.join(', ')}`}
+          className="rounded-sm border border-line2 px-1.5 font-mono text-[11px] text-ink no-underline hover:bg-hover"
+        >
+          {d.id}
+        </Link>
+      ))}
+      {use.versions.map((v) => (
+        <Link
+          key={`${v.design}@${v.rev}`}
+          to="/cables/$id"
+          params={{ id: v.design }}
+          search={{ view: 'build', rev: String(v.rev) }}
+          title={`saved Rev ${v.rev} of ${v.design} — as ${v.instances.join(', ')}${v.pinned === undefined ? '' : `, pinned to Rev ${v.pinned}`}`}
+          className="rounded-sm border border-dashed border-line2 px-1.5 font-mono text-[11px] text-dim no-underline hover:bg-hover"
+        >
+          {v.design} Rev {v.rev}
+        </Link>
+      ))}
+    </div>
+  );
 }
 
 export function CableRoute(): JSX.Element {
@@ -60,6 +108,18 @@ export function CableRoute(): JSX.Element {
     },
     [navigate],
   );
+
+  // "Place in…" from the cable list lands here with `place=<design>`: put it
+  // in as a sub-assembly once the editor is up, then drop the parameter so a
+  // reload does not place it again
+  const placeId = search.place;
+  const editorReady = studio.cableId === id && studio.design !== undefined && search.rev === undefined && chrome.handle !== null;
+  useEffect(() => {
+    if (placeId === undefined || !editorReady) return;
+    chrome.handle?.placeSubassembly(placeId);
+    void navigate({ to: cableRoute.id, params: { id }, search: (prev: CableSearch) => ({ view: prev.view }), replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeId, editorReady]);
 
   useEffect(() => {
     studio.openCable(id);
@@ -235,6 +295,9 @@ export function CableRoute(): JSX.Element {
   // edit locks: the cable, its drawing and its documents are one record
   return (
     <EditLockScope record={designRecord(id)}>
+    <div className="flex h-full min-h-0 flex-col">
+    <UsedInPanel id={id} />
+    <div className="min-h-0 flex-1">
     <CableEditor
       key={id}
       ref={chrome.setHandle}
@@ -275,6 +338,8 @@ export function CableRoute(): JSX.Element {
       onViewChange={onViewChange}
       onStatusChange={studio.setEditorStatus}
     />
+    </div>
+    </div>
     </EditLockScope>
   );
 }

@@ -40,6 +40,7 @@ const handle: EditorHandle = {
   showIssues: vi.fn(),
   openLifecycle: vi.fn(),
   openPicker: vi.fn(),
+  placeSubassembly: vi.fn(),
   findPin: vi.fn(),
   connectKnownPins: vi.fn(),
 };

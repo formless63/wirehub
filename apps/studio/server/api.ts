@@ -135,6 +135,12 @@ export interface WorkbenchDeps {
    */
   blob?: (sha256: string) => Promise<{ bytes: Uint8Array; mediaType: string } | undefined>;
   /**
+   * The bytes stored under a content hash, whether or not the catalog names
+   * them any more — a restore from the history brings an earlier photo back
+   * (`history/api.ts`). Absent: photos are not restored.
+   */
+  blobByHash?: (sha256: string) => Promise<Uint8Array | undefined>;
+  /**
    * The on-demand export (`GET /api/export`): the catalog as file text, the
    * same on every backend (`pg/export.ts`). Absent → 501.
    */
@@ -1110,9 +1116,10 @@ export function transactingDepictionDeps(deps: DepictionDeps, workbench: Workben
       const probe = (store: DepictionStore | undefined): string | undefined => store?.dirFor('probe');
       const sameTree = workbench.depictions === deps.store || (probe(deps.store) !== undefined && probe(deps.store) === probe(workbench.depictions));
       const { docs, ...rest } = workbench;
+      const { modelLinks: _own, ...bare } = deps;
       const uow = new UnitOfWork({ ...rest, depictions: deps.store, ...(sameTree && docs !== undefined ? { docs } : {}) });
       const staged = uow.deps.depictions as DepictionStore;
-      const response = await run({ ...deps, store: staged, loadDb: uow.deps.loadDb });
+      const response = await run({ ...bare, store: staged, loadDb: uow.deps.loadDb, ...(uow.deps.modelLinks === undefined ? {} : { modelLinks: uow.deps.modelLinks }) });
       if (dryRun) {
         const answer = await dryRunAnswer(uow, 'body' in response ? { status: response.status, body: response.body } : { status: response.status, body: null });
         return { status: answer.status, body: answer.body };

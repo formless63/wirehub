@@ -112,6 +112,8 @@ function subjectPaths(subject: Subject): { part: string; path: string; element?:
       return [
         { part: 'design', path: `designs/${subject.id}.json` },
         { part: 'drawing', path: `drawings/${subject.id}.json` },
+        // the photo is a pointer (the asset's hash) in this file; the bytes are the asset
+        { part: 'photo', path: `drawings/${subject.id}.photo-ref.json` },
       ];
     case 'definition':
       return [{ part: 'record', path: `${subject.kind}.json`, element: subject.id }];
@@ -126,7 +128,7 @@ function elementOf(list: unknown, id: string): unknown {
   return Array.isArray(list) ? list.find((r) => typeof r === 'object' && r !== null && (r as { id?: unknown }).id === id) : undefined;
 }
 
-const PART_LABEL: Readonly<Record<string, string>> = { design: 'design', drawing: 'drawing details', record: 'record' };
+const PART_LABEL: Readonly<Record<string, string>> = { design: 'design', drawing: 'drawing details', photo: 'drawing photo', record: 'record' };
 
 export interface GitHistoryOptions {
   /** the catalog's `data/` directory */
@@ -253,7 +255,7 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
       op: !s.before.known || !s.after.known ? 'unknown' : s.before.value === undefined ? 'added' : s.after.value === undefined ? 'removed' : 'changed',
       before: s.before,
       after: s.after,
-      restorable: restorable.has(s.part),
+      restorable: restorable.has(s.part) || (s.part === 'photo' && subject.type === 'design'),
     }));
   };
 
@@ -373,6 +375,26 @@ export function gitHistorySource(options: GitHistoryOptions): HistorySource {
         });
       }
       return { entry: entryOf(commit, touches.slice(0, 25), Math.max(0, touches.length - 25)), records };
+    },
+
+    async photoAt(subject, id) {
+      if (subject.type !== 'design' || !SHA.test(id) || !(await isAvailable())) return undefined;
+      if ((await run(['cat-file', '-e', `${id}^{commit}`])).code !== 0) return undefined;
+      const named = await subjectAt(subject, id, await designChain(subject.id));
+      if (named.type !== 'design') return undefined;
+      const ref = await show(id, `drawings/${named.id}.photo-ref.json`);
+      if (!ref.known) return undefined;
+      const assetId = (ref.value as { assetId?: unknown } | undefined)?.assetId;
+      if (typeof assetId === 'string' && /^[0-9a-f]{64}$/.test(assetId)) {
+        const index = await show(id, 'assets/index.json');
+        const entry = index.known && Array.isArray(index.value) ? (index.value as { id?: unknown; mime?: unknown }[]).find((a) => a.id === assetId) : undefined;
+        return { sha256: assetId, ...(entry?.mime === 'image/png' || entry?.mime === 'image/jpeg' ? { mime: entry.mime } : {}) };
+      }
+      // a legacy per-design file keeps its bytes only in git: shown, not restorable
+      for (const ext of ['png', 'jpg']) {
+        if ((await run(['cat-file', '-e', `${id}:./drawings/${named.id}.photo.${ext}`])).code === 0) return undefined;
+      }
+      return 'none';
     },
 
     async stateAt(subject, id) {

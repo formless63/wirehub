@@ -15,7 +15,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { dataPath } from '@wirehub/catalog';
@@ -107,6 +107,8 @@ export interface ModelCache {
   put(key: string, glb: Uint8Array): Awaitable<void>;
   keys(): Awaitable<string[]>;
   remove(key: string): Awaitable<void>;
+  /** when `key` was built (file: its mtime; pg: `derived_blob.built_at`); absent when unknown — the sweep's grace period needs it */
+  builtAt?(key: string): Awaitable<Date | undefined>;
 }
 
 const KEY = /^[0-9a-f]{64}$/;
@@ -131,17 +133,21 @@ export function fileModelCache(dir = modelCacheDir()): ModelCache {
     remove(key) {
       rmSync(path(key), { force: true });
     },
+    builtAt: (key) => (KEY.test(key) && existsSync(path(key)) ? statSync(path(key)).mtime : undefined),
   };
 }
 
-export function memoryModelCache(): ModelCache & { files: Map<string, Buffer> } {
+export function memoryModelCache(): ModelCache & { files: Map<string, Buffer>; built: Map<string, Date> } {
   const files = new Map<string, Buffer>();
+  const built = new Map<string, Date>();
   return {
     files,
+    built,
+    builtAt: (key) => built.get(key),
     has: (key) => files.has(key),
     get: (key) => files.get(key),
-    put: (key, glb) => void files.set(key, Buffer.from(glb)),
+    put: (key, glb) => void (files.set(key, Buffer.from(glb)), built.set(key, new Date())),
     keys: () => [...files.keys()],
-    remove: (key) => void files.delete(key),
+    remove: (key) => void (files.delete(key), built.delete(key)),
   };
 }

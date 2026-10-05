@@ -44,6 +44,11 @@ export function pgModelCache(db: Db, orgId: string, blobs: BlobStore | undefined
         (await sql<{ key: string }>`SELECT key FROM studio.derived_blob WHERE cache = 'model' AND part = '' AND builder_version = ${builder} ORDER BY key`.execute(tx)).rows.map((r) => r.key),
       );
     },
+    async builtAt(key) {
+      if (!KEY.test(key)) return undefined;
+      const at = await inOrg(db, orgId, async (tx) => (await sql<{ built_at: Date | null }>`SELECT max(built_at) AS built_at FROM studio.derived_blob WHERE cache = 'model' AND key = ${key}`.execute(tx)).rows[0]?.built_at);
+      return at === null || at === undefined ? undefined : new Date(at);
+    },
     async remove(key) {
       await inOrg(db, orgId, async (tx) => void (await sql`DELETE FROM studio.derived_blob WHERE cache = 'model' AND key = ${key}`.execute(tx)));
     },

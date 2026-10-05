@@ -22,7 +22,7 @@ import { inOrg, openPg, type PgHandle } from '../../server/pg/db.ts';
 import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
-import { DESIGN, historyScenario, renameAndListScenario } from '../history-scenario.ts';
+import { DESIGN, historyScenario, photoScenario, renameAndListScenario } from '../history-scenario.ts';
 import { describePg, freshDatabase, testBlobs, type TestDatabase } from './harness.ts';
 
 describePg('change history on Postgres', () => {
@@ -68,6 +68,9 @@ describePg('change history on Postgres', () => {
       // a restore is a change set like any other: attributed, with its message
       expect(rows[2]?.message).toMatch(/^studio: restore design dc-led-lead to change \d+\n/);
     });
+
+    // cs-yia: a drawing photo restored from its blob
+    await photoScenario({ deps });
 
     // cs-5k1.25: renames and lists
     await renameAndListScenario({ deps });

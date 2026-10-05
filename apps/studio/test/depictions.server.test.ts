@@ -731,3 +731,37 @@ describe('SVG with entity declarations', () => {
     expect(store.assets.size).toBe(0);
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * Art changed outside the importer re-keys the board's model link (cs-h8p)
+ * ------------------------------------------------------------------ */
+
+describe('a board model link follows its art', () => {
+  it('re-keys pcbas/<id> when gerber-tier art is uploaded, and drops the art when it stops being gerber', async () => {
+    const { memoryModelLinkStore } = await import('../server/models/links.ts');
+    const { sourceKey } = await import('../server/models/cache.ts');
+    const board = [{ path: 'data/model-sources/aa.kicad_pcb.txt', sha256: 'aa'.repeat(32) }];
+    const links = memoryModelLinkStore([{ record: `pcbas/${BOARD}`, asset: sourceKey(board, 100000), files: board, sourceKind: 'kicad-board', src: 'test' }]);
+    deps = { store, loadDb: () => db, modelLinks: links };
+    const before = links.links[0]!.asset;
+
+    expect((await upload(BOARD, 'board-top', 'top.svg', DIRTY_SVG, { sourceKind: 'gerber' })).status).toBe(201);
+    // only the top so far: no gerber top-and-bottom pair, the link is unchanged
+    expect(links.links[0]!.asset).toBe(before);
+    expect((await upload(BOARD, 'board-bottom', 'bottom.svg', DIRTY_SVG, { sourceKind: 'gerber' })).status).toBe(201);
+    const withArt = links.links[0]!;
+    expect(withArt.asset).not.toBe(before);
+    expect(withArt.files!.map((f) => f.path)).toEqual([board[0]!.path, `depictions/${BOARD}/board-bottom.svg`, `depictions/${BOARD}/board-top.svg`]);
+
+    // replaced with different gerber art: another key
+    const other = DIRTY_SVG.replace('</svg>', '<rect width="3" height="3"/></svg>');
+    expect((await upload(BOARD, 'board-top', 'top.svg', other, { sourceKind: 'gerber' })).status).toBe(201);
+    const replaced = links.links[0]!;
+    expect(replaced.asset).not.toBe(withArt.asset);
+
+    // no longer gerber: the model stops painting it
+    expect((await upload(BOARD, 'board-top', 'top.svg', DIRTY_SVG, { sourceKind: 'kicad' })).status).toBe(201);
+    expect(links.links[0]!.files).toEqual(board);
+    expect(links.links[0]!.asset).toBe(before);
+  });
+});

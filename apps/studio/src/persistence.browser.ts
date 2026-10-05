@@ -192,6 +192,16 @@ export function workbenchAssemblies(base = '/api'): AssembliesAdapter {
   };
 }
 
+/** Where a design is placed as a sub-assembly (`GET /api/designs/:id/used-in`). */
+export interface DesignUse {
+  designs: { id: string; label: string; instances: string[] }[];
+  versions: { design: string; rev: number; instances: string[]; pinned?: number }[];
+}
+
+export function fetchDesignUse(id: string, base = '/api'): Promise<Outcome<DesignUse>> {
+  return request<DesignUse>(`${base}/designs/${encodeURIComponent(id)}/used-in`);
+}
+
 /** `db` with the library `design`'s sub-assemblies reach (unchanged for a design placing none, or offline). */
 export async function withAssemblyLibrary(db: Db, design: CableDesign, base = '/api'): Promise<Db> {
   const ids = placedDesignIds(design);
