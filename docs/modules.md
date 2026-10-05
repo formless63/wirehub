@@ -144,7 +144,32 @@ export const acme = defineModule({
 | **UI routes** | `UiRouteContribution { path, label, icon?, component }` under `/m/<module>/` | browser | registry only |
 | **Auth providers** | `AuthProviderContribution { id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }` | server | registry only; the base's own OIDC is configured by environment |
 | **Documents** | `DocumentContribution { path: 'data/<prefix>/' \| 'data/<file>', class: 'imported' \| 'report' }` — catalog documents the module owns | server | **yes** — `PUT /api/docs/*path` writes only these (scope `imports` for an API token) |
+| **Migrations** | `ModuleMigrationsContribution { dir }` — forward-only SQL for the module's own tables, Postgres backend only | server, `db:migrate` | **yes** — applied after the base's, into schema `mod_<id>` (below) |
 | **Commit hook** | `(before, proposed, description) → CableDesign` — rewrite an edit as it is committed (e.g. record it as an override in module data) | browser (editor) | `setCommitHook` exists in the editor store; wiring from the registry not yet |
+
+### Module tables (Postgres backend)
+
+A module that needs relational state of its own (an integration's push log, an import
+register) sets `migrations: { dir }`. The directory holds `NNNN_<module_id>_<name>.sql`
+files — `NNNN` from `0001` without gaps, the module id with `-` written `_` — which
+`pnpm --filter studio db:migrate` (the compose `migrate` one-shot) runs **after** the
+base's migrations, as the schema owner, into the schema `mod_<module_id>` (`pc-serial` →
+`mod_pc_serial`). The interface is that one field; the runner is
+`apps/studio/server/pg/module-migrations.ts` (`migrateModules`, `pendingModuleMigrations`).
+
+- Each module's pending files run in one transaction with `search_path = mod_<id>, studio,
+  public`; tables may reference `studio.entity`, `studio.design_revision` and
+  `studio.person`, never the other way round. Applied files are recorded with their sha256
+  in `wirehub_migrations.module_migration`; editing an applied file is refused (a change is a
+  new file), and so is a vanished one.
+- Every table with an `org_id` column must have `FORCE ROW LEVEL SECURITY` and an
+  `org_isolation` policy (`USING/WITH CHECK (org_id = studio.current_org())`); otherwise the
+  module's migrations roll back with a message naming the table.
+- `studio_app` gets select/insert/update/delete and sequence usage on the schema, `studio_ro`
+  select (the base's grants, §3.12).
+- Catalog truth still goes through change sets; module tables hold evidence and indexes.
+  Removing a module from the manifest leaves its schema; dropping it is an explicit admin act.
+- The file backend ignores `migrations`.
 
 UI contributions carry their component as an opaque value (`unknown` in the registry
 package, so it needs no React); the app renders it as a React component.

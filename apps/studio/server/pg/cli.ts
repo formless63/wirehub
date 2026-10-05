@@ -36,6 +36,8 @@ import { formatGateReport, runGate } from './gate.ts';
 import { ImportError, importCatalog } from './import.ts';
 import { adoptFileCatalog } from './adopt.ts';
 import { migrateToLatest } from './migrate.ts';
+import { migrateModules } from './module-migrations.ts';
+import { registry } from '../modules.ts';
 import { SnapshotCache } from './snapshot.ts';
 
 const env = process.env;
@@ -62,7 +64,7 @@ async function migrate(): Promise<void> {
   const url = requireEnv(env, 'DATABASE_OWNER_URL', 'db:migrate');
   const handle = openPg(url, { max: 1, applicationName: 'wirehub-migrate' });
   try {
-    const applied = await migrateToLatest(handle.db);
+    const applied = [...(await migrateToLatest(handle.db)), ...(await migrateModules(handle.db, registry.modules))];
     log(applied.length === 0 ? 'the database is up to date' : `applied ${applied.join(', ')}`);
   } finally {
     await handle.close();
