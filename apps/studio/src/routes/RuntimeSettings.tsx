@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { adoptServerValues, engineeringKey, runtimeSettingsKey, runtimeSettingsQuery, saveRuntimeGroup, saveRuntimeSecret, type RuntimeFieldView, type RuntimeGroupView, type RuntimeValue } from '../settings.browser.ts';
+import { adoptServerValues, rotateSettingsKey, engineeringKey, runtimeSettingsKey, runtimeSettingsQuery, saveRuntimeGroup, saveRuntimeSecret, type RuntimeFieldView, type RuntimeGroupView, type RuntimeValue } from '../settings.browser.ts';
 
 type Draft = Record<string, Record<string, string | boolean>>;
 
@@ -218,6 +218,41 @@ function AdoptServerValues({ items, onDone }: { items: { key: string; env: strin
   );
 }
 
+function RotateKey({ keyRing, onDone }: { keyRing: { previousKeys: number; stale: number; unreadable: number }; onDone: () => void }): JSX.Element {
+  const [busy, setBusy] = useState(false);
+  const rotate = async (): Promise<void> => {
+    setBusy(true);
+    const out = await rotateSettingsKey();
+    setBusy(false);
+    if (!out.ok) {
+      toast.error(out.message, { description: out.hint });
+      return;
+    }
+    const { rotated, unreadable } = out.value;
+    toast.success(`Re-encrypted ${rotated.length} secret${rotated.length === 1 ? '' : 's'} under the current key.`, unreadable.length === 0 ? undefined : { description: `Could not be read, enter again: ${unreadable.join(', ')}.` });
+    onDone();
+  };
+  return (
+    <div className="flex flex-col gap-2 rounded border border-line p-3" data-testid="rotate-key">
+      <span className="font-medium">Settings key rotation</span>
+      <span className="text-faint">
+        {keyRing.stale > 0
+          ? `${keyRing.stale} stored secret${keyRing.stale === 1 ? ' is' : 's are'} still under a previous key.`
+          : keyRing.previousKeys > 0
+            ? 'Every stored secret is under the current key; the previous key can now be removed from the server.'
+            : 'Every stored secret is under the current key.'}{' '}
+        To rotate, give the server a new <code>WIREHUB_SETTINGS_KEY</code> and the old one as <code>WIREHUB_SETTINGS_KEY_PREVIOUS</code> (docs/self-hosting.md, &ldquo;Rotating the settings key&rdquo;), then re-encrypt here.
+        {keyRing.unreadable > 0 ? ` ${keyRing.unreadable} secret${keyRing.unreadable === 1 ? '' : 's'} cannot be read with any key and must be entered again.` : ''}
+      </span>
+      <div>
+        <button type="button" className="rounded border border-line px-3 py-1 disabled:opacity-50" disabled={busy || (keyRing.stale === 0 && keyRing.previousKeys === 0)} onClick={() => void rotate()}>
+          {busy ? 'Re-encrypting…' : 'Rotate key'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function RuntimeSettings(): JSX.Element {
   const client = useQueryClient();
   const query = useQuery(runtimeSettingsQuery);
@@ -247,6 +282,7 @@ export function RuntimeSettings(): JSX.Element {
         </div>
       ) : null}
       {data.secrets.available ? null : <div className="text-faint">{data.secrets.note}</div>}
+      {data.secrets.keyRing !== undefined ? <RotateKey keyRing={data.secrets.keyRing} onDone={refetch} /> : null}
       {data.adoptable !== undefined && data.adoptable.length > 0 ? <AdoptServerValues items={data.adoptable} onDone={refetch} /> : null}
       {data.groups.map((group) => (
         <Group key={group.id} group={group} draft={draft[group.id] ?? {}} setDraft={(d) => setDraft({ ...draft, [group.id]: d })} secretsAvailable={data.secrets.available} refetch={refetch} />

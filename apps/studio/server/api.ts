@@ -48,7 +48,7 @@ import { RULES_ROUTES, handleRulesRequest, isRulesPath } from './rules-settings.
 import { PN_SETTINGS_ROUTES, handlePartNumberSettings, isPnSettingsPath } from './pn-settings.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
-import { RUNTIME_SETTINGS_ROUTES, handleRuntimeSettingsRequest, handleSettingsAdopt, handleSettingsSecret, isSettingsAdoptPath, isSettingsSecretPath } from './runtime-settings-api.ts';
+import { RUNTIME_SETTINGS_ROUTES, handleRuntimeSettingsRequest, handleSettingsAdopt, handleSettingsRotate, handleSettingsSecret, isSettingsAdoptPath, isSettingsRotatePath, isSettingsSecretPath } from './runtime-settings-api.ts';
 import { isOwnerOnlySettingsPath } from './runtime-settings.ts';
 import { runtimeEnv, type RuntimeSettings } from './runtime-settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
@@ -1177,6 +1177,8 @@ async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps
       }),
     );
   }
+  // "rotate key": every stored secret re-encrypted under the current settings key (no catalog change)
+  if (isSettingsRotatePath(request.path)) return withWriteLock(() => handleSettingsRotate(request, deps));
   if ((request.path.split('?')[0] ?? '') === '/api/batch') {
     if (request.method.toUpperCase() !== 'POST') return methodNotAllowed(request.method.toUpperCase(), ['POST']);
     return withWriteLock(() => runBatch(request, deps));

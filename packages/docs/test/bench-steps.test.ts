@@ -31,4 +31,34 @@ describe('registerBenchSteps', () => {
     }
     expect(renderBuildSheet(design, db)).toBe(before);
   });
+
+  it('prints a rule\'s images, tools and checks, from data alone', async () => {
+    const { benchRulesProvider, benchRuleProblems } = await import('@wirehub/model');
+    const rules = [
+      { id: 'prep-all', phase: 'prep' as const, steps: [{ text: 'Strip per SHOP-WI-3.', src: 'shop wi 3', tools: ['wire stripper'], checks: ['No nicked strands'], images: ['data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"/>'] }] },
+      { id: 'never', phase: 'prep' as const, when: { wire: ['no-such-wire'] }, steps: [{ text: 'NEVER-SHOWN', src: 'x' }] },
+    ];
+    expect(benchRuleProblems(rules)).toEqual([]);
+    const off = registerBenchSteps(benchRulesProvider(rules));
+    try {
+      const html = renderBuildSheet(design, db);
+      expect(html).toContain('Strip per SHOP-WI-3.');
+      expect(html).toContain('Tools: wire stripper');
+      expect(html).toContain('No nicked strands');
+      expect(html).toContain('class="cs-stepimg"');
+      expect(html).not.toContain('NEVER-SHOWN');
+    } finally {
+      off();
+    }
+  });
+
+  it('refuses bad rules with a sentence each', async () => {
+    const { benchRuleProblems } = await import('@wirehub/model');
+    const bad = [{ id: 'Bad Id', phase: 'prep', steps: [{ text: '', src: '' }] }, { id: 'q', phase: 'qa', when: { family: ['x'] }, steps: [{ text: 't', src: 's', images: ['file:///etc/passwd'] }] }];
+    const problems = benchRuleProblems(bad as never);
+    expect(problems.join('\n')).toMatch(/kebab-case/);
+    expect(problems.join('\n')).toMatch(/text is empty/);
+    expect(problems.join('\n')).toMatch(/qa rule takes no when/);
+    expect(problems.join('\n')).toMatch(/images must be/);
+  });
 });

@@ -291,7 +291,7 @@ export function createRuntimeSettings(options: RuntimeSettingsOptions): RuntimeS
           found.push(
             options.cipher === undefined
               ? `${label} is saved, but this server has no settings key (WIREHUB_SETTINGS_KEY) to read it with.`
-              : `${label} is saved but does not decrypt with this server's settings key (WIREHUB_SETTINGS_KEY changed?); enter it again.`,
+              : `${label} is saved but does not decrypt with this server's settings key or its previous keys (WIREHUB_SETTINGS_KEY changed without WIREHUB_SETTINGS_KEY_PREVIOUS?); enter it again.`,
           );
         } else {
           nextStates[name] = 'set';

@@ -91,6 +91,38 @@ describe('bootstrap', () => {
     expect(read('database_url')).toBe('postgres://me:y@elsewhere:5432/hub\n');
   });
 
+  it('rotates the settings key on request: a new key, the old one retired, and dropped once re-encrypted', () => {
+    bootstrap(env());
+    const first = read('settings_key').trim();
+    expect(existsSync(join(dir, 'settings_key_previous'))).toBe(false);
+    const report = bootstrap(env({ WIREHUB_ROTATE_SETTINGS_KEY: '1' }));
+    expect(report.settings_key).toBe('rotated');
+    expect(report.settings_key_previous).toBe('rotated');
+    const second = read('settings_key').trim();
+    expect(second).not.toBe(first);
+    expect(second.length).toBeGreaterThanOrEqual(43);
+    expect(read('settings_key_previous').trim().split('\n')).toEqual([first]);
+    // a second rotation keeps both retired keys, newest first
+    bootstrap(env({ WIREHUB_ROTATE_SETTINGS_KEY: 'true' }));
+    expect(read('settings_key_previous').trim().split('\n')).toEqual([second, first]);
+    // an ordinary run changes nothing
+    const before = [read('settings_key'), read('settings_key_previous')];
+    expect(bootstrap(env()).settings_key).toBe('kept');
+    expect([read('settings_key'), read('settings_key_previous')]).toEqual(before);
+    expect(bootstrap(env({ WIREHUB_DROP_PREVIOUS_SETTINGS_KEYS: '1' })).settings_key_previous).toBe('dropped');
+    expect(existsSync(join(dir, 'settings_key_previous'))).toBe(false);
+  });
+
+  it('retires the file\'s key when a different one is given explicitly, and refuses to rotate over an explicit key', () => {
+    bootstrap(env());
+    const first = read('settings_key').trim();
+    const given = 'g'.repeat(43);
+    expect(bootstrap(env({ WIREHUB_SETTINGS_KEY: given })).settings_key_previous).toBe('retired');
+    expect(read('settings_key').trim()).toBe(given);
+    expect(read('settings_key_previous').trim()).toBe(first);
+    expect(() => bootstrap(env({ WIREHUB_SETTINGS_KEY: given, WIREHUB_ROTATE_SETTINGS_KEY: '1' }))).toThrow(/set explicitly/);
+  });
+
   it('writes a Garage config that reads its secrets from the volume', () => {
     bootstrap(env({ S3_REGION: 'garage' }));
     const toml = read('garage.toml');

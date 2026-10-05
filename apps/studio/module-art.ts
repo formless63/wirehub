@@ -11,7 +11,8 @@
  */
 
 import { parseBodyLayouts, parseConnectorArt, type BodyLayoutRecord } from '@wirehub/catalog';
-import { drawingArtProblems, registerDrawingArt, type DrawingArt } from '@wirehub/docs';
+import { drawingArtProblems, registerBenchSteps, registerDrawingArt, type DrawingArt } from '@wirehub/docs';
+import { benchRuleProblems, benchRulesProvider } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
 import { registerConnectorArt } from '@wirehub/render-svg';
 
@@ -36,6 +37,14 @@ export function installModuleArt(registry: ModuleRegistry, extra: (layouts: read
     if (problems.length > 0) continue;
     offs.push(registerConnectorArt(connectors), extra(layouts.records));
     if (contribution.drawing !== undefined) offs.push(registerDrawingArt(contribution.drawing as DrawingArt));
+  }
+  // bench work instructions: rules as data first, then a module's own provider
+  for (const contribution of registry.bench()) {
+    const rules = contribution.rules ?? [];
+    problems.push(...benchRuleProblems(rules, `${contribution.module} bench.rules`));
+    if (problems.length > 0) continue;
+    if (rules.length > 0) offs.push(registerBenchSteps(benchRulesProvider(rules)));
+    if (contribution.provider !== undefined) offs.push(registerBenchSteps(contribution.provider));
   }
   if (problems.length > 0) {
     for (const off of offs) off();

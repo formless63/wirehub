@@ -11,37 +11,16 @@
 
 import {
   findMechanical,
+  type BenchEnd,
+  type BenchStepsProvider,
   type CableDesign,
   type Db,
+  type ShellSet,
+  type Step,
   type WireDefinition,
 } from '@wirehub/model';
 
-import type { BenchEnd } from './model.ts';
-
-export interface Step {
-  text: string;
-  /** where the step comes from (a work instruction, a standard, "generic practice") */
-  src: string;
-}
-
-/**
- * A shop's own work instructions, in place of the generic steps
- * (`specs/drawing-language.md` §8). Each hook returns the steps for that
- * phase, or `undefined` to leave the generic ones; the first registered
- * provider with an answer wins. A provider sees the same facts the generic
- * steps are chosen by — the stock, the end and its terminations, the shells —
- * so instructions can differ per family or termination. Every step cites its
- * source in `src`.
- */
-export interface BenchStepsProvider {
-  prep?(wire: WireDefinition, bonded: boolean): Step[] | undefined;
-  end?(end: BenchEnd, db: Db, other?: BenchEnd): Step[] | undefined;
-  assembly?(design: CableDesign, db: Db, end: BenchEnd, sets: readonly ShellSet[], trunkWire: WireDefinition | undefined): Step[] | undefined;
-  /** the soldering step */
-  solder?: Step;
-  /** the functional check after continuity */
-  qa?: readonly Step[];
-}
+export type { BenchStepsProvider, ShellSet, Step };
 
 const providers: BenchStepsProvider[] = [];
 
@@ -105,14 +84,6 @@ export function solderStep(): Step {
 /** What to do at an end before the first landing. The base adds nothing board-specific; a provider may. */
 export function endSteps(end: BenchEnd, db: Db, other?: BenchEnd): Step[] {
   return supplied((p) => p.end?.(end, db, other)) ?? [];
-}
-
-/** The mechanical parts on one end, grouped under the shell they belong to. */
-export interface ShellSet {
-  /** the instance the shell encloses */
-  attachedTo?: string;
-  shell?: { id: string; label: string; partNumber?: string; qty: number };
-  parts: { id: string; label: string; partNumber?: string; qty: number; kind: string }[];
 }
 
 export function shellSets(design: CableDesign, db: Db, instances: ReadonlySet<string>): ShellSet[] {

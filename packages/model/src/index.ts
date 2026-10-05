@@ -519,3 +519,7 @@ export {
   ruleProblems,
 } from './rules.ts';
 export type { Aggregated, Condition, Literal, Operand, Quantified, RuleSubject, ValidationRule } from './rules.ts';
+
+// ---- bench build sheet types and the work-instruction hook ----
+export { benchRuleProblems, benchRulesProvider } from './bench-types.ts';
+export type { Bench, BenchEnd, BenchPhase, BenchStepRule, BenchStepsProvider, BoardFace, Bridge, EndSide, Landing, LandingElement, LandingTarget, SegmentEnd, ShellSet, Step, StockElement, StripRow, StripTreatment, Termination } from './bench-types.ts';

@@ -56,7 +56,7 @@ import { testDefaultsFromEnv } from './documents.ts';
 import { pdfEngineFromEnv } from './render/browser-pdf.ts';
 import { DEFAULT_AUTH_DATA_DIR } from './auth/config.ts';
 import { createRuntimeSettings, type RuntimeSettings } from './runtime-settings.ts';
-import { fileSecretStore, settingsCipher, settingsKeyFromEnv, type SecretStore } from './settings-secrets.ts';
+import { fileSecretStore, settingsCipherFromEnv, type SecretStore } from './settings-secrets.ts';
 import type { Env } from './env.ts';
 
 /** A catalog data file, parsed; `undefined` when it is not there. */
@@ -75,16 +75,7 @@ export interface DefaultDepsOptions {
   env?: Env;
 }
 
-/** The install key's cipher, or `undefined` (with one log line) when there is none or it is unusable. */
-export function settingsCipherFromEnv(env: Env, log: (line: string) => void = (line) => console.warn(line)): ReturnType<typeof settingsCipher> | undefined {
-  try {
-    const key = settingsKeyFromEnv(env);
-    return key === undefined ? undefined : settingsCipher(key);
-  } catch (error) {
-    log(`[settings] ${error instanceof Error ? error.message : String(error)} Secrets cannot be saved in Settings.`);
-    return undefined;
-  }
-}
+export { settingsCipherFromEnv };
 
 /** Where the file backend keeps the secrets entered in Settings: beside the sign-in data, never in the catalog. */
 export function fileSecretsPath(env: Env): string {
