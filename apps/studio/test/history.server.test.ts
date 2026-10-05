@@ -78,6 +78,22 @@ describe('change history on the file backend (git)', () => {
   });
 });
 
+describe('over HTTP', () => {
+  it('the standalone server hands the history its query string', async () => {
+    const { Hono } = await import('hono');
+    const { mountWorkbenchApi } = await import('../server/hono-adapter.ts');
+    const { noHistorySource } = await import('../server/history/source.ts');
+    const { defaultWorkbenchDeps } = await import('../server/default-deps.ts');
+    const seen: unknown[] = [];
+    const source = { ...noHistorySource(), list: async (query: unknown) => (seen.push(query), { entries: [] }) };
+    const app = new Hono();
+    mountWorkbenchApi(app, { ...defaultWorkbenchDeps(), history: source });
+    const response = await app.request('/api/history?person=alice&kind=design&from=2026-10-01');
+    expect(response.status).toBe(200);
+    expect(seen[0]).toMatchObject({ person: 'alice', kind: 'design', from: '2026-10-01' });
+  });
+});
+
 describe('the field diff', () => {
   it('compares objects by key, id-keyed arrays by id, other arrays as multisets', () => {
     const before = { label: 'A', instances: { connectors: [{ id: 'j1', def: 'x' }, { id: 'j2', def: 'y' }] }, joints: [{ a: 1 }, { a: 2 }], notes: ['n'] };
