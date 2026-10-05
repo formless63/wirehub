@@ -511,9 +511,8 @@ its own to push, the job fails, alerts (Settings > Notifications) and waits for
 you; files outside `data/` and `depictions/` (a README) are left alone. The
 owner-only settings documents (sign-in, notifications, integrations) are not
 mirrored; a mirror kept before v0.2.0 drops them at its next commit, but they
-stay in its older commits (rewrite that repository's history, or start a new
-one, if it must not hold them). The mirror is a copy, not the backup — keep the
-backups below.
+stay in its older commits (see "Older history of the git mirror" below). The
+mirror is a copy, not the backup — keep the backups below.
 
 Set it up under **Settings > Integrations**: the remote (`ssh://…` or
 `https://…`, never with a password in it), the branch, the schedule, and its
@@ -545,6 +544,74 @@ pushed. A change set saved before the database kept what a replay needs (an
 upload's details, before 0017), or whose uploaded bytes are gone, is not
 replayed one by one: the mirror then commits the catalog as it is now and
 says so in the commit message.
+
+### Older history of the git mirror
+
+The current mirror, and the file backend's git export, never commit the three
+owner-only settings documents. Earlier ones did, and **git keeps what it once
+committed**: a mirror repository made before v0.2.0, and a file-backend export
+repository that ran with the git export on before that, hold them in older
+commits until their history is rewritten, even though today's commits no longer
+have them. Everyone who can read that repository (your git host's members, its
+forks and clones) can read them.
+
+**What is exposed.** The files are `data/settings/sign-in.json`,
+`data/settings/notifications.json` and `data/settings/integrations.json` (a
+repository rooted at the catalog's `data/` folder has them as `settings/…`).
+They hold the settings that are not secrets: the allowed emails, whether local
+accounts are on, the identity provider's address and client id, the SMTP host,
+port, user and sender, the webhook's format, the git mirror's remote address,
+branch and schedule, the PDF engine's address and the token limits, and the
+time each secret was last set. They never hold a secret value: the SMTP
+password, the OIDC client secret, the webhook URL and token and the mirror's
+token and key live in an encrypted store of their own (see "Settings" above).
+So the exposure is who your people and your services are, not their
+credentials; a repository that was public, or shared wider than your hub's
+owners, should be treated as having disclosed those, and anything you ever put
+in a settings field that was not a secret field (an address with a password in
+it, which the form refuses today) as compromised, so change it.
+
+**Option 1, a fresh mirror repository (simplest).** Create a new empty
+repository, point **Settings > Integrations > Git mirror** at it (or
+`WIREHUB_GIT_MIRROR_URL`), and archive or delete the old one on your host. The
+mirror's first run commits the catalog as it is now, with no settings
+documents; the per-change-set trail restarts from there, and the old
+repository keeps the earlier trail if you keep it (private). The hub's own
+History is in the database and is not affected.
+
+**Option 2, rewrite the old repository's history** and keep its trail. Work on
+a clone you made for this, never the hub's live working clone, with a terminal
+where git and Node are installed:
+
+```
+git clone --mirror <your-mirror-url> mirror-copy      # a full copy: every branch and tag
+pnpm --filter studio mirror:purge ../mirror-copy --dry-run
+pnpm --filter studio mirror:purge ../mirror-copy      # shows the dry run again, then asks you to type the folder name
+```
+
+The tool takes **only a local folder** (a URL is refused), always prints a dry
+run first (how many commits hold the files, how many would vanish because they
+changed nothing else, which branches and tags move, which refs it deletes), and
+rewrites only after you type the folder's name (`--confirm <name>` where there
+is no terminal). It rebuilds the commits with plain git: every commit keeps its
+message, author, committer and dates, loses the three files, and gets a new id;
+commits that only touched those files are dropped; signatures on rewritten
+commits cannot survive. Local branches and tags move to the new commits,
+remote-tracking refs and the reflog are removed and the old objects collected.
+`--path <file>` (repeatable) names other files to drop instead. It never
+pushes and never changes a remote's configuration.
+
+Publishing is yours: the remote's history now differs, so push the new history
+to a **fresh empty repository** (recommended: `git push --mirror <new-url>`)
+and point the hub's mirror at it, or force-push over the old one if you accept
+that every clone must be re-cloned. Then stop the old copy being readable:
+clones and forks made earlier, and your host's own caches (pull request refs,
+a forge's "view all commits" by id), may still serve the old commits, so
+delete the old repository where you can, and treat what the files held as
+seen. The mirror continues from the rewritten branch: its newest commit still
+says which catalog version it holds, and it never forces, so if you push the
+rewritten history to the same remote, set the hub's working clone aside
+(`WIREHUB_GIT_MIRROR_DIR`, re-cloned when lost) first.
 
 ## Printed PDFs (`COMPOSE_PROFILES=pdf`)
 
