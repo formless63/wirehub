@@ -4,7 +4,9 @@
  * previewed first (the record-level diff), then applied as one change set by
  * the server; a refusal lists the references or problems that stopped it.
  * Writes need an owner or editor; a viewer's attempt answers with the server's
- * sentence.
+ * sentence. An installed pack the store has since yanked, flagged, or whose signing
+ * key it revoked carries a warning badge with the version to update to (from the
+ * store list's `notices`; nothing when no store index is reachable).
  */
 
 import { useCallback, useEffect, useState, type JSX } from 'react';
@@ -15,6 +17,8 @@ import {
   applyUpdate,
   disablePack,
   listPacks,
+  listStore,
+  noticeText,
   previewDisable,
   previewInstall,
   previewUpdate,
@@ -24,6 +28,7 @@ import {
   type PackDiff,
   type PackPlan,
   type PackSource,
+  type StoreNotice,
 } from '../packs.browser.ts';
 
 const short = (value: unknown): string => {
@@ -100,10 +105,17 @@ export function PacksPanel(): JSX.Element {
   // a viewer reads: no install, update or disable (the server refuses them too)
   const [canWrite, setCanWrite] = useState(true);
 
+  const [notices, setNotices] = useState<StoreNotice[]>([]);
+
   const reload = useCallback(async (): Promise<void> => {
     const answer = await listPacks();
     if (answer.ok) setPacks(answer.body['packs'] as InstalledPackView[]);
     else setMessage(sentence(answer));
+    // the store's word on what is installed (yanked, revoked, flagged); best effort
+    if (answer.ok && ((answer.body['packs'] as unknown[] | undefined) ?? []).length > 0) {
+      const store = await listStore();
+      setNotices(store.ok ? ((store.body['notices'] as StoreNotice[] | undefined) ?? []) : []);
+    } else setNotices([]);
   }, []);
   useEffect(() => {
     void reload();
@@ -164,6 +176,18 @@ export function PacksPanel(): JSX.Element {
         {(packs ?? []).map((p) => (
           <li key={p.id} className="my-1" data-pack={p.id}>
             <b>{p.id}</b> {p.version} · {p.license} · {p.records} records
+            {notices
+              .filter((n) => n.id === p.id && n.version === p.version)
+              .map((n) => (
+                <span key={n.index} role="alert" className="ml-2 border border-warn px-1 text-warn" data-pack-warning={p.id} title={noticeText(n)}>
+                  {n.yanked !== undefined ? 'Yanked' : n.revoked !== undefined ? 'Revoked key' : 'Flagged'}: {noticeText(n)}{' '}
+                  {n.suggest === undefined ? null : (
+                    <a href="/library/store" className="underline">
+                      Update…
+                    </a>
+                  )}
+                </span>
+              ))}
             {!canWrite || p.available === undefined ? null : (
               <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void run(async () => showPlan(await previewUpdate(p.id), 'update', p.id))}>
                 Update to {p.available}…

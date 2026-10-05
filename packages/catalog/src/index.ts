@@ -51,6 +51,7 @@ export {
   catalogWithPacksSource,
   installPack,
   installPackLayer,
+  setInstalledPackOrigin,
   installedPackDir,
   installedPackSources,
   localPartOf,
@@ -86,7 +87,13 @@ export {
   STORE_SIGNATURE_SUFFIX,
   buildStoreIndex,
   latestVersion,
+  normalStoreKey,
+  offeredVersion,
   parseStoreIndex,
+  publisherKeys,
+  reviewOf,
+  revokedKeysOf,
+  versionVisible,
   parseStorePublicKey,
   signStoreIndex,
   storeKeyId,
@@ -95,7 +102,9 @@ export {
   storePublicKeyOf,
   verifyStoreSignature,
 } from './store-index.ts';
-export type { StoreBundle, StoreIndex, StoreIndexPack, StoreIndexVersion, StoreSignatureCheck } from './store-index.ts';
+export type { StoreBundle, StoreIndex, StoreIndexPack, StoreIndexVersion, StoreMeta, StorePublisher, StoreReview, StoreRevokedKey, StoreSignatureCheck, StoreYank } from './store-index.ts';
+export { PACK_SIGNATURE, packDigests, packFileDigest, packFileProblems, packManifestMessage, signPackManifest, splitPackSignatures, verifyPackSignature } from './pack-signature.ts';
+export type { PackSignatureCheck } from './pack-signature.ts';
 export type { AssetOps, InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */

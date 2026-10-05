@@ -48,6 +48,8 @@ export interface InstalledPackView {
   records: number;
   module?: string;
   available?: string;
+  /** installed from a store index: which, and the publisher keys whose signature verified */
+  origin?: { index: string; publisher?: string; signedBy?: string[] };
 }
 export interface PackAnswer {
   ok: boolean;
@@ -114,6 +116,29 @@ export const applyInstall = (source: PackSource, sha256: string, acceptMajor: bo
  * The store (`/api/packs/store`, `server/store.ts`)
  * ------------------------------------------------------------------ */
 
+/** What the index publisher says about a version: information, not a gate. */
+export type StoreReviewView = { status: 'unreviewed' } | { status: 'reviewed'; by: string; on: string; note?: string } | { status: 'flagged'; reason: string; by?: string; on?: string };
+export interface StoreReleaseView {
+  version: string;
+  review: StoreReviewView;
+  /** withdrawn by the index publisher: never offered, installed only when an owner forces it */
+  yanked?: { reason: string; on?: string };
+  /** every key that signed it is revoked: refused for install */
+  revoked?: boolean;
+}
+/** A warning about an installed pack from a store index that lists it. */
+export interface StoreNotice {
+  id: string;
+  version: string;
+  index: string;
+  store: { id: string; name: string };
+  yanked?: { reason: string; on?: string };
+  revoked?: { key: string; reason?: string; on?: string }[];
+  review?: StoreReviewView;
+  /** the version the index offers now */
+  suggest?: string;
+}
+
 /** One pack a trusted, verified store index lists. Licence and author are the author's statement, shown as information. */
 export interface StorePackView {
   index: string;
@@ -124,12 +149,16 @@ export interface StorePackView {
   domain: string;
   license: string;
   author: { id?: string; name: string };
+  /** the publisher whose key signs it; absent = pinned by the index's sha256 only */
+  publisher?: { id: string; name: string; url?: string };
   homepage?: string;
-  latest?: { version: string; size: number };
+  /** the version offered for install: the newest not yanked */
+  latest?: { version: string; size: number; review?: StoreReviewView };
   versions: string[];
+  releases?: StoreReleaseView[];
   /** the version installed here, if any */
   installed?: string;
-  action: 'install' | 'update' | 'current' | 'newer-installed';
+  action: 'install' | 'update' | 'current' | 'newer-installed' | 'unavailable';
 }
 export interface StoreIndexView {
   url: string;
@@ -140,7 +169,24 @@ export interface StoreIndexView {
 }
 
 export const listStore = (base = '/api'): Promise<PackAnswer> => call('GET', `${base}/packs/store`);
-export const previewStoreInstall = (pack: { index: string; id: string; version?: string }, base = '/api'): Promise<PackAnswer> =>
-  call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, ...(pack.version === undefined ? {} : { version: pack.version }) });
-export const applyStoreInstall = (pack: { index: string; id: string; version: string }, sha256: string, acceptMajor: boolean, base = '/api'): Promise<PackAnswer> =>
-  call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, version: pack.version, apply: true, sha256, acceptMajor });
+/** `force`: install a yanked version anyway (owners only; the server refuses anyone else). */
+export const previewStoreInstall = (pack: { index: string; id: string; version?: string; force?: boolean }, base = '/api'): Promise<PackAnswer> =>
+  call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, ...(pack.version === undefined ? {} : { version: pack.version }), ...(pack.force === true ? { force: true } : {}) });
+export const applyStoreInstall = (pack: { index: string; id: string; version: string; force?: boolean }, sha256: string, acceptMajor: boolean, base = '/api'): Promise<PackAnswer> =>
+  call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, version: pack.version, apply: true, sha256, acceptMajor, ...(pack.force === true ? { force: true } : {}) });
+
+/** One line for a review status. */
+export function reviewText(review: StoreReviewView | undefined): string {
+  if (review === undefined || review.status === 'unreviewed') return 'unreviewed';
+  if (review.status === 'reviewed') return `reviewed by ${review.by} on ${review.on}`;
+  return `flagged: ${review.reason}`;
+}
+
+/** One sentence for a notice about an installed pack. */
+export function noticeText(n: StoreNotice): string {
+  const parts: string[] = [];
+  if (n.yanked !== undefined) parts.push(`${n.version} was yanked by ${n.store.name}: ${n.yanked.reason}`);
+  if (n.revoked !== undefined) parts.push(`${n.version} is signed only by a revoked key${n.revoked.some((r) => r.reason !== undefined) ? ` (${n.revoked.map((r) => r.reason).filter((r) => r !== undefined).join('; ')})` : ''}`);
+  if (n.review?.status === 'flagged') parts.push(`${n.version} is flagged by ${n.store.name}: ${n.review.reason}`);
+  return `${parts.join('. ')}.${n.suggest === undefined ? '' : ` Update to ${n.suggest} suggested.`}`;
+}

@@ -115,8 +115,19 @@ export function isZip(bytes: Uint8Array): boolean {
   return bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && (bytes[2] === 3 || bytes[2] === 5);
 }
 
+/** A pack's signature file (`wirehub-pack.sig`, phase 5): kept apart from the files, at most this many bytes. */
+export const PACK_SIGNATURE_FILE = 'wirehub-pack.sig';
+const MAX_SIGNATURE_BYTES = 16 * 1024;
+
 /** The files of a zip: `.json` entries and allowlisted images, a single wrapping folder stripped. */
 export function readZip(bytes: Uint8Array): PackFiles {
+  const raw = readZipRaw(bytes);
+  raw.delete(PACK_SIGNATURE_FILE);
+  return checkedAssets(raw);
+}
+
+/** The files of a zip as shipped (images not yet checked or stripped), with `wirehub-pack.sig` if there is one. */
+function readZipRaw(bytes: Uint8Array): PackFiles {
   let eocd = -1;
   for (let at = bytes.length - 22; at >= Math.max(0, bytes.length - 22 - 65_535); at -= 1) {
     if (u32(bytes, at) === 0x06054b50) {
@@ -142,7 +153,7 @@ export function readZip(bytes: Uint8Array): PackFiles {
     const local = u32(bytes, at + 42);
     const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
     at += 46 + skip;
-    if (name.endsWith('/') || name.startsWith('__MACOSX/') || !(name.endsWith('.json') || IMAGE_EXTENSION.test(name))) continue;
+    if (name.endsWith('/') || name.startsWith('__MACOSX/') || !(name.endsWith('.json') || IMAGE_EXTENSION.test(name) || name.endsWith(PACK_SIGNATURE_FILE))) continue;
     if (name.includes('\\') || name.startsWith('/') || name.split('/').some((s) => s === '..' || s.startsWith('.'))) {
       throw new PackArchiveError(`The zip holds an unsafe path: '${name}'.`);
     }
@@ -157,7 +168,8 @@ export function readZip(bytes: Uint8Array): PackFiles {
   let total = 0;
   for (const { name, flags, method, compressed, size, local } of entries) {
     const path = name.slice(strip);
-    if (!path.endsWith('.json') && !isPackAssetPath(path)) continue;
+    if (!path.endsWith('.json') && !isPackAssetPath(path) && path !== PACK_SIGNATURE_FILE) continue;
+    if (path === PACK_SIGNATURE_FILE && size > MAX_SIGNATURE_BYTES) throw new PackArchiveError(`The pack's ${PACK_SIGNATURE_FILE} is larger than a signature may be.`, 413);
     if ((flags & 1) !== 0) throw new PackArchiveError('Encrypted zips are not supported.');
     if (compressed === 0xffffffff || size === 0xffffffff) throw new PackArchiveError('Zip64 archives are not supported.');
     total += size;
@@ -178,7 +190,7 @@ export function readZip(bytes: Uint8Array): PackFiles {
     if (data.length !== size) throw new PackArchiveError(`'${name}' in the zip does not match its recorded size.`);
     out.set(path, data);
   }
-  return checkedAssets(out);
+  return out;
 }
 
 /* ------------------------------------------------------------------ *
@@ -189,7 +201,12 @@ const encode = (value: unknown): Uint8Array => new TextEncoder().encode(`${JSON.
 
 /** The files of a `{ format, manifest, files }` bundle, each written canonically. */
 export function readBundle(value: unknown): PackFiles {
-  const bundle = value as { manifest?: unknown; files?: unknown } | null;
+  return checkedAssets(readBundleRaw(value));
+}
+
+/** A bundle's files as shipped (images not yet checked), and its `signature` as `wirehub-pack.sig`. */
+function readBundleRaw(value: unknown): PackFiles {
+  const bundle = value as { manifest?: unknown; files?: unknown; signature?: unknown } | null;
   if (typeof bundle !== 'object' || bundle === null || typeof bundle.manifest !== 'object' || bundle.manifest === null || typeof bundle.files !== 'object' || bundle.files === null || Array.isArray(bundle.files)) {
     throw new PackArchiveError('That is not a pack bundle.', 400);
   }
@@ -205,20 +222,45 @@ export function readBundle(value: unknown): PackFiles {
     }
     out.set(path, encode(typeof content === 'string' ? (JSON.parse(content) as unknown) : content));
   }
-  return checkedAssets(out);
+  if (bundle.signature !== undefined) {
+    if (typeof bundle.signature !== 'string' || bundle.signature.length > MAX_SIGNATURE_BYTES) throw new PackArchiveError('A bundle\'s "signature" is the text of wirehub-pack.sig.');
+    out.set(PACK_SIGNATURE_FILE, new TextEncoder().encode(bundle.signature));
+  }
+  return out;
+}
+
+/** A pack as read: the files to install (images checked, SVG stripped), the files as shipped (what a signature covers), and its signature text. */
+export interface ReadPack {
+  files: PackFiles;
+  format: 'zip' | 'bundle';
+  /** every file as shipped, before images are checked or stripped; without the signature */
+  shipped: PackFiles;
+  /** `wirehub-pack.sig`, when the pack carries one */
+  signature?: string;
 }
 
 /** What a stranger handed us: zip bytes, or JSON text holding a bundle. */
-export function readPackBytes(bytes: Uint8Array): { files: PackFiles; format: 'zip' | 'bundle' } {
+export function readPackBytes(bytes: Uint8Array): ReadPack {
   if (bytes.length > MAX_PACK_BYTES) throw new PackArchiveError('That pack is larger than this studio accepts.', 413);
-  if (isZip(bytes)) return { files: readZip(bytes), format: 'zip' };
-  let value: unknown;
-  try {
-    value = JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    throw new PackArchiveError('That is neither a zip file nor a JSON pack bundle.');
+  let raw: PackFiles;
+  let format: 'zip' | 'bundle';
+  if (isZip(bytes)) {
+    raw = readZipRaw(bytes);
+    format = 'zip';
+  } else {
+    let value: unknown;
+    try {
+      value = JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+      throw new PackArchiveError('That is neither a zip file nor a JSON pack bundle.');
+    }
+    raw = readBundleRaw(value);
+    format = 'bundle';
   }
-  return { files: readBundle(value), format: 'bundle' };
+  const sig = raw.get(PACK_SIGNATURE_FILE);
+  raw.delete(PACK_SIGNATURE_FILE);
+  const shipped = new Map(raw);
+  return { files: checkedAssets(raw), format, shipped, ...(sig === undefined ? {} : { signature: new TextDecoder().decode(sig) }) };
 }
 
 /** Write a pack's files under `dir` (a fresh temporary directory). */
