@@ -22,6 +22,7 @@ import type { Context, Hono } from 'hono';
 import { sessionStudioUser, type StudioUser } from '../me.ts';
 import { clientAddress } from '../env.ts';
 import { crossSiteRefusal } from '../request-guard.ts';
+import type { Notifier } from '../notify.ts';
 import { renderInvitePage, renderPeoplePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
 import { ROLES, type PeopleStore, type Person, type Role } from './people.ts';
 import { parseToken, READ_LIMITS, scopeFor, TOKEN_DAYS, TOKEN_SCOPES, WRITE_LIMITS, type TokenEnv, type TokenStore } from './tokens.ts';
@@ -145,6 +146,17 @@ function addressOf(c: Context): string {
   return clientAddress(c.req.raw.headers, (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming?.socket?.remoteAddress);
 }
 
+/** Count a failed token attempt; a run of them, or a throttled address, is an alert (§8.6). The token is never in the message. */
+function refusedToken(auth: StudioAuth, address: string): void {
+  const outcome = auth.limiter?.failure(address);
+  if (outcome === undefined || auth.notifier === undefined) return;
+  void auth.notifier.notify(
+    outcome === 'blocked'
+      ? { event: 'token-ip-throttled', severity: 'high', title: 'API token attempts throttled', message: `${address} failed 10 token attempts in a minute and is refused for 15 minutes.`, data: { address } }
+      : { event: 'token-refused-repeatedly', severity: 'high', title: 'Repeated refused API tokens', message: `${address} has had 5 API tokens refused in a minute.`, data: { address } },
+  );
+}
+
 /** Check a bearer token and let the request through as its person, or answer the refusal. */
 async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefined, value: string): Promise<Response | undefined> {
   const tokens = auth.tokens;
@@ -156,12 +168,12 @@ async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefi
   const parsed = parseToken(value);
   // a token of the other environment is refused before any lookup
   if (parsed === undefined || parsed.env !== auth.tokenEnv) {
-    limiter.failure(address);
+    refusedToken(auth, address);
     return tokenRefused();
   }
   const holder = await tokens.resolve(value);
   if (holder === undefined) {
-    limiter.failure(address);
+    refusedToken(auth, address);
     return tokenRefused();
   }
   const scope = scopeFor(c.req.method, c.req.path);
@@ -184,7 +196,7 @@ function retryLater(seconds: number): Response {
 }
 
 /** `/api/account/tokens` — a person's own tokens (an owner also sees and revokes everyone's); session only. */
-async function tokensRoute(c: Context, tokens: TokenStore, person: Person | undefined, env: TokenEnv): Promise<Response> {
+async function tokensRoute(c: Context, tokens: TokenStore, person: Person | undefined, env: TokenEnv, notifier?: Notifier): Promise<Response> {
   if (person === undefined) return json(403, { error: 'Only a person of this hub has tokens.' });
   const id = c.req.path.slice(TOKENS_PATH.length + 1);
   if (id === '') {
@@ -203,6 +215,13 @@ async function tokensRoute(c: Context, tokens: TokenStore, person: Person | unde
       if (!(TOKEN_DAYS as readonly unknown[]).includes(days)) return json(400, { error: `A token lasts ${TOKEN_DAYS.join(', ')} days.` });
       const { token, secret } = await tokens.create({ person, name, scopes, days: days as number, env });
       console.log(`[tokens] ${person.email} created '${name}' (${token.scopes.join(' ')}, until ${token.expiresAt})`);
+      void notifier?.notify({
+        event: 'token-created',
+        severity: 'default',
+        title: 'API token created',
+        message: `${person.email} created the token '${name}' (${token.scopes.join(', ')}; expires ${token.expiresAt.slice(0, 10)}).`,
+        data: { who: person.email, name, scopes: token.scopes, expiresAt: token.expiresAt },
+      });
       // shown once: only its hash is stored
       return json(201, { token, secret });
     }
@@ -316,7 +335,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
         return json(403, { error: `${user.email} can view this hub but not change it.`, hint: 'Nothing was changed. Ask an owner for the editor role.' });
       }
       if (path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`)) return invitationsRoute(c, people, person, config.baseURL);
-      if (auth.tokens !== undefined && (path === TOKENS_PATH || path.startsWith(`${TOKENS_PATH}/`))) return tokensRoute(c, auth.tokens, person, auth.tokenEnv ?? 'dev');
+      if (auth.tokens !== undefined && (path === TOKENS_PATH || path.startsWith(`${TOKENS_PATH}/`))) return tokensRoute(c, auth.tokens, person, auth.tokenEnv ?? 'dev', auth.notifier);
     }
     if (people !== undefined && path === PEOPLE_PAGE && c.req.method === 'GET') return html(renderPeoplePage());
     if (people !== undefined && auth.tokens !== undefined && path === TOKENS_PAGE && c.req.method === 'GET') {

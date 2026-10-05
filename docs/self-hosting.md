@@ -181,6 +181,7 @@ people set:
 | `WIREHUB_TRUST_PROXY` | — | `1` behind a reverse proxy you trust |
 | `WIREHUB_ENV`, `WIREHUB_PROD_MARKERS` | `prod` | a development copy beside production ("Development") |
 | `WIREHUB_BACKEND` | `pg` | `files` keeps the catalog as JSON files (with `WIREHUB_ALLOW_FILES_IN_PROD=1`) |
+| `WIREHUB_NOTIFY_URL`, `WIREHUB_NOTIFY_FORMAT` | — | alerts to a webhook (`json`, `ntfy` or `slack` body; below) |
 | `TZ` | `UTC` | log timestamps, backup schedule |
 
 **Sign-in** is on: first-run setup makes the admin's account, and the admin
@@ -196,6 +197,16 @@ address a request was made to.
 **Scripts and agents** use the same API with a personal API token (the key
 icon in the rail; `/account/tokens`): a token acts as the person who made it,
 with the scopes they chose, for 1 to 90 days, and is shown once.
+
+**Health and alerts.** `/healthz` is the container's liveness probe. `/healthz?deep=1`
+also checks the database, that every migration is applied, the blob store (a
+canary object) and, when `WIREHUB_BACKUP_MARKER` names the file the backup's
+hook touches, that a backup finished in the last 30 hours; it answers `503`
+with the failing check's name when one fails, so an uptime monitor can poll it.
+With `WIREHUB_NOTIFY_URL` set, the studio also POSTs an event to that URL
+(`{event, severity, title, message, at, env, version, data}`) for a failing
+blob store, a stale backup, a created API token and repeated refused tokens;
+every event is logged either way, and no token ever appears in one.
 
 ### Your own PostgreSQL or S3
 

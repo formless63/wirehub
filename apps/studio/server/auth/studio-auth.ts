@@ -42,6 +42,7 @@ import pg from 'pg';
 import { requestOrigin } from '../env.ts';
 import { readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
 import type { PeopleStore, Role } from './people.ts';
+import type { Notifier } from '../notify.ts';
 import { RateLimiter, type TokenEnv, type TokenStore } from './tokens.ts';
 import { magicLinkMessage, smtpTransport, type MailTransport } from './mailer.ts';
 
@@ -80,6 +81,8 @@ export interface StudioAuth {
   tokenEnv?: TokenEnv;
   /** the token request budgets (§4.5) */
   limiter?: RateLimiter;
+  /** monitoring events (§8.6): token created, refused tokens; absent → none sent */
+  notifier?: Notifier;
   /** first-run setup's admin: an email + password account (the person exists already) */
   createAccount?(email: string, name: string, password: string): Promise<void>;
   /** true while the hub has no organisation: the gate lets the setup page and its API through */
@@ -104,7 +107,7 @@ export interface StudioAuthOverrides {
    * of the app's database (migration 0012, never migrated at boot), and the
    * people and invitations decide who may sign in.
    */
-  pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter; setupMode?: () => boolean };
+  pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter; setupMode?: () => boolean; notifier?: Notifier };
 }
 
 function forbidden(email: string): APIError {
@@ -308,6 +311,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
     close: async () => {
       if (database instanceof pg.Pool) await database.end();
     },
+    ...(overrides.pg?.notifier === undefined ? {} : { notifier: overrides.pg.notifier }),
     ...(overrides.pg?.setupMode === undefined ? {} : { setupMode: overrides.pg.setupMode }),
     ...(config.localAccounts
       ? {
