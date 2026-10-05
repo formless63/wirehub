@@ -17,9 +17,10 @@ import type { WorkbenchDeps } from '../api.ts';
 import type { BlobStore } from '../blobs.ts';
 import { runDeriveJob } from '../jobs/derive.ts';
 import { baseJobHandlers } from '../jobs/handlers.ts';
-import type { Notifier } from '../notify.ts';
+import { throttled, type Notifier } from '../notify.ts';
 import { JOB_KINDS, type JobHandlers, type JobKind, type JobOutcome, type JobRequester, type JobRun, type JobRunner, type JobStatus, type JobStore, type PlanFile, type WorkerBeat } from '../jobs/types.ts';
 import { inOrg, type Db } from './db.ts';
+import { watchAudit } from './audit-watch.ts';
 import { runBackupJob, runBlobGcJob } from './gc.ts';
 import { putDerivedModel } from './model-cache.ts';
 import type { SnapshotCache } from './snapshot.ts';
@@ -239,6 +240,9 @@ export function pgHousekeepingHandlers(options: HousekeepingOptions): JobHandler
   const backupDir = (env.WIREHUB_BACKUP_DIR ?? '').trim() || undefined;
   const marker = (env.WIREHUB_BACKUP_MARKER ?? '').trim() || undefined;
   const { db, orgId } = options;
+  // a standing failure repeats at most every six hours; an audit finding once a day
+  const alerts = options.notify === undefined ? undefined : throttled(options.notify, 6 * 3_600_000);
+  const auditAlerts = options.notify === undefined ? undefined : throttled(options.notify, 24 * 3_600_000);
   return {
     derive: (context) => runDeriveJob(context, options.deps, options.cache === undefined ? {} : { refresh: () => options.cache!.discard() }),
     'blob-gc': (context) =>
@@ -250,8 +254,13 @@ export function pgHousekeepingHandlers(options: HousekeepingOptions): JobHandler
         ...(marker === undefined ? {} : { backupMarker: marker }),
         ...(options.notify === undefined ? {} : { notify: options.notify }),
       }),
-    backup: (context) =>
-      runBackupJob(context, { db, orgId, ...(backupDir === undefined ? {} : { dir: backupDir }), ...(marker === undefined ? {} : { marker }), ...(options.notify === undefined ? {} : { notify: options.notify }) }),
+    // the hourly watch: the backups volume, and the audit log's unattributed writes
+    backup: async (context) => {
+      const outcome = await runBackupJob(context, { db, orgId, ...(backupDir === undefined ? {} : { dir: backupDir }), ...(marker === undefined ? {} : { marker }), ...(alerts === undefined ? {} : { notify: alerts }) });
+      const { unattributed } = await watchAudit({ db, orgId, ...(auditAlerts === undefined ? {} : { notify: auditAlerts }) });
+      await context.step(`${unattributed} unattributed audit write(s) in the last day`);
+      return { ...outcome, result: { ...outcome.result, unattributed } };
+    },
   };
 }
 
@@ -268,4 +277,16 @@ export function pgJobHandlers(options: HousekeepingOptions): JobHandlers {
     }),
     ...pgHousekeepingHandlers(options),
   };
+}
+
+/** pg-boss jobs that failed in the last `hours` (the deep health check's `jobs`); 0 before pg-boss has made its tables. */
+export async function failedJobCount(db: Db, hours = 24): Promise<number> {
+  try {
+    const row = (await sql<{ n: string }>`SELECT count(*)::text AS n FROM ${sql.id(BOSS_SCHEMA, 'job')} WHERE state = 'failed' AND completed_on > now() - make_interval(hours => ${hours})`.execute(db)).rows[0];
+    return Number(row?.n ?? 0);
+  } catch (error) {
+    // 42P01: undefined_table — the worker has not started yet
+    if ((error as { code?: string }).code === '42P01') return 0;
+    throw error;
+  }
 }

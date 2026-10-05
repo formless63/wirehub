@@ -30,7 +30,8 @@ function isModulePath(path: string): boolean {
   return path.startsWith('/api/modules/');
 }
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
-import { isImportPath } from './jobs/api.ts';
+import { importUploadLimit, importUploadRefusal, isImportPath, startImportUpload } from './jobs/api.ts';
+import { parseModuleIoPath } from './module-io.ts';
 import {
   defaultDepictionDeps,
   handleDepictionRequest,
@@ -160,6 +161,39 @@ async function handleDepiction(
   }
 }
 
+/** `PUT /api/modules/:module/_import/:importer?fileName=…`: the file's bytes, queued as an import job (`jobs/api.ts`). */
+async function handleImportUpload(io: NonNullable<ReturnType<typeof parseModuleIoPath>>, request: Request, deps: WorkbenchDeps, backup?: StudioBackup): Promise<Response> {
+  const fileName = new URL(request.url).searchParams.get('fileName');
+  // refuse before the body is read: a wrong importer or name never costs the upload
+  const early = importUploadRefusal(deps, io, fileName);
+  if (early !== undefined) return jsonResponse(early.status, early.body);
+  const type = (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase();
+  if (type !== 'application/octet-stream') {
+    return jsonResponse(415, { error: `The studio does not accept ${type === '' || type === undefined ? 'a body with no type' : `'${type}'`} here.`, hint: 'Nothing was changed. Send the file as application/octet-stream.' });
+  }
+  const limit = importUploadLimit();
+  let bytes: Uint8Array;
+  try {
+    const read = await readLimited(request, limit);
+    if (!read.ok) {
+      const refusal = tooLargeRefusal(limit);
+      return jsonResponse(refusal.status, refusal.body);
+    }
+    bytes = read.bytes;
+  } catch (error) {
+    return jsonResponse(400, { error: 'The studio could not read that upload.', hint: `Nothing was changed. (${(error as Error).message})` });
+  }
+  try {
+    const user = signedInUser(request);
+    const response = await perform(backup, { method: 'PUT', path: `/api/modules/${io.module}/_import/${io.id}`, user }, () =>
+      startImportUpload({ method: 'PUT', path: new URL(request.url).pathname, fileName, bytes, ...(user === undefined ? {} : { user }) }, io, deps),
+    );
+    return jsonResponse(response.status, response.body, response.headers);
+  } catch (error) {
+    return jsonResponse(500, { error: 'The workbench hit an unexpected problem and stopped before changing anything.', hint: `Check the terminal running the studio for details. (${(error as Error).message})` });
+  }
+}
+
 /** The JSON half: every `/api/*` route but `/api/depictions/…`. */
 async function handleJson(
   method: string,
@@ -282,6 +316,9 @@ export function mountWorkbenchApi(
     if (isDepictionPath(path)) {
       return handleDepiction(method, path, c.req.header('content-type'), c.req.raw, depictionDeps, backup, deps);
     }
+    // an importer's file as raw bytes (no base64, no JSON): always a job
+    const io = parseModuleIoPath(path);
+    if (io?.kind === 'import' && method === 'PUT') return handleImportUpload(io, c.req.raw, deps, backup);
     // module routes take their options as a query string; a dry run is `?dryRun=1`; nothing else reads one
     const search = new URL(c.req.url).search;
     const withQuery = isModulePath(path) || new URLSearchParams(search).get('dryRun') === '1';

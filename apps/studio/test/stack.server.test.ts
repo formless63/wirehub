@@ -7,13 +7,13 @@
  * needs no variable and reads only files the stack writes.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { backrestConfig, backupInit, checkCron, LOCAL_REPOSITORY } from '../stack/backup-init.ts';
+import { backrestConfig, backupInit, checkCron, LOCAL_REPOSITORY, MARKER_FILE } from '../stack/backup-init.ts';
 import { bootstrap, bundledDatabaseUrl, garageToml } from '../stack/bootstrap.ts';
 import { ensureKey, garageInit, KEYS, parseSize } from '../stack/garage-init.ts';
 import { readSecret } from '../stack/secrets.ts';
@@ -218,12 +218,25 @@ describe('backup-init', () => {
     expect(seeded.repos[0]).toMatchObject({ id: 'wirehub', uri: LOCAL_REPOSITORY, password, autoInitialize: true });
     expect(seeded.plans[0]).toMatchObject({ repo: 'wirehub', paths: ['/sources'], schedule: { cron: '0 3 * * *' } });
     expect(seeded.auth).toBeUndefined();
+    // a finished snapshot touches the marker the app and the worker read; a failed one leaves a failure marker
+    expect(seeded.plans[0].hooks).toEqual([
+      { conditions: ['CONDITION_SNAPSHOT_SUCCESS'], actionCommand: { command: 'touch /marker/.last-snapshot' } },
+      { conditions: ['CONDITION_SNAPSHOT_ERROR'], actionCommand: { command: 'touch /marker/.last-failure' } },
+    ]);
     expect(lines.some((l) => l.includes('WARNING the repository is a volume on this machine'))).toBe(true);
     // Backrest owns it after the first run
     writeFileSync(config(), '{"edited":true}\n');
     backupInit(env({ BACKREST_CONFIG: config(), BACKUP_REPOSITORY: 'rest:http://nas:8000/x' }), () => undefined);
     expect(readFileSync(config(), 'utf8')).toBe('{"edited":true}\n');
     expect(readSecret(dir, 'restic_password')).toBe(password);
+  });
+
+  it('marks backups as configured in the marker volume, when it is mounted', () => {
+    const marker = join(dir, 'marker');
+    mkdirSync(marker, { recursive: true });
+    backupInit(env({ BACKREST_CONFIG: config(), BACKUP_MARKER_DIR: marker }), () => undefined);
+    expect(existsSync(join(marker, '.configured'))).toBe(true);
+    expect(existsSync(join(marker, '.last-snapshot'))).toBe(false);
   });
 
   it('takes a repository, its password, S3 credentials and a schedule', () => {
@@ -302,6 +315,18 @@ describe('compose.yaml', () => {
     expect(stepLimit).toBeLessThan(1536 - 200);
     // the app's own budget stays what it was: STEP conversion is the worker's
     expect(/\n  wirehub:\n[\s\S]*?\n    mem_limit: (\d+m)\n/.exec(compose)?.[1]).toBe('768m');
+  });
+
+  it('mounts the backup marker read-only into the app and the worker, writable only for backup-init and Backrest', () => {
+    const service = (name: string): string => new RegExp(`\\n  ${name}:\\n([\\s\\S]*?)\\n\\n`).exec(compose)?.[1] ?? '';
+    for (const name of ['wirehub', 'worker']) {
+      expect(service(name), name).toContain('- backup_marker:/backup-marker:ro');
+      expect(service(name), name).toContain('WIREHUB_BACKUP_MARKER: ${WIREHUB_BACKUP_MARKER:-/backup-marker/.last-snapshot}');
+    }
+    expect(service('backup-init')).toContain('- backup_marker:/marker\n');
+    expect(service('backrest')).toContain('- backup_marker:/marker\n');
+    // the hook's file is the one the readers name
+    expect(MARKER_FILE).toBe('/marker/.last-snapshot');
   });
 
   it('pairs every bundled-service marker', () => {

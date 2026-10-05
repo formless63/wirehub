@@ -183,6 +183,7 @@ const deepHealth = deepHealthCheck({
   ...(blobs === undefined ? {} : { blobs }),
   modules: registry.modules,
   ...((process.env.WIREHUB_BACKUP_MARKER ?? '').trim() === '' ? {} : { backupMarker: (process.env.WIREHUB_BACKUP_MARKER as string).trim() }),
+  ...(workbench.pg === undefined ? {} : { failedJobs: async () => (await import('./pg/jobs.ts')).failedJobCount(workbench.pg!.db) }),
   // the worker's heartbeat, once the hub has an organisation and a worker to beat (WIREHUB_WORKER unset)
   ...(workbench.pg === undefined || process.env.WIREHUB_WORKER === 'off' ? {} : { worker: async () => (deps.jobs?.worker === undefined ? { beatAt: new Date().toISOString() } : await deps.jobs.worker()) }),
   ...(instanceEnv === undefined ? {} : { env: instanceEnv }),

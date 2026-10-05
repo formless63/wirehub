@@ -19,7 +19,8 @@
 #            the hub at /setup with the setup code.
 # --backup   runs again with COMPOSE_PROFILES=backup (a pack installed at
 #            setup this time): the dump (as studio_ro, with row counts), the
-#            restore check, a Backrest snapshot.
+#            restore check, a Backrest snapshot and its post-snapshot hook
+#            (the marker the deep health check and blob GC read).
 # --restore  (with --backup) the restore drill: a second stack, as on another
 #            machine, gets the first one's backups and restores the database
 #            and the uploaded files; the first admin signs in there and finds
@@ -261,6 +262,15 @@ if [ "$backup" = 1 ]; then
   done
   echo "$snapshots" | contains '"paths":\["/sources"\]' || fail "no snapshot of /sources"
   echo "smoke: Backrest took a snapshot of /sources (dump, bucket mirror, catalog, auth, packs)"
+  # the post-snapshot hook touches the marker the app and the worker read (read-only mounts): the deep check and blob GC see the backup
+  for _ in $(seq 1 30); do compose exec -T wirehub test -f /backup-marker/.last-snapshot 2>/dev/null && break; sleep 1; done
+  compose exec -T wirehub test -f /backup-marker/.last-snapshot || fail "the Backrest hook did not touch the backup marker"
+  compose exec -T worker test -f /backup-marker/.last-snapshot || fail "the worker does not see the backup marker"
+  compose exec -T wirehub sh -c 'touch /backup-marker/x 2>/dev/null' && fail "the app can write the backup marker volume (it should be read-only)"
+  curl -fsS "http://127.0.0.1:$port/healthz?deep=1" > "$scratch/deep.json" || fail "the deep health check failed after the snapshot: $(cat "$scratch/deep.json")"
+  tr -d ' \n' < "$scratch/deep.json" | contains '"name":"backup","ok":true' || fail "the deep health check has no passing backup check: $(cat "$scratch/deep.json")"
+  tr -d ' \n' < "$scratch/deep.json" | contains '"name":"jobs","ok":true' || fail "the deep health check has no passing jobs check: $(cat "$scratch/deep.json")"
+  echo "smoke: the hook touched the backup marker (read-only in the app and the worker); /healthz?deep=1 passes its backup and jobs checks"
 
   if [ "$restore" = 1 ]; then
     # the drill: another stack, as on another machine; started once (roles, bucket), setup left alone

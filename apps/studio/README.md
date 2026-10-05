@@ -126,8 +126,13 @@ pnpm --filter studio studio-api call GET /api/designs        # a single route
 ```
 
 Designs, the definition lists (connectors are pulled in the composed form the API
-takes) and a module's declared documents can be pushed; a changed file with no write
-route stops the push. A record changed since the pull fails its `If-Match`, the whole
+takes), a module's declared documents, the vocabularies (`data/vocab/*.json`: new
+entries, and a changed label, more aliases or a note), tag corrections
+(`data/tags/review.json`), the wire parts library (`data/wire-parts.json`: new parts;
+`data/wire-recipes.json`: stock recipes), board build files (`data/builds/*.json`) and
+drawing details (`data/drawings/*.json`) can be pushed; a changed file with no write
+route, or a change in those files no route can express (removing a vocabulary entry,
+changing an existing wire part), stops the push with the reason. A record changed since the pull fails its `If-Match`, the whole
 batch is refused and nothing is retried. `--lock` holds edit leases for the run. A
 `cst_prod_` token is refused by a development server and the other way round
 (`WIREHUB_API_ENV` can say which one the URL is; the server's `/api/me` does too).

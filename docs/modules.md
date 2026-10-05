@@ -253,12 +253,16 @@ else is a puzzle piece) gets a rail entry and a place in the mobile menu. Paths 
 kebab segments joined by `/`, with no parameters.
 
 **Importers.** The server runs them (`POST /api/modules/<module>/_import/<importer>` with
-`{ fileName, base64, accept? }`, a JSON body, so files up to about 3 MB). Without `accept` the
+`{ fileName, base64, accept? }`, a JSON body, so files up to about 24 MB). Without `accept` the
 answer is the proposal — new definitions by kind, ids the library already has (skipped, never
 overwritten), designs, and the importer's notes — and nothing is written. With `accept: true` the
 file is read again and the proposal is written as **one change set** (the batch machinery:
 definition and design validation apply, nothing lands if one record is refused). Importers must
-be deterministic in their input. The sub-path prefix `_` is reserved for the host: an integration
+be deterministic in their input. A bigger file goes up as raw bytes, always as a job:
+`PUT /api/modules/<module>/_import/<importer>?fileName=…` with `application/octet-stream`
+(no base64; up to `WIREHUB_IMPORT_MAX_MB`, default 100; the standalone server only). The
+studio's Import… uses the job form where the studio runs jobs, and shows its progress, the plan
+and **Publish** (also from the Jobs page). The sub-path prefix `_` is reserved for the host: an integration
 route may not use it.
 
 **Exporters.** The Documents toolbar renders the design on screen in the browser (so drafts

@@ -18,6 +18,8 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { documentFactsFor } from '../catalog.browser.ts';
+import { editorExtensions } from '../modules/slots.tsx';
+import { useModules } from '../modules/ModulesContext.tsx';
 import { cableRoute, type CableSearch } from '../router.tsx';
 import { useEditorChrome } from '../shell/editor-chrome.tsx';
 import { useStudio } from '../studio-context.tsx';
@@ -35,6 +37,9 @@ export function VersionView(props: {
 }): JSX.Element {
   const { id, rev } = props;
   const studio = useStudio();
+  const modules = useModules();
+  // the modules' panels and exporters, over the revision's own design and frozen definitions (read-only while it is locked)
+  const extensions = useMemo(() => editorExtensions(modules), [modules]);
   const chrome = useEditorChrome();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -272,6 +277,7 @@ export function VersionView(props: {
           documentFacts={documentFacts}
           layout={studio.layout}
           release={release}
+          {...(extensions === undefined ? {} : { extensions })}
           view={props.view}
           onViewChange={props.onViewChange}
           onStatusChange={studio.setEditorStatus}

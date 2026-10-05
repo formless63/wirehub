@@ -693,8 +693,9 @@ export function Library(props: LibraryProps): JSX.Element {
       ...(modelSet === undefined ? {} : { models: modelSet }),
       ...(props.art === undefined ? {} : { art: props.art }),
       ...(props.photos === undefined ? {} : { photos: props.photos }),
+      ...(list.kind !== kind || list.packs === undefined ? {} : { packs: list.packs }),
     }),
-    [db, props.designs, modelSet, props.art, props.photos],
+    [db, props.designs, modelSet, props.art, props.photos, list, kind],
   );
   // the tab can change a paint before the list for it arrives; reading last
   // tab's records as this tab's kind would summarise a connector as a wire

@@ -161,8 +161,8 @@ catalog with packs over it without writing — what a module's tests use.
 **Update**: the same, plus a **diff preview** — records added, changed (field by field) and
 removed — and the list of designs that use a changed or removed record, each re-validated
 against the new version before anything is applied. A removed record still used by a design
-is never deleted under it (the idea of keeping it as `status: "retired"` is not built: as built
-the update is refused until the use is moved). Updates
+is never deleted under it: the update **retires** it (kept in the catalog as a record of the
+deployment's own, with its licence and `derivedFrom` noted; no longer the pack's). Updates
 across a major version are never automatic. Rollback re-installs the previous version
 through the same path.
 
@@ -184,7 +184,9 @@ directory, and the Postgres backend runs it over a scratch copy it commits as **
   after the change (only *new* ones block), a licence change and a major version. `POST` applies
   it as one swap of the pack layer (files) or one change set (Postgres); a major version needs
   `{ "acceptMajor": true }`. A downgrade goes through the same path. A dropped record that is
-  still used is refused rather than kept as `retired`; move the user first.
+  still used is **retired**, not refused: it stays (in the catalog's own files, editable), the pack
+  stops owning it, and the plan lists it under `retired`, with the records that use it under
+  `references` (informational). Disabling a pack still refuses while something uses its records.
 - **Disable.** `DELETE /api/packs/:id` removes the pack's records when nothing outside the pack
   references them (a record naming a pack id in a non-prose field: a connector's `body`, an
   interface's `bodies`, a design's instance `def`, a kit line, a vocabulary `deprecatedBy` …).
@@ -193,8 +195,11 @@ directory, and the Postgres backend runs it over a scratch copy it commits as **
   definition routes; the list carries `packs` (id → pack and version) and a single record the
   `X-WireHub-Pack` header. `POST /api/definitions/:kind/:id/fork` copies the record under a new
   id with `derivedFrom: { pack, id, version }`. The Library shows "From pack X 1.0.0 —
-  read-only" and a **Fork to edit** action. Records from other places (vocabulary lists, designs
-  of a pack) are removed and updated with the pack but not yet guarded against direct edits.
+  read-only" and a **Fork to edit** action. A pack's vocabulary
+  entries (`PATCH /api/vocab/:list/:entry`) and designs (`PUT`, rename and `DELETE` on
+  `/api/designs/:id`) answer 409 the same way, pointing at an entry of your own or at
+  `POST /api/designs/:id/duplicate`. The Library list marks such rows with a **Pack** flag, and
+  `GET /api/me` carries the person's `role`: viewers do not see "Install pack…", update or disable.
 - **Install pack… (from a file or URL).** `POST /api/packs/install` takes a zip of the pack
   directory, a JSON bundle (`{ "manifest": …, "files": { "connectors.json": […] } }`) or an
   https URL, verifies it as `scripts/verify-pack.mjs` does (manifest, `src` on every record, the

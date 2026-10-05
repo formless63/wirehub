@@ -271,6 +271,11 @@
   color: var(--accent);
 }
 
+.cs-lt-flag.is-pack {
+  border-color: color-mix(in oklab, var(--ok, var(--accent)) 50%, transparent);
+  color: var(--ok, var(--accent));
+}
+
 .cs-lt-empty td {
   padding: 14px 10px;
   color: var(--dim);
