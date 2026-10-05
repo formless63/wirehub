@@ -60,6 +60,15 @@ marker `privacy-check: allow`.
   a private catalog.
 - Every catalog record carries `src`, its citation; inferred values say so.
 
+## Agent skills
+
+If you use an AI coding agent, point it at `.agents/skills/` (also reachable as `.claude/skills`):
+short task guides for writing a module (`wirehub-module`), authoring catalog records
+(`wirehub-catalog-data`), building a pack (`wirehub-catalog-pack`), importing from public sources
+within their licences (`wirehub-import-public-data`) and contributing a change
+(`wirehub-contribute`). They are plain Markdown and worth reading yourself. A test
+(`packages/modules/test/agent-skills.test.ts`) keeps them in step with the code.
+
 ## Licence of contributions
 
 WireHub is `AGPL-3.0-only` with the WireHub Module Exception

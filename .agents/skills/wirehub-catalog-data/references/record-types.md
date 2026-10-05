@@ -1,0 +1,85 @@
+# Record fields by file
+
+Authority: `SPEC.md` (Domain model) and the types in `packages/model/src/model.ts`,
+`packages/model/src/interfaces.ts`, `packages/model/src/vocab.ts`,
+`packages/model/src/kits.ts`. Examples to copy: `packages/catalog/data/*.json` and
+`modules/pro-audio/pack/`.
+
+## bodies.json (ConnectorBody)
+
+`id`, `label`, `family` (a `families` entry id), `gender` (`genders` entry id), `positions`
+(`{ id, kind?: 'pin' | 'shell' | 'key', note? }`, in the order a connector lists its pins),
+`mates` (the opposite-gender body id; the validator checks both sides name each other),
+`partNumber?`, `construction?` (`connector-constructions` entry, e.g. `solder-cup`), `drawing?`
+(one of the layout package's built-in drawings, e.g. `d-sub`, `rca`), `src`.
+
+## interfaces.json (Interface)
+
+`id`, `label`, `short?`, `bodies` (every body it is found on), `pins` keyed by body position id:
+`{ signal: <signals id> | { oneOf: [ids] }, dir?: 'out' | 'in' | 'bidir' | 'passive', label?,
+aliases?, note?, confidence?, src? }`, optional `modes` (alternative pin maps selected by a
+strap), `confidence?` (`net-verified | documented | inferred | unknown`), `note?`, `src`.
+Checks: `interface-body-unknown`, `interface-position-unknown`, `vocab-unknown`.
+
+## connectors.json (ConnectorRecord)
+
+`id`, `label`, `family`, `gender?`, `body`, `interface`, `construction?`, `sourcing?`
+(`connector-sourcing` entry), `aliases?`, `partNumber?` (leave out in packs), `src`. A record that
+names `body` and `interface` has no `pins`. Checks: `connector-body-unknown`,
+`connector-interface-unknown`, `connector-interface-body` (interface not on that body),
+`connector-gender-mismatch`, plus warnings for part-number / construction mismatches and pins
+that diverge from the interface.
+
+## wires.json (WireDefinition)
+
+`id`, `label`, `structure` (a `group` element with `role`), `odMm?`, `colourCode?`, `layOrder?`
+(`{ arrangement, direction, ring[], center?, inner?, src }`; every member must be an element
+path, and the ring length must match the arrangement), `bonded?`
+(`{ members[], src }[]`, members are shields or bare conductors, each in at most one set),
+`manufacturer?` (`manufacturers` entry), `specRef?`, `src`. Elements: `conductor`
+(`color?, material?, areaMm2?, bare?, formation?`), `shield` (`construction`, `coveragePct?`),
+`insulation` (`material?, odMm?, color?`), `group` (`role`, `children`). Checks:
+`duplicate-sibling-element-id`, `missing-element-id`, `unknown-lay-order-element`,
+`lay-order-arrangement-mismatch`, `bonded-member-not-screen`.
+
+## components.json (ComponentDefinition)
+
+`id`, `label`, `kind` (`component-kinds` entry), `terminals` (`{ id, label?, polarity? }`;
+two-terminal passives use `a` and `b`, polarised parts `a` = `+`), `value?` (`"120 Ω"`),
+`tolerance?`, `package?`, `category?`, `mpn?`, `manufacturer?`, `src`.
+
+## mechanicals.json / kits.json
+
+Mechanical: `id`, `label`, `kind` (`shell | fastener | other`), `partNumber?`, `revision?`,
+`src`; no terminals. Kit: `id`, `label`, `sku` (one token of letters, digits and `- . _ /`),
+`contents` (`{ part: { kind, def }, qty, src }[]`, whole quantities, every part must exist), `src`.
+Checks: `kit-sku-format`, `kit-empty`, `kit-part-unknown`, `kit-qty`.
+
+## pcbas.json (PcbaDefinition)
+
+`id`, `label`, `partNumber`, `revision`, `build?`, `terminals` (`{ id, label?, role?, signal?,
+note?, pads? }`), `integratedConnectors?` (`{ connectorDefId, terminalPrefix }`, exposes
+`<prefix>.<pin>` terminals), `internalLinks` (`{ from, to, via?, elements?, note? }`), `status?`, `src`.
+Checks: `unknown-pcba-terminal`, `unknown-connector-def`, `link-elements-via-mismatch`.
+
+## vocab/<list>.json (VocabList)
+
+`{ id, label, src, entries }`; `id` equals the file name. Entry: `id`, `label`, `short?`,
+`aliases?`, `deprecatedBy?`, `pending?`, `note?`, `src`. List-specific fields: `signals`
+(`kind`, `returnFor?`, `near?`, `standIn?`), `lanes` (`signal?`), `pad-roles` (`lane?`),
+`colour-codes` (`lanes`: colour to lane id). Starter lists: signals, levels, lanes,
+colour-codes, pad-roles, families, genders, locations, materials, constructions, core-kinds,
+colours, component-kinds, conditioning, sources, manufacturers, connector-constructions,
+connector-mountings, connector-sourcing. Checks: `vocab-bad-id`, `duplicate-id`, `vocab-no-label`,
+`missing-src`, `vocab-unknown` (a reference to an entry that does not exist),
+`vocab-deprecated-by-unknown`, `vocab-bad-kind`. Lists are append-only: never remove an entry.
+A pack's list of the same name is merged by entry id over the starter's.
+
+## designs/<id>.json (CableDesign)
+
+`schemaVersion`, `id` (= file name), `label` (`<source> → <destination>`), `instances`
+(`connectors`, `segments`, `components`, `pcbas`, `mechanical?`, `breakouts?`), `joints`
+(`{ a, b, note? }`, refs `{ instance, terminal, end? }`), `notes?`, `extensions?`, `src`.
+Common issue codes: `unknown-def`, `unknown-terminal`, `unknown-element-path`, `missing-end`,
+`unexpected-end`, `self-joint`, `duplicate-instance-id`, `terminal-not-electrical`,
+`floating-conductor-end` (warning), `screen-floating` (warning).
