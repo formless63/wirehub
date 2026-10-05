@@ -206,7 +206,11 @@ export function analyseConnections(fileName: string, input: string | Uint8Array,
   const unresolved = partList.filter((p) => p.connector === undefined).map((p) => p.name);
   if (unresolved.length > 0) notes.push(`${unresolved.length} part(s) name no library connector, so their rows were left out: ${unresolved.join(', ')}.`);
   const skipped = rows.filter((r) => r.status === 'skipped').length;
-  if (skipped > 0) notes.push(`${skipped} of ${rows.length} row(s) were left out; each says why.`);
+  if (skipped > 0) {
+    notes.push(`${skipped} of ${rows.length} row(s) were left out:`);
+    for (const r of rows.filter((x) => x.status === 'skipped').slice(0, 25)) notes.push(`line ${r.row} (${[r.from, r.to].filter((v) => v !== undefined).join(' → ')}) was not imported: ${r.problems.join('; ')}.`);
+    if (skipped > 25) notes.push(`… and ${skipped - 25} more.`);
+  }
   if (wire === undefined && joints.length > 0) notes.push('The joints are direct pin to pin; name a wire stock (the wire option) to carry them on its conductors.');
   if (joints.length === 0) return { rows, parts: partList, notes };
 
