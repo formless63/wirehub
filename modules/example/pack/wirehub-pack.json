@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "id": "example",
+  "name": "Example module pack",
+  "version": "0.1.0",
+  "publisher": {
+    "id": "wirehub",
+    "name": "WireHub bundled modules"
+  },
+  "license": "CC0-1.0",
+  "catalogSchema": 4,
+  "requires": {
+    "wirehub": ">=0.1 <1"
+  },
+  "description": "EXAMPLE ONLY: one signal, to show a module shipping catalog data. Not for production."
+}
