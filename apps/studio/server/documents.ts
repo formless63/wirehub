@@ -2,8 +2,8 @@
  * Documents and exports without a browser — `/api/designs/:id/documents/:kind`
  * and `/api/designs/:id/exports/:format` (`docs/exports.md`).
  *
- *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…
- *       kind: schematic · build-sheet · bom · test-spec · drawing · labels
+ *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&scale=…
+ *       kind: schematic · build-sheet · bom · test-spec · drawing · labels · formboard
  *       format: html · svg · pdf · csv (which a kind comes in: `render/index.ts`)
  *   GET /api/designs/:id/exports/:format?rev=…
  *       format: bom.csv · wire-list.csv · cut-list.csv · crimp-list.csv · production.xlsx ·
@@ -17,7 +17,7 @@
  */
 
 import { isDesignId } from '@wirehub/catalog';
-import { BASE_EXPORTS, baseExport, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, baseExport, parseScale, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import { releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type VersionSummary } from '@wirehub/model';
 
 import type { ApiResponse } from './api.ts';
@@ -175,6 +175,9 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const paper = query.get('paper');
   if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
   const variation = query.get('variation') ?? undefined;
+  const scaleText = query.get('scale');
+  const scale = scaleText === null || scaleText === '' ? undefined : parseScale(scaleText);
+  if (scaleText !== null && scaleText !== '' && scale === undefined) return fail(400, `scale must be a number or a ratio such as 0.5 or 1:2, between 1:100 and 10:1, not '${scaleText}'.`);
   const meta = releaseMeta(loaded.drawing, loaded.target, loaded.approvals);
   const orgDefaults = await effectiveTestDefaults(deps);
 
@@ -215,6 +218,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(variation === undefined ? {} : { variation }),
     ...(page === undefined ? {} : { page }),
     ...(copies === undefined ? {} : { copies }),
+    ...(scale === undefined ? {} : { scale }),
     ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
     today: today(),
   });
