@@ -77,7 +77,7 @@ export const OFFICIAL_STORE_INDEX_URL = 'https://formless63.github.io/wirehub/st
  * official index is not trusted by default; `WIREHUB_STORE_INDEXES` can still name it
  * with a key.
  */
-export const OFFICIAL_STORE_PUBLIC_KEY = '';
+export const OFFICIAL_STORE_PUBLIC_KEY = 'RWQXEHIbPbWbKH32jyM29IRDsITWmTwGdtDQzcVaY2peD2aQnCHCoVlj';
 
 export interface TrustedStoreIndex {
   url: string;

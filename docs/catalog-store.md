@@ -382,12 +382,10 @@ the pages workflow (`.github/workflows/pages.yml`: `store-index.mjs official`) a
 `https://formless63.github.io/wirehub/store/index.json`, signed in CI with the GitHub Actions secret
 `WIREHUB_STORE_SIGNING_KEY` (the PEM text of the private key). Without the secret the workflow
 publishes it unsigned and says so with a warning; hubs refuse it until it is signed. Its public key
-is `OFFICIAL_STORE_PUBLIC_KEY` in `apps/studio/server/store.ts`, **still a placeholder (empty)**:
-once the owner has created the key (`keygen`) and stored the secret, `store-index.mjs pubkey --key
-<file>` prints the line to record there, after which hubs trust the official index by default and
-the workflow fails if the secret's key and the recorded one differ.
+is `OFFICIAL_STORE_PUBLIC_KEY` in `apps/studio/server/store.ts`, recorded on 2026-10-05: hubs trust
+the official index by default, and the workflow fails if the secret's key and the recorded one differ.
 
-Official index public key: *(placeholder, not yet created)*
+Official index public key (key id 289BB53D1B721017): `RWQXEHIbPbWbKH32jyM29IRDsITWmTwGdtDQzcVaY2peD2aQnCHCoVlj`
 
 **The official publisher** is `wirehub` ("WireHub"), recorded in `scripts/official-store-meta.json`
 with the public key `RWS7FUOto59buesmRailZTdc4XlAWM8BZoyFe8NeXwcHfLyeJVAIMl+h` (`store-index.mjs
