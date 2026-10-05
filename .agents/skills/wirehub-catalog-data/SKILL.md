@@ -24,6 +24,7 @@ the validators run. Write a record, then validate it (section 6).
 | PCBA | `pcbas.json` | `id`, `label`, `partNumber`, `revision`, `terminals[]`, `internalLinks[]`, `src` |
 | vocabulary list | `vocab/<list>.json` | `{ id, label, src, entries[] }`; each entry `id`, `label`, `src` |
 | design | `designs/<id>.json` | the `CableDesign` (SPEC.md), `src` |
+| bench rule | `bench-rules.json` (array) | `id`, `phase`, `src`, `when?`, `steps[]` (each with `text`, `src`); `docs/modules.md` |
 | validation rule | `validation-rules.json` (array) | `id`, `severity`, `each`, `require`, `message`, `src` (below) |
 | numbering scheme | `part-numbers.json` (one object) | the prefix config, or a declarative definition (below) |
 

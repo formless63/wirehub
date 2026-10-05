@@ -26,6 +26,7 @@ import type {
   ConnectorRecord,
   DbRules,
   ValidationRule,
+  BenchStepRule,
   CostingRules,
   ElectricalRules,
   Db,
@@ -187,9 +188,12 @@ export function createCatalog(source: CatalogSource) {
     const rules = loadRules();
     // the declarative validation rules (`validation-rules.json`, an array of rule records; a pack may ship them)
     const validationRules = readOptional<ValidationRule[]>('validation-rules.json');
+    // the shop's work instructions as data (`bench-rules.json`, an array of rule records; a pack may ship them)
+    const benchRules = readOptional<BenchStepRule[]>('bench-rules.json');
     return {
       ...(rules === undefined ? {} : { rules }),
       ...(Array.isArray(validationRules) && validationRules.length > 0 ? { validationRules } : {}),
+      ...(Array.isArray(benchRules) && benchRules.length > 0 ? { benchRules } : {}),
       connectors: loadConnectors(),
       wires: loadWires(),
       components: loadComponents(),

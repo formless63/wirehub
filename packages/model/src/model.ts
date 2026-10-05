@@ -11,6 +11,7 @@ import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
 import type { DbRules, DesignElectrical } from './electrical.ts';
 import type { ValidationRule } from './rules.ts';
+import type { BenchStepRule } from './bench-types.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
 import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
@@ -636,6 +637,13 @@ export interface Db {
    * `validateDesign` (design subjects). Absent means none.
    */
   validationRules?: ValidationRule[];
+  /**
+   * The shop's work instructions as data (`bench-types.ts`, the catalog's
+   * `bench-rules.json`; a data pack may ship them): the build sheet prints
+   * their steps in place of the generic ones, after any module's own provider.
+   * Absent means none.
+   */
+  benchRules?: BenchStepRule[];
 }
 
 /* ------------------------------------------------------------------ *

@@ -63,6 +63,8 @@ fieldbus-1.4.0/
   vocab/signals.json …                           (vocabulary additions)
   designs/*.json                                 (example designs, optional)
   validation-rules.json                          (declarative design rules, optional; docs/validation-rules.md)
+  bench-rules.json                               (the shop's work instructions as data, optional; docs/modules.md "Bench work instructions")
+  pcba-pads.json                                 (pads per board terminal, optional; { src, boards: { <board id>: { src, terminals } } })
   depictions/<id>/…                              (artwork, optional: <id> a connector, body or wire id)
   art/connectors/<id>.json, art/body-layouts.json   (connector drawings and body layouts, optional; specs/drawing-language.md §7)
   wirehub-pack.sig      the publisher's signature over the manifest (§4, phase 5)
@@ -135,6 +137,13 @@ know. Each record keeps the mandatory `src`, and a pack record adds two optional
 - **A pack may carry configuration as data**, not only records. `validation-rules.json` is an array
   of rule records (each with `src`, merged by id like any record file): the rules install with the
   pack, run inside the validators, and an install that would add errors to the library is refused.
+  `bench-rules.json` (the shop's work instructions, `docs/modules.md`) works the same way: read from the
+  catalog at runtime, so the build sheet prints a pack's steps the moment it is installed and the generic
+  steps return when it is disabled. `pcba-pads.json` (the pads of a board's terminals) is kept board by
+  board, so a pack owns the pads of its boards: an update replaces them, a disable removes them, and a
+  board the catalog already has with different pads is a conflict. The install **preview** reads every
+  such data file the way the installed catalog will (the pad table, rules, bench rules, tag tables), so
+  the errors it shows are the errors the library will have afterwards, not a different set.
   The manifest's `partNumberScheme` is a numbering scheme the pack **offers**: installing the pack
   never switches the hub's scheme; Settings lists the offer and an owner confirms the switch
   (`docs/part-numbers.md`). The manifest is covered by the publisher's signature, so a signed pack's

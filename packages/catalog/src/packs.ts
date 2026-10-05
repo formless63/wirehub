@@ -195,10 +195,29 @@ export function mergeCatalogFile(relative: string, texts: string[]): string {
     const lists = values as Record<string, Json>[];
     return canonical({ ...lists[0], entries: mergeRecords(lists.map((l) => l['entries'] as Json[])) });
   }
-  if (relative.startsWith('tags/') && values.every(isPlainObject)) {
+  if ((relative.startsWith('tags/') || relative === PCBA_PADS_FILE) && values.every(isPlainObject)) {
     return canonical(mergeObjects(values as Record<string, Json>[]));
   }
   return texts[0] as string;
+}
+
+/** The pad table beside the board records: pads per board, per terminal (`PcbaPadTable`). A pack may ship one. */
+export const PCBA_PADS_FILE = 'pcba-pads.json';
+
+/** The record files of a catalog (merged in place by id; the pad table by board); every other JSON file a pack ships is auxiliary and layered as a whole. */
+const RECORD_FILE_NAMES = new Set(['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'validation-rules', 'bench-rules', 'pcba-pads'].map((n) => `${n}.json`));
+
+/**
+ * A data file that is not a list of records the lifecycle tracks by id: the pad
+ * table, tag tables, rules, bench rules and the like. These are read through
+ * the layers (`mergeCatalogFile`), so a pack's copy takes effect when it is
+ * installed as a layer; the install preview reads them the same way
+ * (`planNewPack`), so what is validated is what will run.
+ */
+export function isAuxiliaryFile(relative: string): boolean {
+  if (!relative.endsWith('.json') || relative === PACK_MANIFEST || relative === PACKS_FILE) return false;
+  if (RECORD_FILE_NAMES.has(relative)) return false;
+  return !(relative.startsWith('vocab/') || relative.startsWith('designs/') || relative.startsWith('depictions/') || relative.startsWith('art/') || relative.startsWith('code/'));
 }
 
 /**
@@ -416,12 +435,28 @@ function planAgainst(local: CatalogSource, installed: InstalledPacks, packDir: s
     const localText = local.read(relative);
     if (localText === undefined) {
       writes[relative] = packText;
-      const records = recordsIn(JSON.parse(packText) as Json);
+      const parsed = JSON.parse(packText) as Json;
+      const records = relative === PCBA_PADS_FILE ? (isPlainObject(parsed) && isPlainObject(parsed['boards']) ? Object.keys(parsed['boards']).map((id) => ({ id })) : []) : recordsIn(parsed);
       added[relative] = records === undefined ? [] : records.map(idOf).filter((id): id is string => id !== undefined);
       continue;
     }
     const packValue = JSON.parse(packText) as Json;
     const localValue = JSON.parse(localText) as Json;
+    if (relative === PCBA_PADS_FILE) {
+      // the pad table is merged board by board: a board the catalog already has, differently, is a conflict
+      const have = isPlainObject(localValue) && isPlainObject(localValue['boards']) ? (localValue['boards'] as Record<string, Json>) : {};
+      const incoming = isPlainObject(packValue) && isPlainObject(packValue['boards']) ? (packValue['boards'] as Record<string, Json>) : {};
+      const fresh: Record<string, Json> = {};
+      for (const [id, board] of Object.entries(incoming)) {
+        if (!(id in have)) fresh[id] = board;
+        else if (JSON.stringify(have[id]) !== JSON.stringify(board)) conflicts.push(`${relative}: '${id}' already has different pads`);
+      }
+      if (Object.keys(fresh).length > 0) {
+        added[relative] = Object.keys(fresh);
+        writes[relative] = canonical({ ...(localValue as Record<string, Json>), boards: { ...have, ...fresh } });
+      }
+      continue;
+    }
     const packRecords = recordsIn(packValue);
     const localRecords = recordsIn(localValue);
     if (packRecords === undefined || localRecords === undefined) {
@@ -497,9 +532,10 @@ export function installedPackDir(packsDir: string, id: string): string {
 }
 
 /** A source per pack installed in `packsDir`, in install order (`packs.json`). */
-export function installedPackSources(packsDir: string): CatalogSource[] {
+export function installedPackSources(packsDir: string, except: readonly string[] = []): CatalogSource[] {
   return readInstalledPacks(packsDir)
-    .packs.map((pack) => installedPackDir(packsDir, pack.id))
+    .packs.filter((pack) => !except.includes(pack.id))
+    .map((pack) => installedPackDir(packsDir, pack.id))
     .filter((dir) => existsSync(dir))
     .map((dir) => fsCatalogSource(dir, `pack ${dir}`));
 }
@@ -510,9 +546,9 @@ export function installedPackSources(packsDir: string): CatalogSource[] {
  * runs is seen at once). `first` layers, when given, sit above the catalog
  * (derived files kept beside the packs). Read-only like any layered source.
  */
-export function catalogWithPacksSource(catalogDir: string, packsDir: string, options: { name?: string; first?: () => CatalogSource[] } = {}): CatalogSource {
+export function catalogWithPacksSource(catalogDir: string, packsDir: string, options: { name?: string; first?: () => CatalogSource[]; except?: readonly string[] } = {}): CatalogSource {
   const catalog = fsCatalogSource(catalogDir, options.name ?? catalogDir);
-  const layers = (): CatalogSource[] => [...(options.first?.() ?? []), catalog, ...installedPackSources(packsDir)];
+  const layers = (): CatalogSource[] => [...(options.first?.() ?? []), catalog, ...installedPackSources(packsDir, options.except)];
   return {
     name: options.name ?? catalogDir,
     root: catalogDir,

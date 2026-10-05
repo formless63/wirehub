@@ -24,6 +24,8 @@ pack/
   vocab/signals.json vocab/levels.json ...        vocabulary additions
   designs/<id>.json                               example designs, optional
   validation-rules.json                           declarative design rules, optional (below)
+  bench-rules.json                                work instructions as data, optional (below)
+  pcba-pads.json                                  pads per board terminal, optional (below)
 ```
 
 Images under `depictions/` and `art/` (`svg png jpg jpeg webp`, lowercase extensions) ship with the
@@ -61,6 +63,12 @@ A pack can carry configuration as data, not only records (`docs/catalog-store.md
   refused, so write a rule a design of the starter or your own example designs satisfies (or make it
   a `warning`). `verify-pack.mjs` reports a rule the language cannot use. A hub owner can switch a pack
   rule off or change it by saving a rule with the same id in Settings.
+- **`bench-rules.json`**: an array of bench rule records (`docs/modules.md`, "Bench work instructions";
+  each `{ id, phase, src, when?, steps: [{ text, src, tools?, checks?, images? }] }`). The catalog reads
+  it at runtime, so the build sheet prints the steps at once, and a disable restores the generic ones.
+  `verify-pack.mjs` reports a rule that cannot be printed.
+- **`pcba-pads.json`**: `{ "src": "…", "boards": { "<board id>": { "src": "…", "terminals": { "GND": [{ "ref": "GND1", "side": "top" }] } } } }`.
+  A pack owns the pads of the boards it lists; the install preview validates designs against them.
 - **`partNumberScheme`** in `wirehub-pack.json`: a declarative numbering definition
   (`docs/part-numbers.md`) the pack **offers**. Installing never switches the hub's scheme: the install
   answer carries `offers.partNumberScheme`, Settings, Part numbers lists it, and an owner confirms the

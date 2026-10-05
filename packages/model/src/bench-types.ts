@@ -216,6 +216,8 @@ export interface BenchStepRule {
   /** kebab id, unique within the contribution */
   id: string;
   phase: BenchPhase;
+  /** where the rule comes from; required on a record in `bench-rules.json` (every catalog record cites its source) */
+  src?: string;
   when?: { connector?: string[]; family?: string[]; wire?: string[]; stockFamily?: ('coax' | 'bonded')[] };
   steps: Step[];
 }

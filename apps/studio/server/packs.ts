@@ -99,6 +99,12 @@ function bundledPack(modules: ModuleRegistry | undefined, id: string): { dir: st
   return undefined;
 }
 
+/** The catalog read without the layer of pack `id` (an update's new files replace that layer's in the check). */
+function viewWithout(deps: SetupDeps, id: string): CatalogSource | undefined {
+  const packsDir = packsDirOf(deps);
+  return packsDir === deps.dataDir ? undefined : catalogWithPacksSource(deps.dataDir, packsDir, { except: [id] });
+}
+
 function viewOf(deps: SetupDeps): CatalogSource {
   const packsDir = packsDirOf(deps);
   return packsDir === deps.dataDir ? fsCatalogSource(deps.dataDir) : catalogWithPacksSource(deps.dataDir, packsDir);
@@ -214,7 +220,8 @@ export async function handlePacksRequest(
     } catch (error) {
       return refuse(500, error instanceof Error ? error.message : String(error));
     }
-    const plan = planPackUpdate(view, installed.packs, bundled.dir);
+    const without = where === 'layer' ? viewWithout(deps, id) : undefined;
+    const plan = planPackUpdate(view, installed.packs, bundled.dir, without === undefined ? {} : { without });
     if (method === 'GET') return json(200, { ...shown(plan), applicable: plan.ok && plan.direction !== 'same' });
     if (plan.direction === 'same') return json(200, { updated: false, reason: 'already at this version', plan: shown(plan) });
     if (!plan.ok) return updateRefusal(plan);
@@ -318,7 +325,8 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
     const layered = packsDir !== deps.dataDir;
     let plan: PackUpdatePlan | PackInstallPreview;
     try {
-      plan = existing === undefined ? planNewPack(view, installed, dir) : planPackUpdate(view, installed, dir);
+      const without = existing === undefined || where.get(manifest.id) !== 'layer' ? undefined : viewWithout(deps, manifest.id);
+      plan = existing === undefined ? planNewPack(view, installed, dir) : planPackUpdate(view, installed, dir, without === undefined ? {} : { without });
     } catch (error) {
       return refuse(422, error instanceof Error ? error.message : String(error));
     }

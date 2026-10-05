@@ -54,6 +54,8 @@ export {
   setInstalledPackOrigin,
   setInstalledModuleTrust,
   installedRecordOf,
+  isAuxiliaryFile,
+  PCBA_PADS_FILE,
   packAssetFiles,
   installedPackDir,
   installedPackSources,

@@ -61,4 +61,33 @@ describe('registerBenchSteps', () => {
     expect(problems.join('\n')).toMatch(/qa rule takes no when/);
     expect(problems.join('\n')).toMatch(/images must be/);
   });
+
+  it('prints the catalog\'s own rules (Db.benchRules, bench-rules.json) with no registration, and a module\'s provider still wins', async () => {
+    const { validateDb } = await import('@wirehub/model');
+    const rules = [
+      { id: 'data-prep', phase: 'prep' as const, steps: [{ text: 'Strip per DATA-WI-1.', src: 'shop wi 1' }] },
+      { id: 'data-qa', phase: 'qa' as const, steps: [{ text: 'Check per DATA-WI-2.', src: 'shop wi 2' }] },
+      { id: 'Broken Rule', phase: 'prep' as const, steps: [{ text: 'BROKEN-SHOWN', src: 'x' }] },
+    ];
+    const withRules = { ...db, benchRules: rules };
+    const html = renderBuildSheet(design, withRules);
+    expect(html).toContain('Strip per DATA-WI-1.');
+    expect(html).toContain('Check per DATA-WI-2.');
+    expect(html).not.toContain('BROKEN-SHOWN');
+    // without them the sheet is the generic one again (nothing was registered globally)
+    expect(renderBuildSheet(design, db)).not.toContain('DATA-WI-1');
+    // a broken rule is a validateDb warning, never an error
+    const issues = validateDb(withRules).filter((i) => i.code === 'bench-rule-invalid');
+    expect(issues.map((i) => i.severity)).toEqual(['warning']);
+    // a module's registered provider answers first
+    const off = registerBenchSteps({ prep: () => [{ text: 'Strip per MODULE-WI-9.', src: 'module' }] });
+    try {
+      const during = renderBuildSheet(design, withRules);
+      expect(during).toContain('MODULE-WI-9');
+      expect(during).not.toContain('Strip per DATA-WI-1.');
+      expect(during).toContain('Check per DATA-WI-2.');
+    } finally {
+      off();
+    }
+  });
 });
