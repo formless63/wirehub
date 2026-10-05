@@ -598,3 +598,7 @@ export {
   saveRecordRevision,
 } from './record-revisions.ts';
 export type { ExternalRevision, NewRevisionInput, RecordRevision, RecordRevisionFile, RevisionArt, RevisionKind, RevisionUse, RevisionWhereUsed } from './record-revisions.ts';
+
+// ---- board and adapter proposals from resolver gaps ----
+export { openProposals, proposalPcba, proposalProblems, proposeBoards } from './proposals.ts';
+export type { BoardProposal, ProposalDecision, ProposalState, ProposedNet, ProposedPart } from './proposals.ts';

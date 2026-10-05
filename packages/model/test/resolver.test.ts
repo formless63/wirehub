@@ -22,6 +22,9 @@ import {
   suggestStocks,
   validateDb,
   validateDesign,
+  openProposals,
+  proposalPcba,
+  proposeBoards,
   type CableDesign,
   type ConditioningRecipe,
   type ConnectorDefinition,
@@ -315,5 +318,28 @@ describe('derive, drift, inference', () => {
     const plain = loadDb();
     const lead: CableDesign = { ...derived(), instances: { ...derived().instances, connectors: [{ id: 'j1', def: 'de9-female' }, { id: 'j2', def: 'de9-female' }] } };
     expect(inferCableRecipe(lead, { ...plain, devices }).ok).toBe(false);
+  });
+});
+
+describe('proposals', () => {
+  it('proposes nothing when an option is complete', () => {
+    expect(proposeBoards(library(), resolve(library(), AB))).toEqual([]);
+  });
+
+  it('drafts a level converter and a termination for what no recipe provides', () => {
+    const db = library({ conditioningRecipes: [] });
+    const low = resolve(db, { ...AB, destination: { device: 'unit-b-low' } });
+    const [conv] = proposeBoards(db, low);
+    expect(conv).toMatchObject({ kind: 'draft', title: 'Level converter: test-tx from lvl-hi to lvl-lo', gap: { code: 'level-unconverted' } });
+    expect(conv!.pads.map((p) => p.id)).toEqual(['IN', 'OUT', 'GND']);
+    expect(conv!.open[0]).toMatch(/no recipe/);
+    const bus = proposeBoards(db, resolve(db, { source: { device: 'unit-a' }, destination: { device: 'bus-node' } }));
+    expect(bus.map((p) => p.gap?.code)).toContain('requirement-unmet');
+    // a decision hides it; accepting starts a development board
+    expect(openProposals([conv!], [{ key: conv!.key, state: 'declined', at: 'x', proposal: conv! }])).toEqual([]);
+    const pcba = proposalPcba(db, conv!, 'level-board');
+    expect(pcba).toMatchObject({ id: 'level-board', status: 'development', revision: 'draft' });
+    expect(pcba.internalLinks).toEqual([{ from: 'IN', to: 'OUT', via: 'U1 lvl-hi → lvl-lo converter' }, { from: 'IN', to: 'GND', via: 'U1 lvl-hi → lvl-lo converter' }]);
+    expect(validateDb({ ...db, pcbas: [...db.pcbas, pcba] }).filter((i) => i.severity === 'error')).toEqual([]);
   });
 });
