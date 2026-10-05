@@ -48,6 +48,8 @@ export interface CableSearch {
   sel?: string;
   /** a saved revision to open read-only; absent = the working copy */
   rev?: string;
+  /** a design to place in this cable as a sub-assembly on arrival ("Place in…" in the cable list) */
+  place?: string;
 }
 
 function isCableView(value: unknown): value is CableView {
@@ -132,6 +134,7 @@ export const cableRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): CableSearch => ({
     view: isCableView(search['view']) ? search['view'] : 'build',
     ...(typeof search['sel'] === 'string' && search['sel'] !== '' ? { sel: search['sel'] } : {}),
+    ...(typeof search['place'] === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(search['place']) ? { place: search['place'] } : {}),
     ...((typeof search['rev'] === 'string' && /^\d{1,6}$/.test(search['rev'])) || (typeof search['rev'] === 'number' && Number.isInteger(search['rev']) && search['rev'] >= 0)
       ? { rev: String(search['rev']) }
       : {}),

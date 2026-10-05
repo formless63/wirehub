@@ -347,6 +347,8 @@ export interface EditorHandle {
   openLifecycle: (action: LifecycleAction) => void;
   /** opens the node picker at the viewport centre, listing every part — what the app's "Add part…" command calls */
   openPicker: () => void;
+  /** places another design as a sub-assembly (its ports fetched first) — what the cable list's "Place in…" lands on */
+  placeSubassembly: (def: string) => void;
   /** opens the canvas's find-a-pin box — what `/` drives */
   findPin: () => void;
   /** opens "Connect known pins": the joints the signal tags settle, for review before they are added */
@@ -1152,8 +1154,8 @@ const CableEditorInner = forwardRef(function CableEditorInner(
     requestAnimationFrame(() => centre(3));
   };
 
-  const latest = useRef({ lifecycle, flow, showIssues, openPicker });
-  latest.current = { lifecycle, flow, showIssues, openPicker };
+  const latest = useRef({ lifecycle, flow, showIssues, openPicker, placeSubassembly });
+  latest.current = { lifecycle, flow, showIssues, openPicker, placeSubassembly };
 
   useImperativeHandle(
     ref,
@@ -1168,6 +1170,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       showIssues: () => latest.current.showIssues(),
       openLifecycle: (action) => latest.current.lifecycle.openLifecycle(action),
       openPicker: () => latest.current.openPicker(undefined),
+      placeSubassembly: (def) => latest.current.placeSubassembly(def),
       findPin: () => setPinSearchOpen(true),
       connectKnownPins: () => setConnectOpen(true),
     }),
