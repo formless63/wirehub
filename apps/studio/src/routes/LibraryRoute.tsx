@@ -141,8 +141,8 @@ export function LibraryRoute(): JSX.Element {
       <>
         {button}
         {bulk}
-        {connections}
         {store}
+        {connections}
       </>
     );
     return { connectors: both, components: both, wires: both, pcbas: both, mechanicals: both };
