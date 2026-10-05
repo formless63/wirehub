@@ -24,6 +24,7 @@
 
 import { recordMetaIssues, type RecordMeta } from './provenance.ts';
 import type { ConnectorDefinition, ConnectorGender, ConnectorPin, Db, Issue } from './model.ts';
+import type { HousingSpec } from './crimp.ts';
 import { signalIds, vocabEntry, type SignalEntry, type SignalRef, type Vocab } from './vocab.ts';
 
 /* ------------------------------------------------------------------ *
@@ -67,6 +68,8 @@ export interface ConnectorBody extends RecordMeta {
    * the family, id and label (every body before).
    */
   drawing?: string;
+  /** a crimp housing's cavities (`crimp.ts`); a connector's own `housing` wins */
+  housing?: HousingSpec;
   src: string;
 }
 
@@ -240,6 +243,8 @@ function canonical(pin: Omit<ConnectorPin, 'signal'>): unknown {
     label: pin.label,
     aliases: pin.aliases,
     note: pin.note,
+    // a declared current makes the pins differ from the composition, so a save keeps them
+    currentA: pin.currentA,
   };
 }
 

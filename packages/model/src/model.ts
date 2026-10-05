@@ -9,8 +9,10 @@
 
 import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
+import type { DbRules } from './electrical.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
+import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
 
 /* ------------------------------------------------------------------ *
  * Wire structure — hierarchical elements
@@ -26,6 +28,10 @@ export interface ConductorElement {
   /** e.g. "OFC 7x0.12 mm" */
   formation?: string;
   areaMm2?: number;
+  /** the stock's own rated current in amps (a datasheet figure); wins over the area table of the electrical rules */
+  ratedCurrentA?: number;
+  /** DC resistance of the conductor, ohm per km at 20 C (a datasheet figure); else derived from material and area */
+  resistanceOhmPerKm?: number;
   /** outer diameter over the bare copper, mm */
   odMm?: number;
   /**
@@ -243,6 +249,8 @@ export interface ConnectorPin {
    * (`Db.tags`) and then to reading the label.
    */
   signal?: SignalRef;
+  /** the current this pin carries in use, amps; wins over its signal's default (electrical rules) */
+  currentA?: number;
 }
 
 /**
@@ -284,6 +292,8 @@ export interface ConnectorDefinition extends RecordMeta {
    * not known; `connectorConstruction` falls back to the body's.
    */
   construction?: string;
+  /** each contact's rated current, amps (a datasheet figure); the electrical rules compare it with the pin's net */
+  contactRatingA?: number;
   /**
    * Whether the bench terminates this connector at all — a vocab
    * `connector-sourcing` id (`pre-made-lead`;). Absent
@@ -309,6 +319,13 @@ export interface ConnectorDefinition extends RecordMeta {
   body?: string;
   /** the pinout (`Db.interfaces`) it carries on that body */
   interface?: string;
+  /**
+   * A crimp housing's cavities (`crimp.ts`): the contact systems they take,
+   * whether each wire is sealed and whether unused cavities are plugged.
+   * Absent = not a crimp housing as far as the catalog knows (a solder-cup or
+   * PCB connector has none); falls back to the body's.
+   */
+  housing?: HousingSpec;
 }
 
 /* ------------------------------------------------------------------ *
@@ -529,6 +546,17 @@ export interface PcbaDefinition extends RecordMeta {
  * (the cable BOM covers shells and hardware
  * alongside PCBs/PCBAs and connectors).
  */
+/**
+ * What a mechanical part is. `shell`, `fastener` and `other` are housings and
+ * hardware; `contact` (a crimp terminal), `seal` (a wire or cavity seal) and
+ * `plug` (a cavity plug or blind) go into a crimp housing's cavities, and
+ * `tool` is the crimp tool or applicator a contact needs — a tool is never a
+ * BOM line.
+ */
+export type MechanicalKind = 'shell' | 'fastener' | 'other' | 'contact' | 'seal' | 'plug' | 'tool';
+
+export const MECHANICAL_KINDS: readonly MechanicalKind[] = ['shell', 'fastener', 'other', 'contact', 'seal', 'plug', 'tool'];
+
 export interface MechanicalDefinition extends RecordMeta {
   id: string;
   label: string;
@@ -536,7 +564,13 @@ export interface MechanicalDefinition extends RecordMeta {
   partNumber?: string;
   /** the released revision this definition tracks, when the source has one */
   revision?: string;
-  kind: 'shell' | 'fastener' | 'other';
+  kind: MechanicalKind;
+  /**
+   * For a crimp termination part (`kind` `contact`, `seal`, `plug` or
+   * `tool`): what it fits and the wire it takes (`crimp.ts`). Absent on
+   * shells and hardware.
+   */
+  termination?: TerminationSpec;
   /**
    * A pre-terminated sub-assembly the contract manufacturer supplies — the
    * "stripped to X" stock: the end it arrives terminated
@@ -585,6 +619,8 @@ export interface Db {
    * on this board" lists, never the cable BOM.
    */
   boardParts?: BoardPartsEntry[];
+  /** the organisation's rule thresholds (hub settings); absent means the defaults */
+  rules?: DbRules;
 }
 
 /* ------------------------------------------------------------------ *
@@ -679,6 +715,14 @@ export interface ConnectorInstance {
    * when derivation can't tell (an instance with no joints yet).
    */
   mounting?: string;
+  /**
+   * The crimp contact, seal or plug in each cavity of a crimp housing
+   * (`crimp.ts`), by pin id. Absent = none recorded (always so on a
+   * solder-cup or PCB connector).
+   */
+  cavities?: CavityAssignment[];
+  /** the text the wire labels use for this connector ("at J1") instead of its id in capitals */
+  label?: string;
 }
 
 export interface SegmentInstance {
@@ -686,6 +730,12 @@ export interface SegmentInstance {
   def: string;
   lengthMm?: number;
   role?: string;
+  /** the run's label designation (`FEED-1`) instead of the generated `W<n>` */
+  label?: string;
+  /** the exact text lines of the marker at an end, replacing the generated lines (at most 3, 40 characters each) */
+  endLabels?: { a?: string[]; b?: string[] };
+  /** a label per core, by conductor path: printed at both ends of the run, beside the run's own labels */
+  coreLabels?: Record<string, string>;
   /**
    * How this instance's screens are prepared at each end: braids/spirals and
    * drains twisted together into a pigtail that lands once. A pigtail is a

@@ -1,0 +1,218 @@
+[
+  {
+    "id": "sealed-1-5-socket-0-5-1",
+    "label": "Socket contact, 1.5 mm class, 0.5–1.0 mm², tin",
+    "kind": "contact",
+    "termination": {
+      "systems": [
+        "sealed-1-5"
+      ],
+      "wireMinMm2": 0.5,
+      "wireMaxMm2": 1,
+      "insulationMinMm": 1.2,
+      "insulationMaxMm": 2.1,
+      "gender": "female",
+      "plating": "tin",
+      "stripMm": 4.5,
+      "crimpHeights": [
+        {
+          "wireMm2": 0.5,
+          "heightMm": 1.15,
+          "widthMm": 1.7
+        },
+        {
+          "wireMm2": 0.75,
+          "heightMm": 1.3,
+          "widthMm": 1.7
+        },
+        {
+          "wireMm2": 1,
+          "heightMm": 1.45,
+          "widthMm": 1.7
+        }
+      ],
+      "tool": "sealed-1-5-crimp-tool",
+      "src": "generic sealed-connector socket contact: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+    },
+    "src": "generic sealed-connector socket contact: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic sealed-connector socket contact: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "sealed-1-5-socket-0-2-0-35",
+    "label": "Socket contact, 1.5 mm class, 0.2–0.35 mm², tin",
+    "kind": "contact",
+    "termination": {
+      "systems": [
+        "sealed-1-5"
+      ],
+      "wireMinMm2": 0.2,
+      "wireMaxMm2": 0.35,
+      "insulationMinMm": 1,
+      "insulationMaxMm": 1.6,
+      "gender": "female",
+      "plating": "tin",
+      "stripMm": 4,
+      "crimpHeights": [
+        {
+          "wireMm2": 0.35,
+          "heightMm": 0.95,
+          "widthMm": 1.4
+        }
+      ],
+      "tool": "sealed-1-5-crimp-tool",
+      "src": "generic sealed-connector socket contact for thin wire: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+    },
+    "src": "generic sealed-connector socket contact for thin wire: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic sealed-connector socket contact for thin wire: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "sealed-1-5-pin-0-5-1",
+    "label": "Pin contact, 1.5 mm class, 0.5–1.0 mm², tin",
+    "kind": "contact",
+    "termination": {
+      "systems": [
+        "sealed-1-5"
+      ],
+      "wireMinMm2": 0.5,
+      "wireMaxMm2": 1,
+      "insulationMinMm": 1.2,
+      "insulationMaxMm": 2.1,
+      "gender": "male",
+      "plating": "tin",
+      "stripMm": 4.5,
+      "crimpHeights": [
+        {
+          "wireMm2": 0.5,
+          "heightMm": 1.15,
+          "widthMm": 1.7
+        },
+        {
+          "wireMm2": 0.75,
+          "heightMm": 1.3,
+          "widthMm": 1.7
+        },
+        {
+          "wireMm2": 1,
+          "heightMm": 1.45,
+          "widthMm": 1.7
+        }
+      ],
+      "tool": "sealed-1-5-crimp-tool",
+      "src": "generic sealed-connector pin contact: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+    },
+    "src": "generic sealed-connector pin contact: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic sealed-connector pin contact: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "sealed-1-5-seal-1-2-1-6",
+    "label": "Single-wire seal, 1.5 mm class, insulation Ø 1.2–1.6 mm",
+    "kind": "seal",
+    "termination": {
+      "systems": [
+        "sealed-1-5"
+      ],
+      "insulationMinMm": 1.2,
+      "insulationMaxMm": 1.6,
+      "src": "generic silicone single-wire seal: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+    },
+    "src": "generic silicone single-wire seal: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic silicone single-wire seal: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "sealed-1-5-seal-1-7-2-4",
+    "label": "Single-wire seal, 1.5 mm class, insulation Ø 1.7–2.4 mm",
+    "kind": "seal",
+    "termination": {
+      "systems": [
+        "sealed-1-5"
+      ],
+      "insulationMinMm": 1.7,
+      "insulationMaxMm": 2.4,
+      "src": "generic silicone single-wire seal: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+    },
+    "src": "generic silicone single-wire seal: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic silicone single-wire seal: typical values for the 1.5 mm terminal class as public maker datasheets tabulate them, rounded; inferred, not taken from one datasheet; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "sealed-1-5-cavity-plug",
+    "label": "Cavity plug, 1.5 mm class",
+    "kind": "plug",
+    "termination": {
+      "systems": [
+        "sealed-1-5"
+      ],
+      "src": "generic cavity plug closing an unused cavity of a sealed housing; synthetic example"
+    },
+    "src": "generic cavity plug closing an unused cavity of a sealed housing; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic cavity plug closing an unused cavity of a sealed housing; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "sealed-1-5-crimp-tool",
+    "label": "Hand crimp tool, 1.5 mm class open-barrel contacts, 0.2–1.0 mm²",
+    "kind": "tool",
+    "termination": {
+      "systems": [
+        "sealed-1-5"
+      ],
+      "src": "generic ratchet hand crimp tool for open-barrel contacts of the class; synthetic example"
+    },
+    "src": "generic ratchet hand crimp tool for open-barrel contacts of the class; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic ratchet hand crimp tool for open-barrel contacts of the class; synthetic example"
+        }
+      ]
+    }
+  }
+]

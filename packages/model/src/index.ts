@@ -9,6 +9,8 @@
  */
 
 export * from './model.ts';
+export { AMPACITY_SRC, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, ampacityOfArea, electricalIssues, electricalReport, electricalRulesProblems } from './electrical.ts';
+export type { AmpacityRow, ContactRow, DbRules, ElectricalReport, ElectricalRow, ElectricalRules } from './electrical.ts';
 export { PROVENANCE_METHODS, isSourceUrl, isSpdxLike, recordMetaIssues } from './provenance.ts';
 export type { DerivedFrom, ProvenanceMethod, ProvenanceReview, ProvenanceSource, RecordMeta, RecordProvenance } from './provenance.ts';
 export {
@@ -237,6 +239,29 @@ export type {
   SignalSpec,
 } from './builds.ts';
 
+// ---- crimp contacts, seals, plugs and tools ----
+export {
+  TERMINATION_PART_KINDS,
+  awgOfMm2,
+  cavityIssues,
+  cavityPins,
+  cavityRows,
+  crimpHeightFor,
+  designCavities,
+  designTools,
+  fillCavities,
+  fitsHousing,
+  housingOf,
+  insulationRangeText,
+  isTerminationPart,
+  setCavity,
+  terminationDbIssues,
+  terminationParts,
+  wireRangeText,
+  wiresAtPin,
+  withCavities,
+} from './crimp.ts';
+export type { CavityAssignment, CavityRow, CavityWire, CrimpHeight, HousingSpec, TerminationPartKind, TerminationSpec } from './crimp.ts';
 // ---- kits, usage, connector mounting ----
 export { KIT_PART_KINDS, KIT_SKU, findKit, kitCoverage, kitPartExists, kitPartLabel, kitsContaining, validateKits } from './kits.ts';
 export type { KitCoverage, KitDefinition, KitLine, KitPartKind, PartRef } from './kits.ts';
@@ -293,6 +318,8 @@ export type {
 export {
   DESIGN_VERSION_FORMAT,
   DESIGN_VERSION_FORMAT_V1,
+  approvalStepProblem,
+  approveVersion,
   artworkBlobName,
   canonicalVersionFile,
   createVersion,
@@ -307,8 +334,11 @@ export {
   jointText,
   nextRevision,
   referencedDefinitionIds,
+  rejectVersion,
   relockVersion,
+  releasedRevision,
   stableJson,
+  submitVersion,
   unlockVersion,
   validateVersion,
   versionArtwork,
@@ -316,6 +346,7 @@ export {
   versionSummary,
 } from './versions.ts';
 export type {
+  ApprovalState,
   ArtworkFiles,
   DesignDiff,
   DesignVersionFile,
@@ -324,6 +355,7 @@ export type {
   NewVersionInput,
   VersionContent,
   VersionHistoryAction,
+  VersionApproval,
   VersionHistoryEntry,
   VersionSummary,
   VersionUnlock,

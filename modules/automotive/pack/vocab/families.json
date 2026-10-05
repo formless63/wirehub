@@ -21,6 +21,24 @@
           }
         ]
       }
+    },
+    {
+      "id": "sealed-auto",
+      "label": "Sealed automotive (generic)",
+      "aliases": [
+        "sealed connector",
+        "weatherproof connector"
+      ],
+      "src": "generic sealed wire-to-wire connectors with single-wire seals and cavity plugs; synthetic example",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "generic sealed wire-to-wire connectors with single-wire seals and cavity plugs; synthetic example"
+          }
+        ]
+      }
     }
   ]
 }

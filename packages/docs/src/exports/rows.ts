@@ -8,7 +8,7 @@
  * exporter adds columns of its own).
  */
 
-import { findWire, inScope, type CableDesign, type Db } from '@wirehub/model';
+import { designCavities, findConnector, findWire, inScope, type CableDesign, type Db } from '@wirehub/model';
 
 import { deriveBench, stockElements, type Landing } from '../bench/model.ts';
 import { benchOptions, type BuildSheetOptions } from '../build-sheet.ts';
@@ -181,4 +181,59 @@ export function cutListTable(design: CableDesign, db: Db, options: ExportOptions
     headers: CUT_LIST_HEADERS,
     rows: sorted.map((f) => [...f.cells, f.quantity, f.key.split('|')[3] as string, f.segments.join(' ')]),
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Crimp list
+ * ------------------------------------------------------------------ */
+
+export const CRIMP_LIST_HEADERS = [
+  'connector',
+  'connector_part_number',
+  'cavity',
+  'wires',
+  'wire_mm2',
+  'contact_part_number',
+  'contact',
+  'seal_part_number',
+  'seal',
+  'plug_part_number',
+  'plug',
+  'strip_mm',
+  'crimp_height_mm',
+  'tool_part_number',
+  'tool',
+  'notes',
+] as const;
+
+/**
+ * One row per cavity of every crimp housing in the design (`cavityRows`):
+ * the wires in it, its contact, seal or plug, the strip length and crimp
+ * height, and the tool. Empty (headers only) for a design with no crimp
+ * housings on record.
+ */
+export function crimpListTable(design: CableDesign, db: Db): Table {
+  const rows = designCavities(design, db).map((r) => {
+    const connector = findConnector(db, design.instances.connectors.find((c) => c.id === r.instance)?.def ?? '');
+    const area = r.wires.every((w) => w.areaMm2 !== undefined) && r.wires.length > 0 ? Math.round(r.wires.reduce((s, w) => s + (w.areaMm2 ?? 0), 0) * 1000) / 1000 : '';
+    return [
+      r.instance,
+      connector?.partNumber ?? '',
+      r.pin,
+      r.wires.map((w) => `${w.segment}.${w.path}@${w.end}`).join(' '),
+      area,
+      r.contact?.partNumber ?? '',
+      r.contact?.label ?? '',
+      r.seal?.partNumber ?? '',
+      r.seal?.label ?? '',
+      r.plug?.partNumber ?? '',
+      r.plug?.label ?? '',
+      r.stripMm ?? '',
+      r.crimpHeightMm ?? '',
+      r.tool?.partNumber ?? '',
+      r.tool?.label ?? '',
+      r.note ?? '',
+    ];
+  });
+  return { name: 'Crimp list', headers: CRIMP_LIST_HEADERS, rows };
 }

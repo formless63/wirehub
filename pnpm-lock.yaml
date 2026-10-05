@@ -170,6 +170,9 @@ importers:
       '@wirehub/catalog':
         specifier: workspace:*
         version: link:../../packages/catalog
+      '@wirehub/docs':
+        specifier: workspace:*
+        version: link:../../packages/docs
       '@wirehub/editor-react':
         specifier: workspace:*
         version: link:../../packages/editor-react

@@ -83,6 +83,9 @@ const ACTION_LABEL: Record<VersionHistoryEntry['action'], string> = {
   unlock: 'unlocked',
   edit: 'edited',
   relock: 'locked',
+  submit: 'submitted for approval',
+  approve: 'approved',
+  reject: 'rejected',
 };
 
 export function HistoryList(props: { history: VersionHistoryEntry[] }): JSX.Element {

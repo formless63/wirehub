@@ -15,7 +15,8 @@ wherever it was made. Nothing here is shop-specific: a module adds formats of it
 | BOM (CSV) | `bom.csv` | the bill of materials, one row per printed line |
 | Wire list (CSV) | `wire-list.csv` | every conductor, screen and drain, and where each end lands |
 | Cut list (CSV) | `cut-list.csv` | pieces to cut per stock and length |
-| BOM, wire and cut lists (XLSX) | `production.xlsx` | the three above, one sheet each |
+| Crimp list (CSV) | `crimp-list.csv` | every cavity of each crimp housing: wires, contact, seal or plug, strip, crimp height, tool |
+| BOM, wire, cut and crimp lists (XLSX) | `production.xlsx` | the four above, one sheet each |
 | Continuity (CSV) | `continuity.csv` | net-to-pin pairs, expected connections, isolation pairs, with the test parameters |
 | Continuity (JSON) | `continuity.json` | the same, structured |
 | Wire labels (CSV) | `labels.csv` | text and position of the marker at each wire end |
@@ -41,6 +42,13 @@ column order.
 - **Cut list:** `stock_part_number, stock, piece, length_mm, length_in, quantity,
   variation_pn, segments`. Equal pieces fold into a quantity; a segment the contract
   manufacturer supplies terminated is not cut here.
+- **Crimp list:** `connector, connector_part_number, cavity, wires, wire_mm2,
+  contact_part_number, contact, seal_part_number, seal, plug_part_number, plug, strip_mm,
+  crimp_height_mm, tool_part_number, tool, notes`. One row per cavity of every connector
+  with a crimp housing or a cavity assignment (`ConnectorInstance.cavities`); `wires` lists
+  `<segment>.<element>@<end>` and `wire_mm2` their total cross-section. A design with no
+  crimp housing on record has the header row only. Contacts, seals and plugs are also BOM
+  lines (section "Contacts, seals & plugs", counted per cavity); tools are not.
 - **Labels:** `label_id, segment, end, designation, line_1, line_2, line_3, offset_mm,
   position, stock_part_number, length_mm`.
 - **Continuity:** below.
@@ -55,6 +63,13 @@ a short run, never under 10 mm). The labels are listed on the build sheet's Asse
 exported as CSV, and printable as a sheet: `labels.svg` is one page in millimetres on a
 3 × 7 grid of 63.5 × 38.1 mm labels (A4) or 3 × 10 of 66.7 × 25.4 mm (US letter); print it
 at 100%. `page=` and `copies=` (API and CLI) pick a page and repeat each label.
+
+The generated text can be overridden in the inspector, per segment and connector: a segment's
+**run label** replaces `W<n>`, its **end A / end B text** replaces the generated lines of that
+end (lines separated by `|`, at most 3 of 40 characters), a connector's **label** replaces its
+id in capitals in the `at` / `to` lines, and a **core label** (one per conductor of the stock)
+prints an extra marker at both ends of the run (`core` column of the CSV). Cores nobody
+named get no marker; with nothing entered the labels are exactly the generated ones.
 
 Per-run label text typed in the inspector is not built yet (cs-5k1.20 stays open for it).
 
@@ -105,9 +120,12 @@ test_volts, duration_s, note`, where `type` is:
 | `isolationSeconds` | 1 s | how long the isolation voltage is held |
 | `hipotVolts`, `hipotSeconds`, `hipotMaxMicroamps` | none | an optional withstand step |
 
-Three layers, the later one wins: the base's defaults; the organisation's, set in the
-environment as `WIREHUB_TEST_DEFAULTS='{"isolationVolts":250,"hipotVolts":1500,"hipotSeconds":2}'`
-(a bad value stops the server at start with one line); the design's own, edited on the
+Three layers, the later one wins: the base's defaults; the organisation's, set on the
+Settings page under **Testing** (kept in `data/settings/engineering.json`, so it travels with
+the catalog) or, as a fallback, in the environment as
+`WIREHUB_TEST_DEFAULTS='{"isolationVolts":250,"hipotVolts":1500,"hipotSeconds":2}'` (a bad
+value stops the server at start with one line; a parameter set on the page overrides the
+variable's); the design's own, edited on the
 Continuity spec tab and saved in the drawing sidecar (`test` in `data/drawings/<id>.json`).
 They are printed on the continuity spec (and the threshold is quoted in its expected
 readings and on the build sheet's Test page) and carried in the exports. They are settings,

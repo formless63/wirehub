@@ -17,5 +17,43 @@
         }
       ]
     }
+  },
+  {
+    "id": "sealed-3-female-numbered",
+    "label": "Sealed 3-way female housing, cavities by number",
+    "family": "sealed-auto",
+    "gender": "female",
+    "construction": "crimp",
+    "body": "sealed-3-female",
+    "interface": "sealed-3-numbered",
+    "src": "generic sealed 3-way female housing, cavities by number; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic sealed 3-way female housing, cavities by number; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "sealed-3-male-numbered",
+    "label": "Sealed 3-way male housing, cavities by number",
+    "family": "sealed-auto",
+    "gender": "male",
+    "construction": "crimp",
+    "body": "sealed-3-male",
+    "interface": "sealed-3-numbered",
+    "src": "generic sealed 3-way male housing, cavities by number; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic sealed 3-way male housing, cavities by number; synthetic example"
+        }
+      ]
+    }
   }
 ]

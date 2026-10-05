@@ -285,7 +285,7 @@ phase plan, and what a harness shop expects from a design tool.
 | Rank | Bead | Gap | Size |
 | --- | --- | --- | --- |
 | 1 | cs-5k1.1 | Production exports: BOM, wire list and cut list as CSV (XLSX optional) | M |
-| 2 | cs-5k1.5 | Crimp terminations as parts: contacts, seals and tooling per cavity, in the BOM and on the build sheet | L |
+| 2 | cs-5k1.5 | Crimp terminations as parts: contacts, seals and tooling per cavity, in the BOM and on the build sheet (**built**: `crimp.ts`, SPEC.md "Crimp terminations") | L |
 | 3 | cs-5k1.6 | Continuity tester export (neutral format) and test parameters (threshold, hipot) | M |
 | 4 | cs-5k1.9 | Sub-assemblies: a design that places other designs, with BOM roll-up and frozen revisions | L |
 | 5 | cs-5k1.11 | Release approvals on saved versions | M |

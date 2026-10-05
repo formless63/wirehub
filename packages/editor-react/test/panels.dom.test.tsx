@@ -141,3 +141,33 @@ describe('Palette', () => {
     });
   });
 });
+
+describe('label text in the inspector (cs-5k1.20)', () => {
+  it('edits a segment run label, its end text and a core label, and a connector label', () => {
+    const design = loadDesignFromDisk('de9-crossover');
+    const seg = design.instances.segments[0]!.id;
+    const state: EditorState = { ...initialEditorState(design, db), selection: { kind: 'instance', id: seg } };
+    const { dispatch, ui } = harness(state, <PartPanel state={state} />);
+    render(ui);
+    const run = screen.getByLabelText('run label');
+    fireEvent.change(run, { target: { value: 'FEED-1' } });
+    fireEvent.blur(run);
+    expect(dispatch).toHaveBeenCalledWith({ type: 'update-instance', id: seg, patch: { label: 'FEED-1' } });
+    const endA = screen.getByLabelText('end A text');
+    fireEvent.change(endA, { target: { value: 'FEED-1 | to AMP' } });
+    fireEvent.blur(endA);
+    expect(dispatch).toHaveBeenCalledWith({ type: 'update-instance', id: seg, patch: { endLabels: { a: ['FEED-1', 'to AMP'] } } });
+    const core = screen.getAllByLabelText(/^core /)[0]!;
+    fireEvent.change(core, { target: { value: 'sync' } });
+    fireEvent.blur(core);
+    const call = dispatch.mock.calls.map((c) => c[0]).find((a) => a.type === 'update-instance' && 'coreLabels' in a.patch);
+    expect(call).toBeDefined();
+
+    cleanup();
+    const cstate: EditorState = { ...initialEditorState(design, db), selection: { kind: 'instance', id: 'j1' } };
+    const second = harness(cstate, <PartPanel state={cstate} />);
+    render(second.ui);
+    fireEvent.change(screen.getByLabelText('label'), { target: { value: 'SOURCE' } });
+    expect(second.dispatch).toHaveBeenCalledWith({ type: 'update-instance', id: 'j1', patch: { label: 'SOURCE' } });
+  });
+});

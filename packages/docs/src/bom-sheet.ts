@@ -38,11 +38,12 @@ import { num } from './units.ts';
  * Model
  * ------------------------------------------------------------------ */
 
-export type BomSection = 'boards' | 'connectors' | 'wire' | 'shells' | 'discretes';
+export type BomSection = 'boards' | 'connectors' | 'terminations' | 'wire' | 'shells' | 'discretes';
 
 export const BOM_SECTIONS: readonly { id: BomSection; title: string }[] = [
   { id: 'boards', title: 'Boards' },
   { id: 'connectors', title: 'Connectors' },
+  { id: 'terminations', title: 'Contacts, seals & plugs' },
   { id: 'wire', title: 'Wire' },
   { id: 'shells', title: 'Shells & hardware' },
   { id: 'discretes', title: 'Discrete parts' },
@@ -51,6 +52,7 @@ export const BOM_SECTIONS: readonly { id: BomSection; title: string }[] = [
 const SECTION_OF: Readonly<Record<BomCategory, BomSection>> = {
   pcba: 'boards',
   connector: 'connectors',
+  termination: 'terminations',
   wire: 'wire',
   assembly: 'wire',
   shell: 'shells',
@@ -61,6 +63,7 @@ const SECTION_OF: Readonly<Record<BomCategory, BomSection>> = {
 const PN_KIND_OF: Readonly<Record<BomCategory, PnKind>> = {
   pcba: 'pcba',
   connector: 'connector',
+  termination: 'mechanical-other',
   wire: 'wire',
   assembly: 'mechanical-other',
   shell: 'shell',
@@ -201,7 +204,8 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
   const mech = design.instances.mechanical ?? [];
   const whereOf = (line: BomLine): string => {
     if (line.category === 'wire') return line.location;
-    let id = line.provenance[0] ?? '';
+    // a contact's provenance is its cavity (`j2:1`): it sits where its connector does
+    let id = (line.provenance[0] ?? '').split(':')[0] ?? '';
     for (let guard = 0; guard < 4; guard += 1) {
       const m = mech.find((x) => x.id === id);
       if (m?.attachedTo === undefined) break;
@@ -210,7 +214,7 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
     const side = sides.get(id);
     const end = side === 'a' ? 'Source end' : side === 'b' ? 'Destination end' : undefined;
     const role = design.instances.connectors.find((c) => c.id === id)?.role;
-    return facts([end, line.category === 'connector' ? role : undefined]) || line.location;
+    return facts([end, line.category === 'connector' || line.category === 'termination' ? role : undefined]) || line.location;
   };
 
   const trunkId = trunkSegment(design, db)?.id;
@@ -269,7 +273,7 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
   const kitMap = new Map<string, { sku: string; label: string; parts: Set<string> }>();
   const anchors = new Set(bom.lines.filter((l) => l.category === 'connector' || l.category === 'pcba' || l.category === 'shell').map((l) => l.ref));
   for (const line of bom.lines) {
-    const kind = line.category === 'shell' || line.category === 'hardware' ? 'mechanical' : line.category;
+    const kind = line.category === 'shell' || line.category === 'hardware' || line.category === 'termination' ? 'mechanical' : line.category;
     for (const kit of kitsContaining(db, { kind: kind as never, def: line.ref })) {
       // a kit that only shares a screw with this cable is not this cable's kit
       if (!kit.contents.some((c) => anchors.has(c.part.def))) continue;

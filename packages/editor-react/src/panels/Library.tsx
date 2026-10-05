@@ -1571,6 +1571,8 @@ export function Library(props: LibraryProps): JSX.Element {
                 {draft.kind === 'mechanicals' ? (
                   <MechanicalEditor
                     draft={draft.value}
+                    tools={(props.db.mechanicals ?? []).filter((m) => m.kind === 'tool').map((m) => ({ id: m.id, label: m.label }))}
+                    systems={[...new Set([...(props.db.mechanicals ?? []).flatMap((m) => m.termination?.systems ?? []), ...props.db.connectors.flatMap((c) => c.housing?.systems ?? []), ...(props.db.bodies ?? []).flatMap((b) => b.housing?.systems ?? [])])].sort()}
                     idLocked={mode.kind === 'edit'}
                     onChange={(value) => setDraft((d) => ({ kind: 'mechanicals', value: mode.kind === 'new' && d?.kind === 'mechanicals' ? followNameId(d.value, value, takenIds) : value }))}
                   />

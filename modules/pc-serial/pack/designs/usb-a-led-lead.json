@@ -12,7 +12,17 @@
       {
         "id": "j2",
         "def": "jst-xh-2-dc",
-        "role": "LED module connector"
+        "role": "LED module connector",
+        "cavities": [
+          {
+            "pin": "1",
+            "contact": "xh-contact-socket"
+          },
+          {
+            "pin": "2",
+            "contact": "xh-contact-socket"
+          }
+        ]
       }
     ],
     "segments": [

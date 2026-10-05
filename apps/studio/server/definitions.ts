@@ -251,6 +251,11 @@ function gateConnector(value: unknown): Gate<ConnectorDefinition> {
   if (!isOptionalString(record['construction'])) {
     return reject("The connector's construction is not text.", 'Pick one from the list — solder cup, PCB mount, crimp, moulded …');
   }
+  const housing = gateHousing(record['housing']);
+  if (housing !== undefined) return reject(housing.error, housing.hint);
+  if (!isOptionalNumber(record['contactRatingA'])) {
+    return reject("The connector's contact rating is not a number.", 'Write the rated current of one contact in amps — 3, 7.5.');
+  }
   if (!isOptionalString(record['sourcing'])) {
     return reject("The connector's sourcing is not text.", 'Pick one from the list — pre-made lead, or leave it unset for one the bench terminates.');
   }
@@ -282,6 +287,9 @@ function gateConnector(value: unknown): Gate<ConnectorDefinition> {
         `${at}'s other names are not a list of words.`,
         'Aliases are the other names this pin goes by, one per entry.',
       );
+    }
+    if (!isOptionalNumber(pin['currentA'])) {
+      return reject(`${at}'s current is not a number.`, 'Write the current this pin carries in amps — 0.5, 3.');
     }
     if (!isOptionalString(pin['note'])) {
       return reject(`${at}'s note is not text.`, 'A note is a sentence about this pin.');
@@ -373,10 +381,11 @@ function gateElement(value: unknown, where: string): { error: string; hint: stri
       hint: 'A shield is a braid, a spiral serve, a foil or a tape.',
     };
   }
-  for (const field of ['odMm', 'insulatedOdMm', 'areaMm2']) {
+  for (const field of ['odMm', 'insulatedOdMm', 'areaMm2', 'ratedCurrentA', 'resistanceOhmPerKm']) {
     if (!isOptionalNumber(value[field])) {
+      const what = field === 'areaMm2' ? 'cross-section area' : field === 'ratedCurrentA' ? 'rated current' : field === 'resistanceOhmPerKm' ? 'resistance' : 'diameter';
       return {
-        error: `${at} has a ${field === 'areaMm2' ? 'cross-section area' : 'diameter'} that is not a number.`,
+        error: `${at} has a ${what} that is not a number.`,
         hint: 'Diameters are millimetres, written as numbers — 1.4, not "1.4 mm".',
       };
     }
@@ -530,6 +539,8 @@ function gateBody(value: unknown): Gate<ConnectorBody> {
   if (record['gender'] !== 'male' && record['gender'] !== 'female') {
     return reject('A connector body is a plug (male) or a socket (female).', 'Pick the gender.');
   }
+  const housing = gateHousing(record['housing']);
+  if (housing !== undefined) return reject(housing.error, housing.hint);
   const positions = record['positions'];
   if (!Array.isArray(positions) || positions.length === 0) {
     return reject('This body has no positions.', 'Pick a layout — it lays out the numbered contacts, and the shell when it is one.');
@@ -591,15 +602,48 @@ function gateInterface(value: unknown): Gate<Interface> {
   return { ok: true, record: value as Interface };
 }
 
-const MECHANICAL_KINDS = ['shell', 'fastener', 'other'] as const;
+const MECHANICAL_KINDS = ['shell', 'fastener', 'other', 'contact', 'seal', 'plug', 'tool'] as const;
+
+const isOptionalWords = (value: unknown): boolean => value === undefined || (Array.isArray(value) && value.every(isFilledString));
+
+/** The shape of a contact's, seal's, plug's or tool's `termination` block (`crimp.ts`); the ranges are `validateDb`'s. */
+function gateTermination(value: unknown): { error: string; hint: string } | undefined {
+  if (value === undefined) return undefined;
+  if (!isObject(value)) return { error: 'What this part fits is not in the right form.', hint: 'It is an object: systems, wire and insulation ranges, plating, strip length, crimp heights, tool.' };
+  if (!isOptionalWords(value['systems']) || !isOptionalWords(value['housings'])) return { error: 'The systems or housings it fits are not a list of ids.', hint: 'List contact system ids (sealed-1-5) and connector or body ids.' };
+  for (const key of ['wireMinMm2', 'wireMaxMm2', 'insulationMinMm', 'insulationMaxMm', 'stripMm', 'ratedCurrentA']) {
+    if (!isOptionalNumber(value[key])) return { error: `${key} is not a number.`, hint: 'Write sizes as plain numbers: mm² for wire, mm for insulation and strip length.' };
+  }
+  for (const key of ['gender', 'plating', 'tool', 'src']) {
+    if (!isOptionalString(value[key])) return { error: `${key} is not text.`, hint: 'Write it as words or an id.' };
+  }
+  const heights = value['crimpHeights'];
+  if (heights !== undefined && (!Array.isArray(heights) || !heights.every((h) => isObject(h) && typeof h['wireMm2'] === 'number' && typeof h['heightMm'] === 'number' && isOptionalNumber(h['widthMm'])))) {
+    return { error: 'The crimp heights are not in the right form.', hint: 'One entry per wire size: wireMm2, heightMm and optionally widthMm.' };
+  }
+  return undefined;
+}
+
+/** The shape of a connector's or body's crimp `housing` (`crimp.ts`). */
+export function gateHousing(value: unknown): { error: string; hint: string } | undefined {
+  if (value === undefined) return undefined;
+  if (!isObject(value)) return { error: 'The crimp housing is not in the right form.', hint: 'It is an object: systems, sealing, plugUnused, cavities.' };
+  if (!isOptionalWords(value['systems']) || !isOptionalWords(value['cavities'])) return { error: 'The housing systems or cavities are not a list of ids.', hint: 'List contact system ids and pin ids.' };
+  if (value['sealing'] !== undefined && !['none', 'per-wire', 'mat'].includes(String(value['sealing']))) return { error: `Sealing '${String(value['sealing'])}' is not one this studio knows.`, hint: 'Pick none, per-wire or mat.' };
+  if (value['plugUnused'] !== undefined && typeof value['plugUnused'] !== 'boolean') return { error: '"Plug unused cavities" is not yes or no.', hint: 'Tick it for a sealed housing whose unused cavities take a plug.' };
+  if (!isOptionalString(value['src'])) return { error: "The housing's source is not text.", hint: 'Write it as words.' };
+  return undefined;
+}
 
 function gateMechanical(value: unknown): Gate<MechanicalDefinition> {
   const common = gateCommon('mechanicals', value);
   if (!common.ok) return common;
   const record = common.record;
   if (!(MECHANICAL_KINDS as readonly unknown[]).includes(record['kind'])) {
-    return reject(`'${String(record['kind'])}' is not a kind of mechanical part.`, 'A mechanical part is a shell, a fastener, or other.');
+    return reject(`'${String(record['kind'])}' is not a kind of mechanical part.`, 'A mechanical part is a shell, a fastener, a crimp contact, a seal, a cavity plug, a crimp tool, or other.');
   }
+  const termination = gateTermination(record['termination']);
+  if (termination !== undefined) return reject(termination.error, termination.hint);
   if (!isOptionalString(record['partNumber']) || !isOptionalString(record['revision'])) {
     return reject('The part number and revision have to be text.', 'Write them as printed — SHL-00102-00, Rev 3.');
   }
