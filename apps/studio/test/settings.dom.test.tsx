@@ -80,6 +80,23 @@ describe('Hub settings', () => {
     expect(wireSpecFileName({ id: 'x', partNumber: 'WIR-00001' } as never)).toMatch(/^ACME-WS-/);
   });
 
+  it('takes the title-block general note and tolerances, and the drawing prints them', async () => {
+    mount();
+    fireEvent.change(await screen.findByLabelText('General note line 1'), { target: { value: 'DIMS IN INCHES' } });
+    fireEvent.change(screen.getByLabelText('Tolerance 1 label'), { target: { value: 'x.x' } });
+    fireEvent.change(screen.getByLabelText('Tolerance 1 value'), { target: { value: '± 0.25' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(registeredTitleBlock().notes?.[0]).toBe('DIMS IN INCHES'));
+    expect(registeredTitleBlock().tolerances).toEqual([['x.x', '± 0.25']]);
+    const { renderDrawingSheet } = await import('@wirehub/docs');
+    const { createCatalog, fsCatalogSource } = await import('@wirehub/catalog');
+    const catalog = createCatalog(fsCatalogSource(DATA, 'the catalog'));
+    const sheet = renderDrawingSheet(catalog.loadDesign('dc-led-lead'), catalog.loadDb());
+    expect(sheet).toContain('DIMS IN INCHES');
+    expect(sheet).toContain('± 0.25');
+    expect(sheet).not.toContain('FRACTIONAL');
+  });
+
   it('a module\'s title-block art still wins over the setting', async () => {
     const off = registerDrawingArt({ titleBlock: { organisation: 'Module Org' } });
     try {

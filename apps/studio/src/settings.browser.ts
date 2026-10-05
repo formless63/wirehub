@@ -21,6 +21,10 @@ export interface BrandingInput {
   designer?: string;
   /** the prefix of exported wire spec files */
   filePrefix?: string;
+  /** the title block's three-line general note (a line may be empty) */
+  notes?: [string, string, string];
+  /** the title block's tolerance rows, label and value; empty rows are dropped */
+  tolerances?: [string, string][];
   /** a PNG or SVG data URI sets the logo (an SVG is drawn to a PNG on the server), `null` removes it, absent keeps it */
   logo?: string | null;
 }
