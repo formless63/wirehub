@@ -15,6 +15,12 @@
 
 import { defineModule } from '@wirehub/modules';
 
+// the pack's art files (RCA and 3.5 mm TRS side views), imported as data so the browser bundle carries them too
+import rcaJackArt from '../pack/art/connectors/rca-jack.json' with { type: 'json' };
+import rcaPlugArt from '../pack/art/connectors/rca-plug.json' with { type: 'json' };
+import trsJackArt from '../pack/art/connectors/trs-3-5mm-jack.json' with { type: 'json' };
+import trsPlugArt from '../pack/art/connectors/trs-3-5mm-plug.json' with { type: 'json' };
+
 /** The pack directory, as a `file:` URL (resolved on the server; the browser never reads it). */
 /** relative to this file; a variable, so bundlers leave it alone instead of copying the directory as an asset */
 const PACK_DIR = '../pack/';
@@ -29,5 +35,6 @@ export const proAudio = defineModule({
     kind: 'domain',
     description: 'Balanced and unbalanced audio: XLR3, RCA and 3.5 mm TRS connectors, microphone and stereo stocks, an XLR microphone cable and a TRS-to-2×RCA Y lead.',
   },
+  art: { connectors: [rcaPlugArt, rcaJackArt, trsPlugArt, trsJackArt] },
   catalogPacks: [{ id: 'pro-audio', label: 'Pro audio', version: '0.1.0', root: PRO_AUDIO_PACK, license: 'CC0-1.0' }],
 });

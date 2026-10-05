@@ -33,5 +33,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "2-position, 2.5 mm pitch wire-to-board housing mating face; outline approximated from the family's published dimensions (inferred, approximate), position 1 at the chamfered corner. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "2-position, 2.5 mm pitch wire-to-board housing mating face; outline approximated from the family's published dimensions (inferred, approximate), position 1 at the chamfered corner. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "2-position, 2.5 mm pitch wire-to-board housing mating face; outline approximated from the family's published dimensions (inferred, approximate), position 1 at the chamfered corner. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }

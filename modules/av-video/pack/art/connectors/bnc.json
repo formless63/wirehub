@@ -1,0 +1,207 @@
+{
+  "id": "bnc",
+  "view": "profile",
+  "drawings": [
+    "bnc"
+  ],
+  "families": [
+    "bnc"
+  ],
+  "short": "BNC",
+  "width": 146,
+  "height": 32,
+  "approximate": false,
+  "shapes": [
+    {
+      "el": "rect",
+      "x": 6,
+      "y": 10.9,
+      "width": 12,
+      "height": 2.2,
+      "tone": "copper",
+      "rx": 0.6
+    },
+    {
+      "el": "rect",
+      "x": 6,
+      "y": 19.4,
+      "width": 12,
+      "height": 2.2,
+      "tone": "metal",
+      "rx": 0.6
+    },
+    {
+      "el": "path",
+      "d": "M18 11 L34 9 L34 23 L18 21 Z",
+      "tone": "boot"
+    },
+    {
+      "el": "path",
+      "d": "M23 11.18 L23 20.83",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M28 10.55 L28 21.45",
+      "tone": "knurl"
+    },
+    {
+      "el": "rect",
+      "x": 34,
+      "y": 9.5,
+      "width": 14,
+      "height": 13,
+      "tone": "metal",
+      "rx": 1
+    },
+    {
+      "el": "rect",
+      "x": 48,
+      "y": 7.5,
+      "width": 14,
+      "height": 17,
+      "tone": "metal",
+      "rx": 1
+    },
+    {
+      "el": "rect",
+      "x": 62,
+      "y": 3,
+      "width": 34,
+      "height": 26,
+      "tone": "grip",
+      "rx": 2.5
+    },
+    {
+      "el": "path",
+      "d": "M66 4 L66 9",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M66 23 L66 28",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M70 4 L70 9",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M70 23 L70 28",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M74 4 L74 9",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M74 23 L74 28",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M78 4 L78 9",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M78 23 L78 28",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M82 4 L82 9",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M82 23 L82 28",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M86 4 L86 9",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M86 23 L86 28",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M90 4 L90 9",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M90 23 L90 28",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M96 14.8 L80 14.8 L74 19.4",
+      "tone": "dark"
+    },
+    {
+      "el": "rect",
+      "x": 96,
+      "y": 8,
+      "width": 24,
+      "height": 16,
+      "tone": "metal",
+      "rx": 1
+    },
+    {
+      "el": "rect",
+      "x": 106,
+      "y": 11.5,
+      "width": 14,
+      "height": 9,
+      "tone": "insert",
+      "rx": 1
+    },
+    {
+      "el": "rect",
+      "x": 110,
+      "y": 15,
+      "width": 18,
+      "height": 2,
+      "tone": "copper",
+      "rx": 1
+    }
+  ],
+  "pins": [
+    {
+      "terminal": "tip",
+      "form": "lug",
+      "x": 5,
+      "y": 12,
+      "r": 2.6,
+      "ifDefined": true
+    },
+    {
+      "terminal": "shell",
+      "form": "lug",
+      "x": 5,
+      "y": 20.5,
+      "r": 2.6,
+      "ifDefined": true
+    }
+  ],
+  "labels": [],
+  "src": "BNC connector in side view: boot, crimp ferrule, body, knurled bayonet nut with its slot, and the insulated centre contact, after the public general shape of the BNC bayonet connector (IEC 61169-8). Proportions are inferred, not a mechanical drawing; not traced from any vendor drawing. CC0-1.0.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "BNC connector in side view: boot, crimp ferrule, body, knurled bayonet nut with its slot, and the insulated centre contact, after the public general shape of the BNC bayonet connector (IEC 61169-8). Proportions are inferred, not a mechanical drawing; not traced from any vendor drawing. CC0-1.0."
+      }
+    ]
+  }
+}

@@ -73,6 +73,8 @@ export class SnapshotCache {
   private current: Snapshot | undefined;
   private loading: Promise<Snapshot> | undefined;
   private listener: pg.Client | undefined;
+  /** `close()` was called: no listener starts or keeps running, no notification starts a reload */
+  private closed = false;
   private checked: { at: number; version: Promise<string> } | undefined;
   /**
    * How long one version answer is reused, ms. A request reads several
@@ -150,14 +152,16 @@ export class SnapshotCache {
    * starts the reload early. Optional — the version check alone is correct.
    */
   async listen(url: string, events?: { deliver(event: StudioEvent): void }): Promise<void> {
-    if (this.listener !== undefined) return;
+    if (this.listener !== undefined || this.closed) return;
     const client = new pg.Client({ connectionString: url, application_name: 'wirehub-listen' });
     client.on('error', (error) => {
       console.warn(`[pg] LISTEN connection lost (${error.message}); snapshots still follow the version check`);
-      this.listener = undefined;
+      if (this.listener === client) this.listener = undefined;
+      // a lost connection is closed, not forgotten: its socket must not outlive the cache
+      client.end().catch(() => {});
     });
     client.on('notification', (message) => {
-      if (message.payload === undefined) return;
+      if (message.payload === undefined || this.closed) return;
       try {
         const payload = JSON.parse(message.payload) as { org?: string; version?: string; record?: string };
         if (payload.org !== this.orgId) return;
@@ -170,16 +174,34 @@ export class SnapshotCache {
         // not ours
       }
     });
-    await client.connect();
-    await client.query('LISTEN studio_catalog');
-    await client.query('LISTEN studio_locks');
+    try {
+      await client.connect();
+      await client.query('LISTEN studio_catalog');
+      await client.query('LISTEN studio_locks');
+    } catch (error) {
+      // a connection that never got to listen is still a connection: close it before reporting
+      await client.end().catch(() => {});
+      throw error;
+    }
+    // closed while connecting: this client must not outlive the cache
+    if (this.closed) {
+      await client.end().catch(() => {});
+      return;
+    }
     this.listener = client;
   }
 
+  /**
+   * Stop listening and let go of every connection of this cache: the LISTEN
+   * client, and any load a notification started (it holds a pool connection,
+   * which the pool's `end` would otherwise wait for).
+   */
   async close(): Promise<void> {
+    this.closed = true;
     const client = this.listener;
     this.listener = undefined;
     if (client !== undefined) await client.end().catch(() => {});
+    await this.loading?.catch(() => {});
   }
 }
 

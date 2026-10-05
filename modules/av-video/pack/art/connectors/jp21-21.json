@@ -214,5 +214,14 @@
       "anchor": "middle"
     }
   ],
-  "src": "JP21 (JEITA RC-5202) 21-pin mating face: the same physical shell and contact layout as SCART with a different pinout; outline from the published connector dimensions, drawn for WireHub and approximate. CC0-1.0."
+  "src": "JP21 (JEITA RC-5202) 21-pin mating face: the same physical shell and contact layout as SCART with a different pinout; outline from the published connector dimensions, drawn for WireHub and approximate. CC0-1.0.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "JP21 (JEITA RC-5202) 21-pin mating face: the same physical shell and contact layout as SCART with a different pinout; outline from the published connector dimensions, drawn for WireHub and approximate. CC0-1.0."
+      }
+    ]
+  }
 }

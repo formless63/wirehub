@@ -65,5 +65,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "D-subminiature DE-9 plug mating face (IEC 60807-3 contact layout: five contacts on the wide row, 2.77 mm pitch, 2.84 mm row gap; numbering 1-5 then 6-9). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "D-subminiature DE-9 plug mating face (IEC 60807-3 contact layout: five contacts on the wide row, 2.77 mm pitch, 2.84 mm row gap; numbering 1-5 then 6-9). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "D-subminiature DE-9 plug mating face (IEC 60807-3 contact layout: five contacts on the wide row, 2.77 mm pitch, 2.84 mm row gap; numbering 1-5 then 6-9). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }

@@ -12,10 +12,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, readPackManifest } from '@wirehub/catalog';
+import { createCatalog, dataPath, parseConnectorArt, type ConnectorArtRecord, fsCatalogSource, installPack, layeredCatalogSource, readPackManifest } from '@wirehub/catalog';
 import { deriveTestSpec, renderWireSpecSheet } from '@wirehub/docs';
 import { initialWizardState, planCable, readingsOfLabels, roleOfLabels } from '@wirehub/editor-react';
-import { connectorArt, crossSectionLayout, layoutSchematic } from '@wirehub/layout';
+import { connectorArt, crossSectionLayout, layoutSchematic, registerConnectorArt } from '@wirehub/layout';
 import { AV_VIDEO_PACK } from '@wirehub/module-av-video';
 import {
   breakoutFates,
@@ -155,9 +155,53 @@ describe('the continuity spec', () => {
 });
 
 describe('drawing the audio parts', () => {
-  it('draws the RCA plug face', () => {
+  const records = createRegistry([proAudio])
+    .art()
+    .flatMap((a) => (a.connectors ?? []).map((raw) => parseConnectorArt(raw, 'art').record as ConnectorArtRecord));
+
+  it('contributes valid side views for RCA and 3.5 mm TRS, licensed and sourced', () => {
+    expect(records.map((r) => r.id)).toEqual(['rca-plug', 'rca-jack', 'trs-3-5mm-plug', 'trs-3-5mm-jack']);
+    for (const r of records) {
+      expect(r.view).toBe('profile');
+      expect(r.license).toBe('CC0-1.0');
+      expect(r.provenance?.sources[0]?.title).toBe(r.src);
+    }
+  });
+
+  it('draws the RCA plug in side view with the pack, facing the wire, and a generic plug without it', () => {
     const def = db.connectors.find((c) => c.id === 'rca-male')!;
-    expect(connectorArt({ def, facing: 'right' })).toBeDefined();
+    const body = db.bodies?.find((b) => b.id === def.body);
+    const input = (facing: 'left' | 'right') => ({ def, facing, ...(body === undefined ? {} : { body }) });
+    const bare = connectorArt(input('right'))!;
+    expect(bare).toMatchObject({ view: 'profile', short: 'Plug', approximate: true });
+    const off = registerConnectorArt(records);
+    try {
+      const left = connectorArt(input('left'))!;
+      const right = connectorArt(input('right'))!;
+      expect(left).toMatchObject({ view: 'profile', short: 'RCA', approximate: false, facing: 'left' });
+      expect(left.pins.map((p) => p.terminal)).toEqual(['tip', 'sleeve']);
+      expect(left.pins.every((p) => p.x < left.width / 2)).toBe(true);
+      expect(right.pins.every((p) => p.x > right.width / 2)).toBe(true);
+    } finally {
+      off();
+    }
+    expect(connectorArt(input('right'))).toEqual(bare);
+  });
+
+  it('draws the 3.5 mm TRS plug, and the Y lead schematic with the pack and without', () => {
+    const trs = db.connectors.find((c) => c.id === 'trs-3-5mm-male')!;
+    const off = registerConnectorArt(records);
+    try {
+      expect(connectorArt({ def: trs, facing: 'left' })).toMatchObject({ short: '3.5 mm', view: 'profile' });
+      const shorts = layoutSchematic(design('trs-to-2rca-y'), db).blocks.flatMap((b) => (b.connectorArt === undefined ? [] : [b.connectorArt.short]));
+      expect(shorts).toContain('RCA');
+      expect(shorts).toContain('3.5 mm');
+    } finally {
+      off();
+    }
+    const bare = layoutSchematic(design('trs-to-2rca-y'), db).blocks.flatMap((b) => (b.connectorArt === undefined ? [] : [b.connectorArt.short]));
+    expect(bare).not.toContain('RCA');
+    expect(bare).toContain('Plug');
   });
 
   it('lays the stocks in their catalogued order', () => {

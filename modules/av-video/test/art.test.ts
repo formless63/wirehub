@@ -34,9 +34,22 @@ const layouts = art.flatMap((a) => parseBodyLayouts(a.bodyLayouts, 'layouts').re
 
 describe('the module carries its drawings', () => {
   it('contributes valid SCART and JP21 drawings and layouts', () => {
-    expect(records.map((r) => r.id)).toEqual(['scart-21', 'jp21-21']);
+    expect(records.map((r) => r.id)).toEqual(['scart-21', 'jp21-21', 'bnc']);
     expect(records.every((r) => r !== undefined)).toBe(true);
     expect(layouts.map((l) => l.id)).toEqual(['scart21', 'jp21']);
+  });
+
+  it('draws BNC in side view with the pack, and a generic plug without it', () => {
+    const bnc = { id: 'bnc-test', label: 'BNC', family: 'bnc', gender: 'male', pins: [{ id: 'tip', label: 'tip' }, { id: 'shell', label: 'shell' }] } as unknown as Parameters<typeof connectorArt>[0]['def'];
+    expect(connectorArt({ def: bnc, facing: 'left' })).toMatchObject({ view: 'profile', short: 'Plug', approximate: true });
+    const off = registerConnectorArt(records);
+    try {
+      const art = connectorArt({ def: bnc, facing: 'right' })!;
+      expect(art).toMatchObject({ view: 'profile', short: 'BNC', facing: 'right', approximate: false });
+      expect(art.pins.every((p) => p.x > art.width / 2)).toBe(true);
+    } finally {
+      off();
+    }
   });
 
   it('draws SCART on a design that uses it, and nothing without the module', () => {

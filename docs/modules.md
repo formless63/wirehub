@@ -102,9 +102,11 @@ it without a conflict, and teaches the base's readers its words — the serial, 
 audio cases that used to be the base's own tests live there now.
 
 Connector faces, body layouts and sheet art: the base keeps the **generic physical shapes**
-(`packages/layout/src/connector-art.ts`: D-sub, HD15, mini-DIN, DIN, RCA, TRS, BNC;
-`packages/editor-react/src/body-templates.ts`) and a pack or module supplies the rest
-(see "Art" below). The SCART and JP21 faces and body layouts are `modules/av-video`'s.
+(`packages/layout/src/connector-art.ts`: D-sub, HD15, mini-DIN, DIN, and a generic side
+view for the profile families; `packages/editor-react/src/body-templates.ts`) and a pack
+or module supplies the rest (see "Art" below). The SCART and JP21 faces and body layouts and
+the BNC side view are `modules/av-video`'s; the RCA and 3.5 mm TRS side views are
+`modules/pro-audio`'s.
 
 ## The example module
 
@@ -182,7 +184,9 @@ export const acme = defineModule({
 ### Art (connector drawings, body layouts, sheet art)
 
 A pack's directory may hold `art/connectors/<id>.json` (a mating face as painted shapes
-with a handle per pin, keyed by body, `drawing` name or family), `art/body-layouts.json`
+with a handle per pin, or a side profile, `"view": "profile"`, drawn once with the cable end
+on the left and mirrored by the host when the wire leaves from the right; keyed by body,
+`drawing` name or family, optionally by `gender`), `art/body-layouts.json`
 (the standard position layouts a family offers for a new body) and `depictions/<id>/…`
 (SVG faces with pin anchors, mirrored solder-side views, a stock's cutaway illustration —
 the existing depiction mechanism). A module that carries such a pack hands the parsed
@@ -194,7 +198,8 @@ the start with one sentence per problem. Record ids are unique across the manife
 Art is keyed by body, drawing name or family, so a catalog without those bodies is
 unaffected; with no module the base draws exactly what it always did. The formats, the order
 art is chosen in and the licensing rules (CC0, a `src` on every file, nothing traced from a
-vendor drawing) are `specs/drawing-language.md` §7. Depictions of bundled modules reach the
+vendor drawing, and a `license` and `provenance` on every art record, validated like a
+catalog record's) are `specs/drawing-language.md` §7. Depictions of bundled modules reach the
 browser through globs over `modules/*/pack/depictions/`; an *installed* third-party pack's SVG
 files are not copied by `installPackLayer` yet (it copies `.json` only).
 
@@ -379,5 +384,5 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 ## Next steps
 
-Tracked in beads: bench work instructions as a module point; copying an installed pack's SVG art; side-view (profile) drawings as data; an upload route for importers
+Tracked in beads: bench work instructions as a module point; copying an installed pack's SVG art; an upload route for importers
 larger than a JSON body; panels in the saved-revision view.

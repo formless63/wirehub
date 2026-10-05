@@ -179,7 +179,7 @@ export function packFiles(dir: string): string[] {
 
 /**
  * The art files of a pack that are not JSON — the images under `depictions/`
- * (`svg`, `png`, `jpg`, `webp`) — relative, sorted. A layered install copies
+ * and `art/` (`svg`, `png`, `jpg`, `webp`) — relative, sorted. A layered install copies
  * them beside the data files, so a pack's faces and cutaways arrive with it
  * (`specs/drawing-language.md` §7).
  */
@@ -194,6 +194,7 @@ export function packAssetFiles(dir: string): string[] {
     }
   };
   walk('depictions');
+  walk('art');
   return out.sort();
 }
 

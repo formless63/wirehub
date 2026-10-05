@@ -78,8 +78,15 @@ describe('codec byte identity', () => {
       if (existsSync(join(pack, 'wirehub-pack.json'))) installPackLayer(join(root, 'data'), packsDir, pack);
     }
     const flat = readFlattenedCatalog(root, packsDir);
-    expect([...flat.keys()]).toEqual([...merged.keys()]);
-    for (const [path, text] of merged) expect(flat.get(path), path).toBe(text);
+    // a pack's depictions are `depictions/<def>/…` files in the flattened catalog (images as bytes, held as blobs),
+    // not the `data/depictions/…` documents the merging installer wrote
+    const isArt = (path: string): boolean => path.startsWith('data/depictions/');
+    expect([...flat.keys()].filter((p) => !p.startsWith('depictions/'))).toEqual([...merged.keys()].filter((p) => !isArt(p)));
+    for (const [path, text] of merged) {
+      if (isArt(path)) expect(flat.get(path.slice('data/'.length)), path).toBe(text);
+      else expect(flat.get(path), path).toBe(text);
+    }
+    expect([...flat.keys()].filter((p) => p.startsWith('depictions/') && !p.endsWith('/meta.json')).length).toBeGreaterThan(0);
     expectIdentity(flat);
   });
 
