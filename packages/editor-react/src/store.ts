@@ -202,6 +202,8 @@ export type EditorAction =
   | { type: 'update-joint'; index: number; patch: { note?: string | undefined } }
   /** replace the design-level notes; blank lines are dropped, none left = no `notes` */
   | { type: 'set-notes'; notes: string[] }
+  /** the hand labour to build one cable, in minutes (the BOM's cost roll-up); `undefined` removes it */
+  | { type: 'set-labour'; minutes: number | undefined }
   /** the Connection tab's pigtail tools: new / split / merge / move / pad (shield bonding) */
   | { type: 'edit-pigtails'; edit: PigtailEdit }
   | { type: 'move-node'; id: string; position: XY }
@@ -878,6 +880,18 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const next = withNotes(state.design, notes);
       const verb = notes.length > before.length ? 'add a design note' : notes.length < before.length ? 'remove a design note' : 'edit design notes';
       return commit(state, next, verb);
+    }
+
+    case 'set-labour': {
+      const minutes = action.minutes;
+      if (minutes !== undefined && !(Number.isFinite(minutes) && minutes >= 0)) return reject(state, 'labour minutes must be zero or more');
+      if (state.design.labourMinutes === minutes) return state;
+      const { labourMinutes: _old, ...rest } = state.design;
+      const next: CableDesign =
+        minutes === undefined
+          ? (rest as CableDesign)
+          : (Object.fromEntries(Object.entries(rest).flatMap(([key, value]) => (key === 'src' ? [['labourMinutes', minutes], [key, value]] : [[key, value]]))) as unknown as CableDesign);
+      return commit(state, next, minutes === undefined ? 'remove the labour time' : 'set the labour time');
     }
 
     case 'edit-pigtails': {

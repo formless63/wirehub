@@ -46,6 +46,7 @@ import {
   type WireDraft,
 } from '../library.ts';
 import { distinctValues, useCatalogValues } from '../catalog-values.ts';
+import { CostFields } from './CostFields.tsx';
 import { Choice, Field, FormSection, MmField, RowTools, SrcField } from './fields.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
 import { Pick as VocabPick } from './Pick.tsx';
@@ -684,6 +685,18 @@ export function WireStockEditor(props: WireStockEditorProps): JSX.Element {
             />
           </div>
           <SrcField value={draft.src} onChange={(value) => set('src', value)} />
+        </FormSection>
+
+        <FormSection title="Cost" say="Optional. Priced per metre unless you say per piece; the BOM shows a cost only where parts are priced.">
+          <CostFields
+            key={draft.id}
+            isWire
+            cost={draft.cost}
+            onChange={(cost) => {
+              const { cost: _drop, ...rest } = draft;
+              onChange({ ...rest, ...(cost === undefined ? {} : { cost }) });
+            }}
+          />
         </FormSection>
 
         <FormSection

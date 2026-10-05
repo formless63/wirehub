@@ -25,6 +25,7 @@ import {
 import type { DepictionSource } from '@wirehub/layout';
 import { catalogDepictions } from '@wirehub/layout';
 
+import { costLineOf, deriveCost, formatMoney, type CostSummary } from './cost.ts';
 import { deriveBom, type BomCategory, type BomLine } from './bom.ts';
 import { headerHtml, sheetHeader, type DocumentFacts, type SheetHeader } from './bench/header.ts';
 import { trunkSides } from './bench/model.ts';
@@ -120,6 +121,8 @@ export interface BomSheet {
   productProposal?: PnSuggestion;
   /** the notes that change what you buy (`deriveBom`'s roll-up) */
   notes: string[];
+  /** unit and extended cost and the total; absent when nothing is priced */
+  cost?: CostSummary;
 }
 
 export interface BomSheetOptions {
@@ -135,6 +138,8 @@ export interface BomSheetOptions {
   /** jumper settings for boards come from the artwork's population */
   depictions?: boolean | DepictionSource;
   generatedAt?: string;
+  /** cables in the build: quantity breaks in the cost roll-up are read at this (default 1) */
+  buildQty?: number;
 }
 
 function vendorOf(specRef: string | undefined): string | undefined {
@@ -290,6 +295,7 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
     .filter((l) => l.state === 'unmapped')
     .map((l) => ({ code: 'unmapped', message: `${l.label} (${l.ref}) has no part number` }));
 
+  const cost = deriveCost(design, db, lines, { ...(options.buildQty === undefined ? {} : { buildQty: options.buildQty }) });
   return {
     header,
     products,
@@ -299,6 +305,7 @@ export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOpt
     warnings,
     ...(productProposal === undefined ? {} : { productProposal }),
     notes: bom.notes.map((n) => n.text),
+    ...(cost === undefined ? {} : { cost }),
   };
 }
 
@@ -332,6 +339,11 @@ function describe(line: BomSheetLine): string {
   }`;
 }
 
+function costCells(sheet: BomSheet, line: BomSheetLine): string {
+  const priced = costLineOf(sheet.cost, line);
+  return priced === undefined ? '<td class="cs-num">—</td><td class="cs-num">—</td>' : `<td class="cs-num">${escapeHtml(formatMoney(priced.unitPrice))}${priced.unit === 'm' ? '/m' : ''}</td><td class="cs-num">${escapeHtml(formatMoney(priced.extended, priced.currency))}</td>`;
+}
+
 function sectionHtml(sheet: BomSheet, section: BomSection, title: string): string {
   const rows = sheet.lines.filter((l) => l.section === section);
   if (rows.length === 0) return '';
@@ -340,11 +352,22 @@ function sectionHtml(sheet: BomSheet, section: BomSection, title: string): strin
       (line) =>
         `<tr class="${line.state === 'unmapped' ? 'cs-is-unmapped' : ''}" data-key="${escapeHtml(line.sourceKey)}"><td class="cs-num">${escapeHtml(qtyText(line))}</td><td>${partCell(line)}</td><td>${describe(
           line,
-        )}</td><td>${escapeHtml(line.variationPn ?? line.location)}<span class="cs-refs">${escapeHtml(line.instances.join(' '))}</span></td></tr>`,
+        )}</td><td>${escapeHtml(line.variationPn ?? line.location)}<span class="cs-refs">${escapeHtml(line.instances.join(' '))}</span></td>${sheet.cost === undefined ? '' : costCells(sheet, line)}</tr>`,
     )
     .join('');
-  const head = `<th class="cs-num">Qty</th><th>Part</th><th>Description</th><th>${section === 'wire' ? 'For' : 'Where'}</th>`;
+  const head = `<th class="cs-num">Qty</th><th>Part</th><th>Description</th><th>${section === 'wire' ? 'For' : 'Where'}</th>${sheet.cost === undefined ? '' : '<th class="cs-num">Unit</th><th class="cs-num">Extended</th>'}`;
   return `<section class="cs-section cs-bom-sec" data-section="${section}"><h2 class="cs-section__h">${escapeHtml(title)}</h2><table class="cs-table cs-bomtable"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></section>`;
+}
+
+function costHtml(cost: CostSummary): string {
+  const row = (what: string, amount: string): string => `<tr><td>${escapeHtml(what)}</td><td class="cs-num">${escapeHtml(amount)}</td></tr>`;
+  const rows = [row('Materials', formatMoney(cost.materials, cost.currency))];
+  if (cost.labour !== undefined) rows.push(row(`Labour (${cost.labour.minutes} min${cost.labour.ratePerHour === undefined ? '' : ` at ${formatMoney(cost.labour.ratePerHour)}/h`})`, cost.labour.cost === undefined ? 'not priced' : formatMoney(cost.labour.cost, cost.currency)));
+  rows.push(row('Total, one cable', formatMoney(cost.total, cost.currency)));
+  if (cost.buildQty > 1) rows.push(row(`Total, ${cost.buildQty} cables (prices at ${cost.buildQty}-off quantities)`, formatMoney(cost.buildTotal, cost.currency)));
+  return `<section class="cs-section cs-cost" data-section="cost"><h2 class="cs-section__h">Cost</h2><table class="cs-table cs-costtable"><tbody>${rows.join('')}</tbody></table>${
+    cost.notes.length === 0 ? '' : `<ul class="cs-notes">${cost.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
+  }</section>`;
 }
 
 export function bomSheetBody(sheet: BomSheet): string {
@@ -364,6 +387,7 @@ export function bomSheetBody(sheet: BomSheet): string {
     );
   }
   for (const { id, title } of BOM_SECTIONS) parts.push(sectionHtml(sheet, id, title));
+  if (sheet.cost !== undefined) parts.push(costHtml(sheet.cost));
   if (sheet.kits.length > 0) {
     parts.push(
       `<section class="cs-section"><h2 class="cs-section__h">Kits</h2><p class="cs-meta">Information only — kits are never BOM lines.</p><ul class="cs-notes">${sheet.kits
@@ -383,6 +407,11 @@ export function bomSheetBody(sheet: BomSheet): string {
  * Markdown (Documents › Copy)
  * ------------------------------------------------------------------ */
 
+function costMarkdown(cost: CostSummary, line: BomSheetLine): string {
+  const priced = costLineOf(cost, line);
+  return priced === undefined ? '— | —' : `${formatMoney(priced.unitPrice)}${priced.unit === 'm' ? '/m' : ''} | ${formatMoney(priced.extended, priced.currency)}`;
+}
+
 export function bomSheetMarkdown(sheet: BomSheet): string {
   const h = sheet.header;
   const pn = h.productPn ?? (h.family !== undefined ? `${h.family} family: ${h.variations.map((v) => v.pn).join(', ')}` : 'no part number');
@@ -396,15 +425,24 @@ export function bomSheetMarkdown(sheet: BomSheet): string {
   for (const { id, title } of BOM_SECTIONS) {
     const rows = sheet.lines.filter((l) => l.section === id);
     if (rows.length === 0) continue;
-    out.push(`## ${title}`, '', '| Qty | Part | Description | Where | Refs |', '| ---: | :--- | :--- | :--- | :--- |');
+    out.push(`## ${title}`, '', `| Qty | Part | Description | Where | Refs |${sheet.cost === undefined ? '' : ' Unit | Extended |'}`, `| ---: | :--- | :--- | :--- | :--- |${sheet.cost === undefined ? '' : ' ---: | ---: |'}`);
     for (const line of rows) {
       const part = line.sku ?? `UNMAPPED${line.proposal === undefined ? '' : ` (proposed ${line.proposal.pn})`}`;
       // never the maker in the printed description:
       // `line.wire.manufacturer` still carries it, for a caller that wants it
       const desc = facts([line.label, line.board?.bare === undefined ? undefined : `bare PCB ${line.board.bare}`, line.board?.build, line.board?.jumpers]);
       const where = line.variationPn ?? line.location;
-      out.push(`| ${escapeMarkdownCell(qtyText(line))} | ${escapeMarkdownCell(part)} | ${escapeMarkdownCell(desc)} | ${escapeMarkdownCell(where)} | ${escapeMarkdownCell(line.instances.join(' '))} |`);
+      out.push(`| ${escapeMarkdownCell(qtyText(line))} | ${escapeMarkdownCell(part)} | ${escapeMarkdownCell(desc)} | ${escapeMarkdownCell(where)} | ${escapeMarkdownCell(line.instances.join(' '))} |${sheet.cost === undefined ? '' : ` ${costMarkdown(sheet.cost, line)} |`}`);
     }
+    out.push('');
+  }
+  if (sheet.cost !== undefined) {
+    const c = sheet.cost;
+    out.push('## Cost', '', `- Materials: ${formatMoney(c.materials, c.currency)}`);
+    if (c.labour !== undefined) out.push(`- Labour: ${c.labour.minutes} min${c.labour.cost === undefined ? ' (no rate set)' : `, ${formatMoney(c.labour.cost, c.currency)}`}`);
+    out.push(`- Total, one cable: ${formatMoney(c.total, c.currency)}`);
+    if (c.buildQty > 1) out.push(`- Total, ${c.buildQty} cables: ${formatMoney(c.buildTotal, c.currency)}`);
+    for (const n of c.notes) out.push(`- ${n}`);
     out.push('');
   }
   if (sheet.kits.length > 0) {

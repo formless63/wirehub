@@ -405,6 +405,9 @@ export function DocumentsPane({
   // a length family prints for all its variations, or for the one chosen here
   const { family, variations } = variationsOf(sidecar.draft.meta.partNumber ?? docDesign.productRef, sidecar.draft.meta.lengths);
   const [variation, setVariation] = useState<string>('');
+  // the BOM's cost roll-up reads its quantity breaks at this many cables
+  const [buildQtyText, setBuildQtyText] = useState('1');
+  const buildQty = /^\d{1,5}$/.test(buildQtyText.trim()) && Number(buildQtyText) >= 1 ? Number(buildQtyText) : undefined;
   useEffect(() => setVariation(''), [design.id]);
   const chosenVariation = family !== undefined && variations.some((v) => v.suffix === variation) ? variation : undefined;
   const pnInputs = useMemo(
@@ -485,6 +488,7 @@ export function DocumentsPane({
           ...(pnInputs === undefined ? {} : { partNumbers: pnInputs }),
           ...(docFacts === undefined ? {} : { facts: docFacts }),
           ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
+          ...(kind === 'bom' && buildQty !== undefined && buildQty > 1 ? { buildQty } : {}),
           ...(typeof target === 'number' ? { revisionNumber: target } : {}),
           ...(kind === 'test-spec' && sidecar.draft.meta.test !== undefined ? { testParameters: sidecar.draft.meta.test } : {}),
           ...((kind === 'test-spec' || kind === 'build-sheet') && testDefaults !== undefined ? { testDefaults } : {}),
@@ -497,7 +501,7 @@ export function DocumentsPane({
     }, debounceMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- target only matters as the revision number
-  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
+  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, buildQty, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
 
   const result = rendered?.kind === kind ? rendered.result : undefined;
   const html = result !== undefined && 'html' in result ? result.html : undefined;
@@ -511,6 +515,7 @@ export function DocumentsPane({
       ...(pnInputs === undefined ? {} : { partNumbers: pnInputs }),
       ...(docFacts === undefined ? {} : { facts: docFacts }),
       ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
+      ...(buildQty !== undefined && buildQty > 1 ? { buildQty } : {}),
       ...(docDepictions === false ? {} : { depictions: docDepictions }),
     });
     if (markdown === undefined) {
@@ -518,7 +523,7 @@ export function DocumentsPane({
       return;
     }
     setCopyNote((await copyText(markdown)) ? 'copied' : 'the browser refused the copy');
-  }, [kind, docDesign, docDb, sheetInput, drawingInput, pnInputs, docFacts, chosenVariation, docDepictions]);
+  }, [kind, docDesign, docDb, sheetInput, drawingInput, pnInputs, docFacts, chosenVariation, buildQty, docDepictions]);
   const runExporter = useCallback(
     async (exporter: ExtraExporter): Promise<void> => {
       try {
@@ -549,6 +554,7 @@ export function DocumentsPane({
         ...(pnInputs === undefined ? {} : { partNumbers: pnInputs }),
         ...(docFacts === undefined ? {} : { facts: docFacts }),
         ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
+        ...(buildQty !== undefined && buildQty > 1 ? { buildQty } : {}),
         ...(typeof target === 'number' ? { revisionNumber: target } : {}),
         ...(meta.test === undefined ? {} : { testParameters: meta.test }),
         ...(testDefaults === undefined ? {} : { testDefaults }),
@@ -560,7 +566,7 @@ export function DocumentsPane({
         setCopyNote(undefined);
       }
     },
-    [sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, target, revisionFixed, testDefaults],
+    [sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, buildQty, target, revisionFixed, testDefaults],
   );
   const tabLabel = kind === 'json' ? 'JSON' : DOCUMENT_LABELS[kind];
 
@@ -613,6 +619,17 @@ export function DocumentsPane({
               </option>
             ))}
           </select>
+        )}
+        {kind !== 'bom' ? null : (
+          <input
+            className="cs-input cs-mono"
+            style={{ width: '5.5em' }}
+            inputMode="numeric"
+            aria-label="Build quantity"
+            title="Cables in the build: quantity breaks in the cost are read at this many (the cost shows only where parts are priced)"
+            value={buildQtyText}
+            onChange={(event) => setBuildQtyText(event.target.value)}
+          />
         )}
         {release === undefined ? null : (
           <select
