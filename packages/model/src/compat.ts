@@ -63,7 +63,7 @@ import { isElectricalElement, resolveElementPath } from './paths.ts';
 import { kindOfSignal, laneOfPadRole, signalOf, type TerminalTags } from './signals.ts';
 import { isGroundSignal, readSignalWords, signalOfLane } from './signal-words.ts';
 import { findInstance, terminalKey } from './validate.ts';
-import { placedDesign, portsOfSubassembly } from './subassemblies.ts';
+import { parseSubassemblyPortId, placedDesign, portsOfSubassembly } from './subassemblies.ts';
 import { signalIds } from './vocab.ts';
 
 /** What kind of physical thing a terminal is. */
@@ -232,6 +232,13 @@ export function profileTerminal(
         if (profile !== undefined) return profile;
       }
       return undefined;
+    }
+    case 'subassembly': {
+      // a port of the design a fresh sub-assembly would place: the terminal it is inside that design
+      const opened = placedDesign(db, { id: 'new', def });
+      const inner = parseSubassemblyPortId(terminal);
+      if (opened === undefined || !opened.ok || inner === undefined) return undefined;
+      return profileDesignTerminal(opened.placed.design, opened.placed.db, inner)?.profile;
     }
   }
 }

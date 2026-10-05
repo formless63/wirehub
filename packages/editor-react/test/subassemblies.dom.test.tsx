@@ -89,3 +89,49 @@ describe('a sub-assembly on the canvas', () => {
     expect(onOpenDesign).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('the node picker offers cables as sub-assemblies', () => {
+  it('lists the host designs, fetches the ports and wires the anchor to the single best port', async () => {
+    const assemblies = adapter();
+    const onDesignChange = vi.fn();
+    // a copy of the lead under another id: its free red end is the anchor
+    const host = { ...LEAD, id: 'host-lead' };
+    const { container } = render(
+      <CableEditor
+        design={host}
+        db={db}
+        assemblies={assemblies}
+        designs={[{ id: LEAD.id, label: LEAD.label }, { id: host.id, label: host.label }]}
+        onDesignChange={onDesignChange}
+      />,
+    );
+    fireEvent.click(container.querySelector('[aria-label="add a part at w1:red@b"]')!);
+    // never the design itself; the other lead is offered
+    expect(container.querySelector('[data-picker-row="subassembly:host-lead"]')).toBeNull();
+    const row = container.querySelector('[data-picker-row="subassembly:dc-pigtail-lead"]');
+    expect(row).not.toBeNull();
+    fireEvent.mouseDown(row!);
+    await waitFor(() => expect(onDesignChange).toHaveBeenCalled());
+    expect(assemblies.asked).toContainEqual(['dc-pigtail-lead']);
+    const placed = onDesignChange.mock.calls.at(-1)![0];
+    expect(placed.instances.subassemblies.map((s: { def: string }) => s.def)).toEqual(['dc-pigtail-lead']);
+    const wired = placed.joints.at(-1);
+    expect(wired.a).toMatchObject({ instance: 'w1', terminal: 'red', end: 'b' });
+    expect(wired.b.terminal).toBe('j1:1');
+  });
+
+  it('places it unwired when no port is clearly the best', async () => {
+    const assemblies = adapter();
+    const onDesignChange = vi.fn();
+    const bare = { ...Y, instances: { ...Y.instances, subassemblies: [] }, joints: [] };
+    const { container } = render(
+      <CableEditor design={bare} db={db} assemblies={assemblies} designs={[{ id: LEAD.id, label: LEAD.label }]} onDesignChange={onDesignChange} />,
+    );
+    fireEvent.click(container.querySelector('[aria-label="add a part at j1:3"]')!);
+    fireEvent.mouseDown(container.querySelector('[data-picker-row="subassembly:dc-pigtail-lead"]')!);
+    await waitFor(() => expect(onDesignChange).toHaveBeenCalled());
+    const placed = onDesignChange.mock.calls.at(-1)![0];
+    expect(placed.instances.subassemblies).toHaveLength(1);
+    expect(placed.joints).toHaveLength(0);
+  });
+});

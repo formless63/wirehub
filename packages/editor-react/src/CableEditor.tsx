@@ -640,29 +640,32 @@ const CableEditorInner = forwardRef(function CableEditorInner(
    * the edit is validated, so the library is fetched first when it does not
    * hold the design yet.
    */
-  const placeSubassembly = useCallback(
-    (def: string, position?: { x: number; y: number }): void => {
-      const add = (): void => dispatch({ type: 'add-instance', kind: 'subassembly', def, ...(position === undefined ? {} : { position }) });
+  const ensureAssembly = useCallback(
+    async (def: string): Promise<Db> => {
       const held = mergeLibraries(props.db.assemblies, libraryRef.current);
       if (assembliesAdapter === undefined || held?.working.some((d) => d.id === def) === true) {
-        add();
-        return;
+        return dbWithLibrary(props.db, libraryRef.current);
       }
-      void assembliesAdapter.load([def]).then((outcome) => {
-        if (!outcome.ok) {
-          dispatch({ type: 'add-instance', kind: 'subassembly', def });
-          return;
-        }
-        const merged = mergeLibraries(libraryRef.current, outcome.value);
-        libraryRef.current = merged;
-        setLibrary(merged);
-        loadedLibrary.current = merged;
-        loadedDb.current = props.db;
-        dispatch({ type: 'load-db', db: dbWithLibrary(props.db, merged) });
-        add();
-      });
+      const outcome = await assembliesAdapter.load([def]);
+      if (!outcome.ok) return dbWithLibrary(props.db, libraryRef.current);
+      const merged = mergeLibraries(libraryRef.current, outcome.value);
+      libraryRef.current = merged;
+      setLibrary(merged);
+      loadedLibrary.current = merged;
+      loadedDb.current = props.db;
+      dispatch({ type: 'load-db', db: dbWithLibrary(props.db, merged) });
+      return dbWithLibrary(props.db, merged);
     },
     [assembliesAdapter, props.db],
+  );
+
+  const placeSubassembly = useCallback(
+    (def: string, position?: { x: number; y: number }): void => {
+      void ensureAssembly(def).then(() => {
+        dispatch({ type: 'add-instance', kind: 'subassembly', def, ...(position === undefined ? {} : { position }) });
+      });
+    },
+    [ensureAssembly],
   );
 
   const { onDesignChange } = props;
@@ -1015,10 +1018,11 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       partLabelsVisible,
       requestDelete,
       placeSubassembly,
+      ensureAssembly,
       ...(props.onOpenDesign === undefined ? {} : { openDesign: props.onOpenDesign }),
       ...(stripPractice === undefined ? {} : { stripPractice }),
     }),
-    [state.selection, openPicker, partLabelsVisible, requestDelete, stripPractice, placeSubassembly, props.onOpenDesign],
+    [state.selection, openPicker, partLabelsVisible, requestDelete, stripPractice, placeSubassembly, ensureAssembly, props.onOpenDesign],
   );
 
   // the drawing form's Suggest: one scope per catalog, like the Library's
@@ -1767,6 +1771,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
             design={state.design}
             db={state.db}
             onClose={closePicker}
+            designs={props.assemblies === undefined && props.db.assemblies === undefined ? undefined : (props.designs ?? state.db.assemblies?.working)}
             {...(picker.anchor === undefined ? {} : { anchor: picker.anchor })}
           />
         )}
