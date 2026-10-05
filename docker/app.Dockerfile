@@ -27,6 +27,9 @@ RUN apt-get update \
  && chown -R node:node /data /run/wirehub
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app
+# the starter catalog as released, read-only: the migrate step tells a fresh
+# install (its catalog volume is this, untouched) from one that was in use
+COPY --from=build /app/packages/catalog/data /app/starter-catalog
 USER node
 # a fresh hub opens on first-run setup (/setup) until domain modules are chosen;
 # the packs it installs live in /data/packs, never in the starter catalog

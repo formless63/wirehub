@@ -4,10 +4,9 @@ WireHub runs from **one file**, `compose.yaml`. You do not need to clone the
 repository, write a `.env` or generate a secret: the stack does that itself
 on first start.
 
-> **The first release (v0.1.0) is not out yet.** It ships once the Postgres
-> backend's write path lands, and the image `ghcr.io/formless63/wirehub:0.1.0`
-> that `compose.yaml` names is published with it. Until then, build the image
-> yourself ("Development" below).
+> **The first release (v0.1.0) is not tagged yet.** The image
+> `ghcr.io/formless63/wirehub:0.1.0` that `compose.yaml` names is published
+> when it is. Until then, build the image yourself ("Development" below).
 
 ## Install
 
@@ -20,8 +19,10 @@ docker compose up -d
 docker compose logs wirehub        # the first-run setup code
 ```
 
-Open <http://localhost:5183/setup>, enter the setup code, pick the domain
-modules you need, and you are in.
+Open <http://localhost:5183/setup>, enter the setup code, name your
+organisation, create your admin account (email and password), choose the
+starter catalog or an empty one, pick the domain modules you need, and you
+are signed in.
 
 ### With a Docker UI (Portainer, Komodo, Dockhand …)
 
@@ -46,7 +47,8 @@ modules you need, and you are in.
    ==============================================================
    ```
 
-5. Open that address and enter the code.
+5. Open that address, enter the code, and fill in the organisation and your
+   admin account.
 
 The app's port binds to `127.0.0.1` by default. On a server you reach over the
 network, set `WIREHUB_BIND=0.0.0.0` (or, better, publish it through your
@@ -65,12 +67,31 @@ use the terminal script below). Its default output is this repository's
 
 ### First-run setup
 
+On a new hub, `/setup` (and nothing else — every other address waits until
+it is done) asks for:
+
+1. the **setup code** from the log;
+2. the **organisation**: its name and a short name;
+3. the **admin**: your name, email and a password (12 characters or more) —
+   with sign-in through an identity provider only (`AUTH_LOCAL_ACCOUNTS=false`
+   and `AUTH_OIDC_*`), just the email it knows you by;
+4. the **catalog**: the starter catalog (example cables and the parts they
+   use) or an empty one (the base vocabulary only);
+5. the **domain modules** (below).
+
+Finishing creates all of it in the database, signs you in, and opens the
+studio. Invite the others from **People** (the people icon in the left rail;
+`/settings/people`): each invitation is a link you send, valid for 7 days,
+with the role you chose — **owner** (manages people), **editor** (changes the
+catalog) or **viewer** (reads).
+
 `/setup` lists every bundled domain module — **PC & serial**, **Networking**,
 **Pro audio**, **AV / video**, **Automotive** — with what it adds. None is
 ticked unless the deployment suggested it (`WIREHUB_SUGGESTED_MODULES`, which
 the generator writes); you decide. More can be enabled later from the
 command palette. A module's catalog pack is installed into the `packs`
-volume, layered under the catalog, never into the starter catalog.
+volume on the file backend; on the database backend its records join the
+catalog like any other.
 
 The setup code is asked only while setup has not been finished, so a hub
 exposed by mistake cannot be set up by a stranger. It is generated once and
@@ -82,7 +103,7 @@ kept in the `secrets` volume; set `WIREHUB_SETUP_CODE` to choose your own.
 | --- | --- | --- |
 | `bootstrap` | the app image | one-shot, first: fills the `secrets` volume (below) and writes Garage's config |
 | `postgres` | `postgres:18.6-bookworm` | PostgreSQL 18, internal network only |
-| `migrate` | the app image | one-shot: WireHub's database roles (`studio_owner`, `studio_app`, `studio_ro`) and every pending migration |
+| `migrate` | the app image | one-shot: WireHub's database roles (`studio_owner`, `studio_app`, `studio_ro`), every pending migration, and once a catalog kept in files before the database moved in ("Upgrades") |
 | `garage` | `dxflrs/garage:v2.4.1` | S3-compatible object store for uploaded files (photos, datasheets, 3D models), single node, internal only |
 | `garage-init` | the app image | one-shot: Garage's layout, the bucket, and the app's and the backup's keys — **created by Garage** and written to the `secrets` volume |
 | `wirehub` | `ghcr.io/formless63/wirehub` | the app: UI and API, the only published port |
@@ -91,13 +112,12 @@ Every service waits for the ones it needs (`depends_on` with
 `service_completed_successfully` / `service_healthy`), so one `up` brings the
 whole stack up in order.
 
-**What holds your data today.** The catalog, designs, drawings and saved
-versions are JSON files in the `catalog` volume (seeded from the image's
-starter catalog on first start). Installed packs and the setup record are in
-`packs`; sign-in state and the save audit log in `auth`; uploaded file bytes
-in Garage. PostgreSQL is migrated and ready, and the first release moves the
-catalog into it (`specs/postgres-backend.md`); until the write path lands the
-app runs with `WIREHUB_BACKEND=files`.
+**What holds your data.** PostgreSQL (`pg_data`) holds the catalog, designs,
+drawings, saved versions, the accounts, people and API tokens, and the
+history of every save (who changed what, when). Uploaded file bytes are in
+Garage. The `catalog`, `packs` and `auth` volumes hold a hub's files from
+before the database (`WIREHUB_BACKEND=files`, still available for a small
+single-user hub — see "Settings"); a new hub leaves them as they came.
 
 ### Secrets: the `secrets` volume
 
@@ -156,12 +176,26 @@ people set:
 | `COMPOSE_PROFILES` | — | optional parts: `backup` |
 | `WIREHUB_IMAGE` | the release `compose.yaml` came from | another tag, or a locally built image |
 | `WIREHUB_SUGGESTED_MODULES` | — | modules pre-ticked at `/setup` |
-| `AUTH_ENABLED`, `AUTH_OIDC_*`, `AUTH_ALLOWED_EMAILS` | off | sign-in (`apps/studio/README.md`) |
+| `AUTH_ENABLED` | `true` | sign-in; `false` lets anyone who reaches the port edit |
+| `AUTH_LOCAL_ACCOUNTS`, `AUTH_OIDC_*`, `AUTH_ALLOWED_EMAILS` | email + password on | sign-in methods (`apps/studio/README.md`) |
+| `WIREHUB_TRUST_PROXY` | — | `1` behind a reverse proxy you trust |
+| `WIREHUB_ENV`, `WIREHUB_PROD_MARKERS` | `prod` | a development copy beside production ("Development") |
+| `WIREHUB_BACKEND` | `pg` | `files` keeps the catalog as JSON files (with `WIREHUB_ALLOW_FILES_IN_PROD=1`) |
 | `TZ` | `UTC` | log timestamps, backup schedule |
 
-Sign-in is **off** until `AUTH_ENABLED=true`: turn it on before the hub is
-reachable by anyone but you, and put a TLS-terminating reverse proxy (Caddy,
-Traefik, nginx) in front.
+**Sign-in** is on: first-run setup makes the admin's account, and the admin
+invites everyone else. `AUTH_ALLOWED_EMAILS` lets the emails it lists sign in
+without an invitation (as editors); nobody can claim a new hub before you,
+because `/setup` asks for the setup code. Before the hub is reachable from
+anywhere but this machine, put a TLS-terminating reverse proxy (Caddy,
+Traefik, nginx) in front, set `WIREHUB_PUBLIC_URL` to the address people open
+and `WIREHUB_TRUST_PROXY=1` (so rate limits count real clients). Opened by its
+LAN address without a proxy, sign-in still works: the studio trusts the
+address a request was made to.
+
+**Scripts and agents** use the same API with a personal API token (the key
+icon in the rail; `/account/tokens`): a token acts as the person who made it,
+with the scopes they chose, for 1 to 90 days, and is shown once.
 
 ### Your own PostgreSQL or S3
 
@@ -206,7 +240,7 @@ UI on port 9898, `127.0.0.1` unless `BACKREST_BIND` says otherwise).
 | Service | What it does |
 | --- | --- |
 | `backup-init` | one-shot: stages the scripts below from the image, keeps the repository password (`restic_password`), and on first start configures Backrest: one repository and one plan |
-| `backup-dump` | `pg_dump -Fc` of the database into the `backups` volume, at start and daily at `BACKUP_DUMP_AT` (keeps `BACKUP_KEEP_DUMPS`) |
+| `backup-dump` | `pg_dump -Fc` of the database into the `backups` volume as the read-only role `studio_ro`, at start and daily at `BACKUP_DUMP_AT` (keeps `BACKUP_KEEP_DUMPS`), each with a row-count file; once a week (`BACKUP_CHECK_DAY`) it restores the newest dump into a scratch database and compares the counts |
 | `backup-mirror` | an rclone mirror of the bucket with the **read-only** key, every `BACKUP_MIRROR_INTERVAL` seconds |
 | `backrest` | snapshots `/sources` — the dump and mirror, and the `catalog`, `auth` and `packs` volumes — on `BACKUP_SCHEDULE` (daily at 03:00), keeping 7 daily, 4 weekly and 12 monthly, with a weekly prune and check |
 
@@ -230,11 +264,31 @@ password as `BACKUP_REPOSITORY_PASSWORD`.
 Backrest asks the first visitor of its UI to create a login. Notifications
 (ntfy, Gotify, Discord, Slack …) on failure are set up there too.
 
-**Restore**, in short: stop the stack; restore the snapshot's `catalog/`,
-`auth/` and `packs/` into the volumes; `pg_restore` the dump into a fresh
-`postgres` volume; copy `backups/blobs/` back into the bucket (`rclone copy`
-with the app key); start. Try it once on another machine before you rely on
-it.
+**Restore.** Try it once on another machine before you rely on it.
+
+1. On the machine you restore to, start the stack once (`docker compose up
+   -d`, with `COMPOSE_PROFILES=backup`): it creates the database roles. Do
+   not finish `/setup`.
+2. Put the snapshot's `backups/` back into the `backups` volume — in
+   Backrest's UI, restore the snapshot's `/sources/backups` to
+   `/sources/backups` (or copy `postgres/` and `blobs/` there yourself).
+3. Restore the database and the uploaded files, then start the app:
+
+   ```
+   docker compose stop wirehub
+   docker compose run --rm --entrypoint bash backup-dump /run/wirehub/backup/pg-restore.sh
+   docker compose run --rm --entrypoint sh backup-mirror /run/wirehub/backup/blob-restore.sh
+   docker compose start wirehub
+   ```
+
+   `pg-restore.sh` replaces the database with the newest dump (or the one you
+   name) and checks every table's row count against the count taken with it;
+   `blob-restore.sh` copies the bucket mirror back with the app's key.
+4. Sign in with the accounts of the restored hub.
+
+The weekly restore check runs the same restore into a scratch database; to
+run it now: `docker compose run --rm --entrypoint bash backup-dump
+/run/wirehub/backup/pg-restore-check.sh`.
 
 **Alternative for Postgres only: Databasus.** If you already run it, point it
 at the `postgres` service for the database and keep restic (or any file
@@ -244,7 +298,21 @@ backup) for the volumes and the bucket.
 
 Take a backup, then set a newer `WIREHUB_IMAGE` tag (or download the newer
 release's `compose.yaml`, which pins it) and deploy again: `migrate` brings
-the database up to date before the app starts. Releases are listed at
+the database up to date before the app starts.
+
+**From a hub that kept its catalog in files** (before v0.1.0, or with
+`WIREHUB_BACKEND=files`): deploy the new `compose.yaml` over the same volumes.
+On its first start `migrate` imports the `catalog` volume, with the packs in
+`packs` merged in, into the database as one organisation (it does this only
+while the database holds none, and only for a catalog that was in use — a
+fresh install goes to `/setup`). With sign-in on, `/setup` then asks for the
+setup code and makes the first admin; nothing else answers until then. The
+file volumes stay as they were; a JSON export of the database catalog is
+`GET /api/export`.
+
+**PostgreSQL major versions** (18 → 19): take a dump (`backup-dump`), stop
+the stack, move `pg_data` aside, change the `postgres` image tag, start (the
+roles are recreated), then restore the dump as above. Try it on a copy first. Releases are listed at
 <https://github.com/formless63/wirehub/releases>; the image is tagged `X.Y.Z`,
 `X.Y`, `X` (from 1.0) and `latest`. Pin a full version in production.
 
@@ -280,8 +348,12 @@ removed afterwards. `node site/check-variants.mjs` validates the config
 generator's variants with `docker compose config`.
 
 **A second copy beside production:** another project name and port —
-`docker compose -p wirehub-dev` with `WIREHUB_PORT` changed. Volumes are per
-project, so the copies never share data.
+`docker compose -p wirehub-dev` with `WIREHUB_PORT` changed and
+`WIREHUB_ENV=dev`. Volumes are per project, so the copies never share data;
+the copy shows a DEV badge, refuses API tokens made on production, and with
+`WIREHUB_PROD_MARKERS` (pieces of production's database host or name and
+bucket) refuses to start if it is pointed at production. To refresh it from
+production, restore production's latest dump into it ("Restore").
 
 **Releases** are cut by release-please: conventional commits on `main` keep a
 release pull request open with the next version, the changelog and the image

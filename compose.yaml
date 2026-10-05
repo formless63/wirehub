@@ -12,10 +12,10 @@
 # Default services:
 #   bootstrap    one-shot: secrets, the setup code and Garage's config
 #   wirehub      the app (UI + API), the only published port
-#   postgres     PostgreSQL 18 (the first release runs on it; until the
-#                database backend's write path lands the app keeps its
-#                catalog in the `catalog` volume)
-#   migrate      one-shot: the database roles and every pending migration
+#   postgres     PostgreSQL 18: the catalog, designs, saved versions,
+#                accounts and the history of every save
+#   migrate      one-shot: the database roles, every pending migration, and
+#                (once) a file catalog from before the database moved in
 #   garage       S3-compatible store for uploaded files (photos, datasheets,
 #                3D models) — Garage, single node
 #   garage-init  one-shot: Garage's layout, its access keys and the bucket
@@ -66,10 +66,16 @@ services:
     image: *wirehub-image
     environment:
       BETTER_AUTH_URL: ${WIREHUB_PUBLIC_URL:-http://localhost:${WIREHUB_PORT:-5183}}
-      WIREHUB_BACKEND: ${WIREHUB_BACKEND:-files}
+      WIREHUB_BACKEND: ${WIREHUB_BACKEND:-pg}
+      WIREHUB_ENV: ${WIREHUB_ENV:-prod}
       WIREHUB_ORG:
+      WIREHUB_TRUST_PROXY:
+      WIREHUB_PROD_MARKERS:
+      WIREHUB_ALLOW_FILES_IN_PROD:
       WIREHUB_SUGGESTED_MODULES:
-      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      # sign-in: on, with email + password accounts; first-run setup makes the admin
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_LOCAL_ACCOUNTS:
       AUTH_DATA_DIR: /data/auth
       WIREHUB_MODEL_CACHE_DIR: /data/cache/models
       WIREHUB_PACKS_DIR: /data/packs
@@ -129,13 +135,18 @@ services:
 
   migrate:
     image: *wirehub-image
-    # *_FILE variables resolved first (server/boot-env.ts), then the roles and the migrations
+    # *_FILE variables resolved first (server/boot-env.ts), then the roles, the
+    # migrations, and — once, on a database with no organisation — a file
+    # catalog from before the database moved in (a fresh install is left to
+    # first-run setup)
     command:
       - sh
       - -c
       - >-
         node --experimental-strip-types --no-warnings --import ./server/boot-env.ts server/pg/cli.ts bootstrap &&
-        node --experimental-strip-types --no-warnings --import ./server/boot-env.ts server/pg/cli.ts migrate
+        node --experimental-strip-types --no-warnings --import ./server/boot-env.ts server/pg/cli.ts migrate &&
+        node --experimental-strip-types --no-warnings --import ./server/boot-env.ts server/pg/cli.ts adopt
+        --from /app/packages/catalog --packs /data/packs --starter /app/starter-catalog
     environment:
       DATABASE_ADMIN_URL_FILE: /run/wirehub/database_admin_url
       DATABASE_OWNER_URL_FILE: /run/wirehub/database_owner_url
@@ -143,8 +154,20 @@ services:
       WIREHUB_OWNER_PASSWORD_FILE: /run/wirehub/wirehub_owner_password
       WIREHUB_APP_PASSWORD_FILE: /run/wirehub/wirehub_app_password
       WIREHUB_RO_PASSWORD_FILE: /run/wirehub/wirehub_ro_password
+      # a file catalog's uploads, moved with it
+      WIREHUB_BLOBS: ${WIREHUB_BLOBS:-s3}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3900}
+      S3_REGION: ${S3_REGION:-garage}
+      S3_BUCKET: ${S3_BUCKET:-wirehub}
+      S3_ACCESS_KEY_ID:
+      S3_ACCESS_KEY_ID_FILE: /run/wirehub/s3_access_key_id
+      S3_SECRET_ACCESS_KEY:
+      S3_SECRET_ACCESS_KEY_FILE: /run/wirehub/s3_secret_access_key
     volumes:
       - secrets:/run/wirehub:ro
+      - catalog:/app/packages/catalog/data
+      - packs:/data/packs
+      - blobs:/data/blobs
     depends_on:
       bootstrap:
         condition: service_completed_successfully
@@ -152,6 +175,10 @@ services:
       postgres:
         condition: service_healthy
       # <<< bundled-postgres
+      # >>> bundled-s3
+      garage-init:
+        condition: service_completed_successfully
+      # <<< bundled-s3
     mem_limit: 256m
     restart: "no"
     networks: [internal, public]
@@ -250,10 +277,13 @@ services:
     image: postgres:18.6-bookworm
     entrypoint: ["bash", "/run/wirehub/backup/pg-dump.sh"]
     environment:
-      # the admin connection: every schema, whoever owns it
-      DATABASE_URL_FILE: /run/wirehub/database_admin_url
+      # the read-only role: it reads every table (BYPASSRLS) and can change nothing
+      DATABASE_URL_FILE: /run/wirehub/database_ro_url
+      # the weekly restore check restores into a scratch database: it needs a role that may create one
+      ADMIN_URL_FILE: /run/wirehub/database_admin_url
       BACKUP_DUMP_AT: ${BACKUP_DUMP_AT:-02:30}
       BACKUP_KEEP_DUMPS: ${BACKUP_KEEP_DUMPS:-7}
+      BACKUP_CHECK_DAY: ${BACKUP_CHECK_DAY:-0}
       TZ: ${TZ:-UTC}
     volumes:
       - secrets:/run/wirehub:ro
@@ -261,10 +291,9 @@ services:
     depends_on:
       backup-init:
         condition: service_completed_successfully
-      # >>> bundled-postgres
-      postgres:
-        condition: service_healthy
-      # <<< bundled-postgres
+      # the roles (studio_ro) and the schema exist once migrate has run
+      migrate:
+        condition: service_completed_successfully
     mem_limit: 256m
     restart: unless-stopped
     networks: [internal, public]
