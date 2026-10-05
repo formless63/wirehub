@@ -98,16 +98,28 @@ session, the SPA redirects to `/sign-in`, and only allow-listed emails get in.
 Standalone server only — `vite dev` ignores it (and warns if
 `AUTH_ENABLED=true`).
 
-Sign-in: **OIDC** against any compliant provider and/or an emailed **magic
-link**; at least one must be configured. A missing or invalid variable stops
-the server at startup with one line naming it.
+Sign-in: **email + password** accounts (database backend), **OIDC** against
+any compliant provider, and/or an emailed **magic link**; at least one must
+be configured. A missing or invalid variable stops the server at startup with
+one line naming it.
+
+**On the database backend** (`WIREHUB_BACKEND=pg`, the compose stack's
+default, where `AUTH_ENABLED` defaults to `true`): Better Auth's tables are in
+the app's database (schema `auth`), email + password accounts are on
+(`AUTH_LOCAL_ACCOUNTS`), first-run setup makes the admin (owner), and the
+admin invites everyone else with a role (`/settings/people`). Anyone with a
+person in the organisation may sign in; `AUTH_ALLOWED_EMAILS` is an extra
+allow-list there (and may be empty). Personal API tokens for scripts and
+agents: `/account/tokens`. Every save is a change set in the database, so
+`saves.jsonl` is not written.
 
 | Variable | Default | |
 |---|---|---|
 | `AUTH_ENABLED` | `false` | `true` turns the login on |
 | `BETTER_AUTH_SECRET` | — | required; ≥32 chars, `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | — | required; the public origin, e.g. `https://studio.example.com` (cookies and redirects are bound to it) |
-| `AUTH_ALLOWED_EMAILS` | — | required; comma-separated, case-insensitive; checked at sign-in and on every request |
+| `AUTH_ALLOWED_EMAILS` | — | required on the file backend (optional on pg); comma-separated, case-insensitive; checked at sign-in and on every request |
+| `AUTH_LOCAL_ACCOUNTS` | `true` on pg, else `false` | email + password accounts (database backend only); new ones through setup or an invitation |
 | `AUTH_DATA_DIR` | `<repo>/data/auth` | `auth.sqlite` (sessions) + `saves.jsonl` (save audit) |
 | `AUTH_OIDC_ISSUER` | — | enables OIDC; discovery at `<issuer>/.well-known/openid-configuration` |
 | `AUTH_OIDC_CLIENT_ID` | — | required with the issuer |

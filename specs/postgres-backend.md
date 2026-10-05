@@ -1,12 +1,37 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.3 (rev 6 was the first revision in the open base). **Phases A
-(schema and read path) and B (write path, blobs, API clients) are built** (§11); C, S, D
-and E are plan. The storage seam it plugs into is `storage-seam.md`. The execution
+Status: **plan**, rev 6.4 (rev 6 was the first revision in the open base). **Phases A
+(schema and read path), B (write path, blobs, API clients) and S (self-hosted install)
+are built** (§11); C (worker), D and E are plan — v0.1.0 ships without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.4** — Phase S built. The compose stack runs `WIREHUB_BACKEND=pg`,
+  `WIREHUB_ENV=prod` and sign-in on by default. **Setup mode (§9.1–9.2):** a database with
+  no organisation answers 503 everywhere but `/api/setup`; `/setup`, with the setup code,
+  creates the organisation, its catalog (starter or empty), the admin (owner, with an
+  email + password account) and the chosen modules — as two change sets (the catalog
+  import, then the modules through the ordinary setup), not one transaction; a failure
+  before the catalog is in removes the org. The deps object is filled in place: no
+  restart. **Adoption** replaces "copy the file deployment by hand": the migrate step's
+  `cli.ts adopt` imports a file catalog that was in use (setup completed, or different from
+  the image's pristine starter at `/app/starter-catalog`) as org `main` while the database
+  has no org; with sign-in on, an org without an owner stays in setup mode until the first
+  admin is **claimed** at `/setup` with the setup code. Migration **0015**:
+  `studio.org_count()`, `person.disabled_at` (S4, revoking access) and the grants for
+  `pg_dump` as `studio_ro`. **Backups (§8.4–8.5):** the dump connects as `studio_ro` after
+  migrate, writes a row-count file, and a weekly restore check (`BACKUP_CHECK_DAY`) restores
+  into a scratch database; `pg-restore.sh` and `blob-restore.sh` are the restore, run
+  through the backup services (a `db:restore` command in the app image was not needed —
+  the stock Postgres image has `pg_restore`). People (S4) and API tokens are
+  server-rendered pages (`/settings/people`, `/account/tokens`) linked from the rail; the
+  environment guard (S5, §8.7) is `server/env-guard.ts`; `WIREHUB_TRUST_PROXY` reads the
+  forwarded headers; sign-in trusts the request's own origin besides the public URL, and
+  its endpoints take the API's cross-site rule. D6 is done (`/api/backup` on pg). The
+  clean-install gate (S8) is `scripts/stack-smoke.sh --upgrade --backup --restore`, run in
+  CI. Not built in S: the monitoring webhook (S7, §8.6), the `studio-api` client (S9), the
+  deep health check (§8.3), and the part-number step of setup (the default scheme applies).
 - **rev 6.3** — Phase B built. **The commit (§4.2) applies a change set to the catalog as
   files:** the snapshot at the locked head version becomes an in-memory tree, the file
   backend's own `commitChangeSet` applies the set through tree stores that do to each file
@@ -2033,7 +2058,15 @@ worker's peak stays under its cap.
 | D6 | Retire the git export in pg mode (§7.6): `/api/backup` answer, indicator copy, boot warning | 0.5 d | B1 |
 | D7 | Cut-over runbook (§7.6) and a rehearsal on a copy | 0.5 d | D3 |
 
-### Phase S — self-hosted deployment and clean install (≈ 16 d)
+### Phase S — self-hosted deployment and clean install (≈ 16 d) — built (rev 6.4)
+
+As built: S1, S2 (roles by `db:bootstrap` in `migrate`, not `bootstrap.sh`), S3, S4, S5,
+S6 (restore scripts and the weekly check run by `backup-dump`), S8 (upgrade path:
+adoption, docs for backups before upgrades and Postgres major versions), S10 and S11. Not
+built: S7, S9. Gate: `stack-smoke.sh --upgrade --backup --restore` passes — a file hub
+upgraded and claimed; a clean install from `compose.yaml` alone to a signed-in admin with
+the starter catalog, whose export is the starter plus exactly the one save; the backup
+profile's dump, restore check and snapshot; a restore drill onto a second stack.
 
 | # | Task | Size | Depends on |
 | --- | --- | --- | --- |
