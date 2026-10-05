@@ -32,13 +32,26 @@
  * - `design` — the design itself;
  * - `connector` — `id def role label family gender construction sourcing partNumber pinCount`,
  *   `pinsJoined`, `pinsOpen`, `pins` (`id signal joined`), `mechanicals` (`id def kind qty label`),
- *   `mechanicalKinds`, and the other plain fields of the connector definition;
+ *   `mechanicalKinds`, `shells` and `shellCount` (the shells attached to it), `boards` and
+ *   `boardCount` (boards its pins are joined to), `ends` (the run ends it is joined to, `w1@a`),
+ *   and the other plain fields of the connector definition;
  * - `segment` — `id def role lengthMm label partNumber odMm conductorCount minAreaMm2 maxAreaMm2`;
  * - `conductor` — `segment path def wire areaMm2 material color formation lengthMm signals signalKinds
  *   joinedA joinedB`;
  * - `component` — `id def location label kind category value partNumber`;
- * - `pcba` — `id def label partNumber`;
- * - `mechanical` — `id def qty attachedTo attachedFamily kind label partNumber`;
+ * - `pcba` — `id def label partNumber`, `terminalCount`, `terminalsJoined`, `terminals`
+ *   (`id role signal joined`), `connectors` (the connectors joined to it: `id def label family
+ *   partNumber`), `connectorFamilies`, `shells` and `shellCount` (shells of those connectors);
+ * - `mechanical` — `id def qty attachedTo attachedFamily kind label partNumber`, and the host
+ *   connector as `host` (`id def label family partNumber`) with `hostDef`, `hostPartNumber`;
+ * - `cable-end` — one per end (`a` or `b`) of each wire run: `id` (`w1@a`), `segment`,
+ *   `segmentDef`, `end`, `role`, `label`, `connectors` / `connectorCount` / `connectorFamilies`
+ *   (the connectors the end's conductors are joined to: `id def label family gender partNumber
+ *   role pinCount`), `shells` / `shellCount` (the shells attached to those connectors),
+ *   `mechanicals` / `mechanicalKinds`, `boards` / `boardCount` (boards joined at this end,
+ *   directly or through a connector: `id def label partNumber`), `flying` (nothing is joined
+ *   but bare conductors); the "for each cable end" selector, with "the end's shell" and "the
+ *   board at this end" as its lists;
  * - `signal-path` — one per pair of signal-tagged connector pins or board terminals joined through
  *   copper and parts: `signal signalKind from to` (`instance terminal def family`), `components`
  *   (`instance def kind category value label`), `componentKinds`, `componentCategories`, `hops`;
@@ -46,7 +59,7 @@
  *   `mechanical-def` — the definition's plain fields (`conductorCount`, `minAreaMm2`, `pinCount` added).
  */
 
-import type { CableDesign, ComponentDefinition, ConnectorDefinition, Db, Issue, MechanicalDefinition, PcbaDefinition, WireDefinition } from './model.ts';
+import type { CableDesign, ComponentDefinition, ConnectorDefinition, Db, Issue, MechanicalDefinition, PcbaDefinition, TerminalRef, WireDefinition } from './model.ts';
 import { findComponent, findConnector, findMechanical, findPcba, findWire } from './model.ts';
 import { deriveNets, trace } from './nets.ts';
 import { electricalPaths, resolveElementPath } from './paths.ts';
@@ -58,7 +71,7 @@ import { vocabEntry, type LaneEntry, type SignalEntry } from './vocab.ts';
  * The language
  * ------------------------------------------------------------------ */
 
-export const DESIGN_RULE_SUBJECTS = ['design', 'connector', 'segment', 'conductor', 'component', 'pcba', 'mechanical', 'signal-path'] as const;
+export const DESIGN_RULE_SUBJECTS = ['design', 'connector', 'segment', 'conductor', 'component', 'pcba', 'mechanical', 'cable-end', 'signal-path'] as const;
 export const LIBRARY_RULE_SUBJECTS = ['connector-def', 'wire-def', 'component-def', 'pcba-def', 'mechanical-def'] as const;
 export const RULE_SUBJECTS = [...DESIGN_RULE_SUBJECTS, ...LIBRARY_RULE_SUBJECTS] as const;
 export type RuleSubject = (typeof RULE_SUBJECTS)[number];
@@ -130,6 +143,8 @@ const MAX_MESSAGE = 300;
 const MAX_STEPS = 400_000;
 const MAX_SUBJECTS_PER_RULE = 2000;
 const MAX_SIGNAL_TERMINALS = 60;
+/** a list of related records in a scope (shells, boards …) is cut here */
+const MAX_RELATED = 50;
 
 /* ------------------------------------------------------------------ *
  * Checking a rule's shape
@@ -406,6 +421,57 @@ interface DesignFacts {
   scope: Scope;
   jointed: Set<string>;
   nets?: ReturnType<typeof deriveNets>;
+  /** instance id -> the other end of each joint it is on (built once per design) */
+  links?: Map<string, TerminalRef[]>;
+  /** segment end (`w1@a`) -> the other end of each joint on that run end */
+  endLinks?: Map<string, TerminalRef[]>;
+}
+
+const capped = <T>(list: T[]): T[] => (list.length > MAX_RELATED ? list.slice(0, MAX_RELATED) : list);
+
+function linksOf(facts: DesignFacts): { links: Map<string, TerminalRef[]>; endLinks: Map<string, TerminalRef[]> } {
+  if (facts.links === undefined || facts.endLinks === undefined) {
+    const links = new Map<string, TerminalRef[]>();
+    const endLinks = new Map<string, TerminalRef[]>();
+    const push = (map: Map<string, TerminalRef[]>, key: string, other: TerminalRef): void => {
+      const list = map.get(key);
+      if (list === undefined) map.set(key, [other]);
+      else list.push(other);
+    };
+    for (const joint of facts.design.joints) {
+      for (const [x, y] of [[joint.a, joint.b], [joint.b, joint.a]] as const) {
+        push(links, x.instance, y);
+        if (x.end !== undefined) push(endLinks, `${x.instance}@${x.end}`, y);
+      }
+    }
+    facts.links = links;
+    facts.endLinks = endLinks;
+  }
+  return { links: facts.links, endLinks: facts.endLinks };
+}
+
+/** The boards, connectors and shells related to a connector instance, from the design's joints and attachments. */
+function connectorRelations(facts: DesignFacts, connectorId: string): { shells: Scope[]; boards: Scope[] } {
+  const { design, db } = facts;
+  const { links } = linksOf(facts);
+  const shells = (design.instances.mechanical ?? []).filter((m) => m.attachedTo === connectorId).flatMap((m) => {
+    const md = findMechanical(db, m.def);
+    return md?.kind === 'shell' ? [{ id: m.id, def: m.def, label: md.label, partNumber: md.partNumber ?? '', attachedTo: connectorId }] : [];
+  });
+  const boardIds = [...new Set((links.get(connectorId) ?? []).map((o) => o.instance))].filter((id) => design.instances.pcbas.some((p) => p.id === id));
+  return { shells: capped(shells), boards: capped(boardIds.map((id) => boardScope(facts, id))) };
+}
+
+function boardScope(facts: DesignFacts, id: string): Scope {
+  const inst = facts.design.instances.pcbas.find((p) => p.id === id);
+  const def = inst === undefined ? undefined : findPcba(facts.db, inst.def);
+  return { id, def: inst?.def ?? '', label: def?.label ?? inst?.def ?? id, partNumber: def?.partNumber ?? '' };
+}
+
+function connectorScope(facts: DesignFacts, id: string): Scope {
+  const inst = facts.design.instances.connectors.find((c) => c.id === id);
+  const def = inst === undefined ? undefined : findConnector(facts.db, inst.def);
+  return { id, def: inst?.def ?? '', label: inst?.label ?? def?.label ?? id, family: def?.family ?? '', gender: def?.gender ?? '', partNumber: def?.partNumber ?? '', role: inst?.role ?? '', pinCount: def?.pins.length ?? 0 };
 }
 
 function signalsOfTag(ref: unknown): string[] {
@@ -449,11 +515,18 @@ function subjectsOf(each: RuleSubject, facts: DesignFacts): { scope: Scope; wher
           const md = findMechanical(db, m.def);
           return { id: m.id, def: m.def, qty: m.qty, kind: md?.kind ?? '', label: md?.label ?? m.def };
         });
+        const related = connectorRelations(facts, inst.id);
+        const ends = [...new Set((linksOf(facts).links.get(inst.id) ?? []).flatMap((o) => (o.end === undefined ? [] : [`${o.instance}@${o.end}`])))].sort();
         out.push({
           where: inst.id,
           scope: {
             ...base,
             ...(def === undefined ? {} : plain(def)),
+            shells: related.shells,
+            shellCount: related.shells.length,
+            boards: related.boards,
+            boardCount: related.boards.length,
+            ends: capped(ends),
             kind: 'connector',
             id: inst.id,
             def: inst.def,
@@ -531,7 +604,28 @@ function subjectsOf(each: RuleSubject, facts: DesignFacts): { scope: Scope; wher
     case 'pcba':
       for (const inst of design.instances.pcbas) {
         const def: PcbaDefinition | undefined = findPcba(db, inst.def);
-        out.push({ where: inst.id, scope: { ...base, ...(def === undefined ? {} : plain(def)), id: inst.id, def: inst.def, label: def?.label ?? inst.def } });
+        const { links } = linksOf(facts);
+        const joinedTerminals = new Set([...facts.jointed].filter((k) => k.startsWith(`${inst.id}:`)).map((k) => k.slice(inst.id.length + 1)));
+        const connectorIds = [...new Set((links.get(inst.id) ?? []).map((o) => o.instance))].filter((id) => design.instances.connectors.some((c) => c.id === id));
+        const connectors = capped(connectorIds.map((id) => connectorScope(facts, id)));
+        const shells = capped(connectorIds.flatMap((id) => connectorRelations(facts, id).shells));
+        out.push({
+          where: inst.id,
+          scope: {
+            ...base,
+            ...(def === undefined ? {} : plain(def)),
+            id: inst.id,
+            def: inst.def,
+            label: def?.label ?? inst.def,
+            terminalCount: def?.terminals.length ?? 0,
+            terminalsJoined: capped([...joinedTerminals].sort()),
+            terminals: capped((def?.terminals ?? []).map((t) => ({ id: t.id, role: t.role ?? '', signal: signalsOfTag(signalOf(db, 'pcba', inst.def, t.id)?.signal).join(','), joined: joinedTerminals.has(t.id) }))),
+            connectors,
+            connectorFamilies: [...new Set(connectors.map((c) => String(c['family'])))].sort(),
+            shells,
+            shellCount: shells.length,
+          },
+        });
       }
       break;
     case 'mechanical':
@@ -541,15 +635,75 @@ function subjectsOf(each: RuleSubject, facts: DesignFacts): { scope: Scope; wher
         const hostDef = host === undefined ? undefined : findConnector(db, host.def);
         out.push({
           where: inst.id,
-          scope: { ...base, ...(def === undefined ? {} : plain(def)), id: inst.id, def: inst.def, qty: inst.qty, ...(inst.attachedTo === undefined ? {} : { attachedTo: inst.attachedTo }), ...(hostDef === undefined ? {} : { attachedFamily: hostDef.family }), label: def?.label ?? inst.def },
+          scope: {
+            ...base,
+            ...(def === undefined ? {} : plain(def)),
+            id: inst.id,
+            def: inst.def,
+            qty: inst.qty,
+            ...(inst.attachedTo === undefined ? {} : { attachedTo: inst.attachedTo }),
+            ...(hostDef === undefined ? {} : { attachedFamily: hostDef.family, hostDef: host?.def ?? '', hostPartNumber: hostDef.partNumber ?? '', host: connectorScope(facts, host?.id ?? '') }),
+            label: def?.label ?? inst.def,
+          },
         });
       }
+      break;
+    case 'cable-end':
+      out.push(...cableEnds(facts));
       break;
     case 'signal-path':
       out.push(...signalPaths(facts));
       break;
     default:
       break;
+  }
+  return out;
+}
+
+/** One subject per end of each wire run: what is joined there, and the shells and boards that go with it. */
+function cableEnds(facts: DesignFacts): { scope: Scope; where: string }[] {
+  const { design, db } = facts;
+  const { endLinks, links } = linksOf(facts);
+  const out: { scope: Scope; where: string }[] = [];
+  for (const seg of design.instances.segments) {
+    const wire = findWire(db, seg.def);
+    for (const end of ['a', 'b'] as const) {
+      const key = `${seg.id}@${end}`;
+      const others = endLinks.get(key) ?? [];
+      const connectorIds = [...new Set(others.map((o) => o.instance))].filter((id) => design.instances.connectors.some((c) => c.id === id));
+      const boardIds = new Set(others.map((o) => o.instance).filter((id) => design.instances.pcbas.some((p) => p.id === id)));
+      for (const id of connectorIds) for (const o of links.get(id) ?? []) if (design.instances.pcbas.some((p) => p.id === o.instance)) boardIds.add(o.instance);
+      const connectors = capped(connectorIds.map((id) => connectorScope(facts, id)));
+      const shells = capped(connectorIds.flatMap((id) => connectorRelations(facts, id).shells));
+      const mechanicals = capped(
+        (design.instances.mechanical ?? []).filter((m) => m.attachedTo !== undefined && connectorIds.includes(m.attachedTo)).map((m) => {
+          const md = findMechanical(db, m.def);
+          return { id: m.id, def: m.def, qty: m.qty, kind: md?.kind ?? '', label: md?.label ?? m.def, partNumber: md?.partNumber ?? '', attachedTo: m.attachedTo ?? '' };
+        }),
+      );
+      out.push({
+        where: key,
+        scope: {
+          design: facts.scope,
+          id: key,
+          segment: seg.id,
+          segmentDef: seg.def,
+          end,
+          ...(seg.role === undefined ? {} : { role: seg.role }),
+          label: seg.label ?? wire?.label ?? seg.def,
+          connectors,
+          connectorCount: connectors.length,
+          connectorFamilies: [...new Set(connectors.map((c) => String(c['family'])))].sort(),
+          shells,
+          shellCount: shells.length,
+          mechanicals,
+          mechanicalKinds: mechanicals.map((m) => m.kind),
+          boards: capped([...boardIds].sort().map((id) => boardScope(facts, id))),
+          boardCount: boardIds.size,
+          flying: others.length === 0 || (connectorIds.length === 0 && boardIds.size === 0),
+        },
+      });
+    }
   }
   return out;
 }

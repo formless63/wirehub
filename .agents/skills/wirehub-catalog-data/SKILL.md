@@ -49,7 +49,7 @@ A rule record, for example (a rule cites its `src` like any record; no shop name
 ```
 
 `each` is `design`, `connector`, `segment`, `conductor`, `component`, `pcba`, `mechanical`,
-`signal-path` or a library subject (`connector-def` …); a condition has exactly one key (`all`,
+`signal-path`, `cable-end` (each end of a wire run: its shells, boards, connectors) or a library subject (`connector-def` …); a condition has exactly one key (`all`,
 `any`, `not`, `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `startsWith`, `endsWith`,
 `exists`, `empty`, `some`, `every`, `none`); a missing value makes a comparison false. Rule ids are
 kebab-case, the issue code is `rule:<id>`. Check a rule with `ruleProblems` / `ruleListProblems`

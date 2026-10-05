@@ -62,6 +62,18 @@ export const RULE_EXAMPLES: { label: string; rule: Record<string, unknown> }[] =
       src: 'synthetic example',
     },
   },
+  {
+    label: 'Each cable end with a connector needs a shell',
+    rule: {
+      id: 'example-end-shell',
+      severity: 'warning',
+      each: 'cable-end',
+      where: { gt: [{ path: 'connectorCount' }, 0] },
+      require: { gt: [{ path: 'shellCount' }, 0] },
+      message: '{segment} end {end} has a connector and no shell',
+      src: 'synthetic example',
+    },
+  },
 ];
 
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);

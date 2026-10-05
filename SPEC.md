@@ -404,7 +404,7 @@ number without a person accepting it.
 (`validation-rules.json`, an array of rule records a data pack may ship; `rules.ts`,
 `docs/validation-rules.md`): a bounded JSON condition language (`all`, `any`, `not`, comparisons,
 `contains`, `some`/`every`/`none` over lists, counts) over a design and its library records, with a
-subject (`connector`, `conductor`, `signal-path`, `connector-def` …), a severity and a message
+subject (`connector`, `conductor`, `signal-path`, `cable-end`, `connector-def` …), a severity and a message
 template. No code runs: evaluation is bounded (depth, node count, a step budget). Their issues
 carry the code `rule:<id>`. Code rules in a module remain for the complex cases.
 

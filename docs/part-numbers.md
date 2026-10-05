@@ -83,6 +83,30 @@ it is absent (`P{seq}[-{rev}]`). At most 200 characters; every segment is placed
   runs 1 to the largest `width` digits hold. A proposal is the highest number in use in the range
   plus one, never a taken number, and none when the range is used up. A number outside its range is
   reported (`pn-out-of-range`).
+
+  A counter can also say what it **never issues**, and use **several disjoint ranges**:
+
+  ```json
+  { "id": "seq", "type": "counter", "width": 6, "per": ["level", "type"],
+    "exclude": [13, { "from": 900000, "to": 999999 }],
+    "ranges": [
+      { "match": [{ "level": "1", "type": "C" }, { "level": "2", "type": "A" }],
+        "spans": [{ "from": 1000, "to": 4999 }, { "from": 20000, "to": 29999 }],
+        "exclude": [{ "from": 2000, "to": 2099 }] },
+      { "from": 1, "to": 999 } ] }
+  ```
+
+  - `exclude` (on the counter, or on one range) lists numbers and `{ from, to }` spans that are
+    never proposed; a number in use that falls in one is reported (`pn-excluded`). A counter's
+    exclusions apply to every range, a range's only to itself.
+  - `spans` in place of `from`/`to` gives a **union** of disjoint ranges. A proposal is the first
+    free number above the highest in use that lies in a span and in no exclusion, hopping from one
+    span to the next; none when the last span is used up.
+  - `match` may be one object or a **list of objects**; the range applies when any of them
+    matches, so `1C` and `2A` can share a range without `1A` doing so. Several segments in one
+    object must all match. Each segment named in `per` is part of the counter's key, so
+    `1C` and `1W` still count separately.
+  - Bounds: at most 100 ranges, 100 spans and exclusions per list, 50 matches per range.
 - **`variant`**: the suffix of a part that is a variant of another (`-00`, `-01`; or letters `A`,
   `B` … `AA` with `"style": "alpha"`). `first` is a brand-new part's variant, `max` the highest a
   part may reach, `kinds` the kinds that carry variants, `optional: true` (inside a `[ ]` group)
