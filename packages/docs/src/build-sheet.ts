@@ -86,6 +86,8 @@ export interface BuildSheetOptions extends SheetOptions {
   partNumbers?: { scheme: PartNumberScheme; known: readonly KnownPartNumber[] };
   /** the saved revision being printed */
   revisionNumber?: number;
+  /** the BOM lists each sub-assembly's parts instead of one line for it (`BomOptions.explode`) */
+  explode?: boolean;
 }
 
 /* ------------------------------------------------------------------ *
@@ -160,6 +162,7 @@ export function benchOptions(options: BuildSheetOptions): BenchSheetOptions {
     ...(options.document === undefined ? {} : { document: options.document }),
     ...(options.generatedAt === undefined ? {} : { generatedAt: options.generatedAt }),
     ...(options.testDefaults === undefined ? {} : { testDefaults: options.testDefaults }),
+    ...(options.explode === undefined ? {} : { explode: options.explode }),
   };
 }
 

@@ -1,20 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { listDesignIds, loadDb, loadDesign } from '@wirehub/catalog';
-import { electricalPaths, findWire, inScope, isFullyBonded, terminalKey } from '@wirehub/model';
+import { listDesignIds, loadDb, loadDesign, loadDesigns } from '@wirehub/catalog';
+import { electricalPaths, findWire, flattenSubassemblies, hasSubassemblies, inScope, isFullyBonded, terminalKey, withAssemblies } from '@wirehub/model';
 
 import { bondFoldedPaths, isFoilElement, layoutSchematic } from '../src/index.ts';
 
-const db = loadDb();
+// the design library: a design built from sub-assemblies is drawn whole (flattened)
+const library = (): ReturnType<typeof loadDb> => withAssemblies(loadDb(), { working: loadDesigns() });
+const db = library();
 
 describe('layoutSchematic', () => {
   for (const id of listDesignIds()) {
     describe(id, () => {
-      const design = loadDesign(id);
-      const diagram = layoutSchematic(design, db);
+      const placed = loadDesign(id);
+      const diagram = layoutSchematic(placed, db);
+      // what is drawn: the design with its sub-assemblies' parts in place
+      const design = hasSubassemblies(placed) ? flattenSubassemblies(placed, db).design : placed;
 
       it('is deterministic', () => {
-        const again = layoutSchematic(loadDesign(id), loadDb());
+        const again = layoutSchematic(loadDesign(id), library());
         expect(JSON.stringify(again)).toBe(JSON.stringify(diagram));
       });
 

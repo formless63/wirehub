@@ -533,19 +533,24 @@ function flatten(design: CableDesign, db: Db, stack: readonly string[]): FlatDes
     interfaces: [...(db.interfaces ?? [])],
   };
   const joints: Joint[] = [];
+  /** subs that could not be opened: their joints are dropped, already reported */
+  const unopened = new Set<string>();
 
   for (const sub of subs) {
     if (sub.def === design.id || stack.includes(sub.def)) {
       issues.push({ code: 'subassembly-cycle', severity: 'error', message: `sub-assembly '${sub.id}' places '${sub.def}', which contains '${design.id}'`, where: sub.id });
+      unopened.add(sub.id);
       continue;
     }
     const opened = placedDesign(db, sub);
     if (opened === undefined) {
       issues.push({ code: 'subassembly-no-library', severity: 'warning', message: `sub-assembly '${sub.id}' ('${sub.def}') cannot be opened here: no design library was given`, where: sub.id });
+      unopened.add(sub.id);
       continue;
     }
     if (!opened.ok) {
       issues.push(opened.issue);
+      unopened.add(sub.id);
       continue;
     }
     const placed = opened.placed;
@@ -632,7 +637,7 @@ function flatten(design: CableDesign, db: Db, stack: readonly string[]): FlatDes
     if (!subIds.has(r.instance)) return r;
     const target = ports.get(keyOf({ instance: r.instance, terminal: r.terminal }));
     if (target === undefined) {
-      if (!issues.some((i) => i.where === r.instance && i.severity === 'error')) {
+      if (!unopened.has(r.instance)) {
         issues.push({ code: 'subassembly-unknown-port', severity: 'error', message: `${keyOf(r)} is not a port of sub-assembly '${r.instance}'`, where });
       }
       return undefined;

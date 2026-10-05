@@ -5,7 +5,7 @@
  * stays the full-fidelity document.
  */
 
-import type { CableDesign, Db } from '@wirehub/model';
+import { placedDesign, terminalKey, type CableDesign, type Db } from '@wirehub/model';
 
 import { deriveBench } from '../bench/model.ts';
 import { deriveBomSheet } from '../bom-sheet.ts';
@@ -25,7 +25,27 @@ export function buildSheetMarkdown(design: CableDesign, db: Db, options: ExportO
   out.push('');
   out.push(facts([`\`${design.id}\``, header.productPn ?? header.family, header.revision === undefined ? undefined : `Rev ${header.revision}`, header.release, `stock ${header.stock}`, header.destination]));
 
-  out.push('', '## Kit & cut', '', '### Parts to pull', '');
+  out.push('', '## Kit & cut');
+  const subs = design.instances.subassemblies ?? [];
+  if (subs.length > 0) {
+    out.push('', '### Sub-assemblies — build each to its own sheet first', '');
+    out.push(
+      markdownTable(
+        ['Ref', 'Part', 'Design', 'Built to', 'Lands here'],
+        subs.map((sub) => {
+          const opened = placedDesign(db, sub);
+          const placed = opened?.ok === true ? opened.placed.design : undefined;
+          const lands = design.joints
+            .flatMap((j) => (j.a.instance === sub.id ? [[j.a, j.b] as const] : j.b.instance === sub.id ? [[j.b, j.a] as const] : []))
+            .map(([mine, other]) => `${mine.terminal} → ${terminalKey(other)}`)
+            .sort()
+            .join('; ');
+          return [sub.label ?? sub.id, placed?.productRef ?? '—', placed?.label ?? sub.def, `build sheet of ${sub.def}, ${sub.rev === undefined ? 'working copy (not frozen)' : `Rev ${sub.rev}`}`, lands];
+        }),
+      ),
+    );
+  }
+  out.push('', '### Parts to pull', '');
   const bom = bomTable(design, db, options);
   out.push(markdownTable(['Part', 'Description', 'Qty', 'Unit', 'Where'], bom.rows.map((r) => [String(r[1] === '' ? '—' : r[1]), String(r[2]), String(r[3]), String(r[4]), String(r[5])]), ['left', 'left', 'right']));
   out.push('', '### Cut', '');

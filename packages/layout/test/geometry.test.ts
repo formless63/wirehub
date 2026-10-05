@@ -216,6 +216,8 @@ describe('topology', () => {
   it('finds the trunk of every starter design among its own segments', () => {
     for (const id of listDesignIds()) {
       const d = loadDesign(id);
+      // a design built only from sub-assemblies has no wire of its own to be a trunk
+      if (d.instances.segments.length === 0) continue;
       const t = analyzeTopology(d, db);
       expect(d.instances.segments.map((s) => s.id), id).toContain(t.trunkId);
     }
