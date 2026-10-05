@@ -252,7 +252,7 @@ pnpm --filter studio render dc-2core-24awg wire-spec --format pdf  # a wire stoc
 default it renders from the catalog this checkout (or `WIREHUB_BACKEND`) points at; with
 `WIREHUB_API_URL` and `WIREHUB_API_TOKEN` set (as for `studio-api`) it asks the studio over
 HTTP, so it works from any machine with a token. Run locally, it prints the HTML sheets
-through a browser PDF engine when `WIREHUB_PDF_ENGINE_URL` is set (for example a Gotenberg
+through a browser PDF engine when one is named (`WIREHUB_PDF_ENGINE_URL`, or Settings > Integrations) (for example a Gotenberg
 started with `docker run --rm -p 127.0.0.1:3000:3000 gotenberg/gotenberg:8.37.0-chromium`, and
 `WIREHUB_PDF_ENGINE_URL=http://127.0.0.1:3000`); over HTTP the studio's own setting applies.
 A PDF that fell back to the headless one is reported as a `note:` line. Not built: the wire stock's spec sheet

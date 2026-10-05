@@ -42,6 +42,8 @@ import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
 import { refuseTakenDesignNumber } from './part-number-guard.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
+import { RUNTIME_SETTINGS_ROUTES, handleRuntimeSettingsRequest, handleSettingsSecret, isSettingsSecretPath } from './runtime-settings-api.ts';
+import { SETTING_GROUPS, runtimeEnv, type RuntimeSettings } from './runtime-settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
 import { LOCAL_FALLBACK, ME_ROUTES, type StudioUser } from './me.ts';
@@ -289,6 +291,13 @@ export interface WorkbenchDeps {
    * git log of a file catalog. Absent → `/api/history` answers 501.
    */
   history?: HistorySource;
+  /**
+   * The runtime settings (`runtime-settings.ts`): the environment as the server
+   * reads it, with what was saved in Settings under it, kept current on every
+   * catalog change. Absent → the process environment, and `/api/settings/runtime`
+   * answers 501.
+   */
+  runtimeSettings?: RuntimeSettings;
 }
 
 /** `GET /api/part-numbers`' file half; `designs` and `drawings` come from the stores. */
@@ -904,6 +913,7 @@ const ROUTES = [
   ...DEFINITION_ROUTES,
   ...MODEL_ROUTES,
   ...SETTINGS_ROUTES,
+  ...RUNTIME_SETTINGS_ROUTES,
   ...VOCAB_ROUTES,
   ...WIRE_LIBRARY_ROUTES,
   ...BUILDS_ROUTES,
@@ -1030,8 +1040,8 @@ async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: Workb
 }
 
 /** The store's deps: the deployment's indexes, and where the stores added in Settings are kept. */
-function storeDepsOf(deps: WorkbenchDeps): StoreDeps {
-  return { ...(deps.store ?? storeIndexesFromEnv()), ...(deps.docs === undefined ? {} : { docs: deps.docs }) };
+export function storeDepsOf(deps: WorkbenchDeps): StoreDeps {
+  return { ...(deps.store ?? storeIndexesFromEnv(runtimeEnv(deps))), ...(deps.docs === undefined ? {} : { docs: deps.docs }) };
 }
 
 /**
@@ -1097,6 +1107,16 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
       },
     );
   }
+  // a secret entered in Settings: encrypted into its own store, its document's marker committed without the body
+  if (isSettingsSecretPath(request.path)) {
+    return withWriteLock(() =>
+      handleSettingsSecret(request, deps, async (uow, context, answered) => {
+        const response = await commitUnit(uow, context, answered);
+        if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
+        return response;
+      }),
+    );
+  }
   if ((request.path.split('?')[0] ?? '') === '/api/batch') {
     if (request.method.toUpperCase() !== 'POST') return methodNotAllowed(request.method.toUpperCase(), ['POST']);
     return withWriteLock(() => runBatch(request, deps));
@@ -1107,7 +1127,11 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
     // a dry run: everything up to the commit, then nothing (§4.5)
     if (isDryRun(request.path) && isWriteMethod(request.method)) return dryRunAnswer(uow, answered);
     const response = await commitUnit(uow, request, answered);
-    if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
+    if (response.status < 400 && uow.changes.length > 0) {
+      await publishCatalog(deps);
+      // a settings save applies before its answer is sent (other processes follow the notification)
+      if ((request.path.split('?')[0] ?? '').startsWith('/api/settings/runtime/')) await deps.runtimeSettings?.refresh();
+    }
     return response;
   };
   return isWriteMethod(request.method) ? withWriteLock(run) : run();
@@ -1281,7 +1305,12 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     };
   }
 
-  if (head === 'docs' && id !== undefined) return await docRequest(method, parts.slice(2).join('/'), request.body, deps, request.headers?.['if-match']);
+  if (head === 'docs' && id !== undefined) {
+    // an owner-only settings group's document is shown to owners only, like its page
+    const docPath = parts.slice(2).join('/');
+    if (SETTING_GROUPS.some((g) => g.role === 'owner' && g.path === docPath) && !(user.role === undefined || user.role === 'owner')) return fail(403, `${docPath} is shown to owners.`);
+    return await docRequest(method, docPath, request.body, deps, request.headers?.['if-match']);
+  }
 
   if (head === 'export' && id === undefined) {
     if (method !== 'GET') return methodNotAllowed(method, ['GET']);
@@ -1327,7 +1356,10 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     return definitions;
   }
 
-  const settings = await handleSettingsRequest(method, parts, request.body, deps, ifMatch);
+  const runtime = await handleRuntimeSettingsRequest(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
+  if (runtime !== undefined) return runtime;
+
+  const settings = await handleSettingsRequest(method, parts, request.body, { ...deps, store: storeDepsOf(deps) }, ifMatch);
   if (settings !== undefined) return settings;
 
   const vocab = await handleVocabRequest(method, parts, request.body, deps, ifMatch);

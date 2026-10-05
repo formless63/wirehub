@@ -198,3 +198,75 @@ export const storeSourcesQuery = {
 /** The stores added here, as the PUT takes them. */
 export const userSourceInputs = (view: StoreSourcesView): StoreSourceInput[] =>
   view.sources.filter((s) => s.origin === 'user').map((s) => ({ url: s.url, publicKey: s.publicKey, ...(s.label === undefined ? {} : { label: s.label }), enabled: s.enabled }));
+
+/* ------------------------------------------------------------------ *
+ * Runtime settings: notifications, sign-in, integrations, jobs (`server/runtime-settings-api.ts`)
+ * ------------------------------------------------------------------ */
+
+export const runtimeSettingsKey = ['settings', 'runtime'] as const;
+
+export type RuntimeValue = string | number | boolean | string[];
+
+export interface RuntimeFieldView {
+  key: string;
+  /** the environment variable that sets it on the server (and wins) */
+  env: string;
+  label: string;
+  help: string;
+  kind: 'text' | 'multiline' | 'url' | 'bool' | 'int' | 'list' | 'enum' | 'cron' | 'window';
+  options?: string[];
+  min?: number;
+  max?: number;
+  placeholder?: string;
+  defaultText?: string;
+  /** `server`: set by the server's environment (read-only here); `settings`: saved here; `default`: neither */
+  source: 'server' | 'settings' | 'default';
+  value?: RuntimeValue;
+  /** a value saved here that the server's variable overrides */
+  saved?: RuntimeValue;
+  secret?: true;
+  /** a secret: whether one is set (never its value) */
+  set?: boolean;
+  /** a secret saved here that this server cannot decrypt */
+  unreadable?: true;
+  setAt?: string;
+}
+
+export interface RuntimeGroupView {
+  id: 'notifications' | 'sign-in' | 'integrations' | 'jobs';
+  title: string;
+  intro: string;
+  applies: string;
+  role: 'owner' | 'editor';
+  editable: boolean;
+  /** owner-only and you are not an owner: the values are not shown */
+  restricted?: true;
+  etag: string;
+  fields: RuntimeFieldView[];
+}
+
+export interface RuntimeSettingsView {
+  groups: RuntimeGroupView[];
+  secrets: { available: boolean; note?: string };
+  problems: string[];
+}
+
+export const fetchRuntimeSettings = (base = '/api'): Promise<Outcome<RuntimeSettingsView>> => request<RuntimeSettingsView>(`${base}/settings/runtime`, { method: 'GET' });
+
+/** Replace a group's values (a key left out is unset); secrets are set with `saveRuntimeSecret`. */
+export const saveRuntimeGroup = (group: string, values: Record<string, RuntimeValue>, etag: string, base = '/api'): Promise<Outcome<unknown>> =>
+  request<unknown>(`${base}/settings/runtime/${encodeURIComponent(group)}`, { method: 'PUT', body: { values }, headers: { 'if-match': etag } });
+
+/** Set a secret (write-only), or clear it with `undefined`. */
+export const saveRuntimeSecret = (key: string, value: string | undefined, base = '/api'): Promise<Outcome<{ key: string; set: boolean }>> =>
+  request<{ key: string; set: boolean }>(`${base}/settings/secrets/${encodeURIComponent(key)}`, value === undefined ? { method: 'DELETE' } : { method: 'PUT', body: { value } });
+
+export const runtimeSettingsQuery = {
+  queryKey: runtimeSettingsKey,
+  queryFn: async (): Promise<RuntimeSettingsView> => {
+    const out = await fetchRuntimeSettings();
+    if (!out.ok) throw new Error(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
+    return out.value;
+  },
+  retry: false,
+} as const;

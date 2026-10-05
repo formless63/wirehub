@@ -67,8 +67,8 @@ describe('choices', () => {
   });
 
   it('says what is missing', () => {
-    const { notes } = generate(templates, { postgres: { mode: 'external' }, s3: { mode: 'external' }, oidc: { enabled: true }, backups: { mode: 'repository' } });
-    expect(notes.filter((n) => n.level === 'error').length).toBe(4);
+    const { notes } = generate(templates, { postgres: { mode: 'external' }, s3: { mode: 'external' }, backups: { mode: 'repository' } });
+    expect(notes.filter((n) => n.level === 'error').length).toBe(3);
   });
 
   it('backups turn the profile on, with the repository and schedule', () => {
@@ -87,6 +87,8 @@ describe('choices', () => {
     const pdf = generate(templates, { pdf: { enabled: true } });
     expect(pdf.env).toContain('COMPOSE_PROFILES=pdf\n');
     expect(pdf.env).toContain(`WIREHUB_PDF_ENGINE_URL=${PDF_ENGINE_URL}\n`);
+    // a runtime setting: the .env says it can be set in the app instead
+    expect(pdf.env).toContain('can also be set later in Settings');
     expect(pdf.compose).toBe(repoCompose);
     expect(pdf.notes).toEqual([]);
     // the service the profile starts is the one the URL names
@@ -97,14 +99,15 @@ describe('choices', () => {
     expect(generate(templates, {}).env).not.toContain('WIREHUB_PDF_ENGINE_URL');
   });
 
-  it('address, image, modules and OIDC', () => {
+  it('address, image and modules; nothing the app sets in Settings', () => {
     const { env, notes } = generate(templates, {
       publicUrl: 'https://wirehub.example.com/',
       bind: '0.0.0.0',
       port: '8080',
       imageTag: '0.2.0',
       modules: ['networking', 'pc-serial'],
-      oidc: { enabled: true, issuer: 'https://id.example.com', clientId: 'wh', clientSecret: 's3cr3t', allowedEmails: 'a@example.com,b@example.com' },
+      // an option from an older page: sign-in methods are set in the app now
+      oidc: { enabled: true, issuer: 'https://id.example.com', clientId: 'wh', clientSecret: 's3cr3t' },
     });
     expect(env).toContain('WIREHUB_PUBLIC_URL=https://wirehub.example.com\n');
     expect(env).toContain('WIREHUB_BIND=0.0.0.0');
@@ -112,23 +115,34 @@ describe('choices', () => {
     expect(env).toContain(`WIREHUB_IMAGE=${defaultImage(templates.compose).replace(/:[^:]+$/, '')}:0.2.0`);
     // in the order setup lists them
     expect(env).toContain('WIREHUB_SUGGESTED_MODULES=pc-serial,networking');
-    expect(env).toContain('AUTH_ENABLED=true');
-    expect(env).toContain('AUTH_OIDC_ISSUER=https://id.example.com');
-    expect(notes.some((n) => n.text.includes('https://wirehub.example.com/api/auth/callback/oidc'))).toBe(true);
+    expect(env).not.toMatch(/AUTH_|WIREHUB_NOTIFY|WIREHUB_GIT_MIRROR|WIREHUB_CONVERT_WINDOW/);
+    expect(env).toContain('set in the app (Settings)');
+    expect(notes.some((n) => n.level === 'warn' && n.text.includes('every interface'))).toBe(true);
     // the release the page was built with needs no WIREHUB_IMAGE
     const pinned = defaultImage(templates.compose).split(':').pop();
     expect(generateEnv(templates, { imageTag: pinned }).text).not.toContain('WIREHUB_IMAGE');
   });
 
-  it('warns about an open port without sign-in', () => {
-    expect(generate(templates, { bind: '0.0.0.0' }).notes.some((n) => n.level === 'warn' && n.text.includes('sign-in off'))).toBe(true);
+  it('offers no runtime setting the compose file no longer passes to the app', () => {
+    // every variable the generator can write reaches a service of compose.yaml (or picks a profile / the image)
+    const { env } = generate(templates, { publicUrl: 'https://h.example', bind: '0.0.0.0', port: '8080', timezone: 'Europe/Berlin', modules: ['networking'], postgres: { mode: 'external', url: 'postgres://a:b@db/x' }, s3: { mode: 'external', endpoint: 'https://s3.example', region: 'r', bucket: 'b', accessKeyId: 'k', secretAccessKey: 's', backupAccessKeyId: 'bk', backupSecretAccessKey: 'bs' }, backups: { mode: 'repository', repository: 'rest:https://nas/x', password: 'p', awsAccessKeyId: 'a', awsSecretAccessKey: 's', schedule: '1 2 * * *', port: '9899', bind: '0.0.0.0' }, pdf: { enabled: true }, secrets: 'browser' }, counter());
+    const names = [...env.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((m) => m[1]);
+    const consumedByCompose = (name) => new RegExp(`\\$\\{${name}[:}]|^\\s+${name}:`, 'm').test(repoCompose);
+    const special = new Set(['COMPOSE_PROFILES', 'WIREHUB_PUBLIC_URL', 'WIREHUB_BIND', 'WIREHUB_PORT', 'WIREHUB_IMAGE']);
+    expect(names.length).toBeGreaterThan(15);
+    for (const name of names) expect(special.has(name) || consumedByCompose(name), name).toBe(true);
+  });
+
+  it('warns about an open port', () => {
+    expect(generate(templates, { bind: '0.0.0.0' }).notes.some((n) => n.level === 'warn' && n.text.includes('TLS reverse proxy'))).toBe(true);
   });
 });
 
 describe('secrets made in the browser', () => {
   it('are the ones the bootstrap service would make, in the same shapes', () => {
     const secrets = browserSecrets(DEFAULTS, counter());
-    expect(Object.keys(secrets)).toEqual(['POSTGRES_PASSWORD', 'BETTER_AUTH_SECRET', 'GARAGE_RPC_SECRET', 'GARAGE_ADMIN_TOKEN', 'WIREHUB_SETUP_CODE']);
+    expect(Object.keys(secrets)).toEqual(['POSTGRES_PASSWORD', 'BETTER_AUTH_SECRET', 'WIREHUB_SETTINGS_KEY', 'GARAGE_RPC_SECRET', 'GARAGE_ADMIN_TOKEN', 'WIREHUB_SETUP_CODE']);
+    expect(secrets.WIREHUB_SETTINGS_KEY).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(secrets.POSTGRES_PASSWORD).toMatch(/^[0-9a-f]{48}$/);
     expect(secrets.GARAGE_RPC_SECRET).toMatch(/^[0-9a-f]{64}$/);
     expect(secrets.BETTER_AUTH_SECRET).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -137,7 +151,7 @@ describe('secrets made in the browser', () => {
 
   it('leave out what your own services do not need, and add the repository password', () => {
     const secrets = browserSecrets({ postgres: { mode: 'external' }, s3: { mode: 'external' }, backups: { mode: 'local' } }, counter());
-    expect(Object.keys(secrets)).toEqual(['BETTER_AUTH_SECRET', 'WIREHUB_SETUP_CODE', 'BACKUP_REPOSITORY_PASSWORD']);
+    expect(Object.keys(secrets)).toEqual(['BETTER_AUTH_SECRET', 'WIREHUB_SETTINGS_KEY', 'WIREHUB_SETUP_CODE', 'BACKUP_REPOSITORY_PASSWORD']);
   });
 
   it('go into the .env only when asked for', () => {

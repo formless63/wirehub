@@ -40,7 +40,7 @@ import type { PgBoss } from 'pg-boss';
 import { remoteConvert } from '../jobs/convert.ts';
 import { stageImportInput } from '../jobs/import.ts';
 import { modelCacheTrigger } from '../jobs/model-cache.ts';
-import { notifierFromEnv } from '../notify.ts';
+import { liveNotifier, notifierFromEnv } from '../notify.ts';
 import { createJobService, inlineJobRunner } from '../jobs/service.ts';
 import { JOB_KINDS } from '../jobs/types.ts';
 import { moduleJobKinds } from '../jobs/module-queues.ts';
@@ -48,6 +48,7 @@ import { bossJobRunner, lastBeat, pgJobHandlers, pgJobStore, startBoss } from '.
 import { deliveredEventHub, type EventHub } from '../events.ts';
 import { blobObjectKey } from './keys.ts';
 import { SnapshotCache, type Snapshot } from './snapshot.ts';
+import type { RuntimeSettings } from '../runtime-settings.ts';
 import {
   pgAssetStore,
   pgBuildsStore,
@@ -196,6 +197,8 @@ export interface OpenPgOptions {
   depictionsDir?: string;
   listen?: boolean;
   setupCode?: string;
+  /** the live settings (`runtime-settings.ts`): the webhook, the git mirror and the job settings are read from them at each use */
+  runtimeSettings?: RuntimeSettings;
 }
 
 /**
@@ -221,6 +224,8 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     const deps = {} as WorkbenchDeps;
     const depictionDeps = {} as DepictionDeps;
     const events = deliveredEventHub();
+    // a settings save in any process reaches this one through the catalog's NOTIFY
+    const unfollow = options.runtimeSettings?.follow(events);
     let current: SnapshotCache | undefined;
     let boss: Promise<PgBoss> | undefined;
     let closing = false;
@@ -241,7 +246,8 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       // jobs (Phase C): recorded in job_run; run by the worker through pg-boss, or here
       const store = pgJobStore(handle.db, id);
       const jobMode = options.jobs ?? (env.WIREHUB_WORKER === 'off' ? 'inline' : 'worker');
-      const notify = notifierFromEnv(env);
+      const liveEnv = (): Record<string, string | undefined> => ({ ...(options.runtimeSettings?.env() ?? env) });
+      const notify = options.runtimeSettings === undefined ? notifierFromEnv(env) : liveNotifier(() => options.runtimeSettings!.env());
       const runner =
         jobMode === 'worker'
           ? bossJobRunner(() => {
@@ -249,8 +255,9 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
               if (closing) return Promise.reject(new Error('the studio is shutting down'));
               return (boss ??= startBoss(config.url, 'studio', undefined, moduleJobKinds(real.modules)));
             }, () => id)
-          : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, notify }));
-      const kinds = [...JOB_KINDS.filter((k) => (k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)) && (k !== 'git-mirror' || gitMirrorConfigFromEnv(env) !== undefined)), ...moduleJobKinds(real.modules)];
+          : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, liveEnv, notify }));
+      // git-mirror is always a kind: it may be set up in Settings at any time (a run without one skips)
+      const kinds = [...JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)), ...moduleJobKinds(real.modules)];
       real.jobs = createJobService({
         store,
         runner,
@@ -258,18 +265,31 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
         ...(jobMode === 'worker' ? { worker: () => lastBeat(handle.db, id) } : {}),
         stageInput: async (bytes) => ({ ...(await stageImportInput(bytes, options.blobs, id)) }),
       });
-      // with no worker the cron has no owner: the git mirror runs on a timer here (cs-5k1.26)
-      const mirror = gitMirrorConfigFromEnv(env);
-      if (jobMode === 'inline' && mirror !== undefined && options.mirrorTimer !== false) {
-        const every = options.mirrorEveryMs ?? mirrorIntervalMs(mirror.cron);
+      // with no worker the cron has no owner: the git mirror runs on a timer here (cs-5k1.26). The
+      // timer looks every minute (or `mirrorEveryMs`) and runs the mirror when it is configured and its
+      // schedule's interval has passed, so a mirror set up or rescheduled in Settings needs no restart
+      if (jobMode === 'inline' && options.mirrorTimer !== false) {
+        const mirrorNow = (): ReturnType<typeof gitMirrorConfigFromEnv> => {
+          try {
+            return gitMirrorConfigFromEnv(liveEnv());
+          } catch {
+            return undefined;
+          }
+        };
         let last: string | undefined;
+        let lastAt = -Infinity;
         const tick = async (): Promise<void> => {
           if (closing) return;
+          const mirror = mirrorNow();
+          if (mirror === undefined) return;
+          const every = options.mirrorEveryMs ?? mirrorIntervalMs(mirror.cron);
+          if (Date.now() - lastAt < every - 1000) return;
           const before = last === undefined ? undefined : await store.get(last);
           if (before !== undefined && (before.status === 'queued' || before.status === 'running')) return;
+          lastAt = Date.now();
           last = (await real.jobs!.enqueue('git-mirror', { reason: 'schedule' })).id;
         };
-        const timer = setInterval(() => void tick().catch((error: unknown) => console.warn(`[git-mirror] ${error instanceof Error ? error.message : String(error)}`)), every);
+        const timer = setInterval(() => void tick().catch((error: unknown) => console.warn(`[git-mirror] ${error instanceof Error ? error.message : String(error)}`)), Math.min(options.mirrorEveryMs ?? 60_000, 60_000));
         timer.unref?.();
         timers.push(timer);
         void tick().catch(() => undefined);
@@ -308,11 +328,14 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       }
       // the host may have set what the browser shows about the instance: it stays
       const instance = deps.instance;
+      const kept = { ...(instance === undefined ? {} : { instance }), ...(deps.runtimeSettings === undefined ? {} : { runtimeSettings: deps.runtimeSettings }), ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }), ...(deps.pdfEngine === undefined ? {} : { pdfEngine: deps.pdfEngine }) };
       for (const key of Object.keys(deps)) delete (deps as unknown as Record<string, unknown>)[key];
-      Object.assign(deps, real, instance === undefined ? {} : { instance });
+      Object.assign(deps, real, kept);
       Object.assign(depictionDeps, { store: real.depictions as DepictionStore, loadDb: real.loadDb, loadDesigns: async () => (await cache.get()).catalog.loadDesigns() });
       current = cache;
       orgId = id;
+      // the org's saved settings and secrets now exist to be read
+      void options.runtimeSettings?.refresh().catch((error: unknown) => console.warn(`[settings] ${error instanceof Error ? error.message : String(error)}`));
     };
 
     if (orgId !== undefined) await activate(orgId);
@@ -348,6 +371,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       },
       close: async () => {
         closing = true;
+        unfollow?.();
         for (const timer of timers) clearInterval(timer);
         if (boss !== undefined) await (await boss.catch(() => undefined))?.stop({ graceful: false }).catch(() => undefined);
         for (const cache of caches) await cache.close();

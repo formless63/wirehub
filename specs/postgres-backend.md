@@ -1,12 +1,17 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.7 (rev 6 was the first revision in the open base). **Phases A
+Status: **plan**, rev 6.8 (rev 6 was the first revision in the open base). **Phases A
 (schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
 C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.8** — Runtime settings (cs-gm8, `specs/runtime-settings.md`). Migration **0019**:
+  `studio.settings_secret` — the secrets an owner enters in Settings (SMTP password, OIDC
+  client secret, webhook URL and token, git mirror credentials), AES-256-GCM ciphertext under
+  the install's `WIREHUB_SETTINGS_KEY`, org-scoped under RLS, no audit trigger. Not a catalog
+  table: the change history, the export and the git mirror never read it.
 - **rev 6.7** — Release approvals (cs-5k1.11). Migration **0018**: the locked-revision guard
   also allows an approval step (`approval` set, one `submit`/`approve`/`reject` history entry
   appended, nothing else changed). No new tables: the approval is part of the version file.
@@ -1406,6 +1411,30 @@ BEGIN
 END $$;
 ```
 
+Runtime settings (cs-gm8) keep what an owner enters as a secret in Settings apart from the
+catalog: its settings document records only *when* it was set (`specs/runtime-settings.md` §4):
+
+```sql ddl
+-- 0019_settings_secrets — secrets entered in Settings, encrypted (specs/runtime-settings.md §4)
+-- One row per secret an owner entered in Settings (the SMTP password, the OIDC
+-- client secret, the alert webhook's URL and token, the git mirror's token and
+-- key): AES-256-GCM ciphertext under the install's key (WIREHUB_SETTINGS_KEY),
+-- never plain text. Not a catalog table: no change set, export or git mirror
+-- reads it, and it has no audit trigger (the settings document records when a
+-- secret was set, in the change history, and never what).
+CREATE TABLE studio.settings_secret (
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  name        text NOT NULL CHECK (name ~ '^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$'),
+  ciphertext  text NOT NULL CHECK (ciphertext LIKE 'v1.%' AND length(ciphertext) <= 32768),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, name)
+);
+ALTER TABLE studio.settings_secret ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.settings_secret FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.settings_secret USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+GRANT SELECT, INSERT, UPDATE, DELETE ON studio.settings_secret TO studio_app;
+```
+
 ---
 
 ## 4. PgStore
@@ -1937,6 +1966,11 @@ Nothing is required; `.env` (or a Docker UI's environment box) overrides what it
 | `WIREHUB_STEP_RSS_LIMIT_MB` | 1400; 1280 in the compose worker | the STEP child's watchdog |
 | `WIREHUB_MODEL_SOURCES` | — | the folder imported models are rebuilt from (mounted into the worker) |
 | `WIREHUB_BACKUP_DIR` | `/backups` in the compose worker | the backup profile's volume, read-only (§5.4, §8.4) |
+
+Since rev 6.8 the runtime ones among these — the sign-in methods and allowed emails, the
+webhook, the build window, the git mirror's remote — are set in the app (Settings) and only
+pinned by their variable; the default `compose.yaml` passes the install-level ones only
+(`specs/runtime-settings.md`, `docs/self-hosting.md` "What lives where").
 
 ### 8.3 Health checks
 

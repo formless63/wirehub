@@ -42,11 +42,13 @@ Open <http://localhost:5183/setup> and enter the setup code. In a Docker UI
 as a stack, deploy, and read the code from the `wirehub` container's logs.
 
 On first start a one-shot `bootstrap` service generates every secret the stack
-needs into a `secrets` volume and keeps it there. Anything optional — the
+needs into a `secrets` volume and keeps it there. The few install choices — the
 public URL, ports, backups (`COMPOSE_PROFILES=backup`), your own PostgreSQL or
-S3, OIDC sign-in — goes in an optional `.env`;
+S3 — go in an optional `.env`;
 [`.env.example`](https://raw.githubusercontent.com/formless63/wirehub/main/.env.example)
-explains every variable.
+explains each. Everything else — single sign-on, magic links, allowed emails,
+alerts, the git mirror, job settings — is set in the app under **Settings** and
+applies without a redeploy.
 
 **Config generator: <https://formless63.github.io/wirehub/>** — pick your
 options and get a ready `compose.yaml` and `.env`. It runs entirely in your

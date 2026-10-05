@@ -42,7 +42,8 @@ import pg from 'pg';
 import { requestOrigin } from '../env.ts';
 import type { AuthProviderContribution } from '@wirehub/modules';
 
-import { readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
+import { AuthConfigError, authRequested, readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
+import { tokenLimits, type RuntimeSettings } from '../runtime-settings.ts';
 import { resolveModuleProviders, type ModuleOAuthProvider } from './module-providers.ts';
 import type { PeopleStore, Role } from './people.ts';
 import type { Notifier } from '../notify.ts';
@@ -86,6 +87,8 @@ export interface StudioAuth {
   tokenEnv?: TokenEnv;
   /** the token request budgets (§4.5) */
   limiter?: RateLimiter;
+  /** the budgets themselves, from the live settings (`WIREHUB_TOKEN_*`); absent: the built-in ones */
+  limits?: () => { read: readonly { count: number; ms: number }[]; write: readonly { count: number; ms: number }[] };
   /** monitoring events (§8.6): token created, refused tokens; absent → none sent */
   notifier?: Notifier;
   /** first-run setup's admin: an email + password account (the person exists already) */
@@ -105,6 +108,8 @@ export interface StudioAuthOverrides {
   mailTransport?: MailTransport;
   /** default: `<dataDir>/auth.sqlite` */
   database?: DatabaseSync;
+  /** a connection already open (the live sign-in's rebuilds share one; `liveStudioAuth`); not closed by `close()` */
+  sharedDatabase?: BetterAuthOptions['database'];
   /** tests route the IdP's userinfo call through here; default global fetch */
   fetch?: typeof fetch;
   /**
@@ -122,7 +127,7 @@ export interface StudioAuthOverrides {
 function forbidden(email: string): APIError {
   return new APIError('FORBIDDEN', {
     code: EMAIL_NOT_ALLOWED,
-    message: `${email} is not allowed to use this hub. Ask an administrator to add it to AUTH_ALLOWED_EMAILS.`,
+    message: `${email} is not allowed to use this hub. Ask an owner to invite it, or to add it to the allowed emails (Settings, Sign-in & accounts).`,
   });
 }
 
@@ -200,6 +205,7 @@ function oauth2UserInfo(provider: ModuleOAuthProvider, fetchImpl: typeof fetch) 
 
 /** Better Auth's options for a config — exported so a test can ask `getMigrations` what it would change. */
 export function authDatabaseOf(overrides: StudioAuthOverrides, config: AuthConfigEnabled): BetterAuthOptions['database'] {
+  if (overrides.sharedDatabase !== undefined) return overrides.sharedDatabase;
   if (overrides.pg !== undefined) {
     // the auth schema of the app's own database, as studio_app
     const pool = new pg.Pool({ connectionString: overrides.pg.url, max: 4, options: '-c search_path=auth', application_name: 'wirehub-auth' });
@@ -353,7 +359,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
     isAllowed,
     ...(overrides.pg?.tokens === undefined ? {} : { tokens: overrides.pg.tokens, tokenEnv: overrides.pg.tokenEnv ?? 'dev', limiter: overrides.pg.limiter ?? new RateLimiter() }),
     close: async () => {
-      if (database instanceof pg.Pool) await database.end();
+      if (database instanceof pg.Pool && overrides.sharedDatabase === undefined) await database.end();
     },
     ...(overrides.pg?.notifier === undefined ? {} : { notifier: overrides.pg.notifier }),
     ...(overrides.pg?.setupMode === undefined ? {} : { setupMode: overrides.pg.setupMode }),
@@ -402,4 +408,122 @@ export async function studioAuthFromEnv(env: Readonly<Record<string, string | un
   const config = readAuthConfig(env, { moduleProviders: overrides.providers?.length ?? 0 });
   if (!config.enabled) return undefined;
   return createStudioAuth(config, overrides);
+}
+
+
+/** What a live sign-in also answers: the reason the sign-in saved in Settings is not in use, if it is not. */
+export interface LiveStudioAuth extends StudioAuth {
+  /** the sentence a person reads in Settings, or `undefined` when the saved sign-in is the one in use */
+  problem(): string | undefined;
+  /** resolves once the sign-in reflects the settings as they are now */
+  settled(): Promise<void>;
+}
+
+/**
+ * The sign-in, following the runtime settings (`runtime-settings.ts`): the
+ * methods (OIDC, magic link, email + password), the allowed emails and the
+ * token budgets come from the environment, else from Settings, and a change
+ * saved there rebuilds the sign-in in this process — no restart. Sessions
+ * live in the database, so everyone stays signed in across a rebuild.
+ *
+ * Whether sign-in is on at all (`AUTH_ENABLED`), its secret and its public
+ * address stay install settings: `undefined` when the server has it off. A
+ * configuration saved in Settings that does not hold (it cannot be saved, but
+ * a key the server can no longer decrypt makes one) leaves the last working
+ * sign-in in place and says why (`problem`).
+ */
+export async function liveStudioAuth(settings: RuntimeSettings, overrides: StudioAuthOverrides = {}, log: (line: string) => void = (line) => console.warn(line)): Promise<LiveStudioAuth | undefined> {
+  if (!authRequested(settings.base)) return undefined;
+  // one rate limiter for every rebuild: a reload must not reset the budgets
+  if (overrides.pg !== undefined && overrides.pg.tokens !== undefined && overrides.pg.limiter === undefined) overrides = { ...overrides, pg: { ...overrides.pg, limiter: new RateLimiter() } };
+  const moduleProviders = overrides.providers?.length ?? 0;
+  const configOf = (env: Readonly<Record<string, string | undefined>>): AuthConfigEnabled => readAuthConfig(env, { moduleProviders }) as AuthConfigEnabled;
+  let problem: string | undefined;
+  let config: AuthConfigEnabled;
+  try {
+    config = configOf(settings.env());
+  } catch (error) {
+    if (!(error instanceof AuthConfigError)) throw error;
+    problem = `The sign-in saved in Settings cannot be used (${error.message}); the server's own settings apply.`;
+    log(`[auth] ${problem}`);
+    // the server's own configuration: a problem there stops the start, as it always has
+    config = configOf(settings.base);
+  }
+  const database = authDatabaseOf(overrides, config);
+  const build = (next: AuthConfigEnabled): Promise<StudioAuth> => createStudioAuth(next, { ...overrides, sharedDatabase: database });
+  let inner = await build(config);
+  let signature = JSON.stringify(config);
+  const reload = async (): Promise<void> => {
+    let next: AuthConfigEnabled;
+    try {
+      next = configOf(settings.env());
+    } catch (error) {
+      problem = `The sign-in saved in Settings cannot be used (${error instanceof Error ? error.message : String(error)}); the previous sign-in stays in use.`;
+      log(`[auth] ${problem}`);
+      return;
+    }
+    const nextSignature = JSON.stringify(next);
+    if (nextSignature === signature) {
+      problem = undefined;
+      return;
+    }
+    try {
+      inner = await build(next);
+      signature = nextSignature;
+      problem = undefined;
+      const methods = [next.localAccounts ? 'email + password' : '', next.oidc === undefined ? '' : next.oidc.name, next.smtp === undefined ? '' : 'magic link'].filter((m) => m !== '').join(' + ');
+      log(`[auth] sign-in reloaded from the settings: ${methods || 'module sign-in only'}; ${next.allowedEmails.size} allowed email(s)`);
+    } catch (error) {
+      problem = `The sign-in could not be rebuilt (${error instanceof Error ? error.message : String(error)}); the previous sign-in stays in use.`;
+      log(`[auth] ${problem}`);
+    }
+  };
+  let chain: Promise<void> = Promise.resolve();
+  settings.onChange(() => {
+    chain = chain.then(reload, reload);
+  });
+  return {
+    get config() {
+      return inner.config;
+    },
+    handler: (request) => inner.handler(request),
+    sessionUser: (headers) => inner.sessionUser(headers),
+    get providers() {
+      return inner.providers;
+    },
+    isAllowed: (email) => inner.isAllowed(email),
+    get people() {
+      return inner.people;
+    },
+    get tokens() {
+      return inner.tokens;
+    },
+    get tokenEnv() {
+      return inner.tokenEnv;
+    },
+    get limiter() {
+      return inner.limiter;
+    },
+    limits: () => tokenLimits(settings.env()),
+    get notifier() {
+      return inner.notifier;
+    },
+    get createAccount() {
+      return inner.createAccount;
+    },
+    get setupMode() {
+      return inner.setupMode;
+    },
+    get acceptInvitation() {
+      return inner.acceptInvitation;
+    },
+    close: async () => {
+      if (database instanceof pg.Pool) await database.end();
+    },
+    recordSave: (record) => inner.recordSave(record),
+    problem: () => problem,
+    settled: async () => {
+      await chain;
+    },
+  };
 }

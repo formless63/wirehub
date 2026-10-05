@@ -34,6 +34,8 @@ export interface Notifier {
 
 export interface NotifierOptions {
   url?: string;
+  /** sent as `Authorization: Bearer …` (an ntfy access token) */
+  token?: string;
   format?: NotifyFormat;
   fetch?: typeof fetch;
   /** the instance, added to every payload */
@@ -79,6 +81,7 @@ export function createNotifier(options: NotifierOptions = {}): Notifier {
       if (url === '') return;
       const at = now().toISOString();
       const headers: Record<string, string> = {};
+      if ((options.token ?? '').trim() !== '') headers.authorization = `Bearer ${(options.token as string).trim()}`;
       let body: string;
       if (format === 'ntfy') {
         headers['content-type'] = 'text/plain; charset=utf-8';
@@ -104,13 +107,15 @@ export function createNotifier(options: NotifierOptions = {}): Notifier {
   };
 }
 
-/** The notifier the environment asks for: `WIREHUB_NOTIFY_URL`, `WIREHUB_NOTIFY_FORMAT`. */
+/** The notifier the environment asks for: `WIREHUB_NOTIFY_URL`, `WIREHUB_NOTIFY_FORMAT`, `WIREHUB_NOTIFY_TOKEN`. */
 export function notifierFromEnv(env: Readonly<Record<string, string | undefined>>, extra: Pick<NotifierOptions, 'fetch' | 'log' | 'now'> = {}): Notifier {
   const url = (env.WIREHUB_NOTIFY_URL ?? '').trim();
   if (url !== '' && !/^https?:\/\//.test(url)) throw new Error('WIREHUB_NOTIFY_URL must be an http(s) URL.');
+  const token = (env.WIREHUB_NOTIFY_TOKEN ?? '').trim();
   return createNotifier({
     ...extra,
     url,
+    ...(token === '' ? {} : { token }),
     format: notifyFormatOf(env.WIREHUB_NOTIFY_FORMAT),
     ...(env.WIREHUB_ENV === undefined || env.WIREHUB_ENV === '' ? {} : { env: env.WIREHUB_ENV }),
     ...(env.WIREHUB_VERSION === undefined || env.WIREHUB_VERSION === '' ? {} : { version: env.WIREHUB_VERSION }),
@@ -120,11 +125,44 @@ export function notifierFromEnv(env: Readonly<Record<string, string | undefined>
 /** Every call is logged and dropped. */
 export const NO_NOTIFIER: Notifier = createNotifier();
 
+/**
+ * The notifier the live settings ask for (`runtime-settings.ts`): rebuilt when
+ * the webhook, its format or its token change in Settings — no restart. A value
+ * the server would refuse (it cannot be saved in Settings, but the environment
+ * may hold one) logs once and sends nothing.
+ */
+export function liveNotifier(env: () => Readonly<Record<string, string | undefined>>, extra: Pick<NotifierOptions, 'fetch' | 'log' | 'now'> = {}): Notifier {
+  let key: string | undefined;
+  let current: Notifier = NO_NOTIFIER;
+  const now = (): Notifier => {
+    const e = env();
+    const next = JSON.stringify([e.WIREHUB_NOTIFY_URL, e.WIREHUB_NOTIFY_FORMAT, e.WIREHUB_NOTIFY_TOKEN, e.WIREHUB_ENV, e.WIREHUB_VERSION]);
+    if (next !== key) {
+      key = next;
+      try {
+        current = notifierFromEnv(e, extra);
+      } catch (error) {
+        (extra.log ?? ((line: string) => console.warn(line)))(`[notify] ${error instanceof Error ? error.message : String(error)} Alerts are logged only.`);
+        current = createNotifier({ ...extra });
+      }
+    }
+    return current;
+  };
+  return {
+    get enabled() {
+      return now().enabled;
+    },
+    notify: (event) => now().notify(event),
+  };
+}
+
 /** Send an event at most once per `ms` per key (a monitor that polls must not repeat itself). */
 export function throttled(notifier: Notifier, ms: number, clock: () => number = Date.now): Notifier {
   const last = new Map<string, number>();
   return {
-    enabled: notifier.enabled,
+    get enabled() {
+      return notifier.enabled;
+    },
     async notify(event) {
       const key = event.event;
       const at = clock();

@@ -208,6 +208,14 @@ pnpm --filter studio render de9-crossover build-sheet --format pdf --rev latest 
 curl -H "authorization: Bearer $WIREHUB_API_TOKEN" "$WIREHUB_API_URL/api/designs/de9-crossover/documents/schematic?format=pdf" -o schematic.pdf
 ```
 
+**Most of these are set in the app.** The sign-in methods (OIDC, magic link, email +
+password), the allowed emails and the API token budgets are under **Settings > Sign-in &
+accounts** (owners), and a change there rebuilds the sign-in in the running server, with
+everyone staying signed in (`specs/runtime-settings.md`). Each variable below still works
+and, when set, wins: Settings then shows it as "set by the server". `AUTH_ENABLED`,
+`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `AUTH_DATA_DIR` are install settings and stay
+in the environment.
+
 | Variable | Default | |
 |---|---|---|
 | `AUTH_ENABLED` | `false` | `true` turns the login on |

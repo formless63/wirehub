@@ -181,7 +181,7 @@ versions and revoked keys (`docs/catalog-store.md`, "As built (phase 5)").
    `wirehub-store.pub`", which is trust on first use). The page shows the store's name, publishers, pack
    count and the key fingerprint; tell people the fingerprint through another channel
    (`node scripts/store-index.mjs pubkey --key ...` prints the key) so they can compare. A deployment
-   can lock sources to `WIREHUB_STORE_INDEXES` with `WIREHUB_STORE_ALLOW_USER_SOURCES=false`.
+   can lock sources to `WIREHUB_STORE_INDEXES` (Settings > Integrations, or `WIREHUB_STORE_ALLOW_USER_SOURCES=false`).
 
    To sign the packs as their publisher (hubs then verify it on top of the index), name the publisher
    in the manifest (`"publisher": { "id", "name" }`), make a publisher key once, sign the pack after

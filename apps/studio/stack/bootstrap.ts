@@ -13,6 +13,8 @@
  *   database_url         studio_app's connection (the app, `DATABASE_URL_FILE`)
  *   database_ro_url      studio_ro's connection
  *   better_auth_secret   the sign-in session secret (`BETTER_AUTH_SECRET_FILE`)
+ *   settings_key         encrypts the secrets entered in Settings (`WIREHUB_SETTINGS_KEY_FILE`;
+ *                        `specs/runtime-settings.md`): an SMTP password, a webhook URL …
  *   garage_rpc_secret    Garage's RPC secret
  *   garage_admin_token   Garage's admin API token (garage-init uses it)
  *   setup_code           the one-time first-run setup code (`WIREHUB_SETUP_CODE_FILE`)
@@ -25,7 +27,7 @@
  * The S3 keys are not generated here: Garage creates them, and `garage-init`
  * writes them into the same volume. Values set explicitly (`POSTGRES_PASSWORD`,
  * `WIREHUB_OWNER_PASSWORD`, `WIREHUB_APP_PASSWORD`, `WIREHUB_RO_PASSWORD`,
- * `DATABASE_ADMIN_URL`, `DATABASE_OWNER_URL`, `DATABASE_URL`, `BETTER_AUTH_SECRET`,
+ * `DATABASE_ADMIN_URL`, `DATABASE_OWNER_URL`, `DATABASE_URL`, `BETTER_AUTH_SECRET`, `WIREHUB_SETTINGS_KEY`,
  * `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `WIREHUB_SETUP_CODE`, or their
  * `_FILE` forms) win over generated ones.
  *
@@ -104,6 +106,8 @@ export function bootstrap(env: Env): Record<string, SecretSource | 'derived' | '
   url('database_url', 'DATABASE_URL', () => withCredentials(adminUrl, 'studio_app', app));
   url('database_ro_url', 'DATABASE_RO_URL', () => withCredentials(adminUrl, 'studio_ro', ro));
   secret('better_auth_secret', 'BETTER_AUTH_SECRET', () => base64url(32));
+  // generated on the first start after an upgrade too: an existing hub gains it without a step
+  secret('settings_key', 'WIREHUB_SETTINGS_KEY', () => base64url(32));
   secret('garage_rpc_secret', 'GARAGE_RPC_SECRET', () => hex(32));
   secret('garage_admin_token', 'GARAGE_ADMIN_TOKEN', () => base64url(32));
   secret('setup_code', 'WIREHUB_SETUP_CODE', setupCode);

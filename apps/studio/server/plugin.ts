@@ -29,6 +29,7 @@ import { editLockLayer, type EditLockDeps } from './locks/lock-api.ts';
 import { LOCK_HEADER } from '../src/locks/records.ts';
 
 import { isModelPath, MAX_MODEL_REQUEST_BYTES } from './models/api.ts';
+import { runtimeEnv } from './runtime-settings.ts';
 import { importUploadLimit, importUploadRefusal, isImportPath, startImportUpload } from './jobs/api.ts';
 import { parseModuleIoPath } from './module-io.ts';
 import { legacyEnvWarning } from './env.ts';
@@ -128,7 +129,7 @@ async function handleImportUpload(
       });
       return;
     }
-    const limit = importUploadLimit();
+    const limit = importUploadLimit(runtimeEnv(deps));
     const bytes = await readBytes(req, limit);
     if (bytes === undefined) {
       const refusal = tooLargeRefusal(limit);

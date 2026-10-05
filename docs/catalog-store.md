@@ -369,7 +369,8 @@ down or fails verification is named and left out without hiding the others.
   its state (signed, not signed yet, or not enabled on this server). The ones added in the app are
   the org settings document `data/settings/stores.json` (`{ sources: [{ url, publicKey, label?, enabled }] }`),
   written with `If-Match` like the other settings, on files and Postgres. The two merge; on the same
-  URL the deployment's entry wins. `WIREHUB_STORE_ALLOW_USER_SOURCES=false` ignores the document
+  URL the deployment's entry wins. Turning off "owners and editors may add stores" (Settings > Integrations, or
+  `WIREHUB_STORE_ALLOW_USER_SOURCES=false` on the server) ignores the document
   and refuses edits (default true).
 - **Adding one.** A URL (https only) and the store's minisign public key. "Fetch key from the
   store's `wirehub-store.pub`" fills it in from beside the index; that is trust on first use (the
@@ -431,7 +432,7 @@ nothing written). The install records where the pack came from in `packs.json`
 
 - **Review status** is listed per version (`releases[].review`, and on the offered `latest`) and
   shown in Browse store and the install preview, as the index publisher states it.
-  `WIREHUB_STORE_HIDE_UNREVIEWED=true` (default off) lists and installs only versions marked
+  "Reviewed versions only" (Settings > Integrations, or `WIREHUB_STORE_HIDE_UNREVIEWED=true`; default off) lists and installs only versions marked
   `reviewed` or `flagged`; a pack with none is left out (`hidden` counts them).
 - **Yanked versions** are listed with their reason and never offered: the offered version is the
   newest that is not yanked (an `unavailable` action when every version is). Installing a yanked

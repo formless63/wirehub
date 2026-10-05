@@ -53,6 +53,10 @@ import { modelCacheTrigger } from './jobs/model-cache.ts';
 import { createJobService, inlineJobRunner, memoryJobStore } from './jobs/service.ts';
 import { testDefaultsFromEnv } from './documents.ts';
 import { pdfEngineFromEnv } from './render/browser-pdf.ts';
+import { DEFAULT_AUTH_DATA_DIR } from './auth/config.ts';
+import { createRuntimeSettings, type RuntimeSettings } from './runtime-settings.ts';
+import { fileSecretStore, settingsCipher, settingsKeyFromEnv, type SecretStore } from './settings-secrets.ts';
+import type { Env } from './env.ts';
 
 /** A catalog data file, parsed; `undefined` when it is not there. */
 function rawJson(relative: string): unknown {
@@ -66,6 +70,32 @@ export interface DefaultDepsOptions {
   blobs?: BlobStore;
   /** the first-run setup code (`WIREHUB_SETUP_CODE`, or one `serve.ts` made up); absent: none asked */
   setupCode?: string;
+  /** the environment the runtime settings lie under (default `process.env`) */
+  env?: Env;
+}
+
+/** The install key's cipher, or `undefined` (with one log line) when there is none or it is unusable. */
+export function settingsCipherFromEnv(env: Env, log: (line: string) => void = (line) => console.warn(line)): ReturnType<typeof settingsCipher> | undefined {
+  try {
+    const key = settingsKeyFromEnv(env);
+    return key === undefined ? undefined : settingsCipher(key);
+  } catch (error) {
+    log(`[settings] ${error instanceof Error ? error.message : String(error)} Secrets cannot be saved in Settings.`);
+    return undefined;
+  }
+}
+
+/** Where the file backend keeps the secrets entered in Settings: beside the sign-in data, never in the catalog. */
+export function fileSecretsPath(env: Env): string {
+  return `${(env['AUTH_DATA_DIR'] ?? '').trim() || DEFAULT_AUTH_DATA_DIR}/settings-secrets.json`;
+}
+
+/** The file backend's runtime settings: the catalog's settings documents, the secrets file, refreshed on every commit. */
+export function fileRuntimeSettings(deps: WorkbenchDeps, env: Env, secrets: SecretStore = fileSecretStore(fileSecretsPath(env))): RuntimeSettings {
+  const cipher = settingsCipherFromEnv(env);
+  const settings = createRuntimeSettings({ env, docs: () => deps.docs, secrets: () => secrets, org: () => 'files', ...(cipher === undefined ? {} : { cipher }) });
+  settings.follow(deps.events);
+  return settings;
 }
 
 const DEPICTION_MEDIA: Readonly<Record<string, string>> = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
@@ -174,10 +204,13 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
   const jobStore = memoryJobStore();
   deps.jobs = createJobService({
     store: jobStore,
-    runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps) })),
+    runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, liveEnv: () => deps.runtimeSettings?.env() ?? process.env, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps) })),
     kinds: ['import', 'model-cache', ...moduleJobKinds(deps.modules)],
   });
   deps.afterCommit = modelCacheTrigger(() => deps.jobs);
+  // what Settings changes without a restart (runtime-settings.ts), over this environment
+  deps.runtimeSettings = fileRuntimeSettings(deps, options.env ?? process.env);
+  void deps.runtimeSettings.refresh().catch((error: unknown) => console.warn(`[settings] ${error instanceof Error ? error.message : String(error)}`));
   return deps;
 }
 
@@ -195,27 +228,48 @@ export async function workbenchDepsFromEnv(
   depictionDeps: DepictionDeps;
   describe: string;
   close: () => Promise<void>;
+  /** the runtime settings the deps read (`runtime-settings.ts`) */
+  settings: RuntimeSettings;
   pg?: { db: import('./pg/db.ts').Db; orgId: () => string | undefined; setupMode: () => boolean; url: string; attachAuth: (auth: import('./auth/studio-auth.ts').StudioAuth | undefined) => void };
 }> {
   const backend = backendFromEnv(env);
   const testDefaults = testDefaultsFromEnv(env);
-  const pdfEngine = pdfEngineFromEnv(env);
+  // a value the environment sets that the server would refuse stops the start, as before; the engine
+  // itself is read from the live settings at each print (`pdfEngineOf`), so Settings can name one
+  pdfEngineFromEnv(env);
   if (backend === 'files') {
-    const deps = defaultWorkbenchDeps(options);
+    const deps = defaultWorkbenchDeps({ ...options, env });
     if (testDefaults !== undefined) deps.testDefaults = testDefaults;
-    if (pdfEngine !== undefined) deps.pdfEngine = pdfEngine;
-    return { backend, deps, depictionDeps: defaultDepictionDeps(), describe: 'files (packages/catalog/data)', close: async () => {} };
+    await deps.runtimeSettings?.refresh();
+    return { backend, deps, depictionDeps: defaultDepictionDeps(), describe: 'files (packages/catalog/data)', close: async () => {}, settings: deps.runtimeSettings as RuntimeSettings };
   }
   const { openPgBackend } = await import('./pg/deps.ts');
-  const pg = await openPgBackend(env, { ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.setupCode === undefined ? {} : { setupCode: options.setupCode }) });
+  const { pgSecretStore } = await import('./pg/settings-secrets.ts');
+  // the settings read the org's documents and secrets once there is an org (after first-run setup)
+  let opened: Awaited<ReturnType<typeof openPgBackend>> | undefined;
+  const cipher = settingsCipherFromEnv(env);
+  const settings = createRuntimeSettings({
+    env,
+    docs: () => opened?.deps.docs,
+    secrets: () => {
+      const id = opened?.orgId();
+      return opened === undefined || id === undefined || opened.setupMode() ? undefined : pgSecretStore(opened.handle.db, id);
+    },
+    org: () => opened?.orgId() ?? 'none',
+    ...(cipher === undefined ? {} : { cipher }),
+  });
+  const pg = await openPgBackend(env, { ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.setupCode === undefined ? {} : { setupCode: options.setupCode }), runtimeSettings: settings });
+  opened = pg;
+  pg.deps.runtimeSettings = settings;
+  await settings.refresh();
   if (testDefaults !== undefined) pg.deps.testDefaults = testDefaults;
-  if (pdfEngine !== undefined) pg.deps.pdfEngine = pdfEngine;
   return {
     backend,
     deps: pg.deps,
     depictionDeps: pg.depictionDeps,
     describe: pg.setupMode() ? 'pg (no organisation yet: first-run setup creates it)' : `pg (org ${pg.orgId()}, catalog version ${pg.cache.peek()?.version ?? '?'})`,
     close: pg.close,
+    settings,
     pg: { db: pg.handle.db, orgId: pg.orgId, setupMode: pg.setupMode, url: (env.DATABASE_URL ?? '').trim(), attachAuth: pg.attachAuth },
   };
 }
