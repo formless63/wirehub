@@ -17,8 +17,7 @@
           "type": "generic",
           "path": ".env.example"
         }
-      ],
-      "release-as": "0.1.0"
+      ]
     }
   }
 }
