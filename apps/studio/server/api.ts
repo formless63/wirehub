@@ -55,6 +55,7 @@ import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
 import { isDocPath, type DocStore } from './storage/doc-store.ts';
+import { parseModuleIoPath, proposalOf, runExporter, runImporter, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { EventHub } from './events.ts';
 
@@ -820,6 +821,8 @@ const ROUTES = [
   'GET    /api/backup',
   'POST   /api/backup/retry',
   'ANY    /api/modules/:module/…',
+  'POST   /api/modules/:module/_import/:importer',
+  'GET    /api/modules/:module/_export/:exporter',
   'GET    /api/setup',
   'POST   /api/setup',
   ...VERSION_ROUTES,
@@ -876,6 +879,28 @@ function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefine
   };
 }
 
+/** `/api/modules/<module>/_import/<id>` and `_export/<id>` (`module-io.ts`). */
+async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: WorkbenchDeps): Promise<ApiResponse> {
+  const method = request.method.toUpperCase();
+  if (io.kind === 'export') {
+    if (method !== 'GET') return methodNotAllowed(method, ['GET']);
+    const query = new URLSearchParams(request.path.split('?')[1] ?? '');
+    return runExporter(deps.modules, io, query, async (id) => (isDesignId(id) ? deps.designs.read(id) : undefined), await deps.loadDb());
+  }
+  if (method !== 'POST') return methodNotAllowed(method, ['POST']);
+  const db = await deps.loadDb();
+  const ran = await runImporter(deps.modules, io, request.body, db);
+  if (!ran.ok) return ran.response;
+  const ids = new Set((await deps.designs.list()).map((d) => d.id));
+  const { proposal, requests } = proposalOf(ran.result, db, ids);
+  if (!ran.accept) return ok({ accepted: false, proposal });
+  if (requests.length === 0) return fail(409, 'There is nothing new to add.', 'Every record in the proposal is already in the library.');
+  const message = `Import ${(request.body as { fileName?: string }).fileName ?? 'a file'} with ${io.module}/${io.id}`;
+  const done = await withWriteLock(() => runBatch({ ...request, body: { message, requests } }, deps));
+  if (done.status >= 400) return done;
+  return { ...done, body: { accepted: true, proposal } };
+}
+
 /**
  * The whole API surface, one request in a unit of work (storage seams,
  *): the router runs against staged stores, and what it
@@ -896,6 +921,8 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   if (deps.setupMode?.() === true && !isSetupPath(request.path) && !['/api', '/api/me'].includes((request.path.split('?')[0] ?? '').replace(/\/+$/, ''))) {
     return { status: 503, body: { state: 'setup', error: 'This hub is not set up yet.', hint: 'Open /setup to create the organisation, its catalog and the admin.' } };
   }
+  const io = parseModuleIoPath(request.path);
+  if (io !== undefined) return handleModuleIo(request, io, deps);
   const moduleRoute = findModuleRoute(request, deps.modules);
   if (moduleRoute !== undefined) return moduleRoute.writes === true ? withWriteLock(moduleRoute.run) : moduleRoute.run();
   // first-run setup installs packs straight into the catalog (journaled by

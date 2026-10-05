@@ -95,6 +95,10 @@ export function describeSave(request: SaveRequest): string {
   const parts = (request.path.split('?')[0] ?? '').split('/').filter((p) => p !== '').map(decode);
   if (parts[0] === 'api') parts.shift();
   const head = parts.shift() ?? 'studio';
+  // a module importer's accepted proposal: /api/modules/<module>/_import/<importer>
+  if (head === 'modules' && parts[1] === '_import' && parts[0] !== undefined && parts[2] !== undefined) {
+    return oneLine(`import ${field(request.body, 'fileName') ?? 'a file'} with ${parts[0]}/${parts[2]}`);
+  }
   let kind = KINDS[head] ?? singular(head);
   let action = VERBS[method] ?? method.toLowerCase();
   const last = parts[parts.length - 1];

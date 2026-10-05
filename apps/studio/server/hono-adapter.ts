@@ -70,7 +70,8 @@ async function perform<T extends { status: number; body?: unknown; changes?: str
   handler: () => Promise<T>,
 ): Promise<T> {
   // module routes keep their own write discipline: never queued behind (or holding up) a save
-  if (backup === undefined || !WRITE_METHODS.has(request.method) || isModulePath(request.path)) return handler();
+  // — except an importer's accepted proposal, which writes the catalog like any save
+  if (backup === undefined || !WRITE_METHODS.has(request.method) || (isModulePath(request.path) && !request.path.includes('/_import/'))) return handler();
   return backup.withSave(
     () => collectWritesAsync(handler),
     (response) =>
