@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "id": "example-pack",
+  "name": "Example pack (replace me)",
+  "version": "0.1.0",
+  "publisher": {
+    "id": "my-shop",
+    "name": "My shop"
+  },
+  "license": "CC0-1.0",
+  "catalogSchema": 4,
+  "requires": {
+    "wirehub": ">=0.1 <1"
+  },
+  "description": "EXAMPLE ONLY: one generic signal, to show the shape of a pack. Delete it and add your own."
+}
