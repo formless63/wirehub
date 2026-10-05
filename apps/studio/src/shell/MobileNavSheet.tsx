@@ -23,7 +23,9 @@ const LINKS = [
 export function MobileNavSheet(props: { open: boolean; onClose: () => void }): JSX.Element | null {
   const { open, onClose } = props;
   const matches = useMatches();
-  const moduleRoutes = useModules().routes().filter((r) => r.icon !== undefined);
+  const registry = useModules();
+  const moduleRoutes = registry.routes().filter((r) => r.icon !== undefined);
+  const hasImporters = registry.importers().length > 0;
   const pathname = matches[matches.length - 1]?.pathname ?? '';
 
   useEffect(() => {
@@ -86,6 +88,15 @@ export function MobileNavSheet(props: { open: boolean; onClose: () => void }): J
             {r.label}
           </Link>
         ))}
+        {hasImporters ? (
+          <Link
+            to="/jobs"
+            onClick={onClose}
+            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] no-underline ${pathname === '/jobs' ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-hover'}`}
+          >
+            Jobs
+          </Link>
+        ) : null}
       </nav>
     </div>
   );

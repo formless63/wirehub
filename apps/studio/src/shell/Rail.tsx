@@ -6,7 +6,7 @@
  */
 
 import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
+import { IconBox, IconChecklist, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { LockNameAvatar } from '../locks/LockNameAvatar.tsx';
@@ -35,6 +35,7 @@ export function Rail(): JSX.Element {
   const who = me?.email === undefined ? user : `${user} <${me.email}>`;
   const registry = useModules();
   const moduleRoutes = registry.routes().filter((r) => r.icon !== undefined);
+  const hasImporters = registry.importers().length > 0;
   const hasSettings = registry.panels('settings').length > 0;
   const pathname = matches[matches.length - 1]?.pathname ?? '';
   const active: Section | undefined = pathname.startsWith('/library')
@@ -65,6 +66,11 @@ export function Rail(): JSX.Element {
         );
       })}
       <span className="grow" />
+      {hasImporters ? (
+        <Link to="/jobs" aria-label="Jobs" title="Jobs — imports to review and publish, model builds" className={railIcon(pathname === '/jobs')}>
+          <IconChecklist size={18} />
+        </Link>
+      ) : null}
       {hasSettings ? (
         <Link to="/modules" aria-label="Modules" title="Modules and their settings" className={railIcon(pathname === '/modules')}>
           <IconSettings size={18} />

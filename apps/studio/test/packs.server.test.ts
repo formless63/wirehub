@@ -135,7 +135,7 @@ describe('update with a diff', () => {
     expect(afterInstalls).toBe(1);
     // the record outside the pack still resolves, and the pack no longer owns the signal
     const db = hub().loadDb();
-    expect(db.interfaces.some((i) => i.id === 'my-can')).toBe(true);
+    expect(db.interfaces?.some((i) => i.id === 'my-can')).toBe(true);
     const local = JSON.parse(read(join(dir, 'vocab/signals.json'))) as { entries: { id: string }[] };
     expect(local.entries.map((e) => e.id)).toContain('can-l');
     expect(readInstalledPacks(packs).packs[0]?.added['vocab/signals.json']).not.toContain('can-l');
