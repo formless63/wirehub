@@ -47,7 +47,8 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --filter site
+      # the store bundler reads packs back with the studio's own archive reader (workspace packages)
+      - run: pnpm install --frozen-lockfile
       # the generator's default output must be the repository's compose.yaml
       - run: pnpm --filter site test
       - run: node site/build.mjs site/dist
