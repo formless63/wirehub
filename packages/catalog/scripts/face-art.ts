@@ -90,6 +90,11 @@ function svg(face: Face, side: 'mating-face' | 'solder-side'): string {
   ].join('\n');
 }
 
+/** The per-record licence and provenance every shipped depiction carries (`recordMetaIssues` checks it): CC0, drawn for WireHub, cited by its `src`. */
+function recordMeta(src: string): { license: string; provenance: { method: string; sources: { title: string }[] } } {
+  return { license: 'CC0-1.0', provenance: { method: 'derived', sources: [{ title: src }] } };
+}
+
 function meta(face: Face): string {
   const anchors: Record<string, { x: number; y: number }> = {};
   for (const item of face.items) if (item.t === 'pin') anchors[item.id] = { x: r(item.x), y: r(item.y) };
@@ -106,6 +111,7 @@ function meta(face: Face): string {
       pinAnchors: sorted,
       anchorFrame: 'mating-face',
       src: `${face.src} ${CC0}`,
+      ...recordMeta(`${face.src} ${CC0}`),
     },
     null,
     2,
@@ -292,6 +298,7 @@ export function faceArtFiles(): Record<string, string> {
       pinAnchors: {},
       anchorFrame: 'illustration',
       src: `${cut.src} ${CC0}`,
+      ...recordMeta(`${cut.src} ${CC0}`),
     },
     null,
     2,

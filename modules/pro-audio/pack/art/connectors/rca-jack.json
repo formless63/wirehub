@@ -1,0 +1,178 @@
+{
+  "id": "rca-jack",
+  "view": "profile",
+  "gender": "female",
+  "drawings": [
+    "rca"
+  ],
+  "families": [
+    "rca"
+  ],
+  "short": "RCA",
+  "width": 146,
+  "height": 30,
+  "approximate": false,
+  "shapes": [
+    {
+      "el": "rect",
+      "x": 6,
+      "y": 9.9,
+      "width": 12,
+      "height": 2.2,
+      "tone": "copper",
+      "rx": 0.6
+    },
+    {
+      "el": "rect",
+      "x": 6,
+      "y": 18.4,
+      "width": 12,
+      "height": 2.2,
+      "tone": "metal",
+      "rx": 0.6
+    },
+    {
+      "el": "path",
+      "d": "M18 10 L38 6.5 L38 23.5 L18 20 Z",
+      "tone": "boot"
+    },
+    {
+      "el": "path",
+      "d": "M23 9.93 L23 20.08",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M28 9.05 L28 20.95",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M33 8.18 L33 21.83",
+      "tone": "knurl"
+    },
+    {
+      "el": "rect",
+      "x": 38,
+      "y": 3,
+      "width": 52,
+      "height": 24,
+      "tone": "grip",
+      "rx": 3
+    },
+    {
+      "el": "path",
+      "d": "M43 4 L43 26",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M47.5 4 L47.5 26",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M52 4 L52 26",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M56.5 4 L56.5 26",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M61 4 L61 26",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M65.5 4 L65.5 26",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M70 4 L70 26",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M74.5 4 L74.5 26",
+      "tone": "knurl"
+    },
+    {
+      "el": "rect",
+      "x": 78,
+      "y": 3,
+      "width": 8,
+      "height": 24,
+      "tone": "band",
+      "band": "tip"
+    },
+    {
+      "el": "rect",
+      "x": 90,
+      "y": 7.5,
+      "width": 46,
+      "height": 15,
+      "tone": "metal",
+      "rx": 1
+    },
+    {
+      "el": "rect",
+      "x": 100,
+      "y": 9.1,
+      "width": 36,
+      "height": 11.8,
+      "tone": "insert",
+      "rx": 0.6
+    },
+    {
+      "el": "rect",
+      "x": 106,
+      "y": 12.6,
+      "width": 30,
+      "height": 4.8,
+      "tone": "copper",
+      "rx": 0.8
+    },
+    {
+      "el": "rect",
+      "x": 112,
+      "y": 13.7,
+      "width": 24,
+      "height": 2.6,
+      "tone": "dark",
+      "rx": 0.4
+    }
+  ],
+  "pins": [
+    {
+      "terminal": "tip",
+      "form": "lug",
+      "x": 5,
+      "y": 11,
+      "r": 2.6,
+      "ifDefined": true
+    },
+    {
+      "terminal": "sleeve",
+      "form": "lug",
+      "x": 5,
+      "y": 19.5,
+      "r": 2.6,
+      "ifDefined": true
+    }
+  ],
+  "labels": [],
+  "src": "RCA (phono) connector in side view: boot, knurled grip with colour band, split outer sleeve and centre pin (plug) or ground ring around an insulator and socket (jack), after the general shape described in Wikipedia 'RCA connector'. Proportions are inferred, not a mechanical drawing; not traced from any vendor drawing. CC0-1.0.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "RCA (phono) connector in side view: boot, knurled grip with colour band, split outer sleeve and centre pin (plug) or ground ring around an insulator and socket (jack), after the general shape described in Wikipedia 'RCA connector'. Proportions are inferred, not a mechanical drawing; not traced from any vendor drawing. CC0-1.0."
+      }
+    ]
+  }
+}

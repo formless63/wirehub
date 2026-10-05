@@ -26,7 +26,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { Issue } from '@wirehub/model';
+import { recordMetaIssues, type Issue, type RecordMeta } from '@wirehub/model';
 
 /* ------------------------------------------------------------------ *
  * Records
@@ -42,7 +42,17 @@ export type ArtPinFormName = (typeof ART_PIN_FORMS)[number];
 export type ArtShapeRecord =
   | { el: 'path'; d: string; tone: ArtToneName }
   | { el: 'circle'; cx: number; cy: number; r: number; tone: ArtToneName }
-  | { el: 'rect'; x: number; y: number; width: number; height: number; rx?: number; tone: ArtToneName };
+  | {
+      el: 'rect';
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rx?: number;
+      tone: ArtToneName;
+      /** painted the colour of this terminal's conductor, when the connector's wiring knows it (a colour band on a grip) */
+      band?: string;
+    };
 
 export interface ArtPinRecord {
   /** the body position / connector pin id the handle sits on */
@@ -65,8 +75,22 @@ export interface ArtLabelRecord {
   anchor: 'start' | 'middle' | 'end';
 }
 
-/** A connector's mating face, as data. */
-export interface ConnectorArtRecord {
+/** Which way a connector drawing looks: the face a builder plugs into, or the side profile. */
+export const ART_RECORD_VIEWS = ['face', 'profile'] as const;
+export type ArtRecordView = (typeof ART_RECORD_VIEWS)[number];
+
+/**
+ * A connector's drawing, as data: a mating face (the default) or a side
+ * profile.
+ *
+ * A **profile** is facing-aware. It is authored once with the cable end on
+ * the left (the lugs that carry the pin handles at the left edge, the business
+ * end to the right) and the host mirrors it left to right when the wire leaves
+ * from the right, so the lugs always face the wire. Its paths may use only the
+ * absolute commands `M L H V Z` (what a mirror can reflect exactly). A face is
+ * never mirrored.
+ */
+export interface ConnectorArtRecord extends RecordMeta {
   /** kebab-case; the file name */
   id: string;
   /** which connectors it draws — any match counts: body ids … */
@@ -75,6 +99,10 @@ export interface ConnectorArtRecord {
   drawings?: string[];
   /** … and vocab family ids */
   families?: string[];
+  /** `face` (default) or `profile` (see above) */
+  view?: ArtRecordView;
+  /** draws only connectors of this gender (`male` is also what a connector without a gender is); absent: either */
+  gender?: 'male' | 'female';
   /** a caption word (`SCART`) */
   short: string;
   width: number;
@@ -88,7 +116,7 @@ export interface ConnectorArtRecord {
 }
 
 /** One standard layout a family offers for a new body. */
-export interface BodyLayoutRecord {
+export interface BodyLayoutRecord extends RecordMeta {
   /** picker key, kebab-case */
   id: string;
   /** what the picker shows: "SCART, 21 pins" */
@@ -127,15 +155,20 @@ function strings(value: unknown): string[] | undefined {
   return Array.isArray(value) && value.every(isString) ? (value as string[]) : undefined;
 }
 
-function shapeIssue(shape: unknown, where: string): string | undefined {
+/** a path a mirror can reflect: absolute M L H V Z with plain numbers */
+const MIRRORABLE_PATH = /^\s*(?:[MLHVZ]\s*(?:-?\d*\.?\d+(?:\s*,?\s*-?\d*\.?\d+)*)?\s*)+$/;
+
+function shapeIssue(shape: unknown, where: string, profile = false): string | undefined {
   if (!isObject(shape)) return 'a shape is not an object';
   if (!(ART_TONES as readonly string[]).includes(shape['tone'] as string)) return `shape tone '${String(shape['tone'])}' is not one of ${ART_TONES.join(', ')}`;
   switch (shape['el']) {
     case 'path':
-      return isString(shape['d']) ? undefined : `${where}: a path has no d`;
+      if (!isString(shape['d'])) return `${where}: a path has no d`;
+      return profile && !MIRRORABLE_PATH.test(shape['d'] as string) ? 'a profile path may use only absolute M, L, H, V and Z commands' : undefined;
     case 'circle':
       return isNumber(shape['cx']) && isNumber(shape['cy']) && isNumber(shape['r']) ? undefined : 'a circle needs cx, cy, r';
     case 'rect':
+      if (shape['band'] !== undefined && !isString(shape['band'])) return 'a rect band must name a terminal';
       return isNumber(shape['x']) && isNumber(shape['y']) && isNumber(shape['width']) && isNumber(shape['height']) && (shape['rx'] === undefined || isNumber(shape['rx']))
         ? undefined
         : 'a rect needs x, y, width, height';
@@ -154,6 +187,9 @@ export function parseConnectorArt(raw: unknown, where: string): { record?: Conne
   if (!isString(raw['src'])) bad('src (where the drawing comes from) is required');
   if (!isNumber(raw['width']) || !isNumber(raw['height']) || (raw['width'] as number) <= 0 || (raw['height'] as number) <= 0) bad('width and height must be positive numbers');
   if (typeof raw['approximate'] !== 'boolean') bad('approximate must be true or false');
+  if (raw['view'] !== undefined && !(ART_RECORD_VIEWS as readonly unknown[]).includes(raw['view'])) bad(`view must be one of ${ART_RECORD_VIEWS.join(', ')}`);
+  if (raw['gender'] !== undefined && raw['gender'] !== 'male' && raw['gender'] !== 'female') bad('gender must be male or female');
+  issues.push(...recordMetaIssues(raw, where));
   for (const key of ['bodies', 'drawings', 'families'] as const) {
     if (raw[key] !== undefined && strings(raw[key]) === undefined) bad(`${key} must be a list of ids`);
   }
@@ -161,7 +197,7 @@ export function parseConnectorArt(raw: unknown, where: string): { record?: Conne
   const shapes = raw['shapes'];
   if (!Array.isArray(shapes) || shapes.length === 0) bad('shapes must be a non-empty list');
   else for (const shape of shapes) {
-    const why = shapeIssue(shape, where);
+    const why = shapeIssue(shape, where, raw['view'] === 'profile');
     if (why !== undefined) bad(why);
   }
   const pins = raw['pins'];
@@ -204,6 +240,7 @@ export function parseBodyLayouts(raw: unknown, where: string): { records: BodyLa
     }
     for (const key of ['id', 'stem', 'family'] as const) if (typeof item[key] !== 'string' || !KEBAB.test(item[key] as string)) issues.push(problem(at, `${key} must be kebab-case`));
     for (const key of ['label', 'src'] as const) if (!isString(item[key])) issues.push(problem(at, `${key} is required`));
+    issues.push(...recordMetaIssues(item, at));
     if (typeof item['id'] === 'string') {
       if (seen.has(item['id'])) issues.push(problem(at, `layout '${item['id']}' is listed twice`));
       seen.add(item['id']);

@@ -74,7 +74,16 @@
         "kind": "shell"
       }
     ],
-    "src": "IEC 60933-1 / EN 50049-1: 21 contacts and the metal shell"
+    "src": "IEC 60933-1 / EN 50049-1: 21 contacts and the metal shell",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "derived",
+      "sources": [
+        {
+          "title": "IEC 60933-1 / EN 50049-1: 21 contacts and the metal shell"
+        }
+      ]
+    }
   },
   {
     "id": "jp21",
@@ -151,6 +160,15 @@
         "kind": "shell"
       }
     ],
-    "src": "JEITA RC-5202: the SCART shell and contact layout, its own pinout"
+    "src": "JEITA RC-5202: the SCART shell and contact layout, its own pinout",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "derived",
+      "sources": [
+        {
+          "title": "JEITA RC-5202: the SCART shell and contact layout, its own pinout"
+        }
+      ]
+    }
   }
 ]

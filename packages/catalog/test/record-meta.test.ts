@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 import { recordMetaIssues } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
+import { loadPackArt, parseBodyLayouts, parseConnectorArt } from '../src/art.ts';
+import { parseDepictionMeta } from '../src/depictions/validate.ts';
 import { explode, render, type CatalogFiles } from '../src/codec/index.ts';
 import { packFiles } from '../src/packs.ts';
 
@@ -47,6 +49,50 @@ describe('bundled packs', () => {
       }
     });
   }
+});
+
+/** The art files of a pack: connector drawings, the body-layout list and each depiction's meta.json. */
+function artRecordsOf(dir: string): { where: string; record: Record<string, unknown> }[] {
+  const out: { where: string; record: Record<string, unknown> }[] = [];
+  const json = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8'));
+  const connectors = join(dir, 'art', 'connectors');
+  if (existsSync(connectors)) for (const name of readdirSync(connectors).sort()) out.push({ where: `art/connectors/${name}`, record: json(join(connectors, name)) as Record<string, unknown> });
+  const layouts = join(dir, 'art', 'body-layouts.json');
+  if (existsSync(layouts)) for (const record of json(layouts) as Record<string, unknown>[]) out.push({ where: `art/body-layouts.json#${String(record['id'])}`, record });
+  const depictions = join(dir, 'depictions');
+  if (existsSync(depictions)) for (const name of readdirSync(depictions).sort()) out.push({ where: `depictions/${name}/meta.json`, record: json(join(depictions, name, 'meta.json')) as Record<string, unknown> });
+  return out;
+}
+
+describe('bundled packs: art records', () => {
+  for (const dir of packs) {
+    const name = dir.split('/').at(-2) as string;
+    it(`${name}: every art record is CC0-1.0 with provenance drawn from its src, and the parsers accept it`, () => {
+      for (const { where, record } of artRecordsOf(dir)) {
+        expect(record['license'], where).toBe('CC0-1.0');
+        const provenance = record['provenance'] as { method: string; sources: { title?: string }[] };
+        expect(provenance.sources[0]?.title, where).toBe(record['src']);
+        expect(recordMetaIssues(record, where), where).toEqual([]);
+        if (where.startsWith('art/connectors/')) expect(parseConnectorArt(record, where).issues, where).toEqual([]);
+        if (where.startsWith('depictions/')) expect(parseDepictionMeta(record, where).issues.filter((i) => i.severity === 'error'), where).toEqual([]);
+      }
+      expect(loadPackArt(dir).issues).toEqual([]);
+    });
+  }
+
+  it('art records refuse a malformed licence or provenance, like any record', () => {
+    const connector = JSON.parse(readFileSync(join(modulesRoot, 'av-video', 'pack', 'art', 'connectors', 'scart-21.json'), 'utf8')) as Record<string, unknown>;
+    const messages = (patch: Record<string, unknown>): string => parseConnectorArt({ ...connector, ...patch }, 'x').issues.map((i) => i.message).join(';');
+    expect(messages({})).toBe('');
+    expect(messages({ license: 'free for all' })).toContain('SPDX');
+    expect(messages({ provenance: { method: 'guessed', sources: [] } })).toContain('provenance.method');
+    expect(messages({ provenance: { method: 'derived', sources: [{ url: 'ftp://x' }] } })).toContain('http(s)');
+    const layouts = JSON.parse(readFileSync(join(modulesRoot, 'av-video', 'pack', 'art', 'body-layouts.json'), 'utf8')) as Record<string, unknown>[];
+    expect(parseBodyLayouts([{ ...layouts[0], license: 'nope nope' }], 'l').issues.map((i) => i.message).join()).toContain('SPDX');
+    const depiction = JSON.parse(readFileSync(join(modulesRoot, 'pro-audio', 'pack', 'depictions', 'rca-male', 'meta.json'), 'utf8')) as Record<string, unknown>;
+    expect(parseDepictionMeta({ ...depiction, derivedFrom: { pack: 'p' } }, 'd').issues.map((i) => i.message).join()).toContain('derivedFrom');
+    expect(parseDepictionMeta(depiction, 'd').meta?.license).toBe('CC0-1.0');
+  });
 });
 
 describe('the codec', () => {

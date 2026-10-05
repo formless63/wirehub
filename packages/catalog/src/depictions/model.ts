@@ -16,6 +16,8 @@
  * `mmPerUnit`.
  */
 
+import type { RecordMeta } from '@wirehub/model';
+
 /* ------------------------------------------------------------------ *
  * Vocabularies
  * ------------------------------------------------------------------ */
@@ -207,7 +209,7 @@ export interface DepictionSourceFile {
  * coordinates. Every other view either shares that frame or declares
  * `mirrorOf` and gets its anchors reflected (`anchorsFor`).
  */
-export interface DepictionMeta {
+export interface DepictionMeta extends RecordMeta {
   defId: string;
   /** Keyed by `DepictionView`; a plain record so unknown keys survive to validation. */
   views: Record<string, DepictionAsset>;

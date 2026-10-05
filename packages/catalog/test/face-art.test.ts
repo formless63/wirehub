@@ -60,10 +60,10 @@ describe('generated face art', () => {
 });
 
 describe('pack art records', () => {
-  it('the av-video pack ships SCART and JP21 drawings and layouts that parse', () => {
+  it('the av-video pack ships SCART, JP21 and BNC drawings and layouts that parse', () => {
     const { art, issues } = loadPackArt(join(ROOT, 'modules/av-video/pack'));
     expect(issues).toEqual([]);
-    expect(art.connectors.map((c) => c.id)).toEqual(['jp21-21', 'scart-21']);
+    expect(art.connectors.map((c) => c.id)).toEqual(['bnc', 'jp21-21', 'scart-21']);
     expect(art.bodyLayouts.map((l) => l.id)).toEqual(['scart21', 'jp21']);
     for (const c of art.connectors) expect(c.src).toMatch(/CC0-1\.0/);
   });

@@ -1,0 +1,186 @@
+{
+  "id": "trs-3-5mm-plug",
+  "view": "profile",
+  "gender": "male",
+  "drawings": [
+    "trs"
+  ],
+  "families": [
+    "trs"
+  ],
+  "short": "3.5 mm",
+  "width": 146,
+  "height": 28,
+  "approximate": false,
+  "shapes": [
+    {
+      "el": "rect",
+      "x": 6,
+      "y": 6.9,
+      "width": 12,
+      "height": 2.2,
+      "tone": "copper",
+      "rx": 0.6
+    },
+    {
+      "el": "rect",
+      "x": 6,
+      "y": 12.9,
+      "width": 12,
+      "height": 2.2,
+      "tone": "copper",
+      "rx": 0.6
+    },
+    {
+      "el": "rect",
+      "x": 6,
+      "y": 18.9,
+      "width": 12,
+      "height": 2.2,
+      "tone": "metal",
+      "rx": 0.6
+    },
+    {
+      "el": "path",
+      "d": "M18 9.5 L36 6 L36 22 L18 18.5 Z",
+      "tone": "boot"
+    },
+    {
+      "el": "path",
+      "d": "M23 9.33 L23 18.67",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M28 8.36 L28 19.64",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M33 7.38 L33 20.62",
+      "tone": "knurl"
+    },
+    {
+      "el": "rect",
+      "x": 36,
+      "y": 3.5,
+      "width": 44,
+      "height": 21,
+      "tone": "grip",
+      "rx": 3
+    },
+    {
+      "el": "path",
+      "d": "M41 4.5 L41 23.5",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M45.5 4.5 L45.5 23.5",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M50 4.5 L50 23.5",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M54.5 4.5 L54.5 23.5",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M59 4.5 L59 23.5",
+      "tone": "knurl"
+    },
+    {
+      "el": "path",
+      "d": "M63.5 4.5 L63.5 23.5",
+      "tone": "knurl"
+    },
+    {
+      "el": "rect",
+      "x": 70,
+      "y": 3.5,
+      "width": 6,
+      "height": 21,
+      "tone": "band",
+      "band": "tip"
+    },
+    {
+      "el": "rect",
+      "x": 80,
+      "y": 10.4,
+      "width": 32,
+      "height": 7.2,
+      "tone": "metal"
+    },
+    {
+      "el": "rect",
+      "x": 112,
+      "y": 10.4,
+      "width": 3,
+      "height": 7.2,
+      "tone": "dark"
+    },
+    {
+      "el": "rect",
+      "x": 115,
+      "y": 10.4,
+      "width": 9,
+      "height": 7.2,
+      "tone": "metal"
+    },
+    {
+      "el": "rect",
+      "x": 124,
+      "y": 10.4,
+      "width": 3,
+      "height": 7.2,
+      "tone": "dark"
+    },
+    {
+      "el": "path",
+      "d": "M127 10.4 L134 10.4 L139 12.8 L139 15.2 L134 17.6 L127 17.6 Z",
+      "tone": "metal"
+    }
+  ],
+  "pins": [
+    {
+      "terminal": "tip",
+      "form": "lug",
+      "x": 5,
+      "y": 8,
+      "r": 2.6,
+      "ifDefined": true
+    },
+    {
+      "terminal": "ring",
+      "form": "lug",
+      "x": 5,
+      "y": 14,
+      "r": 2.6,
+      "ifDefined": true
+    },
+    {
+      "terminal": "sleeve",
+      "form": "lug",
+      "x": 5,
+      "y": 20,
+      "r": 2.6,
+      "ifDefined": true
+    }
+  ],
+  "labels": [],
+  "src": "3.5 mm TRS (mini-jack) in side view: boot, knurled grip, tip / ring / sleeve shaft (plug) or ground shell with receptacle bore (jack), after the public general shape of the 3.5 mm jack (IEC 60130-2 family). Proportions are inferred, not a mechanical drawing; not traced from any vendor drawing. CC0-1.0.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "3.5 mm TRS (mini-jack) in side view: boot, knurled grip, tip / ring / sleeve shaft (plug) or ground shell with receptacle bore (jack), after the public general shape of the 3.5 mm jack (IEC 60130-2 family). Proportions are inferred, not a mechanical drawing; not traced from any vendor drawing. CC0-1.0."
+      }
+    ]
+  }
+}

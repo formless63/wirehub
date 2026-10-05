@@ -37,5 +37,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "3.5 mm stereo (TRS) plug end-on: tip at the centre, ring and sleeve bands outward; end-on markers for the ring and sleeve are placed on their bands (approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "3.5 mm stereo (TRS) plug end-on: tip at the centre, ring and sleeve bands outward; end-on markers for the ring and sleeve are placed on their bands (approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "3.5 mm stereo (TRS) plug end-on: tip at the centre, ring and sleeve bands outward; end-on markers for the ring and sleeve are placed on their bands (approximate). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }

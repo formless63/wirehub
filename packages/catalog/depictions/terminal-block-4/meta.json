@@ -41,5 +41,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "4-way screw terminal block, 5.08 mm pitch: screw heads above, wire entries below (approximate generic outline); positions numbered left to right. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "4-way screw terminal block, 5.08 mm pitch: screw heads above, wire entries below (approximate generic outline); positions numbered left to right. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "4-way screw terminal block, 5.08 mm pitch: screw heads above, wire entries below (approximate generic outline); positions numbered left to right. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }

@@ -18,9 +18,11 @@
  *  - **mating face** (D-Sub, HD15, mini-DIN, DIN, and any a catalog pack
  *    draws as data — `registerConnectorArt`): the face the shop sees when it plugs the part in, long
  *    axis vertical, a handle on every drawn pin;
- *  - **side profile** (RCA, 3.5 mm TRS, BNC): strain relief, grip, the
- *    business end — with the solder lugs at the cable end carrying the
- *    handles, on the side the wire is (`facing`).
+ *  - **side profile** (RCA, 3.5 mm TRS, BNC — drawn by the packs that own
+ *    those families, as `view: "profile"` records; without one the base draws a
+ *    generic plug): strain relief, grip, the business end — with the solder
+ *    lugs at the cable end carrying the handles, on the side the wire is
+ *    (`facing`).
  *
  * Unknown families, and definitions whose pins a family's drawing has no
  * place for, return `undefined`: the node keeps its pin list.
@@ -205,7 +207,8 @@ export function registeredConnectorArt(): ConnectorArtRecord[] {
 /** The registered record that draws this connector: its body id, then its body's `drawing` name, then its family. */
 function packArtFor(def: ConnectorDefinition, body: ConnectorBody | undefined): ConnectorArtRecord | undefined {
   if (registered.size === 0) return undefined;
-  const records = [...registered.values()];
+  const gender = def.gender === 'female' ? 'female' : 'male';
+  const records = [...registered.values()].filter((r) => r.gender === undefined || r.gender === gender);
   const bodyIds = [body?.id, def.body].filter((id): id is string => id !== undefined);
   const family = normalFamily(body?.family ?? def.family ?? '');
   return (
@@ -215,25 +218,64 @@ function packArtFor(def: ConnectorDefinition, body: ConnectorBody | undefined): 
   );
 }
 
-/** A record as the art a renderer paints, or `undefined` when the connector has a pin it does not draw. */
-function artOfRecord(def: ConnectorDefinition, record: ConnectorArtRecord): ConnectorArt | undefined {
+/** A path's numbers reflected left to right across `width`: only absolute M L H V Z (a record's parser holds profiles to that). */
+function mirrorPath(d: string, width: number): string {
+  let out = '';
+  for (const part of d.match(/[MLHVZ][^MLHVZ]*/g) ?? []) {
+    const command = part[0] as string;
+    const nums = (part.slice(1).match(/-?\d*\.?\d+/g) ?? []).map(Number);
+    if (command === 'M' || command === 'L') {
+      const pairs: string[] = [];
+      for (let i = 0; i + 1 < nums.length; i += 2) pairs.push(`${R(width - (nums[i] as number))} ${R(nums[i + 1] as number)}`);
+      out += `${out === '' ? '' : ' '}${command}${pairs.join(' ')}`;
+    } else if (command === 'H') out += `${out === '' ? '' : ' '}H${nums.map((n) => R(width - n)).join(' ')}`;
+    else out += `${out === '' ? '' : ' '}${command}${nums.join(' ')}`;
+  }
+  return out;
+}
+
+/** A record's shapes, labels and pin handles reflected left to right: a profile whose wire leaves from the right. */
+function mirrored(art: { shapes: ArtShape[]; pins: ConnectorPinArt[]; labels: ArtLabel[] }, width: number): void {
+  art.shapes = art.shapes.map((shape): ArtShape => {
+    switch (shape.el) {
+      case 'path':
+        return { ...shape, d: mirrorPath(shape.d, width) };
+      case 'circle':
+        return { ...shape, cx: R(width - shape.cx) };
+      case 'rect':
+        return { ...shape, x: R(width - shape.x - shape.width) };
+    }
+  });
+  art.pins = art.pins.map((pin) => ({ ...pin, x: R(width - pin.x) }));
+  art.labels = art.labels.map((item) => ({ ...item, x: R(width - item.x), anchor: item.anchor === 'start' ? 'end' : item.anchor === 'end' ? 'start' : 'middle' }));
+}
+
+/**
+ * A record as the art a renderer paints, or `undefined` when the connector has a pin it does not draw.
+ * A profile record is authored cable end on the left, and mirrored when the wire leaves from the right.
+ */
+function artOfRecord(def: ConnectorDefinition, record: ConnectorArtRecord, facing: Facing): ConnectorArt | undefined {
   const has = new Set(def.pins.map((pin) => pin.id));
   const pins: ConnectorPinArt[] = record.pins
     .filter((pin) => pin.ifDefined !== true || has.has(pin.terminal))
     .map(({ ifDefined: _ifDefined, ...pin }) => pin);
   const drawn = new Set(pins.map((pin) => pin.terminal));
   if (!def.pins.every((pin) => drawn.has(pin.id))) return undefined;
-  return {
+  const profile = record.view === 'profile';
+  const art: ConnectorArt = {
     defId: def.id,
-    view: 'face',
+    view: profile ? 'profile' : 'face',
     short: record.short,
     width: record.width,
     height: record.height,
     shapes: record.shapes.map((shape) => ({ ...shape })),
     pins,
     labels: record.labels.map((item) => ({ ...item })),
+    ...(profile ? { facing } : {}),
     approximate: record.approximate,
   };
+  if (profile && facing === 'right') mirrored(art, record.width);
+  return art;
 }
 
 /* ------------------------------------------------------------------ *
@@ -804,7 +846,7 @@ const range = (from: number, to: number, step = 1): string[] => {
 };
 
 /* ------------------------------------------------------------------ *
- * Side profiles: RCA, TRS, BNC
+ * Side profiles (a pack's; the base draws a generic one)
  * ------------------------------------------------------------------ */
 
 /**
@@ -909,118 +951,34 @@ class Profile {
   }
 }
 
-function rca(def: ConnectorDefinition, facing: Facing): ConnectorArt | undefined {
-  if (!coversAll(def, new Set(['tip', 'sleeve']))) return undefined;
-  const p = new Profile(146, 30, facing === 'right');
-  const cy = p.cy;
-  if (def.pins.some((pin) => pin.id === 'tip')) p.lug('tip', cy - 4, 'copper');
-  if (def.pins.some((pin) => pin.id === 'sleeve')) p.lug('sleeve', cy + 4.5, 'metal');
-  p.boot(18, 38, 5, 8.5);
-  p.grip(38, 90, 12, { at: 78, width: 8, terminal: 'tip' });
-  // RCA (Wikipedia "RCA connector"): the plug is a
-  // centre pin inside a split outer ring; the jack is a central hole in an
-  // insulator, inside a plain metal ring "slightly smaller in diameter and
-  // longer than the ring on the plug" — no bayonet lugs, no collar (BNC's)
-  if (isMale(def)) {
-    // the split outer sleeve and the centre pin standing proud of it
-    p.box(90, cy - 8.5, 30, 17, 'metal', 1);
-    for (const dy of [-3.6, 3.6]) p.box(102, cy + dy - 0.7, 18, 1.4, 'dark');
-    p.box(120, cy - 1.7, 20, 3.4, 'copper', 1.7);
-  } else {
-    // drawn in section: the ground ring (a plain tube, narrower than the
-    // plug's sleeve and longer), the insulator filling it, and the hollow
-    // centre socket open at the front
-    p.box(90, cy - 7.5, 46, 15, 'metal', 1);
-    p.box(100, cy - 5.9, 36, 11.8, 'insert', 0.6);
-    p.box(106, cy - 2.4, 30, 4.8, 'copper', 0.8);
-    p.box(112, cy - 1.3, 24, 2.6, 'dark', 0.4);
-  }
-  return p.art(def, 'RCA', facing);
-}
+/**
+ * The base's own side view for a family it knows is drawn in profile but has
+ * no drawing for: the pack that owns the family ships the real one
+ * (`art/connectors/*.json`, `view: "profile"`; RCA and 3.5 mm TRS in
+ * `pro-audio`, BNC in `av-video`). It is a plain plug: strain relief, a
+ * knurled grip, a bare metal barrel, and one solder lug per pin down the cable
+ * end carrying its handle. `approximate`, so the caption says so. Pin ids are
+ * not read: any pinout gets its lugs (at most {@link GENERIC_LUGS}; past that
+ * the node keeps its pin list).
+ */
+const GENERIC_LUGS = 6;
 
-function trs(def: ConnectorDefinition, facing: Facing): ConnectorArt | undefined {
-  if (!coversAll(def, new Set(['tip', 'ring', 'sleeve']))) return undefined;
-  const p = new Profile(146, 28, facing === 'right');
+function genericProfile(def: ConnectorDefinition, facing: Facing): ConnectorArt | undefined {
+  const count = def.pins.length;
+  if (count === 0 || count > GENERIC_LUGS) return undefined;
+  const pitch = 5.5;
+  const half = Math.max(10.5, ((count - 1) * pitch) / 2 + 5);
+  const p = new Profile(130, Math.ceil(half * 2 + 8), facing === 'right');
   const cy = p.cy;
-  const has = (id: string): boolean => def.pins.some((pin) => pin.id === id);
-  if (has('tip')) p.lug('tip', cy - 6, 'copper');
-  if (has('ring')) p.lug('ring', cy, 'copper');
-  if (has('sleeve')) p.lug('sleeve', cy + 6, 'metal');
-  p.boot(18, 36, 4.5, 8);
-  p.grip(36, 80, 10.5, { at: 70, width: 6, terminal: has('tip') ? 'tip' : 'sleeve' });
-  if (isMale(def)) {
-    // the 3.5 mm shaft: sleeve, insulator, ring, insulator, tip
-    const h = 3.6;
-    p.box(80, cy - h, 32, h * 2, 'metal');
-    p.box(112, cy - h, 3, h * 2, 'dark');
-    p.box(115, cy - h, 9, h * 2, 'metal');
-    p.box(124, cy - h, 3, h * 2, 'dark');
-    p.poly(
-      [
-        [127, cy - h],
-        [134, cy - h],
-        [139, cy - 1.2],
-        [139, cy + 1.2],
-        [134, cy + h],
-        [127, cy + h],
-      ],
-      'metal',
-    );
-  } else {
-    // a jack (the female TRS is a socket, not a plug on a shaft): drawn in section like the
-    // RCA female — the ground shell, the insulator
-    // bushing, and the receptacle bore, narrowing toward the opening the
-    // plug goes into, with no shaft standing proud
-    p.box(80, cy - 9, 44, 18, 'metal', 1.5);
-    p.box(104, cy - 7, 30, 14, 'insert', 1);
-    p.box(118, cy - 3.4, 21, 6.8, 'dark', 1);
-    p.ring(139, cy, 3, 'dark');
+  def.pins.forEach((pin, i) => p.lug(pin.id, cy + (i - (count - 1) / 2) * pitch, i === 0 ? 'copper' : 'metal'));
+  p.boot(18, 36, Math.min(5, half - 2), half - 2);
+  p.grip(36, 84, half);
+  if (isMale(def)) p.box(84, cy - half * 0.6, 40, half * 1.2, 'metal', 1);
+  else {
+    p.box(84, cy - half * 0.7, 40, half * 1.4, 'metal', 1);
+    p.box(96, cy - half * 0.45, 28, half * 0.9, 'dark', 1);
   }
-  return p.art(def, '3.5 mm', facing);
-}
-
-function bnc(def: ConnectorDefinition, facing: Facing): ConnectorArt | undefined {
-  if (!coversAll(def, new Set(['tip', 'shell']))) return undefined;
-  const p = new Profile(146, 32, facing === 'right');
-  const cy = p.cy;
-  if (def.pins.some((pin) => pin.id === 'tip')) p.lug('tip', cy - 4, 'copper');
-  if (def.pins.some((pin) => pin.id === 'shell')) p.lug('shell', cy + 4.5, 'metal');
-  p.boot(18, 34, 5, 7);
-  // crimp ferrule, body, the knurled bayonet nut with its slot, the front
-  p.box(34, cy - 6.5, 14, 13, 'metal', 1);
-  p.box(48, cy - 8.5, 14, 17, 'metal', 1);
-  p.box(62, cy - 13, 34, 26, 'grip', 2.5);
-  for (let x = 66; x <= 92; x += 4) {
-    p.poly(
-      [
-        [x, cy - 12],
-        [x, cy - 7],
-      ],
-      'knurl',
-      false,
-    );
-    p.poly(
-      [
-        [x, cy + 7],
-        [x, cy + 12],
-      ],
-      'knurl',
-      false,
-    );
-  }
-  p.poly(
-    [
-      [96, cy - 1.2],
-      [80, cy - 1.2],
-      [74, cy + 3.4],
-    ],
-    'dark',
-    false,
-  );
-  p.box(96, cy - 8, 24, 16, 'metal', 1);
-  p.box(106, cy - 4.5, 14, 9, 'insert', 1);
-  p.box(110, cy - 1, 18, 2, 'copper', 1);
-  return p.art(def, 'BNC', facing);
+  return { ...p.art(def, isMale(def) ? 'Plug' : 'Jack', facing), approximate: true };
 }
 
 /* ------------------------------------------------------------------ *
@@ -1040,7 +998,7 @@ function numberedOf(body: ConnectorBody | undefined): number | undefined {
 export function connectorArt(input: ConnectorArtInput): ConnectorArt | undefined {
   const { def, facing, body } = input;
   const fromPack = packArtFor(def, body);
-  if (fromPack !== undefined) return artOfRecord(def, fromPack);
+  if (fromPack !== undefined) return artOfRecord(def, fromPack, facing);
   const drawing =
     body !== undefined
       ? bodyDrawing(body)
@@ -1085,11 +1043,10 @@ export function connectorArt(input: ConnectorArtInput): ConnectorArt | undefined
         approximate: false,
       });
     case 'rca':
-      return rca(def, facing);
     case 'trs':
-      return trs(def, facing);
     case 'bnc':
-      return bnc(def, facing);
+      // the drawings live with the packs that own these families; this is what a deployment without them draws
+      return genericProfile(def, facing);
     default:
       return undefined;
   }

@@ -214,5 +214,14 @@
       "anchor": "middle"
     }
   ],
-  "src": "SCART / Peritel 21-pin mating face (EN 50049-1, IEC 60933-1): two rows of ten blades at 4 mm pitch, the 21st contact on the metal shell, chamfered corner at the 21 end; outline from the published connector dimensions, drawn for WireHub and approximate. CC0-1.0."
+  "src": "SCART / Peritel 21-pin mating face (EN 50049-1, IEC 60933-1): two rows of ten blades at 4 mm pitch, the 21st contact on the metal shell, chamfered corner at the 21 end; outline from the published connector dimensions, drawn for WireHub and approximate. CC0-1.0.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "SCART / Peritel 21-pin mating face (EN 50049-1, IEC 60933-1): two rows of ten blades at 4 mm pitch, the 21st contact on the metal shell, chamfered corner at the 21 end; outline from the published connector dimensions, drawn for WireHub and approximate. CC0-1.0."
+      }
+    ]
+  }
 }

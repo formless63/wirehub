@@ -17,6 +17,7 @@ import { defineModule } from '@wirehub/modules';
 
 // the pack's art files, imported as data so the browser bundle carries them too
 import bodyLayouts from '../pack/art/body-layouts.json' with { type: 'json' };
+import bncArt from '../pack/art/connectors/bnc.json' with { type: 'json' };
 import jp21Art from '../pack/art/connectors/jp21-21.json' with { type: 'json' };
 import scartArt from '../pack/art/connectors/scart-21.json' with { type: 'json' };
 
@@ -34,7 +35,7 @@ export const avVideo = defineModule({
     kind: 'domain',
     description: 'Video signals (RGB, sync, composite, S-Video, component), VGA and SCART connectors, and a VGA example cable.',
   },
-  // the SCART and JP21 faces and their body layouts: the 21-pin Peritel shell is this module's to draw
-  art: { connectors: [scartArt, jp21Art], bodyLayouts },
+  // the SCART and JP21 faces and their body layouts (the 21-pin Peritel shell is this module's to draw), and the BNC side view
+  art: { connectors: [scartArt, jp21Art, bncArt], bodyLayouts },
   catalogPacks: [{ id: 'av-video', label: 'AV / video', version: '0.1.0', root: AV_VIDEO_PACK, license: 'CC0-1.0' }],
 });

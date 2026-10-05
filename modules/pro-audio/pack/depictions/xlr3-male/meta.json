@@ -41,5 +41,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "3-pin XLR plug mating face (IEC 61076-2-103 interface), latch at the top: contact 1 left, 2 right, 3 below, as in the Neutrik NC3MDL-1 front view (drawing 3102 St 10 16); contact spacing (about 8 mm across, 3.9 mm down) scaled from that drawing, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "3-pin XLR plug mating face (IEC 61076-2-103 interface), latch at the top: contact 1 left, 2 right, 3 below, as in the Neutrik NC3MDL-1 front view (drawing 3102 St 10 16); contact spacing (about 8 mm across, 3.9 mm down) scaled from that drawing, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "3-pin XLR plug mating face (IEC 61076-2-103 interface), latch at the top: contact 1 left, 2 right, 3 below, as in the Neutrik NC3MDL-1 front view (drawing 3102 St 10 16); contact spacing (about 8 mm across, 3.9 mm down) scaled from that drawing, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }

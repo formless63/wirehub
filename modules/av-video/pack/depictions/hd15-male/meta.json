@@ -89,5 +89,14 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "High-density D-sub 15-pin plug mating face: three rows of five at 2.29 mm pitch, 1.98 mm row gap, numbered 1-5, 6-10, 11-15 left to right (middle row half a pitch left); approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+  "src": "High-density D-sub 15-pin plug mating face: three rows of five at 2.29 mm pitch, 1.98 mm row gap, numbered 1-5, 6-10, 11-15 left to right (middle row half a pitch left); approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "High-density D-sub 15-pin plug mating face: three rows of five at 2.29 mm pitch, 1.98 mm row gap, numbered 1-5, 6-10, 11-15 left to right (middle row half a pitch left); approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      }
+    ]
+  }
 }
