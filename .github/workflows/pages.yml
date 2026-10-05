@@ -54,8 +54,32 @@ jobs:
       - run: pnpm --filter site test
       # the whole site: home, generator, docs, and the store's browsable page (store/index.html)
       - run: node site/build.mjs site/dist
-      # the official store index: every bundled pack zipped, and index.json listing them
-      - run: node scripts/store-index.mjs official --out site/dist/store
+      # the official store index: every bundled pack zipped, and index.json listing them. With the
+      # WIREHUB_PACK_SIGNING_KEY secret the packs are signed first as the publisher 'wirehub' and
+      # the index lists that publisher (signedBy); without it, unsigned packs and no publishers.
+      - name: Build the official store index
+        env:
+          WIREHUB_PACK_SIGNING_KEY: ${{ secrets.WIREHUB_PACK_SIGNING_KEY }}
+        run: |
+          meta=""
+          if [ -z "$WIREHUB_PACK_SIGNING_KEY" ]; then
+            echo "::warning title=Packs not signed::The WIREHUB_PACK_SIGNING_KEY secret is not set, so the bundled packs are published unsigned and the official index lists no publishers. See docs/catalog-store.md."
+          else
+            recorded="$(node scripts/store-index.mjs official-publisher-key)"
+            pub="$(WIREHUB_STORE_SIGNING_KEY="$WIREHUB_PACK_SIGNING_KEY" node scripts/store-index.mjs pubkey)"
+            if [ "$recorded" != "$pub" ]; then
+              echo "::error title=Publisher key mismatch::The WIREHUB_PACK_SIGNING_KEY secret's public key ($pub) is not the recorded publisher key in scripts/official-store-meta.json ($recorded)."
+              exit 1
+            fi
+            for pack in modules/*/pack; do
+              [ "$pack" = "modules/example/pack" ] && continue
+              [ -f "$pack/wirehub-pack.json" ] || continue
+              node scripts/store-index.mjs sign-pack "$pack"
+              node scripts/store-index.mjs verify-pack-signature "$pack" --pubkey "$recorded"
+            done
+            meta="--meta scripts/official-store-meta.json"
+          fi
+          node scripts/store-index.mjs official --out site/dist/store $meta
       - name: Sign the store index
         env:
           WIREHUB_STORE_SIGNING_KEY: ${{ secrets.WIREHUB_STORE_SIGNING_KEY }}

@@ -48,9 +48,15 @@
 //       print the official index's public key as this repository records it
 //       (OFFICIAL_STORE_PUBLIC_KEY in apps/studio/server/store.ts); empty while it is
 //       still the placeholder
-//   node scripts/store-index.mjs official --out <dir> [--generated <iso>]
+//   node scripts/store-index.mjs official-publisher-key
+//       print the key of the 'wirehub' publisher as recorded in
+//       scripts/official-store-meta.json (the key CI's WIREHUB_PACK_SIGNING_KEY must match)
+//   node scripts/store-index.mjs official --out <dir> [--generated <iso>] [--meta <file>] [--modules <dir>]
 //       the official index of WireHub's bundled packs (modules/*/pack, not the
-//       example): bundles plus an unsigned index.json, ready for `sign`
+//       example): bundles plus an unsigned index.json, ready for `sign`. With --meta
+//       scripts/official-store-meta.json the index lists the publisher, and every pack
+//       must then be signed (sign-pack) by it. --modules reads the packs from another
+//       directory (tests)
 
 import { generateKeyPairSync, createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -63,7 +69,7 @@ const store = await import(new URL('packages/catalog/src/store-index.ts', `file:
 const packSig = await import(new URL('packages/catalog/src/pack-signature.ts', `file://${root}`).href);
 // The pack archive reader needs the workspace installed (it resolves @wirehub/catalog); the commands that
 // only handle keys and signatures do not, so `keygen` works from a plain clone of the repository.
-const NO_ARCHIVE = new Set(['keygen', 'pubkey', 'publisher-keygen', 'sign', 'verify', 'official-pubkey']);
+const NO_ARCHIVE = new Set(['keygen', 'pubkey', 'publisher-keygen', 'sign', 'verify', 'official-pubkey', 'official-publisher-key']);
 const archive = NO_ARCHIVE.has(process.argv.slice(2).find((a) => !a.startsWith('--'))) ? undefined : await import(new URL('apps/studio/server/pack-archive.ts', `file://${root}`).href);
 
 export const OFFICIAL_STORE = { id: 'wirehub', name: 'WireHub bundled packs', homepage: 'https://github.com/formless63/wirehub' };
@@ -493,9 +499,16 @@ switch (command) {
     console.log(key[1]);
     break;
   }
+  case 'official-publisher-key': {
+    const meta = JSON.parse(readFileSync(join(root, 'scripts/official-store-meta.json'), 'utf8'));
+    const publisher = (meta.publishers ?? []).find((p) => p.id === 'wirehub');
+    if (publisher === undefined) die('scripts/official-store-meta.json records no wirehub publisher');
+    console.log(publisher.key);
+    break;
+  }
   case 'official': {
-    if (flags.out === undefined) die('usage: store-index.mjs official --out <dir>', 2);
-    const modules = join(root, 'modules');
+    if (flags.out === undefined) die('usage: store-index.mjs official --out <dir> [--meta <file>] [--modules <dir>]', 2);
+    const modules = flags.modules === undefined ? join(root, 'modules') : resolve(flags.modules);
     for (const id of readdirSync(modules).sort()) {
       const pack = join(modules, id, 'pack');
       if (id === 'example' || !existsSync(join(pack, 'wirehub-pack.json'))) continue;
@@ -505,5 +518,5 @@ switch (command) {
     break;
   }
   default:
-    die('usage: store-index.mjs keygen | pubkey | bundle | build | sign | verify | publisher-keygen | sign-pack | verify-pack-signature | publisher | review | yank | unyank | revoke | official (see the header of scripts/store-index.mjs)', 2);
+    die('usage: store-index.mjs keygen | pubkey | bundle | build | sign | verify | publisher-keygen | sign-pack | verify-pack-signature | publisher | review | yank | unyank | revoke | official-pubkey | official-publisher-key | official (see the header of scripts/store-index.mjs)', 2);
 }
