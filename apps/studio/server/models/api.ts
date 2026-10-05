@@ -114,7 +114,37 @@ function ok(body: unknown, status = 200, headers?: Record<string, string>): ApiR
 
 const RECORD_ID = /^[a-z0-9]+(?:-[a-z0-9]+|(?<=\d)\.\d[a-z0-9]*)*$/;
 const ASSET_ID = /^[0-9a-f]{64}$/;
-const REVISION_KEY = /^[a-z0-9][a-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const REVISION_KEY = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/**
+ * The link of `revisions/<part>/<rev>`. `<part>` is a Library record id (`pair-terminal-board`)
+ * or a part number (`ABC-123456-00`), whichever the importer keyed the link by; an exact key wins,
+ * else the other spelling of the same record is tried: the part number's record (its `partNumber`
+ * or `sku`, matched case-insensitively), or the record id's part number.
+ */
+async function revisionLink(links: ModelLinkStore, deps: ModelDeps, part: string, rev: string): Promise<ModelLink | undefined> {
+  const exact = await links.get(`revisions/${part}/${rev}`);
+  if (exact !== undefined) return exact;
+  const db = (await deps.loadDb()) as unknown as Record<string, unknown>;
+  const tried = new Set([part]);
+  for (const kind of DEFINITION_KINDS) {
+    const list = db[kind];
+    if (!Array.isArray(list)) continue;
+    for (const record of list as { id?: unknown; partNumber?: unknown; sku?: unknown }[]) {
+      const numbers = [record.partNumber, record.sku].filter((n): n is string => typeof n === 'string' && n !== '');
+      const id = typeof record.id === 'string' ? record.id : '';
+      const hit = id === part || numbers.some((n) => n.toLowerCase() === part.toLowerCase());
+      if (!hit) continue;
+      for (const alt of [id, ...numbers]) {
+        if (alt === '' || tried.has(alt)) continue;
+        tried.add(alt);
+        const link = await links.get(`revisions/${alt}/${rev}`);
+        if (link !== undefined) return link;
+      }
+    }
+  }
+  return undefined;
+}
 
 function recordExists(db: Db, kind: DefinitionKind, id: string): boolean {
   const list = (db as unknown as Record<string, { id: string }[] | undefined>)[kind] ?? [];
@@ -180,7 +210,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
   if (kind === 'revisions') {
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'A revision model is written by the importer that made it; this address answers GET.');
     if (id === undefined || action === undefined || extra !== undefined || !REVISION_KEY.test(`${id}/${action}`)) return fail(404, 'There is nothing at that address.', 'GET /api/models/revisions/<part>/<revision>.');
-    const link = await links.get(`revisions/${id}/${action}`);
+    const link = await revisionLink(links, deps, id, action);
     return ok({ link: link ?? null, ...(link === undefined ? {} : { built: await isBuilt(deps, link) }) }, 200, { ETag: linkETag(link) });
   }
   if (!isDefinitionKind(kind)) return fail(400, `'${kind}' is not a Library kind.`, `One of: ${DEFINITION_KINDS.join(', ')}.`);

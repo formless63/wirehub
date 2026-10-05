@@ -1,12 +1,14 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.10 (rev 6 was the first revision in the open base). **Phases A
+Status: **plan**, rev 6.11 (rev 6 was the first revision in the open base). **Phases A
 (schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
 C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.11** — Part-number revision keys (cs-9ar). Migration **0022**: the `<part>` of
+  `revisions/<part>/<revision>` also takes upper case (a part number).
 - **rev 6.10** — Revision model links (cs-s97). Migration **0021**: `studio.model_link.record_key`
   also admits `revisions/<part>/<revision>`, the key of a part revision's own model.
 - **rev 6.9** — Fonts as assets. Migration **0020**: `font/ttf`, `font/otf` and `font/woff2` join the
@@ -1468,6 +1470,20 @@ ALTER TABLE studio.model_link DROP CONSTRAINT model_link_record_key_check;
 ALTER TABLE studio.model_link ADD CONSTRAINT model_link_record_key_check CHECK (
   record_key ~ '^(connectors|components|wires|pcbas|bodies|interfaces|mechanicals|kits)/[a-z0-9][a-z0-9._-]*$'
   OR record_key ~ '^revisions/[a-z0-9][a-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$');
+```
+
+The `<part>` of that key is a record id **or a part number** (`ABC-123456-00`; the API resolves either
+spelling against the record that carries the part number), so a second migration widens it to
+upper case:
+
+```sql ddl
+-- 0022_model_link_part_number_keys — a revision's model link keyed by a part number (cs-9ar)
+-- `revisions/<part>/<revision>`: `<part>` is a Library record id or a part number
+-- (`ABC-123456-00`), so it takes upper-case letters too (0021 allowed lower case only).
+ALTER TABLE studio.model_link DROP CONSTRAINT model_link_record_key_check;
+ALTER TABLE studio.model_link ADD CONSTRAINT model_link_record_key_check CHECK (
+  record_key ~ '^(connectors|components|wires|pcbas|bodies|interfaces|mechanicals|kits)/[a-z0-9][a-z0-9._-]*$'
+  OR record_key ~ '^revisions/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$');
 ```
 
 ---

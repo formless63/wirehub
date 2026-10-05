@@ -235,8 +235,11 @@ const ARTWORK_NAME = /^([0-9a-f]{64})\.([a-z0-9]{1,8})$/;
 const DEPICTION_FILE = /^[a-z0-9][a-z0-9._-]*\.(svg|png|jpg|jpeg|webp)$/;
 const ASSET_FILE = /^([0-9a-f]{64})\.(png|jpg|pdf|glb|stl|ttf|otf|woff2)$/;
 const MODEL_RECORD_KEY = /^(connectors|components|wires|pcbas|bodies|interfaces|mechanicals|kits)\/[a-z0-9][a-z0-9._-]*$/;
-/** A revision's own model: `revisions/<part>/<revision>`, for a revision no Library record shows (a WIP or superseded one). */
-const MODEL_REVISION_KEY = /^revisions\/[a-z0-9][a-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/**
+ * A revision's own model: `revisions/<part>/<revision>`, for a revision no Library record shows (a WIP or superseded one).
+ * `<part>` is a Library record id or a part number (`ABC-123456-00`), so it may be upper case (migration 0022).
+ */
+const MODEL_REVISION_KEY = /^revisions\/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /**
  * What `models.json` may key a link by (`studio.model_link.record_key`, migration 0020): a Library
