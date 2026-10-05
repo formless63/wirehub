@@ -25,7 +25,7 @@ import { known, parseSubject, UNKNOWN } from '../src/history/types.ts';
 import { recordsOfWrite } from '../src/locks/records.ts';
 import type { ApiRequest } from '../server/api.ts';
 import type { StudioUser } from '../server/me.ts';
-import { historyScenario, renameAndListScenario } from './history-scenario.ts';
+import { historyScenario, photoScenario, renameAndListScenario } from './history-scenario.ts';
 
 const ISOLATED = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
 
@@ -60,6 +60,7 @@ describe('change history on the file backend (git)', () => {
     };
     await historyScenario(backend);
     const last = git(work, ['log', '-1', '--format=%s']).trim();
+    await photoScenario(backend);
     await renameAndListScenario(backend);
     // history was never rewritten: every commit is still there, the restores on top
     const subjects = git(work, ['log', '--format=%an %s']).trim().split('\n');

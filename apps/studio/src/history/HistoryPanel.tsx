@@ -148,7 +148,7 @@ export function EntryDetail(props: {
       return;
     }
     toast.success(out.value.restored.parts.length === 0 ? 'Already in that state — nothing to restore' : `Restored ${props.subjectLabel ?? props.subject}`, {
-      description: out.value.restored.parts.length === 0 ? undefined : 'Saved as a new change; the history keeps every earlier one.',
+      description: [out.value.restored.parts.length === 0 ? undefined : 'Saved as a new change; the history keeps every earlier one.', ...(out.value.skipped ?? [])].filter((line) => line !== undefined).join(' ') || undefined,
     });
     props.onRestored?.(out.value);
   }
