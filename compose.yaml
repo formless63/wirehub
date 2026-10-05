@@ -78,6 +78,7 @@ services:
       WIREHUB_NOTIFY_URL:
       WIREHUB_NOTIFY_FORMAT:
       WIREHUB_STORE_INDEXES:
+      WIREHUB_STORE_HIDE_UNREVIEWED:
       # the file Backrest's post-snapshot hook touches (profile `backup`); the deep health check reads it
       WIREHUB_BACKUP_MARKER: ${WIREHUB_BACKUP_MARKER:-/backup-marker/.last-snapshot}
       # sign-in: on, with email + password accounts; first-run setup makes the admin

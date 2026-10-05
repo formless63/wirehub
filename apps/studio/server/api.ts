@@ -1059,7 +1059,7 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   }
   // the store: verified indexes, and install through the pack lifecycle below
   if (isStorePath(request.path, request.method)) {
-    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, deps.store);
+    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, deps.store, request.user);
     return isWriteMethod(request.method) ? withWriteLock(run) : run();
   }
   // the pack lifecycle: the same direct-write handler shape, on files and (through `setup.transact`) on Postgres

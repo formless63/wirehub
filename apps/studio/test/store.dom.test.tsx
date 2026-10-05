@@ -6,7 +6,7 @@
  * the diff then one change set, and Update; a viewer sees the list but no buttons.
  */
 
-import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,6 +16,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
+import { PacksPanel } from '../src/modules/PacksPanel.tsx';
 import { StoreBrowser } from '../src/modules/StoreBrowser.tsx';
 import { STORE_URL, createTestStore, type TestStore } from './store-fixture.ts';
 
@@ -107,5 +108,40 @@ describe('Browse store', () => {
     render(<StoreBrowser />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/unsigned index is refused/);
     expect(screen.getByText('No packs to show.')).not.toBeNull();
+  });
+
+  it('shows who signs a pack and its review, warns about a yanked version, and lets an owner install it anyway', { timeout: 60_000 }, async () => {
+    store.signWith = [store.publisherKeyFile];
+    store.publish('alpha', '1.0.0', '10');
+    store.publish('alpha', '1.1.0', '11');
+    // beta stays unsigned, from a publisher the index does not list
+    store.signWith = [];
+    store.publish('beta', '1.0.0', '20');
+    const betaManifest = join(store.dir, 'packs', 'beta-1.0.0', 'wirehub-pack.json');
+    writeFileSync(betaManifest, readFileSync(betaManifest, 'utf8').replace('"id": "tester"', '"id": "someone-else"'));
+    store.cli('bundle', join(store.dir, 'packs', 'beta-1.0.0'), '--out', store.site);
+    store.meta('publisher', '--id', 'tester', '--name', 'Test publisher', '--pubkey', store.publisherPublicKey);
+    store.meta('review', 'alpha@1.0.0', '--status', 'reviewed', '--by', 'reviewer', '--on', '2026-10-04');
+    store.meta('yank', 'alpha@1.1.0', '--reason', 'wrong value');
+    render(<StoreBrowser />);
+    await waitFor(() => expect(row('alpha')).not.toBeNull());
+    expect(row('alpha')?.querySelector('[data-testid="store-trust"]')?.textContent).toBe('signed by Test publisher · reviewed by reviewer on 2026-10-04');
+    expect(row('beta')?.querySelector('[data-testid="store-trust"]')?.textContent).toContain('not signed by a publisher');
+    expect(row('alpha')?.querySelector('[data-store-warning="1.1.0"]')?.textContent).toMatch(/Version 1.1.0 was yanked: wrong value/);
+    // the offered version is the newest not yanked
+    expect(row('alpha')?.textContent).toContain('Install…');
+    fireEvent.click(await screen.findByRole('button', { name: 'Install 1.1.0 anyway…' }));
+    const pending = await screen.findByTestId('store-pending');
+    expect(pending.textContent).toMatch(/This version was yanked: wrong value/);
+    expect(pending.textContent).toMatch(/Signature of publisher tester verified/);
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    await screen.findByText('Installed alpha 1.1.0.');
+    expect(readInstalledPacks(packs).packs[0]).toMatchObject({ version: '1.1.0', origin: { publisher: 'tester' } });
+    await waitFor(() => expect(screen.getAllByRole('alert').map((a) => a.textContent).join(' ')).toMatch(/Installed: 1.1.0 was yanked by Test store: wrong value. Update to 1.0.0 suggested./));
+
+    // the Packs panel badges the installed yanked version
+    cleanup();
+    render(<PacksPanel />);
+    await waitFor(() => expect(document.querySelector('[data-pack-warning="alpha"]')?.textContent).toMatch(/^Yanked: 1.1.0 was yanked by Test store: wrong value. Update to 1.0.0 suggested./));
   });
 });

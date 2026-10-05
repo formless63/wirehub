@@ -14,6 +14,7 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../../server/api.ts';
 import { openPg, type PgHandle } from '../../server/pg/db.ts';
+import type { StudioUser } from '../../server/me.ts';
 import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { pgSetupDeps } from '../../server/pg/setup.ts';
@@ -89,5 +90,47 @@ describePg('store install on Postgres', () => {
     expect((await call('DELETE', '/api/packs/alpha')).status).toBe(200);
     expect(await note()).toBeUndefined();
     expect(await deps.depictions?.listDefIds()).not.toContain('alpha-face');
+  }, 180_000);
+
+  it('phase 5: verifies the publisher signature, records the origin, refuses yanked and revoked versions without a change set, and flags the installed one', async () => {
+    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'store-trust', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
+    const cache = new SnapshotCache(pgh.db, orgId, { reuseMs: 0 });
+    const deps: WorkbenchDeps = pgWorkbenchDeps({ cache, db: pgh.db });
+    deps.setup = pgSetupDeps(deps, cache, { prompt: false, now: () => '2026-10-05T09:00:00.000Z' });
+    deps.modules = createRegistry([]);
+    const trust = createTestStore();
+    try {
+      deps.store = { indexes: [{ url: STORE_URL, publicKey: trust.publicKey }], fetch: trust.fetch };
+      const call = async (method: string, path: string, body?: unknown, user?: StudioUser) =>
+        (await handleWorkbenchRequest({ method, path, ...(body === undefined ? {} : { body }), ...(user === undefined ? {} : { user }) }, deps)) as { status: number; body: any };
+      trust.signWith = [trust.publisherKeyFile];
+      trust.publish('gamma', '1.0.0', '1 Ω');
+      trust.publish('gamma', '1.1.0', '2 Ω');
+      trust.meta('publisher', '--id', 'tester', '--name', 'Test publisher', '--pubkey', trust.publisherPublicKey);
+      trust.meta('yank', 'gamma@1.1.0', '--reason', 'wrong value');
+
+      const v0 = BigInt(await cache.version());
+      // the yanked version: refused (and for an editor even when forced), nothing written
+      expect((await call('POST', '/api/packs/store/install', { index: STORE_URL, id: 'gamma', version: '1.1.0', apply: true })).status).toBe(409);
+      expect((await call('POST', '/api/packs/store/install', { index: STORE_URL, id: 'gamma', version: '1.1.0', apply: true, force: true }, { name: 'Ed', source: 'local', role: 'editor' })).status).toBe(403);
+      expect(BigInt(await cache.version())).toBe(v0);
+      // the offered version, signed: one change set, its origin recorded in packs.json
+      const done = await call('POST', '/api/packs/store/install', { index: STORE_URL, id: 'gamma', apply: true });
+      expect(done.status, JSON.stringify(done.body)).toBe(200);
+      expect(done.body.from).toMatchObject({ version: '1.0.0', publisher: 'tester', signedBy: [trust.publisherPublicKey] });
+      expect(BigInt(await cache.version())).toBe(v0 + 1n);
+      expect((await call('GET', '/api/packs')).body.packs[0]).toMatchObject({ id: 'gamma', version: '1.0.0', origin: { index: STORE_URL, publisher: 'tester', signedBy: [trust.publisherPublicKey] } });
+
+      // the key is revoked: a new install of anything it alone signs is refused, the installed pack flagged
+      trust.meta('revoke', '--pubkey', trust.publisherPublicKey, '--reason', 'key lost');
+      const refused = await call('POST', '/api/packs/store/install', { index: STORE_URL, id: 'gamma', version: '1.1.0', apply: true, force: true });
+      expect(refused.status).toBe(422);
+      expect(refused.body.error).toMatch(/signed only by a revoked key: key lost/);
+      expect(BigInt(await cache.version())).toBe(v0 + 1n);
+      const list = (await call('GET', '/api/packs/store')).body;
+      expect(list.notices).toEqual([expect.objectContaining({ id: 'gamma', version: '1.0.0', revoked: [expect.objectContaining({ reason: 'key lost' })] })]);
+    } finally {
+      trust.close();
+    }
   }, 180_000);
 });

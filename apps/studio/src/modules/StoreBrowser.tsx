@@ -5,12 +5,16 @@
  * beside the store disclaimer. Install / Update previews the record-level diff
  * and applies it as one change set (the ordinary pack lifecycle). A viewer sees
  * the list but no buttons.
+ *
+ * Phase 5: who signs each pack (its publisher, or the index alone), each version's
+ * review status as the index publisher states it, yanked versions (warned about, never
+ * offered; an owner may install one anyway) and versions signed only by a revoked key.
  */
 
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 
 import { loadMe } from '../me.browser.ts';
-import { applyStoreInstall, listStore, previewStoreInstall, type PackAnswer, type PackPlan, type StoreIndexView, type StorePackView } from '../packs.browser.ts';
+import { applyStoreInstall, listStore, noticeText, previewStoreInstall, reviewText, type PackAnswer, type PackPlan, type StoreIndexView, type StoreNotice, type StorePackView, type StoreReviewView } from '../packs.browser.ts';
 import { PlanView } from './PacksPanel.tsx';
 
 const sentence = (a: PackAnswer): string => `${a.error ?? `That failed (HTTP ${a.status}).`}${a.hint === undefined ? '' : ` ${a.hint}`}`;
@@ -23,6 +27,10 @@ interface Pending {
   plan: PackPlan;
   applicable: boolean;
   kind: 'install' | 'update';
+  review?: StoreReviewView;
+  yanked?: { reason: string };
+  publisher?: string;
+  force: boolean;
 }
 
 export function StoreBrowser(): JSX.Element {
@@ -38,6 +46,9 @@ export function StoreBrowser(): JSX.Element {
   const [busy, setBusy] = useState(false);
   // a viewer reads the store; installing is for owners and editors (the server refuses too)
   const [canWrite, setCanWrite] = useState(false);
+  // only an owner installs a yanked version anyway (the server refuses anyone else)
+  const [isOwner, setIsOwner] = useState(false);
+  const [notices, setNotices] = useState<StoreNotice[]>([]);
 
   const reload = useCallback(async (): Promise<void> => {
     const answer = await listStore();
@@ -50,11 +61,20 @@ export function StoreBrowser(): JSX.Element {
     setIndexes((answer.body['indexes'] as StoreIndexView[]) ?? []);
     setDomains((answer.body['domains'] as string[]) ?? []);
     setDisclaimer(answer.body['disclaimer'] as string | undefined);
-    setNotes([...((answer.body['problems'] as string[] | undefined) ?? []), ...(typeof answer.body['hint'] === 'string' ? [answer.body['hint']] : [])]);
+    setNotices((answer.body['notices'] as StoreNotice[] | undefined) ?? []);
+    const hidden = answer.body['hideUnreviewed'] === true ? Number(answer.body['hidden'] ?? 0) : 0;
+    setNotes([
+      ...((answer.body['problems'] as string[] | undefined) ?? []),
+      ...(typeof answer.body['hint'] === 'string' ? [answer.body['hint']] : []),
+      ...(answer.body['hideUnreviewed'] === true ? [`This hub shows only versions the store has reviewed${hidden > 0 ? ` (${hidden} pack${hidden === 1 ? '' : 's'} with none hidden)` : ''}.`] : []),
+    ]);
   }, []);
   useEffect(() => {
     void reload();
-    void loadMe().then((me) => setCanWrite(me.role !== 'viewer'));
+    void loadMe().then((me) => {
+      setCanWrite(me.role !== 'viewer');
+      setIsOwner(me.role === undefined || me.role === 'owner');
+    });
   }, [reload]);
 
   const shown = useMemo(() => {
@@ -75,25 +95,36 @@ export function StoreBrowser(): JSX.Element {
     }
   };
 
-  const preview = (pack: StorePackView): Promise<void> =>
+  const preview = (pack: StorePackView, forced?: string): Promise<void> =>
     run(async () => {
       setMessage(undefined);
-      const answer = await previewStoreInstall({ index: pack.index, id: pack.id });
+      const answer = await previewStoreInstall({ index: pack.index, id: pack.id, ...(forced === undefined ? {} : { version: forced, force: true }) });
       const plan = answer.body['plan'] as PackPlan | undefined;
-      const from = answer.body['from'] as { version: string; sha256: string } | undefined;
+      const from = answer.body['from'] as { version: string; sha256: string; review?: StoreReviewView; yanked?: { reason: string }; publisher?: string } | undefined;
       const problems = (answer.body['problems'] as string[] | undefined) ?? [];
       if (plan === undefined || from === undefined) {
         setMessage(`${sentence(answer)}${problems.length > 0 ? ` ${problems.join('; ')}` : ''}`);
         return;
       }
       if (!answer.ok) setMessage(sentence(answer));
-      setPending({ pack, version: from.version, sha256: from.sha256, plan, applicable: answer.body['applicable'] !== false && plan.ok, kind: answer.body['kind'] === 'update' ? 'update' : 'install' });
+      setPending({
+        pack,
+        version: from.version,
+        sha256: from.sha256,
+        plan,
+        applicable: answer.body['applicable'] !== false && plan.ok,
+        kind: answer.body['kind'] === 'update' ? 'update' : 'install',
+        ...(from.review === undefined ? {} : { review: from.review }),
+        ...(from.yanked === undefined ? {} : { yanked: from.yanked }),
+        ...(from.publisher === undefined ? {} : { publisher: from.publisher }),
+        force: forced !== undefined,
+      });
     });
 
   const confirm = (): Promise<void> =>
     run(async () => {
       if (pending === undefined) return;
-      const answer = await applyStoreInstall({ index: pending.pack.index, id: pending.pack.id, version: pending.version }, pending.sha256, pending.plan.major === true);
+      const answer = await applyStoreInstall({ index: pending.pack.index, id: pending.pack.id, version: pending.version, force: pending.force }, pending.sha256, pending.plan.major === true);
       if (!answer.ok) {
         setMessage(sentence(answer));
         return;
@@ -142,6 +173,38 @@ export function StoreBrowser(): JSX.Element {
               {p.installed === undefined ? null : <> · installed {p.installed}</>}
             </div>
             {p.description === undefined ? null : <div className="text-faint">{p.description}</div>}
+            <div data-testid="store-trust">
+              {p.publisher === undefined ? <span className="text-faint">not signed by a publisher (pinned by the index)</span> : <>signed by {p.publisher.name}</>}
+              {p.latest === undefined ? null : (
+                <>
+                  {' · '}
+                  <span className={p.latest.review?.status === 'flagged' ? 'text-err' : undefined} title="As the store states it; information, not checked by WireHub">
+                    {reviewText(p.latest.review)}
+                  </span>
+                </>
+              )}
+            </div>
+            {(p.releases ?? [])
+              .filter((r) => r.yanked !== undefined || r.revoked === true)
+              .map((r) => (
+                <div key={r.version} role="note" className="text-err" data-store-warning={r.version}>
+                  {r.yanked === undefined ? null : <>Version {r.version} was yanked: {r.yanked.reason}. It is not offered for install.</>}
+                  {r.revoked === true ? <> Version {r.version} is signed only by a revoked key and cannot be installed.</> : null}
+                  {canWrite && isOwner && r.yanked !== undefined && r.revoked !== true ? (
+                    <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void preview(p, r.version)}>
+                      Install {r.version} anyway…
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            {notices
+              .filter((n) => n.id === p.id && n.index === p.index)
+              .map((n) => (
+                <div key={`${n.index}-${n.version}`} role="alert" className="text-err">
+                  Installed: {noticeText(n)}
+                </div>
+              ))}
+            {p.action === 'unavailable' ? <div className="text-faint">Every version is yanked; nothing is offered.</div> : null}
             <div className="text-faint">
               from {p.store.name}
               {p.homepage === undefined ? null : (
@@ -168,6 +231,14 @@ export function StoreBrowser(): JSX.Element {
             {pending.kind === 'update' ? 'Update' : 'Install'} {pending.pack.id} {pending.version}
           </b>
           <div className="text-faint">Licence (as stated by the author): {pending.plan.pack.license}</div>
+          <div className="text-faint">
+            {pending.publisher === undefined ? 'Not signed by a publisher; pinned by the index.' : `Signature of publisher ${pending.publisher} verified.`} Review: {reviewText(pending.review)}.
+          </div>
+          {pending.yanked === undefined ? null : (
+            <div role="alert" className="text-err">
+              This version was yanked: {pending.yanked.reason}. You are installing it anyway.
+            </div>
+          )}
           <PlanView plan={pending.plan} />
           <button type="button" disabled={busy || !pending.applicable} onClick={() => void confirm()} className="mr-2 underline">
             {pending.kind === 'update' ? 'Update' : 'Install'}

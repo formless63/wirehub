@@ -45,6 +45,45 @@ export const STORE_SIGNATURE_SUFFIX = '.minisig';
 export const STORE_DISCLAIMER =
   'Packs in a store are published by their authors, who are responsible for their content and licensing. WireHub does not review or police third-party packs; the licence and provenance shown are information from the author, not checked. A signature means the index is the one its store published, unmodified, not that the data is right.';
 
+/**
+ * What the index publisher says about a version's data (phase 5): information,
+ * never a gate in WireHub itself. `unreviewed` is the default when the index says
+ * nothing; `reviewed` names who checked it against its cited sources and when;
+ * `flagged` says what is wrong with it. A deployment may choose to hide unreviewed
+ * versions (`WIREHUB_STORE_HIDE_UNREVIEWED`).
+ */
+export type StoreReview =
+  | { status: 'unreviewed' }
+  | { status: 'reviewed'; by: string; on: string; note?: string }
+  | { status: 'flagged'; reason: string; by?: string; on?: string };
+
+/** A version the index publisher withdrew: still listed and downloadable (old designs re-validate against it), never offered for install. */
+export interface StoreYank {
+  reason: string;
+  /** ISO date */
+  on?: string;
+}
+
+/** A publisher of packs, with the keys its packs are signed with (`wirehub-pack.sig`). */
+export interface StorePublisher {
+  /** kebab; a pack's manifest names it as `publisher.id` */
+  id: string;
+  name: string;
+  /** the current signing key (minisign `RW…`) */
+  key: string;
+  /** other keys still valid for packs signed before a rotation */
+  keys?: string[];
+  url?: string;
+}
+
+/** A key the index publisher revoked: packs signed only by it are refused for install and flagged where installed. */
+export interface StoreRevokedKey {
+  key: string;
+  reason?: string;
+  /** ISO date */
+  on?: string;
+}
+
 export interface StoreIndexVersion {
   version: string;
   /** the bundle: absolute https, or relative to the index URL */
@@ -56,6 +95,12 @@ export interface StoreIndexVersion {
   /** when it differs from the pack's */
   license?: string;
   requires?: PackManifest['requires'];
+  /** the review status; absent = `unreviewed` */
+  review?: StoreReview;
+  /** withdrawn by the index publisher */
+  yanked?: StoreYank;
+  /** the publisher keys whose signature over this version's manifest the builder verified (`RW…`); information, the hub verifies again */
+  signedBy?: string[];
 }
 
 export interface StoreIndexPack {
@@ -67,6 +112,8 @@ export interface StoreIndexPack {
   /** SPDX, as the author states it: information, not a gate */
   license: string;
   author: { id?: string; name: string };
+  /** the id of the publisher (`StoreIndex.publishers`) whose key must sign every version; absent = the pack is pinned by the index only */
+  publisher?: string;
   homepage?: string;
   /** newest first */
   versions: StoreIndexVersion[];
@@ -77,6 +124,10 @@ export interface StoreIndex {
   store: { id: string; name: string; homepage?: string };
   /** when the index was built (ISO 8601), as the builder said */
   generated?: string;
+  /** the publishers whose keys sign packs (phase 5) */
+  publishers?: StorePublisher[];
+  /** keys revoked by the index publisher */
+  revokedKeys?: StoreRevokedKey[];
   packs: StoreIndexPack[];
 }
 
@@ -88,6 +139,25 @@ const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SEMVER = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const HEX64 = /^[0-9a-f]{64}$/;
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
+const isKey = (v: unknown): boolean => {
+  try {
+    parseStorePublicKey(String(v));
+    return typeof v === 'string';
+  } catch {
+    return false;
+  }
+};
+
+/** The review sentence problems of one version's `review`, if any. */
+function reviewProblems(review: unknown, at: string): string[] {
+  if (review === undefined) return [];
+  const r = review as Partial<{ status: string; by: unknown; on: unknown; reason: unknown }> | null;
+  if (typeof r !== 'object' || r === null) return [`${at}: review is not an object`];
+  if (r.status === 'unreviewed') return [];
+  if (r.status === 'reviewed') return isText(r.by) && isText(r.on) ? [] : [`${at}: a reviewed version names who reviewed it and when ({ by, on })`];
+  if (r.status === 'flagged') return isText(r.reason) ? [] : [`${at}: a flagged version says why ({ reason })`];
+  return [`${at}: review status must be unreviewed, reviewed or flagged`];
+}
 
 /** An index's shape checked: the index, or the sentences saying what is wrong with it. */
 export function parseStoreIndex(value: unknown): { index: StoreIndex; problems: [] } | { index?: undefined; problems: string[] } {
@@ -97,6 +167,21 @@ export function parseStoreIndex(value: unknown): { index: StoreIndex; problems: 
   if (v.format !== STORE_INDEX_FORMAT) problems.push(`unsupported index format ${String(v.format)}`);
   if (typeof v.store !== 'object' || v.store === null || !isText(v.store.id) || !isText(v.store.name)) problems.push('the index names no store ({ id, name })');
   if (!Array.isArray(v.packs)) problems.push('the index has no packs list');
+  const publishers = new Set<string>();
+  if (v.publishers !== undefined && !Array.isArray(v.publishers)) problems.push('publishers is not a list');
+  for (const [i, pub] of (Array.isArray(v.publishers) ? v.publishers : []).entries()) {
+    const at = `publishers[${i}]${isText(pub?.id) ? ` (${pub.id})` : ''}`;
+    if (!KEBAB.test(pub?.id ?? '')) problems.push(`${at}: the id must be kebab-case`);
+    else if (publishers.has(pub.id)) problems.push(`${at}: listed twice`);
+    publishers.add(pub?.id);
+    if (!isText(pub?.name)) problems.push(`${at}: no name`);
+    if (!isKey(pub?.key)) problems.push(`${at}: key is not a minisign public key (RW…)`);
+    if (pub?.keys !== undefined && (!Array.isArray(pub.keys) || !pub.keys.every(isKey))) problems.push(`${at}: keys is not a list of minisign public keys`);
+  }
+  if (v.revokedKeys !== undefined && !Array.isArray(v.revokedKeys)) problems.push('revokedKeys is not a list');
+  for (const [i, r] of (Array.isArray(v.revokedKeys) ? v.revokedKeys : []).entries()) {
+    if (!isKey(r?.key)) problems.push(`revokedKeys[${i}]: key is not a minisign public key (RW…)`);
+  }
   const seen = new Set<string>();
   for (const [i, p] of (Array.isArray(v.packs) ? v.packs : []).entries()) {
     const at = `packs[${i}]${isText(p?.id) ? ` (${p.id})` : ''}`;
@@ -111,6 +196,7 @@ export function parseStoreIndex(value: unknown): { index: StoreIndex; problems: 
     if (!isText(p.domain)) problems.push(`${at}: no domain`);
     if (!isText(p.license)) problems.push(`${at}: no licence`);
     if (typeof p.author !== 'object' || p.author === null || !isText(p.author.name)) problems.push(`${at}: no author ({ name })`);
+    if (p.publisher !== undefined && !publishers.has(p.publisher)) problems.push(`${at}: publisher '${String(p.publisher)}' is not in the index's publishers`);
     if (!Array.isArray(p.versions) || p.versions.length === 0) {
       problems.push(`${at}: no versions`);
       continue;
@@ -121,6 +207,9 @@ export function parseStoreIndex(value: unknown): { index: StoreIndex; problems: 
       if (!isText(ver?.url)) problems.push(`${vat}: no url`);
       if (!HEX64.test(ver?.sha256 ?? '')) problems.push(`${vat}: sha256 is not 64 lowercase hex digits`);
       if (!Number.isInteger(ver?.size) || (ver?.size ?? 0) <= 0) problems.push(`${vat}: size is not a positive whole number of bytes`);
+      problems.push(...reviewProblems(ver?.review, vat));
+      if (ver?.yanked !== undefined && (typeof ver.yanked !== 'object' || ver.yanked === null || !isText(ver.yanked.reason))) problems.push(`${vat}: a yanked version says why ({ reason })`);
+      if (ver?.signedBy !== undefined && (!Array.isArray(ver.signedBy) || !ver.signedBy.every(isKey))) problems.push(`${vat}: signedBy is not a list of minisign public keys`);
     }
   }
   return problems.length > 0 ? { problems } : { index: v as StoreIndex, problems: [] };
@@ -129,6 +218,34 @@ export function parseStoreIndex(value: unknown): { index: StoreIndex; problems: 
 /** The newest version of a pack the index lists. */
 export function latestVersion(pack: StoreIndexPack): StoreIndexVersion | undefined {
   return [...pack.versions].sort((a, b) => compareVersions(b.version, a.version))[0];
+}
+
+/** A version's review status: `unreviewed` when the index says nothing. */
+export const reviewOf = (version: StoreIndexVersion): StoreReview => version.review ?? { status: 'unreviewed' };
+
+/** Is this version shown here? With `hideUnreviewed`, only versions someone reviewed (or flagged) are. */
+export const versionVisible = (version: StoreIndexVersion, options: { hideUnreviewed?: boolean } = {}): boolean => options.hideUnreviewed !== true || reviewOf(version).status !== 'unreviewed';
+
+/** The version the store offers for install: the newest one that is not yanked (and visible, with `hideUnreviewed`). */
+export function offeredVersion(pack: StoreIndexPack, options: { hideUnreviewed?: boolean } = {}): StoreIndexVersion | undefined {
+  return [...pack.versions].sort((a, b) => compareVersions(b.version, a.version)).find((v) => v.yanked === undefined && versionVisible(v, options));
+}
+
+/** A minisign public key in one canonical form (the bare `RW…` line), for comparing keys. */
+export function normalStoreKey(text: string): string {
+  const { keyId, key } = parseStorePublicKey(text);
+  return Buffer.concat([Buffer.from('Ed'), keyId, rawPublicKey(key)]).toString('base64');
+}
+
+/** The keys a publisher of this index signs with (current first), normalised. */
+export function publisherKeys(index: StoreIndex, publisherId: string): string[] {
+  const pub = index.publishers?.find((p) => p.id === publisherId);
+  return pub === undefined ? [] : [...new Set([pub.key, ...(pub.keys ?? [])].map(normalStoreKey))];
+}
+
+/** The keys this index revokes, normalised, with why. */
+export function revokedKeysOf(index: StoreIndex): Map<string, StoreRevokedKey> {
+  return new Map((index.revokedKeys ?? []).map((r) => [normalStoreKey(r.key), r] as const));
 }
 
 /* ------------------------------------------------------------------ *
@@ -142,14 +259,29 @@ export interface StoreBundle {
   url: string;
   sha256: string;
   size: number;
+  /** the publisher keys whose signature over the manifest the builder verified */
+  signedBy?: string[];
+}
+
+/**
+ * What the index publisher says beside the bundles (`store-meta.json` for
+ * `scripts/store-index.mjs build`): the publishers and their keys, revoked keys,
+ * and per version (`"<id>@<version>"`) its review status and whether it is yanked.
+ */
+export interface StoreMeta {
+  publishers?: StorePublisher[];
+  revokedKeys?: StoreRevokedKey[];
+  versions?: Record<string, { review?: StoreReview; yanked?: StoreYank }>;
 }
 
 /**
  * The index for a set of bundles: one entry per pack id, its versions newest
  * first; the pack's name, description, licence and author come from its newest
  * version. Packs sorted by id, so the same bundles always give the same bytes.
+ * With `meta`, a pack whose manifest names a listed publisher carries it
+ * (`publisher`), and each version its review status and yank.
  */
-export function buildStoreIndex(store: StoreIndex['store'], bundles: readonly StoreBundle[], generated?: string): StoreIndex {
+export function buildStoreIndex(store: StoreIndex['store'], bundles: readonly StoreBundle[], generated?: string, meta: StoreMeta = {}): StoreIndex {
   const byId = new Map<string, StoreBundle[]>();
   for (const b of bundles) byId.set(b.manifest.id, [...(byId.get(b.manifest.id) ?? []), b]);
   const packs: StoreIndexPack[] = [];
@@ -162,6 +294,7 @@ export function buildStoreIndex(store: StoreIndex['store'], bundles: readonly St
     }
     const top = list[0]!.manifest;
     const author = top.author ?? (top.publisher === undefined ? undefined : { id: top.publisher.id, name: top.publisher.name });
+    const publisher = top.publisher?.id !== undefined && meta.publishers?.some((p) => p.id === top.publisher?.id) === true ? top.publisher.id : undefined;
     packs.push({
       id,
       name: top.name,
@@ -169,18 +302,34 @@ export function buildStoreIndex(store: StoreIndex['store'], bundles: readonly St
       domain: top.domain ?? id,
       license: top.license,
       author: author ?? { name: store.name },
+      ...(publisher === undefined ? {} : { publisher }),
       ...(top.homepage === undefined ? {} : { homepage: top.homepage }),
-      versions: list.map((b) => ({
-        version: b.manifest.version,
-        url: b.url,
-        sha256: b.sha256,
-        size: b.size,
-        ...(b.manifest.license === top.license ? {} : { license: b.manifest.license }),
-        ...(b.manifest.requires === undefined ? {} : { requires: b.manifest.requires }),
-      })),
+      versions: list.map((b) => {
+        const said = meta.versions?.[`${id}@${b.manifest.version}`];
+        return {
+          version: b.manifest.version,
+          url: b.url,
+          sha256: b.sha256,
+          size: b.size,
+          ...(b.manifest.license === top.license ? {} : { license: b.manifest.license }),
+          ...(b.manifest.requires === undefined ? {} : { requires: b.manifest.requires }),
+          ...(said?.review === undefined || said.review.status === 'unreviewed' ? {} : { review: said.review }),
+          ...(said?.yanked === undefined ? {} : { yanked: said.yanked }),
+          ...(b.signedBy === undefined || b.signedBy.length === 0 ? {} : { signedBy: b.signedBy }),
+        };
+      }),
     });
   }
-  return { format: 1, store, ...(generated === undefined ? {} : { generated }), packs };
+  const unknown = Object.keys(meta.versions ?? {}).filter((key) => !packs.some((p) => p.versions.some((v) => `${p.id}@${v.version}` === key)));
+  if (unknown.length > 0) throw new Error(`The store metadata names versions no bundle has: ${unknown.join(', ')}.`);
+  return {
+    format: 1,
+    store,
+    ...(generated === undefined ? {} : { generated }),
+    ...(meta.publishers === undefined || meta.publishers.length === 0 ? {} : { publishers: [...meta.publishers].sort((a, b) => a.id.localeCompare(b.id)) }),
+    ...(meta.revokedKeys === undefined || meta.revokedKeys.length === 0 ? {} : { revokedKeys: meta.revokedKeys }),
+    packs,
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -244,7 +393,7 @@ const blake2b512 = (bytes: Uint8Array): Buffer => createHash('blake2b512').updat
  * A minisign signature (`.minisig` text) of `message` by the PEM key: the
  * prehashed `ED` algorithm, with `trustedComment` signed too (one line).
  */
-export function signStoreIndex(message: Uint8Array, pem: string, trustedComment = 'wirehub store index'): string {
+export function signStoreIndex(message: Uint8Array, pem: string, trustedComment = 'wirehub store index', keyLabel = 'wirehub store key'): string {
   if (/[\r\n]/.test(trustedComment)) throw new Error('The trusted comment is one line.');
   const key = storePrivateKey(pem);
   const pk = rawPublicKey(createPublicKey(key));
@@ -252,7 +401,7 @@ export function signStoreIndex(message: Uint8Array, pem: string, trustedComment 
   const signature = sign(null, blake2b512(message), key);
   const global = sign(null, Buffer.concat([signature, Buffer.from(trustedComment)]), key);
   return [
-    `untrusted comment: signature from wirehub store key ${keyIdHex(id)}`,
+    `untrusted comment: signature from ${keyLabel} ${keyIdHex(id)}`,
     Buffer.concat([Buffer.from('ED'), id, signature]).toString('base64'),
     `trusted comment: ${trustedComment}`,
     global.toString('base64'),
@@ -267,7 +416,7 @@ export type StoreSignatureCheck = { ok: true; trustedComment: string } | { ok: f
  * minisign's `ED` (prehashed) and legacy `Ed` signatures, and checks the
  * trusted comment's global signature as minisign does.
  */
-export function verifyStoreSignature(message: Uint8Array, signature: string, publicKey: string): StoreSignatureCheck {
+export function verifyStoreSignature(message: Uint8Array, signature: string, publicKey: string, subject = 'index'): StoreSignatureCheck {
   let pub: { keyId: Buffer; key: KeyObject };
   try {
     pub = parseStorePublicKey(publicKey);
@@ -283,9 +432,9 @@ export function verifyStoreSignature(message: Uint8Array, signature: string, pub
   if (sig.length !== 74) return { ok: false, reason: 'the signature file is not in minisign format' };
   const alg = sig.subarray(0, 2).toString();
   if (alg !== 'ED' && alg !== 'Ed') return { ok: false, reason: `unknown signature algorithm '${alg}'` };
-  if (!sig.subarray(2, 10).equals(pub.keyId)) return { ok: false, reason: 'the index was signed by a different key than the one trusted for it' };
+  if (!sig.subarray(2, 10).equals(pub.keyId)) return { ok: false, reason: `the ${subject} was signed by a different key than the one trusted for it` };
   const raw = sig.subarray(10);
-  if (!verify(null, alg === 'ED' ? blake2b512(message) : message, pub.key, raw)) return { ok: false, reason: 'the signature does not match the index' };
+  if (!verify(null, alg === 'ED' ? blake2b512(message) : message, pub.key, raw)) return { ok: false, reason: `the signature does not match the ${subject}` };
   const trustedComment = comment.slice('trusted comment: '.length);
   const global = Buffer.from(globalLine, 'base64');
   if (global.length !== 64 || !verify(null, Buffer.concat([raw, Buffer.from(trustedComment)]), pub.key, global)) return { ok: false, reason: 'the trusted comment was changed' };

@@ -6,9 +6,10 @@ manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over a catalog
 URL (`installPackLayer`, Library → Modules → Install pack…; first-run setup uses the same for the
 bundled domain modules — `docs/modules.md`), per-record `license` / `provenance` / `derivedFrom`
 fields, and the **pack lifecycle**: update with a record-level diff, disable, read-only marking
-with fork to edit (§3), and the **signed store index** with store browsing in the Library (§4:
-`scripts/store-index.mjs`, `WIREHUB_STORE_INDEXES`, Library → Browse store). Pack manifest
-signatures, publisher keys, review status and yanking are still design. Tracked in beads.
+with fork to edit (§3), the **signed store index** with store browsing in the Library (§4:
+`scripts/store-index.mjs`, `WIREHUB_STORE_INDEXES`, Library → Browse store), and **phase 5**:
+signed pack manifests (`wirehub-pack.sig`), publisher keys in the index, review status per
+version, yanked versions and revoked keys (§4, "As built (phase 5)"). Tracked in beads.
 
 A fresh WireHub has the starter catalog: a few dozen generic records (CC0-1.0). Real work needs
 the connectors, stocks and parts of a domain — XLR and speakON for live audio, M12 and
@@ -61,7 +62,7 @@ fieldbus-1.4.0/
   designs/*.json                                 (example designs, optional)
   depictions/<id>/…                              (artwork, optional: <id> a connector, body or wire id)
   art/connectors/<id>.json, art/body-layouts.json   (connector drawings and body layouts, optional; specs/drawing-language.md §7)
-  wirehub-pack.sig      detached signature over the manifest
+  wirehub-pack.sig      the publisher's signature over the manifest (§4, phase 5)
 ```
 
 ```jsonc
@@ -76,7 +77,7 @@ fieldbus-1.4.0/
   "catalogSchema": 4,                     // the CableDesign / record schema it targets
   "requires": { "wirehub": ">=1.0 <2", "packs": { "core-bodies": "^2.1.0" } },
   "idPrefix": "fb-",                      // optional: every record id starts with it
-  "files": { "connectors.json": "sha256-…", "wires.json": "sha256-…" },
+  "files": { "connectors.json": "…64 hex…", "wires.json": "…64 hex…" },   // written by sign-pack (§4)
   "counts": { "connectors": 42, "wires": 9, "interfaces": 18 },
   "homepage": "https://…", "source": "https://…"   // where the pack is built from
 }
@@ -249,21 +250,24 @@ AGPL-3.0-only. Third-party packs carry the licence their authors chose.
 - **Signatures**: ed25519 detached signatures (minisign-compatible) over the index and over
   each pack manifest; the manifest pins every file by sha256, so one signature covers the
   pack. Publishers sign their own packs; the store signs the index that lists them.
-- **Trust roots** are deployment configuration: by default the official store key; an
-  administrator may add publisher keys (a manufacturer, the shop's own) or remove the
-  default. A pack signed by an untrusted key, or unsigned, installs only from file and only
-  by an administrator, with a warning recorded in the install log.
+- **Trust roots** are deployment configuration: the store indexes a hub trusts, each by its
+  key (`WIREHUB_STORE_INDEXES`). An index lists its publishers and their keys, so trusting an
+  index trusts the publisher keys it vouches for. A pack the index pins but whose publisher it
+  does not list installs on the index's signature and sha256 alone, and says so; a pack from a
+  file installs as before (an owner or editor, with the diff).
 - **What a signature means**: that the pack is the one its publisher published, unmodified.
   It does not mean the data is right. Correctness is shown separately as a **review status**
-  per pack and per record — `reviewed` (checked against the cited source by someone other
-  than the transcriber), `community`, `generated` (machine-converted, e.g. from KiCad), or
-  `synthetic`.
+  per version — `unreviewed` (the default), `reviewed` (with who and when) or `flagged` (with
+  a reason) — set by the index publisher. It is **information, not a gate**: WireHub does not
+  police third-party content; a deployment may choose to hide unreviewed versions.
 - **Generated packs are reproducible**: a pack built by a converter (KiCad library → bodies
   and model links) names the converter version and the pinned upstream commit in its
   manifest, so anyone can rebuild it and compare hashes.
 - **Key rotation and revocation**: the index carries a list of revoked keys and yanked
   versions; a yanked version stays downloadable for re-validation but is never offered for
-  install and is flagged on deployments that have it.
+  install (an owner can still force one) and is flagged on deployments that have it. A
+  publisher rotating its key signs with both keys for a while (`wirehub-pack.sig` holds one
+  signature per key) and keeps the old key in its `keys` until it is retired or revoked.
 
 ### As built (phase 3)
 
@@ -300,8 +304,8 @@ name outside the allowed characters, too large, not the type its name says).
 trusted comment), so `minisign -Vm index.json -P <key>` verifies it too. The public key is
 minisign's one-line form (`RW…`). The private key is a PKCS#8 PEM ed25519 key, and the key id is
 the first 8 bytes of the public key's sha256, so the public key can always be printed from the
-private one. Pack manifests are not signed yet: the index pins every bundle by sha256 and size,
-and the index signature covers that.
+private one. The index pins every bundle by sha256 and size, and the index signature covers that;
+phase 5 adds the publisher's own signature over each pack (below).
 
 **What a hub does** (`apps/studio/server/store.ts`). `WIREHUB_STORE_INDEXES` lists the indexes it
 trusts, each `<https url> <public key>` (comma separated; `docs/self-hosting.md`).
@@ -351,6 +355,92 @@ once the owner has created the key (`keygen`) and stored the secret, `store-inde
 the workflow fails if the secret's key and the recorded one differ.
 
 Official index public key: *(placeholder, not yet created)*
+
+### As built (phase 5): publisher signatures, review, yanking, revocation
+
+**The index** gains optional fields (format 1 still; a hub from before phase 5 ignores them):
+
+```jsonc
+{
+  "format": 1, "store": { … },
+  "publishers": [                                 // whose keys sign packs
+    { "id": "acme", "name": "Acme packs", "key": "RW…",   // the current key
+      "keys": ["RW…"],                            // older keys still valid (a rotation)
+      "url": "https://…" }
+  ],
+  "revokedKeys": [{ "key": "RW…", "reason": "key lost", "on": "2026-10-05" }],
+  "packs": [
+    { "id": "fieldbus", …, "publisher": "acme",   // its manifest's publisher.id; every version must carry acme's signature
+      "versions": [
+        { "version": "1.4.0", …,
+          "review": { "status": "reviewed", "by": "a reviewer", "on": "2026-10-04" },  // absent = unreviewed
+          "signedBy": ["RW…"] },                  // the keys the builder verified: information, the hub verifies again
+        { "version": "1.3.0", …,
+          "review": { "status": "flagged", "reason": "values not sourced" },
+          "yanked": { "reason": "wrong pinout on pin 4", "on": "2026-10-05" } }
+      ] }
+  ]
+}
+```
+
+**A signed pack** (`packages/catalog/src/pack-signature.ts`). `sign-pack` writes `files` into the
+manifest — every other file of the pack (what a studio installs: the `.json` files and the images
+under `depictions/**` and `art/**`) pinned by sha256, a JSON file in its canonical form (two-space
+`JSON.stringify` plus a newline, so the same pack verifies as a zip or a JSON bundle), an image as
+its bytes — and then `wirehub-pack.sig`: one minisign signature (as the index's) per key over the
+canonical manifest. In a JSON bundle the signature is the `signature` field. A manifest that pins
+its files is checked on every install, signed or not: a file missing, changed or not pinned
+refuses the install.
+
+**What a hub does.** `POST /api/packs/store/install`, after the index signature and the bundle's
+sha256 and size: when the index names the pack's `publisher`, the manifest must name the same
+publisher, `wirehub-pack.sig` must hold a signature by one of that publisher's keys that the index
+does not revoke, and every file must match the signed `files`; anything else is refused (422,
+nothing written). The install records where the pack came from in `packs.json`
+(`origin: { index, publisher, signedBy }`), which `GET /api/packs` shows. Then:
+
+- **Review status** is listed per version (`releases[].review`, and on the offered `latest`) and
+  shown in Browse store and the install preview, as the index publisher states it.
+  `WIREHUB_STORE_HIDE_UNREVIEWED=true` (default off) lists and installs only versions marked
+  `reviewed` or `flagged`; a pack with none is left out (`hidden` counts them).
+- **Yanked versions** are listed with their reason and never offered: the offered version is the
+  newest that is not yanked (an `unavailable` action when every version is). Installing a yanked
+  version needs `{ "version", "force": true }` from an **owner** (an editor gets 403; a host
+  without roles counts as an owner); Browse store shows "Install … anyway…" to owners.
+- **Revoked keys**: a pack whose only valid signatures are by revoked keys is refused for install,
+  forced or not (a revoked key that the publisher no longer lists is still recognised). Browse
+  store marks such versions.
+- **Installed packs** are checked on every `GET /api/packs/store`: `notices` lists each installed
+  pack whose version a trusted index has yanked, flagged, or whose signers (the recorded `origin`,
+  else the index's `signedBy`) are all revoked, with `suggest`, the version the index offers now.
+  The Packs panel shows a warning badge with that suggestion.
+
+**Publishing** (`scripts/store-index.mjs`; keys are made outside every repository):
+
+```
+node scripts/store-index.mjs publisher-keygen --out ~/acme-publisher-keys --id acme --name "Acme packs"
+node scripts/store-index.mjs sign-pack path/to/my-pack --key ~/acme-publisher-keys/wirehub-publisher.key
+node scripts/store-index.mjs verify-pack-signature path/to/my-pack --pubkey ~/acme-publisher-keys/wirehub-publisher.pub
+node scripts/store-index.mjs bundle path/to/my-pack --out my-store/        # refuses a pack changed after signing
+node scripts/store-index.mjs publisher my-store/ --id acme --name "Acme packs" --pubkey RW… [--url …]
+node scripts/store-index.mjs review my-store/ my-pack@1.2.0 --status reviewed --by "A. Reviewer" --on 2026-10-05
+node scripts/store-index.mjs review my-store/ my-pack@1.1.0 --status flagged --reason "values not sourced"
+node scripts/store-index.mjs yank my-store/ my-pack@1.1.0 --reason "wrong pinout" [--on 2026-10-05]
+node scripts/store-index.mjs unyank my-store/ my-pack@1.1.0
+node scripts/store-index.mjs revoke my-store/ --pubkey RW… --reason "key lost"
+node scripts/store-index.mjs build my-store/ --store-id acme --store-name "Acme packs"
+node scripts/store-index.mjs sign my-store/index.json --key ~/acme-store-keys/wirehub-store.key
+```
+
+`publisher`, `review`, `yank`, `unyank` and `revoke` edit `my-store/store-meta.json` (or
+`--meta <file>`), which `build` folds into the index; build and sign again after each. `build`
+refuses a bundle whose manifest names a listed publisher but is not signed by one of its keys or
+whose pinned files differ, and warns about one signed only by a revoked key. `sign-pack` takes
+`--key` more than once (a rotation), or the PEM text in `WIREHUB_PACK_SIGNING_KEY`. Giving a known
+publisher a new key with `publisher` keeps the old one in its `keys`; revoke it when it should no
+longer count. The official index lists no publishers yet: the bundled packs are pinned by the
+official index's signature, and signing them as a publisher waits on the owner's keys, like the
+index key.
 
 ## 5. Sources, licences and responsibility
 
@@ -412,4 +502,6 @@ Trademarks (USB, HDMI, product names) appear as plain nominative names.
    (**done**, both backends; the official index's public key awaits the owner's key).
 4. First packs: `core-bodies`, `pro-audio`, `fieldbus`, `networking`, each reviewed against
    cited sources; the KiCad model-link pack built reproducibly.
-5. Signed pack manifests, publisher keys, review status workflow, yanking and revocation.
+5. Signed pack manifests, publisher keys, review status, yanking and revocation (**done**, both
+   backends; review status is information set by the index publisher, with an optional
+   deployment setting to hide unreviewed versions).
