@@ -102,6 +102,25 @@ export function gitMirrorConfigFromEnv(env: Readonly<Record<string, string | und
   };
 }
 
+/**
+ * How often an in-process schedule (a hub with `WIREHUB_WORKER=off`, where no
+ * worker owns the cron) runs the mirror: the interval the cron expression
+ * stands for. Understands every N minutes, hourly at minute M, and every H
+ * hours; anything else falls back to five minutes.
+ */
+export function mirrorIntervalMs(cron: string): number {
+  const f = cron.trim().split(/\s+/);
+  if (f.length === 5 && f.slice(2).every((x) => x === '*')) {
+    const [min = '', hour = ''] = f;
+    const every = /^\*\/(\d{1,2})$/.exec(min);
+    if (every !== null && hour === '*' && Number(every[1]) >= 1) return Number(every[1]) * 60_000;
+    if (/^\d{1,2}$/.test(min) && hour === '*') return 3_600_000;
+    const hours = /^\*\/(\d{1,2})$/.exec(hour);
+    if (/^\d{1,2}$/.test(min) && hours !== null && Number(hours[1]) >= 1) return Number(hours[1]) * 3_600_000;
+  }
+  return 5 * 60_000;
+}
+
 /** Where the mirror goes, for a log line (a URL's credentials are never in it — the config refuses them). */
 export function describeMirror(config: GitMirrorConfig): string {
   return 'url' in config.target ? `${config.target.url} (${config.branch})` : `${config.target.path} (${config.branch})`;
@@ -372,7 +391,7 @@ export async function runGitMirrorJob(context: JobContext, options: GitMirrorOpt
       await context.step(`pushed to ${describeMirror(config)}`);
     }
   }
-  return { result: { target: describeMirror(config), version: version ?? null, committed, pushed, ...(resynced === undefined ? {} : { resynced }) } };
+  return { result: { target: describeMirror(config), version: version ?? null, committed, pushed, ...(resynced === undefined ? {} : { resynced }) }, quiet: committed === 0 && !pushed && resynced === undefined };
 }
 
 /** Apply one change set's rows to the tree, as the database commit applied them. */

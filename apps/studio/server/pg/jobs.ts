@@ -124,6 +124,11 @@ export function pgJobStore(db: Db, orgId: string): JobStore {
         }
       });
     },
+    async discard(id) {
+      await inOrg(db, orgId, async (tx) => {
+        await sql`DELETE FROM studio.job_run WHERE id = ${id}::uuid AND status = 'done'`.execute(tx);
+      });
+    },
     async fail(id, error) {
       await inOrg(db, orgId, async (tx) => {
         await sql`UPDATE studio.job_run SET status = 'failed', error = ${error.slice(0, 4000)}, finished_at = now() WHERE id = ${id}::uuid`.execute(tx);

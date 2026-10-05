@@ -25,7 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../../server/api.ts';
 import { fsBlobStore, type BlobStore } from '../../server/blobs.ts';
 import { contentETag } from '../../server/etag.ts';
-import { BLOB_MANIFEST, gitMirrorConfigFromEnv, GitMirrorConfigError, runGitMirrorJob, type GitMirrorConfig } from '../../server/history/mirror.ts';
+import { BLOB_MANIFEST, gitMirrorConfigFromEnv, GitMirrorConfigError, mirrorIntervalMs, runGitMirrorJob, type GitMirrorConfig } from '../../server/history/mirror.ts';
 import type { JobContext } from '../../server/jobs/types.ts';
 import { openPg, type PgHandle } from '../../server/pg/db.ts';
 import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
@@ -59,6 +59,29 @@ describe('the mirror\'s configuration', () => {
     expect(() => gitMirrorConfigFromEnv({ WIREHUB_GIT_MIRROR_URL: 'x', WIREHUB_GIT_MIRROR_PATH: 'y' })).toThrow(GitMirrorConfigError);
     expect(() => gitMirrorConfigFromEnv({ WIREHUB_GIT_MIRROR_URL: 'https://me:secret@git.example.com/x.git' })).toThrow(/TOKEN_FILE/);
     expect(() => gitMirrorConfigFromEnv({ WIREHUB_GIT_MIRROR_PATH: '/x', WIREHUB_GIT_MIRROR_BRANCH: '../main' })).toThrow(GitMirrorConfigError);
+  });
+});
+
+describe('the in-process schedule', () => {
+  it('reads the interval a cron expression stands for', () => {
+    expect(mirrorIntervalMs('*/5 * * * *')).toBe(300_000);
+    expect(mirrorIntervalMs('*/2 * * * *')).toBe(120_000);
+    expect(mirrorIntervalMs('10 * * * *')).toBe(3_600_000);
+    expect(mirrorIntervalMs('0 */6 * * *')).toBe(6 * 3_600_000);
+    expect(mirrorIntervalMs('whatever')).toBe(300_000);
+  });
+
+  it('a scheduled run that did nothing leaves no job row; a boot or manual one stays', async () => {
+    const { createJobService, executeJob, inlineJobRunner, memoryJobStore } = await import('../../server/jobs/service.ts');
+    const store = memoryJobStore();
+    const handlers = { 'git-mirror': async () => ({ result: { committed: 0 }, quiet: true }) };
+    const jobs = createJobService({ store, runner: inlineJobRunner(store, () => handlers, () => {}), kinds: ['git-mirror'] });
+    const quiet = await jobs.enqueue('git-mirror', { reason: 'schedule' });
+    const boot = await jobs.enqueue('git-mirror', { reason: 'boot' });
+    await new Promise((done) => setTimeout(done, 50));
+    expect((await jobs.list()).map((j) => j.id)).toEqual([boot.id]);
+    expect(await store.get(quiet.id)).toBeUndefined();
+    expect(await executeJob(store, { 'git-mirror': async () => ({ result: { committed: 1 } }) }, (await store.create('git-mirror', { reason: 'schedule' })).id, () => {})).toMatchObject({ status: 'done' });
   });
 });
 
@@ -214,5 +237,42 @@ describePg('the git mirror on Postgres', () => {
     expect(git(dir, 'log', '-1', '--format=%an|%s')).toMatch(new RegExp(`^Alice Example\\|studio: restore design dc-led-lead to change ${target.id}`));
     const design = (await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/dc-led-lead' }, deps)).body;
     expect(contentETag(JSON.parse(readFileSync(join(dir, 'data/designs/dc-led-lead.json'), 'utf8')))).toBe(contentETag(design));
+  }, 60_000);
+
+  it('with no worker the mirror schedules itself, and quiet runs leave no job rows', async () => {
+    const { openPgBackend } = await import('../../server/pg/deps.ts');
+    const { inOrg } = await import('../../server/pg/db.ts');
+    const { sql } = await import('kysely');
+    const dir = join(work, 'inline-mirror');
+    const backend = await openPgBackend(
+      { DATABASE_URL: database.appUrl, WIREHUB_ORG: 'starter', WIREHUB_WORKER: 'off', WIREHUB_GIT_MIRROR_PATH: dir },
+      { blobs, listen: false, mirrorEveryMs: 300 },
+    );
+    try {
+      const rows = (): Promise<number> =>
+        inOrg(pgh.db, orgId, async (tx) => Number((await sql<{ n: string }>`SELECT count(*)::text AS n FROM studio.job_run WHERE kind = 'git-mirror'`.execute(tx)).rows[0]?.n));
+      const commits = (): number => {
+        try {
+          return Number(git(dir, 'rev-list', '--count', 'HEAD').trim());
+        } catch {
+          return 0;
+        }
+      };
+      const until = async (check: () => Promise<boolean> | boolean): Promise<void> => {
+        for (let i = 0; i < 100 && !(await check()); i += 1) await new Promise((done) => setTimeout(done, 100));
+        expect(await check()).toBe(true);
+      };
+      await until(() => commits() > 0);
+      await new Promise((done) => setTimeout(done, 1500));
+      // the first run (it started the mirror) is kept; the quiet ones after it are not
+      expect(await rows()).toBeLessThanOrEqual(1);
+      const before = commits();
+      await relabel(alice, '(scheduled)');
+      await until(() => commits() > before);
+      await new Promise((done) => setTimeout(done, 1000));
+      expect(await rows()).toBeLessThanOrEqual(2);
+    } finally {
+      await backend.close();
+    }
   }, 60_000);
 });
