@@ -24,6 +24,7 @@ import {
   findComponent,
   findConnector,
   findPcba,
+  findWire,
   pcbaTerminalIds,
   type Db,
   type Issue,
@@ -589,6 +590,11 @@ export function definitionTerminals(db: Db, defId: string): { id: string; aliase
   if (connector !== undefined) return connector.pins.map((pin) => ({ id: pin.id, aliases: [...(pin.aliases ?? [])] }));
   const component = findComponent(db, defId);
   if (component !== undefined) return component.terminals.map((t) => ({ id: t.id, aliases: [] }));
+  // a body: the art of a physical part, anchored on its positions (one face serves every pinout on it)
+  const body = (db.bodies ?? []).find((item) => item.id === defId);
+  if (body !== undefined) return body.positions.map((p) => ({ id: p.id, aliases: [] }));
+  // a wire stock's illustration (a cutaway) anchors nothing
+  if (findWire(db, defId) !== undefined) return [];
   return undefined;
 }
 

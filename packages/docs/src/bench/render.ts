@@ -22,7 +22,7 @@ import { boardFigure, breakoutFigure, faceFigure, landingWords, stripFigure, typ
 import { headerHtml, runningHeaderHtml, type SheetHeader } from './header.ts';
 import { deriveBench, type Bench, type BenchEnd, type Landing, type SegmentEnd, type Termination } from './model.ts';
 import { breakoutSection } from './breakouts.ts';
-import { assemblySteps, endSteps, prepSteps, QA_STEPS, SOLDER_STEP, shellSets, type Step } from './standard-work.ts';
+import { assemblySteps, endSteps, prepSteps, qaSteps, solderStep, shellSets, type Step } from './standard-work.ts';
 import { BENCH_STYLESHEET } from './styles.ts';
 import { trunkSegment } from '../drawing/model.ts';
 import { suppliedEnds, type SuppliedEnd } from '../supplied.ts';
@@ -440,7 +440,7 @@ function testPage(n: number, spec: TestSpec): string {
       ),
     );
   }
-  parts.push(block('Picture and sound', stepsHtml(QA_STEPS)));
+  parts.push(block('Picture and sound', stepsHtml(qaSteps())));
   return parts.join('');
 }
 
@@ -473,7 +473,7 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
   const kit = [
     block('Parts to pull', pullList(bom)),
     block(supplied.length > 0 ? 'Cut and stock' : 'Cut', cutList(design, db, header, supplied)),
-    `<div class="cs-cols">${prep}${block('Solder', stepsHtml([SOLDER_STEP]))}</div>`,
+    `<div class="cs-cols">${prep}${block('Solder', stepsHtml([solderStep()]))}</div>`,
   ].join('');
   const errors = validateDesign(design, db).filter((issue) => issue.severity === 'error');
   const validation =

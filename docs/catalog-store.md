@@ -54,7 +54,8 @@ fieldbus-1.4.0/
   mechanicals.json  kits.json  pcbas.json        (each optional)
   vocab/signals.json …                           (vocabulary additions)
   designs/*.json                                 (example designs, optional)
-  depictions/<def>/…                             (artwork, optional)
+  depictions/<id>/…                              (artwork, optional: <id> a connector, body or wire id)
+  art/connectors/<id>.json, art/body-layouts.json   (connector drawings and body layouts, optional; specs/drawing-language.md §7)
   wirehub-pack.sig      detached signature over the manifest
 ```
 

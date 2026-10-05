@@ -231,6 +231,17 @@ interface ArtPlan {
 }
 
 /** `id` for a pad, `prefix.id` for an integrated pin, plus the label if it says more. */
+/**
+ * The ids a connector's artwork may be filed under besides its own: the body
+ * it is built on, and the body its `drawing` names. A pack ships one face per
+ * physical body, not one per pinout.
+ */
+function bodyArtKeys(db: Db, definition: ConnectorDefinition): string[] {
+  if (definition.body === undefined) return [];
+  const body = (db.bodies ?? []).find((item) => item.id === definition.body);
+  return [definition.body, ...(body?.drawing === undefined ? [] : [body.drawing])];
+}
+
 function calloutText(port: PortPlan): string {
   const id = port.column === 'integrated' ? port.terminal : port.displayId;
   return port.label === '' || port.label === id ? id : `${id} · ${port.label}`;
@@ -604,10 +615,11 @@ export function layoutSchematic(
     id: string,
     def: string,
     ports: readonly PortPlan[],
+    alsoTry: readonly string[] = [],
   ): ResolvedDepiction | undefined => {
     if (depictionSource === undefined) return undefined;
     const required = ports.filter((port) => port.used).map((port) => port.terminal);
-    const resolution = resolveDepiction(depictionSource, kind, def, required);
+    const resolution = resolveDepiction(depictionSource, kind, def, required, alsoTry);
     depictions.push({
       instance: id,
       def,
@@ -836,7 +848,7 @@ export function layoutSchematic(
           integrated: [],
           footnotes:
             unused.length === 0 ? [] : [`pins not used: ${summarizeIds(unused)}`],
-          depiction: planDepiction('connector', instance.id, instance.def, cable),
+          depiction: planDepiction('connector', instance.id, instance.def, cable, bodyArtKeys(db, definition)),
         },
         cableSideOf(zone, instance.id),
       ),
@@ -1888,6 +1900,7 @@ export function layoutSchematic(
         scale: plan.artScale,
         widthUnits: art.widthUnits,
         heightUnits: art.heightUnits,
+        ...(art.turn === undefined ? {} : { turn: art.turn }),
         ...(art.parts.length === 0 ? {} : { parts: art.parts }),
       },
     };

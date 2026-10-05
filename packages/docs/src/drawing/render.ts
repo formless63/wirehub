@@ -12,7 +12,7 @@
 import type { CableDesign, Db } from '@wirehub/model';
 
 import { escapeHtml } from '../text.ts';
-import { LOGO } from './assets.ts';
+import { registeredLogo, registeredTitleBlock } from './assets.ts';
 import { cutawayFor } from './cutaway.ts';
 import { gothic, sans, sansBold } from './fonts.generated.ts';
 import { faceEdgeTop, faceEdgeX, type FaceArt, type FacePin } from './faces.ts';
@@ -167,7 +167,8 @@ function titleBlock(drawing: Drawing): string {
   out.push(value(606.1, right, 531.3, drawing.material));
   out.push(value(519.5, 606.1, 563, drawing.designer));
   out.push(value(606.1, 692.9, 563.2, drawing.date));
-  out.push(value(692.9, 736.2, 562.6, 'A'));
+  const text0 = registeredTitleBlock();
+  out.push(value(692.9, 736.2, 562.6, text0.size ?? 'A'));
   out.push(value(736.2, right, 562.6, '-'));
   out.push(value(519.5, 606.1, 594, '-'));
   out.push(value(606.1, 692.9, 593.9, '-'));
@@ -175,10 +176,10 @@ function titleBlock(drawing: Drawing): string {
 
   const rights = ['', '', ''];
   rights.forEach((row, i) => out.push(text(289.9, 558.8 + i * 7.2, row, 6, { anchor: 'middle' })));
-    ['ALL DIMENSIONS ARE', 'IN MM UNLESS', 'OTHERWISE SPECIFIED'].forEach((row, i) =>
+    (text0.notes ?? ['ALL DIMENSIONS ARE', 'IN MM UNLESS', 'OTHERWISE SPECIFIED']).forEach((row, i) =>
     out.push(text(388.5, 568.1 + i * 7.2, row, 6.1, { anchor: 'middle' })),
   );
-  const tolerances: [string, string][] = [
+  const tolerances: readonly (readonly [string, string])[] = text0.tolerances ?? [
     ['x.xx', '± 0.1'],
     ['x.xxx', '± 0.03'],
     ['x.xxx', '± 0.005'],
@@ -190,10 +191,11 @@ function titleBlock(drawing: Drawing): string {
     out.push(text(490.4, 562.2 + i * 7.2, v, 6.1));
   });
 
-  if (LOGO !== undefined) {
-    const [lx, ly, lw, lh] = LOGO.box;
+  const logo = registeredLogo();
+  if (logo !== undefined) {
+    const [lx, ly, lw, lh] = logo.box;
     out.push(
-      `<image x="${n(lx)}" y="${n(ly)}" width="${n(lw)}" height="${n(lh)}" preserveAspectRatio="xMidYMid meet" href="data:image/png;base64,${LOGO.pngBase64}"/>`,
+      `<image x="${n(lx)}" y="${n(ly)}" width="${n(lw)}" height="${n(lh)}" preserveAspectRatio="xMidYMid meet" href="data:image/png;base64,${logo.pngBase64}"/>`,
     );
   }
   return `<g class="ra-titleblock">${out.join('')}</g>`;

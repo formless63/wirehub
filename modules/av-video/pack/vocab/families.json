@@ -22,6 +22,14 @@
       "src": "IEC 60933-1 / EN 50049-1"
     },
     {
+      "id": "jp21",
+      "label": "JP21",
+      "aliases": [
+        "JEITA 21-pin"
+      ],
+      "src": "JEITA RC-5202 (the 21-pin connector with the SCART shell and its own pinout)"
+    },
+    {
       "id": "bnc",
       "label": "BNC",
       "src": "IEC 61169-8"

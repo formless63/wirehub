@@ -1,0 +1,93 @@
+{
+  "defId": "obd2-16-male",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 40,
+      "heightUnits": 18,
+      "src": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 40,
+      "heightUnits": 18,
+      "src": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 34,
+      "y": 5.8
+    },
+    "2": {
+      "x": 30,
+      "y": 5.8
+    },
+    "3": {
+      "x": 26,
+      "y": 5.8
+    },
+    "4": {
+      "x": 22,
+      "y": 5.8
+    },
+    "5": {
+      "x": 18,
+      "y": 5.8
+    },
+    "6": {
+      "x": 14,
+      "y": 5.8
+    },
+    "7": {
+      "x": 10,
+      "y": 5.8
+    },
+    "8": {
+      "x": 6,
+      "y": 5.8
+    },
+    "9": {
+      "x": 34,
+      "y": 10.2
+    },
+    "10": {
+      "x": 30,
+      "y": 10.2
+    },
+    "11": {
+      "x": 26,
+      "y": 10.2
+    },
+    "12": {
+      "x": 22,
+      "y": 10.2
+    },
+    "13": {
+      "x": 18,
+      "y": 10.2
+    },
+    "14": {
+      "x": 14,
+      "y": 10.2
+    },
+    "15": {
+      "x": 10,
+      "y": 10.2
+    },
+    "16": {
+      "x": 6,
+      "y": 10.2
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}

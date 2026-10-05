@@ -11,6 +11,7 @@
  * Pure data and functions; no React.
  */
 
+import type { BodyLayoutRecord } from '@wirehub/catalog';
 import type { BodyPosition, ConnectorBody } from '@wirehub/model';
 
 import type { BodyDrawing } from './connector-art.ts';
@@ -22,7 +23,8 @@ export interface BodyTemplate {
   label: string;
   /** the body id stem: `din8-270` → `din8-270-male` */
   stem: string;
-  drawing?: BodyDrawing;
+  /** a built-in drawing, or the name a pack's connector drawing answers to */
+  drawing?: BodyDrawing | string;
   positions: BodyPosition[];
 }
 
@@ -59,8 +61,6 @@ export const BODY_TEMPLATES: Readonly<Record<string, readonly BodyTemplate[]>> =
     numbered('dc37', 'DC-37', 'dc37', 37, true, 'd-sub'),
   ],
   hd15: [numbered('de15', 'HD15 (DE-15)', 'de15', 15, true, 'hd15')],
-  scart: [numbered('scart21', 'SCART, 21 pins', 'scart-21', 21, true, 'scart')],
-  jp21: [numbered('jp21', 'JP21, 21 pins', 'jp21-21', 21, true, 'jp21')],
   rca: [{ id: 'rca', label: 'RCA (tip, sleeve)', stem: 'rca', drawing: 'rca', positions: [{ id: 'tip' }, { id: 'sleeve' }] }],
   bnc: [{ id: 'bnc', label: 'BNC (tip, shell)', stem: 'bnc', drawing: 'bnc', positions: [{ id: 'tip' }, { ...SHELL }] }],
   'trs-3-5mm': [
@@ -70,9 +70,38 @@ export const BODY_TEMPLATES: Readonly<Record<string, readonly BodyTemplate[]>> =
 
 export const CUSTOM_TEMPLATE = 'custom';
 
-/** The layouts a family offers, standard ones first; every family also takes "custom". */
+/**
+ * Layouts a catalog pack or module registered (`art/body-layouts.json`),
+ * by id. The built-in ones above are the base's own families; a pack's
+ * come after them in the picker.
+ */
+const registered = new Map<string, BodyLayoutRecord>();
+
+/** Register a pack's body layouts; returns the function that removes them again. */
+export function registerBodyLayouts(layouts: readonly BodyLayoutRecord[]): () => void {
+  for (const layout of layouts) registered.set(layout.id, layout);
+  return () => {
+    for (const layout of layouts) if (registered.get(layout.id) === layout) registered.delete(layout.id);
+  };
+}
+
+function templateOfLayout(layout: BodyLayoutRecord): BodyTemplate {
+  return {
+    id: layout.id,
+    label: layout.label,
+    stem: layout.stem,
+    ...(layout.drawing === undefined ? {} : { drawing: layout.drawing }),
+    positions: layout.positions.map((p) => (p.kind === undefined ? { id: p.id } : { id: p.id, kind: p.kind })),
+  };
+}
+
+/** The layouts a family offers, standard ones first, then a pack's; every family also takes "custom". */
 export function templatesFor(family: string): readonly BodyTemplate[] {
-  return BODY_TEMPLATES[family] ?? [];
+  const own = BODY_TEMPLATES[family] ?? [];
+  if (registered.size === 0) return own;
+  const taken = new Set(own.map((t) => t.id));
+  const packs = [...registered.values()].filter((layout) => layout.family === family && !taken.has(layout.id)).map(templateOfLayout);
+  return packs.length === 0 ? own : [...own, ...packs];
 }
 
 /** The standard layout a stored body matches (same positions), when there is one. */

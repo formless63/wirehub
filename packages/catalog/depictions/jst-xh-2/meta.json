@@ -1,0 +1,37 @@
+{
+  "defId": "jst-xh-2",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 10,
+      "heightUnits": 8.5,
+      "src": "2-position, 2.5 mm pitch wire-to-board housing mating face; outline approximated from the family's published dimensions (inferred, approximate), position 1 at the chamfered corner. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 10,
+      "heightUnits": 8.5,
+      "src": "2-position, 2.5 mm pitch wire-to-board housing mating face; outline approximated from the family's published dimensions (inferred, approximate), position 1 at the chamfered corner. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 3.75,
+      "y": 4.1
+    },
+    "2": {
+      "x": 6.25,
+      "y": 4.1
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "2-position, 2.5 mm pitch wire-to-board housing mating face; outline approximated from the family's published dimensions (inferred, approximate), position 1 at the chamfered corner. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}

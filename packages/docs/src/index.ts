@@ -107,3 +107,5 @@ export {
 export type { WireSpecOptions } from './wire-spec.ts';
 
 export { constructionTag, stripMakerSuffix, wireDisplayName } from '@wirehub/model';
+export { registerBenchSteps } from './bench/standard-work.ts';
+export type { BenchStepsProvider, ShellSet, Step as BenchStep } from './bench/standard-work.ts';

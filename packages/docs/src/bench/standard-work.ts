@@ -24,6 +24,44 @@ export interface Step {
   src: string;
 }
 
+/**
+ * A shop's own work instructions, in place of the generic steps
+ * (`specs/drawing-language.md` §8). Each hook returns the steps for that
+ * phase, or `undefined` to leave the generic ones; the first registered
+ * provider with an answer wins. A provider sees the same facts the generic
+ * steps are chosen by — the stock, the end and its terminations, the shells —
+ * so instructions can differ per family or termination. Every step cites its
+ * source in `src`.
+ */
+export interface BenchStepsProvider {
+  prep?(wire: WireDefinition, bonded: boolean): Step[] | undefined;
+  end?(end: BenchEnd, db: Db, other?: BenchEnd): Step[] | undefined;
+  assembly?(design: CableDesign, db: Db, end: BenchEnd, sets: readonly ShellSet[], trunkWire: WireDefinition | undefined): Step[] | undefined;
+  /** the soldering step */
+  solder?: Step;
+  /** the functional check after continuity */
+  qa?: readonly Step[];
+}
+
+const providers: BenchStepsProvider[] = [];
+
+/** Register a work-instruction provider; returns the function that removes it. */
+export function registerBenchSteps(provider: BenchStepsProvider): () => void {
+  providers.push(provider);
+  return () => {
+    const at = providers.indexOf(provider);
+    if (at !== -1) providers.splice(at, 1);
+  };
+}
+
+function supplied<T>(ask: (p: BenchStepsProvider) => T | undefined): T | undefined {
+  for (const provider of providers) {
+    const answer = ask(provider);
+    if (answer !== undefined) return answer;
+  }
+  return undefined;
+}
+
 const GENERIC = 'generic practice (synthetic example; see IPC/WHMA-A-620 for workmanship criteria)';
 
 function hasShieldedCores(wire: WireDefinition): boolean {
@@ -40,6 +78,8 @@ function hasOverallShield(wire: WireDefinition): boolean {
 
 /** Preparing one piece of stock at both ends, before anything is soldered. */
 export function prepSteps(wire: WireDefinition, bonded: boolean): Step[] {
+  const own = supplied((p) => p.prep?.(wire, bonded));
+  if (own !== undefined) return own;
   const steps: Step[] = [{ text: 'Cut to length; strip the outer jacket at both ends to the strip lengths shown.', src: GENERIC }];
   if (hasOverallShield(wire)) {
     steps.push({
@@ -55,11 +95,16 @@ export function prepSteps(wire: WireDefinition, bonded: boolean): Step[] {
   return steps;
 }
 
-export const SOLDER_STEP: Step = { text: 'Solder each landing with a fillet that wets both surfaces; no cold or disturbed joints.', src: GENERIC };
+const GENERIC_SOLDER: Step = { text: 'Solder each landing with a fillet that wets both surfaces; no cold or disturbed joints.', src: GENERIC };
 
-/** What to do at an end before the first landing. The base adds nothing board-specific. */
-export function endSteps(_end: BenchEnd, _db: Db, _other?: BenchEnd): Step[] {
-  return [];
+/** The soldering step: a provider's, else the generic one. */
+export function solderStep(): Step {
+  return providers.find((p) => p.solder !== undefined)?.solder ?? GENERIC_SOLDER;
+}
+
+/** What to do at an end before the first landing. The base adds nothing board-specific; a provider may. */
+export function endSteps(end: BenchEnd, db: Db, other?: BenchEnd): Step[] {
+  return supplied((p) => p.end?.(end, db, other)) ?? [];
 }
 
 /** The mechanical parts on one end, grouped under the shell they belong to. */
@@ -92,7 +137,9 @@ export function shellSets(design: CableDesign, db: Db, instances: ReadonlySet<st
 }
 
 /** Closing one end: strain relief and housing, per the shell at that end. */
-export function assemblySteps(_design: CableDesign, _db: Db, _end: BenchEnd, sets: readonly ShellSet[], _trunkWire: WireDefinition | undefined): Step[] {
+export function assemblySteps(design: CableDesign, db: Db, end: BenchEnd, sets: readonly ShellSet[], trunkWire: WireDefinition | undefined): Step[] {
+  const own = supplied((p) => p.assembly?.(design, db, end, sets, trunkWire));
+  if (own !== undefined) return own;
   const steps: Step[] = [];
   const moulded = sets.some((s) => /overmo?uld/i.test(s.shell?.id ?? '') || /overmo?uld/i.test(s.shell?.label ?? ''));
   if (moulded) {
@@ -105,6 +152,10 @@ export function assemblySteps(_design: CableDesign, _db: Db, _end: BenchEnd, set
 }
 
 /** The functional check after continuity. */
-export const QA_STEPS: readonly Step[] = [
+const GENERIC_QA: readonly Step[] = [
   { text: 'Run the continuity and isolation checks on the test page; then a functional check with the equipment the cable is for.', src: GENERIC },
 ];
+
+export function qaSteps(): readonly Step[] {
+  return providers.find((p) => p.qa !== undefined)?.qa ?? GENERIC_QA;
+}

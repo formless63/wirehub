@@ -809,7 +809,8 @@ function renderBlockArt(block: DiagramBlock, source: DepictionSource | undefined
       ...(usesXlink(inner) ? { 'xmlns:xlink': 'http://www.w3.org/1999/xlink' } : {}),
       transform: `translate(${fmt(art.rect.x)} ${fmt(art.rect.y)}) scale(${fmt(art.scale)})`,
     },
-    inner + renderBoardParts(art.parts, { labels: partLabels }),
+    // a turned connector face: (x, y) → (H − y, x) of the asset's own frame, H its width in the turned frame
+    art.turn === undefined ? inner + renderBoardParts(art.parts, { labels: partLabels }) : node('g', { transform: `matrix(0 1 -1 0 ${fmt(art.widthUnits)} 0)` }, inner),
   );
 }
 
