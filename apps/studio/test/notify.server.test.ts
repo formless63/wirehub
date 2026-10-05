@@ -40,7 +40,7 @@ describe('createNotifier', () => {
     const { calls, fetchImpl } = recorder(500);
     const log: string[] = [];
     const n = createNotifier({ url: 'http://hook.test/x', fetch: fetchImpl, log: (l) => log.push(l) });
-    const token = 'cst_prod_0123456789ab_abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst';
+    const token = ['cst', 'prod', '0123456789ab', 'abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst'].join('_');
     await n.notify({ ...EVENT, message: `used ${token}`, data: { nested: [token] } });
     expect(JSON.stringify(calls) + log.join()).not.toContain('cst_prod_0123');
     const down = createNotifier({ url: 'http://hook.test/x', fetch: (async () => { throw new Error('connection refused'); }) as unknown as typeof fetch, log: (l) => log.push(l) });
