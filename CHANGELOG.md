@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0](https://github.com/formless63/wirehub/compare/v0.2.0...v0.3.0) (2026-10-05)
+
+
+### Features
+
+* declarative part-number schemes and validation rules as data ([ac28a37](https://github.com/formless63/wirehub/commit/ac28a374b3b1f0131d6a54776c190b8ea35f5b8a))
+* **history:** mirror-purge tool and docs for older mirror history ([bb25ca1](https://github.com/formless63/wirehub/commit/bb25ca17b6f038b4c1044522931edb58bff64c19))
+* **modules:** bench work instructions as a module extension point ([b8e9bc7](https://github.com/formless63/wirehub/commit/b8e9bc7683a01933ba23bb121d0d4170aa1a6976))
+* **modules:** delegate every registry member live; art and bench steps follow a registry swap ([be56a37](https://github.com/formless63/wirehub/commit/be56a37395a463b88d2e5e0ff101a11f51546942))
+* **modules:** runtime code modules installed as signed packs, loaded into a live registry, with Restart WireHub ([ed1e481](https://github.com/formless63/wirehub/commit/ed1e4815fc64e96da20dbb9ef98d3453844b84fa))
+* **settings:** rotate WIREHUB_SETTINGS_KEY without downtime ([9718339](https://github.com/formless63/wirehub/commit/9718339412200f4363e1e4acb201f76613d4104a))
+* **site:** shared shell, home, docs placeholder, generator at /generator/, browsable module store ([75f6ddb](https://github.com/formless63/wirehub/commit/75f6ddbd9bb8210f35e8b657da690b6d9faee09d))
+* **stack:** Restart WireHub smoke on the compose stack; keep the code-module host across first-run setup; code-module env in compose ([7aa2841](https://github.com/formless63/wirehub/commit/7aa28410e1b7320630dcd55e4bb2bb3ab37347eb))
+* **store:** stores carry code modules: the action builds modules/ into signed packs; skill and template updated ([820aa59](https://github.com/formless63/wirehub/commit/820aa590d754dc4183d0707487a2d62def625ee8))
+* **studio:** load runtime code modules in the page, consent before install, Settings for code modules and Restart WireHub ([5749575](https://github.com/formless63/wirehub/commit/5749575e4df491598b6c0dcab7f1c3e7b85fcf9d))
+* webhook settings UI, pack-carried schemes and rules, docs and skills for declarative configuration ([e302c72](https://github.com/formless63/wirehub/commit/e302c729ddb5918475f628ea39a67d72156721d1))
+* **webhooks:** subscriptions, signed deliveries as jobs, delivery log, event emission ([c6368e1](https://github.com/formless63/wirehub/commit/c6368e19197500cc2e2e22bb408530e70cf2908e))
+
+
+### Bug Fixes
+
+* **settings:** a host without code modules says so quietly, not as an alert ([51169fa](https://github.com/formless63/wirehub/commit/51169fa46185b73507d00c96eb739ff3e1da9266))
+
 ## [0.2.0](https://github.com/formless63/wirehub/compare/v0.1.0...v0.2.0) (2026-10-05)
 
 
