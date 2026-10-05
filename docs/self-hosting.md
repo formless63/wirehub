@@ -218,6 +218,7 @@ people set:
 | `WIREHUB_ENV`, `WIREHUB_PROD_MARKERS` | `prod` | a development copy beside production ("Development") |
 | `WIREHUB_BACKEND` | `pg` | `files` keeps the catalog as JSON files (with `WIREHUB_ALLOW_FILES_IN_PROD=1`) |
 | `WIREHUB_NOTIFY_URL`, `WIREHUB_NOTIFY_FORMAT` | — | alerts to a webhook (`json`, `ntfy` or `slack` body; below) |
+| `WIREHUB_STORE_INDEXES` | the official index, once its key is published | catalog store indexes to trust (Library → Browse store): `<https url> <public key>`, comma separated; `none` for no store (below) |
 | `WIREHUB_CONVERT_WINDOW` | — | `HH:MM-HH:MM`: build imported models only then |
 | `WIREHUB_MODEL_SOURCES` | — | the folder (mounted into `worker`) imported models are built from |
 | `WIREHUB_WORKER` | on | `off`: the app runs the jobs itself (no `worker` service) |
@@ -251,6 +252,24 @@ blob store, a stale backup, a stale worker heartbeat, failing jobs, models a swe
 build, a GC error, a failed backup or restore check (urgent), a catalog write that
 bypassed the application, a created API token and repeated refused tokens;
 every event is logged either way, and no token ever appears in one.
+
+**Catalog store.** Library → Browse store lists the packs of the store indexes in
+`WIREHUB_STORE_INDEXES`, and owners and editors install or update them with the same
+diff and single change set as any pack (viewers see the list only). Each entry is an
+index URL and the minisign public key (`RW…`) its publisher gives you:
+
+```
+WIREHUB_STORE_INDEXES=https://packs.example.com/store/index.json RW<their public key>,https://other.example/index.json RW<theirs>
+```
+
+The server fetches `<url>` and `<url>.minisig`, refuses an index whose signature does
+not match the key you configured, and refuses a download whose size or sha256 differs
+from the index. Fetches are https only, to public addresses, within 8 MB and 15 s. Unset,
+the hub trusts WireHub's official index once this release carries its key (the word
+`official` names it in a list); empty or `none` turns the store off. Packs are published
+by their authors, who are responsible for their content and licensing; the licence shown
+is information, not checked. An air-gapped hub leaves this off and installs pack files
+(Modules → Install pack…). To publish your own index, see `docs/catalog-store.md` §4.
 
 ### Your own PostgreSQL or S3
 

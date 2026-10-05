@@ -6,8 +6,9 @@ manifest (`wirehub-pack.json`, `PackManifest`), a read-only layer over a catalog
 URL (`installPackLayer`, Library → Modules → Install pack…; first-run setup uses the same for the
 bundled domain modules — `docs/modules.md`), per-record `license` / `provenance` / `derivedFrom`
 fields, and the **pack lifecycle**: update with a record-level diff, disable, read-only marking
-with fork to edit (§3). Signing, the store index, review status and yanking are still design.
-Tracked in beads.
+with fork to edit (§3), and the **signed store index** with store browsing in the Library (§4:
+`scripts/store-index.mjs`, `WIREHUB_STORE_INDEXES`, Library → Browse store). Pack manifest
+signatures, publisher keys, review status and yanking are still design. Tracked in beads.
 
 A fresh WireHub has the starter catalog: a few dozen generic records (CC0-1.0). Real work needs
 the connectors, stocks and parts of a domain — XLR and speakON for live audio, M12 and
@@ -146,7 +147,7 @@ a pack into a catalog directory (records appended, `packs.json` beside them) for
 builds a catalog copy with a pack in it; `layeredCatalogSource([local, pack…])` reads a
 catalog with packs over it without writing — what a module's tests use.
 
-**Install** (Library → Packs → Browse):
+**Install** (Library → Browse store; built as described in §4, "As built"):
 
 1. The studio fetches the store index (§4), verifies its signature, and lists packs with
    their licence, publisher, review status and size.
@@ -249,6 +250,90 @@ AGPL-3.0-only. Third-party packs carry the licence their authors chose.
   versions; a yanked version stays downloadable for re-validation but is never offered for
   install and is flagged on deployments that have it.
 
+### As built (phase 3)
+
+**The index.** `index.json` (`StoreIndex`, `packages/catalog/src/store-index.ts`):
+
+```jsonc
+{
+  "format": 1,
+  "store": { "id": "wirehub", "name": "WireHub bundled packs", "homepage": "https://…" },
+  "generated": "2026-10-05T00:00:00Z",          // optional, as the builder said
+  "packs": [
+    {
+      "id": "pro-audio", "name": "Pro audio", "description": "…",
+      "domain": "pro-audio",                      // the manifest's `domain`, else its id
+      "license": "CC0-1.0",                       // as the author states it: information
+      "author": { "id": "wirehub", "name": "WireHub bundled modules" },  // `author`, else `publisher`
+      "homepage": "https://…",
+      "versions": [                               // newest first
+        { "version": "0.1.0", "url": "pro-audio-0.1.0.zip",   // relative to the index, or absolute https
+          "sha256": "…64 hex…", "size": 23456, "requires": { "wirehub": ">=0.1 <1" } }
+      ]
+    }
+  ]
+}
+```
+
+A bundle is what Install pack… takes: a zip of the pack directory or a JSON bundle.
+
+**The signature** is `index.json.minisig` beside the index: a minisign signature (the prehashed
+`ED` algorithm: ed25519 over the BLAKE2b-512 of the file, plus the global signature over the
+trusted comment), so `minisign -Vm index.json -P <key>` verifies it too. The public key is
+minisign's one-line form (`RW…`). The private key is a PKCS#8 PEM ed25519 key, and the key id is
+the first 8 bytes of the public key's sha256, so the public key can always be printed from the
+private one. Pack manifests are not signed yet: the index pins every bundle by sha256 and size,
+and the index signature covers that.
+
+**What a hub does** (`apps/studio/server/store.ts`). `WIREHUB_STORE_INDEXES` lists the indexes it
+trusts, each `<https url> <public key>` (comma separated; `docs/self-hosting.md`).
+`GET /api/packs/store` fetches each index and its `.minisig` (https only, public addresses, the
+same limits as a pack URL), **refuses an index whose signature does not match the configured key**
+(or that has none), and lists the packs of the others with the version installed here and what
+can be done (`install`, `update`, `current`). `POST /api/packs/store/install`
+`{ index, id, version?, apply?, sha256?, acceptMajor? }` re-fetches and re-verifies the index,
+downloads the bundle it names, **refuses it unless its size and sha256 match the index** and its
+manifest is the pack and version listed, then hands it to `POST /api/packs/install`: without
+`apply` the record-level diff, with it one change set. Being under `/api/packs`, it is for owners
+and editors; viewers see the list, and no API token may install. The Library's **Browse store**
+page (`/library/store`) has search, a domain filter, the disclaimer, the licence as information,
+and Install / Update buttons that show the diff before applying.
+
+**Building and signing an index** (`scripts/store-index.mjs`, plain Node 24, no install):
+
+```
+node scripts/store-index.mjs keygen --out ~/wirehub-store-keys     # once; never inside a repository
+node scripts/store-index.mjs bundle path/to/my-pack --out my-store/    # my-pack-1.2.0.zip (deterministic)
+node scripts/store-index.mjs build my-store/ --store-id acme --store-name "Acme packs"
+node scripts/store-index.mjs sign my-store/index.json --key ~/wirehub-store-keys/wirehub-store.key
+node scripts/store-index.mjs verify my-store/index.json --pubkey ~/wirehub-store-keys/wirehub-store.pub
+node scripts/store-index.mjs pubkey --key ~/wirehub-store-keys/wirehub-store.key   # prints RW…
+```
+
+`sign` and `pubkey` also read the key from `WIREHUB_STORE_SIGNING_KEY` (the PEM text). Without a
+key `sign` says the index is left unsigned and exits 0 (`--required` makes it fail).
+
+**Hosting your own index.** A store is static files: put the bundles, `index.json` and
+`index.json.minisig` in one directory on any https host (GitHub Pages, an object store, a web
+server), keep every version you published in it (the index lists what the directory holds, and a
+design built on an old version can be re-validated against it), rebuild and re-sign after every
+change, and give people the index URL and your public key for `WIREHUB_STORE_INDEXES`. Keep the
+private key out of the repository (a CI secret, as below). A mirror copies the directory as is:
+the signature still verifies. You are responsible for what your packs contain and the licence you
+give them; WireHub does not review store content.
+
+**The official index** of WireHub's bundled packs (`modules/*/pack`, not the example) is built by
+the pages workflow (`.github/workflows/pages.yml`: `store-index.mjs official`) and published at
+`https://formless63.github.io/wirehub/store/index.json`, signed in CI with the GitHub Actions secret
+`WIREHUB_STORE_SIGNING_KEY` (the PEM text of the private key). Without the secret the workflow
+publishes it unsigned and says so with a warning; hubs refuse it until it is signed. Its public key
+is `OFFICIAL_STORE_PUBLIC_KEY` in `apps/studio/server/store.ts`, **still a placeholder (empty)**:
+once the owner has created the key (`keygen`) and stored the secret, `store-index.mjs pubkey --key
+<file>` prints the line to record there, after which hubs trust the official index by default and
+the workflow fails if the secret's key and the recorded one differ.
+
+Official index public key: *(placeholder, not yet created)*
+
 ## 5. Sources, licences and responsibility
 
 Not legal advice. Two cases, kept apart.
@@ -295,8 +380,8 @@ Trademarks (USB, HDMI, product names) appear as plain nominative names.
 - **Modules**: `CatalogPackContribution` packs install at build time through the same
   verification.
 - **UI**: Modules → Catalog packs (installed list, update with diff, disable, Install pack…),
-  and in the Library a read-only chip and Fork to edit on a record that came from a pack.
-  Browsing a store index is still to come.
+  and in the Library a read-only chip and Fork to edit on a record that came from a pack, and
+  Library → **Browse store** (the packs of the trusted store indexes, install and update with diff).
 
 ## 7. Phases
 
@@ -305,7 +390,8 @@ Trademarks (USB, HDMI, product names) appear as plain nominative names.
    covers the last two).
 2. Loading of installed packs; install from file or URL; fork a record; update with a diff and
    disable (**done**, both backends).
-3. The signed static index, store browsing and install/update with diff in the Library.
+3. The signed static index, store browsing and install/update with diff in the Library
+   (**done**, both backends; the official index's public key awaits the owner's key).
 4. First packs: `core-bodies`, `pro-audio`, `fieldbus`, `networking`, each reviewed against
    cited sources; the KiCad model-link pack built reproducibly.
-5. Publisher keys, review status workflow, yanking and revocation.
+5. Signed pack manifests, publisher keys, review status workflow, yanking and revocation.
