@@ -8,6 +8,8 @@
  *   GET /api/designs/:id/exports/:format?rev=…&quantity=…
  *       format: bom.csv · wire-list.csv · cut-list.csv · crimp-list.csv · production.xlsx ·
  *       continuity.csv · continuity.json · labels.csv · labels.svg
+ *   GET /api/definitions/wires/:id/wire-spec?format=html|svg|pdf&paper=…
+ *       a wire stock's spec sheet (the Library's Spec tab), named WSS_<document number>
  *   GET /api/exports   the list of export formats
  *
  * `rev` is a saved revision number, or `latest`; without it the working copy is
@@ -18,25 +20,32 @@
 
 import { isDesignId } from '@wirehub/catalog';
 import { BASE_EXPORTS, baseExport, parseScale, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
-import { releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type VersionSummary } from '@wirehub/model';
+import { knownPartNumbers, releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type DesignVersionFile, type KnownPartNumber, type PartNumberScheme, type VersionSummary } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
 import type { DrawingStore } from './drawings.ts';
 import { type ApprovalFacts, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
-import { approvalPolicy, effectiveTestDefaults } from './settings.ts';
+import { approvalPolicy, BRANDING_PATH, effectiveTestDefaults, type BrandingRecord } from './settings.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
 import { withDesignLibrary } from './assemblies.ts';
+import type { DepictionStore } from './depictions.ts';
+import { depictionIdsOf, revisionDepictions, safeCatalog, storeDepictions } from './render/depictions.ts';
+import { partNumberSchemeOf, type SchemeDeps } from './part-number-scheme.ts';
+import { isWireSpecFormat, renderWireSpec, WIRE_SPEC_FORMATS } from './render/wire-spec.ts';
+import type { WireLibraryStore } from './wire-library.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
 export const DOCUMENT_ROUTES = [
   'GET    /api/designs/:id/documents/:kind',
   'GET    /api/designs/:id/exports/:format',
+  'GET    /api/definitions/wires/:id/wire-spec',
   'GET    /api/exports',
 ] as const;
 
-export interface DocumentDeps {
+export interface DocumentDeps extends SchemeDeps {
   designs: DesignStore;
   loadDb: () => Awaitable<Db>;
   versions?: VersionStore;
@@ -45,6 +54,10 @@ export interface DocumentDeps {
   testDefaults?: TestParameters;
   /** catalog documents by path: where the engineering settings live */
   docs?: DocStore;
+  /** the artwork store: given it, the sheets draw its artwork (uploaded boards included), not only the catalog tree's */
+  depictions?: DepictionStore;
+  /** the wire stock recipes and parts the spec sheet reads */
+  wireLibrary?: WireLibraryStore;
 }
 
 function fail(status: number, error: string, hint?: string): ApiResponse {
@@ -74,6 +87,8 @@ interface Loaded {
   target: 'working' | number | undefined;
   /** set when the hub requires approvals and a saved revision is rendered */
   approvals?: ApprovalFacts;
+  /** the saved revision's file, when one is rendered: its frozen artwork is drawn */
+  version?: DesignVersionFile;
 }
 
 async function load(deps: DocumentDeps, id: string, rev: string | null): Promise<Loaded | ApiResponse> {
@@ -119,8 +134,40 @@ async function load(deps: DocumentDeps, id: string, rev: string | null): Promise
     drawing,
     ...(photo === undefined ? {} : { photo }),
     target: number,
+    version: file,
     ...(policy.enabled ? { approvals: { ...(file.approval === undefined ? {} : { approval: file.approval }) } } : {}),
   };
+}
+
+/** The artwork the sheets draw: the store's (uploaded boards too) when the hub keeps one, a revision's own copy over it. `undefined`: the catalog tree, as before. */
+async function artworkOf(deps: DocumentDeps, loaded: Loaded): Promise<DepictionSource | undefined> {
+  if (deps.depictions === undefined && loaded.version === undefined) return undefined;
+  try {
+    const live = deps.depictions === undefined ? safeCatalog() : await storeDepictions(deps.depictions, depictionIdsOf(loaded.design, loaded.db));
+    return loaded.version === undefined || deps.versions === undefined ? live : await revisionDepictions(deps.versions, loaded.version, live);
+  } catch {
+    // artwork is presentation: a store that cannot be read draws the catalog's tree
+    return undefined;
+  }
+}
+
+/** The numbering scheme and every number in use: what the BOM's proposals for unnumbered parts read. */
+async function partNumbersOf(deps: DocumentDeps, loaded: Loaded): Promise<{ scheme: PartNumberScheme; known: readonly KnownPartNumber[] } | undefined> {
+  if (deps.loadPartNumberFiles === undefined && deps.modules === undefined) return undefined;
+  try {
+    const designs: CableDesign[] = [];
+    const pns: KnownPartNumber[] = [];
+    for (const summary of await deps.designs.list()) {
+      const design = await deps.designs.read(summary.id);
+      if (design === undefined) continue;
+      designs.push(design);
+      const pn = (await deps.drawings?.read(summary.id))?.meta.partNumber;
+      if (pn !== undefined) pns.push({ pn, kind: 'design', source: `drawings/${summary.id}` });
+    }
+    return { scheme: await partNumberSchemeOf(deps), known: knownPartNumbers(loaded.db, designs, pns) };
+  } catch {
+    return undefined;
+  }
 }
 
 function today(): string {
@@ -151,9 +198,41 @@ function file(output: { mimeType: string; fileName: string; body: string | Uint8
   };
 }
 
+async function wireSpec(method: string, id: string, query: URLSearchParams, deps: DocumentDeps): Promise<ApiResponse> {
+  if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
+  const db = await deps.loadDb();
+  const wire = db.wires.find((w) => w.id === id);
+  if (wire === undefined) return fail(404, `There is no wire stock called '${id}'.`, 'Pick one from GET /api/definitions/wires.');
+  const asked = query.get('format') ?? 'html';
+  if (!isWireSpecFormat(asked)) return fail(400, `'${asked}' is not a format for a spec sheet.`, `Formats: ${WIRE_SPEC_FORMATS.join(', ')}.`);
+  const paper = query.get('paper');
+  if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
+  const library = await deps.wireLibrary?.read();
+  const recipe = library?.recipes.find((r) => r.id === id);
+  const manufacturers = db.vocab?.['manufacturers']?.entries;
+  // the hub's branding (settings): who issues it and what its files are called; the browser registers the same
+  const branding = (await deps.docs?.read(BRANDING_PATH)) as BrandingRecord | undefined;
+  try {
+    const out = renderWireSpec(wire, asked, {
+      ...(branding?.organisation === undefined ? {} : { organisation: branding.organisation }),
+      ...(branding?.standard === undefined ? {} : { standard: branding.standard }),
+      ...(branding?.rights === undefined ? {} : { rightsNotice: branding.rights }),
+      ...(branding?.filePrefix === undefined ? {} : { filePrefix: branding.filePrefix }),
+      ...(recipe === undefined ? {} : { recipe }),
+      ...(library === undefined ? {} : { parts: library.parts }),
+      ...(manufacturers === undefined ? {} : { manufacturers }),
+      ...(paper === null ? {} : { paper }),
+    });
+    return file(out, true);
+  } catch (error) {
+    return fail(422, `The spec sheet of ${id} could not be rendered.`, error instanceof Error ? error.message : String(error));
+  }
+}
+
 /** `undefined` when the path is not one of the document routes. */
 export async function handleDocumentRequest(method: string, parts: string[], query: URLSearchParams, deps: DocumentDeps): Promise<ApiResponse | undefined> {
   const [, head, id, section, name, ...rest] = parts;
+  if (head === 'definitions' && id === 'wires' && parts.length === 5 && rest.length === 0 && parts[4] === 'wire-spec') return wireSpec(method, parts[3] as string, query, deps);
   if (head === 'exports' && id === undefined) {
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     return {
@@ -189,6 +268,10 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const meta = releaseMeta(loaded.drawing, loaded.target, loaded.approvals);
   const orgDefaults = await effectiveTestDefaults(deps);
 
+  const wantsProposals = (section === 'documents' && (name === 'bom' || name === 'build-sheet')) || (section === 'exports' && (name === 'bom.csv' || name === 'production.xlsx'));
+  const artwork = section === 'documents' && ['schematic', 'build-sheet', 'bom'].includes(name) ? await artworkOf(deps, loaded) : undefined;
+  const partNumbers = wantsProposals ? await partNumbersOf(deps, loaded) : undefined;
+
   if (section === 'exports') {
     const format = baseExport(name);
     if (format === undefined) return fail(404, `There is no export called '${name}'.`, `Formats: ${BASE_EXPORTS.map((f) => f.id).join(', ')}.`);
@@ -203,6 +286,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
       ...(copies === undefined ? {} : { copies }),
       ...(quantity === undefined ? {} : { buildQty: quantity }),
       ...(explode ? { explode: true } : {}),
+      ...(partNumbers === undefined ? {} : { partNumbers }),
     };
     try {
       return file(format.render(loaded.design, loaded.db, options), false);
@@ -232,6 +316,8 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(quantity === undefined ? {} : { buildQty: quantity }),
     ...(explode ? { explode: true } : {}),
     ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
+    ...(artwork === undefined ? {} : { depictions: artwork }),
+    ...(partNumbers === undefined ? {} : { partNumbers }),
     today: today(),
   });
   if (!result.ok) return fail(result.status, result.error, result.hint);

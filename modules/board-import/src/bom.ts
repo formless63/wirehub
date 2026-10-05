@@ -19,7 +19,7 @@
 
 import type { BoardPartsEntry, ComponentCategory, ComponentDefinition, ComponentSupplierPart, Db, PcbaDefinition, PlacedPart } from '@wirehub/model';
 
-import { compareRefs } from './kicad.ts';
+import { compareRefs, type BoardSource } from './kicad.ts';
 import { categoryOfRef, componentKindOf, displayValue, kebab, packageOf } from './values.ts';
 
 /* ------------------------------------------------------------------ *
@@ -168,6 +168,10 @@ export interface BomLine {
   supplier?: string;
   dnp: boolean;
   line: number;
+  /** where the line was read, for a record's `src` (default `line <n>`) */
+  where?: string;
+  /** KiCad leaves it out of the fab BOM (a footprint attribute) */
+  excludeFromBom?: boolean;
 }
 
 export interface Placement {
@@ -296,7 +300,39 @@ export function boardParts(
   if (placed !== undefined) notes.push(`Placement ${cpl!.fileName}: ${placed.placements.length} part(s); columns ${Object.entries(placed.columns).map(([f, c]) => `${f}=${c}`).join(', ')}.`);
   const placement = new Map((placed?.placements ?? []).map((p) => [p.ref, p]));
   const lines: BomLine[] = read?.lines ?? (placed?.placements ?? []).map((p) => ({ refs: [p.ref], dnp: false, line: p.line }));
+  const sources = [
+    ...(bom === undefined ? [] : [{ path: bom.fileName, sha256: bom.sha256, role: 'bom' as const }]),
+    ...(cpl === undefined ? [] : [{ path: cpl.fileName, sha256: cpl.sha256, role: 'cpl' as const }]),
+  ];
+  const origin = bom ?? cpl!;
+  const proposal = proposeParts(pcba, { lines, placement, sources, notes, origin: { fileName: origin.fileName, sha256: origin.sha256, what: bom === undefined ? 'fab placement file' : 'fab BOM' }, ...(cpl === undefined ? {} : { cplName: cpl.fileName }), hasBom: bom !== undefined }, db);
+  if (placed !== undefined && read !== undefined) {
+    const inBom = new Set(lines.flatMap((l) => l.refs));
+    const extra = placed.placements.filter((p) => !inBom.has(p.ref)).map((p) => p.ref);
+    if (extra.length > 0) proposal.notes.push(`${extra.length} part(s) are placed but not in the BOM: ${extra.slice(0, 10).join(', ')}${extra.length > 10 ? ' …' : ''}.`);
+    const unplaced = [...inBom].filter((r) => !placement.has(r));
+    if (unplaced.length > 0) proposal.notes.push(`${unplaced.length} BOM part(s) have no placement: ${unplaced.slice(0, 10).join(', ')}${unplaced.length > 10 ? ' …' : ''} (hand-fitted, or a different revision).`);
+  }
+  return proposal;
+}
 
+/** What `proposeParts` reads: BOM-shaped lines, where each part sits, and where it all came from. */
+interface PartsInput {
+  lines: BomLine[];
+  placement: Map<string, Placement>;
+  sources: BoardPartsEntry['sources'];
+  notes: string[];
+  origin: { fileName: string; sha256: string; what: string };
+  /** the placement file's name, when one was read (a part it places carries it) */
+  cplName?: string;
+  hasBom: boolean;
+}
+
+/** One component record per distinct part, and the board's placed parts — the identity rules above, whatever the lines came from. */
+function proposeParts(pcba: PcbaDefinition, input: PartsInput, db: Pick<Db, 'components'>): BoardPartsProposal {
+  const { lines, placement, sources, notes, origin } = input;
+  const bom = input.hasBom ? origin : undefined;
+  const cpl = input.cplName === undefined ? undefined : { fileName: input.cplName };
   const components = new Map<string, ComponentDefinition>();
   const reused = new Set<string>();
   const identity = new Map<string, string>();
@@ -338,8 +374,8 @@ export function boardParts(
           ...(line.footprint === undefined ? {} : { footprint: line.footprint }),
           terminals: twoLegs(category) ? [{ id: 'a' }, { id: 'b' }] : [],
           usedOn: [],
-          review: `imported from ${boardWord}'s ${bom?.fileName ?? cpl!.fileName} — review`,
-          src: `${bom?.fileName ?? cpl!.fileName} line ${line.line} (fab ${bom === undefined ? 'placement file' : 'BOM'}, sha256 ${(bom ?? cpl)!.sha256.slice(0, 16)}…), read by the board-import module; category from the reference designator — inferred`,
+          review: `imported from ${boardWord}'s ${origin.fileName} — review`,
+          src: `${origin.fileName} ${line.where ?? `line ${line.line}`} (${origin.what}, sha256 ${origin.sha256.slice(0, 16)}…), read by the board-import module; category from the reference designator — inferred`,
         });
       }
     }
@@ -359,24 +395,14 @@ export function boardParts(
         ...(line.footprint === undefined ? {} : { footprint: line.footprint }),
         ...(at?.side === undefined ? {} : { side: at.side }),
         ...(line.dnp ? { dnp: true } : {}),
-        ...(at === undefined ? {} : { cpl: [cpl!.fileName] }),
-        src: `${bom?.fileName ?? cpl!.fileName}:${line.line}${at === undefined || bom === undefined ? '' : `; ${cpl!.fileName}:${at.line}`}`,
+        ...(line.excludeFromBom === true ? { excludeFromBom: true } : {}),
+        ...(at === undefined || cpl === undefined ? {} : { cpl: [cpl.fileName] }),
+        src: `${origin.fileName}:${line.where ?? line.line}${at === undefined || bom === undefined || cpl === undefined ? '' : `; ${cpl.fileName}:${at.line}`}`,
       });
     }
   }
-  if (placed !== undefined && read !== undefined) {
-    const inBom = new Set(lines.flatMap((l) => l.refs));
-    const extra = placed.placements.filter((p) => !inBom.has(p.ref)).map((p) => p.ref);
-    if (extra.length > 0) notes.push(`${extra.length} part(s) are placed but not in the BOM: ${extra.slice(0, 10).join(', ')}${extra.length > 10 ? ' …' : ''}.`);
-    const unplaced = [...inBom].filter((r) => !placement.has(r));
-    if (unplaced.length > 0) notes.push(`${unplaced.length} BOM part(s) have no placement: ${unplaced.slice(0, 10).join(', ')}${unplaced.length > 10 ? ' …' : ''} (hand-fitted, or a different revision).`);
-  }
   if (reused.size > 0) notes.push(`${reused.size} part(s) are already in the Library and are reused: ${[...reused].sort().join(', ')}.`);
   parts.sort((a, b) => compareRefs(a.ref, b.ref));
-  const sources = [
-    ...(bom === undefined ? [] : [{ path: bom.fileName, sha256: bom.sha256, role: 'bom' as const }]),
-    ...(cpl === undefined ? [] : [{ path: cpl.fileName, sha256: cpl.sha256, role: 'cpl' as const }]),
-  ];
   return {
     components: [...components.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
     reused: [...reused].sort(),
@@ -389,4 +415,95 @@ export function boardParts(
     },
     notes,
   };
+}
+
+
+/* ------------------------------------------------------------------ *
+ * From a KiCad board's footprints
+ * ------------------------------------------------------------------ */
+
+const PROPERTY_FIELDS = ['mpn', 'manufacturer', 'supplierPart'] as const;
+
+/** The footprint's property whose name is that of a BOM column (`MPN`, `Manufacturer`, `LCSC Part #` …). */
+function propertyOf(properties: Record<string, string>, field: (typeof PROPERTY_FIELDS)[number]): { value: string; name: string } | undefined {
+  for (const [name, value] of Object.entries(properties)) {
+    if (value.trim() !== '' && value.trim() !== '~' && BOM_NAMES[field].test(name.trim())) return { value: value.trim(), name };
+  }
+  return undefined;
+}
+
+/**
+ * A `.kicad_pcb`'s (or `.net`'s) footprints as BOM lines and placements — the
+ * same parts a fab BOM would list, for a board with no fab BOM. A footprint
+ * flagged board-only (a fiducial, a mounting hole) is not a part; one that is
+ * Do Not Populate or left out of the BOM is kept and says so. The part's
+ * MPN, manufacturer and supplier number come from the footprint's properties
+ * named as a BOM column is.
+ */
+export function footprintLines(source: BoardSource): { lines: BomLine[]; placement: Map<string, Placement>; skipped: string[] } {
+  const lines: BomLine[] = [];
+  const placement = new Map<string, Placement>();
+  const skipped: string[] = [];
+  source.footprints.forEach((fp, index) => {
+    if (fp.ref === '' || fp.ref.startsWith('#')) return;
+    if (fp.boardOnly) {
+      skipped.push(fp.ref);
+      return;
+    }
+    const mpn = propertyOf(fp.properties, 'mpn');
+    const manufacturer = propertyOf(fp.properties, 'manufacturer');
+    const supplierPart = propertyOf(fp.properties, 'supplierPart');
+    const supplier = supplierPart === undefined ? undefined : supplierOf(supplierPart.name);
+    const value = fp.value === undefined || fp.value.trim() === '' || fp.value.trim() === '~' ? undefined : fp.value.trim();
+    lines.push({
+      refs: [fp.ref],
+      ...(value === undefined ? {} : { value }),
+      ...(fp.lib === '' ? {} : { footprint: fp.lib }),
+      ...(mpn === undefined ? {} : { mpn: mpn.value }),
+      ...(manufacturer === undefined ? {} : { manufacturer: manufacturer.value }),
+      ...(supplierPart === undefined ? {} : { supplierPart: supplierPart.value }),
+      ...(supplier === undefined ? {} : { supplier }),
+      dnp: fp.dnp || /\bDNP\b|do not (populate|place)/i.test(value ?? ''),
+      ...(fp.excludeFromBom ? { excludeFromBom: true } : {}),
+      line: index + 1,
+      where: `footprint ${fp.ref}`,
+    });
+    placement.set(fp.ref, {
+      ref: fp.ref,
+      ...(fp.x === undefined ? {} : { x: fp.x }),
+      ...(fp.y === undefined ? {} : { y: fp.y }),
+      side: fp.side,
+      ...(fp.rotation === undefined ? {} : { rotation: fp.rotation }),
+      line: index + 1,
+    });
+  });
+  return { lines, placement, skipped };
+}
+
+/**
+ * Components and the board's placed parts from a KiCad file's footprints
+ * (the `kicad-board` importer's `parts` option): `boardParts`' identity rules
+ * over footprint lines — one record per MPN, else supplier number, else
+ * category + value + package; one the Library already has is reused.
+ */
+export function boardPartsFromKicad(pcba: PcbaDefinition, source: BoardSource, file: { fileName: string; sha256: string }, db: Pick<Db, 'components'>): BoardPartsProposal {
+  const { lines, placement, skipped } = footprintLines(source);
+  if (lines.length === 0) throw new Error(`${file.fileName} has no footprints to read parts from.`);
+  const notes = [`Footprints of ${file.fileName}: ${lines.length} part(s)${skipped.length === 0 ? '' : `, ${skipped.length} board-only footprint(s) left out (${skipped.slice(0, 6).join(', ')}${skipped.length > 6 ? ' …' : ''})`}.`];
+  const dnp = lines.filter((l) => l.dnp).length;
+  if (dnp > 0) notes.push(`${dnp} part(s) are marked Do Not Populate.`);
+  const proposal = proposeParts(
+    pcba,
+    {
+      lines,
+      placement,
+      sources: [{ path: file.fileName, sha256: file.sha256, role: 'kicad' }],
+      notes,
+      origin: { ...file, what: `KiCad ${source.format === 'kicad-pcb' ? 'board' : 'netlist'}` },
+      hasBom: false,
+    },
+    db,
+  );
+  proposal.notes.push('Read from the footprints, not a fab BOM: a part without an MPN is told apart by category, value and package only. Import the fab BOM to replace this with the board house\'s own list.');
+  return proposal;
 }

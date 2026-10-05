@@ -200,9 +200,11 @@ connector's wins) — has cavities (its pins, the shell excepted). Each takes a 
 in a `per-wire` sealed housing a `seal`, and when unused in a housing that plugs them a
 `plug`; a contact is crimped with a `tool`. Those four are mechanicals whose `termination`
 says what they fit (`systems`, `housings`) and take (`wireMinMm2`/`wireMaxMm2`,
-`insulationMinMm`/`insulationMaxMm`, `gender`, `plating`, `stripMm`, `ratedCurrentA`, `crimpHeights`, `tool`).
-A design records them per cavity on the connector instance:
-`cavities?: { pin, contact?, seal?, plug?, crimpHeightMm?, note? }[]`. Everything is optional:
+`insulationMinMm`/`insulationMaxMm`, `gender`, `plating`, `stripMm`, `ratedCurrentA`, `crimpHeights`, `tool`,
+and `tools?: { tool, crimpHeights?, stripMm?, note? }[]` — further applicators, each with its own
+heights). A design records them per cavity on the connector instance:
+`cavities?: { pin, contact?, seal?, plug?, tool?, crimpHeightMm?, note? }[]` (`tool` picks the
+applicator when the contact lists more than one; without it the contact's `tool` and table apply). Everything is optional:
 a solder-cup or PCB connector has no housing, and a design with no cavities validates as
 before. Validation: an unknown pin or part, a part of the wrong kind, a duplicate cavity or a
 contact and a plug together are errors; the wire's total cross-section outside the contact's

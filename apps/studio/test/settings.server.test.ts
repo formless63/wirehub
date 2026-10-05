@@ -65,6 +65,54 @@ describe('branding settings', () => {
     expect(docs.docs.has(BRANDING_PATH)).toBe(false);
   });
 
+  const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20" viewBox="0 0 40 20"><rect width="40" height="20" fill="#c2602a"/><circle cx="10" cy="10" r="6" fill="#fff"/></svg>';
+  const svgUri = (svg: string): string => `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+
+  it('takes an SVG logo, drawn to a PNG and cleaned of anything active (cs-vzv)', async () => {
+    const { deps: d, assets } = deps();
+    const tag = (await get(d)).headers!.ETag!;
+    const dirty = SVG.replace('</svg>', '<script>alert(1)</script><image href="http://example.invalid/x.png" width="5" height="5"/></svg>');
+    const saved = await put(d, { logo: svgUri(dirty) }, tag);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    const body = saved.body as { logo: string; logoDataUri: string };
+    expect(body.logoDataUri).toMatch(/^data:image\/png;base64,/);
+    // what is kept is a PNG of the picture: 1024 px wide, in the shape of the SVG (2:1)
+    const bytes = assets.files.get(body.logo)!;
+    expect(bytes.subarray(1, 4).toString('latin1')).toBe('PNG');
+    expect(bytes.readUInt32BE(16)).toBe(1024);
+    expect(bytes.readUInt32BE(20)).toBe(512);
+    expect(bytes.includes(Buffer.from('alert'))).toBe(false);
+    // the same upload, URL-encoded rather than base64
+    const again = await put(d, { logo: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(SVG)}` }, saved.headers!.ETag!);
+    expect(again.status).toBe(200);
+  });
+
+  it('refuses an SVG that cannot be used', async () => {
+    const { deps: d } = deps();
+    const tag = (await get(d)).headers!.ETag!;
+    expect((await put(d, { logo: svgUri('<svg xmlns="http://www.w3.org/2000/svg"><!ENTITY x "y"></svg>') }, tag)).status).toBe(400);
+    expect((await put(d, { logo: svgUri('this is not an svg') }, tag)).status).toBe(400);
+    expect((await put(d, { logo: svgUri(`<svg xmlns="http://www.w3.org/2000/svg">${'<g/>'.repeat(200_000)}</svg>`) }, tag)).status).toBe(400);
+  });
+
+  it('keeps a wire spec file prefix and names the headless spec sheet after it (cs-vzv)', async () => {
+    const { deps: d } = deps();
+    const tag = (await get(d)).headers!.ETag!;
+    expect((await put(d, { filePrefix: 'not ok/' }, tag)).status).toBe(400);
+    expect((await put(d, { filePrefix: 'x'.repeat(40) }, tag)).status).toBe(400);
+    const saved = await put(d, { filePrefix: 'ACME-WS-' }, tag);
+    expect(saved.status).toBe(200);
+    expect((saved.body as { filePrefix: string }).filePrefix).toBe('ACME-WS-');
+    const { loadDb, loadWireLibrary } = await import('@wirehub/catalog');
+    const { memoryWireLibraryStore } = await import('../server/wire-library.ts');
+    const db = loadDb();
+    const wired = { ...(d as object), designs: { list: () => [], has: () => false, read: () => undefined, write: () => ({ changed: true }), remove: () => undefined }, loadDb: () => db, wireLibrary: memoryWireLibraryStore(loadWireLibrary(), db.wires) } as unknown as WorkbenchDeps;
+    const sheet = await handleWorkbenchRequest({ method: 'GET', path: `/api/definitions/wires/${db.wires[0]!.id}/wire-spec` }, wired);
+    expect(sheet.status).toBe(200);
+    expect(sheet.headers?.['Content-Disposition']).toMatch(/filename="ACME-WS-/);
+    expect(new TextDecoder().decode(sheet.bytes)).toContain('<title>ACME-WS-');
+  });
+
   it('refuses a stale write, a missing precondition, a non-PNG logo and bad text', async () => {
     const { deps: d } = deps();
     const first = await get(d);

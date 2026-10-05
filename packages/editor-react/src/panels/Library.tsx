@@ -119,7 +119,7 @@ import { Splitter } from './Splitter.tsx';
 import { WireStockEditor, type CrossSectionRenderer } from './WireStockEditor.tsx';
 import { WireStockDetail, type WireDetailTab } from './WireStockDetail.tsx';
 import { blankRecipe, duplicateRecipe, type VendorDocumentsAdapter, type WireLibraryAdapter } from '../wire-builder.ts';
-import type { WireLibrary, WireRecipe } from '@wirehub/model';
+import type { HousingSpec, WireLibrary, WireRecipe } from '@wirehub/model';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 import { useEditLocked } from './edit-session.ts';
 
@@ -274,6 +274,11 @@ type DetailTab = 'definition' | 'artwork' | 'import' | 'pads' | 'connector' | 'b
 
 /** Kinds a definition's detail grows an Artwork tab for — a wire stock or a
  * loose component has no picture of its own to anchor pins on. */
+/** The housing a connector's body carries (shown read-only on the connector form). */
+function bodyHousingOf(db: { bodies?: readonly { id: string; housing?: HousingSpec }[] }, bodyId: string): HousingSpec | undefined {
+  return (db.bodies ?? []).find((b) => b.id === bodyId)?.housing;
+}
+
 function hasArtworkTab(kind: DefinitionKind): boolean {
   return kind === 'connectors' || kind === 'pcbas';
 }
@@ -1550,6 +1555,7 @@ export function Library(props: LibraryProps): JSX.Element {
                   <ConnectorEditor
                     draft={draft.value}
                     idLocked={mode.kind === 'edit'}
+                    {...(bodyHousingOf(props.db, draft.value.body) === undefined ? {} : { bodyHousing: bodyHousingOf(props.db, draft.value.body) as HousingSpec })}
                     onChange={(value) => setDraft((d) => ({ kind: 'connectors', value: mode.kind === 'new' && d?.kind === 'connectors' ? followNameId(d.value, value, takenIds) : value }))}
                   />
                 ) : null}

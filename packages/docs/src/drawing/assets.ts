@@ -46,6 +46,8 @@ export interface TitleBlockText {
   rights?: string;
   /** the designer printed when a design's drawing sidecar names none */
   designer?: string;
+  /** the prefix of every exported wire spec file (default `WIRE_SPEC_FILE_PREFIX`, `WSS_`) */
+  filePrefix?: string;
 }
 
 export interface DrawingArt {
@@ -108,7 +110,7 @@ export function registeredTitleBlock(): TitleBlockText {
   const blocks = registered.map((art) => art.titleBlock).filter((t): t is TitleBlockText => t !== undefined);
   const notes = blocks.find((t) => t.notes !== undefined)?.notes;
   const tolerances = blocks.find((t) => t.tolerances !== undefined)?.tolerances;
-  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer'>(key: K): Partial<Record<K, string>> => {
+  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer' | 'filePrefix'>(key: K): Partial<Record<K, string>> => {
     const found = blocks.find((t) => t[key] !== undefined && t[key] !== '')?.[key];
     return found === undefined ? {} : ({ [key]: found } as Record<K, string>);
   };
@@ -120,6 +122,7 @@ export function registeredTitleBlock(): TitleBlockText {
     ...first('standard'),
     ...first('rights'),
     ...first('designer'),
+    ...first('filePrefix'),
   };
 }
 

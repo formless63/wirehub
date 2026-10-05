@@ -12,6 +12,7 @@
 
 import {
   cavityRows,
+  contactTools,
   fillCavities,
   fitsHousing,
   housingOf,
@@ -1171,8 +1172,34 @@ export function CavitiesSection({ state, id }: { state: EditorState; id: string 
   const showSeals = housing?.sealing === 'per-wire' || rows.some((r) => r.seal !== undefined);
   const showPlugs = housing?.plugUnused === true || rows.some((r) => r.plug !== undefined);
   const apply = (next: typeof design, description: string): void => dispatch({ type: 'apply-design', design: next, description, record: true });
-  const pick = (pin: string, slot: 'contact' | 'seal' | 'plug', value: string): void =>
-    apply(setCavity(design, id, pin, { [slot]: value === '' ? undefined : value }), `set ${slot} in ${id}:${pin}`);
+  // a contact with more than one applicator lets each cavity say which crimps it
+  const showTools = rows.some((r) => contactTools(r.contact).length > 1 || r.assignment?.tool !== undefined);
+  const pick = (pin: string, slot: 'contact' | 'seal' | 'plug' | 'tool', value: string): void =>
+    apply(
+      // another contact may not be crimped by the tool the last one was
+      setCavity(design, id, pin, { [slot]: value === '' ? undefined : value, ...(slot === 'contact' ? { tool: undefined } : {}) }),
+      `set ${slot} in ${id}:${pin}`,
+    );
+  const toolChoice = (row: (typeof rows)[number]): JSX.Element => {
+    const ids = contactTools(row.contact);
+    const current = row.assignment?.tool ?? row.contact?.termination?.tool ?? '';
+    return (
+      <select
+        className="cs-input"
+        aria-label={`tool for cavity ${row.pin}`}
+        value={current}
+        disabled={row.contact === undefined || ids.length < 2}
+        onChange={(event) => pick(row.pin, 'tool', event.target.value === row.contact?.termination?.tool ? '' : event.target.value)}
+      >
+        {ids.length === 0 ? <option value="">—</option> : null}
+        {ids.map((toolId) => (
+          <option key={toolId} value={toolId}>
+            {(db.mechanicals ?? []).find((m) => m.id === toolId)?.label ?? toolId}
+          </option>
+        ))}
+      </select>
+    );
+  };
   const choice = (
     pin: string,
     slot: 'contact' | 'seal' | 'plug',
@@ -1208,6 +1235,7 @@ export function CavitiesSection({ state, id }: { state: EditorState; id: string 
             <th>cavity</th>
             <th>wire</th>
             <th>contact</th>
+            {showTools ? <th>tool</th> : null}
             {showSeals ? <th>seal</th> : null}
             {showPlugs ? <th>plug</th> : null}
           </tr>
@@ -1224,6 +1252,7 @@ export function CavitiesSection({ state, id }: { state: EditorState; id: string 
                   : row.wires.map((w) => (w.areaMm2 === undefined ? w.path : `${w.areaMm2} mm²`)).join(' + ')}
               </td>
               <td>{choice(row.pin, 'contact', row.assignment?.contact, contacts, (p) => wireRangeText(p.termination))}</td>
+              {showTools ? <td>{toolChoice(row)}</td> : null}
               {showSeals ? <td>{choice(row.pin, 'seal', row.assignment?.seal, seals, (p) => insulationRangeText(p.termination))}</td> : null}
               {showPlugs ? <td>{choice(row.pin, 'plug', row.assignment?.plug, plugs, () => undefined)}</td> : null}
             </tr>

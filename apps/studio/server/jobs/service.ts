@@ -85,6 +85,11 @@ export async function executeJob(store: JobStore, handlers: JobHandlers, id: str
   try {
     const outcome: JobOutcome = await handler({ job, step: (text) => store.step(id, text) });
     await store.finish(id, outcome);
+    if (outcome.quiet === true && job.request['reason'] === 'schedule' && store.discard !== undefined) {
+      // a scheduled run that had nothing to do leaves no row (every five minutes would crowd the Jobs list)
+      await store.discard(id);
+      return undefined;
+    }
     log(`[jobs] ${job.kind} ${id} done in ${Date.now() - started} ms`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -166,6 +171,10 @@ export function memoryJobStore(options: { keep?: number; now?: () => Date } = {}
       patch(id, (j) => {
         j.publishedVersion = version;
       });
+    },
+    async discard(id) {
+      jobs.delete(id);
+      plans.delete(id);
     },
     async lastDone(kind) {
       let last: string | undefined;

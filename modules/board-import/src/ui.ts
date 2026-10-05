@@ -168,6 +168,7 @@ export function BoardImportPage(props: RouteProps): ReactElement {
   const boards = useMemo(() => [...props.db.pcbas].sort((a, b) => (a.label < b.label ? -1 : 1)), [props.db.pcbas]);
   const [kicadFile, setKicadFile] = useState<File>();
   const [kicad, setKicad] = useState({ id: '', partNumber: '', revision: '' });
+  const [kicadParts, setKicadParts] = useState(false);
   const [gerberFile, setGerberFile] = useState<File>();
   const [gerberBoard, setGerberBoard] = useState('');
   const [bomBoard, setBomBoard] = useState('');
@@ -208,7 +209,8 @@ export function BoardImportPage(props: RouteProps): ReactElement {
   const startKicad = async (): Promise<void> => {
     if (kicadFile === undefined) return;
     const bytes = await bytesOf(kicadFile);
-    const options = Object.fromEntries(Object.entries(kicad).filter(([, v]) => v.trim() !== '').map(([k, v]) => [k, v.trim()]));
+    const options: Record<string, string> = Object.fromEntries(Object.entries(kicad).filter(([, v]) => v.trim() !== '').map(([k, v]) => [k, v.trim()]));
+    if (kicadParts) options['parts'] = 'yes';
     const isBoard = kicadFile.name.toLowerCase().endsWith('.kicad_pcb');
     await start('kicad-board', kicadFile.name, bytes, options, isBoard ? { name: kicadFile.name, base64: base64Of(bytes) } : undefined);
   };
@@ -279,6 +281,12 @@ export function BoardImportPage(props: RouteProps): ReactElement {
         ...(['id', 'partNumber', 'revision'] as const).map((k) =>
           field(k === 'id' ? 'Board id (optional)' : k === 'partNumber' ? 'Part number (optional)' : 'Revision (optional)', h('input', { value: kicad[k], 'data-testid': `board-import-kicad-${k}`, onChange: (e: { target: { value: string } }) => setKicad({ ...kicad, [k]: e.target.value }) }), k),
         ),
+      ),
+      h(
+        'label',
+        { style: { display: 'flex', gap: 6, alignItems: 'center' }, title: 'For a board with no fab BOM: one component per distinct footprint part (by MPN, else category, value and package) and the parts placed on the board.' },
+        h('input', { type: 'checkbox', checked: kicadParts, 'data-testid': 'board-import-kicad-parts', onChange: (e: { target: { checked: boolean } }) => setKicadParts(e.target.checked) }),
+        'Also propose components and placed parts from the footprints',
       ),
       h('button', { type: 'button', disabled: kicadFile === undefined, onClick: () => void startKicad(), 'data-testid': 'board-import-kicad-start' }, 'Read the board'),
     ),

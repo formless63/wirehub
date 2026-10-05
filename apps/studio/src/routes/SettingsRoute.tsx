@@ -18,6 +18,7 @@ const FIELDS = [
   { key: 'standard', label: 'Standard name', hint: 'What the wire spec calls itself; empty keeps “WireHub Standard”.' },
   { key: 'rights', label: 'Rights / confidentiality line', hint: 'The drawing sheet’s title block and the wire spec’s footer.' },
   { key: 'designer', label: 'Default designer', hint: 'Printed when a drawing names none.' },
+  { key: 'filePrefix', label: 'Wire spec file prefix', hint: 'What exported wire spec files start with; empty keeps “WSS_”. Letters, digits, dot, dash, underscore; up to 16.' },
 ] as const;
 
 type Draft = Record<(typeof FIELDS)[number]['key'], string>;
@@ -27,6 +28,7 @@ const draftOf = (view: BrandingView | undefined): Draft => ({
   standard: view?.standard ?? '',
   rights: view?.rights ?? '',
   designer: view?.designer ?? '',
+  filePrefix: view?.filePrefix ?? '',
 });
 
 const readAsDataUri = (file: File): Promise<string> =>
@@ -66,8 +68,8 @@ export function SettingsRoute(): JSX.Element {
   };
   const pick = async (file: File | undefined): Promise<void> => {
     if (file === undefined) return;
-    if (file.type !== 'image/png') {
-      toast.error('The logo must be a PNG.', { description: 'Export your SVG or JPEG as a PNG first.' });
+    if (file.type !== 'image/png' && file.type !== 'image/svg+xml') {
+      toast.error('The logo must be a PNG or an SVG.', { description: 'Export a JPEG as a PNG first.' });
       return;
     }
     setLogo(await readAsDataUri(file));
@@ -96,7 +98,7 @@ export function SettingsRoute(): JSX.Element {
                 aria-label={f.label}
                 value={draft[f.key]}
                 disabled={readOnly}
-                maxLength={f.key === 'rights' ? 160 : 80}
+                maxLength={f.key === 'rights' ? 160 : f.key === 'filePrefix' ? 16 : 80}
                 onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
               />
               <span className="text-faint">{f.hint}</span>
@@ -107,7 +109,7 @@ export function SettingsRoute(): JSX.Element {
             {shown === undefined ? <span className="text-faint">No logo.</span> : <img src={shown} alt="Logo preview" className="max-h-16 max-w-48 self-start border border-line bg-white p-1" />}
             {readOnly ? null : (
               <div className="flex items-center gap-3">
-                <input type="file" accept="image/png" aria-label="Logo file" onChange={(e) => void pick(e.target.files?.[0])} />
+                <input type="file" accept="image/png,image/svg+xml" aria-label="Logo file" onChange={(e) => void pick(e.target.files?.[0])} />
                 {shown === undefined ? null : (
                   <button type="button" className="underline" onClick={() => setLogo(null)}>
                     Remove
@@ -115,7 +117,7 @@ export function SettingsRoute(): JSX.Element {
                 )}
               </div>
             )}
-            <span className="text-faint">PNG, up to 512 KiB. Metadata is stripped when it is saved.</span>
+            <span className="text-faint">PNG or SVG, up to 512 KiB. Metadata is stripped when it is saved; an SVG is cleaned of scripts and drawn to a PNG.</span>
           </div>
           {readOnly ? <div className="text-faint">Your role can view these settings but not change them.</div> : null}
           <div>

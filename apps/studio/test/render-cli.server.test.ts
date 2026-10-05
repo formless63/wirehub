@@ -33,6 +33,15 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 const quiet = { stdout: () => undefined, log: () => undefined };
 
+describe('a wire stock spec sheet', () => {
+  it('asks for the stock route, with the format and paper', () => {
+    expect(requestPaths(parseRenderArgs(['shielded-2pair-24awg', 'wire-spec', '--format', 'pdf', '--paper', 'letter']))).toEqual([
+      '/api/definitions/wires/shielded-2pair-24awg/wire-spec?paper=letter&format=pdf',
+    ]);
+    expect(requestPaths(parseRenderArgs(['x', 'wire-spec']))).toEqual(['/api/definitions/wires/x/wire-spec']);
+  });
+});
+
 describe('arguments', () => {
   it('reads positionals and options, = or space', () => {
     expect(parseRenderArgs(['de9-crossover', 'bom', '--format', 'csv', '--rev=latest', '--out', 'x', '--paper', 'letter'])).toEqual({

@@ -57,3 +57,19 @@ export async function svgToPdfPage(page: RasterPage): Promise<PdfPage> {
     rgb,
   };
 }
+
+/**
+ * An SVG as a PNG of `widthPx` pixels, transparent background (an uploaded
+ * logo, cs-vzv). Throws a sentence when the SVG cannot be drawn. The same
+ * rasteriser and fonts as the PDF pages; nothing external is fetched.
+ */
+export async function svgToPng(svg: string, widthPx: number): Promise<Uint8Array> {
+  const { Resvg } = await import('@resvg/resvg-js');
+  let resvg: InstanceType<typeof Resvg>;
+  try {
+    resvg = new Resvg(svg, { fitTo: { mode: 'width', value: widthPx }, font: { fontFiles: FONT_FILES, loadSystemFonts: false, defaultFontFamily: 'Liberation Sans' } });
+  } catch (error) {
+    throw new Error(`That SVG could not be drawn: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return new Uint8Array(resvg.render().asPng());
+}

@@ -142,7 +142,7 @@ it waits while the hub is in first-run setup.
 | `derive` | at start and daily | recomputes derived records (the tag tables) only if something bypassed a save |
 | `blob-gc` | daily at 04:30 | removes uploaded files nothing uses any more — only after 30 days, and only once a backup taken after that holds them — and rebuildable models no record shows |
 | `backup` | hourly | looks at the backups (profile `backup`): marks what they hold and alerts when the newest dump is older than 30 hours |
-| `git-mirror` | only when configured: at start and every 5 minutes (`WIREHUB_GIT_MIRROR_CRON`) | writes each new change set as a git commit and pushes it (below, "History and the git mirror") |
+| `git-mirror` | only when configured: at start and every 5 minutes (`WIREHUB_GIT_MIRROR_CRON`) | writes each new change set as a git commit and pushes it (below, "History and the git mirror"); with `WIREHUB_WORKER=off` the studio runs it on a timer of its own, and a scheduled run that committed nothing leaves no row in the Jobs list |
 
 `GET /api/jobs` lists recent jobs and the worker's last heartbeat (it beats
 every minute; the container's health check reads it). One conversion runs at
@@ -364,7 +364,7 @@ services:
 | `WIREHUB_GIT_MIRROR_URL` | — | a remote (`ssh://…`, `https://…`) to push to; never with a password in it |
 | `WIREHUB_GIT_MIRROR_PATH` | — | instead: a repository (or an empty folder) mounted into the worker, committed to directly |
 | `WIREHUB_GIT_MIRROR_BRANCH` | `main` | the branch it writes |
-| `WIREHUB_GIT_MIRROR_CRON` | `*/5 * * * *` | how often it looks for new change sets |
+| `WIREHUB_GIT_MIRROR_CRON` | `*/5 * * * *` | how often it looks for new change sets (without a worker, only the period counts: every N minutes, hourly, or every H hours) |
 | `WIREHUB_GIT_MIRROR_SSH_KEY_FILE` | — | an SSH private key (a deploy key with write access) |
 | `WIREHUB_GIT_MIRROR_KNOWN_HOSTS_FILE` | — | the host's key; without it the first key seen is trusted |
 | `WIREHUB_GIT_MIRROR_TOKEN_FILE` | — | instead of a key: an HTTPS access token, handed to git by `GIT_ASKPASS` |

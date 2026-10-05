@@ -6,7 +6,9 @@
  *
  * - `kicad-board` — `.kicad_pcb` / `.net` → a PCBA definition (terminals,
  *   pads, internal links, integrated connectors) and, from a `.kicad_pcb`,
- *   `kicad`-tier art with anchors.
+ *   `kicad`-tier art with anchors. With `parts: yes` it also proposes the
+ *   components and placed parts the footprints name (`boardPartsFromKicad`),
+ *   for a board with no fab BOM.
  * - `gerbers` — a Gerber set `.zip` → the board's `gerber`-tier art.
  * - `fab-bom` — a BOM or placement `.csv`, or both bundled in a
  *   `.board-bom.json` (what the module's page sends after column mapping) →
@@ -15,7 +17,8 @@
  * Options (all text): `board` (the PCBA a Gerber set or BOM belongs to);
  * for `kicad-board` `id`, `label`, `partNumber`, `revision`, `build`,
  * `connectors` (JSON: footprint reference → Library connector id) and
- * `art` (`no` to skip the art); for `fab-bom` `mapping` (JSON:
+ * `art` (`no` to skip the art) and `parts` (`yes` to also propose components and
+ * the board's placed parts from the footprints); for `fab-bom` `mapping` (JSON:
  * `{ bom: { refs: 'Designator', … }, cpl: { x: 'Mid X', … } }`).
  */
 
@@ -23,7 +26,7 @@ import type { Db, PcbaDefinition } from '@wirehub/model';
 import type { ImporterContribution, ImportInput, ImportResult } from '@wirehub/modules';
 
 import { kicadDepiction } from './art.ts';
-import { boardParts, isPlacement, type BomField, type ColumnMapping, type CplField, type FabFile } from './bom.ts';
+import { boardParts, boardPartsFromKicad, isPlacement, type BomField, type ColumnMapping, type CplField, type FabFile } from './bom.ts';
 import { deriveBoard } from './derive.ts';
 import { gerberDepiction, readGerberSet } from './gerber-art.ts';
 import { parseKicadNetlist, parseKicadPcb } from './kicad.ts';
@@ -102,6 +105,15 @@ export const kicadBoardImporter: ImporterContribution = {
     const notes = [...derived.notes];
     if (db.pcbas.some((p) => p.id === derived.pcba.id)) notes.push(`The Library already has a board '${derived.pcba.id}': it is kept as it is. Import under another id (the id option) to compare.`);
     const art = opt('art') === 'no' ? undefined : kicadDepiction(source, derived.pcba.id, derived.pads, { path: input.fileName, sha256 });
+    if (opt('parts') === 'yes') {
+      const proposal = boardPartsFromKicad(derived.pcba, source, { fileName: input.fileName, sha256 }, db);
+      return {
+        definitions: { pcbas: [derived.pcba], components: proposal.components },
+        boardParts: [proposal.entry],
+        ...(art === undefined ? {} : { depictions: [art] }),
+        notes: [...notes, ...proposal.notes],
+      };
+    }
     return {
       definitions: { pcbas: [derived.pcba] },
       ...(art === undefined ? {} : { depictions: [art] }),

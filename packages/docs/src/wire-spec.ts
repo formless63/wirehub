@@ -22,8 +22,8 @@
  *
  * **Document number.** The stock's part number, in its canonical form, and
  * nothing else; a stock with no part number yet prints its id. Exported,
- * downloaded and printed files are named `<WIRE_SPEC_FILE_PREFIX><document
- * number>`. The organisation's name and its standard's name are options (a
+ * downloaded and printed files are named `<prefix><document
+ * number>` (the prefix is `WIRE_SPEC_FILE_PREFIX` unless the hub's branding sets one). The organisation's name and its standard's name are options (a
  * branding module sets them); a source document (`specRef`, the vendor's own
  * files) is a citation only; the manufacturer is a field of the stock.
  */
@@ -70,6 +70,8 @@ export interface WireSpecOptions {
   standard?: string;
   /** a rights / confidentiality line for the footer; omitted = none */
   rightsNotice?: string;
+  /** the prefix of the sheet's file name and print title (default: the registered branding's, else `WIRE_SPEC_FILE_PREFIX`) */
+  filePrefix?: string;
 }
 
 /** What the generated sheets are called, unless the caller names its own standard. */
@@ -201,14 +203,22 @@ export function wireSpecDocNumber(wire: WireDefinition): string {
   return canonicalPartNumber(wire.partNumber) ?? wire.partNumber ?? wire.id;
 }
 
-/** `ASS_2W-300112-00` — the file name (without extension) an export, download or print takes. */
-export function wireSpecFileStem(wire: WireDefinition): string {
-  return `${WIRE_SPEC_FILE_PREFIX}${wireSpecDocNumber(wire).replace(/[^A-Za-z0-9._-]+/g, '-')}`;
+/** What a file prefix may be: letters, digits, dot, dash and underscore (it is part of a file name). */
+export const FILE_PREFIX_PATTERN = /^[A-Za-z0-9._-]{1,16}$/;
+
+/**
+ * `WSS_2W-300112-00` — the file name (without extension) an export, download
+ * or print takes. The prefix is `prefix`, else the registered branding's
+ * (the hub's setting), else `WIRE_SPEC_FILE_PREFIX`; an unusable one falls back.
+ */
+export function wireSpecFileStem(wire: WireDefinition, prefix?: string): string {
+  const chosen = [prefix, registeredTitleBlock().filePrefix].find((p) => p !== undefined && FILE_PREFIX_PATTERN.test(p)) ?? WIRE_SPEC_FILE_PREFIX;
+  return `${chosen}${wireSpecDocNumber(wire).replace(/[^A-Za-z0-9._-]+/g, '-')}`;
 }
 
-/** `ASS_2W-300112-00.html` / `.pdf`. */
-export function wireSpecFileName(wire: WireDefinition, ext: 'html' | 'pdf' = 'html'): string {
-  return `${wireSpecFileStem(wire)}.${ext}`;
+/** `WSS_2W-300112-00.html` / `.pdf`. */
+export function wireSpecFileName(wire: WireDefinition, ext: 'html' | 'pdf' = 'html', prefix?: string): string {
+  return `${wireSpecFileStem(wire, prefix)}.${ext}`;
 }
 
 /** The manufacturer's name, from the vocab list when given. */
@@ -571,8 +581,8 @@ export function renderWireSpecSheet(wire: WireDefinition, options: WireSpecOptio
     '<head>',
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width,initial-scale=1">',
-    // the title is what a browser names the printed PDF: ASS_<number>
-    `<title>${e(wireSpecFileStem(wire))}</title>`,
+    // the title is what a browser names the printed PDF: <prefix><number>
+    `<title>${e(wireSpecFileStem(wire, options.filePrefix))}</title>`,
     `<style>@page{size:${paper} portrait;margin:12mm}html,body{margin:0;padding:0;background:#ffffff}</style>`,
     '</head>',
     '<body>',

@@ -128,6 +128,7 @@ export {
   groundingNotes,
   renderWireSpecSheet,
   wireSpecDocNumber,
+  FILE_PREFIX_PATTERN,
   wireSpecFileName,
   wireSpecFileStem,
   wireManufacturerName,

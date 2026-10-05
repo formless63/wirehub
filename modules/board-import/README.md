@@ -6,7 +6,7 @@ that is their review step:
 
 | Importer | Reads | Proposes |
 | --- | --- | --- |
-| `kicad-board` | a KiCad `.kicad_pcb` (or its `.net` netlist) | the PCBA: terminals with their pads, internal links, integrated connectors; `kicad`-tier art (outline and pads) with anchors |
+| `kicad-board` | a KiCad `.kicad_pcb` (or its `.net` netlist) | the PCBA: terminals with their pads, internal links, integrated connectors; `kicad`-tier art (outline and pads) with anchors; with `parts: yes`, also one component per distinct footprint part and the board's placed parts |
 | `gerbers` | a Gerber set `.zip` (RS-274X/X2 and Excellon) | `gerber`-tier art: top and bottom, sanitised SVG, anchored on the board's pads |
 | `fab-bom` | a fab BOM and/or placement (CPL) `.csv`, or both in a `.board-bom.json` | one component record per distinct part, and the board's placed parts (`data/board-parts.json`) |
 
@@ -31,9 +31,18 @@ left out; parts with more than two nets are black boxes. Every record says it is
 and asks for review.
 
 **Options** (text): `kicad-board` takes `id`, `label`, `partNumber`, `revision`,
-`build`, `connectors` (JSON, footprint reference → connector id) and `art` (`no`);
+`build`, `connectors` (JSON, footprint reference → connector id), `art` (`no`) and `parts`
+(`yes`: also propose components and placed parts from the footprints);
 `gerbers` and `fab-bom` take `board`; `fab-bom` takes `mapping` (JSON,
 `{ "bom": { "refs": "Designator" }, "cpl": { "x": "Mid X" } }`).
+
+**Parts from the footprints.** For a board with no fab BOM, `parts: yes` reads each
+footprint as a BOM line: its value, its library id as the footprint, its `MPN`,
+`Manufacturer` and supplier-number properties (named as a BOM column is), `dnp` and
+`exclude_from_bom`; a board-only footprint (a fiducial, a mounting hole) is left out. The
+identity rules are the fab BOM's (MPN, else supplier number, else category + value +
+package; a part the Library has is reused), and the parts are placed with their side.
+Importing the fab BOM later replaces that list with the board house's own.
 
 **3D model.** After a board is published, the page attaches its `.kicad_pcb` as the
 board's 3D model source (`POST /api/models/pcbas/:id/upload`). The studio keeps the file

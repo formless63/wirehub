@@ -4,15 +4,19 @@
  * importer reads the canonical columns (`kinds.ts`); the studio's **Bulk CSV…**
  * dialog does the column mapping, validation and dry-run diff on the client with
  * the same functions, then uploads the canonical file as an import job.
- * MIT; a template per kind is `templateCsv`.
+ * MIT; a template per kind is `templateCsv`. A second importer, `connection-list`
+ * (cs-8c4), reads a from/to pin CSV as a proposed design (`connections.ts`).
  */
 
 import { defineModule } from '@wirehub/modules';
 
+import { importConnectionList } from './connections.ts';
 import { importLibraryCsv } from './import.ts';
 
 export { analyseCsv, importLibraryCsv, slug } from './import.ts';
 export type { Analysis, RowResult } from './import.ts';
+export { analyseConnections, importConnectionList, splitEnd } from './connections.ts';
+export type { ConnectionAnalysis, ConnectionOptions, ConnectionPart, ConnectionRow } from './connections.ts';
 export { parseCsv, toCsv } from './csv.ts';
 export { EXAMPLE, FIELDS, LIBRARY_KINDS, TYPE_COLUMN, detectKind, fieldFor, kindOfType, suggestMapping } from './kinds.ts';
 export type { FieldSpec, LibraryKind } from './kinds.ts';
@@ -31,6 +35,12 @@ export const csvLibrary = defineModule({
       label: 'Library parts (CSV)',
       accepts: ['.csv'],
       import: (input, db) => importLibraryCsv(input.fileName, input.bytes, db),
+    },
+    {
+      id: 'connection-list',
+      label: 'Connection list (CSV from/to pins) → design',
+      accepts: ['.csv'],
+      import: (input, db) => importConnectionList(input, db),
     },
   ],
 });

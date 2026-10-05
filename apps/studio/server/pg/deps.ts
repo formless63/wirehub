@@ -28,7 +28,7 @@ import { migrationFiles, MIGRATION_SCHEMA } from './migrate.ts';
 import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
 import { pgHistorySource } from '../history/pg.ts';
-import { gitMirrorConfigFromEnv } from '../history/mirror.ts';
+import { gitMirrorConfigFromEnv, mirrorIntervalMs } from '../history/mirror.ts';
 import { pgModelCache } from './model-cache.ts';
 import { pgSetupDeps } from './setup.ts';
 import { claimSetupDeps, emptyDepictionStore, ownerCount, setupModeDeps } from './setup-mode.ts';
@@ -184,6 +184,10 @@ export interface OpenPgOptions {
    * service; STEP uploads then convert in the studio, as on files).
    */
   jobs?: 'worker' | 'inline';
+  /** with `jobs: 'inline'` and a git mirror: set false to leave the in-process schedule off (tests) */
+  mirrorTimer?: boolean;
+  /** the in-process mirror schedule's period, ms (default: what `WIREHUB_GIT_MIRROR_CRON` stands for); tests shorten it */
+  mirrorEveryMs?: number;
   depictionsDir?: string;
   listen?: boolean;
   setupCode?: string;
@@ -215,6 +219,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     let current: SnapshotCache | undefined;
     let boss: Promise<PgBoss> | undefined;
     let closing = false;
+    const timers: ReturnType<typeof setInterval>[] = [];
     let claimPending = false;
     let auth: StudioAuth | undefined;
     const suggested = parseSuggestedModules(env.WIREHUB_SUGGESTED_MODULES);
@@ -248,6 +253,22 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
         ...(jobMode === 'worker' ? { worker: () => lastBeat(handle.db, id) } : {}),
         stageInput: async (bytes) => ({ ...(await stageImportInput(bytes, options.blobs, id)) }),
       });
+      // with no worker the cron has no owner: the git mirror runs on a timer here (cs-5k1.26)
+      const mirror = gitMirrorConfigFromEnv(env);
+      if (jobMode === 'inline' && mirror !== undefined && options.mirrorTimer !== false) {
+        const every = options.mirrorEveryMs ?? mirrorIntervalMs(mirror.cron);
+        let last: string | undefined;
+        const tick = async (): Promise<void> => {
+          if (closing) return;
+          const before = last === undefined ? undefined : await store.get(last);
+          if (before !== undefined && (before.status === 'queued' || before.status === 'running')) return;
+          last = (await real.jobs!.enqueue('git-mirror', { reason: 'schedule' })).id;
+        };
+        const timer = setInterval(() => void tick().catch((error: unknown) => console.warn(`[git-mirror] ${error instanceof Error ? error.message : String(error)}`)), every);
+        timer.unref?.();
+        timers.push(timer);
+        void tick().catch(() => undefined);
+      }
       real.afterCommit = modelCacheTrigger(() => deps.jobs);
       // a STEP upload converts in the worker, whose memory budget is sized for it (S6)
       if (jobMode === 'worker' && options.blobs !== undefined) real.convertModel = remoteConvert({ jobs: real.jobs, blobs: options.blobs, orgId: () => id });
@@ -322,6 +343,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
       },
       close: async () => {
         closing = true;
+        for (const timer of timers) clearInterval(timer);
         if (boss !== undefined) await (await boss.catch(() => undefined))?.stop({ graceful: false }).catch(() => undefined);
         for (const cache of caches) await cache.close();
         await handle.close();

@@ -68,6 +68,7 @@ import { signalRefOf, useVocab, type PickOption } from '../vocab.ts';
 import { constructionLabel, variantIdOf, withConstructionInLabel } from '../naming.ts';
 import { BuiltInConnectorArt, builtInConnectorArt } from './BuiltInArt.tsx';
 import { Choice, Field, FormSection, SrcField } from './fields.tsx';
+import { HousingSection } from './ConnectorEditor.tsx';
 import { Pick } from './Pick.tsx';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 
@@ -760,6 +761,16 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
                   onChange={(id) => setBodyDraft((d) => ({ ...d, mates: id }))}
                 />
               </div>
+              <HousingSection
+                of="body"
+                value={bodyDraft.housing}
+                onChange={(housing) =>
+                  setBodyDraft((d) => {
+                    const { housing: _old, ...rest } = d;
+                    return housing === undefined ? rest : { ...rest, housing };
+                  })
+                }
+              />
               <SrcField value={bodyDraft.src} onChange={(value) => setBodyDraft((d) => ({ ...d, src: value }))} />
             </fieldset>
           )}

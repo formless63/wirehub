@@ -20,6 +20,7 @@ export const RENDER_USAGE = [
   '  <what>  schematic | build-sheet | bom | test-spec | drawing | labels | formboard   (a document, in --format; default per document)',
   '          bom.csv | wire-list.csv | cut-list.csv | crimp-list.csv | production.xlsx | continuity.csv | continuity.json | labels.csv | labels.svg   (an export)',
   '          all   every document in its default format, plus pdf of each',
+  '          wire-spec   the spec sheet of a wire stock: <design> is the stock id; --format html|svg|pdf (default html)',
   '  Local by default (the catalog this checkout or WIREHUB_BACKEND points at); with WIREHUB_API_URL and WIREHUB_API_TOKEN set, the studio over HTTP.',
 ].join('\n');
 
@@ -82,6 +83,10 @@ function qs(entries: Record<string, string | undefined>): string {
 export function requestPaths(args: RenderArgs): string[] {
   const id = encodeURIComponent(args.design);
   const common = { ...(args.rev === undefined ? {} : { rev: args.rev }), ...args.query };
+  if (args.what === 'wire-spec') {
+    const { rev: _rev, ...rest } = common as Record<string, string | undefined>;
+    return [`/api/definitions/wires/${id}/wire-spec${qs({ ...rest, ...(args.format === undefined ? {} : { format: args.format }) })}`];
+  }
   if (args.what === 'all') {
     return DOCUMENT_KINDS.flatMap((kind) => {
       const formats = [...new Set([DEFAULT_FORMAT[kind], 'pdf'])];

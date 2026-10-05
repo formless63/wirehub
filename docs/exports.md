@@ -191,6 +191,12 @@ Documents and the formats each comes in (default first):
 | `labels` | `svg` (the label sheet), `pdf`, `csv` |
 | `formboard` | `svg` (the overview, or one tile with `page=`), `html`, `pdf` (overview then every tile) |
 
+A wire stock's spec sheet (the Library's Spec tab) has its own route:
+`GET /api/definitions/wires/:id/wire-spec?format=html|svg|pdf&paper=A4|letter`, named
+`WSS_<document number>`. Its `html` is the browser's sheet byte for byte; `svg` and `pdf` set
+the same sheet's text (facts, colour and signal map, notes) as plain pages, without the
+cross-section figure.
+
 `:format` of an export is one of the ids in the table at the top. A rendered sheet is sent
 with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
 
@@ -208,10 +214,10 @@ with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
   browser engine, which this repository does not ship. For the full sheet use `html` and
   print to PDF in a browser. The PDF is written by `apps/studio/server/render/pdf.ts` with
   no dependency, in Helvetica; characters outside Latin-1 are transliterated (`Ω` as `ohm`).
-- Board artwork on the headless build sheet and schematic comes from the catalog's artwork
-  tree; the database backend serves its artwork to the browser only, so a headless render
-  of a design with uploaded artwork may draw those boards as plain blocks. The BOM's
-  part-number proposals for unnumbered parts are also left out.
+- Board artwork on the headless schematic, build sheet and BOM comes from the hub's artwork
+  store — on the database backend that includes uploaded artwork — over the catalog's own
+  tree, and a saved revision draws the artwork it was saved with (as the browser does). The
+  BOM carries the numbering scheme's proposals for unnumbered parts.
 
 ### Command line
 
@@ -220,6 +226,7 @@ pnpm --filter studio render de9-crossover bom --format csv
 pnpm --filter studio render de9-crossover build-sheet --format pdf --rev latest --out ./out
 pnpm --filter studio render de9-crossover all --out ./out         # every document, default format and PDF
 pnpm --filter studio render de9-crossover continuity.json --out -  # to stdout
+pnpm --filter studio render dc-2core-24awg wire-spec --format pdf  # a wire stock's spec sheet (<design> is the stock id)
 ```
 
 `<what>` is a document kind, an export id, or `all`; options are `--format`, `--rev`, `--out`

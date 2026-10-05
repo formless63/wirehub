@@ -85,6 +85,8 @@ export interface PlanFile {
 /** What a handler hands back. */
 export interface JobOutcome {
   result: Record<string, unknown>;
+  /** a scheduled run that found nothing to do: its record is dropped rather than crowding the Jobs list (cs-5k1.26) */
+  quiet?: boolean;
   /** an import's plan */
   files?: PlanFile[];
 }
@@ -102,6 +104,8 @@ export interface JobStore {
   files(id: string): Promise<PlanFile[]>;
   /** an import's plan, committed: record the catalog version (and the change set) it made */
   published(id: string, version: string): Promise<void>;
+  /** forget a job (a quiet scheduled run); optional so a store may keep everything */
+  discard?(id: string): Promise<void>;
   /** the time a job of `kind` last finished `done`, ISO; undefined when none has */
   lastDone(kind: JobKind): Promise<string | undefined>;
 }

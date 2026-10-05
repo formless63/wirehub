@@ -70,7 +70,9 @@ import {
   MECHANICAL_KINDS as MODEL_MECHANICAL_KINDS,
   wireRangeText,
   insulationRangeText,
+  type CrimpHeight,
   type HousingSpec,
+  type ToolCrimp,
   type TerminationSpec,
 } from '@wirehub/model';
 
@@ -1351,6 +1353,8 @@ export interface TerminationDraft {
   /** one `mm² height [width]` per line: `0.5 1.15 1.7` */
   crimpHeights: string;
   tool: string;
+  /** one `tool-id: mm² height [width]; mm² height …` per line — further applicators and their own heights */
+  tools: string;
   src: string;
 }
 
@@ -1371,7 +1375,7 @@ const MECHANICAL_FIELDS = ['id', 'label', 'partNumber', 'revision', 'kind', 'ter
 const numText = (n: number | undefined): string => (n === undefined ? '' : String(n));
 
 export function blankTerminationDraft(): TerminationDraft {
-  return { systems: '', housings: '', wireMinMm2: '', wireMaxMm2: '', insulationMinMm: '', insulationMaxMm: '', gender: '', plating: '', stripMm: '', ratedCurrentA: '', crimpHeights: '', tool: '', src: '' };
+  return { systems: '', housings: '', wireMinMm2: '', wireMaxMm2: '', insulationMinMm: '', insulationMaxMm: '', gender: '', plating: '', stripMm: '', ratedCurrentA: '', crimpHeights: '', tool: '', tools: '', src: '' };
 }
 
 export function terminationDraftOf(spec: TerminationSpec): TerminationDraft {
@@ -1388,8 +1392,44 @@ export function terminationDraftOf(spec: TerminationSpec): TerminationDraft {
     ratedCurrentA: numText(spec.ratedCurrentA),
     crimpHeights: (spec.crimpHeights ?? []).map((h) => [h.wireMm2, h.heightMm, ...(h.widthMm === undefined ? [] : [h.widthMm])].join(' ')).join('\n'),
     tool: text(spec.tool),
+    tools: (spec.tools ?? [])
+      .map((t) => {
+        const heights = (t.crimpHeights ?? []).map((h) => [h.wireMm2, h.heightMm, ...(h.widthMm === undefined ? [] : [h.widthMm])].join(' ')).join('; ');
+        const extras = [t.stripMm === undefined ? '' : `strip ${t.stripMm}`, t.note === undefined ? '' : `note ${t.note}`].filter((v) => v !== '').join('; ');
+        return `${t.tool}: ${[heights, extras].filter((v) => v !== '').join('; ')}`.trimEnd();
+      })
+      .join('\n'),
     src: text(spec.src),
   };
+}
+
+/** `tool-id: 0.5 1.15 1.7; 0.75 1.3` per line → the contact's further tools. Lines that name no tool are dropped. */
+export function toolsOfText(textValue: string): ToolCrimp[] {
+  const out: ToolCrimp[] = [];
+  for (const line of textValue.split('\n')) {
+    const colon = line.indexOf(':');
+    const tool = (colon < 0 ? line : line.slice(0, colon)).trim();
+    if (tool === '') continue;
+    const heights: CrimpHeight[] = [];
+    let stripMm: number | undefined;
+    let note: string | undefined;
+    for (const part of colon < 0 ? [] : line.slice(colon + 1).split(';')) {
+      const bit = part.trim();
+      if (bit === '') continue;
+      if (/^strip\s/i.test(bit)) {
+        stripMm = numberOf(bit.replace(/^strip\s+/i, ''));
+        continue;
+      }
+      if (/^note\s/i.test(bit)) {
+        note = bit.replace(/^note\s+/i, '');
+        continue;
+      }
+      const cells = bit.split(/\s+/).map((v) => numberOf(v));
+      if (cells[0] !== undefined && cells[1] !== undefined) heights.push({ wireMm2: cells[0], heightMm: cells[1], ...(cells[2] === undefined ? {} : { widthMm: cells[2] }) });
+    }
+    out.push({ tool, ...(heights.length === 0 ? {} : { crimpHeights: heights }), ...(stripMm === undefined ? {} : { stripMm }), ...(note === undefined ? {} : { note }) });
+  }
+  return out;
 }
 
 
@@ -1416,7 +1456,9 @@ export function terminationOfDraft(draft: TerminationDraft): TerminationSpec {
     ...num('stripMm', draft.stripMm),
     ...num('ratedCurrentA', draft.ratedCurrentA),
     ...(heights.length === 0 ? {} : { crimpHeights: heights }),
-    ...some({ tool: draft.tool.trim(), src: draft.src.trim() }),
+    ...some({ tool: draft.tool.trim() }),
+    ...(toolsOfText(draft.tools).length === 0 ? {} : { tools: toolsOfText(draft.tools) }),
+    ...some({ src: draft.src.trim() }),
   };
 }
 

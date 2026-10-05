@@ -265,3 +265,107 @@ describe('test parameters in the sidecar and the environment', () => {
     expect(() => testDefaultsFromEnv({ WIREHUB_TEST_DEFAULTS: '{"isolationVolts":-5}' })).toThrow('positive number');
   });
 });
+
+describe('GET /api/definitions/wires/:id/wire-spec (cs-5k1.22)', () => {
+  const wire = db.wires.find((w) => w.structure.children.length > 3) ?? db.wires[0]!;
+  const withLibrary = async (): Promise<WorkbenchDeps> => {
+    const { loadWireLibrary } = await import('@wirehub/catalog');
+    const { memoryWireLibraryStore } = await import('../server/wire-library.ts');
+    return { ...deps, wireLibrary: memoryWireLibraryStore(loadWireLibrary(), db.wires) };
+  };
+
+  it('is the browser sheet as html, named after the document number', async () => {
+    const { renderWireSpecSheet, wireSpecFileName } = await import('@wirehub/docs');
+    const d = await withLibrary();
+    const r = await get(`/api/definitions/wires/${wire.id}/wire-spec`, d);
+    expect(r.status).toBe(200);
+    expect(r.contentType).toBe('text/html; charset=utf-8');
+    expect(r.headers?.['Content-Disposition']).toContain(wireSpecFileName(wire, 'html'));
+    expect(text(r)).toContain('<title>WSS_');
+    const library = (await import('@wirehub/catalog')).loadWireLibrary();
+    const recipe = library.recipes.find((x) => x.id === wire.id);
+    expect(text(r)).toBe(renderWireSpecSheet(wire, { ...(recipe === undefined ? {} : { recipe }), parts: library.parts, manufacturers: db.vocab?.['manufacturers']?.entries ?? [], paper: 'A4' }));
+  });
+
+  it('is the same sheet as a text-set svg and pdf', async () => {
+    const d = await withLibrary();
+    const svg = await get(`/api/definitions/wires/${wire.id}/wire-spec?format=svg`, d);
+    expect(svg.status).toBe(200);
+    expect(svg.contentType).toBe('image/svg+xml');
+    expect(text(svg)).toContain('<svg');
+    expect(text(svg)).toContain(wire.label.split(' ')[0]!);
+    const pdf = await get(`/api/definitions/wires/${wire.id}/wire-spec?format=pdf&paper=letter`, d);
+    expect(pdf.status).toBe(200);
+    expect(readPdf(pdf.bytes!).pages).toBeGreaterThanOrEqual(1);
+  });
+
+  it('refuses a stock that is not there and a format it does not come in', async () => {
+    expect((await get('/api/definitions/wires/no-such-stock/wire-spec')).status).toBe(404);
+    expect((await get(`/api/definitions/wires/${wire.id}/wire-spec?format=csv`)).status).toBe(400);
+    expect((await get(`/api/definitions/wires/${wire.id}/wire-spec?paper=B5`)).status).toBe(400);
+  });
+});
+
+describe('artwork and part-number proposals in the headless sheets (cs-5k1.23)', () => {
+  /** the catalog's artwork store, with one connector's face carrying a marker only an uploaded copy has */
+  async function uploadedStore() {
+    const { fileDepictionStore } = await import('../server/depictions.ts');
+    const real = fileDepictionStore();
+    return {
+      ...real,
+      readAsset: async (defId: string, file: string) => {
+        const bytes = await real.readAsset(defId, file);
+        if (defId !== 'de9-female' || file !== 'mating-face.svg' || bytes === undefined) return bytes;
+        return new TextEncoder().encode(new TextDecoder().decode(bytes).replace('</svg>', '<rect id="uploaded-marker" x="0" y="0" width="1" height="1"/></svg>'));
+      },
+    };
+  }
+
+  it('the schematic draws artwork the store holds, which the catalog tree does not', async () => {
+    const plain = text(await get(`/api/designs/${ID}/documents/schematic`));
+    expect(plain).not.toContain('uploaded-marker');
+    const drawn = text(await get(`/api/designs/${ID}/documents/schematic`, { ...deps, depictions: await uploadedStore() }));
+    expect(drawn).toContain('uploaded-marker');
+    expect(drawn.length).toBeGreaterThan(plain.length);
+  });
+
+  it('a saved revision draws the artwork it was saved with, not today\'s', async () => {
+    const store = await uploadedStore();
+    const files = new Map<string, Uint8Array>();
+    const versions = memoryVersionStore();
+    versions.snapshotArtwork = async (defIds) => {
+      const out = { files: {} as Record<string, Record<string, string>>, blobs: {} as Record<string, Uint8Array> };
+      const { createHash } = await import('node:crypto');
+      for (const defId of defIds) {
+        const entry: Record<string, string> = {};
+        for (const name of ['meta.json', 'mating-face.svg', 'solder-side.svg']) {
+          const bytes = await store.readAsset(defId, name);
+          if (bytes === undefined) continue;
+          const hex = createHash('sha256').update(bytes).digest('hex');
+          entry[name] = `sha256:${hex}`;
+          out.blobs[`${hex}.${name.endsWith('.json') ? 'json' : 'svg'}`] = bytes;
+        }
+        if (Object.keys(entry).length > 0) out.files[defId] = entry;
+      }
+      return out;
+    };
+    versions.writeArtwork = async (_id, blobs) => void Object.entries(blobs).forEach(([k, v]) => files.set(k, v));
+    versions.readArtworkBlob = async (_id, blob) => files.get(blob);
+    const d: WorkbenchDeps = { ...deps, versions };
+    expect((await routeWorkbenchRequest({ method: 'POST', path: `/api/designs/${ID}/versions`, body: { note: 'with art' } }, { ...d, depictions: store })).status).toBe(201);
+    // today the live tree has no marker; the revision still carries it
+    const rev = text(await get(`/api/designs/${ID}/documents/schematic?rev=1`, d));
+    expect(rev).toContain('uploaded-marker');
+    expect(text(await get(`/api/designs/${ID}/documents/schematic`, d))).not.toContain('uploaded-marker');
+  });
+
+  it('the BOM proposes numbers for unnumbered parts once the hub has a scheme', async () => {
+    // the connector has no number of its own
+    const unnumbered = { ...db, connectors: db.connectors.map((c) => (c.id === 'de9-female' ? (({ partNumber: _pn, ...rest }) => rest)(c) : c)) };
+    const base: WorkbenchDeps = { ...deps, loadDb: () => unnumbered as typeof db };
+    const without = text(await get(`/api/designs/${ID}/documents/bom`, base));
+    const withScheme = text(await get(`/api/designs/${ID}/documents/bom`, { ...base, loadPartNumberFiles: () => ({}) }));
+    expect(without).not.toContain('class="cs-proposal"');
+    expect(withScheme).toContain('class="cs-proposal"');
+  });
+});

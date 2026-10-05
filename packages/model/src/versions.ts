@@ -206,9 +206,11 @@ export function referencedDefinitionIds(design: CableDesign, db: Db): {
       for (const id of [cavity.contact, cavity.seal, cavity.plug]) {
         if (id === undefined) continue;
         mechanicals.add(id);
-        const tool = (db.mechanicals ?? []).find((m) => m.id === id)?.termination?.tool;
-        if (tool !== undefined) mechanicals.add(tool);
+        const spec = (db.mechanicals ?? []).find((m) => m.id === id)?.termination;
+        if (spec?.tool !== undefined) mechanicals.add(spec.tool);
+        for (const extra of spec?.tools ?? []) mechanicals.add(extra.tool);
       }
+      if (cavity.tool !== undefined) mechanicals.add(cavity.tool);
     }
   }
   return {

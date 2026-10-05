@@ -25,6 +25,7 @@ import {
 } from '@wirehub/model';
 
 import { CUSTOM_TEMPLATE, numberedPositions, suggestBodyId, templateOfBody, templatesFor } from './body-templates.ts';
+import { housingDraftOf, housingOfDraft, type HousingDraft } from './library.ts';
 import { connectorNameOf } from './naming.ts';
 import { slugify } from './persistence.ts';
 import { signalRefOf, signalText } from './vocab.ts';
@@ -56,6 +57,8 @@ export interface BodyDraft {
   labelTouched: boolean;
   /** a stored body keeps its own `drawing` (often none: inferred) until its layout is changed */
   keepDrawing?: boolean;
+  /** a crimp housing's cavities (`HousingSpec`) — the usual place for them; absent = none */
+  housing?: HousingDraft;
 }
 
 export function blankBodyDraft(): BodyDraft {
@@ -93,6 +96,7 @@ export function bodyDraftOf(body: ConnectorBody): BodyDraft {
     src: body.src,
     positions: body.positions.map((p) => ({ ...p })),
     ...(body.drawing === undefined ? {} : { drawing: body.drawing }),
+    ...(body.housing === undefined ? {} : { housing: housingDraftOf(body.housing) }),
     idTouched: true,
     labelTouched: true,
     keepDrawing: true,
@@ -135,6 +139,7 @@ export function bodyOfDraft(draft: BodyDraft): ConnectorBody {
     ...(draft.partNumber.trim() === '' ? {} : { partNumber: draft.partNumber.trim() }),
     ...(draft.construction === '' ? {} : { construction: draft.construction }),
     ...(drawing === undefined ? {} : { drawing }),
+    ...(draft.housing === undefined ? {} : { housing: housingOfDraft(draft.housing) }),
     src: draft.src.trim(),
   };
 }

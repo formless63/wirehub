@@ -5,7 +5,7 @@
  *
  * A **subject** is the record a person asks the history of, named exactly as
  * an edit lock names it: `design:<id>` or `definition:<kind>:<id>` (plus
- * `vocab:<list>` and `build:<name>`, listed but not restored). A subject has
+ * `vocab:<list>` and `build:<name>`, restored through the vocab and builds routes). A subject has
  * **parts**: a design is its document and its drawing details (both
  * restorable), its photo and its saved versions (listed only); a library
  * record is the record itself (restorable), its 3D model link and its artwork.
@@ -187,8 +187,7 @@ export function subjectLabel(subject: Subject): string {
 /** The parts a restore brings back. */
 export function restorableParts(subject: Subject): string[] {
   if (subject.type === 'design') return ['design', 'drawing'];
-  if (subject.type === 'definition') return ['record'];
-  return [];
+  return ['record'];
 }
 
 /** Which hub-wide kind a change-set record kind belongs to. */

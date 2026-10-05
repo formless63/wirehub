@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   boardImport,
   boardParts,
+  boardPartsFromKicad,
   deriveBoard,
   fabBomImporter,
   gerberImporter,
@@ -260,5 +261,76 @@ describe('fab BOM and placement → parts on the board', () => {
     const again = await fabBomImporter.import({ fileName: 'x.board-bom.json', bytes: enc.encode(JSON.stringify(bundle)), options: { board: pcba.id } }, known);
     expect(again.definitions?.components?.some((c) => c.id === 'resistor-120r-0603')).toBe(false);
     expect(again.boardParts?.[0]?.parts.find((p) => p.ref === 'R1')?.component).toBe('my-120r');
+  });
+});
+
+describe('KiCad footprints → components and placed parts (cs-5k1.30)', () => {
+  /** the synthetic board with what a real one carries: an MPN and a supplier number on R1, DNP on C2, a fiducial, a hand-fitted jack */
+  function board(): string {
+    let text = kicadPcb();
+    const after = (needle: string, add: string): void => {
+      const at = text.indexOf(needle);
+      expect(at, needle).toBeGreaterThan(-1);
+      const end = text.indexOf('\n', at) + 1;
+      text = text.slice(0, end) + add + text.slice(end);
+    };
+    after('(property "Value" "120"', '\t\t(property "MPN" "RC0603FR-07120RL" (at 0 0 0) (layer "F.Fab"))\n\t\t(property "Manufacturer" "Yageo" (at 0 0 0) (layer "F.Fab"))\n\t\t(property "LCSC Part #" "C22787" (at 0 0 0) (layer "F.Fab"))\n');
+    after('(property "Value" "Conn_01x03"', '\t\t(attr through_hole exclude_from_bom)\n');
+    after('(property "Value" "TestPoint"', '\t\t(attr smd board_only)\n');
+    return text;
+  }
+  const source = parseKicadPcb(board(), 'synthetic-adapter.kicad_pcb');
+  const pcba = deriveBoard(source, { sha256: SHA }).pcba;
+  const file = { fileName: 'synthetic-adapter.kicad_pcb', sha256: SHA };
+
+  it('proposes one component per distinct part, with the footprint properties as the BOM columns', () => {
+    const out = boardPartsFromKicad(pcba, source, file, starter());
+    const r1 = out.components.find((c) => c.mpn === 'RC0603FR-07120RL')!;
+    expect(r1).toMatchObject({ id: 'rc0603fr-07120rl', category: 'resistor', value: '120 Ω', package: '0603', manufacturer: 'Yageo', suppliers: [{ supplier: 'LCSC', number: 'C22787' }], footprint: 'Resistor_SMD:R_0603_1608Metric' });
+    expect(r1.src).toContain('footprint R1');
+    expect(r1.src).toContain('KiCad board');
+    expect(r1.usedOn).toEqual([{ board: pcba.partNumber, revision: '2', refs: ['R1'] }]);
+    // the capacitors are one part, told apart from the rest by category, value and package
+    const caps = out.components.filter((c) => c.category === 'capacitor');
+    expect(caps.map((c) => c.usedOn![0]!.refs)).toEqual([['C1', 'C2']]);
+  });
+
+  it('places every footprint, says what KiCad says of it, and leaves board-only ones out', () => {
+    const out = boardPartsFromKicad(pcba, source, file, starter());
+    const refs = out.entry.parts.map((p) => p.ref);
+    expect(refs).not.toContain('TP5');
+    expect(out.entry.parts.find((p) => p.ref === 'J1')).toMatchObject({ excludeFromBom: true, side: 'top', src: 'synthetic-adapter.kicad_pcb:footprint J1' });
+    expect(out.entry.parts.find((p) => p.ref === 'TP4')?.side).toBe('bottom');
+    expect(out.entry.sources).toEqual([{ path: 'synthetic-adapter.kicad_pcb', sha256: SHA, role: 'kicad' }]);
+    expect(out.notes.join('\n')).toMatch(/1 board-only footprint\(s\) left out \(TP5\)/);
+    expect(out.notes.join('\n')).toContain('Read from the footprints, not a fab BOM');
+    expect(errors(validateDb({ ...withBoard(starter(), pcba), components: [...starter().components, ...out.components] }))).toEqual([]);
+  });
+
+  it('reuses a component the Library already has by MPN', () => {
+    const known = { ...starter(), components: [...starter().components, { id: 'my-120r', label: '120 Ω', kind: 'resistor' as const, terminals: [], mpn: 'RC0603FR-07120RL', src: 'synthetic example' }] };
+    const out = boardPartsFromKicad(pcba, source, file, known);
+    expect(out.components.some((c) => c.mpn === 'RC0603FR-07120RL')).toBe(false);
+    expect(out.entry.parts.find((p) => p.ref === 'R1')?.component).toBe('my-120r');
+    expect(out.reused).toEqual(['my-120r']);
+  });
+
+  it('is the kicad-board importer\'s parts option, off by default', async () => {
+    const bytes = enc.encode(board());
+    const plain = await kicadBoardImporter.import({ fileName: 'synthetic-adapter.kicad_pcb', bytes }, starter());
+    expect(plain.definitions?.components).toBeUndefined();
+    expect(plain.boardParts).toBeUndefined();
+    const withParts = await kicadBoardImporter.import({ fileName: 'synthetic-adapter.kicad_pcb', bytes, options: { parts: 'yes' } }, starter());
+    expect(withParts.definitions?.pcbas).toHaveLength(1);
+    expect(withParts.definitions?.components?.length).toBeGreaterThan(0);
+    expect(withParts.boardParts?.[0]).toMatchObject({ board: withParts.definitions!.pcbas![0]!.partNumber, revision: '2' });
+    expect(withParts.depictions).toHaveLength(1);
+    // from a netlist too (no positions)
+    const net = await kicadBoardImporter.import({ fileName: 'synthetic-adapter.net', bytes: enc.encode(kicadNetlist()), options: { parts: 'yes' } }, starter());
+    expect(net.boardParts?.[0]?.parts.length).toBeGreaterThan(0);
+  });
+
+  it('is deterministic', () => {
+    expect(JSON.stringify(boardPartsFromKicad(pcba, source, file, starter()))).toBe(JSON.stringify(boardPartsFromKicad(pcba, source, file, starter())));
   });
 });

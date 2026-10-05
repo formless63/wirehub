@@ -6,6 +6,7 @@
  *   pnpm --filter studio render de9-crossover build-sheet --format pdf --rev latest --out ./out
  *   pnpm --filter studio render de9-crossover all --out ./out
  *   pnpm --filter studio render de9-crossover continuity.json --out -
+ *   pnpm --filter studio render shielded-2pair-24awg wire-spec --format pdf
  *
  * Details and the formats: `scripts/render-lib.ts`, `docs/exports.md`.
  */

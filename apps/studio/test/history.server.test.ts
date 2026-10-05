@@ -23,7 +23,9 @@ import { stateAfter, stepsByChangeSet, type PartRow } from '../server/history/ti
 import { fieldDiff } from '../src/history/diff.ts';
 import { known, parseSubject, UNKNOWN } from '../src/history/types.ts';
 import { recordsOfWrite } from '../src/locks/records.ts';
-import { historyScenario } from './history-scenario.ts';
+import type { ApiRequest } from '../server/api.ts';
+import type { StudioUser } from '../server/me.ts';
+import { historyScenario, renameAndListScenario } from './history-scenario.ts';
 
 const ISOLATED = { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
 
@@ -47,18 +49,22 @@ describe('change history on the file backend (git)', () => {
     const deps = defaultWorkbenchDeps();
     const caps = await deps.history!.capabilities();
     expect(caps.backend).toBe('git');
-    await historyScenario({
+    const backend = {
       deps,
       // the git export's commit: exactly as the backup would make it, by the person who saved
-      afterSave: (user, _response, request) => {
+      afterSave: (user: StudioUser, _response: unknown, request: ApiRequest) => {
         const author = commitAuthor(user);
         git(work, ['add', '-A']);
         git(work, ['commit', '-q', '--allow-empty', '-m', commitMessage({ method: request.method, path: request.path, ...(request.body === undefined ? {} : { body: request.body }) })], as(author.name, author.email));
       },
-    });
+    };
+    await historyScenario(backend);
+    const last = git(work, ['log', '-1', '--format=%s']).trim();
+    await renameAndListScenario(backend);
     // history was never rewritten: every commit is still there, the restores on top
     const subjects = git(work, ['log', '--format=%an %s']).trim().split('\n');
-    expect(subjects[0]).toMatch(/^Carol Example studio: restore component r-120 to change [0-9a-f]{12}$/);
+    expect(last).toMatch(/^studio: restore component r-120 to change [0-9a-f]{12}$/);
+    expect(subjects[0]).toMatch(/^Carol Example studio: restore list families to change [0-9a-f]{12}$/);
     expect(subjects[subjects.length - 1]).toBe('Setup The starter catalog');
   }, 60_000);
 
@@ -149,5 +155,27 @@ describe('restores: the subject, the lock and the message', () => {
   it('says what was restored, and to which change', () => {
     expect(describeSave({ method: 'POST', path: '/api/history/records/design%3Adc-led-lead/restore', body: { entry: '42' } })).toBe('restore design dc-led-lead to change 42');
     expect(describeSave({ method: 'POST', path: '/api/history/records/definition%3Aconnectors%3Ade9-male/restore', body: { entry: 'a'.repeat(40) } })).toBe(`restore connector de9-male to change ${'a'.repeat(12)}`);
+  });
+});
+
+describe('restoring a board build file (cs-5k1.25)', () => {
+  it('is one PUT of the file as it was, quoting its current version', async () => {
+    const { handleHistoryRequest } = await import('../server/history/api.ts');
+    const { contentETag } = await import('../server/etag.ts');
+    const was = { board: 'PCA-1', label: 'Board', end: 'source', builds: [{ key: 'a', build: 'x', src: 's' }] };
+    const now = { ...was, label: 'Board (edited)' };
+    const calls: { method: string; path: string; body: unknown; ifMatch: string | undefined }[] = [];
+    const caps = { backend: 'database', note: '', perRecord: true, diff: true, restore: true, filters: { person: true, date: true, kind: true } } as const;
+    const deps = {
+      builds: { read: async () => now },
+      history: { capabilities: async () => caps, stateAt: async () => ({ parts: { record: known(was) } }) },
+    } as never;
+    const route = async (request: { method: string; path: string; body?: unknown; headers?: Record<string, string> }) => {
+      calls.push({ method: request.method, path: request.path, body: request.body, ifMatch: request.headers?.['if-match'] });
+      return { status: 200, body: {} };
+    };
+    const answer = await handleHistoryRequest({ method: 'POST', path: '/api/history/records/build%3Apca-1/restore', body: { entry: '7', current: { record: contentETag(now) } } }, deps, route as never);
+    expect(answer?.status).toBe(200);
+    expect(calls).toEqual([{ method: 'PUT', path: '/api/builds/pca-1', body: { file: was }, ifMatch: contentETag(now) }]);
   });
 });

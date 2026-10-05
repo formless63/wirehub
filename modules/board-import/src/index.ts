@@ -26,7 +26,7 @@ import { fabBomImporter, gerberImporter, kicadBoardImporter } from './importers.
 import { BoardImportPage, MODULE_ID } from './ui.ts';
 
 export { kicadDepiction, anchorsOf, padsOfPcba } from './art.ts';
-export { boardParts, detectColumns, parseCsv, readBom, readPlacement, splitRefs, tableOf } from './bom.ts';
+export { boardParts, boardPartsFromKicad, detectColumns, parseCsv, readBom, readPlacement, splitRefs, tableOf } from './bom.ts';
 export type { BomField, ColumnMapping, CplField, FabFile } from './bom.ts';
 export { deriveBoard, isPlaneNet, netLabel } from './derive.ts';
 export type { DeriveOptions, DerivedBoard, TerminalPad } from './derive.ts';
