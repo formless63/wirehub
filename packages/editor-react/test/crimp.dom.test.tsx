@@ -19,6 +19,7 @@ import {
   draftFieldIssues,
   mechanicalDraftOf,
   mechanicalOf,
+  toolsOfText,
   type ConnectorDraft,
   type MechanicalDraft,
 } from '../src/library.ts';
@@ -160,5 +161,56 @@ describe('a body\'s crimp housing (cs-5k1.27)', () => {
     expect(systems.value).toBe('xh-2-5, sealed-1-5');
     fireEvent.click(screen.getByLabelText('crimp housing'));
     expect(container.querySelector('input[placeholder="sealed-1-5"]')).toBeNull();
+  });
+});
+
+describe('per-tool crimp heights (cs-5k1.28)', () => {
+  const contact = db.mechanicals!.find((m) => m.id === 'xh-contact-socket')!;
+  const tools = [{ tool: 'xh-applicator-b', crimpHeights: [{ wireMm2: 0.205, heightMm: 1.2, widthMm: 1.6 }], stripMm: 3.5 }];
+  const twoTools: Db = {
+    ...db,
+    mechanicals: [
+      ...db.mechanicals!.map((m) => (m.id === contact.id ? { ...m, termination: { ...m.termination!, tools } } : m)),
+      { id: 'xh-applicator-b', label: 'XH applicator B', kind: 'tool', src: 'synthetic example' },
+    ],
+  };
+
+  it('the other-tools text round-trips through a contact\'s draft', () => {
+    const edited = { ...contact, termination: { ...contact.termination!, tools } };
+    expect(mechanicalOf(mechanicalDraftOf(edited)).termination?.tools).toEqual(tools);
+    expect(toolsOfText('a: 0.5 1.2 1.7; 0.75 1.3\nb\n: junk\nc: strip 4; note bench 2')).toEqual([
+      { tool: 'a', crimpHeights: [{ wireMm2: 0.5, heightMm: 1.2, widthMm: 1.7 }, { wireMm2: 0.75, heightMm: 1.3 }] },
+      { tool: 'b' },
+      { tool: 'c', stripMm: 4, note: 'bench 2' },
+    ]);
+  });
+
+  it('the contact form edits the other tools', () => {
+    let draft: MechanicalDraft = { ...blankMechanicalDraft(), kind: 'contact' };
+    const onChange = vi.fn((next: MechanicalDraft) => {
+      draft = next;
+    });
+    render(<MechanicalEditor draft={draft} onChange={onChange} idLocked={false} tools={[{ id: 'xh-applicator-b', label: 'XH applicator B' }]} />);
+    fireEvent.change(screen.getByLabelText('other crimp tools'), { target: { value: 'xh-applicator-b: 0.205 1.2' } });
+    expect(mechanicalOf({ ...draft, label: 'c', id: 'c', src: 's' }).termination?.tools).toEqual([{ tool: 'xh-applicator-b', crimpHeights: [{ wireMm2: 0.205, heightMm: 1.2 }] }]);
+  });
+
+  it('the Part tab offers a contact\'s tools per cavity and dispatches the pick', () => {
+    const base = loadDesignFromDisk('dc-led-lead');
+    const state = { ...initialEditorState(base, twoTools), selection: { kind: 'instance' as const, id: 'j2' } };
+    const { dispatch, ui } = harness(state, <PartPanel state={state} />);
+    render(ui);
+    const select = screen.getByLabelText('tool for cavity 1') as HTMLSelectElement;
+    expect(select.disabled).toBe(false);
+    expect(Array.from(select.options).map((o) => o.value)).toEqual([contact.termination!.tool, 'xh-applicator-b']);
+    fireEvent.change(select, { target: { value: 'xh-applicator-b' } });
+    const pick = dispatch.mock.calls[0]?.[0] as Extract<EditorAction, { type: 'apply-design' }>;
+    expect(pick.design.instances.connectors[1]?.cavities?.[0]).toMatchObject({ pin: '1', tool: 'xh-applicator-b' });
+  });
+
+  it('shows no tool column when no contact has a choice', () => {
+    const state = selected(loadDesignFromDisk('dc-led-lead'), 'j2');
+    render(harness(state, <PartPanel state={state} />).ui);
+    expect(screen.queryByLabelText('tool for cavity 1')).toBeNull();
   });
 });

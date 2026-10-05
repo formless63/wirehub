@@ -248,6 +248,8 @@ export {
   cavityIssues,
   cavityPins,
   cavityRows,
+  cavityToolId,
+  contactTools,
   crimpHeightFor,
   designCavities,
   designTools,
@@ -263,7 +265,7 @@ export {
   wiresAtPin,
   withCavities,
 } from './crimp.ts';
-export type { CavityAssignment, CavityRow, CavityWire, CrimpHeight, HousingSpec, TerminationPartKind, TerminationSpec } from './crimp.ts';
+export type { CavityAssignment, CavityRow, CavityWire, CrimpHeight, HousingSpec, TerminationPartKind, TerminationSpec, ToolCrimp } from './crimp.ts';
 // ---- kits, usage, connector mounting ----
 export { KIT_PART_KINDS, KIT_SKU, findKit, kitCoverage, kitPartExists, kitPartLabel, kitsContaining, validateKits } from './kits.ts';
 export type { KitCoverage, KitDefinition, KitLine, KitPartKind, PartRef } from './kits.ts';

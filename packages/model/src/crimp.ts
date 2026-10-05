@@ -52,6 +52,21 @@ export interface CrimpHeight {
 }
 
 /**
+ * One more tool (applicator) that crimps a contact, with the crimp heights
+ * that tool is set to. A shop with several applicators per contact lists them
+ * here; the contact's own `tool` and `crimpHeights` stay the default.
+ */
+export interface ToolCrimp {
+  /** a mechanical id of kind `tool` */
+  tool: string;
+  /** this tool's crimp heights per wire size; absent = the contact's own table */
+  crimpHeights?: CrimpHeight[];
+  /** insulation strip length for this tool, mm, when it differs from the contact's */
+  stripMm?: number;
+  note?: string;
+}
+
+/**
  * What a contact, seal, plug or tool fits and takes. Every field is optional:
  * a value no source states is left out, never guessed, and a check whose
  * value is absent is not made.
@@ -85,6 +100,11 @@ export interface TerminationSpec {
   ratedCurrentA?: number;
   /** contact: the tool or applicator that crimps it — a mechanical id of kind `tool` */
   tool?: string;
+  /**
+   * contact: further tools that crimp it, each with its own heights. A cavity
+   * picks one (`CavityAssignment.tool`); without a pick the default `tool` is used.
+   */
+  tools?: ToolCrimp[];
   src?: string;
 }
 
@@ -115,6 +135,8 @@ export interface CavityAssignment {
   seal?: string;
   /** a mechanical id of kind `plug` — an unused cavity, closed */
   plug?: string;
+  /** a mechanical id of kind `tool`: the applicator that crimps this cavity's contact, when it is not the contact's default */
+  tool?: string;
   /** this cavity's crimp height when it differs from the contact's table, mm */
   crimpHeightMm?: number;
   note?: string;
@@ -258,10 +280,27 @@ function totalArea(wires: readonly CavityWire[]): number | undefined {
   return round(wires.reduce((sum, w) => sum + (w.areaMm2 ?? 0), 0));
 }
 
-/** The crimp height a contact's table gives for this cross-section (± 2 %), when it gives one. */
-export function crimpHeightFor(contact: MechanicalDefinition | undefined, areaMm2: number | undefined): CrimpHeight | undefined {
+/** The tool ids that crimp a contact: its default first, then the others. */
+export function contactTools(contact: MechanicalDefinition | undefined): string[] {
+  const spec = contact?.termination;
+  return [...new Set([...(spec?.tool === undefined ? [] : [spec.tool]), ...(spec?.tools ?? []).map((t) => t.tool)])];
+}
+
+/** The tool a cavity is crimped with: the one it picks, else the contact's default. */
+export function cavityToolId(contact: MechanicalDefinition | undefined, assignment: Pick<CavityAssignment, 'tool'> | undefined): string | undefined {
+  return assignment?.tool ?? contact?.termination?.tool;
+}
+
+/**
+ * The crimp height a contact's table gives for this cross-section (± 2 %),
+ * when it gives one. With `toolId`, the table that tool carries (a tool with
+ * no table of its own falls back to the contact's).
+ */
+export function crimpHeightFor(contact: MechanicalDefinition | undefined, areaMm2: number | undefined, toolId?: string): CrimpHeight | undefined {
   if (contact === undefined || areaMm2 === undefined) return undefined;
-  return (contact.termination?.crimpHeights ?? []).find((h) => Math.abs(h.wireMm2 - areaMm2) <= Math.max(0.005, areaMm2 * 0.02));
+  const own = toolId === undefined ? undefined : contact.termination?.tools?.find((t) => t.tool === toolId)?.crimpHeights;
+  const table = own !== undefined && own.length > 0 ? own : (contact.termination?.crimpHeights ?? []);
+  return table.find((h) => Math.abs(h.wireMm2 - areaMm2) <= Math.max(0.005, areaMm2 * 0.02));
 }
 
 /* ------------------------------------------------------------------ *
@@ -309,9 +348,10 @@ export function cavityRows(design: CableDesign, db: Db, instanceId: string): Cav
     const contact = assignment?.contact === undefined ? undefined : findMechanical(db, assignment.contact);
     const seal = assignment?.seal === undefined ? undefined : findMechanical(db, assignment.seal);
     const plug = assignment?.plug === undefined ? undefined : findMechanical(db, assignment.plug);
-    const toolId = contact?.termination?.tool;
+    const toolId = cavityToolId(contact, assignment);
     const tool = toolId === undefined ? undefined : findMechanical(db, toolId);
-    const table = crimpHeightFor(contact, totalArea(wires));
+    const table = crimpHeightFor(contact, totalArea(wires), toolId);
+    const strip = contact?.termination?.tools?.find((t) => t.tool === toolId)?.stripMm ?? contact?.termination?.stripMm;
     const height = assignment?.crimpHeightMm ?? table?.heightMm;
     const label = connector.pins.find((p) => p.id === pin)?.label;
     return {
@@ -324,7 +364,7 @@ export function cavityRows(design: CableDesign, db: Db, instanceId: string): Cav
       ...(seal === undefined ? {} : { seal }),
       ...(plug === undefined ? {} : { plug }),
       ...(tool === undefined ? {} : { tool }),
-      ...(contact?.termination?.stripMm === undefined ? {} : { stripMm: contact.termination.stripMm }),
+      ...(strip === undefined ? {} : { stripMm: strip }),
       ...(height === undefined ? {} : { crimpHeightMm: height }),
       ...(assignment?.crimpHeightMm === undefined && table?.widthMm !== undefined ? { crimpWidthMm: table.widthMm } : {}),
       ...(assignment?.note === undefined ? {} : { note: assignment.note }),
@@ -358,7 +398,7 @@ function issue(code: string, message: string, where: string, severity: Issue['se
   return { code, severity, message, where };
 }
 
-const SLOT_KIND: Readonly<Record<'contact' | 'seal' | 'plug', TerminationPartKind>> = { contact: 'contact', seal: 'seal', plug: 'plug' };
+const SLOT_KIND: Readonly<Record<'contact' | 'seal' | 'plug' | 'tool', TerminationPartKind>> = { contact: 'contact', seal: 'seal', plug: 'plug', tool: 'tool' };
 
 function inRange(value: number, lo: number | undefined, hi: number | undefined): boolean {
   const eps = 1e-9;
@@ -392,6 +432,11 @@ export function terminationDbIssues(db: Db): Issue[] {
     if (spec.tool !== undefined && findMechanical(db, spec.tool)?.kind !== 'tool') {
       issues.push(issue('termination-tool-unknown', `mechanical '${part.id}' names tool '${spec.tool}', which is not a tool in the library`, where, 'error'));
     }
+    for (const extra of spec.tools ?? []) {
+      if (findMechanical(db, extra.tool)?.kind !== 'tool') {
+        issues.push(issue('termination-tool-unknown', `mechanical '${part.id}' lists tool '${extra.tool}', which is not a tool in the library`, where, 'error'));
+      }
+    }
   }
   return issues;
 }
@@ -403,6 +448,7 @@ export function terminationDbIssues(db: Db): Issue[] {
  * of part) and `cavity-contact-and-plug`. The fit and size checks are
  * warnings: `cavity-not-crimp` (assignments on a connector that is not a
  * crimp part), `cavity-part-housing` (the part does not fit this housing),
+ * `cavity-tool-contact` (the tool is not one that crimps the contact),
  * `contact-wire-range` (the wire is outside the contact's range),
  * `contact-insulation-range` / `seal-wire-range` (the insulation Ø is),
  * `cavity-no-contact` (a wire lands in a cavity with no contact),
@@ -443,7 +489,7 @@ function instanceCavityIssues(design: CableDesign, db: Db, instance: ConnectorIn
       structural = true;
     }
     seen.add(a.pin);
-    for (const slot of ['contact', 'seal', 'plug'] as const) {
+    for (const slot of ['contact', 'seal', 'plug', 'tool'] as const) {
       const id = a[slot];
       if (id === undefined) continue;
       const part = findMechanical(db, id);
@@ -502,6 +548,12 @@ function instanceCavityIssues(design: CableDesign, db: Db, instance: ConnectorIn
         issues.push(issue('seal-wire-range', `cavity ${where}: insulation Ø ${wire.insulationMm} mm of ${wire.segment}.${wire.path} is outside seal '${row.seal.id}' ${insulationRangeText(seal) ?? ''}`.trimEnd(), where, 'warning'));
       }
     }
+    if (row.assignment?.tool !== undefined && row.contact !== undefined) {
+      const known = contactTools(row.contact);
+      if (known.length > 0 && !known.includes(row.assignment.tool)) {
+        issues.push(issue('cavity-tool-contact', `cavity ${where}: tool '${row.assignment.tool}' is not one of the tools that crimp contact '${row.contact.id}' (${known.join(', ')})`, where, 'warning'));
+      }
+    }
     if (row.wires.length > 0 && row.contact === undefined) {
       issues.push(issue('cavity-no-contact', `cavity ${where} takes a wire but has no contact assigned`, where, 'warning'));
     }
@@ -529,7 +581,7 @@ function instanceCavityIssues(design: CableDesign, db: Db, instance: ConnectorIn
 export function withCavities(design: CableDesign, instanceId: string, cavities: readonly CavityAssignment[]): CableDesign {
   const clean = cavities
     .map((c) => Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined && v !== '')) as unknown as CavityAssignment)
-    .filter((c) => c.contact !== undefined || c.seal !== undefined || c.plug !== undefined || c.crimpHeightMm !== undefined || c.note !== undefined);
+    .filter((c) => c.contact !== undefined || c.seal !== undefined || c.plug !== undefined || c.tool !== undefined || c.crimpHeightMm !== undefined || c.note !== undefined);
   return {
     ...design,
     instances: {

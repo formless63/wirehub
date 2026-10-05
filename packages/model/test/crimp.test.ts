@@ -226,3 +226,55 @@ describe('crimp contacts, seals and plugs per cavity', () => {
     expect(wireRangeText(undefined)).toBeUndefined();
   });
 });
+
+describe('per-tool crimp heights and the applicator per cavity (cs-5k1.28)', () => {
+  const withTools: Db = {
+    ...db,
+    mechanicals: [
+      ...mechanicals.map((m) =>
+        m.id === 'socket-big'
+          ? { ...m, termination: { ...m.termination!, tools: [{ tool: 'applicator-b', crimpHeights: [{ wireMm2: 0.5, heightMm: 1.22, widthMm: 1.8 }], stripMm: 4 }] } }
+          : m,
+      ),
+      part('applicator-b', 'tool', { systems: [SYS] }),
+    ],
+  };
+  const rowOf = (cavities: Parameters<typeof design>[0]) => cavityRows(design(cavities), withTools, 'x1')[0]!;
+
+  it('without a pick the default tool and the contact table apply, as before', () => {
+    const row = rowOf(full);
+    expect(row.tool?.id).toBe('hand-tool');
+    expect(row).toMatchObject({ crimpHeightMm: 1.15, crimpWidthMm: 1.7, stripMm: 4.5 });
+  });
+
+  it('a cavity that picks a tool takes its own heights and strip, and names the tool', () => {
+    const row = rowOf([{ ...full[0]!, tool: 'applicator-b' }, full[1]!, full[2]!]);
+    expect(row.tool?.id).toBe('applicator-b');
+    expect(row).toMatchObject({ crimpHeightMm: 1.22, crimpWidthMm: 1.8, stripMm: 4 });
+    expect(designTools(design([{ ...full[0]!, tool: 'applicator-b' }, full[1]!, full[2]!]), withTools).map((t) => t.tool.id).sort()).toEqual(['applicator-b', 'hand-tool']);
+  });
+
+  it('a tool with no table of its own falls back to the contact table; a cavity height still wins', () => {
+    const noTable: Db = { ...withTools, mechanicals: withTools.mechanicals!.map((m) => (m.id === 'socket-big' ? { ...m, termination: { ...m.termination!, tools: [{ tool: 'applicator-b' }] } } : m)) };
+    expect(cavityRows(design([{ ...full[0]!, tool: 'applicator-b' }, full[1]!, full[2]!]), noTable, 'x1')[0]).toMatchObject({ crimpHeightMm: 1.15 });
+    expect(cavityRows(design([{ ...full[0]!, tool: 'applicator-b', crimpHeightMm: 1.3 }, full[1]!, full[2]!]), withTools, 'x1')[0]?.crimpHeightMm).toBe(1.3);
+  });
+
+  it('checks the tools: unknown ids are errors, a tool the contact does not list is a warning', () => {
+    expect(terminationDbIssues(withTools)).toEqual([]);
+    const bad: Db = { ...withTools, mechanicals: withTools.mechanicals!.map((m) => (m.id === 'socket-big' ? { ...m, termination: { ...m.termination!, tools: [{ tool: 'nope' }] } } : m)) };
+    expect(terminationDbIssues(bad).map((i) => i.code)).toEqual(['termination-tool-unknown']);
+    const unknown = cavityIssues(design([{ ...full[0]!, tool: 'nope' }, full[1]!, full[2]!]), withTools).map((i) => i.code);
+    expect(unknown).toContain('cavity-unknown-part');
+    const stray = cavityIssues(design([{ ...full[0]!, tool: 'hand-tool' }, { ...full[1]!, contact: 'socket-big', tool: 'applicator-b' }, full[2]!]), { ...withTools, mechanicals: [...withTools.mechanicals!, part('third', 'tool', undefined)] });
+    expect(stray.map((i) => i.code)).toEqual([]);
+    const off = cavityIssues(design([{ ...full[0]!, tool: 'third' }, full[1]!, full[2]!]), { ...withTools, mechanicals: [...withTools.mechanicals!, part('third', 'tool', undefined)] });
+    expect(off.map((i) => i.code)).toEqual(['cavity-tool-contact']);
+    expect(off[0]?.severity).toBe('warning');
+  });
+
+  it('a tool is in use by the contacts that list it, and edits keep a cavity that only names a tool', () => {
+    expect(definitionUsage(withTools, [design()], 'mechanicals', 'applicator-b').definitions).toContain('mechanicals/socket-big');
+    expect(setCavity(design(), 'x1', '1', { tool: 'applicator-b' }).instances.connectors[0]?.cavities).toEqual([{ pin: '1', tool: 'applicator-b' }]);
+  });
+});

@@ -466,6 +466,17 @@ describe('crimp contacts, seals, plugs and tools', () => {
     expect(tool.status).toBe(422);
   });
 
+  it('takes further tools with their own heights, and refuses a malformed or unknown one (cs-5k1.28)', async () => {
+    const withTools = { ...CONTACT, id: 'test-socket-2', termination: { ...CONTACT.termination!, tools: [{ tool: 'xh-crimp-tool', crimpHeights: [{ wireMm2: 0.2, heightMm: 0.95 }], stripMm: 3 }] } };
+    expect((await call('POST', '/api/definitions/mechanicals', withTools)).status).toBe(201);
+    expect(stored('mechanicals', 'test-socket-2')).toEqual(withTools);
+    const bad = await call('POST', '/api/definitions/mechanicals', { ...withTools, id: 'test-socket-3', termination: { tools: [{ crimpHeights: [] }] } });
+    expect(bad.status).toBe(400);
+    expect((bad.body as ApiError).error).toContain('other crimp tools');
+    const unknown = await call('POST', '/api/definitions/mechanicals', { ...withTools, id: 'test-socket-4', termination: { tools: [{ tool: 'de9-backshell' }] } });
+    expect(unknown.status).toBe(422);
+  });
+
   it('refuses a housing with a sealing it does not know', async () => {
     const plug = { ...CATALOG.connectors.find((c) => c.id === 'jst-xh-2-dc')!, id: 'test-xh', housing: { sealing: 'glue' } };
     const response = await call('POST', '/api/definitions/connectors', plug);

@@ -53,7 +53,7 @@ export function referencesOf(kind: EntityKind, collection: string, value: unknow
     for (const i of list(instances.pcbas)) add('pcba', str(i.def), 'pcba');
     for (const i of list(instances.mechanical)) add('mechanical', str(i.def), 'mechanical');
     for (const c of list(instances.connectors)) {
-      for (const a of list(c.cavities)) for (const slot of ['contact', 'seal', 'plug']) add('mechanical', str(a[slot]), 'cavity');
+      for (const a of list(c.cavities)) for (const slot of ['contact', 'seal', 'plug', 'tool']) add('mechanical', str(a[slot]), 'cavity');
     }
   } else if (kind === 'pcba') {
     for (const entry of list(v.integratedConnectors)) add('connector', str(entry.connectorDefId), 'connector');
@@ -67,6 +67,7 @@ export function referencesOf(kind: EntityKind, collection: string, value: unknow
   } else if (kind === 'mechanical') {
     const termination = (typeof v.termination === 'object' && v.termination !== null ? v.termination : {}) as Json;
     add('mechanical', str(termination.tool), 'termination-tool');
+    for (const extra of list(termination.tools)) add('mechanical', str(extra.tool), 'termination-tool');
   } else if (kind === 'kit') {
     for (const line of list(v.contents)) {
       const part = (typeof line.part === 'object' && line.part !== null ? line.part : {}) as Json;

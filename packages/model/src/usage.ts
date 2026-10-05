@@ -93,7 +93,7 @@ export function definitionUsage(db: Db, designs: readonly DesignLike[], kind: Us
     for (const body of db.bodies ?? []) if (body.mates === id) definitions.push(`bodies/${body.id}`);
   }
   if (kind === 'mechanicals') {
-    for (const part of db.mechanicals ?? []) if (part.termination?.tool === id) definitions.push(`mechanicals/${part.id}`);
+    for (const part of db.mechanicals ?? []) if (part.termination?.tool === id || (part.termination?.tools ?? []).some((t) => t.tool === id)) definitions.push(`mechanicals/${part.id}`);
   }
   const partKind = KIT_PART_OF[kind];
   if (partKind !== undefined && KIT_PART_KINDS.includes(partKind)) {

@@ -621,6 +621,13 @@ function gateTermination(value: unknown): { error: string; hint: string } | unde
   if (heights !== undefined && (!Array.isArray(heights) || !heights.every((h) => isObject(h) && typeof h['wireMm2'] === 'number' && typeof h['heightMm'] === 'number' && isOptionalNumber(h['widthMm'])))) {
     return { error: 'The crimp heights are not in the right form.', hint: 'One entry per wire size: wireMm2, heightMm and optionally widthMm.' };
   }
+  const tools = value['tools'];
+  if (tools !== undefined) {
+    const heightsOk = (h: unknown): boolean => h === undefined || (Array.isArray(h) && h.every((e) => isObject(e) && typeof e['wireMm2'] === 'number' && typeof e['heightMm'] === 'number' && isOptionalNumber(e['widthMm'])));
+    if (!Array.isArray(tools) || !tools.every((t) => isObject(t) && isFilledString(t['tool']) && heightsOk(t['crimpHeights']) && isOptionalNumber(t['stripMm']) && isOptionalString(t['note']))) {
+      return { error: 'The other crimp tools are not in the right form.', hint: 'One entry per tool: the tool id, and optionally its crimpHeights (wireMm2, heightMm, widthMm), stripMm and note.' };
+    }
+  }
   return undefined;
 }
 

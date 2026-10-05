@@ -166,6 +166,17 @@ function TerminationSection(props: {
               onChange={(next) => set('tool', next)}
               choices={[{ value: '', label: 'none recorded' }, ...props.tools.map((t) => ({ value: t.id, label: t.label }))]}
             />
+            <label className="cs-field is-wide" title="Further applicators that crimp this contact, one per line: the tool id, then its own heights (mm² height [width]) separated by semicolons. A cavity picks one; without a pick the crimp tool above is used.">
+              <span>Other tools (tool-id: mm² height; …)</span>
+              <textarea
+                className="cs-mono"
+                aria-label="other crimp tools"
+                rows={2}
+                value={value.tools}
+                placeholder={'xh-applicator-b: 0.5 1.2; 0.75 1.35'}
+                onChange={(event) => set('tools', event.target.value)}
+              />
+            </label>
             <label className="cs-field is-wide" title="One wire size per line: cross-section in mm², crimp height in mm, and optionally the crimp width.">
               <span>Crimp heights (mm² height [width])</span>
               <textarea

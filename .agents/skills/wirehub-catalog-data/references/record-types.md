@@ -66,7 +66,7 @@ Mechanical: `id`, `label`, `kind` (`shell | fastener | other | contact | seal | 
 `housings?` (connector or body ids it fits outright), `wireMinMm2?`/`wireMaxMm2?` (contact),
 `insulationMinMm?`/`insulationMaxMm?` (contact, seal), `gender?` (`male` pin / `female` socket),
 `plating?`, `stripMm?`, `ratedCurrentA?` (per contact; the electrical rules prefer it to the connector's `contactRatingA`), `crimpHeights?` (`{ wireMm2, heightMm, widthMm? }[]`), `tool?` (a
-mechanical id of kind `tool`), `src?`. Leave out every value no source states. A **crimp
+mechanical id of kind `tool`), `tools?` (`{ tool, crimpHeights?, stripMm?, note? }[]`: further applicators with their own heights; a cavity's `tool` picks one), `src?`. Leave out every value no source states. A **crimp
 housing** is a body's or connector's `housing`: `systems?`, `sealing?` (`none | per-wire |
 mat`), `plugUnused?` (unused cavities take a plug), `cavities?` (pin ids; default every pin
 but the shell), `src?`. Solder-cup and PCB connectors have no housing. Checks:
