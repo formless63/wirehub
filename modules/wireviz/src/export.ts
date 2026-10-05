@@ -10,9 +10,9 @@
  * than a quietly smaller harness.
  */
 
-import { electricalPaths, findConnector, findWire, resolveElementPath, type CableDesign, type Db, type TerminalRef } from '@wirehub/model';
+import { electricalPaths, findConnector, findWire, pigtailIdOf, resolveElementPath, type CableDesign, type Db, type TerminalRef } from '@wirehub/model';
 import type { ExportOutput } from '@wirehub/modules';
-import { stringify } from 'yaml';
+import { Document, visit } from 'yaml';
 
 import { colourToCode } from './colours.ts';
 
@@ -25,7 +25,26 @@ function pinSpec(values: (string | number)[]): (string | number)[] {
   return values;
 }
 
-export function exportWireViz(design: CableDesign, db: Db): ExportOutput {
+/**
+ * The document as YAML. `flow` writes each connector, cable and connection set on one line, the compact
+ * style WireViz's own examples use (`X1: {type: Header, pincount: 2}`); the three sections stay block.
+ */
+function yaml(doc: Obj, flow: boolean): string {
+  const document = new Document(doc);
+  if (flow) {
+    visit(document, {
+      Map: (_key, node, path) => {
+        if (path.length >= 4) node.flow = true;
+      },
+      Seq: (_key, node, path) => {
+        if (path.length >= 4) node.flow = true;
+      },
+    });
+  }
+  return document.toString({ lineWidth: 0 });
+}
+
+export function exportWireViz(design: CableDesign, db: Db, options: Readonly<Record<string, unknown>> = {}): ExportOutput {
   const lost: string[] = [];
   const connectors: Obj = {};
   const cables: Obj = {};
@@ -70,6 +89,8 @@ export function exportWireViz(design: CableDesign, db: Db): ExportOutput {
     key: string;
     wires: string[];
     shield?: string;
+    /** the pigtail ids, by end, that twist the shield together and land it once: a WireViz `s` wire */
+    shieldPigtails: Map<string, true>;
   }
   const cabs = new Map<string, Cab>();
   for (const segment of design.instances.segments) {
@@ -91,7 +112,10 @@ export function exportWireViz(design: CableDesign, db: Db): ExportOutput {
     });
     const shield = shields[0] ?? bare[0];
     for (const extra of [...shields.slice(1), ...(shields.length > 0 ? bare : bare.slice(1))]) lost.push(`segment ${segment.id}: ${extra} (WireViz has one shield per cable; a drain beside a shield is not a separate wire)`);
-    cabs.set(segment.id, { key, wires: conductors, ...(shield === undefined ? {} : { shield }) });
+    // a pigtail that takes the shield (the stock's whole bonded mass, or a member list naming it) lands as WireViz's `s`
+    const shieldPigtails = new Map<string, true>();
+    for (const pigtail of segment.pigtails ?? []) if (shield !== undefined && (pigtail.members === undefined || pigtail.members.includes(shield))) shieldPigtails.set(`${pigtail.end}:${pigtail.id}`, true);
+    cabs.set(segment.id, { key, wires: conductors, shieldPigtails, ...(shield === undefined ? {} : { shield }) });
     const colours = conductors.map((p) => colourToCode((resolveElementPath(wire.structure, p) as { color?: string }).color));
     const areas = [...new Set(conductors.map((p) => (resolveElementPath(wire.structure, p) as { areaMm2?: number }).areaMm2))];
     const cable: Obj = {
@@ -108,7 +132,11 @@ export function exportWireViz(design: CableDesign, db: Db): ExportOutput {
     if (areas.length > 1) lost.push(`segment ${segment.id}: gauge (conductors differ)`);
     const labels = conductors.map((p) => segment.coreLabels?.[p] ?? '');
     if (labels.some((l) => l !== '')) cable['wirelabels'] = labels;
-    if ((segment.pigtails ?? []).length > 0) lost.push(`segment ${segment.id}: ${segment.pigtails!.length} pigtail(s)`);
+    const unmapped = (segment.pigtails ?? []).filter((p) => !shieldPigtails.has(`${p.end}:${p.id}`));
+    if (unmapped.length > 0) lost.push(`segment ${segment.id}: ${unmapped.length} pigtail(s) (${unmapped.map((p) => p.id).join(', ')}) that do not twist the exported shield`);
+    // the prep of a mapped pigtail travels as the cable's note
+    const prep = (segment.pigtails ?? []).filter((p) => shieldPigtails.has(`${p.end}:${p.id}`) && p.note !== undefined).map((p) => `shield pigtail at end ${p.end}: ${p.note}`);
+    if (prep.length > 0) cable['notes'] = prep.join('; ');
     cables[key] = cable;
   }
 
@@ -119,6 +147,8 @@ export function exportWireViz(design: CableDesign, db: Db): ExportOutput {
     const cab = cabs.get(ref.instance);
     if (cab === undefined || ref.end === undefined) return undefined;
     if (ref.terminal === cab.shield) return { cab, ref: 's', end: ref.end };
+    const pigtail = pigtailIdOf(ref.terminal);
+    if (pigtail !== undefined) return cab.shieldPigtails.has(`${ref.end}:${pigtail}`) ? { cab, ref: 's', end: ref.end } : undefined;
     const i = cab.wires.indexOf(ref.terminal);
     return i < 0 ? undefined : { cab, ref: i + 1, end: ref.end };
   };
@@ -199,5 +229,5 @@ export function exportWireViz(design: CableDesign, db: Db): ExportOutput {
     connections,
   };
   const header = [`# WireHub design '${design.id}' exported for WireViz.`, ...[...new Set(lost)].map((l) => `# Not carried over: ${l}.`), ''];
-  return { mimeType: 'application/x-yaml; charset=utf-8', fileName: `${design.id}.wireviz.yml`, body: `${header.join('\n')}${stringify(doc, { lineWidth: 0 })}` };
+  return { mimeType: 'application/x-yaml; charset=utf-8', fileName: `${design.id}.wireviz.yml`, body: `${header.join('\n')}${yaml(doc, options['style'] === 'flow')}` };
 }

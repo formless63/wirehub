@@ -22,7 +22,7 @@ import { electricalPaths, resolveElementPath, validateDb, validateDesign, type C
 import type { ImportResult } from '@wirehub/modules';
 import { parse } from 'yaml';
 
-import { codeColours, colourFromCode, gaugeToMm2, lengthToMm } from './colours.ts';
+import { codeColours, COLOUR_CODE_NAMES, colourFromCode, gaugeToMm2, lengthToMm } from './colours.ts';
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -240,10 +240,11 @@ export function importWireViz(fileName: string, bytes: Uint8Array, db: Db): Impo
         });
       } else if (typeof c['color_code'] === 'string' && wirecount > 0) {
         const fromCode = codeColours(c['color_code'], wirecount);
-        if (fromCode === undefined) notes.push(`cable ${key}: colour code '${c['color_code']}' is not read (IEC, T568A, T568B and BW are); wires have no colours.`);
+        if (fromCode === undefined) notes.push(`cable ${key}: colour code '${c['color_code']}' is not read (${COLOUR_CODE_NAMES.join(', ')} are); wires have no colours.`);
         else {
           colours = fromCode;
-          notes.push(`cable ${key}: colours taken from colour code ${c['color_code']} (INFERRED sequence; check against the cable).`);
+          notes.push(`cable ${key}: colours taken from colour code ${c['color_code']}, in WireViz's published order.`);
+          if (fromCode.length < wirecount) notes.push(`cable ${key}: colour code ${c['color_code']} has ${fromCode.length} colours for ${wirecount} wires; the rest have none.`);
         }
       }
       const n = Math.max(wirecount, colours.length);

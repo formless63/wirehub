@@ -14,7 +14,7 @@ before that. The proposal is a design plus any new connector and wire-stock reco
 | --- | --- |
 | `connectors` | connector instances. A library connector is chosen only when `pn`, `mpn` or `type` (also `type subtype`) equals a record's part number, id, alias or label and the pin count agrees; otherwise a connector record is proposed from `type`, `subtype` (male/female become the gender), `pincount`, `pins` and `pinlabels`, with an INFERRED `src` |
 | `cables` | wire segments. Stock chosen the same way (`pn`, `mpn`, `type`); otherwise a stock is proposed from `wirecount` or `colors`, `color_code`, `gauge` and `shield` |
-| `colors`, `color_code` | conductor colours (`WHBU` becomes `white-blue`); IEC, T568A, T568B and BW codes are read, others are reported |
+| `colors`, `color_code` | conductor colours (`WHBU` becomes `white-blue`); IEC, DIN, TEL, TELALT, T568A, T568B and BW codes are read in WireViz's published sequences (a code shorter than the wire count leaves the rest uncoloured, with a note); others are reported |
 | `gauge` | conductor area in mm2; AWG is converted with the standard diameter formula and noted |
 | `length` | segment length (metres by default; `mm cm m in ft yd` units read) |
 | `wirelabels` | the segment's core labels |
@@ -28,16 +28,19 @@ is the first shield, else the first bare conductor).
 **What is lossy** is listed as `Not carried over: …` notes in the review: pin colours, appearance
 attributes (`image`, `bgcolor`, `style`, `color` …), connector mating arrows, arrow direction,
 `additional_bom_items`, `category: bundle`, a shield's colour, a shield's construction (a proposed shield
-is a foil, flagged INFERRED), colour codes this does not read (DIN, TEL, TELALT), `options`, `tweak`,
+is a foil, flagged INFERRED), colour codes this does not read, `options`, `tweak`,
 `templates`. A reference to a pin or wire that does not exist, a wire count that does not match, or a
 design problem the library's rules find is reported, and that joint is skipped, never guessed.
 
 **Export.** **WireViz (YAML)** in the Documents toolbar (also
 `GET /api/modules/wireviz/_export/wireviz-yaml?design=<id>`) writes the connectors, cables and
 connections WireViz can express. Anything it cannot (components, boards, breakouts, shells and
-hardware, pigtails, joints that do not run from a connector pin to a cable wire, a second shield) is
+hardware, pigtails that do not twist the shield, joints that do not run from a connector pin to a cable wire, a second shield) is
 listed as `# Not carried over:` comments at the top of the file. Exporting a design and importing the
 file back into the same library reproduces its expressible joints on the same connectors and stocks.
+A shield pigtail (the stock's bonded screens twisted and landed once) is WireViz's `s` wire, its prep text
+the cable's `notes`. `?style=flow` writes each connector, cable and connection set on one line, the compact
+style WireViz's own examples use; the default is block style.
 
 ## Bulk CSV library import (`modules/csv-library`)
 

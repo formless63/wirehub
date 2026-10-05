@@ -14,7 +14,7 @@ import { importWireViz } from './import.ts';
 
 export { exportWireViz } from './export.ts';
 export { importWireViz } from './import.ts';
-export { colourFromCode, colourToCode, gaugeToMm2, lengthToMm } from './colours.ts';
+export { COLOUR_CODE_NAMES, codeColours, colourFromCode, colourToCode, gaugeToMm2, lengthToMm } from './colours.ts';
 
 export const MODULE_ID = 'wireviz';
 
@@ -35,8 +35,8 @@ export const wireviz = defineModule({
     {
       id: 'wireviz-yaml',
       label: 'WireViz (YAML)',
-      description: 'The design as a WireViz harness: connectors, cables, colours and connections. What WireViz cannot say is listed at the top.',
-      render: (design, db) => exportWireViz(design, db),
+      description: 'The design as a WireViz harness: connectors, cables, colours and connections. What WireViz cannot say is listed at the top. Add style=flow for the compact one-line-per-item style.',
+      render: (design, db, options) => exportWireViz(design, db, options),
     },
   ],
 });

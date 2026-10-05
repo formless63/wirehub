@@ -18,6 +18,7 @@ export const COLOUR_NAME: Readonly<Record<string, string>> = {
   WH: 'white',
   PK: 'pink',
   TQ: 'turquoise',
+  SL: 'slate',
   SR: 'silver',
   GD: 'gold',
 };
@@ -50,26 +51,61 @@ export function colourToCode(name: string | undefined): string | undefined {
   return codes.every((c) => c !== undefined) && codes.length > 0 && codes.length <= 2 ? codes.join('') : undefined;
 }
 
+/**
+ * The named colour codes WireViz's public syntax documentation lists, checked
+ * against the sequences in WireViz's colour table (read for the facts only: the
+ * sequences are the standards' own, IEC 60757 colour letters in the order
+ * brown, red, orange, yellow, green, blue, violet, grey, white, black; DIN 47100;
+ * the 25-pair telephone code, ring then tip (TEL) or tip then ring (TELALT);
+ * and the two Ethernet pair orders).
+ */
 const IEC = ['BN', 'RD', 'OG', 'YE', 'GN', 'BU', 'VT', 'GY', 'WH', 'BK'];
 
-/** Colour codes this reads; DIN, TEL and TELALT are listed as not read (the sequences are not reproduced here). */
+const DIN = [
+  'WH', 'BN', 'GN', 'YE', 'GY', 'PK', 'BU', 'RD', 'BK', 'VT', 'GYPK', 'RDBU',
+  'WHGN', 'BNGN', 'WHYE', 'YEBN', 'WHGY', 'GYBN', 'WHPK', 'PKBN', 'WHBU', 'BNBU',
+  'WHRD', 'BNRD', 'WHBK', 'BNBK', 'GYGN', 'YEGY', 'PKGN', 'YEPK', 'GNBU', 'YEBU',
+  'GNRD', 'YERD', 'GNBK', 'YEBK', 'GYBU', 'PKBU', 'GYRD', 'PKRD', 'GYBK', 'PKBK',
+  'BUBK', 'RDBK', 'WHBNBK', 'YEGNBK', 'GYPKBK', 'RDBUBK', 'WHGNBK', 'BNGNBK',
+  'WHYEBK', 'YEBNBK', 'WHGYBK', 'GYBNBK', 'WHPKBK', 'PKBNBK', 'WHBUBK',
+  'BNBUBK', 'WHRDBK', 'BNRDBK',
+];
+
+/** 25 pairs: five major colours (white, red, black, yellow, violet) against five minor (blue, orange, green, brown, slate). */
+const MAJOR = ['WH', 'RD', 'BK', 'YE', 'VT'];
+const MINOR = ['BU', 'OG', 'GN', 'BN', 'SL'];
+/** TEL: ring (minor+major) then tip (major+minor) of each pair; TELALT: tip then ring, the first five pairs' ring being the plain minor colour */
+const TEL: string[] = [];
+const TELALT: string[] = [];
+MAJOR.forEach((major, mi) => {
+  MINOR.forEach((minor) => {
+    TEL.push(`${minor}${major}`, `${major}${minor}`);
+    TELALT.push(`${major}${minor}`, mi === 0 ? minor : `${minor}${major}`);
+  });
+});
+
+/** Colour codes this reads: IEC, DIN, BW, TEL, TELALT, T568A and T568B. */
 const CODES: Readonly<Record<string, readonly string[]>> = {
   IEC,
+  DIN,
+  BW: ['BK', 'WH'],
+  TEL,
+  TELALT,
   T568A: ['WHGN', 'GN', 'WHOG', 'BU', 'WHBU', 'OG', 'WHBN', 'BN'],
   T568B: ['WHOG', 'OG', 'WHGN', 'BU', 'WHBU', 'GN', 'WHBN', 'BN'],
 };
 
-/** The colours of the first `count` wires of a named colour code, or `undefined` when the code is not one this knows. */
+/** The names of the codes `codeColours` reads. */
+export const COLOUR_CODE_NAMES: readonly string[] = Object.keys(CODES);
+
+/**
+ * The colours of the first `count` wires of a named colour code, or `undefined` when the code is not one this
+ * knows. A code with fewer colours than `count` gives only the colours it has (WireViz refuses such a cable).
+ */
 export function codeColours(code: string, count: number): string[] | undefined {
-  const name = code.toUpperCase();
-  if (name === 'BW') return Array.from({ length: count }, (_, i) => (i % 2 === 0 ? 'black' : 'white'));
-  const sequence = CODES[name];
+  const sequence = CODES[code.trim().toUpperCase()];
   if (sequence === undefined) return undefined;
-  return Array.from({ length: count }, (_, i) => {
-    // beyond the sequence a code repeats with the next colour's stripe: not modelled, repeat plainly
-    const c = colourFromCode(sequence[i % sequence.length] as string);
-    return c as string;
-  });
+  return sequence.slice(0, Math.max(0, count)).map((c) => colourFromCode(c) as string);
 }
 
 const MM2_PER_AWG = (n: number): number => {
