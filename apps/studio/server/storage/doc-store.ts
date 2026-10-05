@@ -28,10 +28,10 @@ export interface CatalogFileStore {
   remove(path: string): Awaitable<void>;
 }
 
-const FILE_PATH = /^data\/art\/[A-Za-z0-9._/-]+\.(svg|png|jpe?g|webp)$/;
+const FILE_PATH = /^(?:data\/art\/[A-Za-z0-9._/-]+\.(?:svg|png|jpe?g|webp)|data\/(?:docs|pack-assets)\/[A-Za-z0-9._/-]+\.pdf|data\/fonts\/[A-Za-z0-9._/-]+\.(?:ttf|otf|woff2))$/;
 const CODE_PATH = /^data\/code\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:server\.mjs|browser\.mjs|browser\.css)$/;
 
-/** A path a catalog file may live at: `data/art/…` with an image name, or a code module's entry `data/code/<module>/…`; no `..`, no dot-files. */
+/** A path a catalog file may live at: `data/art/…` with an image name, a pack's vendor PDF (`data/docs/…`, `data/pack-assets/…`) or font (`data/fonts/…`), or a code module's entry `data/code/<module>/…`; no `..`, no dot-files. */
 export function isCatalogFilePath(path: string): boolean {
   return (FILE_PATH.test(path) || CODE_PATH.test(path)) && !path.split('/').some((s) => s === '..' || s.startsWith('.'));
 }

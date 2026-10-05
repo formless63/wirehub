@@ -9,11 +9,41 @@
 
 import { fileURLToPath } from 'node:url';
 
+import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import type { BrandFont } from '@wirehub/docs';
+
 import type { PdfPage } from './pdf.ts';
 
 const FONT_FILES = ['LiberationSans-Regular.ttf', 'LiberationSans-Bold.ttf'].map((name) => fileURLToPath(new URL(`../../../../packages/docs/fonts/${name}`, import.meta.url)));
 
+/**
+ * The hub's own typeface for the rasteriser: it reads font files, not the sheet's `@font-face`, so the
+ * font is written once (named by its hash) and the sheet's alias is replaced by the family the font
+ * names. A face the rasteriser cannot read (WOFF2) leaves the bundled sans.
+ */
+function brandForRaster(svg: string, brand: BrandFont | undefined): { svg: string; files: string[] } {
+  if (brand === undefined || !brand.regular.rasterizable) return { svg, files: [] };
+  const dir = join(tmpdir(), 'wirehub-brand-fonts');
+  mkdirSync(dir, { recursive: true });
+  const files: string[] = [];
+  for (const face of [brand.regular, brand.bold]) {
+    if (face === undefined || !face.rasterizable) continue;
+    const bytes = Buffer.from(face.base64, 'base64');
+    const path = join(dir, `${createHash('sha256').update(bytes).digest('hex')}.${face.mime === 'font/otf' ? 'otf' : 'ttf'}`);
+    if (!existsSync(path)) writeFileSync(path, bytes);
+    files.push(path);
+  }
+  const family = brand.regular.family.replace(/'/g, '');
+  return { svg: svg.split("'CS Brand'").join(`'${family}'`), files };
+}
+
 export interface RasterPage {
+  /** the hub's own typeface, when branding set one (the sheet names it `CS Brand`) */
+  brand?: BrandFont;
   svg: string;
   /** the PDF page size (points); the image is scaled to fit inside `margin` and centred */
   width: number;
@@ -27,17 +57,19 @@ export async function svgToPdfPage(page: RasterPage): Promise<PdfPage> {
   const { Resvg } = await import('@resvg/resvg-js');
   const margin = page.margin ?? 0;
   const dpi = page.dpi ?? 200;
-  const probe = new Resvg(page.svg, { font: { fontFiles: FONT_FILES, loadSystemFonts: false, defaultFontFamily: 'Liberation Sans' } });
+  const branded = brandForRaster(page.svg, page.brand);
+  const fontFiles = [...FONT_FILES, ...branded.files];
+  const probe = new Resvg(branded.svg, { font: { fontFiles, loadSystemFonts: false, defaultFontFamily: 'Liberation Sans' } });
   const aspect = probe.width / probe.height;
   const boxW = page.width - 2 * margin;
   const boxH = page.height - 2 * margin;
   const drawW = Math.min(boxW, boxH * aspect);
   const drawH = drawW / aspect;
   const pixelWidth = Math.max(1, Math.round((drawW / 72) * dpi));
-  const resvg = new Resvg(page.svg, {
+  const resvg = new Resvg(branded.svg, {
     fitTo: { mode: 'width', value: pixelWidth },
     background: '#ffffff',
-    font: { fontFiles: FONT_FILES, loadSystemFonts: false, defaultFontFamily: 'Liberation Sans' },
+    font: { fontFiles, loadSystemFonts: false, defaultFontFamily: 'Liberation Sans' },
   });
   const image = resvg.render();
   const rgba = image.pixels;

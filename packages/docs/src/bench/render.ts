@@ -16,6 +16,7 @@ import { catalogDepictions, type DepictionSource } from '@wirehub/layout';
 import { deriveDrawing, type DrawingFace } from '../drawing/model.ts';
 import { deriveBomSheet, type BomSheet, type BomSheetOptions } from '../bom-sheet.ts';
 import { deriveTestSpec, type Port, type TestSpec } from '../test-spec.ts';
+import { brandSheetCss } from '../drawing/brand-font.ts';
 import { SHEET_STYLESHEET } from '../styles.ts';
 import { compareStrings, escapeHtml } from '../text.ts';
 import { lengthFromMm } from '../units.ts';
@@ -437,7 +438,7 @@ function isolationMatrix(spec: TestSpec, side: 'a' | 'b'): string {
   return `<table class="cs-matrix"><thead><tr><th class="cs-rowh">${side === 'a' ? 'Source end' : 'Destination end'}</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function testPage(n: number, spec: TestSpec): string {
+function testPage(n: number, spec: TestSpec, db?: Db): string {
   const parts: string[] = [stage(n, 'Test', 'continuity, isolation, ground twists, picture and sound')];
   parts.push(block('Continuity — end to end', continuityTable(spec)));
   if (spec.commoned.length > 0) {
@@ -494,7 +495,7 @@ function testPage(n: number, spec: TestSpec): string {
       ),
     );
   }
-  parts.push(block('Picture and sound', stepsHtml(qaSteps())));
+  parts.push(block('Picture and sound', stepsHtml(qaSteps(db))));
   return parts.join('');
 }
 
@@ -521,7 +522,7 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
       const wire = findWire(db, segment.def);
       if (wire === undefined) return '';
       const title = `Prep — ${segment.id === trunkId ? 'trunk' : (segment.role ?? segment.id).replace(/\s*\(.*$/, '')} (${wire.label.replace(/\s*\([^)]*\)\s*$/, '')})`;
-      return block(title, stepsHtml(prepSteps(wire, isFullyBonded(wire))));
+      return block(title, stepsHtml(prepSteps(wire, isFullyBonded(wire), db)));
     })
     .join('');
   const kit = [
@@ -529,7 +530,7 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
     block('Parts to pull', pullList(bom)),
     block('Tools', toolsHtml(design, db)),
     block(supplied.length > 0 ? 'Cut and stock' : 'Cut', cutList(design, db, header, supplied)),
-    `<div class="cs-cols">${prep}${block('Solder', stepsHtml([solderStep()]))}</div>`,
+    `<div class="cs-cols">${prep}${block('Solder', stepsHtml([solderStep(db)]))}</div>`,
   ].join('');
   const errors = validateDesign(design, db).filter((issue) => issue.severity === 'error');
   const validation =
@@ -551,10 +552,10 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
     pages.push({ title: end.side === 'a' ? 'Source end' : 'Destination end', html: endPage(pages.length + 1, end, design, db, source, drawing, trunkId, other) });
   }
   pages.push({ title: 'Assembly', html: assemblyPage(pages.length + 1, bench, design, db, supplied) });
-  pages.push({ title: 'Test', html: testPage(pages.length + 1, spec) });
+  pages.push({ title: 'Test', html: testPage(pages.length + 1, spec, db) });
 
   const total = pages.length;
-  const out: string[] = ['<div class="cs-root cs-sheet cs-bench">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}</style>`];
+  const out: string[] = ['<div class="cs-root cs-sheet cs-bench">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}${brandSheetCss()}</style>`];
   pages.forEach((page, i) => {
     const sheet = `${i + 1} of ${total}`;
     out.push(

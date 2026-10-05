@@ -1,15 +1,16 @@
 /**
  * `/settings` — the hub's identity on its documents: organisation name, the
  * wire spec's standard name, a rights line, a default designer and a logo
- * (`server/settings.ts`). An owner or an editor saves; a viewer reads. What is
- * left empty keeps the documents' generic text, and a module's own art still wins.
+ * (`server/settings.ts`), a typeface the documents are set in and drawing art as data. An owner or
+ * an editor saves; a viewer reads. What is left empty keeps the documents' generic text, and a
+ * module's own art still wins.
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { brandingKey, brandingQuery, saveBranding, type BrandingView } from '../settings.browser.ts';
+import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
 import { EngineeringSettings } from './EngineeringSettings.tsx';
 import { PartNumberSettings } from './PartNumberSettings.tsx';
 import { RulesSettings } from './RulesSettings.tsx';
@@ -52,6 +53,15 @@ const draftOf = (view: BrandingView | undefined): Draft => ({
   filePrefix: view?.filePrefix ?? '',
 });
 
+/** a font file as base64 (the upload's `data`) */
+const readAsBase64 = async (file: File): Promise<string> => (await readAsDataUri(file)).replace(/^data:[^,]*;base64,/, '');
+
+const FONT_NOTE: Record<FontChoice['format'], string> = {
+  ttf: 'TrueType: set on every sheet and in every PDF.',
+  otf: 'OpenType: set on the sheets and the drawing\u2019s PDF; the formboard PDF embeds only TrueType outlines and keeps the standard sans.',
+  woff2: 'WOFF2: set on the HTML sheets and the printed PDFs; the headless PDFs keep the standard sans.',
+};
+
 const readAsDataUri = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -69,15 +79,44 @@ export function SettingsRoute(): JSX.Element {
   /** undefined: keep the stored logo; null: remove it; a data URI: replace it */
   const [logo, setLogo] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const fonts = useQuery({ queryKey: fontsKey, queryFn: async () => { const out = await fetchFonts(); if (!out.ok) throw new Error(out.message); return out.value; }, retry: false });
+  /** the chosen faces, as font ids ('' = the standard sans) */
+  const [face, setFace] = useState<{ regular: string; bold: string }>({ regular: '', bold: '' });
+  /** this hub's own drawing art as JSON text ('' = none) */
+  const [art, setArt] = useState('');
+  const [upload, setUpload] = useState<{ file: File | undefined; licence: boolean; busy: boolean }>({ file: undefined, licence: false, busy: false });
   useEffect(() => {
-    if (query.data !== undefined) setDraft(draftOf(query.data));
+    if (query.data !== undefined) {
+      setDraft(draftOf(query.data));
+      setFace({ regular: query.data.font?.regular.id ?? '', bold: query.data.font?.bold?.id ?? '' });
+      setArt(query.data.ownArt === undefined ? '' : JSON.stringify(query.data.ownArt, null, 2));
+    }
   }, [query.data]);
 
   const shown = logo === undefined ? query.data?.logoDataUri : (logo ?? undefined);
   const save = async (): Promise<void> => {
     if (query.data === undefined) return;
+    let artInput: Record<string, unknown> | null | undefined;
+    const storedArt = query.data.ownArt === undefined ? '' : JSON.stringify(query.data.ownArt, null, 2);
+    if (art !== storedArt) {
+      try {
+        artInput = art.trim() === '' ? null : (JSON.parse(art) as Record<string, unknown>);
+      } catch {
+        toast.error('The drawing art is not valid JSON.', { description: 'It is an object with faces, plugs and cutaways keyed by definition id.' });
+        return;
+      }
+    }
+    const fontChanged = face.regular !== (query.data.font?.regular.id ?? '') || face.bold !== (query.data.font?.bold?.id ?? '');
     setBusy(true);
-    const out = await saveBranding({ ...draft, ...(logo === undefined ? {} : { logo }) }, query.data.etag);
+    const out = await saveBranding(
+      {
+        ...draft,
+        ...(logo === undefined ? {} : { logo }),
+        ...(!fontChanged ? {} : { font: face.regular === '' ? null : { regular: face.regular, ...(face.bold === '' ? {} : { bold: face.bold }) } }),
+        ...(artInput === undefined ? {} : { art: artInput }),
+      },
+      query.data.etag,
+    );
     setBusy(false);
     if (!out.ok) {
       toast.error(out.message, { description: out.hint });
@@ -86,6 +125,21 @@ export function SettingsRoute(): JSX.Element {
     client.setQueryData(brandingKey, out.value);
     setLogo(undefined);
     toast.success('Saved. New documents carry it.');
+  };
+  const sendFont = async (): Promise<void> => {
+    if (upload.file === undefined || !upload.licence) return;
+    setUpload({ ...upload, busy: true });
+    const out = await uploadFont({ name: upload.file.name, data: await readAsBase64(upload.file), licence: true });
+    setUpload({ file: undefined, licence: false, busy: false });
+    if (!out.ok) {
+      toast.error(out.message, { description: out.hint });
+      return;
+    }
+    await client.invalidateQueries({ queryKey: fontsKey });
+    // a font just uploaded is the one meant: regular first, then bold
+    const style = (out.value.font.subfamily ?? '').toLowerCase();
+    setFace((f) => (style.includes('bold') && f.regular !== '' ? { ...f, bold: out.value.font.id } : { ...f, regular: out.value.font.id }));
+    toast.success(`${out.value.font.family} is uploaded. Save to use it.`);
   };
   const pick = async (file: File | undefined): Promise<void> => {
     if (file === undefined) return;
@@ -182,6 +236,74 @@ export function SettingsRoute(): JSX.Element {
             )}
             <span className="text-faint">PNG or SVG, up to 512 KiB. Metadata is stripped when it is saved; an SVG is cleaned of scripts and drawn to a PNG.</span>
           </div>
+          <fieldset className="flex flex-col gap-1 border-0 p-0" data-testid="typeface">
+            <legend className="font-medium">Typeface</legend>
+            <span className="text-faint">The font the drawings, the HTML sheets and the PDFs are set in. Empty keeps the standard sans. It is stored with the hub and travels inline in each document.</span>
+            {(['regular', 'bold'] as const).map((slot) => (
+              <label key={slot} className="flex items-center gap-2">
+                <span className="w-14">{slot === 'regular' ? 'Regular' : 'Bold'}</span>
+                <select
+                  className="rounded border border-line bg-panel px-2 py-1"
+                  aria-label={`${slot === 'regular' ? 'Regular' : 'Bold'} typeface`}
+                  value={face[slot]}
+                  disabled={readOnly}
+                  onChange={(e) => setFace({ ...face, [slot]: e.target.value, ...(slot === 'regular' && e.target.value === '' ? { bold: '' } : {}) })}
+                >
+                  <option value="">{slot === 'regular' ? 'Standard sans' : 'None (the bundled bold)'}</option>
+                  {(fonts.data?.fonts ?? []).map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.family}
+                      {f.subfamily === undefined ? '' : ` ${f.subfamily}`} ({f.format}, {f.source === 'pack' ? `pack ${f.pack ?? ''}` : 'uploaded'})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            {(fonts.data?.fonts ?? []).filter((f) => f.id === face.regular || f.id === face.bold).map((f) => (
+              <span key={f.id} className="text-faint">
+                {f.family}: {FONT_NOTE[f.format]}
+                {f.format === 'otf' && f.embeddable ? ' It has TrueType outlines, so the formboard PDF embeds it too.' : ''}
+              </span>
+            ))}
+            {readOnly ? null : (
+              <div className="mt-1 flex flex-col gap-1 rounded border border-line p-2">
+                <span className="font-medium">Upload a font</span>
+                <input
+                  type="file"
+                  accept=".ttf,.otf,.woff2,font/ttf,font/otf,font/woff2"
+                  aria-label="Font file"
+                  onChange={(e) => setUpload({ ...upload, file: e.target.files?.[0] })}
+                />
+                <label className="flex items-start gap-2">
+                  <input type="checkbox" aria-label="I hold a licence for this font" checked={upload.licence} onChange={(e) => setUpload({ ...upload, licence: e.target.checked })} />
+                  <span>I hold a licence that lets this font be embedded in the documents this hub generates (PDF, HTML sheets and drawings).</span>
+                </label>
+                <div>
+                  <button type="button" className="rounded border border-line px-2 py-0.5 disabled:opacity-50" disabled={upload.file === undefined || !upload.licence || upload.busy} onClick={() => void sendFont()}>
+                    {upload.busy ? 'Uploading\u2026' : 'Upload font'}
+                  </button>
+                </div>
+                <span className="text-faint">TrueType, OpenType or WOFF2, up to {Math.round((fonts.data?.limits.bytes ?? 1536 * 1024) / 1024)} KiB, static (not a variable font). A font is kept as a file of the hub; fonts a data pack ships under fonts/ are offered here too.</span>
+              </div>
+            )}
+          </fieldset>
+          <fieldset className="flex flex-col gap-1 border-0 p-0" data-testid="drawing-art">
+            <legend className="font-medium">Drawing art</legend>
+            <span className="text-faint">
+              Traced connector faces and plugs and wire cutaways, keyed by definition id, in the shape a module&rsquo;s art has (docs/modules.md, &ldquo;Art&rdquo;). In force now:{' '}
+              {['faces', 'plugs', 'cutaways'].map((k) => `${Object.keys((query.data?.art as Record<string, Record<string, unknown>> | undefined)?.[k] ?? {}).length} ${k}`).join(', ')}
+              {' '}(this hub&rsquo;s and its packs&rsquo;). Empty keeps the generated art; a cutaway&rsquo;s SVG is cleaned of scripts and external references when it is saved.
+            </span>
+            <textarea
+              className="min-h-24 rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]"
+              aria-label="Drawing art (JSON)"
+              placeholder='{ "cutaways": { "wire-stock-id": { "svg": "<svg …/>", "width": 525, "height": 131 } } }'
+              value={art}
+              disabled={readOnly}
+              spellCheck={false}
+              onChange={(e) => setArt(e.target.value)}
+            />
+          </fieldset>
           {readOnly ? <div className="text-faint">Your role can view these settings but not change them.</div> : null}
           <div>
             <button type="submit" disabled={readOnly || busy} className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50">

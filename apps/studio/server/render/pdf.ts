@@ -8,7 +8,7 @@
 
 import { deflateSync } from 'node:zlib';
 
-import { liberation, type Face } from './fonts.ts';
+import { liberation, type Face, type PdfFont } from './fonts.ts';
 import { winAnsiByte, type Op, type Page } from './layout.ts';
 
 export type PdfPage =
@@ -21,6 +21,8 @@ export type PdfPage =
       alphas: { key: string; ca: number; CA: number }[];
       /** the glyphs the page's text uses (`/E1` regular, `/E2` bold): embedded once for the document, subset to these */
       glyphs: { face: Face; gid: number; cp: number }[];
+      /** the font each face was set in (absent: the bundled Liberation Sans) */
+      fonts?: Partial<Record<Face, PdfFont>>;
     }
   | { kind: 'image'; width: number; height: number; at: { x: number; y: number; w: number; h: number }; pixelWidth: number; pixelHeight: number; rgb: Uint8Array };
 
@@ -114,10 +116,11 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
   for (const face of ['regular', 'bold'] as const) {
     const gids = [...used[face].keys()].sort((a, b) => a - b);
     if (gids.length === 0) continue;
-    const font = liberation(face);
+    const chosen = pages.flatMap((p) => (p.kind === 'vector' ? [p.fonts?.[face]] : [])).find((f) => f !== undefined);
+    const font = chosen?.font ?? liberation(face);
     const program = font.subset(gids);
     const packed = deflateSync(program);
-    const name = `${subsetTag(face, gids)}+LiberationSans${face === 'bold' ? '-Bold' : ''}`;
+    const name = `${subsetTag(face, gids)}+${chosen?.name ?? 'LiberationSans'}${face === 'bold' ? '-Bold' : ''}`;
     const fileNo = add(packed);
     contentDict.set(fileNo, `<< /Filter /FlateDecode /Length ${packed.length} /Length1 ${program.length} >>`);
     const d = font.descriptor;

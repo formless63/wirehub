@@ -200,3 +200,70 @@ describe('inside validateDesign and validateDb', () => {
     expect(validateDesign(bad, db).some((i) => i.code === 'invalid-tags')).toBe(true);
   });
 });
+
+describe('selectors for boards, shells and both cable ends', () => {
+  it('for each cable end: the end\'s shell, with the connector joined there', () => {
+    const r = rule({
+      id: 'end-needs-shell',
+      severity: 'error',
+      each: 'cable-end',
+      where: { gt: [{ path: 'connectorCount' }, 0] },
+      require: { gt: [{ path: 'shellCount' }, 0] },
+      message: '{id} ({segment} end {end}) has a connector and no shell',
+    });
+    const d = design('de9-crossover');
+    // both ends carry a connector with a backshell
+    expect(ruleIssuesForDesign(d, withRules([r]))).toEqual([]);
+    // drop the backshell of the far end only: exactly that end is reported
+    const far = { ...d, instances: { ...d.instances, mechanical: (d.instances.mechanical ?? []).filter((m) => m.id !== 'm3') } };
+    const issues = ruleIssuesForDesign(far, withRules([r]));
+    expect(issues.map((i) => [i.code, i.where, i.message])).toEqual([['rule:end-needs-shell', 'w1@b', 'w1@b (w1 end b) has a connector and no shell']]);
+  });
+
+  it('the board at this end, and the shell of the connector that straddles it', () => {
+    const d = design('de9-terminal-board');
+    const boardEnd = rule({
+      id: 'board-end-labelled',
+      each: 'cable-end',
+      where: { gt: [{ path: 'boardCount' }, 0] },
+      require: { some: { in: 'boards', where: { startsWith: [{ path: 'partNumber' }, 'XYZ'] } } },
+      message: '{id}: the board here is {boards}',
+    });
+    const issues = ruleIssuesForDesign(d, withRules([boardEnd]));
+    // only the end that meets the board is selected; the connector end is not
+    expect(issues.map((i) => i.where)).toEqual(['w1@b']);
+    expect(ruleIssuesForDesign(d, withRules([{ ...boardEnd, require: { some: { in: 'boards', where: { startsWith: [{ path: 'partNumber' }, 'PCA'] } } } }]))).toEqual([]);
+    // the connector end sees its shell through the same selector
+    const shellEnd = rule({ id: 'shell-pn', each: 'cable-end', where: { gt: [{ path: 'shellCount' }, 0] }, require: { some: { in: 'shells', where: { exists: { path: 'partNumber' } } } } });
+    expect(ruleIssuesForDesign(d, withRules([shellEnd]))).toEqual([]);
+    // a run end with nothing joined is a flying end
+    const free = { ...d, joints: d.joints.filter((j) => !(j.b.instance === 'u1' || (j.a.instance === 'w1' && j.a.end === 'b'))) };
+    const flying = rule({ id: 'flying', each: 'cable-end', where: { eq: [{ path: 'flying' }, true] }, require: { eq: [1, 2] } });
+    expect(ruleIssuesForDesign(free, withRules([flying])).map((i) => i.where)).toEqual(['w1@b']);
+    expect(ruleIssuesForDesign(d, withRules([flying]))).toEqual([]);
+  });
+
+  it('a connector knows its shells and boards; a board knows its connectors and shells; a mechanical its host', () => {
+    const d = design('de9-terminal-board');
+    const run = (r: Partial<ValidationRule> & Pick<ValidationRule, 'id' | 'each' | 'require'>): string[] => ruleIssuesForDesign(d, withRules([rule(r)])).map((i) => `${i.where}`);
+    expect(run({ id: 'a', each: 'connector', require: { gt: [{ path: 'shellCount' }, 1] } })).toEqual(['j1']);
+    expect(run({ id: 'b', each: 'connector', require: { eq: [{ path: 'boardCount' }, 0] } })).toEqual([]);
+    expect(run({ id: 'c', each: 'pcba', require: { contains: [{ path: 'connectorFamilies' }, 'zzz'] } })).toEqual(['u1']);
+    expect(run({ id: 'c2', each: 'pcba', require: { contains: [{ path: 'terminalsJoined' }, 'GND'] } })).toEqual([]);
+    expect(run({ id: 'd', each: 'pcba', require: { some: { in: 'terminals', where: { eq: [{ path: 'role' }, 'gnd'] } } } })).toEqual([]);
+    expect(run({ id: 'e', each: 'mechanical', require: { eq: [{ path: 'host.family' }, 'nope'] } })).toEqual(['m1']);
+    expect(run({ id: 'f', each: 'mechanical', where: { eq: [{ path: 'kind' }, 'shell'] }, require: { eq: [{ path: 'hostDef' }, 'de9-male'] } })).toEqual([]);
+  });
+
+  it('is bounded: related lists are capped and the step budget still applies', () => {
+    const d = design('de9-crossover');
+    const many = Array.from({ length: 80 }, (_, i) => ({ id: `s${i}`, def: 'de9-backshell', qty: 1, attachedTo: 'j1' }));
+    const big = { ...d, instances: { ...d.instances, mechanical: many } };
+    const r = rule({ id: 'cap', each: 'cable-end', require: { lt: [{ count: { in: 'shells' } }, 0] } });
+    const issue = ruleIssuesForDesign(big, withRules([r])).find((i) => i.where === 'w1@a');
+    expect(issue).toBeDefined();
+    expect(ruleIssuesForDesign(big, withRules([{ ...r, id: 'cap2', require: { lte: [{ count: { in: 'shells' } }, 50] } }]))).toEqual([]);
+    // a rule cannot name an unknown subject
+    expect(ruleProblems({ ...r, each: 'cable-ends' }).join(' ')).toMatch(/each is one of/);
+  });
+});

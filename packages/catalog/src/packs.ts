@@ -195,10 +195,59 @@ export function mergeCatalogFile(relative: string, texts: string[]): string {
     const lists = values as Record<string, Json>[];
     return canonical({ ...lists[0], entries: mergeRecords(lists.map((l) => l['entries'] as Json[])) });
   }
-  if (relative.startsWith('tags/') && values.every(isPlainObject)) {
+  if ((relative.startsWith('tags/') || relative in KEYED_FILES) && values.every(isPlainObject)) {
     return canonical(mergeObjects(values as Record<string, Json>[]));
   }
   return texts[0] as string;
+}
+
+/** The pad table beside the board records: pads per board, per terminal (`PcbaPadTable`). A pack may ship one. */
+export const PCBA_PADS_FILE = 'pcba-pads.json';
+
+/** The drawing art a hub or a pack supplies as data: `{ faces, plugs, cutaways }` by connector or wire id (`DrawingArt`, `@wirehub/docs`). */
+export const DRAWING_ART_FILE = 'drawing-art.json';
+
+/**
+ * Files that are one object of keyed sections rather than a list of records: the pad table (`boards`,
+ * keyed by board id) and the drawing art (`faces`, `plugs`, `cutaways`, keyed by definition id). They
+ * layer key by key, and the pack lifecycle treats each key as a record the pack owns (id `<key>`, or
+ * `<section>/<key>` when the file has several sections), so an update replaces them and a disable removes them.
+ */
+export const KEYED_FILES: Readonly<Record<string, readonly string[]>> = { [PCBA_PADS_FILE]: ['boards'], [DRAWING_ART_FILE]: ['faces', 'plugs', 'cutaways'] };
+
+/** The record id of one key of a keyed file. */
+export const keyedId = (file: string, section: string, key: string): string => ((KEYED_FILES[file] ?? []).length === 1 ? key : `${section}/${key}`);
+
+/** The records of a keyed file's parsed value, each `{ id, ...value }`. */
+export function keyedRecords(file: string, value: Json): { id: string; section: string; key: string; record: Json }[] {
+  const out: { id: string; section: string; key: string; record: Json }[] = [];
+  if (!isPlainObject(value)) return out;
+  for (const section of KEYED_FILES[file] ?? []) {
+    const entries = value[section];
+    if (!isPlainObject(entries)) continue;
+    for (const [key, entry] of Object.entries(entries)) {
+      const id = keyedId(file, section, key);
+      out.push({ id, section, key, record: isPlainObject(entry) ? { id, ...entry } : { id } });
+    }
+  }
+  return out;
+}
+
+/** The record files of a catalog (merged in place by id; the pad table by board); every other JSON file a pack ships is auxiliary and layered as a whole. */
+export const RECORD_FILES: readonly string[] = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'devices', 'conditioning-recipes', 'hazards', 'products', 'validation-rules', 'bench-rules'].map((n) => `${n}.json`);
+const RECORD_FILE_NAMES = new Set<string>([...RECORD_FILES, ...Object.keys(KEYED_FILES)]);
+
+/**
+ * A data file that is not a list of records the lifecycle tracks by id: the pad
+ * table, tag tables, rules, bench rules and the like. These are read through
+ * the layers (`mergeCatalogFile`), so a pack's copy takes effect when it is
+ * installed as a layer; the install preview reads them the same way
+ * (`planNewPack`), so what is validated is what will run.
+ */
+export function isAuxiliaryFile(relative: string): boolean {
+  if (!relative.endsWith('.json') || relative === PACK_MANIFEST || relative === PACKS_FILE) return false;
+  if (RECORD_FILE_NAMES.has(relative)) return false;
+  return !(relative.startsWith('vocab/') || relative.startsWith('designs/') || relative.startsWith('depictions/') || relative.startsWith('art/') || relative.startsWith('code/'));
 }
 
 /**
@@ -252,7 +301,8 @@ export function packFiles(dir: string): string[] {
 
 /**
  * The files of a pack that are not JSON — the images under `depictions/` and
- * `art/` (`svg`, `png`, `jpg`, `webp`) and a code module's entries under `code/`
+ * `art/` (`svg`, `png`, `jpg`, `webp`), vendor PDFs under `docs/` and `assets/`,
+ * fonts under `fonts/` (`ttf`, `otf`, `woff2`) and a code module's entries under `code/`
  * (`.mjs`, `.css`; `specs/runtime-modules.md`) — relative, sorted. A layered
  * install copies them beside the data files, so a pack's faces, cutaways and
  * code arrive with it (`specs/drawing-language.md` §7).
@@ -269,6 +319,9 @@ export function packAssetFiles(dir: string): string[] {
   };
   walk('depictions', /\.(svg|png|jpe?g|webp)$/);
   walk('art', /\.(svg|png|jpe?g|webp)$/);
+  walk('docs', /\.pdf$/);
+  walk('assets', /\.pdf$/);
+  walk('fonts', /\.(ttf|otf|woff2)$/);
   walk('code', /\.(mjs|css)$/);
   return out.sort();
 }
@@ -316,11 +369,18 @@ export function packOwnedAssets(dir: string): Record<string, string> {
 
 /** Where a pack asset sits in a catalog tree (`<root>/data`, `<root>/depictions`), given the data directory. */
 export function assetPath(dataDir: string, relative: string): string {
-  return relative.startsWith('depictions/') ? join(dirname(dataDir), relative) : join(dataDir, relative);
+  return relative.startsWith('depictions/') ? join(dirname(dataDir), relative) : join(dataDir, dataRelativeOf(relative));
 }
 
-/** The path of a pack asset in a flattened catalog (`depictions/…`, `data/art/…`). */
-export const flatAssetPath = (relative: string): string => (relative.startsWith('depictions/') ? relative : `data/${relative}`);
+/**
+ * Where a pack's file sits under the catalog's `data/`: where it is in the pack, except a pack's
+ * `assets/…` PDFs, which go to `pack-assets/…` (`data/assets/` is the shared asset library, whose
+ * files are named by their hash).
+ */
+export const dataRelativeOf = (relative: string): string => (relative.startsWith('assets/') ? `pack-assets/${relative.slice('assets/'.length)}` : relative);
+
+/** The path of a pack asset in a flattened catalog (`depictions/…`, `data/art/…`, `data/docs/…`, `data/fonts/…`). */
+export const flatAssetPath = (relative: string): string => (relative.startsWith('depictions/') ? relative : `data/${dataRelativeOf(relative)}`);
 
 /** What to do with a pack's asset files: write, remove, and which the pack owns afterwards. */
 export interface AssetOps {
@@ -416,12 +476,35 @@ function planAgainst(local: CatalogSource, installed: InstalledPacks, packDir: s
     const localText = local.read(relative);
     if (localText === undefined) {
       writes[relative] = packText;
-      const records = recordsIn(JSON.parse(packText) as Json);
+      const parsed = JSON.parse(packText) as Json;
+      const records = relative in KEYED_FILES ? keyedRecords(relative, parsed) : recordsIn(parsed);
       added[relative] = records === undefined ? [] : records.map(idOf).filter((id): id is string => id !== undefined);
       continue;
     }
     const packValue = JSON.parse(packText) as Json;
     const localValue = JSON.parse(localText) as Json;
+    if (relative in KEYED_FILES) {
+      // a keyed file (the pad table, the drawing art) is merged key by key: one the catalog already has, differently, is a conflict
+      const have = new Map(keyedRecords(relative, localValue).map((r) => [r.id, r] as const));
+      const fresh = keyedRecords(relative, packValue).filter((r) => {
+        const mine = have.get(r.id);
+        if (mine === undefined) return true;
+        if (JSON.stringify(mine.record) !== JSON.stringify(r.record)) conflicts.push(`${relative}: '${r.id}' already exists with different content`);
+        return false;
+      });
+      if (fresh.length > 0) {
+        added[relative] = fresh.map((r) => r.id);
+        const merged: Record<string, Json> = { ...(localValue as Record<string, Json>) };
+        for (const r of fresh) {
+          const section = isPlainObject(merged[r.section]) ? { ...(merged[r.section] as Record<string, Json>) } : {};
+          const entries = (packValue as Record<string, Json>)[r.section] as Record<string, Json>;
+          section[r.key] = entries[r.key];
+          merged[r.section] = section;
+        }
+        writes[relative] = canonical(merged);
+      }
+      continue;
+    }
     const packRecords = recordsIn(packValue);
     const localRecords = recordsIn(localValue);
     if (packRecords === undefined || localRecords === undefined) {
@@ -480,6 +563,9 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   // a code module's entries are files the loader reads: beside the catalog's data (`<catalog>/code/<module>/…`)
   const code = Object.fromEntries(Object.entries(assets).filter(([path]) => path.startsWith('code/')));
   if (Object.keys(code).length > 0) applyPackAssets(catalogDir, packDir, undefined, code);
+  // vendor PDFs and fonts are files the catalog serves by content address: beside the catalog's data, owned by the pack
+  const blobs = Object.fromEntries(Object.entries(assets).filter(([path]) => /^(?:docs|assets|fonts)\//.test(path) && !path.endsWith('.json')));
+  if (Object.keys(blobs).length > 0) applyPackAssets(catalogDir, packDir, undefined, blobs);
   const record = installedRecordOf(plan.manifest, plan.added, assets, packDir);
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));
@@ -497,9 +583,10 @@ export function installedPackDir(packsDir: string, id: string): string {
 }
 
 /** A source per pack installed in `packsDir`, in install order (`packs.json`). */
-export function installedPackSources(packsDir: string): CatalogSource[] {
+export function installedPackSources(packsDir: string, except: readonly string[] = []): CatalogSource[] {
   return readInstalledPacks(packsDir)
-    .packs.map((pack) => installedPackDir(packsDir, pack.id))
+    .packs.filter((pack) => !except.includes(pack.id))
+    .map((pack) => installedPackDir(packsDir, pack.id))
     .filter((dir) => existsSync(dir))
     .map((dir) => fsCatalogSource(dir, `pack ${dir}`));
 }
@@ -510,9 +597,9 @@ export function installedPackSources(packsDir: string): CatalogSource[] {
  * runs is seen at once). `first` layers, when given, sit above the catalog
  * (derived files kept beside the packs). Read-only like any layered source.
  */
-export function catalogWithPacksSource(catalogDir: string, packsDir: string, options: { name?: string; first?: () => CatalogSource[] } = {}): CatalogSource {
+export function catalogWithPacksSource(catalogDir: string, packsDir: string, options: { name?: string; first?: () => CatalogSource[]; except?: readonly string[] } = {}): CatalogSource {
   const catalog = fsCatalogSource(catalogDir, options.name ?? catalogDir);
-  const layers = (): CatalogSource[] => [...(options.first?.() ?? []), catalog, ...installedPackSources(packsDir)];
+  const layers = (): CatalogSource[] => [...(options.first?.() ?? []), catalog, ...installedPackSources(packsDir, options.except)];
   return {
     name: options.name ?? catalogDir,
     root: catalogDir,

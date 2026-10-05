@@ -10,7 +10,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { catalogWithPacksSource, installedPackSources, packAssetFiles, packFiles, readInstalledPacks } from '../packs.ts';
+import { catalogWithPacksSource, flatAssetPath, installedPackSources, packAssetFiles, packFiles, readInstalledPacks } from '../packs.ts';
 import { fsCatalogSource } from '../source.ts';
 import { canonicalJson, codePointCompare, isSkippedPath, isTextPath, type BlobRef, type CatalogFiles } from './index.ts';
 
@@ -77,7 +77,7 @@ export function readFlattenedCatalog(root: string, packsDir: string | undefined)
       out.set(path, isTextPath(path) ? readFileSync(join(root, relative), 'utf8') : new Uint8Array(readFileSync(join(root, relative))));
     };
     for (const relative of packFiles(root)) if (isDepiction(relative) && !isSkippedPath(relative)) add(relative, relative);
-    for (const relative of packAssetFiles(root)) add(isDepiction(relative) ? relative : `data/${relative}`, relative);
+    for (const relative of packAssetFiles(root)) add(flatAssetPath(relative), relative);
   }
   // the stored selection and the install record live beside the packs: at the data root, flattened
   const record = readInstalledPacks(dataDir);

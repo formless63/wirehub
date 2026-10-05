@@ -53,12 +53,41 @@ export interface ChoiceSegment {
   default?: string;
 }
 
-/** The range one combination of segment values counts in. */
-export interface CounterRange {
-  /** which combinations: segment id → one value or several; absent matches every combination */
-  match?: Record<string, string | string[]>;
+/** One span of numbers, both ends included. */
+export interface CounterSpan {
   from: number;
   to: number;
+}
+
+/** A number or a span of numbers a counter never issues. */
+export type CounterExclusion = number | CounterSpan;
+
+/** One combination (or set of combinations) of segment values: segment id → one value or several. */
+export type CounterMatch = Record<string, string | string[]>;
+
+/**
+ * The range one combination of segment values counts in.
+ *
+ * `from`/`to` give one span; `spans` give several disjoint ones (a union: the
+ * counter may use any of them). `match` is one set of combinations, or a list
+ * of them (any one matching counts), so `(level 1, type C)` and `(level 2,
+ * type A)` can share a range without also matching `(1, A)`.
+ */
+export interface CounterRange {
+  /** which combinations; absent matches every combination */
+  match?: CounterMatch | CounterMatch[];
+  from?: number;
+  to?: number;
+  /** several disjoint spans instead of from/to */
+  spans?: CounterSpan[];
+  /** numbers never issued in this range */
+  exclude?: CounterExclusion[];
+}
+
+/** The numbers one combination may use: spans (a union, sorted) minus exclusions. */
+interface Allowed {
+  spans: CounterSpan[];
+  exclude: CounterSpan[];
 }
 
 export interface CounterSegment {
@@ -71,6 +100,8 @@ export interface CounterSegment {
   per?: string[];
   /** the first match sets the combination's range; none matching: 1 to the largest `width` digits hold */
   ranges?: CounterRange[];
+  /** numbers never issued by this counter, in any combination (a reserved block, an unlucky number) */
+  exclude?: CounterExclusion[];
 }
 
 export interface VariantSegment {
@@ -110,6 +141,8 @@ export const MAX_SEGMENTS = 12;
 export const MAX_TEMPLATE_LENGTH = 200;
 const MAX_CHOICE_VALUES = 200;
 const MAX_RANGES = 100;
+const MAX_SPANS = 100;
+const MAX_MATCHES = 50;
 const MAX_REGEX_LENGTH = 200;
 /** a number longer than this is never matched (bounds every regex run) */
 const MAX_PN_LENGTH = 64;
@@ -269,16 +302,58 @@ export function declarativeSchemeProblems(json: unknown): string[] {
       const width = raw['width'];
       if (typeof width !== 'number' || !Number.isInteger(width) || width < 1 || width > 12) problems.push(`${id}: width must be a whole number from 1 to 12`);
       const ranges = raw['ranges'];
+      const maxN = typeof width === 'number' ? maxOfWidth({ width }) : Number.MAX_SAFE_INTEGER;
+      const spanProblem = (r: unknown): string | undefined => {
+        if (!isObject(r) || !Number.isInteger(r['from']) || !Number.isInteger(r['to']) || (r['from'] as number) < 0 || (r['to'] as number) < (r['from'] as number)) return 'each span has whole numbers from <= to';
+        if ((r['to'] as number) > maxN) return `a span reaches ${String(r['to'])}, more than ${String(width)} digits hold`;
+        return undefined;
+      };
+      const excludeProblems = (list: unknown, what: string): void => {
+        if (list === undefined) return;
+        if (!Array.isArray(list) || list.length > MAX_SPANS) {
+          problems.push(`${id}: ${what} is a list of at most ${MAX_SPANS} numbers or spans`);
+          return;
+        }
+        for (const e of list) {
+          if (typeof e === 'number' && Number.isInteger(e) && e >= 0) continue;
+          const p = spanProblem(e);
+          if (p !== undefined) {
+            problems.push(`${id}: ${what}: ${p}`);
+            break;
+          }
+        }
+      };
       if (ranges !== undefined) {
         if (!Array.isArray(ranges) || ranges.length > MAX_RANGES) problems.push(`${id}: ranges is a list of at most ${MAX_RANGES}`);
         else {
           for (const r of ranges) {
-            if (!isObject(r) || !Number.isInteger(r['from']) || !Number.isInteger(r['to']) || (r['from'] as number) < 0 || (r['to'] as number) < (r['from'] as number)) problems.push(`${id}: each range has whole numbers from <= to`);
-            else if (typeof width === 'number' && (r['to'] as number) > maxOfWidth({ width })) problems.push(`${id}: a range reaches ${String(r['to'])}, more than ${String(width)} digits hold`);
-            if (isObject(r) && r['match'] !== undefined && !isObject(r['match'])) problems.push(`${id}: a range's match is an object of segment ids`);
+            if (!isObject(r)) {
+              problems.push(`${id}: each range is an object`);
+              continue;
+            }
+            if (r['spans'] !== undefined) {
+              if (r['from'] !== undefined || r['to'] !== undefined) problems.push(`${id}: a range has from and to, or spans, not both`);
+              if (!Array.isArray(r['spans']) || r['spans'].length === 0 || r['spans'].length > MAX_SPANS) problems.push(`${id}: spans is a list of 1 to ${MAX_SPANS} spans`);
+              else {
+                for (const sp of r['spans']) {
+                  const p = spanProblem(sp);
+                  if (p !== undefined) {
+                    problems.push(`${id}: ${p}`);
+                    break;
+                  }
+                }
+              }
+            } else {
+              const p = spanProblem(r);
+              if (p !== undefined) problems.push(`${id}: ${p.replace('each span', 'each range')}`);
+            }
+            excludeProblems(r['exclude'], "a range's exclude");
+            const m = r['match'];
+            if (m !== undefined && !isObject(m) && !(Array.isArray(m) && m.length > 0 && m.length <= MAX_MATCHES && m.every(isObject))) problems.push(`${id}: a range's match is an object of segment ids, or a list of them`);
           }
         }
       }
+      excludeProblems(raw['exclude'], 'exclude');
       if (raw['per'] !== undefined && (!Array.isArray(raw['per']) || raw['per'].some((p) => typeof p !== 'string'))) problems.push(`${id}: per is a list of segment ids`);
     } else if (type === 'variant') {
       const width = raw['width'];
@@ -300,8 +375,9 @@ export function declarativeSchemeProblems(json: unknown): string[] {
   for (const [id, raw] of byId) {
     if (raw['type'] === 'counter') {
       for (const p of (raw['per'] as string[] | undefined) ?? []) if (byId.get(p)?.['type'] !== 'choice') problems.push(`${id}: per names '${p}', which is not a choice segment`);
-      for (const r of (raw['ranges'] as { match?: Record<string, unknown> }[] | undefined) ?? []) {
-        for (const [k, v] of Object.entries(r?.match ?? {})) {
+      for (const r of (raw['ranges'] as { match?: unknown }[] | undefined) ?? []) {
+        const alts = Array.isArray(r?.match) ? (r.match as unknown[]) : r?.match === undefined ? [] : [r.match];
+        for (const [k, v] of alts.flatMap((a) => (isObject(a) ? Object.entries(a) : []))) {
           const seg = byId.get(k);
           if (seg?.['type'] !== 'choice') problems.push(`${id}: a range matches '${k}', which is not a choice segment`);
           else {
@@ -426,12 +502,37 @@ export function declarativePartNumberScheme(config: DeclarativeSchemeConfig): Pa
   /** the combination key of a counter: its `per` segments' values */
   const perOf = (c: CounterSegment): string[] => c.per ?? choices.map((s) => s.id);
   const comboOf = (c: CounterSegment, values: Record<string, string>): string => perOf(c).map((id) => `${id}=${(values[id] ?? '').toUpperCase()}`).join('|');
-  const rangeOf = (c: CounterSegment, values: Record<string, string>): { from: number; to: number } => {
+  const asSpan = (e: CounterExclusion): CounterSpan => (typeof e === 'number' ? { from: e, to: e } : e);
+  const matches = (m: CounterMatch | CounterMatch[] | undefined, values: Record<string, string>): boolean => {
+    if (m === undefined) return true;
+    return (Array.isArray(m) ? m : [m]).some((one) => Object.entries(one).every(([id, want]) => (Array.isArray(want) ? want : [want]).some((w) => w.toUpperCase() === (values[id] ?? '').toUpperCase())));
+  };
+  const rangeOf = (c: CounterSegment, values: Record<string, string>): Allowed => {
+    const global = (c.exclude ?? []).map(asSpan);
     for (const r of c.ranges ?? []) {
-      const ok = Object.entries(r.match ?? {}).every(([id, want]) => (Array.isArray(want) ? want : [want]).some((w) => w.toUpperCase() === (values[id] ?? '').toUpperCase()));
-      if (ok) return { from: r.from, to: r.to };
+      if (matches(r.match, values)) {
+        const spans = (r.spans ?? [{ from: r.from as number, to: r.to as number }]).map((x) => ({ from: x.from, to: x.to })).sort((a, b) => a.from - b.from);
+        return { spans, exclude: [...global, ...(r.exclude ?? []).map(asSpan)] };
+      }
     }
-    return { from: 1, to: maxOfWidth(c) };
+    return { spans: [{ from: 1, to: maxOfWidth(c) }], exclude: global };
+  };
+  const excludedIn = (a: Allowed, n: number): boolean => a.exclude.some((e) => n >= e.from && n <= e.to);
+  const allowedIn = (a: Allowed, n: number): boolean => a.spans.some((sp) => n >= sp.from && n <= sp.to) && !excludedIn(a, n);
+  const lowest = (a: Allowed): number => (a.spans[0] as CounterSpan).from;
+  const describeSpans = (a: Allowed): string => a.spans.map((sp) => `${String(sp.from)}–${String(sp.to)}`).join(', ');
+  /** the first number above `after` the combination may issue, if any */
+  const nextAllowed = (a: Allowed, after: number): number | undefined => {
+    let n = after + 1;
+    for (let guard = 0; guard < 1000; guard += 1) {
+      const sp = a.spans.find((x) => n <= x.to);
+      if (sp === undefined) return undefined;
+      if (n < sp.from) n = sp.from;
+      const hit = a.exclude.find((e) => n >= e.from && n <= e.to);
+      if (hit === undefined) return n;
+      n = hit.to + 1;
+    }
+    return undefined;
   };
   const allowedFor = (s: ChoiceSegment, value: string, kind: PnKind): boolean => {
     const v = s.values.find((x) => x.value.toUpperCase() === value.toUpperCase());
@@ -487,7 +588,8 @@ export function declarativePartNumberScheme(config: DeclarativeSchemeConfig): Pa
       if (counter !== undefined) {
         const n = Number(p.values[counter.id]);
         const range = rangeOf(counter, p.values);
-        if (n < range.from || n > range.to) issues.push({ code: 'pn-out-of-range', severity: 'warning', message: `${counter.label ?? counter.id} ${p.values[counter.id] as string} is outside ${String(range.from)}–${String(range.to)} for ${comboOf(counter, p.values).replace(/\|/g, ', ')}` });
+        if (excludedIn(range, n)) issues.push({ code: 'pn-excluded', severity: 'warning', message: `${counter.label ?? counter.id} ${p.values[counter.id] as string} is never issued for ${comboOf(counter, p.values).replace(/\|/g, ', ')}` });
+        else if (!allowedIn(range, n)) issues.push({ code: 'pn-out-of-range', severity: 'warning', message: `${counter.label ?? counter.id} ${p.values[counter.id] as string} is outside ${describeSpans(range)} for ${comboOf(counter, p.values).replace(/\|/g, ', ')}` });
       }
       if (variant !== undefined && p.values[variant.id] !== undefined && config.segments.length > 0) {
         const cap = variant.max;
@@ -527,13 +629,14 @@ export function declarativePartNumberScheme(config: DeclarativeSchemeConfig): Pa
       if (counter !== undefined) {
         const range = rangeOf(counter, values);
         const combo = comboOf(counter, values);
-        let top = range.from - 1;
+        let top = lowest(range) - 1;
         for (const p of parsed) {
           const n = Number(p.values[counter.id]);
-          if (comboOf(counter, p.values) === combo && n >= range.from && n <= range.to && n > top) top = n;
+          if (comboOf(counter, p.values) === combo && allowedIn(range, n) && n > top) top = n;
         }
-        if (top + 1 > range.to) return undefined;
-        values[counter.id] = String(top + 1).padStart(counter.width, '0');
+        const next = nextAllowed(range, top);
+        if (next === undefined) return undefined;
+        values[counter.id] = String(next).padStart(counter.width, '0');
       }
       if (variant !== undefined && !(variant.optional === true) && (variant.kinds === undefined || variant.kinds.includes(subject.kind))) {
         const first = variantNext(variant, undefined);
@@ -545,8 +648,8 @@ export function declarativePartNumberScheme(config: DeclarativeSchemeConfig): Pa
       // never propose a number that is taken
       if (parsed.some((p) => layout(p.values) === pn)) return undefined;
       const where = counter === undefined ? '' : ` in ${comboOf(counter, values).replace(/\|/g, ', ')}`;
-      const before = counter === undefined ? undefined : Number(values[counter.id]) - 1;
-      const after = counter === undefined || before === undefined || before < rangeOf(counter, values).from ? 'none in use' : String(before).padStart(counter.width, '0');
+      const used = counter === undefined ? [] : parsed.filter((p) => comboOf(counter, p.values) === comboOf(counter, values) && allowedIn(rangeOf(counter, values), Number(p.values[counter.id]))).map((p) => Number(p.values[counter.id]));
+      const after = counter === undefined || used.length === 0 ? 'none in use' : String(Math.max(...used)).padStart(counter.width, '0');
       return { pn, rule: 'next-in-sequence', explanation: `the next free number${where}, after ${after}` };
     },
   };

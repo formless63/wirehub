@@ -38,7 +38,8 @@ import type { Awaitable } from './storage/change-set.ts';
  * What the store holds: images (drawing photos) and, since
  * a manufacturer's PDF datasheets — a wire stock's
  * vendor documents, copied in so they open in-app. Since * 3D models too: a GLB (every STEP and STL is converted to one on the way in,
- * `models/convert.ts`) or, should one be stored as sent, an STL.
+ * `models/convert.ts`) or, should one be stored as sent, an STL. And fonts: the licensed
+ * typeface a hub sets its documents in (Settings, Branding).
  */
 export const ASSET_MIME_EXT = {
   'image/png': 'png',
@@ -46,6 +47,9 @@ export const ASSET_MIME_EXT = {
   'application/pdf': 'pdf',
   'model/gltf-binary': 'glb',
   'model/stl': 'stl',
+  'font/ttf': 'ttf',
+  'font/otf': 'otf',
+  'font/woff2': 'woff2',
 } as const;
 export type AssetMime = keyof typeof ASSET_MIME_EXT;
 
@@ -186,6 +190,11 @@ export function decodeImageDataUri(value: string): { mime: 'image/png' | 'image/
   const match = IMAGE_DATA_URI.exec(value);
   if (match === null) return undefined;
   return { mime: match[1] as 'image/png' | 'image/jpeg', bytes: Buffer.from(match[2] ?? '', 'base64') };
+}
+
+/** A font file (the hub's own typeface): never a photo, never a vendor document. */
+export function isFontAsset(summary: Pick<AssetSummary, 'mime'>): boolean {
+  return summary.mime.startsWith('font/');
 }
 
 /** A 3D model (the Library's 3D view) — never a photo, never a vendor document. */

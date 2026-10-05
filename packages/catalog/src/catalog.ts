@@ -26,6 +26,8 @@ import type {
   ConnectorRecord,
   DbRules,
   ValidationRule,
+  BenchStepRule,
+  DrawingArtData,
   ConditioningRecipe,
   DeviceProfile,
   HazardRule,
@@ -192,6 +194,10 @@ export function createCatalog(source: CatalogSource) {
     const rules = loadRules();
     // the declarative validation rules (`validation-rules.json`, an array of rule records; a pack may ship them)
     const validationRules = readOptional<ValidationRule[]>('validation-rules.json');
+    // the shop's work instructions as data (`bench-rules.json`, an array of rule records; a pack may ship them)
+    const benchRules = readOptional<BenchStepRule[]>('bench-rules.json');
+    // drawing art as data (`drawing-art.json`: faces, plugs and cutaways by definition id; a pack may ship it)
+    const drawingArt = readOptional<DrawingArtData>('drawing-art.json');
     // the device resolver's library (`devices.json`, `conditioning-recipes.json`, `hazards.json`, `resolver-policy.json`; packs ship them)
     const devices = readOptional<DeviceProfile[]>('devices.json');
     const conditioningRecipes = readOptional<ConditioningRecipe[]>('conditioning-recipes.json');
@@ -207,6 +213,8 @@ export function createCatalog(source: CatalogSource) {
       ...(resolverPolicy !== undefined && typeof resolverPolicy === 'object' && !Array.isArray(resolverPolicy) ? { resolverPolicy } : {}),
       ...(rules === undefined ? {} : { rules }),
       ...(Array.isArray(validationRules) && validationRules.length > 0 ? { validationRules } : {}),
+      ...(Array.isArray(benchRules) && benchRules.length > 0 ? { benchRules } : {}),
+      ...(typeof drawingArt === 'object' && drawingArt !== null && !Array.isArray(drawingArt) && (drawingArt.faces !== undefined || drawingArt.plugs !== undefined || drawingArt.cutaways !== undefined) ? { drawingArt } : {}),
       connectors: loadConnectors(),
       wires: loadWires(),
       components: loadComponents(),

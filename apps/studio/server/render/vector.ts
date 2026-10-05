@@ -6,14 +6,15 @@
  * `translate`/`rotate` transforms; fill, stroke, width, dash, cap, opacity,
  * text-anchor, bold) and refuses an element outside it, so a drawing that
  * grows a new primitive fails a test instead of printing without it.
- * Text is set in the bundled Liberation Sans, which the PDF embeds as a
+ * Text is set in the bundled Liberation Sans (or the hub's own TrueType typeface, when branding
+ * registered one), which the PDF embeds as a
  * TrueType font (subset to the glyphs used), so it looks the same wherever it
  * is opened: it is drawn as glyph ids, and the page names the glyphs it used.
  * Pure and deterministic.
  */
 
 import { latin } from './layout.ts';
-import { liberation, type Face } from './fonts.ts';
+import { pdfFont, type Face, type PdfFont } from './fonts.ts';
 import type { PdfPage } from './pdf.ts';
 
 const n = (v: number): string => String(Math.round(v * 1000) / 1000);
@@ -102,6 +103,8 @@ export function svgToVectorPdfPage(svg: string, page: { width: number; height: n
   /** the glyphs the page's text uses, by face and glyph id, with the character each stands for */
   const glyphs = new Map<string, { face: Face; gid: number; cp: number }>();
   const clips = new Map<string, { x: number; y: number; w: number; h: number }>();
+  /** the font chosen for each face the page's text uses, so the document embeds what was measured */
+  const fonts: Partial<Record<Face, PdfFont>> = {};
   const out: string[] = [];
   const sx = page.width / (vb[2] as number);
   const sy = page.height / (vb[3] as number);
@@ -238,13 +241,15 @@ export function svgToVectorPdfPage(svg: string, page: { width: number; height: n
       content: out.join('\n'),
       alphas: [...alphas].sort(([a], [b]) => (a < b ? -1 : 1)).map(([key, [ca, CA]]) => ({ key, ca, CA })),
       glyphs: [...glyphs].sort(([a], [b]) => (a < b ? -1 : 1)).map(([, g]) => g),
+      fonts,
     };
   }
 
   function emitText(attrs: Attrs, style: Style, raw: string): void {
     if (style.fill === 'none' || style.fillOpacity === 0) return;
     const face: Face = style.bold ? 'bold' : 'regular';
-    const font = liberation(face);
+    const chosen = (fonts[face] ??= pdfFont(face));
+    const font = chosen.font;
     // a character the face has no glyph for is shown as the standard-font text would show it
     let body = '';
     for (const ch of raw) body += font.glyphFor(ch.codePointAt(0) as number) === 0 ? latin(ch) : ch;

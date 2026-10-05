@@ -24,6 +24,7 @@
 
 import { breakoutAt, findComponent, findConnector, findMechanical, findPcba, findWire, flattenSubassemblies, hasSubassemblies, type CableDesign, type Db, type SegmentInstance } from '@wirehub/model';
 
+import { brandFontFaces, brandStack } from './drawing/brand-font.ts';
 import { textWidth } from './drawing/render.ts';
 import { trunkSegment } from './drawing/model.ts';
 import type { DrawingMeta } from './drawing/model.ts';
@@ -458,7 +459,8 @@ export function formboardLayout(board: Formboard, options: FormboardSheetOptions
 const INK = '#1a1a1a';
 const MUTED = '#6b6b6b';
 const ACCENT = '#0b5cad';
-const FONT = "'CS Sans', 'Liberation Sans', Helvetica, Arial, sans-serif";
+const FONT_BASE = "'CS Sans', 'Liberation Sans', Helvetica, Arial, sans-serif";
+const fontStack = (): string => brandStack(FONT_BASE);
 
 interface Frame {
   /** board mm to paper mm */
@@ -913,7 +915,7 @@ function clip(value: string, max: number): string {
 
 function svgOpen(width: number, height: number, page: number, pages: number, kind: string): string {
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n2(width)} ${n2(height)}" width="${n2(width)}mm" height="${n2(height)}mm" data-formboard="${kind}" data-page="${page}" data-pages="${pages}" font-family="${FONT}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n2(width)} ${n2(height)}" width="${n2(width)}mm" height="${n2(height)}mm" data-formboard="${kind}" data-page="${page}" data-pages="${pages}" font-family="${fontStack()}">` +
     `<rect width="${n2(width)}" height="${n2(height)}" fill="#ffffff"/>`
   );
 }
@@ -1061,7 +1063,7 @@ export function formboardHtml(board: Formboard, options: FormboardSheetOptions =
     .join('\n');
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(board.title)} — formboard</title>` +
-    `<style>@page{size:${size.width}mm ${size.height}mm;margin:0}html,body{margin:0;background:#e9e9e9}` +
+    `<style>${brandFontFaces()}@page{size:${size.width}mm ${size.height}mm;margin:0}html,body{margin:0;background:#e9e9e9}` +
     `.cs-formboard-page{width:${size.width}mm;height:${size.height}mm;margin:0 auto 6mm;background:#fff;page-break-after:always;break-after:page;overflow:hidden}` +
     `.cs-formboard-page svg{display:block;width:${size.width}mm;height:${size.height}mm}` +
     `@media print{html,body{background:#fff}.cs-formboard-page{margin:0}}</style></head><body>\n${pages}\n</body></html>`

@@ -11,6 +11,7 @@ import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
 import type { DbRules, DesignElectrical } from './electrical.ts';
 import type { ValidationRule } from './rules.ts';
+import type { BenchStepRule } from './bench-types.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
 import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
@@ -639,6 +640,19 @@ export interface Db {
    * `validateDesign` (design subjects). Absent means none.
    */
   validationRules?: ValidationRule[];
+  /**
+   * The shop's work instructions as data (`bench-types.ts`, the catalog's
+   * `bench-rules.json`; a data pack may ship them): the build sheet prints
+   * their steps in place of the generic ones, after any module's own provider.
+   * Absent means none.
+   */
+  benchRules?: BenchStepRule[];
+  /**
+   * Drawing art supplied as data (the catalog's `drawing-art.json`; a data pack may ship it): traced
+   * connector faces and plugs and wire cutaways, by definition id. Presentation data the model carries
+   * and never reads: `@wirehub/docs` draws with it (`DrawingArt`), and the studio checks it on the way in.
+   */
+  drawingArt?: DrawingArtData;
   /** device profiles (`devices.ts`, the catalog's `devices.json`): what cables plug into; absent means none */
   devices?: DeviceProfile[];
   /** conditioning recipes (`conditioning-recipes.json`): the parts a level change or a termination takes */
@@ -649,6 +663,14 @@ export interface Db {
   resolverPolicy?: ResolverPolicy;
   /** product families (`products.ts`, the catalog's `products.json`): the designs a shop sells, grouped, with their variants */
   products?: ProductFamily[];
+}
+
+/** The shape of `drawing-art.json`; the values are `DrawingArt`'s (`@wirehub/docs`), which the model does not know. */
+export interface DrawingArtData {
+  src?: string;
+  faces?: Record<string, unknown>;
+  plugs?: Record<string, unknown>;
+  cutaways?: Record<string, unknown>;
 }
 
 /* ------------------------------------------------------------------ *

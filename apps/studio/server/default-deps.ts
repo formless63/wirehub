@@ -90,19 +90,22 @@ export function fileRuntimeSettings(deps: WorkbenchDeps, env: Env, secrets: Secr
   return settings;
 }
 
-const DEPICTION_MEDIA: Readonly<Record<string, string>> = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+const DEPICTION_MEDIA: Readonly<Record<string, string>> = { svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', pdf: 'application/pdf', ttf: 'font/ttf', otf: 'font/otf', woff2: 'font/woff2' };
+
+/** The binary files a pack installs beside the catalog: its vendor PDFs (`docs/`, `assets/`) and fonts. */
+const PACK_BLOB_PATH = /^data\/(?:docs|pack-assets|fonts)\//;
 
 /**
  * A depiction file (the base's `depictions/`, a pack's) by content address:
  * the database backend serves every binary file of the catalog from its blob
  * store, so the file backend answers for the same set (S1).
  */
-function depictionBlob(sha: string, packsDir: string | undefined): { bytes: Uint8Array; mediaType: string } | undefined {
-  for (const [path, content] of readFlattenedCatalog(dataPath('..'), packsDir)) {
-    if (typeof content === 'string' || !path.startsWith('depictions/')) continue;
+export function depictionBlob(sha: string, packsDir: string | undefined, root: string = dataPath('..')): { bytes: Uint8Array; mediaType: string; filename?: string } | undefined {
+  for (const [path, content] of readFlattenedCatalog(root, packsDir)) {
+    if (typeof content === 'string' || !(path.startsWith('depictions/') || PACK_BLOB_PATH.test(path))) continue;
     const bytes = content as Uint8Array;
     if (createHash('sha256').update(bytes).digest('hex') !== sha) continue;
-    return { bytes: new Uint8Array(bytes), mediaType: DEPICTION_MEDIA[path.slice(path.lastIndexOf('.') + 1)] ?? 'application/octet-stream' };
+    return { bytes: new Uint8Array(bytes), mediaType: DEPICTION_MEDIA[path.slice(path.lastIndexOf('.') + 1)] ?? 'application/octet-stream', ...(PACK_BLOB_PATH.test(path) ? { filename: path.slice(path.lastIndexOf('/') + 1) } : {}) };
   }
   return undefined;
 }
@@ -150,7 +153,7 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     // GET /api/blobs/:sha: the file backend's content-addressed files are its uploads
     blob: async (sha) => {
       const found = await assets.get(sha);
-      if (found !== undefined) return { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime };
+      if (found !== undefined) return { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime, filename: found.record.originalName };
       return depictionBlob(sha, livePacksDir());
     },
     // a restore reads an earlier drawing photo by its hash: uploads are never removed

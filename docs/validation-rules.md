@@ -65,18 +65,41 @@ select designs by (`mil-spec`, `export`).
 | `each` | One per | Fields |
 | --- | --- | --- |
 | `design` | the design | the `design` fields at the top |
-| `connector` | connector instance | `id def role label family gender construction sourcing partNumber pinCount`, `pinsJoined`, `pinsOpen`, `pins` (`id signal joined`), `mechanicals` (`id def kind qty label`), `mechanicalKinds`, and the other plain fields of its definition |
+| `connector` | connector instance | `id def role label family gender construction sourcing partNumber pinCount`, `pinsJoined`, `pinsOpen`, `pins` (`id signal joined`), `mechanicals` (`id def kind qty label`), `mechanicalKinds`, `shells` / `shellCount`, `boards` / `boardCount`, `ends` (run ends joined to it, `w1@a`), and the other plain fields of its definition |
 | `segment` | wire run | `id def role lengthMm label partNumber odMm conductorCount minAreaMm2 maxAreaMm2` |
 | `conductor` | conductor of a run | `segment path id def wire areaMm2 material color formation lengthMm signals signalKinds joinedA joinedB` |
 | `component` | component instance | `id def location label kind category value partNumber …` |
-| `pcba` | board instance | `id def label partNumber …` |
-| `mechanical` | mechanical instance | `id def qty attachedTo attachedFamily kind label partNumber …` |
+| `pcba` | board instance | `id def label partNumber …`, `terminalCount`, `terminalsJoined`, `terminals` (`id role signal joined`), `connectors` (joined to it: `id def label family gender partNumber role pinCount`), `connectorFamilies`, `shells` / `shellCount` (shells of those connectors) |
+| `mechanical` | mechanical instance | `id def qty attachedTo attachedFamily kind label partNumber …`, and its host connector: `host` (`id def label family gender partNumber role pinCount`), `hostDef`, `hostPartNumber` |
+| `cable-end` | end (`a` or `b`) of each wire run | `id` (`w1@a`), `segment segmentDef end role label`, `connectors` / `connectorCount` / `connectorFamilies` (joined at this end), `shells` / `shellCount` (attached to those connectors), `mechanicals` / `mechanicalKinds`, `boards` / `boardCount` (joined here, directly or through a connector: `id def label partNumber`), `flying` (nothing but bare conductors) |
 | `signal-path` | pair of signal-tagged pins or board terminals joined by copper and parts | `signal signalKind from to` (`instance terminal def family`), `components` (`instance def kind category value label`), `componentKinds`, `componentCategories`, `hops` |
 | `connector-def`, `wire-def`, `component-def`, `pcba-def`, `mechanical-def` | library definition (run by `validateDb`) | its plain fields, plus `pinCount`, `conductorCount`, `minAreaMm2`, `maxAreaMm2` |
 
 `signals` and `signalKinds` come from the signal tags of the pins the conductor's net reaches
 (`signalKinds` are the vocabulary kinds: `power`, `ground`, `data` …); signals of kind `none`
 (`any`, `nc`) are left out.
+
+### Boards, shells and cable ends
+
+`cable-end` is the "for each cable end" selector. Together with the lists on `connector`, `pcba`
+and `mechanical` it answers "the end's shell" and "the board at this end" without code:
+
+```json
+{ "id": "end-needs-shell", "severity": "error", "each": "cable-end",
+  "where": { "gt": [{ "path": "connectorCount" }, 0] },
+  "require": { "gt": [{ "path": "shellCount" }, 0] },
+  "message": "{segment} end {end} has a connector and no shell", "src": "shop rule" }
+
+{ "id": "board-end-part-number", "severity": "warning", "each": "cable-end",
+  "where": { "gt": [{ "path": "boardCount" }, 0] },
+  "require": { "some": { "in": "boards", "where": { "exists": { "path": "partNumber" } } } },
+  "message": "the board at {id} has no part number", "src": "shop rule" }
+```
+
+What an end holds is read from the design's joints: the connectors and boards its conductors are
+joined to, the shells attached to those connectors, and a board a joined connector straddles.
+Each related list (shells, boards, connectors …) is cut at 50 entries; the usual bounds (subjects
+per rule, step budget) apply to these subjects as to the others.
 
 ## The four examples
 

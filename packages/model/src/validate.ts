@@ -30,6 +30,7 @@ import {
 import { compatibilityIssues } from './compat.ts';
 import { cavityIssues, terminationDbIssues } from './crimp.ts';
 import { pnDuplicateIssues } from './part-number-health.ts';
+import { benchRuleProblems } from './bench-types.ts';
 import { ruleIssuesForDesign, ruleIssuesForLibrary } from './rules.ts';
 import type { PartNumberScheme } from './part-numbers.ts';
 import { breakoutFates, breakoutIssues, inScope, segmentElectricalPaths } from './breakouts.ts';
@@ -820,6 +821,10 @@ export function validateDb(db: Db, options: { scheme?: PartNumberScheme } = {}):
   issues.push(...terminationDbIssues(db));
   // declarative validation rules over the library, and rules that cannot be used (`rules.ts`)
   issues.push(...ruleIssuesForLibrary(db));
+  // the shop's work instructions as data: a rule that cannot be printed is a warning, never an error (`bench-types.ts`)
+  for (const problem of benchRuleProblems(Array.isArray(db.benchRules) ? db.benchRules : [], 'bench-rules.json')) {
+    issues.push({ code: 'bench-rule-invalid', severity: 'warning', message: problem, where: 'bench-rules' });
+  }
 
   // devices, conditioning recipes, hazards and the ranking policy (`devices.ts`)
   issues.push(...deviceLibraryIssues(db));

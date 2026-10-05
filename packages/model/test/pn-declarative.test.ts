@@ -196,3 +196,66 @@ describe('a bad definition is refused with every problem named', () => {
     expect(schemeFromConfig({ prefixes: { connector: 'J' } }).parse('j-00001')).toBe('J-00001');
   });
 });
+
+describe('exclusions, range unions and multi-segment combinations', () => {
+  const withSeq = (patch: Record<string, unknown>): DeclarativeSchemeConfig => ({
+    ...EXAMPLE,
+    segments: EXAMPLE.segments.map((s) => (s.id === 'seq' && s.type === 'counter' ? ({ ...s, ranges: undefined, ...patch } as typeof s) : s)),
+  });
+  const pn = (n: number, p = '1W'): { pn: string; source: string } => ({ pn: `${p}-${String(n).padStart(6, '0')}-00`, source: 's' });
+
+  it('never issues an excluded number or span, and reports one that is in use', () => {
+    const s = declarativePartNumberScheme(withSeq({ exclude: [3, { from: 5, to: 7 }] }));
+    expect(declarativeSchemeProblems(withSeq({ exclude: [3, { from: 5, to: 7 }] }))).toEqual([]);
+    expect(s.suggest({ kind: 'wire', label: 'x' }, [pn(1), pn(2)])?.pn).toBe('1W-000004-00');
+    expect(s.suggest({ kind: 'wire', label: 'x' }, [pn(1), pn(2), pn(4)])?.pn).toBe('1W-000008-00');
+    expect(s.check('1W-000006-00', 'wire').map((i) => i.code)).toEqual(['pn-excluded']);
+    expect(s.check('1W-000008-00', 'wire')).toEqual([]);
+  });
+
+  it('a range-level exclusion applies only to that range', () => {
+    const s = declarativePartNumberScheme(withSeq({ ranges: [{ match: { type: 'W' }, from: 1, to: 20, exclude: [2] }, { from: 1, to: 20 }] }));
+    expect(s.suggest({ kind: 'wire', label: 'x' }, [pn(1)])?.pn).toBe('1W-000003-00');
+    expect(s.suggest({ kind: 'connector', label: 'x' }, [pn(1, '1C')])?.pn).toBe('1C-000002-00');
+  });
+
+  it('a counter may use a union of disjoint ranges, in order', () => {
+    const cfg = withSeq({ ranges: [{ spans: [{ from: 100, to: 102 }, { from: 500, to: 501 }, { from: 10, to: 11 }] }] });
+    expect(declarativeSchemeProblems(cfg)).toEqual([]);
+    const s = declarativePartNumberScheme(cfg);
+    const next = (known: number[]): string | undefined => s.suggest({ kind: 'wire', label: 'x' }, known.map((n) => pn(n)))?.pn;
+    expect(next([])).toBe('1W-000010-00');
+    expect(next([10])).toBe('1W-000011-00');
+    expect(next([10, 11])).toBe('1W-000100-00');
+    expect(next([100, 102])).toBe('1W-000500-00');
+    expect(next([501])).toBeUndefined();
+    expect(s.check('1W-000300-00', 'wire').map((i) => i.code)).toEqual(['pn-out-of-range']);
+    expect(s.check('1W-000501-00', 'wire')).toEqual([]);
+  });
+
+  it('a range matches several combinations of several segments without matching the cross product', () => {
+    const cfg = withSeq({
+      ranges: [
+        { match: [{ level: '1', type: 'C' }, { level: '2', type: 'A' }], from: 1000, to: 1999 },
+        { from: 1, to: 99 },
+      ],
+    });
+    expect(declarativeSchemeProblems(cfg)).toEqual([]);
+    const s = declarativePartNumberScheme(cfg);
+    expect(s.suggest({ kind: 'connector', label: 'x' }, [])?.pn).toBe('1C-001000-00');
+    expect(s.suggest({ kind: 'design', label: 'x' }, [])?.pn).toBe('2A-001000-00');
+    expect(s.suggest({ kind: 'wire', label: 'x' }, [])?.pn).toBe('1W-000001-00');
+  });
+
+  it('refuses bad exclusions, spans and matches with every problem named', () => {
+    const p = (patch: Record<string, unknown>): string => declarativeSchemeProblems(withSeq(patch)).join(' | ');
+    expect(p({ exclude: [{ from: 9, to: 1 }] })).toMatch(/exclude.*from <= to/);
+    expect(p({ exclude: ['x'] })).toMatch(/exclude/);
+    expect(p({ ranges: [{ spans: [], }] })).toMatch(/spans is a list/);
+    expect(p({ ranges: [{ spans: [{ from: 1, to: 5 }], from: 1, to: 2 }] })).toMatch(/not both/);
+    expect(p({ ranges: [{ spans: [{ from: 1, to: 9999999 }] }] })).toMatch(/more than 6 digits/);
+    expect(p({ ranges: [{ match: [{ level: '9' }], from: 1, to: 2 }] })).toMatch(/not one of its values/);
+    expect(p({ ranges: [{ match: [], from: 1, to: 2 }] })).toMatch(/list of them/);
+    expect(p({ exclude: Array.from({ length: 101 }, (_, i) => i) })).toMatch(/at most 100/);
+  });
+});
