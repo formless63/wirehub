@@ -69,6 +69,7 @@ pack can ship:
 | design rules ("a boot on every connector of family F", "power conductors at least 0.5 mm²") | **validation rules** | Settings, Validation rules; a pack's `validation-rules.json` (`docs/validation-rules.md`) |
 | another system told when something happens (an ERP, a chat channel) | **event webhooks**, and the API with a token | Settings, Webhooks (`docs/webhooks.md`) |
 | your catalog: connectors, wires, signals, example cables | a **catalog pack** | `docs/catalog-store.md` |
+| the devices your cables connect, the parts a level change takes, connections never to make, how options rank | **device profiles, conditioning recipes, hazards, a ranking policy** | `/resolver`, Devices and recipes; a pack's `devices.json` … (`docs/resolver.md`) |
 | the organisation's name, logo, thresholds, approvals, alerts | **Settings** | `specs/runtime-settings.md` |
 
 An integration is rarely code: the system subscribes to **version released** and pulls the BOM
@@ -496,8 +497,9 @@ It is installed once by `<App>` and removed when the app unmounts.
   person reviews and accepts them in the Library. The file formats themselves are read by the
   public `modules/board-import`; a private module adds only the share's discovery (which
   folder, which revision is released) and calls the same parsing.
-- *A product resolver*: rules and a panel; its recipe data under `extensions.<module>`; a
-  commit hook that records hand edits against the recipe.
+- *A shop's products*: not a module any more. The device resolver, recipes and drift checks are in
+  the base (`docs/resolver.md`); the shop's devices, recipes, hazards and ranking policy are data
+  in a private pack. A module adds only what data cannot say (a rule that needs code).
 - *House rules*: a validation rule `acme/no-unsleeved-splice` that warns when a splice has no
   heat-shrink instance attached.
 

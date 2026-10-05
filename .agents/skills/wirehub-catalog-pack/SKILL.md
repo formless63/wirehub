@@ -51,7 +51,7 @@ Required by `readPackManifest`: `format: 1`, a kebab-case `id`, `version` (semve
 yet (a store index pins each bundle by sha256 instead) (`docs/catalog-store.md` sections 2 and 7). The manifest `id` should equal
 the `id` of the module's `catalogPacks` entry, and `version`/`license` should match it too.
 
-## Configuration in a pack: rules and a numbering scheme
+## Configuration in a pack: rules, a numbering scheme, the resolver's data
 
 A pack can carry configuration as data, not only records (`docs/catalog-store.md` section 2):
 
@@ -66,6 +66,14 @@ A pack can carry configuration as data, not only records (`docs/catalog-store.md
   answer carries `offers.partNumberScheme`, Settings, Part numbers lists it, and an owner confirms the
   switch. Offer one only when the pack's records come with a convention that needs it; verification
   refuses a definition that cannot be used. The manifest is what a publisher signature covers.
+- **The resolver's data**: `devices.json`, `conditioning-recipes.json` and `hazards.json` are record
+  files (they merge by id like `connectors.json`; a hub saving a record of the same id keeps its own
+  version) and `resolver-policy.json` is one object (avoid it in a pack unless the pack is a hub's
+  whole configuration: the first layer's policy wins). Devices name the pack's own interfaces,
+  bodies, connectors and boards or the starter's; recipes name components the pack ships or the
+  starter has. `verify-pack.mjs` runs `validateDb`, which checks them, and the pack's test should
+  resolve at least one pair and derive a design that validates clean (`modules/pc-serial/test/resolver.test.ts`).
+  A hub cannot disable the pack while a design's recipe names one of its devices.
 - The pack carries **no shop part numbers** and no `part-numbers.json` of its own (the layered read
   would make it the hub's scheme silently).
 

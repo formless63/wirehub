@@ -26,6 +26,7 @@ feature belongs to the shop, it says "a private module".
 | Class | Meaning |
 | --- | --- |
 | **present** | same or better |
+| **present (generic)** | was missing, private; rebuilt in the base as a generic engine, its data left to packs (`docs/boundaries.md` §11) |
 | **degraded** | present, but weaker (the row says how) |
 | **missing, generic** | belongs in the base or a public module |
 | **missing, private** | belongs to a future private module (already covered by `docs/boundaries.md`) |
@@ -35,12 +36,13 @@ feature belongs to the shop, it says "a private module".
 
 | Class | Count |
 | --- | --- |
-| present | 93 |
+| present | 94 |
+| present (generic) | 6 |
 | degraded | 7 |
-| missing, generic | 4 |
-| missing, private | 27 |
+| missing, generic | 3 |
+| missing, private | 22 |
 | dropped | 7 |
-| **total** | **138** |
+| **total** | **139** |
 
 The base came through almost intact. The model, the validation rules (every issue
 code except the product, route, resolver and private-numbering ones), the editor, the
@@ -90,8 +92,8 @@ What was lost is mostly glue around the private parts:
 | Auto-arrange, fit view, find pin, add part (Tab / `+`), select and pan tools | present | |
 | Rename, duplicate, delete, new cable, theme, go-to commands | present | |
 | Two shop-specific "copy as variant" commands | dropped | |
-| Connect known pins: propose missing joints | missing, generic | its generic half needs only signal tags: cs-5k1.8 |
-| Recipe and overrides command | missing, private | |
+| Connect known pins: propose missing joints | present | signal tags (cs-5k1.8), and the joints a design's recipe derives (boundaries §11) |
+| Recipe and overrides command | present (generic) | the editor's Recipe tab: record as overrides, re-derive, detach (boundaries §11) |
 
 ### Cable list
 
@@ -127,7 +129,7 @@ What was lost is mostly glue around the private parts:
 | Breakout editing: split a segment, set fates, attach legs | present | |
 | Moulds and other mechanicals on the canvas | present | |
 | Inspector tabs: connection, part, nets, issues, notes | present | |
-| Recipe tab and recipe bar | missing, private | |
+| Recipe tab and recipe bar | present (generic) | the Recipe tab, its drift badge (boundaries §11) |
 | Advanced JSON pane | present | |
 | Unsaved-changes guard, local draft persistence, offline cache | present | |
 | Edit locks: request, decline, takeover, lock banner | present | |
@@ -138,7 +140,7 @@ What was lost is mostly glue around the private parts:
 | --- | --- | --- |
 | Wizard fast path: ends, stock, landing by role | present | now reads the vocabulary, not hard-coded signal names |
 | A shop-specific bare-head preset | dropped | boundaries §10 |
-| Resolver journey (device and requirement ranking) | missing, private | |
+| Resolver journey (device and requirement ranking) | present (generic) | `/resolver`, "Which cable do I need?" (`docs/resolver.md`) |
 | Connector body templates | present | domain templates in modules |
 
 ### Library
@@ -217,12 +219,12 @@ What was lost is mostly glue around the private parts:
 | --- | --- | --- |
 | Structural validation: references, paths, ends, pigtails, breakouts, scope, screens | present | every code carried over |
 | Product and production-route validation | missing, private | |
-| Recipe drift and override checks | missing, private | |
+| Recipe drift and override checks | present (generic) | `recipe-drift` and kin in `validateDesign` |
 | Nets, trace, bonds, breakout derivations | present | |
 | Schema migration v1 to v4 | present | |
 | Wire recipes | present | |
 | Kits | present | the SKU grammar is now a generic token rule |
-| Devices, rules, resolver, recipe inference | missing, private | |
+| Devices, rules, resolver, recipe inference | present (generic) | the engines in `@wirehub/model`; devices, recipes, hazards and policy are data (boundaries §11) |
 | Board proposals | missing, private | |
 
 ### Server and API
@@ -232,7 +234,8 @@ What was lost is mostly glue around the private parts:
 | Designs: list, read, write, create, duplicate, rename, delete | present | |
 | Definitions: CRUD and usage | present | |
 | Vocab, tags, wire library, builds, drawings, assets, depictions, models, versions, locks, me, backup routes | present | |
-| Rules, devices, ERP identity, register and reconciliation routes | missing, private | |
+| Rules, devices routes | present (generic) | `/api/resolver/…` (`docs/resolver.md`) |
+| ERP identity, register and reconciliation routes | missing, private | |
 | Board import, part revisions, lineup, products, proposals and ERP routes | missing, private | |
 | Validate before write, If-Match / ETag, unit of work, write lock, write journal | present | |
 | API index and 404 hints | present | |
