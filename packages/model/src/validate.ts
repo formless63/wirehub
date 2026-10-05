@@ -39,6 +39,8 @@ import { recordMetaIssues } from './provenance.ts';
 import { validateVocab, vocabEntry, vocabReferenceIssues } from './vocab.ts';
 import { validateInterfaces } from './interfaces.ts';
 import { validateKits } from './kits.ts';
+import { deviceLibraryIssues } from './devices.ts';
+import { recipeIssues } from './cable-recipe.ts';
 import {
   bondedSetOf,
   isFullyBonded,
@@ -818,6 +820,8 @@ export function validateDb(db: Db, options: { scheme?: PartNumberScheme } = {}):
   // declarative validation rules over the library, and rules that cannot be used (`rules.ts`)
   issues.push(...ruleIssuesForLibrary(db));
 
+  // devices, conditioning recipes, hazards and the ranking policy (`devices.ts`)
+  issues.push(...deviceLibraryIssues(db));
   return issues;
 }
 
@@ -1100,6 +1104,8 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
   issues.push(...breakoutIssues(design, db));
   // other designs placed as sub-assemblies (`subassemblies.ts`)
   issues.push(...subassemblyIssues(design, db));
+  // a design derived from devices: drift against its recipe (`cable-recipe.ts`)
+  issues.push(...recipeIssues(design, db));
 
   // conductor ends soldered at one end and floating at the other; a breakout
   // accounts for its ends: a pass-through continues (connected), an NC end

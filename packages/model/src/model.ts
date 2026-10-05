@@ -15,6 +15,8 @@ import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
 import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
 import type { AssemblyLibrary } from './subassemblies.ts';
+import type { ConditioningRecipe, DeviceProfile, HazardRule, ResolverPolicy } from './devices.ts';
+import type { CableRecipe } from './cable-recipe.ts';
 
 /* ------------------------------------------------------------------ *
  * Wire structure — hierarchical elements
@@ -636,6 +638,14 @@ export interface Db {
    * `validateDesign` (design subjects). Absent means none.
    */
   validationRules?: ValidationRule[];
+  /** device profiles (`devices.ts`, the catalog's `devices.json`): what cables plug into; absent means none */
+  devices?: DeviceProfile[];
+  /** conditioning recipes (`conditioning-recipes.json`): the parts a level change or a termination takes */
+  conditioningRecipes?: ConditioningRecipe[];
+  /** hazards (`hazards.json`) over the built-in ones: connections the resolver refuses or warns about */
+  hazards?: HazardRule[];
+  /** how the resolver ranks options (`resolver-policy.json`); absent = the default */
+  resolverPolicy?: ResolverPolicy;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1033,6 +1043,12 @@ export interface CableDesign {
   labourMinutes?: number;
   /** this design's electrical data: the current a pin carries here and rule thresholds over the organisation's (`electrical.ts`) */
   electrical?: DesignElectrical;
+  /**
+   * The devices this cable connects and the resolver's choices it was derived
+   * from (`cable-recipe.ts`): re-derivable, and checked for drift against the
+   * body. Absent: a hand design.
+   */
+  recipe?: CableRecipe;
   src: string;
   /**
    * Data owned by modules, keyed by module id (`docs/modules.md`). The base

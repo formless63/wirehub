@@ -26,6 +26,10 @@ import type {
   ConnectorRecord,
   DbRules,
   ValidationRule,
+  ConditioningRecipe,
+  DeviceProfile,
+  HazardRule,
+  ResolverPolicy,
   CostingRules,
   ElectricalRules,
   Db,
@@ -187,7 +191,16 @@ export function createCatalog(source: CatalogSource) {
     const rules = loadRules();
     // the declarative validation rules (`validation-rules.json`, an array of rule records; a pack may ship them)
     const validationRules = readOptional<ValidationRule[]>('validation-rules.json');
+    // the device resolver's library (`devices.json`, `conditioning-recipes.json`, `hazards.json`, `resolver-policy.json`; packs ship them)
+    const devices = readOptional<DeviceProfile[]>('devices.json');
+    const conditioningRecipes = readOptional<ConditioningRecipe[]>('conditioning-recipes.json');
+    const hazards = readOptional<HazardRule[]>('hazards.json');
+    const resolverPolicy = readOptional<ResolverPolicy>('resolver-policy.json');
     return {
+      ...(Array.isArray(devices) && devices.length > 0 ? { devices } : {}),
+      ...(Array.isArray(conditioningRecipes) && conditioningRecipes.length > 0 ? { conditioningRecipes } : {}),
+      ...(Array.isArray(hazards) && hazards.length > 0 ? { hazards } : {}),
+      ...(resolverPolicy !== undefined && typeof resolverPolicy === 'object' && !Array.isArray(resolverPolicy) ? { resolverPolicy } : {}),
       ...(rules === undefined ? {} : { rules }),
       ...(Array.isArray(validationRules) && validationRules.length > 0 ? { validationRules } : {}),
       connectors: loadConnectors(),

@@ -59,7 +59,7 @@ import { fsCatalogSource, type CatalogSource } from './source.ts';
  * ------------------------------------------------------------------ */
 
 /** The record files of a catalog; vocabulary lists and designs are found by listing. */
-const RECORD_FILES = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas'].map((n) => `${n}.json`);
+const RECORD_FILES = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'devices', 'conditioning-recipes', 'hazards'].map((n) => `${n}.json`);
 
 /** One record, with the file it sits in. A design is a file of its own: its id is the file's name. */
 export interface LocatedRecord {
