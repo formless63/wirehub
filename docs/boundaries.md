@@ -198,7 +198,8 @@ starter holds now.
 | the three ERP API / BOM integration specs | MODULE | the ERP contract |
 | `pcba-importer.md`, `board-landings.md` | MODULE | board import over the share (its derivation rules, reimplemented generically, are in `modules/board-import/README.md`) |
 | `standard-work.md`, `prototypes/standard-work-compose.mjs`, `standard-work.questions.json` | MODULE | the shop's work instructions |
-| `shield-bonding.md`, `schematic-svg.md`, `depictions.md`, `connector-art-review.md`, `studio-workbench.md`, `library-overhaul.md`, `ui-redesign.md`, `mockups/` | DROP (for now) | design history of the shared code; full of private examples. Their rules survive in the code's comments and in `SPEC.md`; re-specifying them generically is a follow-up (bead) |
+| `shield-bonding.md`, `schematic-svg.md`, `depictions.md`, `studio-workbench.md` (versions and workbench UX), `library-overhaul.md` | BASE-gen | re-specified generically from the code, with starter-catalog examples: `specs/shield-bonding.md`, `specs/schematic.md`, `specs/depictions.md`, `specs/design-versions.md`, `specs/workbench-ux.md`, `specs/library.md` |
+| `connector-art-review.md`, `ui-redesign.md`, `mockups/` | DROP | design history and private review notes; what survives is in `specs/drawing-language.md`, `specs/workbench-ux.md` and the code's comments |
 
 ## 6. Tests
 

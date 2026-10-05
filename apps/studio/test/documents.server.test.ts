@@ -39,7 +39,7 @@ beforeEach(async () => {
   const drawings = memoryDrawingStore();
   drawings.writeMeta(ID, { partNumber: 'CBL-00101-3X', revision: '1', test: { isolationVolts: 500 } });
   deps = {
-    designs: memoryDesigns([loadDesign(ID), loadDesign('de9-terminal-board')]),
+    designs: memoryDesigns([loadDesign(ID), loadDesign('de9-terminal-board'), loadDesign('dc-y-splitter')]),
     loadDb: () => db,
     drawings,
     versions: memoryVersionStore(),
@@ -203,8 +203,48 @@ describe('GET /api/designs/:id/exports/:format', () => {
     expect((await get(`/api/designs/${ID}/exports/bom.pdf`)).status).toBe(404);
     const list = (await get('/api/exports')).body as { exports: { id: string }[]; documents: { kind: string }[] };
     expect(list.exports.map((e) => e.id)).toEqual(BASE_EXPORTS.map((e) => e.id));
-    expect(list.documents.map((d) => d.kind)).toEqual(['schematic', 'build-sheet', 'bom', 'test-spec', 'drawing', 'labels']);
+    expect(list.documents.map((d) => d.kind)).toEqual(['schematic', 'build-sheet', 'bom', 'test-spec', 'drawing', 'labels', 'formboard']);
     expect(((await get('/api')).body as { routes: string[] }).routes).toContain('GET    /api/designs/:id/documents/:kind');
+  });
+});
+
+describe('GET /api/designs/:id/documents/formboard', () => {
+  const path = '/api/designs/dc-y-splitter/documents/formboard';
+
+  it('is the overview as svg by default, one tile with ?page=, at the asked scale and paper', async () => {
+    const overview = await get(path);
+    expect(overview.status).toBe(200);
+    expect(overview.contentType).toBe('image/svg+xml');
+    expect(text(overview)).toContain('data-formboard="overview"');
+    expect(text(overview)).toContain('16 pages');
+    const tile = text(await get(`${path}?page=7`));
+    expect(tile).toContain('data-formboard="tile"');
+    expect(tile).toContain('page 7 of 16');
+    expect(text(await get(`${path}?scale=1:10`))).toContain('tiles at 1:10: 1 page');
+    expect(text(await get(`${path}?page=1&scale=0.5&paper=letter`))).toContain('width="279.4mm"');
+  });
+
+  it('refuses a tile that is not there and a scale that is not one, in sentences', async () => {
+    const far = await get(`${path}?page=99`);
+    expect(far).toMatchObject({ status: 400 });
+    expect(JSON.stringify(far.body)).toContain('16 tile pages');
+    expect(await get(`${path}?scale=banana`)).toMatchObject({ status: 400 });
+    expect(await get(`${path}?scale=1:1000`)).toMatchObject({ status: 400 });
+    expect(await get(`${path}?format=csv`)).toMatchObject({ status: 400, body: { hint: 'It comes as html, svg, pdf.' } });
+  });
+
+  it('html carries every page; pdf is the overview then every tile, one image each', async () => {
+    const html = text(await get(`${path}?format=html&scale=0.25`));
+    expect(html).toContain('cs-formboard-page');
+    const pdf = readPdf((await get(`${path}?format=pdf&scale=0.1`)).bytes!);
+    expect(pdf.pages).toBe(2);
+    expect(pdf.images).toBe(2);
+  });
+
+  it('a straight run (no breakout) still has a board', async () => {
+    const r = await get(`/api/designs/${ID}/documents/formboard`);
+    expect(r.status).toBe(200);
+    expect(text(r)).toContain('data-run=');
   });
 });
 
