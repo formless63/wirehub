@@ -1,12 +1,15 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.6 (rev 6 was the first revision in the open base). **Phases A
+Status: **plan**, rev 6.7 (rev 6 was the first revision in the open base). **Phases A
 (schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
 C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.7** — Release approvals (cs-5k1.11). Migration **0018**: the locked-revision guard
+  also allows an approval step (`approval` set, one `submit`/`approve`/`reject` history entry
+  appended, nothing else changed). No new tables: the approval is part of the version file.
 - **rev 6.6** — Change history (cs-5k1.4). Migration **0017**: `change.before_body` — each
   record's state before the change, as the commit read it before applying the set (JSON
   `null`: there was none; SQL NULL: not recorded — older rows, binary records, moves, and
@@ -1348,6 +1351,59 @@ ALTER TABLE studio.change ADD COLUMN before_body json;
 CREATE INDEX change_kind_key ON studio.change (kind, key, change_set_id);
 -- The hub-wide history, filtered by date.
 CREATE INDEX change_set_created ON studio.change_set (org_id, created_at);
+```
+
+Release approvals (cs-5k1.11) are recorded on the saved version itself (`approval`, and a
+`submit`, `approve` or `reject` history entry). A locked revision stays frozen, except that
+an approval step may be recorded on it:
+
+```sql ddl
+-- 0018_version_approval — release approvals on saved versions (§3.2; cs-5k1.11)
+-- A locked revision stays frozen, but an approval step may be recorded on it:
+-- `approval` is set or replaced and exactly one `submit`, `approve` or
+-- `reject` entry is appended to `history`; nothing else changes. (An edit
+-- needs the unlock first, as before, and clears `approval`.)
+CREATE OR REPLACE FUNCTION studio.guard_revision() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  o jsonb := OLD.body::jsonb;
+  n jsonb;
+  kept jsonb;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.locked THEN RAISE EXCEPTION 'revision % of design % is locked and cannot be deleted', OLD.rev, OLD.design_id USING ERRCODE = 'integrity_constraint_violation'; END IF;
+    RETURN OLD;
+  END IF;
+  IF NOT OLD.locked THEN RETURN NEW; END IF;
+  n := NEW.body::jsonb;
+  IF NEW.rev <> OLD.rev OR NEW.org_id <> OLD.org_id THEN
+    RAISE EXCEPTION 'revision % is locked: rev and org are immutable', OLD.rev USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  -- (b) rename
+  IF (n #- '{designId}' #- '{design,id}') = (o #- '{designId}' #- '{design,id}') THEN RETURN NEW; END IF;
+  SELECT coalesce(jsonb_agg(e ORDER BY i), '[]'::jsonb) INTO kept
+    FROM jsonb_array_elements(n -> 'history') WITH ORDINALITY AS t(e, i)
+   WHERE i <= jsonb_array_length(o -> 'history');
+  -- (a) unlock
+  IF NEW.design_id = OLD.design_id
+     AND (n -> 'unlocked') IS NOT NULL
+     AND (n - 'unlocked' - 'history') = (o - 'history')
+     AND kept = (o -> 'history')
+     AND jsonb_array_length(n -> 'history') = jsonb_array_length(o -> 'history') + 1
+     AND (n -> 'history' -> -1 ->> 'action') = 'unlock' THEN
+    RETURN NEW;
+  END IF;
+  -- (c) an approval step: only `approval` and one appended history entry change
+  IF NEW.design_id = OLD.design_id
+     AND (n -> 'unlocked') IS NULL
+     AND (n - 'approval' - 'history') = (o - 'approval' - 'history')
+     AND (n -> 'approval') IS NOT NULL
+     AND kept = (o -> 'history')
+     AND jsonb_array_length(n -> 'history') = jsonb_array_length(o -> 'history') + 1
+     AND (n -> 'history' -> -1 ->> 'action') IN ('submit', 'approve', 'reject') THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'revision % of design % is locked: unlock it first', OLD.rev, OLD.design_id USING ERRCODE = 'integrity_constraint_violation';
+END $$;
 ```
 
 ---

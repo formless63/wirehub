@@ -18,13 +18,13 @@
 
 import { isDesignId } from '@wirehub/catalog';
 import { BASE_EXPORTS, baseExport, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
-import { versionDb, type CableDesign, type Db } from '@wirehub/model';
+import { releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type VersionSummary } from '@wirehub/model';
 
 import type { ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
 import type { DrawingStore } from './drawings.ts';
-import { DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
-import { effectiveTestDefaults } from './settings.ts';
+import { type ApprovalFacts, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
+import { approvalPolicy, effectiveTestDefaults } from './settings.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
 import type { Awaitable } from './storage/change-set.ts';
@@ -71,6 +71,8 @@ interface Loaded {
   drawing: DrawingMeta;
   photo?: string;
   target: 'working' | number | undefined;
+  /** set when the hub requires approvals and a saved revision is rendered */
+  approvals?: ApprovalFacts;
 }
 
 async function load(deps: DocumentDeps, id: string, rev: string | null): Promise<Loaded | ApiResponse> {
@@ -91,11 +93,30 @@ async function load(deps: DocumentDeps, id: string, rev: string | null): Promise
     const last = all[all.length - 1];
     if (last === undefined) return fail(404, `'${id}' has no saved revision.`, 'Save a version first, or leave out ?rev=.');
     number = last;
+  } else if (rev === 'released') {
+    // the approved release: the latest approved revision (approvals on), else the latest saved
+    const policy = await approvalPolicy(deps.docs);
+    const summaries: VersionSummary[] = [];
+    for (const n of await deps.versions.revisions(id)) {
+      const f = await deps.versions.read(id, n);
+      if (f !== undefined) summaries.push(versionSummary(f));
+    }
+    const released = releasedRevision(summaries, policy.enabled);
+    if (released === undefined) return fail(404, `'${id}' has no ${policy.enabled ? 'approved' : 'saved'} revision.`, 'Approve a saved version first, or leave out ?rev=.');
+    number = released;
   } else if (/^\d{1,6}$/.test(rev)) number = Number(rev);
   else return fail(400, `'${rev}' is not a revision number.`, 'Use a whole number such as 2, or latest.');
   const file = await deps.versions.read(id, number);
   if (file === undefined) return fail(404, `'${id}' has no saved Rev ${number}.`, 'GET /api/designs/:id/versions lists the revisions.');
-  return { design: { ...file.design, id }, db: versionDb(file.definitions, live), drawing, ...(photo === undefined ? {} : { photo }), target: number };
+  const policy = await approvalPolicy(deps.docs);
+  return {
+    design: { ...file.design, id },
+    db: versionDb(file.definitions, live),
+    drawing,
+    ...(photo === undefined ? {} : { photo }),
+    target: number,
+    ...(policy.enabled ? { approvals: { ...(file.approval === undefined ? {} : { approval: file.approval }) } } : {}),
+  };
 }
 
 function today(): string {
@@ -154,7 +175,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const paper = query.get('paper');
   if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
   const variation = query.get('variation') ?? undefined;
-  const meta = releaseMeta(loaded.drawing, loaded.target);
+  const meta = releaseMeta(loaded.drawing, loaded.target, loaded.approvals);
   const orgDefaults = await effectiveTestDefaults(deps);
 
   if (section === 'exports') {
@@ -189,6 +210,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(loaded.photo === undefined ? {} : { photo: loaded.photo }),
     ...(typeof loaded.target === 'number' ? { revisionNumber: loaded.target } : {}),
     ...(loaded.target === 'working' ? { unreleased: true } : {}),
+    ...(loaded.approvals !== undefined && loaded.approvals.approval?.state !== 'approved' ? { unreleased: true, unreleasedLabel: 'UNAPPROVED' } : {}),
     ...(paper === null ? {} : { paper }),
     ...(variation === undefined ? {} : { variation }),
     ...(page === undefined ? {} : { page }),

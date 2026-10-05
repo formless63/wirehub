@@ -19,6 +19,8 @@ import { memoryDrawingStore } from '../server/drawings.ts';
 import { contentETag } from '../server/etag.ts';
 import { fileVersionStore, memoryVersionStore, type VersionListing } from '../server/versions.ts';
 import { withLoadedVersion } from './loaded-version.ts';
+import { ENGINEERING_PATH } from '../server/settings.ts';
+import { memoryDocStore } from '../server/storage/doc-store.ts';
 
 const db = loadDb();
 const ID = 'de9-crossover';
@@ -193,4 +195,79 @@ describe('the file store', () => {
     expect(store.revisions(ID)).toEqual([1]);
   });
 
+});
+
+describe('release approvals (cs-5k1.11)', () => {
+  const base = `/api/designs/${ID}/versions`;
+  const as = async (role: 'owner' | 'editor' | 'viewer', method: string, path: string, body?: unknown) => {
+    const request: ApiRequest = { method, path, ...(body === undefined ? {} : { body }), user: { name: `${role}-person`, source: 'session', role } };
+    return (await handleWorkbenchRequest(await withLoadedVersion(request, deps), deps)) as { status: number; body: any };
+  };
+  const turnOn = async (roles?: string[]) => {
+    await deps.docs!.write(ENGINEERING_PATH, { approvals: { enabled: true, ...(roles === undefined ? {} : { approverRoles: roles }) }, src: 'test' });
+  };
+
+  beforeEach(() => {
+    deps.docs = memoryDocStore();
+  });
+
+  it('is off until the hub turns it on', async () => {
+    await call('POST', base, { note: 'first' });
+    const refused = await as('owner', 'POST', `${base}/1/submit`, { comment: 'please' });
+    expect(refused.status).toBe(409);
+    expect((await call('GET', base)).body.working.approvals).toBeUndefined();
+  });
+
+  it('submits, approves with a comment, records the trail, and names the released revision', async () => {
+    await turnOn();
+    await call('POST', base, { note: 'first' });
+    expect((await as('editor', 'POST', `${base}/1/submit`, {})).status).toBe(400); // a comment is required
+    expect((await as('viewer', 'POST', `${base}/1/submit`, { comment: 'x' })).status).toBe(403);
+    expect((await as('owner', 'POST', `${base}/1/approve`, { comment: 'ok' })).status).toBe(409); // not submitted yet
+    const sub = await as('editor', 'POST', `${base}/1/submit`, { comment: 'check pin 3' });
+    expect(sub.status).toBe(200);
+    expect(sub.body.version.approval).toMatchObject({ state: 'submitted', by: 'editor-person', comment: 'check pin 3' });
+    expect(sub.body.working.releasedRev).toBeUndefined();
+    expect((await as('editor', 'POST', `${base}/1/approve`, { comment: 'ok' })).status).toBe(403); // owners only by default
+    expect((await as('owner', 'POST', `${base}/1/approve`, {})).status).toBe(400);
+    const ok = await as('owner', 'POST', `${base}/1/approve`, { comment: 'checked against the drawing' });
+    expect(ok.status).toBe(200);
+    expect(ok.body.version.approval).toMatchObject({ state: 'approved', by: 'owner-person', submittedBy: 'editor-person' });
+    expect(ok.body.working).toMatchObject({ approvals: true, releasedRev: 1 });
+    const file = (await call('GET', `${base}/1`)).body as DesignVersionFile;
+    expect(file.history.map((h) => h.action)).toEqual(['save', 'submit', 'approve']);
+    expect((await as('owner', 'POST', `${base}/1/submit`, { comment: 'again' })).status).toBe(409);
+  });
+
+  it('a rejected version can be resubmitted; an edit sends an approved one back to draft; editors may approve when allowed', async () => {
+    await turnOn(['owner', 'editor']);
+    await call('POST', base, { note: 'first' });
+    await as('owner', 'POST', `${base}/1/submit`, { comment: 'go' });
+    const rej = await as('editor', 'POST', `${base}/1/reject`, { comment: 'wrong pin' });
+    expect(rej.body.version.approval.state).toBe('rejected');
+    expect((await as('owner', 'POST', `${base}/1/submit`, { comment: 'fixed' })).status).toBe(200);
+    expect((await as('editor', 'POST', `${base}/1/approve`, { comment: 'good' })).body.version.approval.state).toBe('approved');
+    await call('POST', `${base}/1/unlock`, { reason: 'typo' });
+    const design = (await call('GET', `${base}/1`)).body.design;
+    await call('PUT', `${base}/1`, { design: { ...design, notes: ['edited'] } });
+    const listing = (await call('GET', base)).body as VersionListing;
+    expect(listing.revisions[0]!.approval).toBeUndefined();
+    expect(listing.working.releasedRev).toBeUndefined();
+  });
+
+  it('documents of a version say it is approved by whom, and an unapproved one is marked', async () => {
+    await turnOn();
+    await call('POST', base, { note: 'first' });
+    const sheet = async () => (await call('GET', `/api/designs/${ID}/documents/build-sheet?rev=1&format=html`)) as { status: number; bytes?: Uint8Array };
+    const text = async () => new TextDecoder().decode((await sheet()).bytes);
+    let html = await text();
+    expect(html).toContain('UNAPPROVED');
+    expect(html).toContain('not approved');
+    await as('owner', 'POST', `${base}/1/submit`, { comment: 'go' });
+    await as('owner', 'POST', `${base}/1/approve`, { comment: 'ok' });
+    html = await text();
+    expect(html).toContain('approved by owner-person');
+    expect(html).not.toContain('UNAPPROVED');
+    expect((await call('GET', `/api/designs/${ID}/documents/build-sheet?rev=released&format=html`)).status).toBe(200);
+  });
 });

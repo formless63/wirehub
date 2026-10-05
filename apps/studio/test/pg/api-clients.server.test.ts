@@ -18,7 +18,7 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 import { readAuthConfig, type AuthConfigEnabled } from '../../server/auth/config.ts';
 import { pgPeople } from '../../server/auth/people.ts';
 import { createStudioAuth } from '../../server/auth/studio-auth.ts';
-import { pgTokens } from '../../server/auth/tokens.ts';
+import { RateLimiter, pgTokens } from '../../server/auth/tokens.ts';
 import { fsBlobStore } from '../../server/blobs.ts';
 import type { DepictionStore } from '../../server/depictions.ts';
 import { inOrg, openPg, type PgHandle } from '../../server/pg/db.ts';
@@ -58,8 +58,10 @@ describePg('SA1: API clients with a personal token', () => {
     const person = await people.ensurePerson(fixed.localUser.email, fixed.localUser.name, 'editor');
     const tokens = pgTokens(pgh.db, orgId);
     const { token, secret } = await tokens.create({ person, name: 'contract client', scopes: ['catalog:write', 'imports'], days: 1, env: 'dev' });
+    // the scripted session is longer than one minute's write budget: a clock that moves on keeps the limiter out of the way
+    let clock = 0;
     const config = readAuthConfig({ AUTH_ENABLED: 'true', BETTER_AUTH_SECRET: 'test-only-secret-test-only-secret-0123456789', BETTER_AUTH_URL: BASE, WIREHUB_BACKEND: 'pg' }) as AuthConfigEnabled;
-    const auth = await createStudioAuth(config, { pg: { url: database.appUrl, people, tokens, tokenEnv: 'dev' } });
+    const auth = await createStudioAuth(config, { pg: { url: database.appUrl, people, tokens, tokenEnv: 'dev', limiter: new RateLimiter(() => (clock += 4000)) } });
     closeAuth = auth.close;
     const cache = new SnapshotCache(pgh.db, orgId);
     const deps = withBatchModule({ ...pgWorkbenchDeps({ cache, db: pgh.db, blobs: fsBlobStore(join(work, 'blobs')) }), ...fixed });

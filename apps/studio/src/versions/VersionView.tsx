@@ -23,11 +23,11 @@ import { useModules } from '../modules/ModulesContext.tsx';
 import { cableRoute, type CableSearch } from '../router.tsx';
 import { useEditorChrome } from '../shell/editor-chrome.tsx';
 import { useStudio } from '../studio-context.tsx';
-import { branchVersion, editVersion, getVersion, loadVersionArt, lockVersion, shortTime, unlockVersion, type VersionArt } from '../versions.browser.ts';
+import { approvalStep, branchVersion, editVersion, getVersion, loadVersionArt, lockVersion, shortTime, unlockVersion, type ApprovalStep, type VersionArt } from '../versions.browser.ts';
 import { versionDepictionSource } from '../depictions.browser.ts';
 import { PLAIN_BUTTON, PRIMARY_BUTTON, TEXT_INPUT, useVersionFile, useVersionListing } from './shared.tsx';
 
-type Mode = { kind: 'idle' } | { kind: 'unlock'; reason: string } | { kind: 'branch' };
+type Mode = { kind: 'idle' } | { kind: 'unlock'; reason: string } | { kind: 'branch' } | { kind: 'approval'; step: ApprovalStep; comment: string };
 
 export function VersionView(props: {
   id: string;
@@ -125,6 +125,19 @@ export function VersionView(props: {
     await after();
   }
 
+  async function onApproval(step: ApprovalStep, comment: string): Promise<void> {
+    setBusy(true);
+    const out = await approvalStep(id, rev, step, comment);
+    setBusy(false);
+    if (!out.ok) {
+      toast.error(`Rev ${rev}: not ${step === 'submit' ? 'submitted' : step === 'approve' ? 'approved' : 'rejected'}`, { description: out.hint ?? out.message });
+      return;
+    }
+    setMode({ kind: 'idle' });
+    toast.success(step === 'submit' ? `Rev ${rev} submitted for approval` : step === 'approve' ? `Rev ${rev} approved` : `Rev ${rev} rejected`);
+    await after();
+  }
+
   async function onBranch(): Promise<void> {
     setBusy(true);
     const out = await branchVersion(id, rev);
@@ -179,6 +192,15 @@ export function VersionView(props: {
             <span className="min-w-0 truncate text-ink" title={file.note}>
               · {file.note}
             </span>
+            {listing?.working.approvals !== true ? null : (
+              <span
+                data-testid="approval-badge"
+                className={`shrink-0 rounded-sm px-1.5 text-[11px] font-semibold ${file.approval?.state === 'approved' ? 'bg-accent-soft text-ok' : file.approval?.state === 'rejected' ? 'text-err' : 'text-warn'}`}
+                title={file.approval === undefined ? 'Not submitted for approval' : `${file.approval.state} by ${file.approval.by}: ${file.approval.comment}`}
+              >
+                {file.approval === undefined ? 'draft' : file.approval.state === 'approved' ? `approved by ${file.approval.by}` : file.approval.state}
+              </span>
+            )}
           </span>
         ) : (
           <span className="min-w-0 flex-1 truncate text-warn" title={file.unlocked?.reason}>
@@ -225,6 +247,29 @@ export function VersionView(props: {
               Unlock
             </button>
           </form>
+        ) : mode.kind === 'approval' ? (
+          <form
+            className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:min-w-[320px]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onApproval(mode.step, mode.comment);
+            }}
+          >
+            <input
+              autoFocus
+              aria-label={`Comment to ${mode.step}`}
+              value={mode.comment}
+              onChange={(event) => setMode({ kind: 'approval', step: mode.step, comment: event.target.value })}
+              placeholder={mode.step === 'submit' ? 'What should the reviewer look at?' : 'Why? It is printed with the approval.'}
+              className={TEXT_INPUT}
+            />
+            <button type="button" className={PLAIN_BUTTON} onClick={() => setMode({ kind: 'idle' })}>
+              Cancel
+            </button>
+            <button type="submit" className={PRIMARY_BUTTON} disabled={busy || mode.comment.trim() === ''}>
+              {mode.step === 'submit' ? 'Submit' : mode.step === 'approve' ? 'Approve' : 'Reject'}
+            </button>
+          </form>
         ) : mode.kind === 'branch' ? (
           <span className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
             <span className="text-[12px]">Replace the working copy with Rev {rev}?</span>
@@ -249,6 +294,20 @@ export function VersionView(props: {
             >
               <IconGitBranch size={13} /> <span className="max-sm:hidden">New version from this</span>
             </button>
+            {listing?.working.approvals !== true ? null : file.approval?.state === 'submitted' ? (
+              <>
+                <button type="button" className={PLAIN_BUTTON} onClick={() => setMode({ kind: 'approval', step: 'approve', comment: '' })} title="Approve this revision as the release">
+                  Approve…
+                </button>
+                <button type="button" className={PLAIN_BUTTON} onClick={() => setMode({ kind: 'approval', step: 'reject', comment: '' })} title="Reject this revision">
+                  Reject…
+                </button>
+              </>
+            ) : file.approval?.state === 'approved' ? null : (
+              <button type="button" className={PLAIN_BUTTON} onClick={() => setMode({ kind: 'approval', step: 'submit', comment: '' })} title="Ask for release approval">
+                Submit for approval…
+              </button>
+            )}
             <button type="button" className={PLAIN_BUTTON} onClick={() => setMode({ kind: 'unlock', reason: '' })} title="Unlock to correct this revision — needs a reason">
               <IconLockOpen size={13} /> <span className="max-sm:hidden">Unlock…</span>
             </button>
