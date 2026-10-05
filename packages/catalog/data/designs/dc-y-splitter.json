@@ -12,12 +12,32 @@
       {
         "id": "j2",
         "def": "jst-xh-2-dc",
-        "role": "channel 1 plug"
+        "role": "channel 1 plug",
+        "cavities": [
+          {
+            "pin": "1",
+            "contact": "xh-contact-socket"
+          },
+          {
+            "pin": "2",
+            "contact": "xh-contact-socket"
+          }
+        ]
       },
       {
         "id": "j3",
         "def": "jst-xh-2-dc",
-        "role": "channel 2 plug"
+        "role": "channel 2 plug",
+        "cavities": [
+          {
+            "pin": "1",
+            "contact": "xh-contact-socket"
+          },
+          {
+            "pin": "2",
+            "contact": "xh-contact-socket"
+          }
+        ]
       }
     ],
     "segments": [

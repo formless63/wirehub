@@ -2,7 +2,7 @@
   "format": 1,
   "id": "automotive",
   "name": "Automotive",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": {
     "id": "wirehub",
     "name": "WireHub bundled modules"
@@ -12,5 +12,5 @@
   "requires": {
     "wirehub": ">=0.1 <1"
   },
-  "description": "Vehicle diagnostics and buses: CAN, K/L-line and J1850 signals, battery positive, and the OBD-II (SAE J1962) connector with its mandated pins."
+  "description": "Vehicle diagnostics and buses: CAN, K/L-line and J1850 signals, battery positive, and the OBD-II (SAE J1962) connector with its mandated pins; a generic sealed 3-way connector family with its crimp contacts, single-wire seals, cavity plug and crimp tool, and a sealed sensor lead."
 }

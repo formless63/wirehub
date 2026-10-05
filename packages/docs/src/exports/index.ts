@@ -14,7 +14,7 @@ import type { CableDesign, Db } from '@wirehub/model';
 
 import { continuityCsv, continuityJson, deriveContinuityExport } from './continuity.ts';
 import { deriveLabels, labelSheetSvg, labelsTable, type LabelSheetOptions } from './labels.ts';
-import { bomTable, cutListTable, wireListTable, type ExportOptions } from './rows.ts';
+import { bomTable, crimpListTable, cutListTable, wireListTable, type ExportOptions } from './rows.ts';
 import type { TestParameters } from './test-params.ts';
 import { toCsv, toXlsx, XLSX_MIME } from './table.ts';
 
@@ -61,15 +61,16 @@ export const BASE_EXPORTS: readonly ExportFormat[] = [
   { id: 'bom.csv', label: 'BOM (CSV)', description: 'Bill of materials: part number, description, quantity, unit, section.', group: 'production', render: csv('bom', bomTable) },
   { id: 'wire-list.csv', label: 'Wire list (CSV)', description: 'Every conductor and screen: stock, colour, where each end lands, length.', group: 'production', render: csv('wire-list', (d, db) => wireListTable(d, db)) },
   { id: 'cut-list.csv', label: 'Cut list (CSV)', description: 'Pieces to cut per stock and length, with the orderable length variations.', group: 'production', render: csv('cut-list', cutListTable) },
+  { id: 'crimp-list.csv', label: 'Crimp list (CSV)', description: 'Every cavity of each crimp housing: wires, contact, seal or plug, strip length, crimp height and tool.', group: 'production', render: csv('crimp-list', (d, db) => crimpListTable(d, db)) },
   {
     id: 'production.xlsx',
-    label: 'BOM, wire and cut lists (XLSX)',
-    description: 'One workbook with the BOM, wire list and cut list on separate sheets.',
+    label: 'BOM, wire, cut and crimp lists (XLSX)',
+    description: 'One workbook with the BOM, wire list, cut list and crimp list on separate sheets.',
     group: 'production',
     render: (design, db, options = {}) => ({
       mimeType: XLSX_MIME,
       fileName: `${stem(design, options, 'production')}.xlsx`,
-      body: toXlsx([bomTable(design, db, options), wireListTable(design, db), cutListTable(design, db, options)]),
+      body: toXlsx([bomTable(design, db, options), wireListTable(design, db), cutListTable(design, db, options), crimpListTable(design, db)]),
     }),
   },
   {

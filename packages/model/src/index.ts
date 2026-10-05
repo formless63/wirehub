@@ -239,6 +239,29 @@ export type {
   SignalSpec,
 } from './builds.ts';
 
+// ---- crimp contacts, seals, plugs and tools ----
+export {
+  TERMINATION_PART_KINDS,
+  awgOfMm2,
+  cavityIssues,
+  cavityPins,
+  cavityRows,
+  crimpHeightFor,
+  designCavities,
+  designTools,
+  fillCavities,
+  fitsHousing,
+  housingOf,
+  insulationRangeText,
+  isTerminationPart,
+  setCavity,
+  terminationDbIssues,
+  terminationParts,
+  wireRangeText,
+  wiresAtPin,
+  withCavities,
+} from './crimp.ts';
+export type { CavityAssignment, CavityRow, CavityWire, CrimpHeight, HousingSpec, TerminationPartKind, TerminationSpec } from './crimp.ts';
 // ---- kits, usage, connector mounting ----
 export { KIT_PART_KINDS, KIT_SKU, findKit, kitCoverage, kitPartExists, kitPartLabel, kitsContaining, validateKits } from './kits.ts';
 export type { KitCoverage, KitDefinition, KitLine, KitPartKind, PartRef } from './kits.ts';

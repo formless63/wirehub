@@ -66,6 +66,11 @@ import {
   type KitPartKind,
   type MechanicalDefinition,
   type ConnectorGender,
+  MECHANICAL_KINDS as MODEL_MECHANICAL_KINDS,
+  wireRangeText,
+  insulationRangeText,
+  type HousingSpec,
+  type TerminationSpec,
 } from '@wirehub/model';
 
 import { DEFINITION_NOUNS, type DefinitionKind, type DefinitionRecord, type LibraryKind } from './definitions.ts';
@@ -195,7 +200,9 @@ export function definitionDetail(kind: DefinitionKind, record: DefinitionRecord)
     }
     case 'mechanicals': {
       const part = record as MechanicalDefinition;
-      return [part.kind, part.partNumber, part.revision].filter((bit) => bit !== undefined && bit !== '').join(' · ');
+      return [part.kind, part.partNumber, part.revision, wireRangeText(part.termination) ?? insulationRangeText(part.termination)]
+        .filter((bit) => bit !== undefined && bit !== '')
+        .join(' · ');
     }
     case 'kits': {
       const kit = record as KitDefinition;
@@ -376,11 +383,53 @@ export interface ConnectorDraft {
   /** the body + interface pair the pins compose from (data model v2 §1.2); carried, not yet edited */
   body: string;
   interface: string;
+  /** a crimp housing's cavities (`HousingSpec`); absent = none of its own */
+  housing?: HousingDraft;
   /** fields of the record the form does not show, kept as read */
   extra?: Record<string, unknown>;
 }
 
-const CONNECTOR_FIELDS = ['id', 'label', 'family', 'gender', 'partNumber', 'src', 'pins', 'body', 'interface'] as const;
+/** The housing block as the form edits it: lists as comma-separated text. */
+export interface HousingDraft {
+  /** contact systems, comma-separated */
+  systems: string;
+  sealing: '' | NonNullable<HousingSpec['sealing']>;
+  plugUnused: boolean;
+  /** cavity pin ids, comma-separated; blank = every pin but the shell */
+  cavities: string;
+  src: string;
+}
+
+const listText = (items: readonly string[] | undefined): string => (items ?? []).join(', ');
+const listOf = (value: string): string[] =>
+  value
+    .split(',')
+    .map((v) => v.trim())
+    .filter((v) => v !== '');
+
+export function housingDraftOf(housing: HousingSpec): HousingDraft {
+  return {
+    systems: listText(housing.systems),
+    sealing: housing.sealing ?? '',
+    plugUnused: housing.plugUnused === true,
+    cavities: listText(housing.cavities),
+    src: text(housing.src),
+  };
+}
+
+export function housingOfDraft(draft: HousingDraft): HousingSpec {
+  const systems = listOf(draft.systems);
+  const cavities = listOf(draft.cavities);
+  return {
+    ...(systems.length === 0 ? {} : { systems }),
+    ...(draft.sealing === '' ? {} : { sealing: draft.sealing }),
+    ...(draft.plugUnused ? { plugUnused: true } : {}),
+    ...(cavities.length === 0 ? {} : { cavities }),
+    ...some({ src: draft.src.trim() }),
+  };
+}
+
+const CONNECTOR_FIELDS = ['id', 'label', 'family', 'gender', 'partNumber', 'src', 'pins', 'body', 'interface', 'housing'] as const;
 const PIN_FIELDS = ['id', 'label', 'aliases', 'note', 'signal'] as const;
 
 /**
@@ -413,6 +462,7 @@ export function connectorDraftOf(connector: ConnectorDefinition, tags?: SignalTa
     }),
     body: text(connector.body),
     interface: text(connector.interface),
+    ...(connector.housing === undefined ? {} : { housing: housingDraftOf(connector.housing) }),
     ...(extra === undefined ? {} : { extra }),
   };
 }
@@ -459,6 +509,7 @@ export function connectorOf(draft: ConnectorDraft): ConnectorDefinition {
     src: draft.src.trim(),
     pins,
     ...some({ body: draft.body.trim(), interface: draft.interface.trim() }),
+    ...(draft.housing === undefined ? {} : { housing: housingOfDraft(draft.housing) }),
     ...(draft.extra ?? {}),
   };
 }
@@ -1275,7 +1326,28 @@ export function pcbaTerminalChoices(draft: PcbaDraft, db: Db): string[] {
  * Shells and hardware
  * ------------------------------------------------------------------ */
 
-export const MECHANICAL_KINDS = ['shell', 'fastener', 'other'] as const;
+export const MECHANICAL_KINDS = MODEL_MECHANICAL_KINDS;
+
+/** The termination block as the form edits it: numbers and lists as text. */
+export interface TerminationDraft {
+  /** contact systems, comma-separated */
+  systems: string;
+  /** connector or body ids, comma-separated */
+  housings: string;
+  wireMinMm2: string;
+  wireMaxMm2: string;
+  insulationMinMm: string;
+  insulationMaxMm: string;
+  gender: string;
+  plating: string;
+  stripMm: string;
+  /** rated current per contact, A */
+  ratedCurrentA: string;
+  /** one `mm² height [width]` per line: `0.5 1.15 1.7` */
+  crimpHeights: string;
+  tool: string;
+  src: string;
+}
 
 export interface MechanicalDraft {
   id: string;
@@ -1283,11 +1355,91 @@ export interface MechanicalDraft {
   kind: MechanicalDefinition['kind'];
   partNumber: string;
   revision: string;
+  /** contacts, seals, plugs and tools: what it fits and takes */
+  termination?: TerminationDraft;
   src: string;
   extra?: Record<string, unknown>;
 }
 
-const MECHANICAL_FIELDS = ['id', 'label', 'partNumber', 'revision', 'kind', 'src'] as const;
+const MECHANICAL_FIELDS = ['id', 'label', 'partNumber', 'revision', 'kind', 'termination', 'src'] as const;
+
+const numText = (n: number | undefined): string => (n === undefined ? '' : String(n));
+
+export function blankTerminationDraft(): TerminationDraft {
+  return { systems: '', housings: '', wireMinMm2: '', wireMaxMm2: '', insulationMinMm: '', insulationMaxMm: '', gender: '', plating: '', stripMm: '', ratedCurrentA: '', crimpHeights: '', tool: '', src: '' };
+}
+
+export function terminationDraftOf(spec: TerminationSpec): TerminationDraft {
+  return {
+    systems: listText(spec.systems),
+    housings: listText(spec.housings),
+    wireMinMm2: numText(spec.wireMinMm2),
+    wireMaxMm2: numText(spec.wireMaxMm2),
+    insulationMinMm: numText(spec.insulationMinMm),
+    insulationMaxMm: numText(spec.insulationMaxMm),
+    gender: text(spec.gender),
+    plating: text(spec.plating),
+    stripMm: numText(spec.stripMm),
+    ratedCurrentA: numText(spec.ratedCurrentA),
+    crimpHeights: (spec.crimpHeights ?? []).map((h) => [h.wireMm2, h.heightMm, ...(h.widthMm === undefined ? [] : [h.widthMm])].join(' ')).join('\n'),
+    tool: text(spec.tool),
+    src: text(spec.src),
+  };
+}
+
+
+export function terminationOfDraft(draft: TerminationDraft): TerminationSpec {
+  const systems = listOf(draft.systems);
+  const housings = listOf(draft.housings);
+  const heights = draft.crimpHeights
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/).map((v) => numberOf(v)))
+    .filter((cells) => cells[0] !== undefined && cells[1] !== undefined)
+    .map((cells) => ({ wireMm2: cells[0]!, heightMm: cells[1]!, ...(cells[2] === undefined ? {} : { widthMm: cells[2] }) }));
+  const num = (key: keyof TerminationSpec, value: string): Partial<TerminationSpec> => {
+    const n = numberOf(value);
+    return n === undefined ? {} : ({ [key]: n } as Partial<TerminationSpec>);
+  };
+  return {
+    ...(systems.length === 0 ? {} : { systems }),
+    ...(housings.length === 0 ? {} : { housings }),
+    ...num('wireMinMm2', draft.wireMinMm2),
+    ...num('wireMaxMm2', draft.wireMaxMm2),
+    ...num('insulationMinMm', draft.insulationMinMm),
+    ...num('insulationMaxMm', draft.insulationMaxMm),
+    ...some({ gender: draft.gender.trim(), plating: draft.plating.trim() }),
+    ...num('stripMm', draft.stripMm),
+    ...num('ratedCurrentA', draft.ratedCurrentA),
+    ...(heights.length === 0 ? {} : { crimpHeights: heights }),
+    ...some({ tool: draft.tool.trim(), src: draft.src.trim() }),
+  };
+}
+
+/** The termination fields a draft shows wrong: numbers that do not read, ranges that run backwards. */
+export function terminationFormIssues(draft: TerminationDraft): FieldIssue[] {
+  const out: FieldIssue[] = [];
+  const fields: [keyof TerminationDraft, string][] = [
+    ['wireMinMm2', 'smallest wire'],
+    ['wireMaxMm2', 'largest wire'],
+    ['insulationMinMm', 'smallest insulation'],
+    ['insulationMaxMm', 'largest insulation'],
+    ['stripMm', 'strip length'],
+    ['ratedCurrentA', 'rated current'],
+  ];
+  for (const [key, name] of fields) {
+    if (draft[key].trim() !== '' && numberOf(draft[key]) === undefined) out.push({ where: name, message: `'${draft[key]}' is not a number.` });
+  }
+  const pairs: [keyof TerminationDraft, keyof TerminationDraft, string][] = [
+    ['wireMinMm2', 'wireMaxMm2', 'wire range'],
+    ['insulationMinMm', 'insulationMaxMm', 'insulation range'],
+  ];
+  for (const [lo, hi, name] of pairs) {
+    const a = numberOf(draft[lo]);
+    const b = numberOf(draft[hi]);
+    if (a !== undefined && b !== undefined && a > b) out.push({ where: name, message: `The ${name} runs backwards: ${a} is more than ${b}.` });
+  }
+  return out;
+}
 
 export function mechanicalDraftOf(part: MechanicalDefinition): MechanicalDraft {
   const extra = extrasOf(part, MECHANICAL_FIELDS);
@@ -1297,6 +1449,7 @@ export function mechanicalDraftOf(part: MechanicalDefinition): MechanicalDraft {
     kind: part.kind,
     partNumber: text(part.partNumber),
     revision: text(part.revision),
+    ...(part.termination === undefined ? {} : { termination: terminationDraftOf(part.termination) }),
     src: part.src,
     ...(extra === undefined ? {} : { extra }),
   };
@@ -1306,13 +1459,20 @@ export function blankMechanicalDraft(): MechanicalDraft {
   return { id: '', label: '', kind: 'shell', partNumber: '', revision: '', src: '' };
 }
 
+/** Whether a mechanical kind is a crimp termination part (it shows the termination form). */
+export function isTerminationKind(kind: MechanicalDefinition['kind']): boolean {
+  return kind === 'contact' || kind === 'seal' || kind === 'plug' || kind === 'tool';
+}
+
 export function mechanicalOf(draft: MechanicalDraft): MechanicalDefinition {
+  const termination = draft.termination === undefined || !isTerminationKind(draft.kind) ? undefined : terminationOfDraft(draft.termination);
   // key order follows mechanicals.json
   return {
     id: draft.id.trim(),
     label: draft.label.trim(),
     ...some({ partNumber: draft.partNumber.trim(), revision: draft.revision.trim() }),
     kind: draft.kind,
+    ...(termination === undefined || Object.keys(termination).length === 0 ? {} : { termination }),
     src: draft.src.trim(),
     ...(draft.extra ?? {}),
   };
@@ -1576,7 +1736,9 @@ export function changedTags(draft: DefinitionDraft, tags: SignalTags | undefined
 /** The per-field checks a draft can answer instantly; only wires have any yet. */
 export function draftFieldIssues(draft: DefinitionDraft): FieldIssue[] {
   if (draft.kind === 'wires') return wireFormIssues(draft.value);
-  if (draft.kind === 'mechanicals') return [];
+  if (draft.kind === 'mechanicals') {
+    return draft.value.termination === undefined || !isTerminationKind(draft.value.kind) ? [] : terminationFormIssues(draft.value.termination);
+  }
   if (draft.kind === 'kits') {
     return draft.value.lines.flatMap((line, index): FieldIssue[] => {
       const qty = line.qty.trim();
