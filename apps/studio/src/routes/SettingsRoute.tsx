@@ -13,6 +13,7 @@ import { brandingKey, brandingQuery, saveBranding, type BrandingView } from '../
 import { EngineeringSettings } from './EngineeringSettings.tsx';
 import { RuntimeSettings } from './RuntimeSettings.tsx';
 import { StoreSourcesSettings } from './StoreSourcesSettings.tsx';
+import { CodeModulesSettings } from './CodeModulesSettings.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 const FIELDS = [
@@ -188,6 +189,7 @@ export function SettingsRoute(): JSX.Element {
       )}
       <EngineeringSettings />
       <StoreSourcesSettings />
+      <CodeModulesSettings />
       <RuntimeSettings />
     </div>
   );

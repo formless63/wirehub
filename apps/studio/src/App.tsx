@@ -37,14 +37,14 @@
 
 import { QueryClient, QueryClientProvider, QueryObserver, useQueryClient } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useState, useSyncExternalStore, type JSX } from 'react';
 import { registerBodyLayouts, setCommitHook } from '@wirehub/editor-react';
 import { registerDrawingArt } from '@wirehub/docs';
 import { installBranding, installModuleArt } from '../module-art.ts';
 import { brandingQuery } from './settings.browser.ts';
 import { browserDepictions } from './depictions.browser.ts';
 import type { ModuleRegistry } from '@wirehub/modules';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 
 import { CommandRegistryProvider } from './commands/registry.tsx';
 import { router as defaultRouter, type StudioRouter } from './router.tsx';
@@ -52,7 +52,8 @@ import { connectEventStream } from './events.browser.ts';
 import { cableListKey, dbKey, designsKey } from './queries.ts';
 import { partNumbersKey } from './part-numbers.browser.ts';
 import { ModulesContext } from './modules/ModulesContext.tsx';
-import { registry as buildRegistry } from './modules.browser.ts';
+import { builtinModules, registry as buildRegistry } from './modules.browser.ts';
+import { createRuntimeLoader, shareHostModules, type RuntimeLoadResult } from './code-modules.browser.ts';
 import { StudioProvider } from './studio-context.tsx';
 import { LockClientContext } from './locks/lock-context.tsx';
 import type { LockClient } from './locks/lock-client.ts';
@@ -64,21 +65,44 @@ import type { LockClient } from './locks/lock-client.ts';
  * unsaved edit is never replaced); a lease change refreshes the lock list.
  * While the stream is up the lock list is polled only as a safety net.
  */
-export function ServerEvents({ locks }: { locks?: LockClient | undefined }): null {
+export function ServerEvents({ locks, onCatalog }: { locks?: LockClient | undefined; onCatalog?: () => void }): null {
   const queryClient = useQueryClient();
   useEffect(
     () =>
       connectEventStream({
         onCatalog: () => {
           for (const queryKey of [designsKey, cableListKey, dbKey, partNumbersKey, ['studio', 'versions']]) void queryClient.invalidateQueries({ queryKey });
+          onCatalog?.();
         },
         onLocks: () => void locks?.refresh(),
         onState: (live) => locks?.setLive(live),
       }),
-    [queryClient, locks],
+    [queryClient, locks, onCatalog],
   );
   return null;
 }
+
+/** The page's loader of runtime code modules (`code-modules.browser.ts`): one per page, over the build's live registry. */
+let pageLoader: ReturnType<typeof createRuntimeLoader> | undefined;
+function runtimeLoader(): ReturnType<typeof createRuntimeLoader> {
+  if (pageLoader === undefined) {
+    shareHostModules();
+    pageLoader = createRuntimeLoader({ live: buildRegistry, builtins: builtinModules });
+  }
+  return pageLoader;
+}
+
+/** Say what a sync of the runtime modules means for the person: what did not load, and when a refresh is needed. */
+function reportRuntime(result: RuntimeLoadResult): void {
+  for (const failure of result.failed) toast.error(`The module ${failure.id} could not be loaded in this page.`, { description: failure.error });
+  if (result.needsRefresh.length > 0) {
+    toast.message(`Module ${result.needsRefresh.join(', ')} changed. Refresh the page to finish unloading the old code.`, {
+      duration: Infinity,
+      action: { label: 'Refresh', onClick: () => window.location.reload() },
+    });
+  }
+}
+const syncRuntimeModules = (): void => void runtimeLoader().sync().then(reportRuntime, () => undefined);
 
 export function App({
   router = defaultRouter,
@@ -95,7 +119,12 @@ export function App({
 } = {}): JSX.Element {
   const [ownQueryClient] = useState(() => new QueryClient());
   const queryClient = providedQueryClient ?? ownQueryClient;
-  const modules = providedModules ?? buildRegistry;
+  // the build's registry is live: runtime code modules come and go without a reload (a test's own registry is fixed)
+  const current = useSyncExternalStore(buildRegistry.subscribe, () => buildRegistry.current(), () => buildRegistry.current());
+  const modules = providedModules ?? current;
+  useEffect(() => {
+    if (providedModules === undefined) syncRuntimeModules();
+  }, [providedModules]);
   // the editor's commit hook: at most one module sets it (`docs/modules.md`)
   useEffect(() => {
     setCommitHook(modules.commitHook());
@@ -125,7 +154,7 @@ export function App({
     <ModulesContext.Provider value={modules}>
     <QueryClientProvider client={queryClient}>
       <LockClientContext.Provider value={locks}>
-      <ServerEvents locks={locks} />
+      <ServerEvents locks={locks} {...(providedModules === undefined ? { onCatalog: syncRuntimeModules } : {})} />
       <StudioProvider>
         <CommandRegistryProvider>
           <RouterProvider router={router} />

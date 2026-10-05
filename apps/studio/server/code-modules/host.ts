@@ -118,6 +118,8 @@ export interface CodeModuleHostOptions {
   /** default `WIREHUB_MODULE_CACHE_DIR`, else `<tmp>/wirehub-code-modules` */
   cacheDir?: string;
   log?: (line: string) => void;
+  /** how a written entry is imported (default: `import()` of its file URL with a fresh query); tests in a browser-like environment stand in */
+  importModule?: (url: string, bytes: Uint8Array) => Promise<Record<string, unknown>>;
 }
 
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
@@ -174,7 +176,9 @@ export function createCodeModuleHost(options: CodeModuleHostOptions): CodeModule
     const file = join(cacheDir, `${id}-${sha.slice(0, 16)}.mjs`);
     if (!existsSync(file)) writeFileSync(file, bytes);
     imports += 1;
-    return (await import(`${pathToFileURL(file).href}?g=${imports}`)) as Record<string, unknown>;
+    const url = `${pathToFileURL(file).href}?g=${imports}`;
+    if (options.importModule !== undefined) return options.importModule(url, bytes);
+    return (await import(url)) as Record<string, unknown>;
   };
 
   /** import, pick, check: the module, or throws with the sentence a person reads */

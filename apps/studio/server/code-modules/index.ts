@@ -17,6 +17,8 @@ export interface AttachOptions {
   env?: () => Readonly<Record<string, string | undefined>>;
   cacheDir?: string;
   log?: (line: string) => void;
+  /** stand in for the import of an entry (`CodeModuleHostOptions.importModule`, tests) */
+  importModule?: (url: string, bytes: Uint8Array) => Promise<Record<string, unknown>>;
   /** look again this often in case a notification was missed (ms; 0: never). Default 60 s. */
   pollMs?: number;
 }
@@ -36,6 +38,7 @@ export function attachCodeModules(deps: WorkbenchDeps, options: AttachOptions): 
     ...(options.env === undefined ? {} : { env: options.env }),
     ...(options.cacheDir === undefined ? {} : { cacheDir: options.cacheDir }),
     ...(options.log === undefined ? {} : { log: options.log }),
+    ...(options.importModule === undefined ? {} : { importModule: options.importModule }),
   });
   deps.codeModules = host;
   const unsubscribe = deps.events?.subscribe((event) => {
