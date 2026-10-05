@@ -35,12 +35,14 @@ function commit(files: Record<string, string | null>, message: string): string {
   }
   git(['add', '-A']);
   tick += 1;
-  const when = `2026-01-0${tick} 10:00:00 +0000`;
+  // a fixed, valid date per commit (the counter restarts for every test, see beforeEach)
+  const when = `2026-01-${String(tick).padStart(2, '0')} 10:00:00 +0000`;
   git(['commit', '-q', '-m', message], repo, { GIT_AUTHOR_NAME: 'Ann Author', GIT_AUTHOR_EMAIL: 'ann@example.com', GIT_AUTHOR_DATE: when, GIT_COMMITTER_NAME: 'WireHub', GIT_COMMITTER_EMAIL: 'wirehub@example.com', GIT_COMMITTER_DATE: when });
   return git(['rev-parse', 'HEAD']).trim();
 }
 
 beforeEach(() => {
+  tick = 0;
   dir = mkdtempSync(join(tmpdir(), 'wirehub-purge-test-'));
   repo = join(dir, 'catalog-mirror');
   mkdirSync(repo);
