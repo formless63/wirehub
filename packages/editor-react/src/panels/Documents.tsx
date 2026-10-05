@@ -23,11 +23,12 @@
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
 import { variationsOf, type DocumentFacts, type DrawingMeta } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
-import { IconMarkdown, IconPrinter } from '@tabler/icons-react';
+import { IconDownload, IconMarkdown, IconPrinter } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import type { AssetsAdapter } from '../assets.ts';
 import { classes } from '../context.ts';
+import { downloadOutput, type EditorExtensions, type ExtraExporter } from '../extensions.ts';
 import {
   DOCUMENT_BLURBS,
   DOCUMENT_KINDS,
@@ -72,6 +73,10 @@ import { useEditLocked } from './edit-session.ts';
 export const DOCUMENT_DEBOUNCE_MS = 600;
 
 export interface DocumentsProps {
+  /** host-added panels and exports (`extensions.ts`) */
+  extensions?: EditorExtensions;
+  /** a read-only view (passed on to the panels) */
+  readOnly?: boolean;
   /** the design as it stands in the editor — draft included */
   design: CableDesign;
   db: Db;
@@ -336,6 +341,8 @@ export function DocumentsPane({
   release,
   partNumbers,
   facts,
+  extensions,
+  readOnly = false,
 }: DocumentsProps): JSX.Element {
   const sidecar = useDrawingSidecar(design.id, drawings);
   // someone else holds this cable's edit lock (50a.51): the forms stay, disabled
@@ -500,6 +507,17 @@ export function DocumentsPane({
     }
     setCopyNote((await copyText(markdown)) ? 'copied' : 'the browser refused the copy');
   }, [kind, docDesign, docDb, sheetInput, drawingInput, pnInputs, docFacts, chosenVariation, docDepictions]);
+  const runExporter = useCallback(
+    async (exporter: ExtraExporter): Promise<void> => {
+      try {
+        downloadOutput(await exporter.render(docDesign, docDb));
+        setCopyNote(undefined);
+      } catch (error) {
+        setCopyNote(`${exporter.label}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [docDesign, docDb],
+  );
   const tabLabel = kind === 'json' ? 'JSON' : DOCUMENT_LABELS[kind];
 
   return (
@@ -589,6 +607,19 @@ export function DocumentsPane({
             <IconMarkdown size={14} aria-hidden /> Copy
           </button>
         ) : null}
+        {(extensions?.exporters ?? []).map((exporter) => (
+          <button
+            key={exporter.id}
+            type="button"
+            className="cs-print"
+            disabled={empty || pending}
+            data-exporter={exporter.id}
+            title={exporter.description ?? `Download ${exporter.label}`}
+            onClick={() => void runExporter(exporter)}
+          >
+            <IconDownload size={14} aria-hidden /> {exporter.label}
+          </button>
+        ))}
         <button
           type="button"
           className="cs-print"
@@ -603,6 +634,12 @@ export function DocumentsPane({
           <IconPrinter size={14} aria-hidden /> Print
         </button>
       </nav>
+
+      {extensions?.documents === undefined ? null : (
+        <div className="cs-extension-slot" data-slot="cable-documents">
+          {extensions.documents({ design: docDesign, db: docDb, readOnly: readOnly || editLocked || target !== 'working' && release !== undefined })}
+        </div>
+      )}
 
       {!empty && sidecar.conflict === undefined && sidecar.error !== undefined ? (
         <div className="cs-drawing-conflict" role="alert">

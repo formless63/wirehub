@@ -92,6 +92,7 @@ import { DesignLifecycleDialogs } from './panels/DesignLifecycleDialogs.tsx';
 import { useDesignLifecycle, type LifecycleAction } from './panels/useDesignLifecycle.ts';
 import { nodeTypes } from './nodes/index.tsx';
 import { ConnectionPanel, PartPanel } from './panels/Inspector.tsx';
+import type { EditorExtensions } from './extensions.ts';
 import { IssuesPanel, NetsPanel } from './panels/Derived.tsx';
 import { NotesPanel } from './panels/Notes.tsx';
 import { PinSearch } from './panels/PinSearch.tsx';
@@ -291,6 +292,11 @@ export interface CableEditorProps {
    * see `release.ts`. Omitted, Documents prints the design in the editor.
    */
   release?: DocumentRelease;
+  /**
+   * Panels and exports a host adds — the studio fills them from its module
+   * registry (`extensions.ts`). Omitted: the editor is exactly the base.
+   */
+  extensions?: EditorExtensions;
 }
 
 /** What a host's status bar needs — see `onStatusChange`. */
@@ -1277,6 +1283,8 @@ const CableEditorInner = forwardRef(function CableEditorInner(
             {...(props.release === undefined ? {} : { release: props.release })}
             {...(props.partNumbers === undefined ? {} : { partNumbers: props.partNumbers })}
             {...(props.documentFacts === undefined ? {} : { facts: props.documentFacts })}
+            {...(props.extensions === undefined ? {} : { extensions: props.extensions })}
+            readOnly={readOnly}
           />
           </Suspense>
           </PartNumberContext.Provider>
@@ -1645,6 +1653,11 @@ const CableEditorInner = forwardRef(function CableEditorInner(
               {side === 'issues' ? <IssuesPanel state={state} depictions={depictions} /> : null}
               {side === 'notes' ? <NotesPanel state={state} /> : null}
               </fieldset>
+              {props.extensions?.inspector === undefined ? null : (
+                <div className="cs-extension-slot" data-slot="cable-inspector">
+                  {props.extensions.inspector({ design: state.design, db: state.db, readOnly: readOnly || editLocked })}
+                </div>
+              )}
             </div>
             </>
             )}

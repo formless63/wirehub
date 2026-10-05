@@ -202,6 +202,11 @@ export interface LibraryProps {
    */
   listActions?: Partial<Record<DefinitionKind, ReactNode>>;
   /**
+   * Panels a host adds to a stored record's detail (the studio's module
+   * `library-detail` slot): called with the record's kind and id.
+   */
+  detailExtras?: (record: { kind: LibraryKind; id: string }) => ReactNode;
+  /**
    * A small marker before a row's label — the studio's "someone else is
    * editing this" avatar (edit locks). `null` for none.
    */
@@ -1418,6 +1423,11 @@ export function Library(props: LibraryProps): JSX.Element {
                 {...(kind === 'connectors' && baseline !== undefined ? connectorBuiltIn2d(db, baseline as ConnectorDefinition) : {})}
                 readOnly={definitions === undefined}
               />
+            ) : null}
+            {mode.kind === 'edit' && props.detailExtras !== undefined ? (
+              <div className="cs-extension-slot" data-slot="library-detail">
+                {props.detailExtras({ kind, id: mode.id })}
+              </div>
             ) : null}
 
             {mode.kind === 'edit' && openRow !== undefined ? <PropertiesGrid row={openRow} columns={columns} /> : null}
