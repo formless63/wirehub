@@ -41,6 +41,7 @@ const handle: EditorHandle = {
   openLifecycle: vi.fn(),
   openPicker: vi.fn(),
   findPin: vi.fn(),
+  connectKnownPins: vi.fn(),
 };
 
 const seen = vi.hoisted(() => ({
