@@ -109,6 +109,15 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
   await call('save rev 1', { method: 'POST', path: base, body: { note: 'second' } }, 201);
   await call('branch', { method: 'POST', path: `${base}/0/branch`, body: { confirm: 0, reason: 'try the first again' } }, 200);
   await call('versions list', { method: 'GET', path: base }, 200);
+  // release approvals (cs-5k1.11): off, then on through the engineering settings; submit, reject, resubmit, approve
+  await call('approval off', { method: 'POST', path: `${base}/1/submit`, body: { comment: 'early' } }, 409);
+  const engineering = await call('read engineering', { method: 'GET', path: '/api/settings/engineering' }, 200);
+  await call('save engineering', { method: 'PUT', path: '/api/settings/engineering', body: { testDefaults: { isolationVolts: 250 }, electrical: { maxDropV: 0.4 }, approvals: { enabled: true, approverRoles: ['owner', 'editor'] } }, headers: { 'if-match': etag(engineering) } }, 200);
+  await call('submit', { method: 'POST', path: `${base}/1/submit`, body: { comment: 'ready for review' } }, 200);
+  await call('reject', { method: 'POST', path: `${base}/1/reject`, body: { comment: 'note is wrong' } }, 200);
+  await call('resubmit', { method: 'POST', path: `${base}/1/submit`, body: { comment: 'note fixed' } }, 200);
+  await call('approve', { method: 'POST', path: `${base}/1/approve`, body: { comment: 'checked' } }, 200);
+  await call('approved listing', { method: 'GET', path: base }, 200);
 
   // definitions (the tag tables follow), vocabulary, wire library, a build
   const part = (await call('read part', { method: 'GET', path: '/api/definitions/components/r-150' }, 200));

@@ -9,7 +9,7 @@
  * Runs the contract manufacturer supplies terminated are not labelled here.
  */
 
-import { findWire, type CableDesign, type Db } from '@wirehub/model';
+import { findWire, resolveElementPath, type CableDesign, type Db } from '@wirehub/model';
 
 import { trunkSegment } from '../drawing/model.ts';
 import { suppliedEnds } from '../supplied.ts';
@@ -21,8 +21,10 @@ export interface WireLabel {
   id: string;
   segment: string;
   end: 'a' | 'b';
-  /** the run's designation: `W1` */
+  /** the run's designation: `W1`, or the run's own label */
   designation: string;
+  /** a core's conductor path, for a per-core label */
+  core?: string;
   /** the label's text lines, top to bottom: `W1-A`, `at J1`, `to J2` */
   lines: string[];
   /** distance from the end of the jacket to the near edge of the marker (mm) */
@@ -36,8 +38,9 @@ export interface WireLabel {
 const DEFAULT_OFFSET_MM = 40;
 const MIN_OFFSET_MM = 10;
 
-function designationOf(instance: string): string {
-  return instance.toUpperCase();
+function designationOf(design: CableDesign, instance: string): string {
+  const own = design.instances.connectors.find((c) => c.id === instance)?.label?.trim();
+  return own !== undefined && own !== '' ? own : instance.toUpperCase();
 }
 
 function connectedTo(design: CableDesign, segment: string, end: 'a' | 'b'): string[] {
@@ -63,41 +66,67 @@ export function deriveLabels(design: CableDesign, db: Db): WireLabel[] {
   for (const segment of order) {
     if (covered.has(segment.id)) continue;
     n += 1;
-    const designation = `W${n}`;
+    const designation = segment.label?.trim() || `W${n}`;
     const wire = findWire(db, segment.def);
     const offset =
       segment.lengthMm === undefined ? DEFAULT_OFFSET_MM : Math.max(MIN_OFFSET_MM, Math.min(DEFAULT_OFFSET_MM, Math.floor(segment.lengthMm / 4)));
     for (const end of ['a', 'b'] as const) {
-      const here = connectedTo(design, segment.id, end).map(designationOf);
-      const there = connectedTo(design, segment.id, end === 'a' ? 'b' : 'a').map(designationOf);
+      const here = connectedTo(design, segment.id, end).map((i) => designationOf(design, i));
+      const there = connectedTo(design, segment.id, end === 'a' ? 'b' : 'a').map((i) => designationOf(design, i));
+      // an end's own text replaces the generated lines (at most 3 of 40 characters)
+      const own = (segment.endLabels?.[end] ?? []).map((l) => l.trim()).filter((l) => l !== '').slice(0, 3).map((l) => l.slice(0, 40));
       labels.push({
         id: `${segment.id}/${end}`,
         segment: segment.id,
         end,
         designation,
-        lines: [
-          `${designation}-${end.toUpperCase()}`,
-          ...(here.length === 0 ? [] : [`at ${here.join(', ')}`]),
-          ...(there.length === 0 ? [] : [`to ${there.join(', ')}`]),
-        ],
+        lines:
+          own.length > 0
+            ? own
+            : [
+                `${designation}-${end.toUpperCase()}`,
+                ...(here.length === 0 ? [] : [`at ${here.join(', ')}`]),
+                ...(there.length === 0 ? [] : [`to ${there.join(', ')}`]),
+              ],
         offsetMm: offset,
         position: `${offset} mm from the ${end === 'a' ? 'source' : 'destination'} end of the jacket`,
         ...(wire?.partNumber === undefined ? {} : { stock: wire.partNumber }),
         ...(segment.lengthMm === undefined ? {} : { lengthMm: segment.lengthMm }),
       });
     }
+    // per-core labels: only the cores someone named, at both ends, after the run's own labels
+    for (const [path, raw] of Object.entries(segment.coreLabels ?? {}).sort(([x], [y]) => compareStrings(x, y))) {
+      const text = raw.trim().slice(0, 40);
+      if (text === '') continue;
+      // a label for a core the stock does not have is not printed (the validator warns about it)
+      if (wire === undefined || resolveElementPath(wire.structure, path)?.kind !== 'conductor') continue;
+      for (const end of ['a', 'b'] as const) {
+        labels.push({
+          id: `${segment.id}/${end}/${path}`,
+          segment: segment.id,
+          end,
+          designation,
+          core: path,
+          lines: [text, `${designation}-${end.toUpperCase()} · ${path}`],
+          offsetMm: DEFAULT_OFFSET_MM,
+          position: `on the ${path} core, ${DEFAULT_OFFSET_MM} mm from the ${end === 'a' ? 'source' : 'destination'} end of the jacket`,
+          ...(wire?.partNumber === undefined ? {} : { stock: wire.partNumber }),
+          ...(segment.lengthMm === undefined ? {} : { lengthMm: segment.lengthMm }),
+        });
+      }
+    }
   }
   return labels;
 }
 
-export const LABEL_HEADERS = ['label_id', 'segment', 'end', 'designation', 'line_1', 'line_2', 'line_3', 'offset_mm', 'position', 'stock_part_number', 'length_mm'] as const;
+export const LABEL_HEADERS = ['label_id', 'segment', 'end', 'designation', 'line_1', 'line_2', 'line_3', 'offset_mm', 'position', 'stock_part_number', 'length_mm', 'core'] as const;
 
 export function labelsTable(labels: readonly WireLabel[]): Table {
   return {
     name: 'Labels',
     headers: LABEL_HEADERS,
     rows: labels.map((l) => [
-      l.id, l.segment, l.end, l.designation, l.lines[0] ?? '', l.lines[1] ?? '', l.lines[2] ?? '', l.offsetMm, l.position, l.stock ?? '', l.lengthMm ?? '',
+      l.id, l.segment, l.end, l.designation, l.lines[0] ?? '', l.lines[1] ?? '', l.lines[2] ?? '', l.offsetMm, l.position, l.stock ?? '', l.lengthMm ?? '', l.core ?? '',
     ]),
   };
 }

@@ -97,6 +97,8 @@ export interface DocumentRequest {
   testDefaults?: TestParameters;
   /** print the working copy marked UNRELEASED (html) — set when the studio keeps saved revisions */
   unreleased?: boolean;
+  /** the word the mark carries (default UNRELEASED; a saved version still awaiting approval says UNAPPROVED) */
+  unreleasedLabel?: string;
   /** a date to stamp when the sheet settings ask for one (the library renders no clock) */
   today?: string;
 }
@@ -147,7 +149,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     output: {
       mimeType: MIME[fileFormat],
       fileName: `${stem(request)}.${fileFormat}`,
-      body: request.unreleased === true && typeof body === 'string' && fileFormat === 'html' ? withUnreleasedMark(body) : body,
+      body: request.unreleased === true && typeof body === 'string' && fileFormat === 'html' ? withUnreleasedMark(body, request.unreleasedLabel) : body,
     },
   });
   try {
@@ -216,9 +218,20 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
  * says otherwise; the working copy prints with a dash and UNRELEASED
  * (`undefined` target: the studio keeps no revisions, nothing is changed).
  */
-export function releaseMeta(meta: DrawingMeta, target: 'working' | number | undefined): DrawingMeta {
+/** What the approval of the rendered revision says, when the hub requires approvals. */
+export interface ApprovalFacts {
+  approval?: { state: 'submitted' | 'approved' | 'rejected'; by: string; at: string };
+}
+
+export function releaseMeta(meta: DrawingMeta, target: 'working' | number | undefined, approval?: ApprovalFacts): DrawingMeta {
   if (target === undefined) return meta;
   const { revision: _revision, ...rest } = meta.sheet ?? {};
-  const sheet = { ...rest, status: target === 'working' ? 'UNRELEASED' : (rest.status ?? 'RELEASED') };
+  let status = target === 'working' ? 'UNRELEASED' : (rest.status ?? 'RELEASED');
+  if (approval !== undefined && target !== 'working') {
+    // approvals on: only an approved version is RELEASED, and it names its approver
+    const a = approval.approval;
+    status = a?.state === 'approved' ? `RELEASED · approved by ${a.by} ${a.at.slice(0, 10)}` : `UNRELEASED · ${a?.state === 'submitted' ? 'awaiting approval' : a?.state === 'rejected' ? 'rejected' : 'not approved'}`;
+  }
+  const sheet = { ...rest, status };
   return { ...meta, revision: target === 'working' ? '—' : String(target), sheet };
 }

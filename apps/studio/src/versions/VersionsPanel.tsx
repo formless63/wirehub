@@ -265,6 +265,11 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
                       <span className="min-w-0 flex-1 truncate text-[12.5px]" title={summary.note}>
                         {summary.note}
                       </span>
+                      {listing.working.approvals !== true ? null : (
+                        <span className={`shrink-0 text-[11px] ${summary.approval?.state === 'approved' ? 'text-ok' : summary.approval?.state === 'rejected' ? 'text-err' : 'text-warn'}`} title={summary.approval === undefined ? 'Not submitted for approval' : `${summary.approval.by}: ${summary.approval.comment}`}>
+                          {summary.approval === undefined ? 'draft' : summary.approval.state === 'approved' ? `approved · ${summary.approval.by}` : summary.approval.state}
+                        </span>
+                      )}
                       <RowButton
                         title={`Open Rev ${summary.rev} read-only`}
                         onClick={() => {

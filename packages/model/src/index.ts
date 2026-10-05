@@ -9,6 +9,8 @@
  */
 
 export * from './model.ts';
+export { AMPACITY_SRC, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, ampacityOfArea, electricalIssues, electricalReport, electricalRulesProblems } from './electrical.ts';
+export type { AmpacityRow, ContactRow, DbRules, ElectricalReport, ElectricalRow, ElectricalRules } from './electrical.ts';
 export { PROVENANCE_METHODS, isSourceUrl, isSpdxLike, recordMetaIssues } from './provenance.ts';
 export type { DerivedFrom, ProvenanceMethod, ProvenanceReview, ProvenanceSource, RecordMeta, RecordProvenance } from './provenance.ts';
 export {
@@ -316,6 +318,8 @@ export type {
 export {
   DESIGN_VERSION_FORMAT,
   DESIGN_VERSION_FORMAT_V1,
+  approvalStepProblem,
+  approveVersion,
   artworkBlobName,
   canonicalVersionFile,
   createVersion,
@@ -330,8 +334,11 @@ export {
   jointText,
   nextRevision,
   referencedDefinitionIds,
+  rejectVersion,
   relockVersion,
+  releasedRevision,
   stableJson,
+  submitVersion,
   unlockVersion,
   validateVersion,
   versionArtwork,
@@ -339,6 +346,7 @@ export {
   versionSummary,
 } from './versions.ts';
 export type {
+  ApprovalState,
   ArtworkFiles,
   DesignDiff,
   DesignVersionFile,
@@ -347,6 +355,7 @@ export type {
   NewVersionInput,
   VersionContent,
   VersionHistoryAction,
+  VersionApproval,
   VersionHistoryEntry,
   VersionSummary,
   VersionUnlock,

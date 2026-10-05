@@ -9,6 +9,7 @@
 
 import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
+import type { DbRules } from './electrical.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
 import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
@@ -27,6 +28,10 @@ export interface ConductorElement {
   /** e.g. "OFC 7x0.12 mm" */
   formation?: string;
   areaMm2?: number;
+  /** the stock's own rated current in amps (a datasheet figure); wins over the area table of the electrical rules */
+  ratedCurrentA?: number;
+  /** DC resistance of the conductor, ohm per km at 20 C (a datasheet figure); else derived from material and area */
+  resistanceOhmPerKm?: number;
   /** outer diameter over the bare copper, mm */
   odMm?: number;
   /**
@@ -244,6 +249,8 @@ export interface ConnectorPin {
    * (`Db.tags`) and then to reading the label.
    */
   signal?: SignalRef;
+  /** the current this pin carries in use, amps; wins over its signal's default (electrical rules) */
+  currentA?: number;
 }
 
 /**
@@ -285,6 +292,8 @@ export interface ConnectorDefinition extends RecordMeta {
    * not known; `connectorConstruction` falls back to the body's.
    */
   construction?: string;
+  /** each contact's rated current, amps (a datasheet figure); the electrical rules compare it with the pin's net */
+  contactRatingA?: number;
   /**
    * Whether the bench terminates this connector at all — a vocab
    * `connector-sourcing` id (`pre-made-lead`;). Absent
@@ -610,6 +619,8 @@ export interface Db {
    * on this board" lists, never the cable BOM.
    */
   boardParts?: BoardPartsEntry[];
+  /** the organisation's rule thresholds (hub settings); absent means the defaults */
+  rules?: DbRules;
 }
 
 /* ------------------------------------------------------------------ *
@@ -710,6 +721,8 @@ export interface ConnectorInstance {
    * solder-cup or PCB connector).
    */
   cavities?: CavityAssignment[];
+  /** the text the wire labels use for this connector ("at J1") instead of its id in capitals */
+  label?: string;
 }
 
 export interface SegmentInstance {
@@ -717,6 +730,12 @@ export interface SegmentInstance {
   def: string;
   lengthMm?: number;
   role?: string;
+  /** the run's label designation (`FEED-1`) instead of the generated `W<n>` */
+  label?: string;
+  /** the exact text lines of the marker at an end, replacing the generated lines (at most 3, 40 characters each) */
+  endLabels?: { a?: string[]; b?: string[] };
+  /** a label per core, by conductor path: printed at both ends of the run, beside the run's own labels */
+  coreLabels?: Record<string, string>;
   /**
    * How this instance's screens are prepared at each end: braids/spirals and
    * drains twisted together into a pigtail that lands once. A pigtail is a

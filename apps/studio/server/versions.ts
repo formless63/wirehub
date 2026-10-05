@@ -8,6 +8,9 @@
  *   POST   /api/designs/:id/versions/:rev/unlock         { reason }
  *   PUT    /api/designs/:id/versions/:rev                { design }  save an unlocked version's edit, re-lock
  *   POST   /api/designs/:id/versions/:rev/lock           re-lock without an edit
+ *   POST   /api/designs/:id/versions/:rev/submit         { comment }  ask for release approval
+ *   POST   /api/designs/:id/versions/:rev/approve        { comment }  approver roles only
+ *   POST   /api/designs/:id/versions/:rev/reject         { comment }  approver roles only
  *   POST   /api/designs/:id/versions/:rev/branch         { confirm: rev }  new version from this
  *   POST   /api/designs/:id/versions/drafts/:n/restore   { confirm: n }    bring a displaced working copy back
  *
@@ -45,6 +48,11 @@ import {
   type DesignVersionFile,
   type Issue,
   type VersionSummary,
+  approvalStepProblem,
+  approveVersion,
+  rejectVersion,
+  releasedRevision,
+  submitVersion,
 } from '@wirehub/model';
 
 import type { ApiError, ApiResponse } from './api.ts';
@@ -55,6 +63,8 @@ import { contentETag } from './etag.ts';
 import { writeFileAtomic } from './atomic-write.ts';
 import { recordWrite } from './write-journal.ts';
 import type { Awaitable } from './storage/change-set.ts';
+import type { DocStore } from './storage/doc-store.ts';
+import { approvalPolicy } from './settings.ts';
 
 export const VERSION_ROUTES = [
   'GET    /api/designs/:id/versions',
@@ -64,6 +74,9 @@ export const VERSION_ROUTES = [
   'PUT    /api/designs/:id/versions/:rev',
   'POST   /api/designs/:id/versions/:rev/unlock',
   'POST   /api/designs/:id/versions/:rev/lock',
+  'POST   /api/designs/:id/versions/:rev/submit',
+  'POST   /api/designs/:id/versions/:rev/approve',
+  'POST   /api/designs/:id/versions/:rev/reject',
   'POST   /api/designs/:id/versions/:rev/branch',
   'POST   /api/designs/:id/versions/drafts/:n/restore',
 ] as const;
@@ -384,6 +397,8 @@ export interface VersionDeps {
   loadDb: () => Awaitable<Db>;
   versions?: VersionStore;
   drawings?: DrawingStore;
+  /** the engineering settings live here (release approvals on or off, who approves) */
+  docs?: DocStore;
   /** ISO time stamp (injected by tests) */
   now?: () => string;
 }
@@ -418,6 +433,10 @@ export interface WorkingStatus {
   /** the number the next Save version will take */
   nextRev: number;
   latestRev?: number;
+  /** release approvals are on (hub settings) */
+  approvals?: boolean;
+  /** with approvals on: the latest approved revision, the released one (absent: none approved yet) */
+  releasedRev?: number;
 }
 
 export interface VersionListing {
@@ -435,7 +454,18 @@ export async function workingStatus(deps: VersionDeps, id: string, working: Cabl
   const basedOnRev = state.basedOnRev ?? latestRev;
   const base = basedOnRev === undefined ? undefined : await store?.read(id, basedOnRev);
   const unreleased = working === undefined || base === undefined ? true : designsDiffer(working, base.design);
+  const policy = await approvalPolicy(deps.docs);
+  let releasedRev: number | undefined;
+  if (policy.enabled && store !== undefined) {
+    const summaries: VersionSummary[] = [];
+    for (const rev of revs) {
+      const file = await store.read(id, rev);
+      if (file !== undefined) summaries.push(versionSummary(file));
+    }
+    releasedRev = releasedRevision(summaries, true);
+  }
   return {
+    ...(policy.enabled ? { approvals: true, ...(releasedRev === undefined ? {} : { releasedRev }) } : {}),
     ...(basedOnRev === undefined ? {} : { basedOnRev }),
     unreleased,
     nextRev: nextRevision(revs, (await deps.drawings?.read(id))?.meta.revision),
@@ -564,6 +594,32 @@ async function relock(deps: VersionDeps, store: VersionStore, file: DesignVersio
   const next = relockVersion(file, (deps.now ?? (() => new Date().toISOString()))(), user.name);
   await store.write(next);
   return ok(next);
+}
+
+/** submit, approve or reject a saved version, with the person's role checked and a comment required */
+async function approvalStep(
+  deps: VersionDeps,
+  store: VersionStore,
+  file: DesignVersionFile,
+  step: 'submit' | 'approve' | 'reject',
+  body: unknown,
+  user: StudioUser,
+): Promise<ApiResponse> {
+  const policy = await approvalPolicy(deps.docs);
+  if (!policy.enabled) return fail(409, 'Release approvals are not turned on for this hub.', 'An owner turns them on under Settings, Release approvals.');
+  const role = user.role;
+  if (role === 'viewer') return fail(403, 'Your role can view versions but not submit or approve them.');
+  if (step !== 'submit' && role !== undefined && !policy.approverRoles.includes(role)) {
+    return fail(403, `Only ${policy.approverRoles.join(' or ')} can ${step} a release.`, 'Ask someone with that role, or have the hub settings allow editors to approve.');
+  }
+  const comment = text(objectBody(body).comment);
+  if (comment === '') return fail(400, `A ${step} needs a comment.`, step === 'submit' ? 'Say what the reviewer should look at.' : 'Say why — it is kept in the version history and printed with the approval.');
+  const problem = approvalStepProblem(file, step);
+  if (problem !== undefined) return fail(409, problem);
+  const at = (deps.now ?? (() => new Date().toISOString()))();
+  const next = (step === 'submit' ? submitVersion : step === 'approve' ? approveVersion : rejectVersion)(file, at, user.name, comment);
+  await store.write(next);
+  return ok({ version: versionSummary(next), ...await listing(deps, store, file.designId) });
 }
 
 async function editLocked(deps: VersionDeps, store: VersionStore, file: DesignVersionFile, body: unknown, user: StudioUser): Promise<ApiResponse> {
@@ -700,6 +756,7 @@ export async function handleVersionRequest(
   if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
   if (second === 'unlock') return await unlock(deps, store, file, body, user);
   if (second === 'lock') return await relock(deps, store, file, user);
+  if (second === 'submit' || second === 'approve' || second === 'reject') return await approvalStep(deps, store, file, second, body, user);
   if (second === 'branch') {
     if (objectBody(body).confirm !== rev) {
       return fail(400, 'Starting a new version from an old one replaces the working copy and has to be confirmed.', `Nothing was changed. Send { confirm: ${rev} }.`);

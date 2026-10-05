@@ -253,6 +253,9 @@ function gateConnector(value: unknown): Gate<ConnectorDefinition> {
   }
   const housing = gateHousing(record['housing']);
   if (housing !== undefined) return reject(housing.error, housing.hint);
+  if (!isOptionalNumber(record['contactRatingA'])) {
+    return reject("The connector's contact rating is not a number.", 'Write the rated current of one contact in amps — 3, 7.5.');
+  }
   if (!isOptionalString(record['sourcing'])) {
     return reject("The connector's sourcing is not text.", 'Pick one from the list — pre-made lead, or leave it unset for one the bench terminates.');
   }
@@ -284,6 +287,9 @@ function gateConnector(value: unknown): Gate<ConnectorDefinition> {
         `${at}'s other names are not a list of words.`,
         'Aliases are the other names this pin goes by, one per entry.',
       );
+    }
+    if (!isOptionalNumber(pin['currentA'])) {
+      return reject(`${at}'s current is not a number.`, 'Write the current this pin carries in amps — 0.5, 3.');
     }
     if (!isOptionalString(pin['note'])) {
       return reject(`${at}'s note is not text.`, 'A note is a sentence about this pin.');
@@ -375,10 +381,11 @@ function gateElement(value: unknown, where: string): { error: string; hint: stri
       hint: 'A shield is a braid, a spiral serve, a foil or a tape.',
     };
   }
-  for (const field of ['odMm', 'insulatedOdMm', 'areaMm2']) {
+  for (const field of ['odMm', 'insulatedOdMm', 'areaMm2', 'ratedCurrentA', 'resistanceOhmPerKm']) {
     if (!isOptionalNumber(value[field])) {
+      const what = field === 'areaMm2' ? 'cross-section area' : field === 'ratedCurrentA' ? 'rated current' : field === 'resistanceOhmPerKm' ? 'resistance' : 'diameter';
       return {
-        error: `${at} has a ${field === 'areaMm2' ? 'cross-section area' : 'diameter'} that is not a number.`,
+        error: `${at} has a ${what} that is not a number.`,
         hint: 'Diameters are millimetres, written as numbers — 1.4, not "1.4 mm".',
       };
     }
