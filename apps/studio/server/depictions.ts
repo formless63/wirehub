@@ -65,6 +65,8 @@ import {
   type Issue,
 } from '@wirehub/model';
 import { writeFileAtomic } from './atomic-write.ts';
+import { boardArtFiles, relinkWithArt } from './models/board-art.ts';
+import { fileModelLinkStore, type ModelLinkStore } from './models/links.ts';
 
 /* ------------------------------------------------------------------ *
  * Transport-shaped, transport-free
@@ -100,6 +102,12 @@ export interface DepictionDeps {
    * the store (the Vite dev server, tests).
    */
   transact?: (run: (deps: DepictionDeps) => Promise<DepictionApiResponse>) => Promise<DepictionApiResponse>;
+  /**
+   * The Library's model links. When a board's art is written, its
+   * `pcbas/<id>` link is re-keyed so the model cache rebuilds with the new
+   * art (cs-h8p). In a unit of work the staged store is passed here.
+   */
+  modelLinks?: ModelLinkStore;
 }
 
 /**
@@ -321,7 +329,17 @@ export function fileDepictionStore(root: string = depictionsRoot()): DepictionSt
 }
 
 export function defaultDepictionDeps(): DepictionDeps {
-  return { store: fileDepictionStore(), loadDb, loadDesigns };
+  return { store: fileDepictionStore(), loadDb, loadDesigns, modelLinks: fileModelLinkStore() };
+}
+
+/** Art changed for `defId`: re-key its `pcbas/<id>` model link (a no-op without a link built from sources, or when the art is the same). */
+async function rekeyModelLink(deps: DepictionDeps, defId: string): Promise<void> {
+  const links = deps.modelLinks;
+  if (links === undefined) return;
+  const link = await links.get(`pcbas/${defId}`);
+  if (link === undefined) return;
+  const next = relinkWithArt(link, await boardArtFiles(deps.store, defId));
+  if (next !== undefined) await links.put(next);
 }
 
 /* ------------------------------------------------------------------ *
@@ -828,6 +846,7 @@ async function uploadDepiction(
 
   await deps.store.writeAsset(defId, plan.fileName, plan.content);
   await deps.store.writeMeta(defId, plan.meta);
+  await rekeyModelLink(deps, defId);
 
   const parsed = parseDepictionMeta(plan.meta, `depictions/${defId}`);
   const dir = deps.store.dirFor(defId);

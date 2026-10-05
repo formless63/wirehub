@@ -1110,9 +1110,10 @@ export function transactingDepictionDeps(deps: DepictionDeps, workbench: Workben
       const probe = (store: DepictionStore | undefined): string | undefined => store?.dirFor('probe');
       const sameTree = workbench.depictions === deps.store || (probe(deps.store) !== undefined && probe(deps.store) === probe(workbench.depictions));
       const { docs, ...rest } = workbench;
+      const { modelLinks: _own, ...bare } = deps;
       const uow = new UnitOfWork({ ...rest, depictions: deps.store, ...(sameTree && docs !== undefined ? { docs } : {}) });
       const staged = uow.deps.depictions as DepictionStore;
-      const response = await run({ ...deps, store: staged, loadDb: uow.deps.loadDb });
+      const response = await run({ ...bare, store: staged, loadDb: uow.deps.loadDb, ...(uow.deps.modelLinks === undefined ? {} : { modelLinks: uow.deps.modelLinks }) });
       if (dryRun) {
         const answer = await dryRunAnswer(uow, 'body' in response ? { status: response.status, body: response.body } : { status: response.status, body: null });
         return { status: answer.status, body: answer.body };

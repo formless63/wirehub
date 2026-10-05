@@ -162,6 +162,34 @@ describe('the model-cache job', () => {
     expect((deferred.result['deferred'] as string[]).length).toBe(4);
   }, 60_000);
 
+  it('sweeps cached models no link names, after a grace period, on the file cache', async () => {
+    const { sweepModelCache, runModelCacheJob } = await import('../server/jobs/model-cache.ts');
+    const { fileModelCache } = await import('../server/models/cache.ts');
+    const { memoryModelLinkStore } = await import('../server/models/links.ts');
+    const { utimesSync, existsSync } = await import('node:fs');
+    const dir = join(work, 'sweep-cache');
+    const cache = fileModelCache(dir);
+    const [live, upload, oldDead, youngDead] = ['1', '2', '3', '4'].map((c) => c.repeat(64)) as [string, string, string, string];
+    for (const k of [live, upload, oldDead, youngDead]) cache.put(k, new Uint8Array([1, 2, 3]));
+    const now = new Date('2026-10-05T12:00:00Z');
+    utimesSync(join(dir, `${oldDead}.glb`), new Date('2026-09-01T00:00:00Z'), new Date('2026-09-01T00:00:00Z'));
+    for (const k of [live, upload]) utimesSync(join(dir, `${k}.glb`), new Date('2026-09-01T00:00:00Z'), new Date('2026-09-01T00:00:00Z'));
+    utimesSync(join(dir, `${youngDead}.glb`), new Date('2026-10-04T00:00:00Z'), new Date('2026-10-04T00:00:00Z'));
+    const links = memoryModelLinkStore([
+      { record: 'pcbas/a', asset: live, files: [{ path: 'x.kicad_pcb', sha256: 'e'.repeat(64) }], sourceKind: 'kicad-board', src: 'synthetic' },
+      { record: 'components/u', asset: upload, sourceKind: 'uploaded', src: 'synthetic' },
+    ]);
+    const out = await sweepModelCache(cache, await links.list(), { now });
+    expect(out).toEqual({ swept: [oldDead], kept: 2, young: 1 });
+    expect(existsSync(join(dir, `${oldDead}.glb`))).toBe(false);
+    expect(existsSync(join(dir, `${youngDead}.glb`))).toBe(true);
+    // the job sweeps too, and a zero grace takes the young one
+    const job = { id: 'j2', kind: 'model-cache' as const, status: 'running' as const, request: { graceDays: 0 }, steps: [], createdAt: '' };
+    const outcome = await runModelCacheJob({ job, step: async () => {} }, { deps: { modelLinks: links, modelCache: cache } as never, sources: async () => undefined, now: () => now });
+    expect(outcome.result['swept']).toEqual([youngDead]);
+    expect((await cache.keys()).sort()).toEqual([live, upload].sort());
+  });
+
   it('is queued by a commit that adds an imported link, once per burst', async () => {
     const { modelCacheTrigger } = await import('../server/jobs/model-cache.ts');
     const queued: string[] = [];

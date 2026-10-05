@@ -91,6 +91,43 @@ export function sourcesFromEnv(deps: WorkbenchDeps, env: Record<string, string |
   return chainSources(dir === '' ? undefined : folderSources(dir), catalogDocSources(deps), catalogArtSources(deps));
 }
 
+/** Days a model nobody names is kept: a restored version re-keys a link back to it (the plan's 7 days for derived blobs, §5.4). */
+export const SWEEP_GRACE_DAYS = 7;
+
+/**
+ * Delete every cached model no current link names (§5.4/§5.5). `live` is
+ * every link's `asset` — an upload's too, so nothing a link points at is
+ * ever swept. A model younger than `graceDays` stays. Files: the `.glb` goes.
+ * Postgres: the `derived_blob` row goes, and `blob-gc` then deletes the
+ * object it no longer names; derived blobs are never in a backup, so no
+ * "after a newer backup" wait applies (that is for record blobs).
+ */
+export async function sweepModelCache(
+  cache: ModelCache,
+  links: readonly ModelLink[],
+  options: { now: Date; graceDays?: number },
+): Promise<{ swept: string[]; kept: number; young: number }> {
+  const live = new Set(links.map((l) => l.asset));
+  const cutoff = options.now.getTime() - (options.graceDays ?? SWEEP_GRACE_DAYS) * 86_400_000;
+  const swept: string[] = [];
+  let kept = 0;
+  let young = 0;
+  for (const key of await cache.keys()) {
+    if (live.has(key)) {
+      kept += 1;
+      continue;
+    }
+    const at = await cache.builtAt?.(key);
+    if (at !== undefined && at.getTime() > cutoff) {
+      young += 1;
+      continue;
+    }
+    await cache.remove(key);
+    swept.push(key);
+  }
+  return { swept, kept, young };
+}
+
 export async function runModelCacheJob(context: JobContext, options: ModelCacheJobOptions): Promise<JobOutcome> {
   const { deps } = options;
   const cache: ModelCache | undefined = deps.modelCache;
@@ -129,7 +166,11 @@ export async function runModelCacheJob(context: JobContext, options: ModelCacheJ
       failed.push({ key: link.asset, record: link.record, error: error.message, ...(error instanceof ModelRefusal ? { hint: error.hint } : {}) });
     }
   }
-  return { result: { reason: context.job.request['reason'] ?? null, live: live.length, present, built, failed, deferred, ...(libraryLog.length === 0 ? {} : { library: libraryLog }) } };
+  // links re-read: one committed while the builds ran keeps its model
+  const graceDays = typeof context.job.request['graceDays'] === 'number' ? (context.job.request['graceDays'] as number) : undefined;
+  const sweep = await sweepModelCache(cache, await deps.modelLinks.list(), { now: (options.now ?? (() => new Date()))(), ...(graceDays === undefined ? {} : { graceDays }) });
+  if (sweep.swept.length > 0) await context.step(`swept ${sweep.swept.length} model(s) no link names`);
+  return { result: { reason: context.job.request['reason'] ?? null, live: live.length, present, built, failed, deferred, swept: sweep.swept, ...(sweep.young === 0 ? {} : { sweptWaiting: sweep.young }), ...(libraryLog.length === 0 ? {} : { library: libraryLog }) } };
 }
 
 /**
