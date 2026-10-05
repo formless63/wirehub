@@ -111,3 +111,47 @@ describe('the continuity spec', () => {
     expect(spec.openChecks).toEqual([]);
   });
 });
+
+describe('the cost roll-up', () => {
+  /** prices on everything the pigtail lead and the Y use, in USD, and 6 minutes to build a lead */
+  const priced = (): Db => {
+    const lead = { ...loadDesign('dc-pigtail-lead'), labourMinutes: 6 };
+    return withAssemblies(
+      {
+        ...live,
+        rules: { costing: { currency: 'USD', labourRatePerHour: 60 } },
+        connectors: live.connectors.map((c) => (c.id === 'jst-xh-2-dc' ? { ...c, cost: { unit: 0.5 } } : c.id === 'terminal-block-4' ? { ...c, cost: { unit: 2 } } : c)),
+        mechanicals: (live.mechanicals ?? []).map((m) => (m.id === 'xh-contact-socket' ? { ...m, cost: { unit: 0.05, breaks: [{ minQty: 4, unit: 0.04 }] } } : m)),
+        wires: live.wires.map((w) => (w.id === 'dc-2core-24awg' ? { ...w, cost: { unit: 1, per: 'm' as const } } : w)),
+      },
+      { working: [...loadDesigns().filter((d) => d.id !== lead.id), lead] },
+    );
+  };
+
+  it('prices a sub-assembly at its own roll-up: its parts and its labour, at the quantity the build takes', () => {
+    const on = priced();
+    const own = deriveBomSheet({ ...loadDesign('dc-pigtail-lead'), labourMinutes: 6 }, on).cost!;
+    // 0.5 housing + 2 × 0.05 contacts + 0.3 m × 1 wire + 6 min at 60/h
+    expect(own.total).toBeCloseTo(0.5 + 0.1 + 0.3 + 6, 6);
+    const cost = deriveBomSheet(y(), on).cost!;
+    const leads = cost.lines.filter((l) => l.ref === 'dc-pigtail-lead');
+    expect(leads.map((l) => l.unitPrice)).toEqual([own.total, own.total]);
+    expect(cost.materials).toBeCloseTo(2 + 2 * own.total, 6);
+    expect(cost.unpriced).toEqual([]);
+    // one line of two (no roles): the lead is costed at two-off, where the contacts' 4-off break applies
+    const folded = y();
+    for (const s of folded.instances.subassemblies!) delete s.role;
+    const line = deriveBomSheet(folded, on).cost!.lines.find((l) => l.ref === 'dc-pigtail-lead')!;
+    expect(line.quantity).toBe(2);
+    expect(line.unitPrice).toBeCloseTo(0.5 + 2 * 0.04 + 0.3 + 6, 6);
+  });
+
+  it('leaves a sub-assembly with nothing priced unpriced, and says when its price is a floor', () => {
+    const bare = deriveBomSheet(y(), withAssemblies({ ...live, connectors: live.connectors.map((c) => (c.id === 'terminal-block-4' ? { ...c, cost: { unit: 2, currency: 'USD' } } : c)) }, { working: loadDesigns() })).cost!;
+    expect(bare.unpriced.map((u) => u.ref)).toEqual(['dc-pigtail-lead', 'dc-pigtail-lead']);
+    const on = priced();
+    const partly: Db = { ...on, wires: live.wires };
+    const cost = deriveBomSheet(y(), partly).cost!;
+    expect(cost.notes.join(' ')).toContain('has parts without a price of its own');
+  });
+});
