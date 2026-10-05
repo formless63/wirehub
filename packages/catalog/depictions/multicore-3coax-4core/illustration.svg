@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525 131" width="525mm" height="131mm">
+  <title>Coax multicore, cutaway — cutaway</title>
+  <desc>Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.</desc>
+  <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 37 L200 37 L214 45 L200 53 L214 61 L200 69 L214 77 L200 85 L214 93 L20 93 Z"/>
+    <rect x="200" y="40" width="120" height="10" rx="4"/>
+    <rect x="300" y="42" width="90" height="6" rx="3"/>
+    <rect x="380" y="43.8" width="120" height="2.4"/>
+    <rect x="200" y="56" width="110" height="10" rx="4"/>
+    <rect x="290" y="58" width="90" height="6" rx="3"/>
+    <rect x="370" y="59.8" width="120" height="2.4"/>
+    <rect x="200" y="72" width="100" height="10" rx="4"/>
+    <rect x="280" y="74" width="90" height="6" rx="3"/>
+    <rect x="360" y="75.8" width="120" height="2.4"/>
+    <rect x="200" y="87" width="130" height="5" rx="2"/>
+    <text x="110" y="69" font-size="9" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">Jacket</text>
+    <text x="250" y="34" font-size="9" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">Coax shield</text>
+    <text x="345" y="34" font-size="9" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">Dielectric</text>
+    <text x="450" y="34" font-size="9" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">Centre conductor</text>
+    <text x="265" y="107" font-size="9" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">Plain core</text>
+  </g>
+</svg>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 13.5" width="32mm" height="13.5mm">
+  <title>HD15 (VGA) male — mating face</title>
+  <desc>Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.</desc>
+  <g fill="none" stroke="currentColor" stroke-width="0.15" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="0.5" y="0.5" width="31" height="12.5" rx="1.2"/>
+    <circle cx="3.51" cy="6.75" r="1.6"/>
+    <circle cx="28.49" cy="6.75" r="1.6"/>
+    <path d="M8.7 2.55 L23.3 2.55 L22.2 10.95 L9.8 10.95 Z"/>
+    <circle data-pin="1" cx="11.42" cy="4.77" r="0.5"/>
+    <circle data-pin="2" cx="13.71" cy="4.77" r="0.5"/>
+    <circle data-pin="3" cx="16" cy="4.77" r="0.5"/>
+    <circle data-pin="4" cx="18.29" cy="4.77" r="0.5"/>
+    <circle data-pin="5" cx="20.58" cy="4.77" r="0.5"/>
+    <circle data-pin="6" cx="10.28" cy="6.75" r="0.5"/>
+    <circle data-pin="7" cx="12.57" cy="6.75" r="0.5"/>
+    <circle data-pin="8" cx="14.86" cy="6.75" r="0.5"/>
+    <circle data-pin="9" cx="17.15" cy="6.75" r="0.5"/>
+    <circle data-pin="10" cx="19.43" cy="6.75" r="0.5"/>
+    <circle data-pin="11" cx="11.42" cy="8.73" r="0.5"/>
+    <circle data-pin="12" cx="13.71" cy="8.73" r="0.5"/>
+    <circle data-pin="13" cx="16" cy="8.73" r="0.5"/>
+    <circle data-pin="14" cx="18.29" cy="8.73" r="0.5"/>
+    <circle data-pin="15" cx="20.58" cy="8.73" r="0.5"/>
+  </g>
+</svg>

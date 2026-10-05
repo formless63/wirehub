@@ -106,6 +106,19 @@ export function depictionsFromRoot(root?: string): DepictionSource {
   };
 }
 
+/**
+ * Several depiction sources read as one: the first that has a manifest for a
+ * definition (or body) id supplies its artwork. A catalog's own tree goes
+ * first, so what a deployment draws itself wins over a pack's.
+ */
+export function layeredDepictions(...sources: readonly DepictionSource[]): DepictionSource {
+  const owner = (defId: string): DepictionSource | undefined => sources.find((source) => source.meta(defId) !== undefined);
+  return {
+    meta: (defId) => owner(defId)?.meta(defId),
+    artwork: (defId, view) => owner(defId)?.artwork(defId, view),
+  };
+}
+
 /** Drop the memoised catalog tree. Only tests that rewrite assets need this. */
 export function resetDepictionCache(): void {
   cachedSource = undefined;
@@ -160,13 +173,17 @@ export function pickDepictionView(
  * Resolution
  * ------------------------------------------------------------------ */
 
+/** Used pins of a connector face closer than this, measured down the (turned) face, cannot each have a wire of their own. */
+const MIN_PIN_GAP_MM = 1;
+
 /** Why a block that could have been depicted is not. */
 export type DepictionStatus =
   | 'drawn'
   | 'no-depiction'
   | 'no-usable-view'
   | 'unreadable-asset'
-  | 'unanchored-pin';
+  | 'unanchored-pin'
+  | 'crowded-anchors';
 
 /** Everything layout needs about a resolved depiction, in artwork units. */
 export interface ResolvedDepiction {
@@ -177,6 +194,8 @@ export interface ResolvedDepiction {
   heightUnits: number;
   mmPerUnit: number;
   anchors: Record<string, PinAnchor>;
+  /** a connector face turned a quarter clockwise (see `DiagramDepiction.turn`); frame and anchors are the turned ones */
+  turn?: 90;
   /** the build's mounted parts seen in this view, its frame (gerber boards) */
   parts: BoardPart[];
   /**
@@ -207,9 +226,15 @@ export interface DepictionResolution {
 export function resolveDepiction(
   source: DepictionSource,
   kind: 'connector' | 'pcba',
-  defId: string,
+  definitionId: string,
   requiredIds: readonly string[],
+  alsoTry: readonly string[] = [],
 ): DepictionResolution {
+  // the definition's own artwork first, then the art of the physical part it
+  // is built on (a connector's body, or the body its `drawing` names): one
+  // face serves every pinout on a body, and its anchors are the body's
+  // position ids, which a connector's pins carry
+  const defId = [definitionId, ...alsoTry].find((id) => source.meta(id) !== undefined) ?? definitionId;
   const meta = source.meta(defId);
   if (meta === undefined) return { status: 'no-depiction' };
 
@@ -239,16 +264,44 @@ export function resolveDepiction(
   if (missing.length > 0) return { status: 'unanchored-pin', missing };
 
   const board = kind === 'pcba' ? twoFacedBoard(source, defId, meta) : undefined;
+
+  // a connector face is drawn long axis down the page (as the built-in faces
+  // are), so its pins sit level with their wires: turn one whose pins spread
+  // across the page rather than down it a quarter
+  let widthUnits = asset.widthUnits;
+  let heightUnits = asset.heightUnits;
+  let placed = anchors;
+  let turn: 90 | undefined;
+  // judged on the pins the drawing must land wires on (a shell contact off to one side must not decide it)
+  const judged = (requiredIds.length > 0 ? requiredIds.map((id) => anchors[id]) : Object.values(anchors)).filter((a): a is PinAnchor => a !== undefined);
+  const xs = judged.map((a) => a.x);
+  const ys0 = judged.map((a) => a.y);
+  const spreadX = xs.length === 0 ? 0 : Math.max(...xs) - Math.min(...xs);
+  const spreadY = ys0.length === 0 ? 0 : Math.max(...ys0) - Math.min(...ys0);
+  if (kind === 'connector' && artwork.kind === 'vector' && spreadX > spreadY) {
+    turn = 90;
+    widthUnits = asset.heightUnits;
+    heightUnits = asset.widthUnits;
+    placed = Object.fromEntries(Object.entries(anchors).map(([id, a]) => [id, { x: asset.heightUnits! - a.y, y: a.x }]));
+  }
+  if (kind === 'connector') {
+    // wires leave level with their pins: two used pins closer than a millimetre
+    // down the page would run on one line
+    const ys = requiredIds.map((id) => placed[id]?.y).filter((y): y is number => y !== undefined).sort((a, b) => a - b);
+    const tight = ys.some((y, i) => i > 0 && (y - (ys[i - 1] as number)) * asset.mmPerUnit < MIN_PIN_GAP_MM);
+    if (tight) return { status: 'crowded-anchors', detail: `used pins sit closer than ${MIN_PIN_GAP_MM} mm down the face, so their wires would share a line` };
+  }
   return {
     status: 'drawn',
     depiction: {
       defId,
       view,
       kind: artwork.kind,
-      widthUnits: asset.widthUnits,
-      heightUnits: asset.heightUnits,
+      widthUnits,
+      heightUnits,
       mmPerUnit: asset.mmPerUnit,
-      anchors,
+      anchors: placed,
+      ...(turn === undefined ? {} : { turn }),
       parts: componentsFor(meta, view) ?? [],
       ...(board === undefined ? {} : { board }),
     },

@@ -1,0 +1,93 @@
+{
+  "defId": "hd15-male",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 32,
+      "heightUnits": 13.5,
+      "src": "High-density D-sub 15-pin plug mating face: three rows of five at 2.29 mm pitch, 1.98 mm row gap, numbered 1-5, 6-10, 11-15 left to right (middle row half a pitch left); approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 32,
+      "heightUnits": 13.5,
+      "src": "High-density D-sub 15-pin plug mating face: three rows of five at 2.29 mm pitch, 1.98 mm row gap, numbered 1-5, 6-10, 11-15 left to right (middle row half a pitch left); approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 11.42,
+      "y": 4.77
+    },
+    "2": {
+      "x": 13.71,
+      "y": 4.77
+    },
+    "3": {
+      "x": 16,
+      "y": 4.77
+    },
+    "4": {
+      "x": 18.29,
+      "y": 4.77
+    },
+    "5": {
+      "x": 20.58,
+      "y": 4.77
+    },
+    "6": {
+      "x": 10.28,
+      "y": 6.75
+    },
+    "7": {
+      "x": 12.57,
+      "y": 6.75
+    },
+    "8": {
+      "x": 14.86,
+      "y": 6.75
+    },
+    "9": {
+      "x": 17.15,
+      "y": 6.75
+    },
+    "10": {
+      "x": 19.43,
+      "y": 6.75
+    },
+    "11": {
+      "x": 11.42,
+      "y": 8.73
+    },
+    "12": {
+      "x": 13.71,
+      "y": 8.73
+    },
+    "13": {
+      "x": 16,
+      "y": 8.73
+    },
+    "14": {
+      "x": 18.29,
+      "y": 8.73
+    },
+    "15": {
+      "x": 20.58,
+      "y": 8.73
+    },
+    "shell": {
+      "x": 3.51,
+      "y": 6.75
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "High-density D-sub 15-pin plug mating face: three rows of five at 2.29 mm pitch, 1.98 mm row gap, numbered 1-5, 6-10, 11-15 left to right (middle row half a pitch left); approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}

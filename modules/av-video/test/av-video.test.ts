@@ -22,7 +22,7 @@ import {
 import { pinSignal } from '@wirehub/catalog/src/tags/classify.ts';
 import { deriveTestSpec, renderWireSpecSheet } from '@wirehub/docs';
 import { initialWizardState, planCable, readingsOfLabels, roleOfLabels } from '@wirehub/editor-react';
-import { connectorArt, crossSectionLayout, endFaceLayout } from '@wirehub/layout';
+import { connectorArt, crossSectionLayout, endFaceLayout, registerConnectorArt } from '@wirehub/layout';
 import { findWire, signalFromLabel, validateDb, validateDesign, type CableDesign, type Db, type Joint } from '@wirehub/model';
 import { createRegistry } from '@wirehub/modules';
 import { describe, expect, it } from 'vitest';
@@ -146,12 +146,14 @@ describe('drawing the VGA parts', () => {
     expect(endFaceLayout(vga, 'a')?.reading).not.toBe(endFaceLayout(vga, 'b')?.reading);
   });
 
-  it('draws the HD15 and SCART faces', () => {
+  it('draws the HD15 and SCART faces (SCART from the module\'s own art)', () => {
+    const off = registerConnectorArt(createRegistry([avVideo]).art().flatMap((a) => (a.connectors ?? []) as never[]));
     for (const id of ['hd15-male-vga', 'scart-male']) {
       const def = db.connectors.find((c) => c.id === id)!;
       const body = db.bodies?.find((b) => b.id === def.body);
       expect(connectorArt({ def, facing: 'right', ...(body === undefined ? {} : { body }) }), id).toBeDefined();
     }
+    off();
   });
 
   it('renders the stock\'s wire spec sheet, deterministically', async () => {

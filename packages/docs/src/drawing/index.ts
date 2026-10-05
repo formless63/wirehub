@@ -32,3 +32,6 @@ export type { FaceArt, FaceArtPath, FacePin, FaceSource, PlugGeometry } from './
 export { drawnFace } from './drawn-faces.ts';
 export { cutawayFor, drawCutaway, hasCutawayArt } from './cutaway.ts';
 export type { Cutaway } from './cutaway.ts';
+export { drawingArtProblems, registerDrawingArt } from './assets.ts';
+export type { CutawayArt, DrawingArt, LogoArt, TitleBlockText } from './assets.ts';
+export { depictedCutaway, depictedFace, faceFromDepiction } from './depiction-art.ts';

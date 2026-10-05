@@ -95,7 +95,7 @@ describePg('import and the S1 gate', () => {
   it('refuses a catalog the codec cannot map, and a second import into the same org', async () => {
     const files = new Map<string, string | Uint8Array>([['data/connectors.json', '[{"id":"x"}]']]);
     await expect(importCatalog(pgh.db, { org: { slug: 'bad', create: true }, files })).rejects.toThrow(ImportError);
-    await expect(importCatalog(pgh.db, { org: { slug: 'starter' }, files: readCatalogTree(dataPath('..')) })).rejects.toThrow(/already holds a catalog/);
+    await expect(importCatalog(pgh.db, { org: { slug: 'starter' }, files: readCatalogTree(dataPath('..')), blobs })).rejects.toThrow(/already holds a catalog/);
   });
 
   it('records the import as one change set, with reference edges', async () => {
@@ -136,7 +136,10 @@ describePg('import and the S1 gate', () => {
     const cache = new SnapshotCache(pgh.db, orgId, { reuseMs: 0 });
     const exported = exportSnapshot(await cache.get());
     const tree = readCatalogTree(dataPath('..'));
-    expect(Object.keys(exported.files).length).toBe(tree.size);
+    // the export's `files` are the text files; the binary ones (depiction art) are in its `blobs`
+    const text = [...tree].filter(([, content]) => typeof content === 'string');
+    expect(Object.keys(exported.files).length).toBe(text.length);
+    expect(Object.keys(exported.blobs).length).toBe(tree.size - text.length);
     for (const [path, text] of Object.entries(exported.files)) expect(text, path).toBe(tree.get(path));
     const viaApi = await handleWorkbenchRequest({ method: 'GET', path: '/api/export' }, pgWorkbenchDeps({ cache, blobs }));
     expect((viaApi.body as { files: Record<string, string> }).files).toEqual(exported.files);

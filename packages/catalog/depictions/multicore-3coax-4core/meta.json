@@ -1,0 +1,17 @@
+{
+  "defId": "multicore-3coax-4core",
+  "views": {
+    "illustration": {
+      "file": "illustration.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 525,
+      "heightUnits": 131,
+      "src": "Generic cutaway of a multicore with coax cores: jacket cut back, shields and dielectric stepped down to the centre conductors, plain cores alongside. Illustrative, not to scale. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    }
+  },
+  "pinAnchors": {},
+  "anchorFrame": "illustration",
+  "src": "Generic cutaway of a multicore with coax cores: jacket cut back, shields and dielectric stepped down to the centre conductors, plain cores alongside. Illustrative, not to scale. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}

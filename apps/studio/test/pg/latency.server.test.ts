@@ -15,7 +15,7 @@ import { openPg, type PgHandle } from '../../server/pg/db.ts';
 import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 const ROUTES = [
   '/api/designs',
@@ -54,7 +54,7 @@ describePg('read latency (S3)', () => {
   beforeAll(async () => {
     database = await freshDatabase();
     pgh = openPg(database.appUrl, { max: 4 });
-    const report = await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) });
+    const report = await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
     cache = new SnapshotCache(pgh.db, report.orgId);
   }, 60_000);
   afterAll(async () => {

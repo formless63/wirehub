@@ -101,10 +101,10 @@ through its scheme when it adopts them); each keeps its `src` citation. Each mod
 it without a conflict, and teaches the base's readers its words — the serial, networking and
 audio cases that used to be the base's own tests live there now.
 
-Connector face drawings (`packages/layout/src/connector-art.ts`) and body layouts
-(`packages/editor-react/src/body-templates.ts`) remain a base library of physical shapes —
-they appear only for a family a catalog actually has; letting a pack contribute its own is
-a follow-up.
+Connector faces, body layouts and sheet art: the base keeps the **generic physical shapes**
+(`packages/layout/src/connector-art.ts`: D-sub, HD15, mini-DIN, DIN, RCA, TRS, BNC;
+`packages/editor-react/src/body-templates.ts`) and a pack or module supplies the rest
+(see "Art" below). The SCART and JP21 faces and body layouts are `modules/av-video`'s.
 
 ## The example module
 
@@ -155,6 +155,7 @@ export const acme = defineModule({
   commitHook,                    // optional, singleton
   documents: [...],              // catalog documents the module owns
   derived: [...],                // derived records kept beside the catalog
+  art,                           // optional: connector drawings, body layouts, sheet art
 });
 ```
 
@@ -175,7 +176,35 @@ export const acme = defineModule({
 | **Documents** | `DocumentContribution { path: 'data/<prefix>/' \| 'data/<file>', class: 'imported' \| 'report' }` — catalog documents the module owns | server | **yes** — `PUT /api/docs/*path` writes only these (scope `imports` for an API token); the file backend's catalog version covers their directories |
 | **Derived records** | `DerivedContribution { id, label, files, derive({ designs, db }) → { [file]: data \| text } }` — files recomputed when a save changes their inputs | server (the commit) | **yes** — below; on files and on Postgres |
 | **Migrations** | `ModuleMigrationsContribution { dir }` — forward-only SQL for the module's own tables, Postgres backend only | server, `db:migrate` | **yes** — applied after the base's, into schema `mod_<id>` (below) |
+| **Art** | `ArtContribution { connectors?, bodyLayouts?, drawing? }` — parsed JSON from the pack's `art/` directory (`ConnectorArtRecord`, `BodyLayoutRecord` in `@wirehub/catalog`; `DrawingArt` in `@wirehub/docs`), opaque in the contract | browser and server, at start | **yes** — below |
 | **Commit hook** | `(before, proposed, description) → CableDesign` — rewrite an edit as it is committed (e.g. record it as an override in module data) | browser (editor) | **yes** — the app installs `registry.commitHook()` into the editor store (`setCommitHook`) when it starts |
+
+### Art (connector drawings, body layouts, sheet art)
+
+A pack's directory may hold `art/connectors/<id>.json` (a mating face as painted shapes
+with a handle per pin, keyed by body, `drawing` name or family), `art/body-layouts.json`
+(the standard position layouts a family offers for a new body) and `depictions/<id>/…`
+(SVG faces with pin anchors, mirrored solder-side views, a stock's cutaway illustration —
+the existing depiction mechanism). A module that carries such a pack hands the parsed
+records to the host with `art: { connectors, bodyLayouts, drawing }` (JSON imported with
+`with { type: 'json' }` so the browser bundle has them); `apps/studio/module-art.ts`
+validates and registers them at start, in the browser and on the server
+(`registerConnectorArt`, `registerBodyLayouts`, `registerDrawingArt`), and a bad record stops
+the start with one sentence per problem. Record ids are unique across the manifest.
+Art is keyed by body, drawing name or family, so a catalog without those bodies is
+unaffected; with no module the base draws exactly what it always did. The formats, the order
+art is chosen in and the licensing rules (CC0, a `src` on every file, nothing traced from a
+vendor drawing) are `specs/drawing-language.md` §7. Depictions of bundled modules reach the
+browser through globs over `modules/*/pack/depictions/`; an *installed* third-party pack's SVG
+files are not copied by `installPackLayer` yet (it copies `.json` only).
+
+**Bench work instructions** are a docs-level hook, `registerBenchSteps(provider)`
+(`packages/docs/src/bench/standard-work.ts`, `specs/drawing-language.md` §8): a provider returns
+steps for `prep`, `end`, `assembly`, `solder` or `qa`, or `undefined` to keep the generic ones.
+It is **not** a module extension point yet: the provider's inputs are the bench types
+(`BenchEnd`, `ShellSet`), which a module cannot name without importing `@wirehub/docs`. Hoisting
+those types into `@wirehub/model` (or a thin `BenchStepsContribution` over plain facts) is the
+step that makes it a module point; the bead stays open for it.
 
 ### Module tables (Postgres backend)
 
@@ -350,5 +379,5 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 ## Next steps
 
-Tracked in beads: let a pack contribute connector drawings and body layouts; an upload route for importers
+Tracked in beads: bench work instructions as a module point; copying an installed pack's SVG art; side-view (profile) drawings as data; an upload route for importers
 larger than a JSON body; panels in the saved-revision view.

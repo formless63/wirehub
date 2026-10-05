@@ -235,6 +235,28 @@ export interface DerivedContribution {
   derive(input: { designs: readonly CableDesign[]; db: Db }): Record<string, unknown>;
 }
 
+/**
+ * Drawings a module carries for the shapes its catalog pack adds
+ * (`docs/modules.md`, "Art"; `specs/drawing-language.md` §7). Every entry is
+ * plain data, the parsed contents of files in the pack's `art/` directory;
+ * the host validates and registers them at start (`registerConnectorArt`,
+ * `registerBodyLayouts`, `registerDrawingArt`), so the types stay out of this
+ * contract package — they are `@wirehub/catalog`'s `ConnectorArtRecord`,
+ * `BodyLayoutRecord` and `@wirehub/docs`'s `DrawingArt`.
+ *
+ * Art is keyed by body, drawing name or family and is inert in a catalog that
+ * has none of them, so it applies to the whole deployment — the base alone
+ * (no module) draws exactly what it always did.
+ */
+export interface ArtContribution {
+  /** connector drawings: the mating face as painted shapes with a handle per pin */
+  connectors?: readonly unknown[];
+  /** the standard position layouts a family offers for a new body */
+  bodyLayouts?: readonly unknown[];
+  /** drawing-sheet art: traced faces and plugs, cutaways per stock, the title block's logo and text */
+  drawing?: unknown;
+}
+
 /* ------------------------------------------------------------------ *
  * The module
  * ------------------------------------------------------------------ */
@@ -263,6 +285,8 @@ export interface WireHubModule {
   commitHook?: CommitHookContribution;
   documents?: readonly DocumentContribution[];
   derived?: readonly DerivedContribution[];
+  /** drawings for the shapes the module's pack adds */
+  art?: ArtContribution;
   /** SQL for the module's own tables on the Postgres backend */
   migrations?: ModuleMigrationsContribution;
 }
@@ -287,6 +311,8 @@ export interface ModuleRegistry {
   domains(): readonly WireHubModule[];
   importers(): readonly (ImporterContribution & { module: string })[];
   derived(): readonly (DerivedContribution & { module: string })[];
+  /** every module's art contribution, in manifest order */
+  art(): readonly (ArtContribution & { module: string })[];
   /**
    * The catalog directories (relative to `data/`, `''` = the top level) holding
    * files modules own — their documents and derived records — so the file
@@ -381,6 +407,19 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
       seen.set(item.id, item.module);
     }
   };
+  const artIds = (what: string, pick: (a: ArtContribution) => readonly unknown[] | undefined): void => {
+    const rows: { id: string; module: string }[] = [];
+    for (const m of modules) {
+      for (const item of pick(m.art ?? {}) ?? []) {
+        const id = typeof item === 'object' && item !== null ? (item as { id?: unknown }).id : undefined;
+        if (typeof id !== 'string' || !KEBAB.test(id)) problems.push(`module '${m.id}' has ${what} without a kebab-case id`);
+        else rows.push({ id, module: m.id });
+      }
+    }
+    unique(what, rows);
+  };
+  artIds('connector drawing', (a) => a.connectors);
+  artIds('body layout', (a) => a.bodyLayouts);
   unique('catalog pack', modules.flatMap((m) => tag(m, m.catalogPacks)));
   unique('importer', modules.flatMap((m) => tag(m, m.importers)));
   unique('exporter', modules.flatMap((m) => tag(m, m.exporters)));
@@ -402,6 +441,7 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     domains: () => list.filter((m) => m.setup?.kind === 'domain'),
     importers: () => list.flatMap((m) => tag(m, m.importers)),
     derived: () => list.flatMap((m) => tag(m, m.derived)),
+    art: () => list.flatMap((m) => (m.art === undefined ? [] : [{ ...m.art, module: m.id }])),
     catalogDirs: () => {
       const dirs = new Set<string>();
       for (const m of list) {

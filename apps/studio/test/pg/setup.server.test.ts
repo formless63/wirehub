@@ -21,7 +21,7 @@ import { importCatalog } from '../../server/pg/import.ts';
 import { pgSetupDeps } from '../../server/pg/setup.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { handleSetupRequest } from '../../server/setup.ts';
-import { describePg, freshDatabase, type TestDatabase } from './harness.ts';
+import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 describePg('first-run setup on Postgres', () => {
   let database: TestDatabase;
@@ -40,7 +40,7 @@ describePg('first-run setup on Postgres', () => {
 
   it('installs the chosen packs in one change set, as the file backend does', async () => {
     const now = () => '2026-10-05T09:00:00.000Z';
-    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) });
+    const { orgId } = await importCatalog(pgh.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
     const cache = new SnapshotCache(pgh.db, orgId, { reuseMs: 0 });
     const deps = pgWorkbenchDeps({ cache, db: pgh.db });
     deps.setup = pgSetupDeps(deps, cache, { prompt: true, now });
@@ -58,6 +58,7 @@ describePg('first-run setup on Postgres', () => {
     const copy = join(work, 'data');
     const packsDir = join(work, 'packs');
     cpSync(dataPath(''), copy, { recursive: true });
+    cpSync(join(dataPath('..'), 'depictions'), join(work, 'depictions'), { recursive: true });
     expect((await handleSetupRequest({ method: 'POST', body: { modules: ['pc-serial', 'networking'] } }, { dataDir: copy, packsDir, prompt: true, now }, registry)).status).toBe(200);
     const files = readFlattenedCatalog(work, packsDir);
     const pg = exportSnapshot(await cache.get()).files;

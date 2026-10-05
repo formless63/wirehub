@@ -8,14 +8,14 @@ import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
 import { describeStorageContract } from '../storage-contract/contract.ts';
-import { describePg, freshDatabase } from './harness.ts';
+import { describePg, freshDatabase, testBlobs } from './harness.ts';
 
 describeStorageContract(
   'pg',
   async () => {
     const database = await freshDatabase();
     const handle = openPg(database.appUrl, { max: 2 });
-    const report = await importCatalog(handle.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')) });
+    const report = await importCatalog(handle.db, { org: { slug: 'starter', create: true }, files: readCatalogTree(dataPath('..')), blobs: testBlobs() });
     return {
       deps: pgWorkbenchDeps({ cache: new SnapshotCache(handle.db, report.orgId) }),
       close: async () => {

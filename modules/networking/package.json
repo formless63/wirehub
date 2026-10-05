@@ -27,6 +27,7 @@
     "@wirehub/layout": "workspace:*",
     "@wirehub/model": "workspace:*",
     "@wirehub/modules": "workspace:*",
+    "@wirehub/render-svg": "workspace:*",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
   }

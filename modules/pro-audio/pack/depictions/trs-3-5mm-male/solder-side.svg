@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="10mm" height="10mm">
+  <title>3.5 mm TRS plug — solder side</title>
+  <desc>Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.</desc>
+  <g fill="none" stroke="currentColor" stroke-width="0.15" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="5" cy="5" r="3.5"/>
+    <circle cx="5" cy="5" r="2"/>
+    <circle data-pin="tip" cx="5" cy="5" r="0.7"/>
+    <circle data-pin="ring" cx="3.6" cy="5" r="0.35"/>
+    <circle data-pin="sleeve" cx="2.4" cy="5" r="0.35"/>
+  </g>
+</svg>

@@ -1,0 +1,45 @@
+{
+  "defId": "xlr3-female",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 24,
+      "heightUnits": 24,
+      "src": "3-pin XLR socket mating face (IEC 61076-2-103), latch at the left; the three contact positions are inferred, not read from the standard drawing — approximate, verify before relying on handedness. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 24,
+      "heightUnits": 24,
+      "src": "3-pin XLR socket mating face (IEC 61076-2-103), latch at the left; the three contact positions are inferred, not read from the standard drawing — approximate, verify before relying on handedness. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 8.8,
+      "y": 8.4
+    },
+    "2": {
+      "x": 8.8,
+      "y": 15.6
+    },
+    "3": {
+      "x": 15.8,
+      "y": 12
+    },
+    "shell": {
+      "x": 2.5,
+      "y": 12
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "3-pin XLR socket mating face (IEC 61076-2-103), latch at the left; the three contact positions are inferred, not read from the standard drawing — approximate, verify before relying on handedness. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+}
