@@ -178,11 +178,32 @@ other design.
   (`ids`), and keeps the recipe with the fewest differences; they become its overrides.
 - `recipeJointProposals(design, db)`: the joints the recipe derives that the design lacks.
 
+## Proposals: boards and adapters for what nothing completes
+
+When no option is complete, `proposeBoards(db, resolution)` turns each missing piece of the
+top-ranked option into a **draft** (`proposals.ts`): a level converter (a level nothing converts), a
+supply (a rail the other end does not offer), a conditioning on the named positions (a need or a
+requirement no recipe meets), or an adapter between two ports that speak different signals. A
+draft lists its pads (with the signals and levels it must carry), its parts (from the library where
+a recipe names them, else a placeholder), its nets, and what is **open** — the facts nobody has
+stated yet. Its `key` is stable, so a decision sticks:
+
+- **Decline** (with a reason): the hub keeps it in `data/proposals.json` and does not offer it again
+  (Proposals tab: **Offer again**);
+- **Start a board**: a development PCBA is created from it (`proposalPcba`: its pads as terminals,
+  its parts in the internal links), numbered by the scheme unless a number is given; describe it as
+  an adapter device and the resolver offers it as a board option.
+
+Other sources file proposals of the same shape (`POST /api/proposals`): a board importer that finds
+a footprint no interface fits, a module, a script.
+
 ## In the app
 
 - **Which cable do I need?** (`/resolver`, the rail and the Cables toolbar): pick the two devices and
   ports, read the ranked options with their reasons, hazards and missing pieces and the refused
-  ones, pick a stock (the fitting ones first), a length, an id, and **Create design**.
+  ones, pick a stock (the fitting ones first), a length, an id, and **Create design**. When nothing
+  is complete, **Proposals** drafts boards and adapters to decline or start.
+- **Proposals** (the second tab): every filed, declined and accepted proposal, **Offer again**.
 - **Devices and recipes** (the second tab): the devices, recipes and hazards in force with where each
   came from, JSON editing with examples to start from, the built-in hazards, and the ranking policy.
 - The editor's **Recipe** tab (shown when the design has a recipe or the library has devices): the two
@@ -201,6 +222,8 @@ other design.
 | `GET /api/resolver/resolve?source=&sourcePort=&destination=&destinationPort=[&boards=0]` | the resolution, and the fitting stocks per option |
 | `GET /api/resolver/derive?…&option=&stock=&lengthMm=&id=&label=` | the proposed design, its issues and missing pieces; nothing is written — `POST /api/designs` creates it |
 | `GET /api/resolver/designs/:id` | a design's drift, proposals and re-derived body; for a hand design, its inferred recipe |
+| `GET /api/proposals[?source=&destination=…]` | the recorded proposals and decisions; with a pair, its drafts and their state |
+| `POST /api/proposals`, `/decline`, `/reopen`, `/accept` | file a proposal; decide on one (`{ key, reason?, proposal? }`; accept takes `id` and `partNumber?` and creates the board) |
 
 Writes go through the unit of work like every catalog document, on files and on Postgres; a pack
 cannot be disabled while a design's recipe names its devices (the pack lifecycle lists the

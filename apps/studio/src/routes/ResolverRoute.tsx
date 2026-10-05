@@ -19,13 +19,13 @@ import { toast } from 'sonner';
 import { deriveCable, resolve, resolveDevice, suggestStocks, validateDesign, type CableOption, type DeviceProfile, type ResolveQuery } from '@wirehub/model';
 
 import { dbKey } from '../queries.ts';
-import { resolverKey, resolverQuery, saveResolverList, saveResolverPolicy, type ResolverList, type ResolverView } from '../resolver.browser.ts';
+import { decideProposal, fetchPairProposals, fetchProposalDecisions, resolverKey, resolverQuery, saveResolverList, saveResolverPolicy, type ProposalRow, type ResolverList, type ResolverView } from '../resolver.browser.ts';
 import { useStudio } from '../studio-context.tsx';
 
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
 const SRC = 'synthetic example';
 
-type Tab = 'which' | 'library';
+type Tab = 'which' | 'proposals' | 'library';
 
 export function ResolverRoute(): JSX.Element {
   const [tab, setTab] = useState<Tab>('which');
@@ -33,13 +33,13 @@ export function ResolverRoute(): JSX.Element {
     <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="resolver">
       <h1 className="mb-1 text-[14px] font-semibold">Which cable do I need?</h1>
       <nav className="mb-3 flex gap-3" role="tablist" aria-label="resolver">
-        {(['which', 'library'] as const).map((t) => (
+        {(['which', 'proposals', 'library'] as const).map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'font-semibold underline' : 'text-dim'} onClick={() => setTab(t)}>
-            {t === 'which' ? 'Find a cable' : 'Devices and recipes'}
+            {t === 'which' ? 'Find a cable' : t === 'proposals' ? 'Proposals' : 'Devices and recipes'}
           </button>
         ))}
       </nav>
-      {tab === 'which' ? <FindCable /> : <ResolverLibrary />}
+      {tab === 'which' ? <FindCable /> : tab === 'proposals' ? <ProposalDecisions /> : <ResolverLibrary />}
     </div>
   );
 }
@@ -234,6 +234,7 @@ function FindCable(): JSX.Element {
               </ul>
             </details>
           )}
+          {query === undefined || resolution.options.some((o) => o.missing.length === 0) ? null : <PairProposals query={query} />}
           {option === undefined ? null : (
             <section className="border-t border-line pt-2" data-testid="resolver-create">
               <h2 className="mb-1 text-[13px] font-semibold">Make it a design</h2>
@@ -296,6 +297,110 @@ function FindCable(): JSX.Element {
         </>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Proposals: drafts for what nothing completes, and the decisions on them
+ * ------------------------------------------------------------------ */
+
+function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
+  const { me } = useStudio();
+  const readOnly = me?.role === 'viewer';
+  const key = ['resolver', 'proposals', query.source.device, query.source.port ?? '', query.destination.device, query.destination.port ?? ''];
+  const client = useQueryClient();
+  const found = useQuery({ queryKey: key, queryFn: async () => {
+    const out = await fetchPairProposals(query);
+    if (!out.ok) throw new Error(out.message);
+    return out.value.proposals;
+  }, retry: false });
+  const [showDeclined, setShowDeclined] = useState(false);
+  const [reason, setReason] = useState<Record<string, string>>({});
+  const [boardId, setBoardId] = useState<Record<string, string>>({});
+  const rows = (found.data ?? []).filter((r) => showDeclined || r.state !== 'declined');
+  if (found.data === undefined || found.data.length === 0) return null;
+  const act = async (action: 'decline' | 'reopen' | 'accept', row: ProposalRow): Promise<void> => {
+    const k = row.proposal.key;
+    const out = await decideProposal(action, { key: k, proposal: row.proposal, ...(reason[k] ? { reason: reason[k] } : {}), ...(action === 'accept' ? { id: boardId[k] ?? '' } : {}) });
+    if (!out.ok) return void toast.error(out.message, { description: out.hint });
+    toast.success(action === 'decline' ? 'Declined: it will not be offered again.' : action === 'accept' ? 'Started a development board from it.' : 'Offered again.');
+    void client.invalidateQueries({ queryKey: key });
+    void client.invalidateQueries({ queryKey: ['resolver', 'decisions'] });
+    if (action === 'accept') void client.invalidateQueries({ queryKey: dbKey });
+  };
+  return (
+    <section className="border-t border-line pt-2" data-testid="resolver-proposals">
+      <h2 className="mb-1 text-[13px] font-semibold">Proposals</h2>
+      <p className="mb-1 max-w-2xl text-faint">Nothing connects these completely. A board or adapter could; each draft lists its pads, its parts and what nobody has stated yet.</p>
+      <label className="flex items-center gap-1 text-faint">
+        <input type="checkbox" checked={showDeclined} onChange={(e) => setShowDeclined(e.target.checked)} /> show declined
+      </label>
+      <ul>
+        {rows.map((row) => {
+          const p = row.proposal;
+          return (
+            <li key={p.key} className="my-1 border border-line p-2" data-proposal={p.key} data-state={row.state}>
+              <b>{p.title}</b> <span className="text-faint">· {row.state}{row.reason === undefined ? '' : ` (${row.reason})`}{row.pcba === undefined ? '' : ` → ${row.pcba}`}</span>
+              {p.gap === undefined ? null : <div className="text-faint">{p.gap.message}</div>}
+              <div>Pads: {p.pads.map((x) => x.id).join(', ')} · Parts: {p.parts.map((x) => `${x.ref} ${x.value ?? x.kind}`).join(', ')}</div>
+              {p.open.map((o) => (
+                <div key={o} className="text-warn">Open: {o}</div>
+              ))}
+              {readOnly || row.state === 'accepted' ? null : row.state === 'declined' ? (
+                <button type="button" className="underline" onClick={() => void act('reopen', row)}>
+                  Offer again
+                </button>
+              ) : (
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <input aria-label="Reason" placeholder="why not (optional)" className="rounded border border-line bg-panel px-1 py-0.5" value={reason[p.key] ?? ''} onChange={(e) => setReason({ ...reason, [p.key]: e.target.value })} />
+                  <button type="button" className="underline" onClick={() => void act('decline', row)}>
+                    Decline
+                  </button>
+                  <input aria-label="New board id" placeholder="new board id" className="rounded border border-line bg-panel px-1 py-0.5" value={boardId[p.key] ?? ''} onChange={(e) => setBoardId({ ...boardId, [p.key]: e.target.value })} />
+                  <button type="button" className="underline disabled:opacity-50" disabled={(boardId[p.key] ?? '') === ''} onClick={() => void act('accept', row)}>
+                    Start a board
+                  </button>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function ProposalDecisions(): JSX.Element {
+  const client = useQueryClient();
+  const { me } = useStudio();
+  const list = useQuery({ queryKey: ['resolver', 'decisions'], queryFn: async () => {
+    const out = await fetchProposalDecisions();
+    if (!out.ok) throw new Error(out.message);
+    return out.value.proposals;
+  }, retry: false });
+  if (list.data === undefined) return <div className="text-faint">{list.isError ? 'The proposals could not be read.' : 'Loading…'}</div>;
+  if (list.data.length === 0) return <p className="text-faint" data-testid="proposal-decisions">No proposal has been filed, declined or accepted yet. Find a cable that nothing completes to see drafts.</p>;
+  return (
+    <ul className="max-w-3xl" data-testid="proposal-decisions">
+      {list.data.map((d) => (
+        <li key={d.key} className="my-1 border border-line p-2" data-state={d.state}>
+          <b>{d.proposal.title}</b> <span className="text-faint">· {d.state}{d.reason === undefined ? '' : ` (${d.reason})`} · {d.by ?? ''} {d.at.slice(0, 10)}{d.pcba === undefined ? '' : ` → board ${d.pcba}`}</span>
+          {me?.role === 'viewer' || d.state !== 'declined' ? null : (
+            <button
+              type="button"
+              className="ml-2 underline"
+              onClick={async () => {
+                const out = await decideProposal('reopen', { key: d.key });
+                if (!out.ok) return void toast.error(out.message);
+                void client.invalidateQueries({ queryKey: ['resolver'] });
+              }}
+            >
+              Offer again
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

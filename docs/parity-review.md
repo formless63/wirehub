@@ -37,12 +37,12 @@ feature belongs to the shop, it says "a private module".
 | Class | Count |
 | --- | --- |
 | present | 94 |
-| present (generic) | 15 |
+| present (generic) | 19 |
 | degraded | 7 |
 | missing, generic | 3 |
-| missing, private | 15 |
+| missing, private | 12 |
 | dropped | 7 |
-| **total** | **141** |
+| **total** | **142** |
 
 The base came through almost intact. The model, the validation rules (every issue
 code except the product, route, resolver and private-numbering ones), the editor, the
@@ -72,7 +72,7 @@ What was lost is mostly glue around the private parts:
 | Product lineup page | present (generic) | `/products`, Lineup tab, JSON and CSV export (`docs/products.md`) |
 | Board import page | present | `modules/board-import` (`/m/board-import/boards`): KiCad, Gerber and fab BOM/CPL files, reviewed and published as jobs (cs-5k1.13); only the private file-share discovery stays private |
 | Part compare view (2D art and 3D model diff, revisions) | present (generic) | the base compare view: fields, 2D (side by side, difference overlay), 3D (side by side, two-colour overlay), revisions as sides (`docs/revisions.md`) |
-| Declined board-proposal tab | missing, private | resolver module |
+| Declined board-proposal tab | present (generic) | `/resolver`, Proposals tab (boundaries §11) |
 | Not-found view | present | |
 | Top bar: breadcrumb, unsaved dot, view switch, undo/redo, save, overflow menu | present | |
 | Make-variant menu | degraded | its two shop-specific entries were dropped. The generic "move onto another stock" transform survives in code with no UI: cs-5k1.10 |
@@ -169,7 +169,7 @@ What was lost is mostly glue around the private parts:
 | Vendor documents on parts | present | |
 | Signal-tag editing | present | |
 | Inline vocabulary editing | present | |
-| Declined-proposal list | missing, private | |
+| Declined-proposal list | present (generic) | the Proposals tab |
 | Read-only imported records | present | better: pack records are read-only, with fork |
 | Part-number field with suggestion and format checks | present | over the pluggable scheme |
 | Duplicate part-number protection | degraded | the prior studio avoided reuse through a private register. The base checks format only: cs-5k1.3 |
@@ -225,7 +225,7 @@ What was lost is mostly glue around the private parts:
 | Wire recipes | present | |
 | Kits | present | the SKU grammar is now a generic token rule |
 | Devices, rules, resolver, recipe inference | present (generic) | the engines in `@wirehub/model`; devices, recipes, hazards and policy are data (boundaries §11) |
-| Board proposals | missing, private | |
+| Board proposals | present (generic) | `proposeBoards`, decline, accept (`docs/resolver.md`) |
 
 ### Server and API
 
@@ -238,7 +238,8 @@ What was lost is mostly glue around the private parts:
 | ERP identity, register and reconciliation routes | missing, private | |
 | Lineup and products routes | present (generic) | `/api/products/…`, `/api/lineup` (`docs/products.md`) |
 | Part revisions routes | present (generic) | `/api/revisions/…` (`docs/revisions.md`) |
-| Board import, proposals and ERP routes | missing, private | |
+| Proposals routes | present (generic) | `/api/proposals…` |
+| Board import and ERP routes | missing, private | |
 | Validate before write, If-Match / ETag, unit of work, write lock, write journal | present | |
 | API index and 404 hints | present | |
 

@@ -6,7 +6,7 @@
  */
 
 import type { Outcome } from '@wirehub/editor-react';
-import type { ConditioningRecipe, DeviceProfile, HazardRule, Issue, ResolverPolicy } from '@wirehub/model';
+import type { BoardProposal, ConditioningRecipe, DeviceProfile, HazardRule, Issue, ProposalDecision, ResolverPolicy } from '@wirehub/model';
 
 import { request } from './definitions.browser.ts';
 
@@ -43,3 +43,22 @@ export const resolverQuery = {
   },
   retry: false,
 } as const;
+
+/* ------------------------------------------------------------------ *
+ * Proposals (`server/proposals.ts`)
+ * ------------------------------------------------------------------ */
+
+export interface ProposalRow {
+  proposal: BoardProposal;
+  state: 'open' | 'declined' | 'accepted';
+  reason?: string;
+  pcba?: string;
+}
+
+const pairQuery = (q: { source: { device: string; port?: string }; destination: { device: string; port?: string } }): string =>
+  new URLSearchParams({ source: q.source.device, destination: q.destination.device, ...(q.source.port === undefined ? {} : { sourcePort: q.source.port }), ...(q.destination.port === undefined ? {} : { destinationPort: q.destination.port }) }).toString();
+
+export const fetchPairProposals = (q: Parameters<typeof pairQuery>[0], base = '/api'): Promise<Outcome<{ proposals: ProposalRow[] }>> => request<{ proposals: ProposalRow[] }>(`${base}/proposals?${pairQuery(q)}`);
+export const fetchProposalDecisions = (base = '/api'): Promise<Outcome<{ proposals: ProposalDecision[] }>> => request<{ proposals: ProposalDecision[] }>(`${base}/proposals`);
+export const decideProposal = (action: 'decline' | 'reopen' | 'accept', body: { key: string; reason?: string; id?: string; proposal?: BoardProposal }, base = '/api'): Promise<Outcome<{ proposals: ProposalDecision[] }>> =>
+  request<{ proposals: ProposalDecision[] }>(`${base}/proposals/${action}`, { method: 'POST', body });

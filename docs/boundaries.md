@@ -64,7 +64,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `wire-display.ts` | BASE-gen | stock names from the wire's own label and lay order; no family table |
 | `part-numbers.ts` | BASE-gen | **pluggable**: a `PartNumberScheme` interface, a built-in prefix scheme (`CON-00001`) configured by an optional `part-numbers.json`, `knownPartNumbers()`; the private scheme, register parsing, reconciliation and rule inference left behind |
 | `devices.ts`, `rules.ts`, `resolve.ts`, `derive-design.ts`, `derive-joints.ts`, `infer-recipe.ts`, `journey.ts` | BASE-gen (rebuilt, §11) | was MODULE; rebuilt generically as `devices.ts`, `resolve.ts`, `derive-cable.ts`, `cable-recipe.ts`: device profiles, conditioning recipes, hazards and a ranking policy as data, ranked options, derived designs, recipe inference and drift. No private device, rule or value carried over |
-| `board-proposal.ts` | MODULE | board proposals from resolver gaps |
+| `board-proposal.ts` | BASE-gen (rebuilt, §11) | rebuilt as `proposals.ts`: drafts from resolver gaps, declined and accepted in `data/proposals.json`, a development PCBA started from an accepted one |
 | `lineup.ts`, `products.ts` | BASE-gen (rebuilt, §11) | rebuilt as `products.ts`: product families as data (`products.json`) with aliases, option axes and variants, merge and split, the lineup as JSON and CSV. The private lineup's device rows, store listings and product preferences stay data of a private pack |
 | `production-route.ts` | BASE-gen (rebuilt, §11) | a `route` field (`make`, `contract`, `buy`) with `maker` and `suppliers` on every record and design, checked and badged; no route is read from a numbering series (a shop that wants that writes a validation rule) |
 
@@ -287,7 +287,7 @@ starter designs (the existing goldens use the frozen fixture catalog).
 | Part numbers | BASE-gen (pluggable scheme) |
 | Device resolver, recipes, journey, drift (generic engines; the devices are data) | BASE (rebuilt, §11) |
 | Products, variants, merge and split, the lineup, routes | BASE (rebuilt, §11) |
-| Board proposals | MODULE |
+| Board proposals: drafts from resolver gaps, decline, accept | BASE (rebuilt, §11) |
 | ERP integration (contract, transport, push, identity table, PN reconciliation) | MODULE |
 | Board, model and Gerber importers for open file formats (KiCad, Gerber, fab BOM/CPL), the board model from its KiCad file | BASE (new): `modules/board-import`, server `models/*` |
 | Discovering those files on the board designer's share | MODULE |
@@ -374,8 +374,9 @@ repository.
   API, the "Which cable do I need?" page, the editor's Recipe tab and the recipe's joints in Connect
   known pins. Examples ship in the bundled `pc-serial`, `pro-audio` and `automotive` packs.
   A private pack supplies only its devices, boards, recipes, hazards and policy. Board
-  *proposals* (a new board drafted from a gap) are not rebuilt: a missing piece names what is
-  missing, and drafting a board stays a follow-up.
+  **proposals** are rebuilt too: drafts from the resolver's gaps (pads, known parts, nets, what is
+  open), declined with a reason and remembered, or accepted as a development board; other sources
+  file proposals through the API.
 - **Products and variants** (`docs/products.md`): product families as data (`products.json`) with
   aliases, option axes and variants (each a design, a number, a length, option values), merge and
   split, product pages, the lineup as a view and as JSON and CSV (released revision, cost roll-up,

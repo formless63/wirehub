@@ -432,6 +432,8 @@ refused with why. `deriveCable` turns one into a design (plugs, a suggested stoc
 recipes' parts, status `development`) that carries `recipe: { source, destination, option, stock,
 lengthMm, ids?, overrides? }`. `validateDesign` checks a design against its recipe (`recipe-drift`
 and kin, warnings); `inferCableRecipe` finds the recipe of a hand design; `rederive` rebuilds one.
+When nothing is complete, `proposeBoards` drafts boards and adapters for the missing pieces;
+people decline them (remembered in `proposals.json`) or start a development board from one.
 All of it is data a pack ships; the engine knows no field's devices.
 
 ### Products, variants, the lineup and routes

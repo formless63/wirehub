@@ -19,12 +19,13 @@ export interface ResolverFlowHooks {
 const SRC = 'synthetic example';
 export const SUPPLY = { id: 'bench-supply', label: 'Bench supply', kind: 'instrument', ports: [{ id: 'dc-out', label: 'DC out', interface: 'dc-2pin', gender: 'male', role: 'source', pins: { '1': { signal: 'pwr-v', dir: 'out', src: SRC } } }], src: SRC };
 export const PANEL = { id: 'led-panel', label: 'LED panel', kind: 'instrument', ports: [{ id: 'dc-in', label: 'DC in', interface: 'dc-2pin', gender: 'male', role: 'sink', pins: { '1': { signal: 'pwr-v', dir: 'in', needs: ['series-resistor'], src: SRC } } }], src: SRC };
+export const USB_SUPPLY = { id: 'usb-supply', label: 'USB supply', kind: 'instrument', ports: [{ id: 'out', interface: 'dc-2pin', gender: 'male', role: 'source', pins: { '1': { signal: 'pwr-5v', dir: 'out', src: SRC } } }], src: SRC };
 export const LIMIT = { id: 'led-limit-150r', label: 'LED current limit, 150 Ω', conditioning: 'series-resistor', parts: [{ component: 'r-150', placement: 'series' }], src: SRC };
 
 const bundle = {
   format: 1,
   manifest: { format: 1, id: 'devices-pack', name: 'Devices pack', version: '1.0.0', license: 'CC0-1.0' },
-  files: { 'devices.json': [SUPPLY, PANEL], 'conditioning-recipes.json': [LIMIT] },
+  files: { 'devices.json': [SUPPLY, PANEL, USB_SUPPLY], 'conditioning-recipes.json': [LIMIT] },
 };
 
 export async function runResolverFlow({ call }: ResolverFlowHooks): Promise<void> {
@@ -39,6 +40,7 @@ export async function runResolverFlow({ call }: ResolverFlowHooks): Promise<void
   expect(lib.body.devices.map((d: any) => [d.id, d.origin, d.pack])).toEqual([
     ['bench-supply', 'pack', 'devices-pack'],
     ['led-panel', 'pack', 'devices-pack'],
+    ['usb-supply', 'pack', 'devices-pack'],
   ]);
   expect(lib.body.recipes.map((r: any) => r.id)).toEqual(['led-limit-150r']);
   expect(lib.body.issues).toEqual([]);
@@ -96,6 +98,7 @@ export async function runResolverFlow({ call }: ResolverFlowHooks): Promise<void
   expect(shadow.body.devices.map((d: any) => [d.id, d.label, d.origin]).sort()).toEqual([
     ['bench-supply', 'Bench supply', 'pack'],
     ['led-panel', 'LED panel (our build)', 'pack'],
+    ['usb-supply', 'USB supply', 'pack'],
   ]);
   expect(shadow.body.devices.find((d: any) => d.id === 'led-panel').held).toBe(true);
 
@@ -106,6 +109,23 @@ export async function runResolverFlow({ call }: ResolverFlowHooks): Promise<void
   expect(policy.status, JSON.stringify(policy.body)).toBe(200);
   expect(policy.body.policy.inForce.order).toEqual(['parts', 'missing']);
   expect((await call('GET', `/api/resolver/resolve?${q}`, undefined, OWNER)).body.options[0].score).toHaveLength(2);
+
+  // proposals: a pair nothing completes gets a draft; declined it stays declined, accepted it starts a board
+  expect((await call('GET', '/api/proposals?source=bench-supply&destination=led-panel', undefined, OWNER)).body.proposals).toEqual([]);
+  const drafts = await call('GET', '/api/proposals?source=usb-supply&destination=led-panel', undefined, OWNER);
+  expect(drafts.status, JSON.stringify(drafts.body)).toBe(200);
+  const supply = drafts.body.proposals.find((p: any) => p.proposal.gap.code === 'supply-missing');
+  expect(supply).toMatchObject({ state: 'open', proposal: { kind: 'draft' } });
+  const declined = await call('POST', '/api/proposals/decline', { key: supply.proposal.key, reason: 'we buy a converter', proposal: supply.proposal }, OWNER);
+  expect(declined.status, JSON.stringify(declined.body)).toBe(200);
+  const again = await call('GET', '/api/proposals?source=usb-supply&destination=led-panel', undefined, OWNER);
+  expect(again.body.proposals.find((p: any) => p.proposal.key === supply.proposal.key)).toMatchObject({ state: 'declined', reason: 'we buy a converter' });
+  expect((await call('GET', '/api/proposals', undefined, OWNER)).body.proposals.map((d: any) => d.state)).toEqual(['declined']);
+  expect((await call('POST', '/api/proposals/reopen', { key: supply.proposal.key }, OWNER)).status).toBe(200);
+  const accepted = await call('POST', '/api/proposals/accept', { key: supply.proposal.key, id: 'usb-panel-supply-board' }, OWNER);
+  expect(accepted.status, JSON.stringify(accepted.body)).toBe(201);
+  expect((await call('GET', '/api/definitions/pcbas/usb-panel-supply-board', undefined, OWNER)).body).toMatchObject({ status: 'development' });
+  expect((await call('POST', '/api/proposals', { proposal: { key: 'x' } }, OWNER)).status).toBe(422);
 
   // the pack cannot go while a design's recipe names its devices; once they are gone, it takes its records along
   const refused = await call('DELETE', '/api/packs/devices-pack', undefined, OWNER);

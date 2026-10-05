@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { clearOfflineCache } from '../src/offline-cache.browser.ts';
-import { LIMIT, PANEL, SUPPLY } from './resolver-flow.ts';
+import { LIMIT, PANEL, SUPPLY, USB_SUPPLY } from './resolver-flow.ts';
 import { memoryWriteBackend } from './storage-contract/writes.ts';
 
 const { App } = await import('../src/App.tsx');
@@ -26,7 +26,7 @@ function serve(): void {
   deps = { ...memoryWriteBackend(undefined, join(DATA, '..')).deps, loadPartNumberFiles: () => ({}) };
   const base = deps.loadDb;
   // the library with two devices and a recipe, as a pack would ship them
-  deps.loadDb = async () => ({ ...(await base()), devices: [SUPPLY, PANEL], conditioningRecipes: [LIMIT] }) as Db;
+  deps.loadDb = async () => ({ ...(await base()), devices: [SUPPLY, PANEL, USB_SUPPLY], conditioningRecipes: [LIMIT] }) as Db;
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const response = await handleWorkbenchRequest(
       { method: init?.method ?? 'GET', path: String(input), ...(typeof init?.body === 'string' ? { body: JSON.parse(init.body) as unknown } : {}), headers: Object.fromEntries(new Headers(init?.headers).entries()) },
@@ -53,7 +53,7 @@ describe('which cable do I need', () => {
     serve();
     mount('/resolver');
     const from = await screen.findByLabelText('From device');
-    await vi.waitFor(() => expect(within(from).getAllByRole('option').length).toBe(3));
+    await vi.waitFor(() => expect(within(from).getAllByRole('option').length).toBe(4));
     fireEvent.change(from, { target: { value: 'bench-supply' } });
     fireEvent.change(screen.getByLabelText('To device'), { target: { value: 'led-panel' } });
     const options = await screen.findByTestId('resolver-options');
@@ -68,6 +68,22 @@ describe('which cable do I need', () => {
     const tab = await screen.findByRole('tab', { name: /Recipe/ });
     fireEvent.click(tab);
     expect((await screen.findByTestId('recipe-panel')).textContent).toContain('In step with the recipe');
+  }, 30_000);
+
+  it('offers proposals for a pair nothing completes, and remembers a decline', async () => {
+    serve();
+    mount('/resolver');
+    const from = await screen.findByLabelText('From device');
+    await vi.waitFor(() => expect(within(from).getAllByRole('option').length).toBe(4));
+    fireEvent.change(from, { target: { value: 'usb-supply' } });
+    fireEvent.change(screen.getByLabelText('To device'), { target: { value: 'led-panel' } });
+    const section = await screen.findByTestId('resolver-proposals');
+    expect(section.textContent).toContain('Supply for');
+    fireEvent.click(within(section).getAllByRole('button', { name: 'Decline' })[0]!);
+    await vi.waitFor(async () => {
+      const stored = (await handleWorkbenchRequest({ method: 'GET', path: '/api/proposals' }, deps)).body as { proposals: { state: string }[] };
+      expect(stored.proposals.map((p) => p.state)).toEqual(['declined']);
+    });
   }, 30_000);
 
   it('says so when the library has no devices', async () => {
