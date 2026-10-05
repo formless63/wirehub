@@ -45,6 +45,7 @@ import { clip, packEventOf, pnAssignedEvent } from './webhooks/derive.ts';
 import type { DomainEvent } from './webhooks/events.ts';
 import type { WebhookEmitter } from './webhooks/emitter.ts';
 import { RULES_ROUTES, handleRulesRequest, isRulesPath } from './rules-settings.ts';
+import { RESOLVER_ROUTES, handleResolverRequest, isResolverPath } from './resolver.ts';
 import { PN_SETTINGS_ROUTES, handlePartNumberSettings, isPnSettingsPath } from './pn-settings.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
@@ -961,6 +962,7 @@ const ROUTES = [
   ...SETTINGS_ROUTES,
   ...PN_SETTINGS_ROUTES,
   ...RULES_ROUTES,
+  ...RESOLVER_ROUTES,
   ...WEBHOOK_ROUTES,
   ...RUNTIME_SETTINGS_ROUTES,
   ...VOCAB_ROUTES,
@@ -1468,6 +1470,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
 
   if (isWebhooksPath(parts)) return await handleWebhooksRequest(method, parts, request.path, request.body, deps, ifMatch, request.user ?? deps.localUser);
   if (isRulesPath(parts)) return await handleRulesRequest(method, parts, request.body, deps, ifMatch);
+  if (isResolverPath(parts)) return await handleResolverRequest(method, parts, request.path, request.body, deps, ifMatch);
   if (isPnSettingsPath(parts)) return await handlePartNumberSettings(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
 
   const settings = await handleSettingsRequest(method, parts, request.body, { ...deps, store: storeDepsOf(deps) }, ifMatch);
