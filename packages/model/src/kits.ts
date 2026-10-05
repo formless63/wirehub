@@ -15,6 +15,7 @@
  * Pure: records in, records out.
  */
 
+import { recordMetaIssues, type RecordMeta } from './provenance.ts';
 import type { CableDesign, Db, Issue } from './model.ts';
 
 /** What kind of library record a kit line names. */
@@ -39,7 +40,7 @@ export interface KitLine {
 }
 
 /** An orderable kit: a SKU and the parts it ships. */
-export interface KitDefinition {
+export interface KitDefinition extends RecordMeta {
   /** `kit-de9-backshell` */
   id: string;
   label: string;
@@ -196,6 +197,7 @@ export function validateKits(db: Db): Issue[] {
     if (seen.has(kit.id)) issues.push(issue('duplicate-id', `duplicate kit id '${kit.id}'`, where));
     seen.add(kit.id);
     if (!kit.src) issues.push(issue('missing-src', `record '${where}' has no src citation`, where, 'warning'));
+    issues.push(...recordMetaIssues(kit, where));
     if (!KIT_SKU.test(kit.sku ?? '')) {
       issues.push(issue('kit-sku-format', `kit '${kit.id}' SKU '${kit.sku}' is not a usable SKU (one token of letters, digits and - . _ /)`, where));
     }

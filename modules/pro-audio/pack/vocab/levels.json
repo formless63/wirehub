@@ -6,7 +6,16 @@
     {
       "id": "line",
       "label": "Line level",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     }
   ]
 }

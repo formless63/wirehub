@@ -56,7 +56,16 @@
         }
       ]
     },
-    "src": "generic balanced microphone cable (2 × 0.22 mm² + braid ≥ 90 %), as described by AES and common vendor datasheets; synthetic example"
+    "src": "generic balanced microphone cable (2 × 0.22 mm² + braid ≥ 90 %), as described by AES and common vendor datasheets; synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "generic balanced microphone cable (2 × 0.22 mm² + braid ≥ 90 %), as described by AES and common vendor datasheets; synthetic example"
+        }
+      ]
+    }
   },
   {
     "id": "audio-stereo-2core",
@@ -115,6 +124,15 @@
         }
       ]
     },
-    "src": "commodity 3.5 mm stereo lead construction: two insulated cores under one overall spiral shield (sleeve return); synthetic example"
+    "src": "commodity 3.5 mm stereo lead construction: two insulated cores under one overall spiral shield (sleeve return); synthetic example",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "commodity 3.5 mm stereo lead construction: two insulated cores under one overall spiral shield (sleeve return); synthetic example"
+        }
+      ]
+    }
   }
 ]

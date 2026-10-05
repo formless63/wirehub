@@ -45,6 +45,15 @@
       }
     },
     "confidence": "documented",
-    "src": "IEEE 802.3 clause 40 (1000BASE-T) MDI pair assignment; TIA-568 T568B pair-to-pin colours"
+    "src": "IEEE 802.3 clause 40 (1000BASE-T) MDI pair assignment; TIA-568 T568B pair-to-pin colours",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEEE 802.3 clause 40 (1000BASE-T) MDI pair assignment; TIA-568 T568B pair-to-pin colours"
+        }
+      ]
+    }
   }
 ]

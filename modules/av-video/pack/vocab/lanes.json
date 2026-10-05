@@ -7,25 +7,61 @@
       "id": "video-r",
       "label": "Video R",
       "signal": "video-r",
-      "src": "synthetic example: av-video pack"
+      "src": "synthetic example: av-video pack",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: av-video pack"
+          }
+        ]
+      }
     },
     {
       "id": "video-g",
       "label": "Video G",
       "signal": "video-g",
-      "src": "synthetic example: av-video pack"
+      "src": "synthetic example: av-video pack",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: av-video pack"
+          }
+        ]
+      }
     },
     {
       "id": "video-b",
       "label": "Video B",
       "signal": "video-b",
-      "src": "synthetic example: av-video pack"
+      "src": "synthetic example: av-video pack",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: av-video pack"
+          }
+        ]
+      }
     },
     {
       "id": "sync",
       "label": "Sync",
       "signal": "csync",
-      "src": "synthetic example: av-video pack"
+      "src": "synthetic example: av-video pack",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: av-video pack"
+          }
+        ]
+      }
     }
   ]
 }

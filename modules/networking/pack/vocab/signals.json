@@ -11,7 +11,16 @@
         "BI_DA+",
         "TX+"
       ],
-      "src": "IEEE 802.3 clause 40 MDI (BI_DA+)"
+      "src": "IEEE 802.3 clause 40 MDI (BI_DA+)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEEE 802.3 clause 40 MDI (BI_DA+)"
+          }
+        ]
+      }
     },
     {
       "id": "eth-da-n",
@@ -21,7 +30,16 @@
         "BI_DA-",
         "TX-"
       ],
-      "src": "IEEE 802.3 clause 40 MDI (BI_DA−)"
+      "src": "IEEE 802.3 clause 40 MDI (BI_DA−)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEEE 802.3 clause 40 MDI (BI_DA−)"
+          }
+        ]
+      }
     },
     {
       "id": "eth-db-p",
@@ -31,7 +49,16 @@
         "BI_DB+",
         "RX+"
       ],
-      "src": "IEEE 802.3 clause 40 MDI (BI_DB+)"
+      "src": "IEEE 802.3 clause 40 MDI (BI_DB+)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEEE 802.3 clause 40 MDI (BI_DB+)"
+          }
+        ]
+      }
     },
     {
       "id": "eth-db-n",
@@ -41,7 +68,16 @@
         "BI_DB-",
         "RX-"
       ],
-      "src": "IEEE 802.3 clause 40 MDI (BI_DB−)"
+      "src": "IEEE 802.3 clause 40 MDI (BI_DB−)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEEE 802.3 clause 40 MDI (BI_DB−)"
+          }
+        ]
+      }
     },
     {
       "id": "eth-dc-p",
@@ -50,7 +86,16 @@
       "aliases": [
         "BI_DC+"
       ],
-      "src": "IEEE 802.3 clause 40 MDI (BI_DC+)"
+      "src": "IEEE 802.3 clause 40 MDI (BI_DC+)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEEE 802.3 clause 40 MDI (BI_DC+)"
+          }
+        ]
+      }
     },
     {
       "id": "eth-dc-n",
@@ -59,7 +104,16 @@
       "aliases": [
         "BI_DC-"
       ],
-      "src": "IEEE 802.3 clause 40 MDI (BI_DC−)"
+      "src": "IEEE 802.3 clause 40 MDI (BI_DC−)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEEE 802.3 clause 40 MDI (BI_DC−)"
+          }
+        ]
+      }
     },
     {
       "id": "eth-dd-p",
@@ -68,7 +122,16 @@
       "aliases": [
         "BI_DD+"
       ],
-      "src": "IEEE 802.3 clause 40 MDI (BI_DD+)"
+      "src": "IEEE 802.3 clause 40 MDI (BI_DD+)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEEE 802.3 clause 40 MDI (BI_DD+)"
+          }
+        ]
+      }
     },
     {
       "id": "eth-dd-n",
@@ -77,7 +140,16 @@
       "aliases": [
         "BI_DD-"
       ],
-      "src": "IEEE 802.3 clause 40 MDI (BI_DD−)"
+      "src": "IEEE 802.3 clause 40 MDI (BI_DD−)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEEE 802.3 clause 40 MDI (BI_DD−)"
+          }
+        ]
+      }
     }
   ]
 }

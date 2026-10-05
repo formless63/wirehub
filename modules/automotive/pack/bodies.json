@@ -55,6 +55,15 @@
       }
     ],
     "construction": "crimp",
-    "src": "SAE J1962 / ISO 15031-3: 16 contacts in two rows of eight; generic cable plug"
+    "src": "SAE J1962 / ISO 15031-3: 16 contacts in two rows of eight; generic cable plug",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "SAE J1962 / ISO 15031-3: 16 contacts in two rows of eight; generic cable plug"
+        }
+      ]
+    }
   }
 ]

@@ -10,6 +10,7 @@ import { useMemo, type ComponentType, type JSX } from 'react';
 import { moduleApi } from '../modules/api.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { ModulePanels } from '../modules/slots.tsx';
+import { PacksPanel } from '../modules/PacksPanel.tsx';
 import { NotFoundView } from '../shell/NotFoundView.tsx';
 import { useStudio } from '../studio-context.tsx';
 
@@ -42,6 +43,7 @@ export function ModulesRoute(): JSX.Element {
   return (
     <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]">
       <h1 className="mb-3 text-[14px] font-semibold">Modules</h1>
+      <PacksPanel />
       {registry.modules.map((m) => {
         const panels = registry.panels('settings').filter((p) => p.module === m.id);
         return (

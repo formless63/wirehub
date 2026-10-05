@@ -125,6 +125,11 @@ export interface DefinitionList {
   records: DefinitionRecord[];
   /** boards written by the importer: shown for reference, never edited here */
   generated?: DefinitionRecord[];
+  /**
+   * Records that came from an installed catalog pack, by id: read-only here,
+   * with a "Fork to edit" action (`DefinitionsAdapter.fork`).
+   */
+  packs?: Record<string, { pack: string; version: string }>;
 }
 
 export interface DefinitionsAdapter {
@@ -138,6 +143,11 @@ export interface DefinitionsAdapter {
    * when anything still references it, and names what.
    */
   remove(kind: DefinitionKind, id: string, confirm: string): Promise<Outcome<{ id: string }>>;
+  /**
+   * Copy a pack's record under a new id of the deployment's own, remembering
+   * where it came from (`derivedFrom`). Absent: the host cannot fork.
+   */
+  fork?(kind: DefinitionKind, id: string, newId: string): Promise<Outcome<DefinitionRecord>>;
   /** who uses this definition — what the "used by N designs" caution is built from */
   usage(kind: DefinitionKind, id: string): Promise<Outcome<DefinitionUsage>>;
 }

@@ -10,6 +10,7 @@
 import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
 import type { KitDefinition } from './kits.ts';
+import type { RecordMeta } from './provenance.ts';
 
 /* ------------------------------------------------------------------ *
  * Wire structure — hierarchical elements
@@ -182,7 +183,7 @@ export interface WireVendorDoc {
  * A wire stock definition. Lengths live on design instances, never here.
  * `structure` is the root group (role `cable` for real stocks).
  */
-export interface WireDefinition {
+export interface WireDefinition extends RecordMeta {
   id: string;
   label: string;
   partNumber?: string;
@@ -260,7 +261,7 @@ export type ConnectorGender = 'male' | 'female' | (string & {});
  */
 export type ComponentKind = 'resistor' | 'capacitor' | 'ic' | 'switch' | 'other' | (string & {});
 
-export interface ConnectorDefinition {
+export interface ConnectorDefinition extends RecordMeta {
   id: string;
   label: string;
   /** 'SCART' | 'DIN' | 'D-Sub' | 'RCA' | ... */
@@ -375,7 +376,7 @@ export interface ComponentUse {
  * string there (`LCSC C25270`) because the cable BOM prints it; their
  * `suppliers` carry the same numbers structured.
  */
-export interface ComponentDefinition {
+export interface ComponentDefinition extends RecordMeta {
   id: string;
   label: string;
   kind: ComponentKind;
@@ -494,7 +495,7 @@ export interface PcbaInternalLink {
   note?: string;
 }
 
-export interface PcbaDefinition {
+export interface PcbaDefinition extends RecordMeta {
   id: string;
   label: string;
   partNumber: string;
@@ -528,7 +529,7 @@ export interface PcbaDefinition {
  * (the cable BOM covers shells and hardware
  * alongside PCBs/PCBAs and connectors).
  */
-export interface MechanicalDefinition {
+export interface MechanicalDefinition extends RecordMeta {
   id: string;
   label: string;
   /** e.g. `SHL-00102-00`, `HW-00101` */

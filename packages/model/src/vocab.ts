@@ -23,13 +23,14 @@
  */
 
 import type { Db, Issue } from './model.ts';
+import { recordMetaIssues, type RecordMeta } from './provenance.ts';
 
 /* ------------------------------------------------------------------ *
  * Types
  * ------------------------------------------------------------------ */
 
 /** One entry of any list. List-specific fields extend this. */
-export interface VocabEntry {
+export interface VocabEntry extends RecordMeta {
   id: string;
   label: string;
   /** a compact display name for tight columns ('CSync' for 'CSync', 'CVBS' for 'CVBS (composite as sync)'); `label` otherwise */
@@ -299,6 +300,7 @@ export function validateVocabList(list: VocabList): Issue[] {
     if (typeof entry.src !== 'string' || entry.src.trim() === '') {
       issues.push(issue('missing-src', `'${entry.id}' has no src citation`, at(entry.id)));
     }
+    issues.push(...recordMetaIssues(entry, at(entry.id)));
     claim(entry.id, entry.id);
     if (typeof entry.label === 'string') claim(entry.label, entry.id);
     for (const alias of entry.aliases ?? []) claim(alias, entry.id);

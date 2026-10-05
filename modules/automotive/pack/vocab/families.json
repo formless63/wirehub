@@ -11,7 +11,16 @@
         "J1962",
         "DLC"
       ],
-      "src": "SAE J1962 / ISO 15031-3"
+      "src": "SAE J1962 / ISO 15031-3",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "SAE J1962 / ISO 15031-3"
+          }
+        ]
+      }
     }
   ]
 }

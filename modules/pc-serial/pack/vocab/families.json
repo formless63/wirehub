@@ -10,7 +10,16 @@
         "USB-A",
         "USB A"
       ],
-      "src": "USB 2.0 Specification (USB-IF)"
+      "src": "USB 2.0 Specification (USB-IF)",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "USB 2.0 Specification (USB-IF)"
+          }
+        ]
+      }
     }
   ]
 }

@@ -7,7 +7,7 @@ description: Build, version, verify and publish a WireHub catalog pack (a data-o
 
 A pack is **data, never code** (`docs/catalog-store.md`). It ships either inside a domain module
 (`catalogPacks` in `defineModule`, installed at `/setup`) or, in future, from the catalog store.
-Records themselves: `wirehub-catalog-data`. The module shell: `wirehub-module`. Licence caveats for
+Records themselves: `wirehub-catalog-data`. The module shell: `wirehub-module`. Notes on
 anything copied from outside: `wirehub-import-public-data`.
 
 ## Layout
@@ -51,14 +51,18 @@ the `id` of the module's `catalogPacks` entry, and `version`/`license` should ma
 - Every record keeps `src`; inferred values say so in it.
 - Bundled packs say `synthetic example` in the `src` of example designs. A pack of real
   published cables cites the standard or datasheet.
-- **Licence and provenance per record.** Today the pack-level `license` is what the install
-  records (`packs.json`). The per-record `license`, `provenance` (`method`, `sources`, `reviewed`)
-  and `derivedFrom` fields in `docs/catalog-store.md` section 2 are **design only**: the model
-  does not define or validate them yet. Do not rely on them; put what the store will need
-  (document title, revision, retrieval date) into `src` text now. A record under a different
-  licence than the pack's does not belong in the pack until those fields exist; split it into a
-  separate pack with its own `license`.
-- Pack data you contribute to the repository is **CC0-1.0**, like the starter.
+- **Licence and provenance per record.** Every record may carry `license` (an SPDX expression),
+  `provenance` (`{ method, sources: [{ title?, url?, retrieved? }], reviewed? }`) and `derivedFrom`
+  (set by a fork, never by a pack author); the model defines them (`packages/model/src/provenance.ts`)
+  and `validateDb` checks their shape. Bundled packs give every record `"license": "CC0-1.0"` and a
+  `provenance` whose `method` (`transcribed`, `derived` for an inferred value, `synthetic`,
+  `measured`, `generated`) and first source `title` come from the record's `src`; add a `url` and
+  `retrieved` date when you cite a web page. `src` stays mandatory. A record under a different
+  licence than the pack's may name its own `license`. The fields are information for whoever
+  installs the pack; WireHub does not verify them.
+- Pack data you contribute to this repository (a bundled module) is **CC0-1.0**, like the starter, so
+  it holds only data the project can license that way. A pack you publish elsewhere carries the
+  licence you choose.
 
 ## Versioning (semver on the data)
 
@@ -79,8 +83,7 @@ the `id` of the module's `catalogPacks` entry, and `version`/`license` should ma
 their packs installed by `installPackLayer(catalogDir, packsDir, packDir)`: checked against the
 starter plus the other installed packs, copied to `<packsDir>/<id>/`, recorded in
 `<packsDir>/packs.json`. The packs directory is `WIREHUB_PACKS_DIR` (`/data/packs` in the container,
-the gitignored `data/packs/` in a checkout); the starter catalog is never written. A catalog
-record a person later edits is stored locally and shadows the pack's (`localPartOf`). Tag tables
+the gitignored `data/packs/` in a checkout); the starter catalog is never written. Records from a pack are read-only in the app (fork to edit makes a local copy); a legacy local edit shadows the pack's (`localPartOf`). A hub owner can also install your pack without a module: Modules, Catalog packs, Install pack... takes a zip of the pack directory, a JSON bundle (`{ manifest, files }`) or an https URL, previews the diff and installs it recorded with its id and version, so later versions update through the same door and `DELETE /api/packs/<id>` disables it. Tag tables
 for pack records are derived by the host, so a pack ships none. To try it in the app, start
 `pnpm --filter studio dev`, open `/setup` and tick your module (it must be in
 `apps/studio/modules.config.ts`).
@@ -131,9 +134,13 @@ rules:
 
 ## Publishing toward the catalog store
 
-The store (`docs/catalog-store.md`) is a **design** with the file-backend pieces of phases 1 and 2
-built: manifest, layered reading, install from a directory. Not built: signing, the store index,
-update with diff, `pack verify`, review status. What to do today:
+The store (`docs/catalog-store.md`) is a **design** with these pieces built: manifest, layered
+reading, install from a directory, per-record provenance fields and the pack lifecycle on both
+backends (update with a record-level diff, disable when nothing outside the pack uses its
+records, read-only marking with fork to edit; Library, Packs). Not built: signing, the store
+index, `pack verify`, review status. Installing a **newer version** of a bundled pack through the
+lifecycle shows what your edit changes, so keep ids stable and follow the semver rules above.
+What to do today:
 
 1. Keep the pack a standalone directory that passes `verify-pack.mjs` with the manifest fields
    above, so it can be archived as `<id>-<version>/` later.
@@ -144,4 +151,5 @@ update with diff, `pack verify`, review status. What to do today:
 4. For the store: a pack is organised by domain, named `<domain>` (a shop or maker may publish
    `vendor-...` or `community-...`), reproducible when generated (name the converter version and the
    pinned upstream commit in the manifest's `source`), and every cited source passes the
-   licence rules in `wirehub-import-public-data`.
+   notes in `wirehub-import-public-data`. The store lists packs published by their authors, who are
+   responsible for their content and licensing.

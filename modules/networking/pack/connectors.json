@@ -7,7 +7,16 @@
     "construction": "crimp",
     "body": "rj45-8p8c-plug",
     "interface": "ethernet-mdi",
-    "src": "IEC 60603-7 modular plug terminated to TIA-568 T568B"
+    "src": "IEC 60603-7 modular plug terminated to TIA-568 T568B",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 60603-7 modular plug terminated to TIA-568 T568B"
+        }
+      ]
+    }
   },
   {
     "id": "rj45-plug-t568a",
@@ -17,6 +26,15 @@
     "construction": "crimp",
     "body": "rj45-8p8c-plug",
     "interface": "ethernet-mdi",
-    "src": "IEC 60603-7 modular plug terminated to TIA-568 T568A; the MDI pin functions are the same as T568B — only the pair colours on pins 1/2 and 3/6 differ, which the design's joints carry"
+    "src": "IEC 60603-7 modular plug terminated to TIA-568 T568A; the MDI pin functions are the same as T568B — only the pair colours on pins 1/2 and 3/6 differ, which the design's joints carry",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 60603-7 modular plug terminated to TIA-568 T568A; the MDI pin functions are the same as T568B — only the pair colours on pins 1/2 and 3/6 differ, which the design's joints carry"
+        }
+      ]
+    }
   }
 ]

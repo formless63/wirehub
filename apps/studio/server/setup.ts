@@ -68,6 +68,8 @@ export interface SetupDeps {
    * §9.2): `/api/setup` creates the org, its catalog and the admin. Given, it
    * answers every setup request itself.
    */
+  /** options for fetching a pack from a URL (`pack-archive.ts`); tests inject a fetch and a resolver */
+  packFetch?: import('./pack-archive.ts').FetchPackOptions;
   create?: (request: { method: string; body?: unknown; user?: { name: string } }) => Promise<ApiResponse>;
 }
 
