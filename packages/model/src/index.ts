@@ -267,6 +267,8 @@ export type {
   CableOverride,
   UnreasonedOverride,
 } from './body.ts';
+export { proposeKnownJoints } from './connect-known.ts';
+export type { AmbiguousLanding, ConnectPlan, JointProposal, ProposalKind } from './connect-known.ts';
 export { duplicatesOf, holdersOfNumber, partNumberHolders, partNumberReport, pnDuplicateIssues } from './part-number-health.ts';
 export type { PartNumberReport, PnDisagreement, PnDrawings, PnDuplicate, PnFormatFinding, PnHolder, PnUnnumbered } from './part-number-health.ts';
 export {

@@ -2,7 +2,7 @@
  * The open cable's own commands: Save, Undo, Redo,
  * Auto-arrange, Fit view, Add part ( — opens the node
  * picker at the viewport centre), the Select/Pan tools, Rename, Duplicate,
- * Make variant (copy onto another wire stock), Delete — registered only while a cable is
+ * Make variant (copy onto another wire stock), Connect known pins, Delete — registered only while a cable is
  * open, and only once `CableRoute` has handed a `chrome="host"` `EditorHandle`
  * down through `useEditorChrome()` (`shell/editor-chrome.tsx`).
  *
@@ -118,6 +118,12 @@ export function EditorCommands(): null {
         title: 'Duplicate this cable',
         keywords: ['copy', 'save as'],
         run: () => handle.openLifecycle('duplicate'),
+      },
+      {
+        id: 'editor.connectKnownPins',
+        title: 'Connect known pins…',
+        keywords: ['joints', 'wire', 'signals', 'tags', 'auto', 'propose'],
+        run: handle.connectKnownPins,
       },
       {
         id: 'editor.makeVariant',

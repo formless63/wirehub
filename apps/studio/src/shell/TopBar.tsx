@@ -26,6 +26,7 @@ import {
   IconMenu2,
   IconMoon,
   IconPencil,
+  IconPlug,
   IconPlugOff,
   IconRotate2,
   IconSearch,
@@ -200,6 +201,14 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
                 >
                   <IconGitBranch size={14} />
                   Make variant…
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className={MENU_ITEM}
+                  title="Add the joints the signal tags settle, after you review them"
+                  onSelect={() => handle?.connectKnownPins()}
+                >
+                  <IconPlug size={14} />
+                  Connect known pins…
                 </DropdownMenu.Item>
                 <DropdownMenu.Item
                   className={MENU_ITEM}
