@@ -1,12 +1,37 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.2 (rev 6 was the first revision in the open base). **Phase A
-(schema and read path) is built** on branch `pg/A-read-path` (§11); everything after it is
-plan. The storage seam it plugs into is `storage-seam.md`. The execution
+Status: **plan**, rev 6.3 (rev 6 was the first revision in the open base). **Phases A
+(schema and read path) and B (write path, blobs, API clients) are built** (§11); C, S, D
+and E are plan. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.3** — Phase B built. **The commit (§4.2) applies a change set to the catalog as
+  files:** the snapshot at the locked head version becomes an in-memory tree, the file
+  backend's own `commitChangeSet` applies the set through tree stores that do to each file
+  what the file store does (preconditions, every change, the derived tag tables), and the
+  resulting tree is exploded through the codec and diffed against the starting rows — only
+  what changed is written, renamed designs keep their entity. One write path, the file
+  backend's semantics by construction: the contract's write session answers identically on
+  the real file stores, the in-memory tree and Postgres, and through the HTTP API with a
+  token (SA1). New change-set kinds landed on files first: `model-link` (B0; `sortLinks` is
+  code-point), `depiction-meta` / `depiction-asset` (B7; the standalone server runs artwork
+  writes in a unit of work), and `doc` (board maps, module documents, setup on pg). New
+  routes: `GET /api/blobs/:sha` (§5.3), `GET /api/events` (SSE: `catalog`, `locks`),
+  `POST /api/batch`, `?dryRun=1`, `GET/PUT/DELETE /api/docs/*path` (paths a module declares
+  through the new `DocumentContribution` in `@wirehub/modules`), `/api/invitations`,
+  `/api/account/tokens` and the server-rendered `/invite` and `/account/tokens` pages.
+  Migration `0014` forces RLS on `auth.api_token` and `auth.invitation` (decided
+  2026-10-04). Auth on pg (§3.15): Better Auth's tables in the app database;
+  `AUTH_LOCAL_ACCOUNTS` (default on with `WIREHUB_BACKEND=pg`); the org's first person owns
+  it until setup names an owner; a viewer's write is 403; on pg `AUTH_ALLOWED_EMAILS` is an
+  extra allow-list. Tokens use `WIREHUB_ENV` (`prod`, else `dev`). Derived blobs live under
+  `<org>/derived/…`. The file backend's packs directory (`WIREHUB_PACKS_DIR`, layered) is
+  flattened into the database catalog on import and at setup (`readFlattenedCatalog`, equal
+  to what the merging installer made). Not in B: module derived docs on pg (no module has
+  any), the git-export retirement of `/api/backup` (D6; on pg it answers "off"), dry runs of
+  the Vite dev server's artwork route.
 - **rev 6.2** — Phase A built; the plan follows what the build found. Schema (§3, the DDL
   blocks are the migration files verbatim, a test holds them equal): saved artwork is
   `design_artwork` keyed by design (the file store keeps one content-addressed artwork store
@@ -1933,7 +1958,16 @@ a synthetic catalog of 100 designs / 1,000 definitions: 0 diffs; S4 and S3 are m
 a parity run over every GET route shows 0 diffs; snapshot rebuild within S4; `pg:export`
 round-trips byte-identically.
 
-### Phase B — write path, blobs and API clients (≈ 24 d)
+### Phase B — write path, blobs and API clients (≈ 24 d) — built (rev 6.3)
+
+As built: B1–B3 are one commit path (`pg/commit.ts`, `pg/tree.ts`; see the changelog);
+B6's events stream is `GET /api/events`; B8's invitations are `/api/invitations` and the
+`/invite` page; B12's page is server-rendered at `/account/tokens`. Gate numbers: the
+write session identical on files / commit tree / pg and through the API with a token
+(SA1); a multi-design batch is one change set and its dry run's after-versions match the
+real save's ETags; S5 design save p95 20.5 ms (starter) and 61.2 ms (100 designs / 1,000
+definitions); two processes on one database share commits, leases and events and
+serialise on the head row.
 
 | # | Task | Size | Depends on |
 | --- | --- | --- | --- |

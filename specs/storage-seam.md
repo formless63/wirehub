@@ -38,9 +38,9 @@ returns promises; the file stores and the in-memory test stores answer at once, 
 why the type allows both. `WorkbenchDeps.loadDb` / `loadPartNumberFiles` are awaitable too.
 
 The unit of work stages (read-your-writes, `expect`) designs, definitions, drawings,
-assets, vocab, tags, the wire library, builds and versions. **Not staged, and so written
-outside the change set:** `modelLinks` (the Library's attach, upload and detach write
-`models.json` directly) and `DepictionStore` (§6).
+assets, vocab, tags, the wire library, builds, versions, model links, artwork and catalog
+documents by path. A backend that commits in its own transaction brings `deps.commit`
+(Postgres); otherwise `commitChangeSet` applies the set through the stores.
 
 Two optional deps complete the seam:
 
@@ -135,12 +135,10 @@ A tag PUT answers with the table it will derive via `TagStore.preview(review)`.
 
 ## 6. Not yet in the change set
 
-- **Artwork** (`/api/depictions/*`, `DepictionStore`) — serialized under the write lock,
-  but it still writes directly. Staging it is kinds `depiction-meta` / `depiction-asset`
-  with `bytes` (Postgres plan task B7).
-- **3D model links** (`/api/models/*`, `ModelLinkStore`) — attach, upload and detach
-  rewrite `data/models.json` directly (the upload's bytes do go through the staged asset
-  store). Kind `model-link` fixes this (plan task B0, on the file backend first).
+Artwork (`depiction-meta`, `depiction-asset`) and 3D model links (`model-link`) are staged
+since Postgres plan tasks B7 and B0, and catalog documents by path have the `doc` kind; the
+Vite dev server's artwork middleware still writes straight to its store.
+
 - **Importers** — module importers (`docs/modules.md`) propose records; accepting them is
   an ordinary request. On Postgres, long-running imports become worker jobs that publish
   one change set; command-line tools become **API clients** with a personal token
