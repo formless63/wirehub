@@ -22,9 +22,9 @@ import { createRegistry, manifestProblems, type ModuleRegistry, type WireHubModu
 /**
  * The `@wirehub/modules` API a module is built against, `<major>.<minor>`.
  * `1.0` was the build-time-only contract; `1.1` adds runtime loading (nothing a
- * 1.0 module relies on changed). A minor bump adds; a major bump breaks.
+ * 1.0 module relies on changed); `1.2` adds `revisionSources`. A minor bump adds; a major bump breaks.
  */
-export const MODULE_API_VERSION = '1.1';
+export const MODULE_API_VERSION = '1.2';
 
 const API_VERSION = /^(\d+)\.(\d+)$/;
 
@@ -53,6 +53,7 @@ export const EXTENSION_POINTS = [
   'queues',
   'panels',
   'compareViews',
+  'revisionSources',
   'routes',
   'authProviders',
   'commitHook',
@@ -89,6 +90,7 @@ export function extensionPointsOf(m: WireHubModule): ExtensionPoint[] {
     queues: (m.integrations ?? []).some((i) => some(i.queues)),
     panels: some(m.panels),
     compareViews: some(m.compareViews),
+    revisionSources: some(m.revisionSources),
     routes: some(m.routes),
     authProviders: some(m.authProviders),
     commitHook: m.commitHook !== undefined,

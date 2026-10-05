@@ -584,3 +584,17 @@ export {
   suggestVariantNumber,
 } from './products.ts';
 export type { LineupInputs, LineupRow, PartRoute, PartSupplier, ProductCheckContext, ProductEdit, ProductFamily, ProductOptionAxis, ProductOptionValue, ProductVariant, Sourcing } from './products.ts';
+
+// ---- revisions of library records ----
+export {
+  REVISION_KINDS,
+  findLibraryRecord,
+  isRevisionKind,
+  recordRevisionProblems,
+  revisionFilePath,
+  revisionOfRecord,
+  revisionsWhereUsed,
+  sameRecord,
+  saveRecordRevision,
+} from './record-revisions.ts';
+export type { ExternalRevision, NewRevisionInput, RecordRevision, RecordRevisionFile, RevisionArt, RevisionKind, RevisionUse, RevisionWhereUsed } from './record-revisions.ts';

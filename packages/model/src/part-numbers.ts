@@ -203,6 +203,20 @@ export function prefixPartNumberScheme(config: PrefixSchemeConfig = DEFAULT_PREF
       return [];
     },
     suggest(subject, known) {
+      // a variant of a number this scheme reads: the next free two-digit suffix on its base (`CON-00012-01`)
+      const of = subject.variantOf === undefined ? undefined : split(subject.variantOf);
+      if (of !== undefined && config.allowRevisionSuffix === true) {
+        const base = `${of.prefix}${sep}${of.number}`;
+        let top = /^\d+$/.test(of.suffix.slice(sep.length)) ? Number(of.suffix.slice(sep.length)) : 0;
+        for (const k of known) {
+          const p = split(k.pn);
+          const n = p === undefined ? '' : p.suffix.slice(sep.length);
+          if (p !== undefined && p.prefix === of.prefix && p.number === of.number && /^\d+$/.test(n)) top = Math.max(top, Number(n));
+        }
+        if (top < 99) {
+          return { pn: `${base}${sep}${String(top + 1).padStart(2, '0')}`, rule: 'next-variant', explanation: `the next free variant of ${base}${top === 0 ? '' : ` after ${base}${sep}${String(top).padStart(2, '0')}`}` };
+        }
+      }
       const prefix = config.prefixes[subject.kind];
       if (prefix === undefined) return undefined;
       let max = 0;

@@ -20,7 +20,7 @@
  * package needs no React).
  */
 
-import type { BenchStepRule, BenchStepsProvider, BoardPartsEntry, CableDesign, Db, Issue, PartNumberScheme } from '@wirehub/model';
+import type { BenchStepRule, BenchStepsProvider, BoardPartsEntry, CableDesign, Db, ExternalRevision, Issue, PartNumberScheme } from '@wirehub/model';
 
 /* ------------------------------------------------------------------ *
  * Extension points
@@ -314,13 +314,27 @@ export interface CompareProps {
   /** the module that contributed the view */
   module: string;
   db: Db;
-  /** the record the Compare action was pressed on, or the first one ticked */
-  a: { kind: string; id: string };
-  /** the second record, once chosen; absent: the view asks for it */
-  b?: { kind: string; id: string };
+  /** the record the Compare action was pressed on, or the first one ticked; `rev`: one of its saved revisions */
+  a: { kind: string; id: string; rev?: number };
+  /** the second record (or revision), once chosen; absent: the view asks for it */
+  b?: { kind: string; id: string; rev?: number };
   api: ModuleApi;
   /** close the compare view and go back to the Library */
   onClose: () => void;
+}
+
+/**
+ * Revisions of library records from a source outside the hub — a file share where a board's
+ * revisions live, a PLM (`docs/revisions.md`). Server only. They are listed beside the hub's own
+ * revisions, read-only, and can be compared like them.
+ */
+export interface RevisionSourceContribution {
+  id: string;
+  label: string;
+  /** the Library kinds it knows revisions of (`pcbas`, `mechanicals`, …); absent = every kind */
+  kinds?: readonly string[];
+  /** the revisions it knows for one record, oldest first; `[]` when it knows none */
+  list(input: { kind: string; id: string; record?: Record<string, unknown> }, db: Db): readonly ExternalRevision[] | Promise<readonly ExternalRevision[]>;
 }
 
 export interface UiRouteContribution {
@@ -470,6 +484,8 @@ export interface WireHubModule {
   panels?: readonly PanelContribution[];
   /** compare views for Library records (the base's generic field diff stands in where none is registered) */
   compareViews?: readonly CompareViewContribution[];
+  /** revisions of library records from outside the hub (a file share, a PLM) */
+  revisionSources?: readonly RevisionSourceContribution[];
   routes?: readonly UiRouteContribution[];
   authProviders?: readonly AuthProviderContribution[];
   /** at most one module in a deployment may set this */
@@ -528,6 +544,8 @@ export interface ModuleRegistry {
   compareViews(): readonly (CompareViewContribution & { module: string })[];
   /** the first compare view that takes Library `kind`, or `undefined` (the host then uses the generic field diff) */
   compareViewFor(kind: string): (CompareViewContribution & { module: string }) | undefined;
+  /** the revision sources that know `kind` (every one when `kind` is absent), in manifest order */
+  revisionSources(kind?: string): readonly (RevisionSourceContribution & { module: string })[];
   routes(): readonly (UiRouteContribution & { module: string })[];
   integrations(): readonly (IntegrationContribution & { module: string })[];
   /** every module's job queues, with the job kind each runs as (`<module>:<queue>`) */
@@ -608,6 +626,12 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
       if (compares.has(view.id)) problems.push(`module '${m.id}' has two compare views with id '${view.id}'`);
       compares.add(view.id);
     }
+    const sources = new Set<string>();
+    for (const source of m.revisionSources ?? []) {
+      if (!KEBAB.test(source.id)) problems.push(`module '${m.id}' revision source '${source.id}' is not a kebab-case id`);
+      if (sources.has(source.id)) problems.push(`module '${m.id}' has two revision sources with id '${source.id}'`);
+      sources.add(source.id);
+    }
     const panels = new Set<string>();
     for (const panel of m.panels ?? []) {
       if (panels.has(panel.id)) problems.push(`module '${m.id}' has two panels with id '${panel.id}'`);
@@ -686,6 +710,7 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     panels: (slot) => list.flatMap((m) => tag(m, m.panels)).filter((p) => p.slot === slot),
     compareViews: () => list.flatMap((m) => tag(m, m.compareViews)),
     compareViewFor: (kind) => list.flatMap((m) => tag(m, m.compareViews)).find((v) => v.kinds === undefined || v.kinds.includes(kind)),
+    revisionSources: (kind) => list.flatMap((m) => tag(m, m.revisionSources)).filter((s) => kind === undefined || s.kinds === undefined || s.kinds.includes(kind)),
     routes: () => list.flatMap((m) => tag(m, m.routes)),
     integrations: () => list.flatMap((m) => tag(m, m.integrations)),
     queues: () => list.flatMap((m) => (m.integrations ?? []).flatMap((i) => (i.queues ?? []).map((q) => ({ ...q, module: m.id, kind: `${m.id}:${q.id}` })))),
