@@ -152,4 +152,47 @@ describe('first-run setup', () => {
     await waitFor(() => expect(posted.length).toBe(1));
     expect(posted[0]).toMatchObject({ modules: [], org: { name: 'Example Shop', slug: 'example-shop' }, catalog: 'empty' });
   });
+
+  it('offers the part-number scheme, and sends it only when edited', async () => {
+    const posted: unknown[] = [];
+    const catalog = createCatalog(catalogWithPacksSource(dir, packs));
+    const prefixes = { connector: 'CON', component: 'CMP', wire: 'WIR' };
+    const deps: WorkbenchDeps = {
+      designs: { list: () => [], has: () => false, read: () => undefined, write: () => ({ changed: false }), remove: () => undefined },
+      loadDb: () => catalog.loadDb(),
+      modules: createRegistry(manifest),
+      setup: {
+        dataDir: dir,
+        packsDir: packs,
+        prompt: true,
+        now: () => '2026-10-04T12:00:00.000Z',
+        create: async (request) => {
+          if (request.method === 'POST') {
+            posted.push(request.body);
+            return { status: 200, body: { needed: false, completed: true, domains: [], suggestions: [], created: { org: 'x' } } };
+          }
+          return { status: 200, body: { needed: true, completed: false, codeRequired: false, domains: [], suggestions: [], create: { catalogs: ['starter', 'empty'], admin: 'none', minPassword: 12, partNumbers: { scheme: 'prefix', kinds: ['connector', 'component', 'wire'], prefixes, digits: 5, example: 'CON-00001' } } } };
+        },
+      },
+    };
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await handleWorkbenchRequest({ method: init?.method ?? 'GET', path: String(input), ...(typeof init?.body === 'string' ? { body: JSON.parse(init.body) as unknown } : {}) }, deps);
+      return new Response(JSON.stringify(response.body), { status: response.status, headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+    render(<App router={router('/setup')} />);
+    fireEvent.change(await screen.findByPlaceholderText('Example Shop'), { target: { value: 'Pn Shop' } });
+    expect((screen.getByLabelText('Prefix for connector') as HTMLInputElement).value).toBe('CON');
+    fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    await waitFor(() => expect(posted.length).toBe(1));
+    // untouched: nothing about part numbers is sent
+    expect(posted[0]).not.toHaveProperty('partNumbers');
+    cleanup();
+    posted.length = 0;
+    render(<App router={router('/setup')} />);
+    fireEvent.change(await screen.findByPlaceholderText('Example Shop'), { target: { value: 'Pn Shop' } });
+    fireEvent.change(screen.getByLabelText('Prefix for connector'), { target: { value: 'k' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    await waitFor(() => expect(posted.length).toBe(1));
+    expect(posted[0]).toMatchObject({ partNumbers: { prefixes: { connector: 'K', component: 'CMP', wire: 'WIR' }, digits: 5 } });
+  });
 });
