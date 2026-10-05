@@ -9,17 +9,26 @@
  *   entry id, tag tables by key, other files by first layer. The first layer
  *   wins, so a local record shadows a pack's. Tests and `pack verify` use
  *   this to see a catalog *with* a pack without writing anything.
- * - **Installed** — `planPackInstall` / `installPack` merge a pack's records
+ * - **Installed as a layer** — `installPackLayer` copies a pack into a
+ *   *packs directory* (`<packs>/<id>/`, recorded in `<packs>/packs.json`)
+ *   after checking that none of its records clashes with the catalog, and
+ *   `catalogWithPacksSource(catalog, packs)` reads the catalog with every
+ *   installed pack under it. The catalog's own files never receive a pack
+ *   record: what first-run setup installs stays out of the starter catalog
+ *   (and out of a checkout's commits). `localPartOf` is the other half — the
+ *   part of an edited file that belongs in the catalog's own file once the
+ *   records a pack supplies unchanged are left out.
+ * - **Merged** — `planPackInstall` / `installPack` merge a pack's records
  *   into a catalog directory once, refuse any record whose id the catalog
  *   already uses for something different, and record the install in
- *   `packs.json`. This is what first-run setup does for the domain modules a
- *   person picks; after it, the records are ordinary catalog data.
+ *   `packs.json`. After it, the records are ordinary catalog data (a tool
+ *   that builds a catalog copy with a pack in it uses this).
  *
  * Canonical JSON (`JSON.stringify(v, null, 2) + '\n'`); list order is data —
  * local records first, a pack's appended in its own order.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { fsCatalogSource, type CatalogSource } from './source.ts';
@@ -192,9 +201,11 @@ function recordsIn(value: Json): Json[] | undefined {
  * is a conflict, and a plan with conflicts must not be applied.
  */
 export function planPackInstall(catalogDir: string, packDir: string): PackInstallPlan {
+  return planAgainst(fsCatalogSource(catalogDir), readInstalledPacks(catalogDir), packDir);
+}
+
+function planAgainst(local: CatalogSource, installed: InstalledPacks, packDir: string): PackInstallPlan {
   const manifest = readPackManifest(packDir);
-  const local = fsCatalogSource(catalogDir);
-  const installed = readInstalledPacks(catalogDir);
   const writes: Record<string, string> = {};
   const added: Record<string, string[]> = {};
   const conflicts: string[] = [];
@@ -265,4 +276,112 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));
   return plan;
+}
+
+/* ------------------------------------------------------------------ *
+ * Packs as layers under a catalog (the packs directory)
+ * ------------------------------------------------------------------ */
+
+/** The directory of an installed pack inside a packs directory. */
+export function installedPackDir(packsDir: string, id: string): string {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error(`'${id}' is not a pack id.`);
+  return join(packsDir, id);
+}
+
+/** A source per pack installed in `packsDir`, in install order (`packs.json`). */
+export function installedPackSources(packsDir: string): CatalogSource[] {
+  return readInstalledPacks(packsDir)
+    .packs.map((pack) => installedPackDir(packsDir, pack.id))
+    .filter((dir) => existsSync(dir))
+    .map((dir) => fsCatalogSource(dir, `pack ${dir}`));
+}
+
+/**
+ * The catalog in `catalogDir` with every pack installed in `packsDir` under
+ * it, the installed list re-read on every call (a pack installed while a host
+ * runs is seen at once). `first` layers, when given, sit above the catalog
+ * (derived files kept beside the packs). Read-only like any layered source.
+ */
+export function catalogWithPacksSource(catalogDir: string, packsDir: string, options: { name?: string; first?: () => CatalogSource[] } = {}): CatalogSource {
+  const catalog = fsCatalogSource(catalogDir, options.name ?? catalogDir);
+  const layers = (): CatalogSource[] => [...(options.first?.() ?? []), catalog, ...installedPackSources(packsDir)];
+  return {
+    name: options.name ?? catalogDir,
+    root: catalogDir,
+    read: (relative) => layeredCatalogSource(layers()).read(relative),
+    list: (relativeDir) => layeredCatalogSource(layers()).list(relativeDir),
+  };
+}
+
+/**
+ * The part of a catalog file that belongs in the catalog's own file, given
+ * the whole (merged) value a store is about to write: the records the packs
+ * supply **unchanged** are left out; a pack record that was edited stays (the
+ * local copy shadows the pack's). Record lists by id, vocabulary lists by
+ * entry id, tag tables key by key; any other file is kept whole unless a pack
+ * holds exactly the same value. `undefined` when nothing local is left and
+ * the catalog has no such file yet (so there is nothing to write).
+ */
+export function localPartOf(relative: string, value: unknown, packs: readonly CatalogSource[], localExists: boolean): unknown {
+  const packValues = packs.map((pack) => pack.read(relative)).filter((t): t is string => t !== undefined).map((t) => JSON.parse(t) as Json);
+  if (packValues.length === 0) return value;
+  const same = (a: Json, b: Json): boolean => JSON.stringify(a) === JSON.stringify(b);
+  const supplied = new Map<string, Json>();
+  for (const packValue of packValues) {
+    for (const record of recordsIn(packValue) ?? []) {
+      const id = idOf(record);
+      if (id !== undefined && !supplied.has(id)) supplied.set(id, record);
+    }
+  }
+  const records = recordsIn(value);
+  if (records !== undefined && packValues.every((v) => recordsIn(v) !== undefined)) {
+    const kept = records.filter((record) => {
+      const id = idOf(record);
+      const pack = id === undefined ? undefined : supplied.get(id);
+      return pack === undefined || !same(pack, record);
+    });
+    if (kept.length === 0 && !localExists) return undefined;
+    return Array.isArray(value) ? kept : { ...(value as Record<string, Json>), entries: kept };
+  }
+  if (packValues.some((v) => same(v, value))) return localExists ? value : undefined;
+  return value;
+}
+
+/** What `installPackLayer` did. */
+export interface PackLayerInstall {
+  manifest: PackManifest;
+  added: Record<string, string[]>;
+  alreadyInstalled: boolean;
+}
+
+/**
+ * Install the pack at `packDir` as a layer: check it against the catalog in
+ * `catalogDir` with the *other* installed packs under it (a record id already
+ * used for something different is a conflict, and nothing is written), then
+ * copy its files to `<packsDir>/<id>/` and record it in `<packsDir>/packs.json`.
+ * The same version again is a no-op; another version replaces the layer.
+ */
+export function installPackLayer(catalogDir: string, packsDir: string, packDir: string): PackLayerInstall {
+  const manifest = readPackManifest(packDir);
+  const installed = readInstalledPacks(packsDir);
+  const others = installed.packs.filter((p) => p.id !== manifest.id).map((p) => installedPackDir(packsDir, p.id)).filter((dir) => existsSync(dir));
+  const local = layeredCatalogSource([fsCatalogSource(catalogDir), ...others.map((dir) => fsCatalogSource(dir))]);
+  const plan = planAgainst(local, installed, packDir);
+  if (plan.alreadyInstalled && existsSync(installedPackDir(packsDir, manifest.id))) return { manifest, added: plan.added, alreadyInstalled: true };
+  if (plan.conflicts.length > 0) throw new Error(`Pack '${manifest.id}' cannot be installed: ${plan.conflicts.join('; ')}.`);
+  const target = installedPackDir(packsDir, manifest.id);
+  const staging = `${target}.${process.pid}.pack-tmp`;
+  rmSync(staging, { recursive: true, force: true });
+  mkdirSync(staging, { recursive: true });
+  writeFileSync(join(staging, PACK_MANIFEST), readFileSync(join(packDir, PACK_MANIFEST)));
+  for (const relative of packFiles(packDir)) {
+    mkdirSync(dirname(join(staging, relative)), { recursive: true });
+    cpSync(join(packDir, relative), join(staging, relative));
+  }
+  rmSync(target, { recursive: true, force: true });
+  renameSync(staging, target);
+  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added };
+  installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
+  writeFileReplacing(join(packsDir, PACKS_FILE), canonical(installed));
+  return { manifest, added: plan.added, alreadyInstalled: false };
 }

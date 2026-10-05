@@ -125,15 +125,22 @@ change to a pack record **forks** it: the editor makes a local copy with a new i
 `derivedFrom: { pack, id, version }`, and designs move to the copy only when someone
 chooses to.
 
-**Implemented today (file backend).** `installPack(catalogDir, packDir)`
-(`packages/catalog/src/packs.ts`) appends every record whose id is new — record files by
-record id, vocabulary lists by entry id, designs as files — skips a record the catalog
-already has identically, and refuses (writing nothing) when the catalog has a *different*
-record under the same id. The install is recorded in `packs.json` (pack, version, licence,
-the ids it added); installing the same version again is a no-op. After install the records
-are ordinary catalog data (read-only marking and forking come with the database backend).
-`layeredCatalogSource([local, pack…])` reads a catalog with packs over it, without writing —
-what a module's tests and a future `pack verify` use.
+**Implemented today (file backend).** First-run setup installs a pack as a **layer**:
+`installPackLayer(catalogDir, packsDir, packDir)` (`packages/catalog/src/packs.ts`) checks the
+pack against the catalog with the other installed packs under it — a record id already used
+for something different is a conflict, and nothing is written — then copies it to
+`<packsDir>/<id>/` and records it in `<packsDir>/packs.json` (pack, version, licence, the ids
+it added). Installing the same version again is a no-op; another version replaces the layer.
+The packs directory is `WIREHUB_PACKS_DIR`: the `packs` volume (`/data/packs`) in the
+container, the gitignored `data/packs/` in a checkout — never the starter catalog. The live
+catalog reads through `catalogWithPacksSource` (the catalog's own files first, then each
+installed pack), and the file stores leave records a pack supplies unchanged out of the
+catalog's own files (`localPartOf`): an edited pack record is stored locally and shadows the
+pack's. Derived tag tables, which cover pack records too, are written beside the packs
+(`<packsDir>/derived/`) once one is installed. `installPack(catalogDir, packDir)` still merges
+a pack into a catalog directory (records appended, `packs.json` beside them) for a tool that
+builds a catalog copy with a pack in it; `layeredCatalogSource([local, pack…])` reads a
+catalog with packs over it without writing — what a module's tests use.
 
 **Install** (Library → Packs → Browse):
 

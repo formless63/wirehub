@@ -29,6 +29,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isDeepStrictEqual } from 'node:util';
 
+import { localValueFor, readCatalogJson } from './catalog-files.ts';
 import { patchJsonText } from './json-text.ts';
 
 import { dataPath, loadBodies, loadInterfaces, loadVocab } from '@wirehub/catalog';
@@ -131,9 +132,10 @@ function interfaceLibrary(): InterfaceLibrary {
 export function fileDefinitionStore(): DefinitionStore {
   return {
     list(kind: DefinitionKind): DefinitionRecord[] {
-      const path = definitionPath(kind);
-      if (!existsSync(path)) return [];
-      const stored = JSON.parse(readFileSync(path, 'utf8')) as DefinitionRecord[];
+      definitionPath(kind);
+      // the catalog's file with the installed packs' records under it
+      const stored = readCatalogJson<DefinitionRecord[]>(`${kind}.json`);
+      if (stored === undefined) return [];
       // connectors are stored as body + interface; the editors see composed pins
       return kind === 'connectors' ? composeConnectors(stored as ConnectorRecord[], interfaceLibrary()) : stored;
     },
@@ -147,19 +149,22 @@ export function fileDefinitionStore(): DefinitionStore {
               return (records as ConnectorDefinition[]).map((r) => decomposeConnector(r, library));
             })()
           : records;
-      let next = formatDefinitionsJson(stored as DefinitionRecord[]);
+      // records a pack supplies unchanged stay in the pack, not in the catalog's file
+      const local = localValueFor(`${kind}.json`, stored as DefinitionRecord[]);
+      if (local === undefined) return { changed: false };
+      let next = formatDefinitionsJson(local);
       if (existsSync(path)) {
         const current = readFileSync(path, 'utf8');
         if (current === next) return { changed: false };
         try {
           // same facts, different whitespace — leave the author's file alone
-          if (isDeepStrictEqual(JSON.parse(current), stored)) return { changed: false };
+          if (isDeepStrictEqual(JSON.parse(current), local)) return { changed: false };
         } catch {
           // a file that will not parse is not worth preserving; what got here
           // has been validated, so overwriting it is an improvement
         }
         // untouched records keep their bytes; only the edited one is rewritten (50a.26)
-        next = patchJsonText(current, stored);
+        next = patchJsonText(current, local);
       }
       writeFileAtomic(path, next, 'utf8');
       return { changed: true };

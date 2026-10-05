@@ -13,6 +13,6 @@ Balanced and unbalanced audio for WireHub, as a catalog pack (`pack/`):
 
 The AV / video pack carries identical copies of the audio signal entries
 (SCART has audio pins), so the two install side by side. Enable it at
-first-run setup (`/setup`, where it is suggested), or list it in
+first-run setup (`/setup`), or list it in
 `apps/studio/modules.config.ts` and install its pack. Code: MIT; data:
 CC0-1.0; every record cites its source in `src`.

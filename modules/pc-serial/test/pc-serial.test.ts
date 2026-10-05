@@ -40,10 +40,10 @@ const path = (spec: TestSpec, from: string, to: string): PathCheck => {
 };
 
 describe('the module', () => {
-  it('is a suggested domain module with one CC0 pack', () => {
+  it('is an optional domain module, unticked at setup, with one CC0 pack', () => {
     const registry = createRegistry([pcSerial]);
     expect(registry.domains().map((m) => m.id)).toEqual(['pc-serial']);
-    expect(pcSerial.setup?.suggested).toBe(true);
+    expect(pcSerial.setup).not.toHaveProperty('suggested');
     expect(registry.catalogPacks().map((p) => `${p.module}:${p.id}@${p.version}`)).toEqual(['pc-serial:pc-serial@0.1.0']);
     expect(readPackManifest(packDir)).toMatchObject({ id: 'pc-serial', version: '0.1.0', license: 'CC0-1.0' });
   });

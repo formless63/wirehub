@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-import { dataPath, loadDb } from '@wirehub/catalog';
+import { dataPath, derivedDir, livePacksDir, loadDb } from '@wirehub/catalog';
 
 import type { WorkbenchDeps } from './api.ts';
 import { fileAssetStore } from './assets.ts';
@@ -36,7 +36,9 @@ import { registry } from './modules.ts';
 import { memoryEventHub } from './events.ts';
 import { defaultDepictionDeps, fileDepictionStore, type DepictionDeps } from './depictions.ts';
 import { fileDocStore } from './storage/doc-store.ts';
-import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
+import { checkoutPacksDir } from './env.ts';
+import { parseSuggestedModules } from './setup.ts';
+import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 import { exportTree } from './pg/export.ts';
 import { backendFromEnv, type Backend } from './pg/config.ts';
 
@@ -46,11 +48,21 @@ function rawJson(relative: string): unknown {
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as unknown) : undefined;
 }
 
-export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): WorkbenchDeps {
+export interface DefaultDepsOptions {
+  blobs?: BlobStore;
+  /** the first-run setup code (`WIREHUB_SETUP_CODE`, or one `serve.ts` made up); absent: none asked */
+  setupCode?: string;
+}
+
+export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): WorkbenchDeps {
   // one asset store, shared: `drawings` dedups every photo it is handed
   // against exactly this store, and `assets` is what the picker lists; its
   // bytes go to the blob store when the host configured one (WIREHUB_BLOBS)
   const assets = fileAssetStore(options.blobs);
+  // installed packs: WIREHUB_PACKS_DIR (the hosts default it, `env.ts`), never the starter catalog
+  const packsDir = livePacksDir() ?? checkoutPacksDir();
+  const tags = fileTagStore();
+  const suggested = parseSuggestedModules(process.env.WIREHUB_SUGGESTED_MODULES);
   return {
     designs: fileDesignStore(),
     definitions: fileDefinitionStore(),
@@ -61,7 +73,7 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     // converted models (gitignored cache)
     modelCache: fileModelCache(),
     vocab: fileVocabStore(),
-    tags: fileTagStore(),
+    tags,
     wireLibrary: fileWireLibraryStore(),
     builds: fileBuildsStore(),
     // artwork and catalog documents, staged like the rest (B7)
@@ -70,14 +82,15 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     versions: fileVersionStore(),
     loadDb,
     // the unit of work reuses the loaded db until one of its files changes (50a.49)
-    catalogVersion: () => fileCatalogVersion(dataPath('')),
+    // …and the packs directory: an install (packs.json) or regenerated derived tags change it too
+    catalogVersion: () => `${fileCatalogVersion(dataPath(''))}:${fileCatalogVersion(packsDir)}:${fileCatalogVersion(derivedDir(packsDir))}`,
     // GET /api/blobs/:sha: the file backend's content-addressed files are its uploads
     blob: async (sha) => {
       const found = await assets.get(sha);
       return found === undefined ? undefined : { bytes: new Uint8Array(found.bytes), mediaType: found.record.mime };
     },
     // GET /api/export: the catalog's text files, the same shape the database backend answers
-    exportCatalog: async () => exportTree(readCatalogTree(dataPath('..')), fileCatalogVersion(dataPath(''))),
+    exportCatalog: async () => exportTree(readFlattenedCatalog(dataPath('..'), livePacksDir()), fileCatalogVersion(dataPath(''))),
     // the catalog's part-number configuration, as stored (absent: the scheme's defaults)
     loadPartNumberFiles: () => ({ scheme: rawJson('part-numbers.json') }),
     // who a studio without a login names (read once: env, else git config)
@@ -89,12 +102,18 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
     events: memoryEventHub(),
     // the deployment's modules (modules.config.ts)
     modules: registry,
-    // first-run setup: domain modules' packs go into the live catalog; the
-    // container image sets WIREHUB_SETUP_PROMPT=1 so a fresh hub opens on /setup
+    // first-run setup: domain modules' packs go into the packs directory, layered
+    // under the catalog; the container image sets WIREHUB_SETUP_PROMPT=1 so a
+    // fresh hub opens on /setup
     setup: {
       dataDir: dataPath(''),
+      packsDir,
       prompt: process.env.WIREHUB_SETUP_PROMPT === '1',
       now: () => new Date().toISOString(),
+      ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
+      ...(suggested === undefined ? {} : { suggested }),
+      // the tag tables cover every record: rebuild them over the new packs
+      afterInstall: () => tags.regenerate(),
     },
   };
 }
@@ -106,14 +125,14 @@ export function defaultWorkbenchDeps(options: { blobs?: BlobStore } = {}): Workb
  */
 export async function workbenchDepsFromEnv(
   env: Record<string, string | undefined>,
-  options: { blobs?: BlobStore } = {},
+  options: DefaultDepsOptions = {},
 ): Promise<{ backend: Backend; deps: WorkbenchDeps; depictionDeps: DepictionDeps; describe: string; close: () => Promise<void>; pg?: { db: import('./pg/db.ts').Db; orgId: string; url: string } }> {
   const backend = backendFromEnv(env);
   if (backend === 'files') {
     return { backend, deps: defaultWorkbenchDeps(options), depictionDeps: defaultDepictionDeps(), describe: 'files (packages/catalog/data)', close: async () => {} };
   }
   const { openPgBackend } = await import('./pg/deps.ts');
-  const pg = await openPgBackend(env, options);
+  const pg = await openPgBackend(env, { ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.setupCode === undefined ? {} : { setupCode: options.setupCode }) });
   const snapshot = pg.cache.peek();
   return {
     backend,

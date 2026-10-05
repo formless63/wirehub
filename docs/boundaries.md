@@ -38,7 +38,7 @@ privacy check (§9) must stay clean, including this file.
 | `NOTICE` | BASE-gen | now lists the embedded fonts; the 3D-library section went with the model import script |
 | `package.json` (root) | BASE-gen | deploy scripts removed; `packageManager` pinned; tests run one workspace at a time |
 | `pnpm-lock.yaml` | BASE-gen | regenerated from the base's package set |
-| `docker-compose.yml` | BASE-gen | a generic single-container compose (port 5183, catalog mounted); no proxy network, no deploy keys, no private mounts; on the rename to WireHub replaced by `compose.yaml` (app + Garage + PostgreSQL) and `compose.backup.yaml` (`docs/self-hosting.md`) |
+| `docker-compose.yml` | BASE-gen | a generic single-container compose (port 5183, catalog mounted); no proxy network, no deploy keys, no private mounts; on the rename to WireHub replaced by `compose.yaml` (app + Garage + PostgreSQL, backups as a profile; `docs/self-hosting.md`) |
 | `docker/studio.Dockerfile` | BASE-gen | replaced by `docker/app.Dockerfile`, a self-contained image (install + bundle + serve) |
 | `scripts/studio-deploy-live.sh` | DROP | the private live-clone deploy |
 | `.claude/settings.json` | DROP | per-machine settings |

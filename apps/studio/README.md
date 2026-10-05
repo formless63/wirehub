@@ -26,26 +26,36 @@ saying so.
 
 ## Container
 
-`compose.yaml` at the repository root builds `docker/app.Dockerfile` (install,
-bundle, serve) or pulls `ghcr.io/formless63/wirehub`, and runs it with Garage
-(S3-compatible blob storage) and PostgreSQL — see `../../docs/self-hosting.md`:
+`compose.yaml` at the repository root runs the published image
+(`ghcr.io/formless63/wirehub`, built from `docker/app.Dockerfile`) with
+PostgreSQL and Garage (S3-compatible blob storage) — no `.env` needed; see
+`../../docs/self-hosting.md`:
 
 ```
-bash scripts/setup-env.sh      # once: .env with generated secrets
-docker compose up -d           # then open http://localhost:5183
+docker compose up -d           # then open http://localhost:5183/setup
+docker compose logs wirehub    # the first-run setup code
 ```
+
+The image also carries the stack's one-shots (`stack/`): `bootstrap.ts`
+generates every secret into the `secrets` volume, `garage-init.ts` sets up
+Garage and has it create the S3 keys, `backup-init.ts` stages the backup
+scripts and configures Backrest; `migrate` runs `server/pg/cli.ts bootstrap`
+and `migrate`. The server reads any variable from a file as `NAME_FILE`
+(`server/env.ts`, applied by `server/boot-env.ts` before anything else).
 
 The catalog lives in the `catalog` volume (seeded from the image's starter
-catalog on first start). Uploaded file bytes go to the blob store named by
-`WIREHUB_BLOBS` (`server/blobs.ts`): `s3` (Garage, by default), `fs:<dir>`, or
-unset — beside the catalog, as in development. `GET /healthz` is the
-healthcheck. Settings go in `.env` (`.env.example` documents every one).
-WireHub's own variables are `WIREHUB_*`; the pre-rename `STUDIO_*` names are
-still read as a deprecated fallback, with one warning at startup
-(`server/env.ts`).
+catalog on first start); packs installed at first-run setup live in the
+`packs` volume (`WIREHUB_PACKS_DIR=/data/packs`), layered under it. Uploaded
+file bytes go to the blob store named by `WIREHUB_BLOBS` (`server/blobs.ts`):
+`s3` (Garage, by default), `fs:<dir>`, or unset — beside the catalog, as in
+development. `GET /healthz` is the healthcheck. `.env.example` documents
+every setting. WireHub's own variables are `WIREHUB_*`; the pre-rename
+`STUDIO_*` names are still read as a deprecated fallback, with one warning at
+startup (`server/env.ts`).
 
 To work on the catalog in your checkout instead, run the app from source
-(`pnpm --filter studio dev`), where saves land in `packages/catalog/data`.
+(`pnpm --filter studio dev`), where saves land in `packages/catalog/data` and
+packs enabled at setup in the gitignored `data/packs/` — never in the starter.
 
 ## Modules
 

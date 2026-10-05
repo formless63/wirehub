@@ -18,6 +18,7 @@
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { isDeepStrictEqual } from 'node:util';
 
+import { localValueFor, readCatalogText } from './catalog-files.ts';
 import { patchJsonText } from './json-text.ts';
 
 import {
@@ -100,20 +101,24 @@ export function fileDesignStore(): DesignStore {
     },
 
     has(id: DesignId): boolean {
-      return isDesignId(id) && existsSync(designPath(id));
+      return isDesignId(id) && readCatalogText(`designs/${id}.json`) !== undefined;
     },
 
     read(id: DesignId): CableDesign | undefined {
-      const path = designPath(id);
-      if (!existsSync(path)) return undefined;
-      return JSON.parse(readFileSync(path, 'utf8')) as CableDesign;
+      designPath(id);
+      // the catalog's own file, else an installed pack's
+      const text = readCatalogText(`designs/${id}.json`);
+      return text === undefined ? undefined : (JSON.parse(text) as CableDesign);
     },
 
     write(id: DesignId, design: CableDesign): { changed: boolean } {
       const path = designPath(id);
+      // a pack's design saved unchanged stays the pack's; an edit is stored locally
+      if (localValueFor(`designs/${id}.json`, design) === undefined) return { changed: false };
       let next = formatDesignJson(design);
-      if (existsSync(path)) {
-        const current = readFileSync(path, 'utf8');
+      const base = existsSync(path) ? readFileSync(path, 'utf8') : readCatalogText(`designs/${id}.json`);
+      if (base !== undefined) {
+        const current = base;
         if (current === next) return { changed: false };
         try {
           // same facts, different whitespace — leave the author's file alone

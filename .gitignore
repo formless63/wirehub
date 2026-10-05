@@ -55,9 +55,11 @@ volumes/
 # local catalogs: a deployment's own catalog kept beside the checkout
 data/catalog/
 catalogs/
-# installed catalog packs (the file backend's data/packs/<id>/), and the
-# record of first-run setup: the starter catalog in this repository stays the
-# generic base — run setup against a deployment's catalog, not the checkout
+# installed catalog packs and the record of first-run setup: a checkout keeps
+# them in data/packs/ (WIREHUB_PACKS_DIR), layered under the starter catalog,
+# so domain records never reach the generic base by accident. The other lines
+# are where a hub from before the packs directory put them.
+data/packs/
 packages/catalog/data/packs/
 packages/catalog/data/packs.json
 packages/catalog/data/setup.json

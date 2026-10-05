@@ -27,43 +27,64 @@ continuity test specs, drawings and wire specs.
 
 ## Run it
 
-With Docker:
+You need Docker and one file — no clone, no `.env`:
 
 ```
-git clone https://github.com/formless63/wirehub && cd wirehub
-bash scripts/setup-env.sh       # once: .env with generated secrets
-docker compose up -d            # open http://localhost:5183
+mkdir wirehub && cd wirehub
+curl -fsSLO https://raw.githubusercontent.com/formless63/wirehub/main/compose.yaml
+docker compose up -d
+docker compose logs wirehub        # the first-run setup code
 ```
 
-A fresh hub opens on **first-run setup**: pick the domain modules whose signals,
-connectors and example cables you need. Five are bundled — **PC & serial** (RS-232,
-RS-485, USB), **Networking** (RJ45, T568A/B) and **Pro audio** (XLR, TRS, RCA), which
-come pre-ticked, plus **AV / video** and **Automotive**. Nothing is required, and more
-can be enabled later from the command palette. The base itself stays generic: its
-starter catalog holds wire stocks, generic connectors (DE-9 by pin number, JST XH,
-terminal blocks), parts and a few neutral example cables.
+Open <http://localhost:5183/setup> and enter the setup code. In a Docker UI
+(Portainer, Komodo, Dockhand …), paste
+[`compose.yaml`](https://raw.githubusercontent.com/formless63/wirehub/main/compose.yaml)
+as a stack, deploy, and read the code from the `wirehub` container's logs.
 
-The stack is the app, [Garage](https://garagehq.deuxfleurs.fr/) (S3-compatible storage
-for uploaded files) and PostgreSQL 18. **PostgreSQL is provisioned for the upcoming
-database backend and not used yet** — today the catalog and designs are JSON files in a
-volume, and uploaded file bytes go to Garage. `docs/self-hosting.md` has the details,
-the filesystem fallback and the recommended backups (restic through Backrest,
-`compose.backup.yaml`).
+On first start a one-shot `bootstrap` service generates every secret the stack
+needs into a `secrets` volume and keeps it there. Anything optional — the
+public URL, ports, backups (`COMPOSE_PROFILES=backup`), your own PostgreSQL or
+S3, OIDC sign-in — goes in an optional `.env`;
+[`.env.example`](https://raw.githubusercontent.com/formless63/wirehub/main/.env.example)
+explains every variable.
+
+**Config generator: <https://formless63.github.io/wirehub/>** — pick your
+options and get a ready `compose.yaml` and `.env`. It runs entirely in your
+browser and sends nothing anywhere.
+
+> The first release, v0.1.0, ships with the Postgres backend; until then the
+> image is not published and you build it yourself (`docs/self-hosting.md`,
+> "Development").
+
+**First-run setup** lists the bundled domain modules whose signals, connectors
+and example cables you can add — **PC & serial** (RS-232, RS-485, USB),
+**Networking** (RJ45, T568A/B), **Pro audio** (XLR, TRS, RCA), **AV / video** and
+**Automotive** — all unticked unless the deployment suggests some. Nothing is
+required, and more can be enabled later from the command palette. The base
+itself stays generic: its starter catalog holds wire stocks, generic connectors
+(DE-9 by pin number, JST XH, terminal blocks), parts and a few neutral example
+cables.
+
+The stack is the app, PostgreSQL 18 and [Garage](https://garagehq.deuxfleurs.fr/)
+(S3-compatible storage for uploaded files), plus restic backups through
+Backrest as an optional profile. `docs/self-hosting.md` has the details.
+
+## Develop
 
 From source (Node 24+, pnpm 10 — `corepack enable`):
 
 ```
+git clone https://github.com/formless63/wirehub && cd wirehub
 pnpm install
 pnpm --filter studio dev        # open the printed URL
 ```
 
-The hub opens on the generic starter catalog: a few example cables built from a small
-library of generic parts, every value cited to a public standard or marked as a
-synthetic example. The catalog is plain JSON under `packages/catalog/data`, and saves go
-straight back to it — so in a checkout, enabling a domain module (command palette →
-setup) installs its pack there too; keep those files out of commits to the base.
-
-## Develop
+The hub opens on the generic starter catalog: a few example cables built from a
+small library of generic parts, every value cited to a public standard or marked
+as a synthetic example. The catalog is plain JSON under `packages/catalog/data`,
+and saves go straight back to it; domain modules enabled at setup install their
+packs into the gitignored `data/packs/`, so they never land in a commit to the
+base.
 
 ```
 pnpm build                      # tsc --noEmit, strict, every package
@@ -84,7 +105,8 @@ emails out of commits (`CONTRIBUTING.md`).
 | `@wirehub/render-svg` | deterministic SVG schematics and cross-sections |
 | `@wirehub/docs` | build sheet, BOM, continuity spec, drawing, wire spec |
 | `@wirehub/editor-react` | the editor |
-| `apps/studio` | the app: Vite SPA and Hono server |
+| `apps/studio` | the app: Vite SPA and Hono server; `stack/` the compose stack's one-shots |
+| `site` | the config generator, published to GitHub Pages |
 | `modules/*` | bundled, optional domain modules: `pc-serial`, `networking`, `pro-audio`, `av-video`, `automotive` |
 
 ## Read next
@@ -93,8 +115,8 @@ emails out of commits (`CONTRIBUTING.md`).
 - `docs/modules.md` — extension points, domain modules, and how a private module lives
   in its own repository.
 - `docs/catalog-store.md` — catalog packs: format, provenance, install and update.
-- `docs/self-hosting.md` — the compose stack, storage and backups.
-- `specs/postgres-backend.md` — the database backend (planned).
+- `docs/self-hosting.md` — install, the compose stack, secrets, storage, backups, development.
+- `specs/postgres-backend.md` — the database backend (Phase A built).
 - `docs/boundaries.md` — what this base was split from, and what it left out.
 
 ## Licence

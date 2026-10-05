@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>WireHub config generator</title>
+<link rel="icon" href="/*FAVICON*/">
+<style>/*STYLE*/</style>
+</head>
+<body>
+<header class="top">
+  <div class="logo"><!--LOGO--></div>
+  <div>
+    <h1>Config generator</h1>
+    <p class="lede">A <code>compose.yaml</code> and an optional <code>.env</code> for a self-hosted WireHub, for a terminal or for a Docker UI (Portainer, Komodo, Dockhand …): paste both, deploy, open the URL and finish <code>/setup</code>.</p>
+  </div>
+</header>
+
+<section class="privacy" aria-labelledby="privacy-title">
+  <h2 id="privacy-title">Everything happens in this browser</h2>
+  <p>This page runs entirely in this browser session. Nothing you type is sent anywhere: the page makes no network request at all (its content security policy forbids it), has no analytics and stores nothing. Secrets, if you ask for them here, come from your browser's own random generator (WebCrypto). You can save this page and use it offline.</p>
+  <details>
+    <summary>The same result without this page</summary>
+    <p>You do not need the generator. With no <code>.env</code> at all, the stack generates every secret itself on first start:</p>
+    <pre><code>mkdir wirehub &amp;&amp; cd wirehub
+curl -fsSLO https://raw.githubusercontent.com/formless63/wirehub/main/compose.yaml
+docker compose up -d
+docker compose logs wirehub      # the first-run setup code</code></pre>
+    <p>For optional settings, download <code>.env.example</code> beside it, copy it to <code>.env</code> and uncomment what you need. To keep every secret in that file instead (a password manager, a re-deploy onto fresh volumes), the terminal script fills them in:</p>
+    <pre><code>curl -fsSLO https://raw.githubusercontent.com/formless63/wirehub/main/.env.example
+curl -fsSLO https://raw.githubusercontent.com/formless63/wirehub/main/scripts/setup-env.sh
+bash setup-env.sh</code></pre>
+  </details>
+</section>
+
+<main class="layout">
+<form id="options" class="options" autocomplete="off" novalidate>
+  <fieldset>
+    <legend>Address</legend>
+    <label>Public URL <span class="hint">what people open; behind a reverse proxy, its https address</span>
+      <input name="publicUrl" type="url" placeholder="http://localhost:5183"></label>
+    <div class="row">
+      <label>Listen on
+        <select name="bind"><option value="127.0.0.1">this machine</option><option value="0.0.0.0">the network</option></select></label>
+      <label>Port <input name="port" inputmode="numeric" placeholder="5183"></label>
+    </div>
+    <div class="row">
+      <label>Image tag <span class="hint">blank = the release this page was built with</span>
+        <input name="imageTag" placeholder=""></label>
+      <label>Time zone <input name="timezone" placeholder="UTC"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Database</legend>
+    <label class="choice"><input type="radio" name="postgres.mode" value="bundled" checked> Bundled PostgreSQL 18 <span class="hint">recommended</span></label>
+    <label class="choice"><input type="radio" name="postgres.mode" value="external"> My own PostgreSQL</label>
+    <div class="when" data-when="postgres.mode=external">
+      <label>Admin connection URL <span class="hint">a role that may create roles and the database; WireHub makes its own roles with it</span>
+        <input name="postgres.url" placeholder="postgres://postgres:password@db.example.com:5432/wirehub"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>File storage (S3)</legend>
+    <label class="choice"><input type="radio" name="s3.mode" value="bundled" checked> Bundled Garage <span class="hint">recommended; its keys are created on first start</span></label>
+    <label class="choice"><input type="radio" name="s3.mode" value="external"> My own S3-compatible storage</label>
+    <div class="when" data-when="s3.mode=external">
+      <label>Endpoint <input name="s3.endpoint" type="url" placeholder="https://s3.example.com"></label>
+      <div class="row">
+        <label>Region <input name="s3.region" placeholder="us-east-1"></label>
+        <label>Bucket <input name="s3.bucket" placeholder="wirehub"></label>
+      </div>
+      <div class="row">
+        <label>Access key id <input name="s3.accessKeyId"></label>
+        <label>Secret access key <input name="s3.secretAccessKey" type="password"></label>
+      </div>
+      <div class="row">
+        <label>Read-only key id <span class="hint">optional, for backups</span><input name="s3.backupAccessKeyId"></label>
+        <label>Read-only secret <input name="s3.backupSecretAccessKey" type="password"></label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Backups</legend>
+    <label class="choice"><input type="radio" name="backups.mode" value="off" checked> Off</label>
+    <label class="choice"><input type="radio" name="backups.mode" value="local"> On, to a repository on this machine <span class="hint">restic, in a volume</span></label>
+    <label class="choice"><input type="radio" name="backups.mode" value="repository"> On, to an existing restic repository <span class="hint">recommended: another machine or a cloud bucket</span></label>
+    <div class="when" data-when="backups.mode=repository">
+      <label>Repository URL <input name="backups.repository" placeholder="rest:https://user:pass@nas.example:8000/wirehub"></label>
+      <label>Repository password <span class="hint">needed for an existing repository; blank = generate one for a new repository</span>
+        <input name="backups.password" type="password"></label>
+      <div class="row">
+        <label>S3 access key id <span class="hint">s3: repositories</span><input name="backups.awsAccessKeyId"></label>
+        <label>S3 secret <input name="backups.awsSecretAccessKey" type="password"></label>
+      </div>
+    </div>
+    <div class="when" data-when="backups.mode!=off">
+      <div class="row">
+        <label>Schedule <span class="hint">cron: minute hour day month weekday</span><input name="backups.schedule" placeholder="0 3 * * *"></label>
+        <label>Backrest UI port <input name="backups.port" inputmode="numeric" placeholder="9898"></label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Sign-in</legend>
+    <label class="choice"><input type="checkbox" name="oidc.enabled"> Sign in with OIDC <span class="hint">Authentik, Keycloak, Google, Entra …; off = anyone who reaches the port can edit</span></label>
+    <div class="when" data-when="oidc.enabled">
+      <label>Issuer <input name="oidc.issuer" type="url" placeholder="https://id.example.com"></label>
+      <div class="row">
+        <label>Client id <input name="oidc.clientId"></label>
+        <label>Client secret <input name="oidc.clientSecret" type="password"></label>
+      </div>
+      <div class="row">
+        <label>Button label <input name="oidc.name" placeholder="Single sign-on"></label>
+        <label>Provider id <input name="oidc.providerId" placeholder="oidc"></label>
+      </div>
+      <label>Allowed emails <span class="hint">comma-separated</span><input name="oidc.allowedEmails" placeholder="you@example.com"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Domain modules to suggest at setup</legend>
+    <p class="hint">Pre-ticked on the setup page; you still decide there, and can add more later.</p>
+    <div id="modules"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Secrets</legend>
+    <label class="choice"><input type="radio" name="secrets" value="bootstrap" checked> Let the stack generate them on first start <span class="hint">recommended: they never leave the server</span></label>
+    <label class="choice"><input type="radio" name="secrets" value="browser"> Generate them here, into the <code>.env</code></label>
+    <div class="when" data-when="secrets=browser">
+      <button type="button" id="new-secrets" class="secondary">New secrets</button>
+    </div>
+  </fieldset>
+</form>
+
+<section class="output" aria-label="Generated files">
+  <ul id="notes" class="notes"></ul>
+  <div class="file">
+    <div class="file-head"><h2>compose.yaml</h2><span class="buttons"><button type="button" data-copy="compose">Copy</button><button type="button" data-download="compose">Download</button></span></div>
+    <pre id="compose-out" tabindex="0"></pre>
+  </div>
+  <div class="file">
+    <div class="file-head"><h2>.env</h2><span class="buttons"><button type="button" data-copy="env">Copy</button><button type="button" data-download="env">Download</button></span></div>
+    <pre id="env-out" tabindex="0"></pre>
+  </div>
+  <ol class="steps">
+    <li>Put both files in an empty folder (or paste them into your Docker UI's compose and environment boxes).</li>
+    <li><code>docker compose up -d</code>, or deploy.</li>
+    <li>Open the public URL; <code>/setup</code> asks for the setup code from the <code>wirehub</code> service's log (<code>docker compose logs wirehub</code>, or the container's logs in your UI).</li>
+  </ol>
+</section>
+</main>
+
+<footer class="foot">WireHub is free software (AGPL-3.0). Source, docs and the files this page edits: <a href="https://github.com/formless63/wirehub">github.com/formless63/wirehub</a></footer>
+<script>/*SCRIPT*/</script>
+</body>
+</html>

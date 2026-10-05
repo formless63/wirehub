@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { dataPath } from '@wirehub/catalog';
-import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
+import { readCatalogTree, readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest } from '../../server/api.ts';
@@ -54,12 +54,16 @@ describePg('first-run setup on Postgres', () => {
     expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/db9-null-modem' }, deps)).status).toBe(200);
     expect(((await handleWorkbenchRequest({ method: 'GET', path: '/api/setup' }, deps)).body as { completed: boolean }).completed).toBe(true);
     // the file backend's setup on a copy of the starter, same choice, same clock
+    // (its packs as layers in a packs directory; flattened, they are what the database holds)
     const copy = join(work, 'data');
+    const packsDir = join(work, 'packs');
     cpSync(dataPath(''), copy, { recursive: true });
-    expect((await handleSetupRequest({ method: 'POST', body: { modules: ['pc-serial', 'networking'] } }, { dataDir: copy, prompt: true, now }, registry)).status).toBe(200);
-    const files = readCatalogTree(work);
+    expect((await handleSetupRequest({ method: 'POST', body: { modules: ['pc-serial', 'networking'] } }, { dataDir: copy, packsDir, prompt: true, now }, registry)).status).toBe(200);
+    const files = readFlattenedCatalog(work, packsDir);
     const pg = exportSnapshot(await cache.get()).files;
-    expect(Object.keys(pg).sort()).toEqual([...files.keys()].filter((p) => typeof files.get(p) === 'string').sort());
-    for (const [path, text] of Object.entries(pg)) expect(text, path).toBe(files.get(path));
+    // the tag tables are derived: the database regenerates them in the setup's change set, this file run did not
+    const derived = (path: string): boolean => path.startsWith('data/tags/') && path !== 'data/tags/review.json';
+    expect(Object.keys(pg).filter((p) => !derived(p)).sort()).toEqual([...files.keys()].filter((p) => typeof files.get(p) === 'string' && !derived(p)).sort());
+    for (const [path, text] of Object.entries(pg)) if (!derived(path)) expect(text, path).toBe(files.get(path));
   }, 120_000);
 });

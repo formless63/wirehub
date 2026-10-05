@@ -29,7 +29,6 @@ export const pcSerial = defineModule({
   setup: {
     kind: 'domain',
     description: 'RS-232, RS-485 and USB: signals, DE-9 pinouts and the USB-A plug, with a null modem, an RS-485 terminal-board cable and a USB LED lead.',
-    suggested: true,
   },
   catalogPacks: [{ id: 'pc-serial', label: 'PC & serial', version: '0.1.0', root: PC_SERIAL_PACK, license: 'CC0-1.0' }],
 });

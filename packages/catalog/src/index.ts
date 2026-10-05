@@ -17,9 +17,11 @@
  */
 
 
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createCatalog, type Catalog } from './catalog.ts';
+import { catalogWithPacksSource } from './packs.ts';
 import { fsCatalogSource, type CatalogSource } from './source.ts';
 
 export { createCatalog, designVersionsDir, isDesignId } from './catalog.ts';
@@ -28,7 +30,12 @@ export { fsCatalogSource, memoryCatalogSource } from './source.ts';
 export type { CatalogSource } from './source.ts';
 export {
   PACK_MANIFEST,
+  catalogWithPacksSource,
   installPack,
+  installPackLayer,
+  installedPackDir,
+  installedPackSources,
+  localPartOf,
   layeredCatalogSource,
   mergeCatalogFile,
   packFiles,
@@ -36,7 +43,7 @@ export {
   readInstalledPacks,
   readPackManifest,
 } from './packs.ts';
-export type { InstalledPack, InstalledPacks, PackInstallPlan, PackManifest } from './packs.ts';
+export type { InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */
 export function dataPath(relative: string): string {
@@ -46,9 +53,46 @@ export function dataPath(relative: string): string {
   return fileURLToPath(new URL(`../data/${relative}`, import.meta.url));
 }
 
-/** The live catalog's source: `packages/catalog/data/`, read per call. */
+/**
+ * Where the live catalog's installed packs are: `WIREHUB_PACKS_DIR`, read per
+ * call; `undefined` when it is unset — then the live catalog is the data
+ * directory alone. The studio's hosts set it (the container image to
+ * `/data/packs`, a checkout to its gitignored `data/packs/`), so packs that
+ * first-run setup installs never land in the starter catalog. Test runs leave
+ * it unset and always read the starter catalog as committed.
+ */
+export function livePacksDir(): string | undefined {
+  const dir = process.env['WIREHUB_PACKS_DIR'];
+  return dir === undefined || dir === '' ? undefined : dir;
+}
+
+/** Derived files kept beside the packs (`<packs>/derived/`, e.g. tag tables that cover pack records). */
+export function derivedDir(packsDir: string): string {
+  return join(packsDir, 'derived');
+}
+
+/**
+ * The live catalog's source: `packages/catalog/data/`, read per call, with the
+ * packs installed in `livePacksDir()` under it and the derived files beside
+ * them above it.
+ */
 export function liveCatalogSource(): CatalogSource {
-  return fsCatalogSource(dataPath(''), 'the catalog');
+  const root = dataPath('');
+  return {
+    name: 'the catalog',
+    root,
+    read(relative) {
+      return current().read(relative);
+    },
+    list(relativeDir) {
+      return current().list(relativeDir);
+    },
+  };
+  function current(): CatalogSource {
+    const packs = livePacksDir();
+    if (packs === undefined) return fsCatalogSource(root, 'the catalog');
+    return catalogWithPacksSource(root, packs, { name: 'the catalog', first: () => [fsCatalogSource(derivedDir(packs), 'derived files')] });
+  }
 }
 
 /**

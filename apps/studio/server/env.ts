@@ -9,7 +9,13 @@
  *
  * Standard names (`HOST`, `PORT`, `AUTH_ENABLED`, `S3_*` …) are not prefixed
  * and are read directly.
+ *
+ * Any variable can also come from a file, `NAME_FILE` (`resolveFileEnv`,
+ * below), which the hosts apply once at startup (`prepareHostEnv`).
  */
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 export type Env = Readonly<Record<string, string | undefined>>;
 
@@ -49,4 +55,77 @@ export function legacyEnvWarning(env: Env = process.env): string | undefined {
   if (legacy.length === 0) return undefined;
   const renames = legacy.map((name) => `${name} → ${name.replace(/^STUDIO_/, 'WIREHUB_')}`).join(', ');
   return `Deprecated environment variable${legacy.length === 1 ? '' : 's'} in use; rename ${renames}. The STUDIO_ names will stop working in a future release.`;
+}
+
+/* ------------------------------------------------------------------ *
+ * `NAME_FILE`: any variable read from a file
+ * ------------------------------------------------------------------ */
+
+const FILE_SUFFIX = /^([A-Z][A-Z0-9_]*)_FILE$/;
+
+/** What `resolveFileEnv` did. */
+export interface FileEnvResult {
+  /** the variables now set from a file */
+  loaded: string[];
+  /** `NAME_FILE` ignored because `NAME` itself is set (the explicit value wins) */
+  shadowed: string[];
+  /** one sentence per file that could not be read */
+  errors: string[];
+}
+
+/**
+ * Every variable may be given as a file: `NAME_FILE=/path` sets `NAME` to the
+ * file's contents (one trailing newline dropped), the Docker-secrets
+ * convention. The compose stack hands the app its generated secrets this way
+ * (`S3_SECRET_ACCESS_KEY_FILE`, `BETTER_AUTH_SECRET_FILE`, `DATABASE_URL_FILE`,
+ * `WIREHUB_SETUP_CODE_FILE` …), and a deployer can point any of them at their
+ * own secret files.
+ *
+ * - `NAME` set to a non-empty value wins over `NAME_FILE` (an explicit
+ *   setting always beats a generated one); an **empty** `NAME` counts as
+ *   unset here, so an `.env` line left blank does not hide the file.
+ * - A `NAME_FILE` that cannot be read is an error, never silently skipped.
+ *
+ * Mutates `env` (normally `process.env`) once, at startup, before anything
+ * reads it — so every reader, present or future, sees the resolved value.
+ */
+export function resolveFileEnv(env: Record<string, string | undefined>, read: (path: string) => string = (path) => readFileSync(path, 'utf8')): FileEnvResult {
+  const result: FileEnvResult = { loaded: [], shadowed: [], errors: [] };
+  for (const key of Object.keys(env).sort()) {
+    const match = FILE_SUFFIX.exec(key);
+    const path = env[key];
+    if (match === null || path === undefined || path === '') continue;
+    const name = match[1] as string;
+    const current = env[name];
+    if (current !== undefined && current !== '') {
+      result.shadowed.push(key);
+      continue;
+    }
+    try {
+      env[name] = read(path).replace(/\r?\n$/, '');
+      result.loaded.push(name);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      result.errors.push(`${key}: cannot read ${path} (${reason}).`);
+    }
+  }
+  return result;
+}
+
+/** The checkout's `data/packs/` (gitignored): where a source checkout keeps installed packs. */
+export function checkoutPacksDir(): string {
+  return fileURLToPath(new URL('../../../data/packs', import.meta.url));
+}
+
+/**
+ * Everything a host does to its environment before it builds anything:
+ * resolve `*_FILE` variables, and give `WIREHUB_PACKS_DIR` its default (a
+ * checkout's `data/packs/`; the image sets `/data/packs`), so packs installed
+ * at first-run setup never land in the starter catalog. Returns what
+ * `resolveFileEnv` did; the caller reports errors and stops.
+ */
+export function prepareHostEnv(env: Record<string, string | undefined> = process.env): FileEnvResult {
+  const result = resolveFileEnv(env);
+  if (env['WIREHUB_PACKS_DIR'] === undefined || env['WIREHUB_PACKS_DIR'] === '') env['WIREHUB_PACKS_DIR'] = checkoutPacksDir();
+  return result;
 }

@@ -19,8 +19,8 @@
  * Derived blobs (converted models) are not compared until Phase C (C6).
  */
 
-import { createCatalog, fsCatalogSource, type Catalog } from '@wirehub/catalog';
-import { codePointCompare, contentSha, explode, isBlobRef, render, sha256Hex, type CatalogFiles, type CatalogRows, type FileContent } from '@wirehub/catalog/src/codec/index.ts';
+import { createCatalog, memoryCatalogSource, type Catalog } from '@wirehub/catalog';
+import { codePointCompare, contentSha, dataFileMap, explode, isBlobRef, render, sha256Hex, type CatalogFiles, type CatalogRows, type FileContent } from '@wirehub/catalog/src/codec/index.ts';
 import { bomToMarkdown, deriveBom, deriveTestSpec, renderBuildSheet, testSpecToMarkdown } from '@wirehub/docs';
 import { definitionUsage, validateDb, validateDesign, type UsageKind } from '@wirehub/model';
 import { renderSchematic } from '@wirehub/render-svg';
@@ -125,7 +125,8 @@ export function treeBlobStore(tree: CatalogFiles, orgId: string): BlobStore {
 
 /** A snapshot of a directory on disk: the catalog loaders over the files themselves. */
 export function directorySnapshot(root: string, rows: CatalogRows, tree: CatalogFiles): Snapshot {
-  const source = fsCatalogSource(`${root}/data`, `the file catalog at ${root}`);
+  // the tree as read (a deployment's packs flattened into it), through the same loaders
+  const source = memoryCatalogSource(dataFileMap(tree as ReadonlyMap<string, string | Uint8Array>), { name: `the file catalog at ${root}` });
   const blobOf = new Map<string, string>();
   for (const [path, content] of tree) if (typeof content !== 'string') blobOf.set(path, contentSha(content));
   return { version: 'files', rows, files: tree, source, catalog: createCatalog(source), blobOf, loadMs: 0 };
@@ -234,7 +235,7 @@ export async function runGate(options: GateOptions): Promise<GateReport> {
     }),
   );
 
-  const fileCatalog = createCatalog(fsCatalogSource(`${root}/data`, 'the file catalog'));
+  const fileCatalog = createCatalog(memoryCatalogSource(dataFileMap(tree as ReadonlyMap<string, string | Uint8Array>), { name: 'the file catalog' }));
   const pgCatalog = snapshot.catalog;
   const fileDb = fileCatalog.loadDb();
   const pgDb = pgCatalog.loadDb();

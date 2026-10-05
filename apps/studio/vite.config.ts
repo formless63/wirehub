@@ -4,7 +4,15 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+import { prepareHostEnv } from './server/env.ts';
 import { workbenchApi } from './server/plugin.ts';
+
+// the dev server: `*_FILE` variables, and installed packs in the checkout's
+// gitignored data/packs/. Not under vitest: the suites read the starter as committed.
+if (process.env.VITEST === undefined) {
+  const fileEnv = prepareHostEnv(process.env);
+  if (fileEnv.errors.length > 0) throw new Error(fileEnv.errors.join(' '));
+}
 
 const nodeShim = fileURLToPath(new URL('./src/node-shim.ts', import.meta.url));
 const workspaceRoot = fileURLToPath(new URL('../..', import.meta.url));

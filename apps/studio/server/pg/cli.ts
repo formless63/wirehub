@@ -8,6 +8,9 @@
  *   pnpm --filter studio pg:export --out <dir> [--with-blobs]
  *   pnpm --filter studio pg:gate --from <dir>         the S1 gate: files vs the database
  *
+ * `--packs <dir>` (default WIREHUB_PACKS_DIR): a file deployment's installed
+ * packs, flattened into the catalog on import and in the gate.
+ *
  * `<dir>` holds a catalog's `data/` (and `depictions/`), like `packages/catalog`;
  * relative paths resolve from where pnpm was run. The app connection is
  * DATABASE_URL (studio_app), the org WIREHUB_ORG (default: the only one), the
@@ -19,7 +22,7 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { dataPath } from '@wirehub/catalog';
-import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
+import { readFlattenedCatalog } from '@wirehub/catalog/src/codec/tree.ts';
 
 import { ASSET_MIME_EXT } from '@wirehub/catalog/src/codec/index.ts';
 import { blobStoreFromEnv, type BlobStore } from '../blobs.ts';
@@ -65,11 +68,13 @@ async function migrate(): Promise<void> {
 }
 
 async function importCommand(args: string[]): Promise<void> {
-  const { values } = parseArgs({ args, options: { from: { type: 'string' }, org: { type: 'string' }, name: { type: 'string' }, 'create-org': { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'if-empty': { type: 'boolean' } } });
+  const { values } = parseArgs({ args, options: { from: { type: 'string' }, org: { type: 'string' }, name: { type: 'string' }, 'create-org': { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'if-empty': { type: 'boolean' }, packs: { type: 'string' } } });
   if (values.from === undefined || values.org === undefined) throw new PgConfigError('pg:import needs --from <catalog dir> and --org <slug>.');
   const root = from(values.from);
   if (!existsSync(resolve(root, 'data'))) throw new PgConfigError(`${root} has no data/ directory.`);
-  const files = readCatalogTree(root);
+  // installed packs (WIREHUB_PACKS_DIR, or --packs) are flattened into the catalog: the database holds them as records
+  const packs = values.packs ?? (env.WIREHUB_PACKS_DIR?.trim() || undefined);
+  const files = readFlattenedCatalog(root, packs === undefined ? undefined : from(packs));
   const store = blobs();
   const handle = openPg(pgAppConfigFromEnv(env).url, { max: 2, applicationName: 'wirehub-import' });
   try {
@@ -120,17 +125,19 @@ async function exportCommand(args: string[]): Promise<void> {
 }
 
 async function gateCommand(args: string[]): Promise<boolean> {
-  const { values } = parseArgs({ args, options: { from: { type: 'string' } } });
+  const { values } = parseArgs({ args, options: { from: { type: 'string' }, packs: { type: 'string' } } });
   const root = from(values.from ?? dataPath('..'));
+  const packs = values.packs ?? (env.WIREHUB_PACKS_DIR?.trim() || undefined);
   const config = pgAppConfigFromEnv(env);
   const handle = openPg(config.url, { max: 4, applicationName: 'wirehub-gate' });
   try {
     const orgId = await resolveOrgId(handle.db, config.org);
     if (orgId === undefined) throw new PgConfigError('No org to compare (set WIREHUB_ORG).');
     const store = blobs();
+    // the real file stores read the live catalog (its packs layered under it) — compare them when that is the tree
     const live = resolve(root) === resolve(dataPath('..'));
     const report = await runGate({
-      tree: readCatalogTree(root),
+      tree: readFlattenedCatalog(root, packs === undefined ? undefined : from(packs)),
       root,
       pg: { db: handle.db, cache: new SnapshotCache(handle.db, orgId), ...(store === undefined ? {} : { blobs: store }) },
       ...(live ? { filesDeps: defaultWorkbenchDeps(store === undefined ? {} : { blobs: store }) } : {}),

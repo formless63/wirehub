@@ -2,10 +2,11 @@
  * `/setup` — first-run setup: pick the domain modules this hub works with.
  *
  * Each bundled domain module (`modules.config.ts`) is a checkbox with what it
- * adds; suggestions are pre-ticked, nothing is forced, and an empty choice is
- * a fine answer — the base works on its own. Enabling installs the module's
- * catalog pack into the catalog (`server/setup.ts`); a module already
- * enabled stays enabled. Domains the build has no module for yet are listed
+ * adds, unticked unless the deployment suggested it (`WIREHUB_SUGGESTED_MODULES`);
+ * nothing is forced, and an empty choice is a fine answer — the base works on
+ * its own. Enabling installs the module's catalog pack beside the catalog
+ * (`server/setup.ts`); a module already enabled stays enabled. While setup
+ * has to run the server asks for the one-time setup code it printed to its log. Domains the build has no module for yet are listed
  * underneath, so a person can see where they stand.
  */
 
@@ -23,6 +24,7 @@ export function SetupRoute(): JSX.Element {
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState('');
 
   useEffect(() => {
     let live = true;
@@ -50,7 +52,7 @@ export function SetupRoute(): JSX.Element {
   const submit = async (): Promise<void> => {
     setBusy(true);
     setProblem(undefined);
-    const out = await saveSetup([...picked]);
+    const out = await saveSetup([...picked], '/api', view?.codeRequired === true ? code : undefined);
     setBusy(false);
     if (!out.ok) {
       setProblem(`${out.message}${out.hint === undefined ? '' : ` ${out.hint}`}`);
@@ -134,11 +136,31 @@ export function SetupRoute(): JSX.Element {
               </section>
             )}
 
+            {view.codeRequired === true ? (
+              <label className="flex flex-col gap-1">
+                <span className="text-[12px] font-semibold uppercase tracking-wide text-faint">Setup code</span>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="w-[220px] rounded border border-line bg-panel px-2 py-1 font-mono text-[14px] tracking-wider text-ink"
+                  placeholder="XXXX-XXXX-XXXX"
+                  value={code}
+                  disabled={busy}
+                  onChange={(event) => setCode(event.target.value)}
+                />
+                <span className="text-[12px] text-dim">
+                  The server printed it to its log when it started: <code>docker compose logs wirehub</code>, or the wirehub
+                  container's logs in your Docker UI.
+                </span>
+              </label>
+            ) : null}
+
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 className="rounded bg-accent px-4 py-1.5 text-[13px] font-semibold text-accent-ink disabled:opacity-60"
-                disabled={busy}
+                disabled={busy || (view.codeRequired === true && code.trim() === '')}
                 onClick={() => void submit()}
               >
                 {busy ? 'Setting up…' : view.completed ? 'Add the selected modules' : 'Finish setup'}

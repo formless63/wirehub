@@ -12,9 +12,9 @@ import { fileURLToPath } from 'node:url';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { dataPath, fixtureCatalogRoot, installPack } from '../src/index.ts';
+import { dataPath, fixtureCatalogRoot, installPack, installPackLayer } from '../src/index.ts';
 import { classifyPath, entitiesOf, explode, isSkippedPath, render, sha256Hex, type CatalogFiles } from '../src/codec/index.ts';
-import { readCatalogTree } from '../src/codec/tree.ts';
+import { readCatalogTree, readFlattenedCatalog } from '../src/codec/tree.ts';
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url));
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
@@ -24,8 +24,8 @@ const work = mkdtempSync(join(tmpdir(), 'wirehub-codec-'));
 afterAll(() => rmSync(work, { recursive: true, force: true }));
 
 /** The starter catalog with every bundled module's pack installed, in a temp copy. */
-function starterWithPacks(): string {
-  const root = join(work, 'with-packs');
+function starterWithPacks(name = 'with-packs'): string {
+  const root = join(work, name);
   cpSync(dataPath(''), join(root, 'data'), { recursive: true });
   for (const name of readdirSync(modulesRoot).sort()) {
     const pack = join(modulesRoot, name, 'pack');
@@ -66,6 +66,21 @@ describe('codec byte identity', () => {
     const { rows } = explode(files);
     // the packs' designs are records of their own entities
     expect(entitiesOf(rows).filter((e) => e.kind === 'design').length).toBeGreaterThan(8);
+  });
+
+  it('packs installed as layers flatten to the catalog the merging installer made', () => {
+    const merged = readCatalogTree(starterWithPacks('merged-reference'));
+    const root = join(work, 'layered');
+    const packsDir = join(work, 'layered-packs');
+    cpSync(dataPath(''), join(root, 'data'), { recursive: true });
+    for (const name of readdirSync(modulesRoot).sort()) {
+      const pack = join(modulesRoot, name, 'pack');
+      if (existsSync(join(pack, 'wirehub-pack.json'))) installPackLayer(join(root, 'data'), packsDir, pack);
+    }
+    const flat = readFlattenedCatalog(root, packsDir);
+    expect([...flat.keys()]).toEqual([...merged.keys()]);
+    for (const [path, text] of merged) expect(flat.get(path), path).toBe(text);
+    expectIdentity(flat);
   });
 
   it('a synthetic tree with every typed file kind', () => {

@@ -46,9 +46,9 @@ function conductorAt(d: CableDesign, connector: 'j1' | 'j2', pin: string): strin
 }
 
 describe('the module', () => {
-  it('is a suggested domain module with one CC0 pack', () => {
+  it('is an optional domain module, unticked at setup, with one CC0 pack', () => {
     expect(createRegistry([networking]).domains().map((m) => m.id)).toEqual(['networking']);
-    expect(networking.setup?.suggested).toBe(true);
+    expect(networking.setup).not.toHaveProperty('suggested');
     expect(readPackManifest(packDir)).toMatchObject({ id: 'networking', version: '0.1.0', license: 'CC0-1.0' });
   });
 

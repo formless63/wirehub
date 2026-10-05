@@ -1,0 +1,55 @@
+name: Pages
+
+# Publishes the config generator (site/) to GitHub Pages:
+# https://formless63.github.io/wirehub/. One self-contained page with the
+# repository's compose.yaml embedded, rebuilt whenever it or the generator
+# changes. (Settings → Pages → Source: GitHub Actions.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - compose.yaml
+      - brand/**
+      - modules/*/src/index.ts
+      - apps/studio/modules.config.ts
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter site
+      # the generator's default output must be the repository's compose.yaml
+      - run: pnpm --filter site test
+      - run: node site/build.mjs site/dist
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

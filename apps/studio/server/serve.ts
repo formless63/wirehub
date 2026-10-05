@@ -18,6 +18,9 @@
  * with one line rather than serving a blank page.
  */
 
+// first: `*_FILE` variables resolved before any other module reads the environment
+import './boot-env.ts';
+
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +37,8 @@ import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
 import { workbenchDepsFromEnv } from './default-deps.ts';
 import { backendFromEnv } from './pg/config.ts';
 import { envVar, legacyEnvWarning } from './env.ts';
+import { registry } from './modules.ts';
+import { generateSetupCode, parseSuggestedModules, setupBanner, setupNeeded } from './setup.ts';
 
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 
@@ -101,14 +106,25 @@ if (blobs !== undefined && 'ensureBucket' in blobs && typeof blobs.ensureBucket 
   }
 }
 
+// first-run setup asks for a one-time code: the stack's generated one
+// (WIREHUB_SETUP_CODE / _FILE), else one made up now; printed below
+const configuredCode = process.env.WIREHUB_SETUP_CODE?.trim();
+const setupCode = configuredCode !== undefined && configuredCode !== '' ? configuredCode : process.env.WIREHUB_SETUP_PROMPT === '1' ? generateSetupCode() : undefined;
+const suggested = parseSuggestedModules(process.env.WIREHUB_SUGGESTED_MODULES) ?? [];
+const unknownSuggested = suggested.filter((id) => !registry.domains().some((m) => m.id === id));
+if (unknownSuggested.length > 0) {
+  console.warn(`[setup] WIREHUB_SUGGESTED_MODULES names no domain module of this build: ${unknownSuggested.join(', ')} (offered: ${registry.domains().map((m) => m.id).join(', ')}).`);
+}
+
 // the stores: files (default) or Postgres (WIREHUB_BACKEND=pg; specs/postgres-backend.md)
 let workbench: Awaited<ReturnType<typeof workbenchDepsFromEnv>>;
 try {
-  workbench = await workbenchDepsFromEnv(process.env, blobs === undefined ? {} : { blobs });
+  workbench = await workbenchDepsFromEnv(process.env, { ...(blobs === undefined ? {} : { blobs }), ...(setupCode === undefined ? {} : { setupCode }) });
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
+const deps = workbench.deps;
 
 // the studio's own login — off unless AUTH_ENABLED=true (see "Auth" in the README);
 // on the database backend its accounts, people and invitations are in Postgres
@@ -123,7 +139,7 @@ try {
   process.exit(1);
 }
 
-const app = createStandaloneApp({ distDir, deps: workbench.deps, depictionDeps: workbench.depictionDeps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
+const app = createStandaloneApp({ distDir, deps, depictionDeps: workbench.depictionDeps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 
 serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`WireHub serving ${distDir}`);
@@ -136,5 +152,9 @@ serve({ fetch: app.fetch, hostname: host, port }, (info) => {
       .filter((m) => m !== '')
       .join(' + ');
     console.log(`  auth ON (${methods}) — sign in at ${auth.config.baseURL}/sign-in; ${auth.config.allowedEmails.size} allowed email(s)`);
+  }
+  if (setupCode !== undefined && deps.setup !== undefined && setupNeeded(deps.setup)) {
+    const url = (process.env.BETTER_AUTH_URL ?? '').replace(/\/+$/, '') || `http://localhost:${info.port}`;
+    console.log(`\n${setupBanner(url, setupCode)}\n`);
   }
 });

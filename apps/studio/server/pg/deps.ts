@@ -26,6 +26,7 @@ import { exportSnapshot } from './export.ts';
 import { pgCommit } from './commit.ts';
 import { pgModelCache } from './model-cache.ts';
 import { pgSetupDeps } from './setup.ts';
+import { parseSuggestedModules } from '../setup.ts';
 import { pgLockStore } from './locks.ts';
 import { deliveredEventHub, type EventHub } from '../events.ts';
 import { blobObjectKey } from './keys.ts';
@@ -137,7 +138,7 @@ export interface PgBackend {
 }
 
 /** Open the Postgres backend from the environment: connect, check, warm the snapshot, listen. */
-export async function openPgBackend(env: Record<string, string | undefined>, options: { blobs?: BlobStore; depictionsDir?: string; listen?: boolean } = {}): Promise<PgBackend> {
+export async function openPgBackend(env: Record<string, string | undefined>, options: { blobs?: BlobStore; depictionsDir?: string; listen?: boolean; setupCode?: string } = {}): Promise<PgBackend> {
   const config = pgAppConfigFromEnv(env);
   const handle = openPg(config.url, { applicationName: 'wirehub-studio' });
   try {
@@ -159,7 +160,16 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     if (options.listen !== false) await cache.listen(config.url, events).catch((error: unknown) => console.warn(`[pg] LISTEN unavailable: ${error instanceof Error ? error.message : String(error)}`));
     const deps = pgWorkbenchDeps({ cache, db: handle.db, events, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.depictionsDir === undefined ? {} : { depictionsDir: options.depictionsDir }) });
     // first-run setup installs the domain modules' packs into the database (WIREHUB_SETUP_PROMPT as on files)
-    deps.setup = pgSetupDeps(deps, cache, { prompt: env.WIREHUB_SETUP_PROMPT === '1', now: () => new Date().toISOString() });
+    const stored = snapshot.source.read('setup.json');
+    const completed = stored !== undefined && (JSON.parse(stored) as { completed?: boolean }).completed === true;
+    const suggested = parseSuggestedModules(env.WIREHUB_SUGGESTED_MODULES);
+    deps.setup = pgSetupDeps(deps, cache, {
+      // a hub whose setup completed never prompts again (and the boot banner stays quiet)
+      prompt: env.WIREHUB_SETUP_PROMPT === '1' && !completed,
+      now: () => new Date().toISOString(),
+      ...(options.setupCode === undefined ? {} : { code: options.setupCode }),
+      ...(suggested === undefined ? {} : { suggested }),
+    });
     return {
       handle,
       cache,
