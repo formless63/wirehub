@@ -389,6 +389,15 @@ the workflow fails if the secret's key and the recorded one differ.
 
 Official index public key: *(placeholder, not yet created)*
 
+**The official publisher** is `wirehub` ("WireHub"), recorded in `scripts/official-store-meta.json`
+with the public key `RWS7FUOto59buesmRailZTdc4XlAWM8BZoyFe8NeXwcHfLyeJVAIMl+h` (`store-index.mjs
+official-publisher-key` prints it). Its private key is the GitHub Actions secret
+`WIREHUB_PACK_SIGNING_KEY`. When the secret is set the pages workflow signs every `modules/*/pack`
+(`sign-pack`), checks the signatures against the recorded key (a mismatch fails the build), and
+builds the index with `--meta scripts/official-store-meta.json`, so each bundled pack carries
+`signedBy`. Without the secret it publishes as before: unsigned packs, an index listing no
+publishers, and a warning.
+
 ### Store sources: adding stores in the app
 
 People add more stores, their own private ones or other creators', in Settings > Store sources
@@ -501,9 +510,9 @@ refuses a bundle whose manifest names a listed publisher but is not signed by on
 whose pinned files differ, and warns about one signed only by a revoked key. `sign-pack` takes
 `--key` more than once (a rotation), or the PEM text in `WIREHUB_PACK_SIGNING_KEY`. Giving a known
 publisher a new key with `publisher` keeps the old one in its `keys`; revoke it when it should no
-longer count. The official index lists no publishers yet: the bundled packs are pinned by the
-official index's signature, and signing them as a publisher waits on the owner's keys, like the
-index key.
+longer count. The official index lists the publisher `wirehub` (key recorded in
+`scripts/official-store-meta.json`) once CI has the `WIREHUB_PACK_SIGNING_KEY` secret; until then the
+bundled packs are pinned only by the official index's signature.
 
 ## 5. Sources, licences and responsibility
 

@@ -1,7 +1,7 @@
 // The built site: the shared nav on every page, the store page and its own CSP, the
 // generator at /generator/ still the repository's compose.yaml and still request-free.
 
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -133,4 +133,46 @@ describe('store page logic', () => {
     expect(resolveUrl('a-0.1.0.zip', 'https://x.io/store/index.json')).toBe('https://x.io/store/a-0.1.0.zip');
     expect(resolveUrl('javascript:alert(1)', 'https://x.io/')).toBeNull();
   });
+});
+
+describe('the official index with a publisher', () => {
+  const run = (...a) => execFileSync('node', [join(root, 'scripts/store-index.mjs'), ...a], { encoding: 'utf8', env: { ...process.env, WIREHUB_PACK_SIGNING_KEY: '' } });
+
+  it('records the wirehub publisher key', () => {
+    expect(run('official-publisher-key').trim()).toBe('RWS7FUOto59buesmRailZTdc4XlAWM8BZoyFe8NeXwcHfLyeJVAIMl+h');
+  });
+
+  it('lists the publisher and records signedBy once the packs are signed (throwaway key)', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'official-publisher-'));
+    const keys = join(tmp, 'keys');
+    const out = run('publisher-keygen', '--out', keys, '--id', 'wirehub', '--name', 'WireHub');
+    const pub = /public key:\s+(RW\S+)/.exec(out)[1];
+    const meta = join(tmp, 'store-meta.json');
+    writeFileSync(meta, JSON.stringify({ publishers: [{ id: 'wirehub', name: 'WireHub', key: pub }] }));
+    // a copy of the bundled packs: signing rewrites each manifest, never the repository's
+    const modules = join(tmp, 'modules');
+    for (const id of readdirSync(join(root, 'modules'))) {
+      if (!existsSync(join(root, 'modules', id, 'pack', 'wirehub-pack.json'))) continue;
+      mkdirSync(join(modules, id), { recursive: true });
+      cpSync(join(root, 'modules', id, 'pack'), join(modules, id, 'pack'), { recursive: true });
+    }
+    const key = join(keys, 'wirehub-publisher.key');
+    for (const id of readdirSync(modules)) {
+      if (id === 'example') continue;
+      run('sign-pack', join(modules, id, 'pack'), '--key', key);
+      run('verify-pack-signature', join(modules, id, 'pack'), '--pubkey', pub);
+    }
+    const dist = join(tmp, 'dist');
+    run('official', '--out', dist, '--meta', meta, '--modules', modules);
+    const index = JSON.parse(readFileSync(join(dist, 'index.json'), 'utf8'));
+    expect(index.publishers.map((p) => p.id)).toEqual(['wirehub']);
+    const versions = index.packs.flatMap((p) => p.versions);
+    expect(versions.length).toBeGreaterThan(0);
+    for (const v of versions) expect(v.signedBy).toEqual([pub]);
+
+    // the index refuses an unsigned pack of a listed publisher
+    const unsigned = mkdtempSync(join(tmpdir(), 'official-unsigned-'));
+    cpSync(join(root, 'modules'), join(unsigned, 'modules'), { recursive: true });
+    expect(() => run('official', '--out', join(unsigned, 'dist'), '--meta', meta, '--modules', join(unsigned, 'modules'))).toThrow();
+  }, 60_000);
 });
