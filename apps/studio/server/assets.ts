@@ -29,7 +29,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { dataPath } from '@wirehub/catalog';
+import { dataPath, installedPackSources, livePacksDir } from '@wirehub/catalog';
 import { writeFileAtomic } from './atomic-write.ts';
 import type { BlobStore } from './blobs.ts';
 import type { Awaitable } from './storage/change-set.ts';
@@ -113,6 +113,20 @@ function writeIndex(records: AssetSummary[]): void {
   writeFileAtomic(path, next, 'utf8');
 }
 
+/**
+ * The bytes of an image an installed pack added to the library (`assets/<sha>.<ext>` in the pack's layer,
+ * its entry in the pack's `assets/index.json`): the catalog's own file wins, as it does for every layered file.
+ */
+function packAssetBytes(id: string, mime: AssetMime): Buffer | undefined {
+  const packs = livePacksDir();
+  if (packs === undefined) return undefined;
+  for (const source of installedPackSources(packs)) {
+    const path = `${source.root ?? ''}/assets/${id}.${ASSET_MIME_EXT[mime]}`;
+    if (source.root !== undefined && existsSync(path)) return readFileSync(path);
+  }
+  return undefined;
+}
+
 /** The blob key of an asset's bytes when they live in a blob store. */
 export function assetBlobKey(id: string, mime: AssetMime): string {
   return `assets/${id}.${ASSET_MIME_EXT[mime]}`;
@@ -137,13 +151,18 @@ export function fileAssetStore(blobs?: BlobStore): AssetStore {
         const key = assetBlobKey(id, record.mime);
         const stored = await blobs.get(key);
         if (stored !== undefined) return { record, bytes: stored };
-        if (!existsSync(path)) return undefined;
-        const local = readFileSync(path);
+        const local = existsSync(path) ? readFileSync(path) : undefined;
+        if (local === undefined) {
+          // a pack's image stays in the pack's layer: read from there, not copied into the store (the pack owns it)
+          const packed = packAssetBytes(id, record.mime);
+          return packed === undefined ? undefined : { record, bytes: packed };
+        }
         await blobs.put(key, local, record.mime);
         return { record, bytes: local };
       }
-      if (!existsSync(path)) return undefined;
-      return { record, bytes: readFileSync(path) };
+      if (existsSync(path)) return { record, bytes: readFileSync(path) };
+      const packed = packAssetBytes(id, record.mime);
+      return packed === undefined ? undefined : { record, bytes: packed };
     },
     async put(bytes, mime, originalName, src) {
       const id = sha256Of(bytes);

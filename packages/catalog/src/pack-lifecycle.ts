@@ -42,6 +42,7 @@ import {
   installedRecordOf,
   installedPackDir,
   applyPackAssets,
+  applyPackLibrary,
   isAuxiliaryFile,
   mergeCatalogFile,
   KEYED_FILES,
@@ -628,7 +629,9 @@ export function applyPackUpdate(dataDir: string, packsDir: string | undefined, p
   const manifest = readPackManifest(packDir);
   applyWrites(dataDir, plan.writes);
   // the pack's depictions and art: replaced where it still owns them, removed where the new version drops them
-  const assets = applyPackAssets(dataDir, packDir, readInstalledPacks(dataDir).packs.find((p) => p.id === manifest.id)?.assets, plan.assets);
+  const before = readInstalledPacks(dataDir).packs.find((p) => p.id === manifest.id)?.assets;
+  const assets = applyPackAssets(dataDir, packDir, before, plan.assets);
+  applyPackLibrary(dataDir, packDir, before, assets);
   saveInstalled(dataDir, (packs) =>
     packs.map((p) =>
       p.id === manifest.id ? installedRecordOf(manifest, plan.added, assets, packDir) : p,
@@ -647,6 +650,7 @@ export function applyPackDisable(dataDir: string, packsDir: string | undefined, 
   applyWrites(dataDir, plan.writes);
   // its depictions and art go, unless the catalog changed or replaced them since
   applyPackAssets(dataDir, undefined, plan.assets, {});
+  applyPackLibrary(dataDir, undefined, plan.assets, {});
   saveInstalled(dataDir, (packs) => packs.filter((p) => p.id !== id));
 }
 

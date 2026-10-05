@@ -43,6 +43,7 @@ export type { CatalogSource } from './source.ts';
 export {
   PACK_MANIFEST,
   applyPackAssets,
+  applyPackLibrary,
   assetPath,
   assetSha,
   flatAssetPath,

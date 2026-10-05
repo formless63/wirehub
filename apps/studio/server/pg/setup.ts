@@ -72,7 +72,21 @@ export function pgSetupDeps(workbench: WorkbenchDeps, cache: SnapshotSource, opt
         // (`uploadChangeBlobs`) and are served by content address like every other depiction file.
         const depictions = uow.deps.depictions;
         const files = uow.deps.files;
+        // an image a pack adds to the shared asset library (`data/assets/<sha>.<ext>`, its entry in `data/assets/index.json`)
+        // is an asset row, not a catalog file: staged as an asset, and gone with its index entry (the tree drops the bytes)
+        const assetOf = (flat: string): string | undefined => /^data\/assets\/([0-9a-f]{64})\.(?:png|jpg)$/.exec(flat)?.[1];
+        const assetEntries = (index: string | Uint8Array | undefined | { blob: string }): { id: string; mime: string; originalName: string; src: string }[] => {
+          if (typeof index !== 'string') return [];
+          try {
+            const parsed = JSON.parse(index) as unknown;
+            return Array.isArray(parsed) ? (parsed as { id: string; mime: string; originalName: string; src: string }[]) : [];
+          } catch {
+            return [];
+          }
+        };
         const holdingOf = (flat: string): string | undefined => {
+          const asset = assetOf(flat);
+          if (asset !== undefined) return assetEntries(snapshot.files.get('data/assets/index.json')).some((e) => e.id === asset) ? asset : undefined;
           const text = snapshot.files.get(flat);
           if (typeof text === 'string') return assetSha(flat, text);
           const sha = snapshot.blobOf.get(flat);
@@ -85,6 +99,15 @@ export function pgSetupDeps(workbench: WorkbenchDeps, cache: SnapshotSource, opt
           await stageAsset(flat, content);
         };
         const stageAsset = async (flat: string, content: string | Uint8Array): Promise<void> => {
+          const sha = assetOf(flat);
+          if (sha !== undefined) {
+            const entry = assetEntries(after.get('data/assets/index.json')).find((e) => e.id === sha);
+            if (entry === undefined) throw new Error(`${flat}: no entry of assets/index.json names it`);
+            if (uow.deps.assets === undefined) throw new Error('the database backend has no asset store');
+            await uow.deps.assets.put(Buffer.from(content as Uint8Array), entry.mime as 'image/png' | 'image/jpeg', entry.originalName, entry.src);
+            changed = true;
+            return;
+          }
           const match = /^depictions\/([^/]+)\/([^/]+)$/.exec(flat);
           if (match === null) {
             if (files === undefined) throw new Error('the database backend has no catalog file store');
@@ -99,6 +122,7 @@ export function pgSetupDeps(workbench: WorkbenchDeps, cache: SnapshotSource, opt
         };
         const drop = async (relative: string): Promise<void> => {
           const flat = flatAssetPath(relative);
+          if (assetOf(flat) !== undefined) return; // goes with its entry of data/assets/index.json
           const match = /^depictions\/([^/]+)\/([^/]+)$/.exec(flat);
           if (match === null) await files?.remove(flat);
           else {

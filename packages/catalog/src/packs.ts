@@ -377,6 +377,13 @@ export function packFiles(dir: string): string[] {
 }
 
 /**
+ * An image a pack adds to the shared asset library (a drawing's product photo, say): `assets/<sha256>.png|jpg`,
+ * named by the hash of its bytes, with its entry in the pack's `assets/index.json`. It lands where the
+ * library keeps its own (`data/assets/<sha256>.<ext>`); the pack owns it like its other files.
+ */
+export const PACK_ASSET_IMAGE = /^assets\/[0-9a-f]{64}\.(?:png|jpg)$/;
+
+/**
  * The files of a pack that are not JSON — the images under `depictions/` and
  * `art/` (`svg`, `png`, `jpg`, `webp`), vendor PDFs under `docs/` and `assets/`,
  * fonts under `fonts/` (`ttf`, `otf`, `woff2`) and a code module's entries under `code/`
@@ -398,6 +405,8 @@ export function packAssetFiles(dir: string): string[] {
   walk('art', /\.(svg|png|jpe?g|webp)$/);
   walk('docs', /\.pdf$/);
   walk('assets', /\.pdf$/);
+  // an image of the shared asset library, named by its hash, with its `assets/index.json` entry (cs-8re)
+  if (existsSync(join(dir, 'assets'))) for (const entry of readdirSync(join(dir, 'assets'), { withFileTypes: true })) if (entry.isFile() && PACK_ASSET_IMAGE.test(`assets/${entry.name}`)) out.push(`assets/${entry.name}`);
   walk('fonts', /\.(ttf|otf|woff2)$/);
   walk('code', /\.(mjs|css)$/);
   return out.sort();
@@ -454,7 +463,7 @@ export function assetPath(dataDir: string, relative: string): string {
  * `assets/…` PDFs, which go to `pack-assets/…` (`data/assets/` is the shared asset library, whose
  * files are named by their hash).
  */
-export const dataRelativeOf = (relative: string): string => (relative.startsWith('assets/') ? `pack-assets/${relative.slice('assets/'.length)}` : relative);
+export const dataRelativeOf = (relative: string): string => (relative.startsWith('assets/') && relative !== 'assets/index.json' && !PACK_ASSET_IMAGE.test(relative) ? `pack-assets/${relative.slice('assets/'.length)}` : relative);
 
 /** The path of a pack asset in a flattened catalog (`depictions/…`, `data/art/…`, `data/docs/…`, `data/fonts/…`). */
 export const flatAssetPath = (relative: string): string => (relative.startsWith('depictions/') ? relative : `data/${dataRelativeOf(relative)}`);
@@ -513,6 +522,51 @@ export function applyPackAssets(dataDir: string, packDir: string | undefined, be
     else cpSync(join(packDir, relative), to);
   }
   return ops.owned;
+}
+
+/**
+ * The shared asset library after a pack's images came or went in a merged catalog (`dataDir`): the pack's
+ * `assets/index.json` entries for images it owns now are added (an entry of the catalog's own stays), the
+ * entries of images it no longer owns and no longer has are removed, and so is a drawing's photo pointer
+ * (`drawings/<id>.photo-ref.json`) at one of them; a pack's pointer is written where the catalog has none.
+ * `before` and `owned` are the pack's `assets` record before and after.
+ */
+export function applyPackLibrary(dataDir: string, packDir: string | undefined, before: Readonly<Record<string, string>> | undefined, owned: Readonly<Record<string, string>>): void {
+  const image = (relative: string): string | undefined => (PACK_ASSET_IMAGE.test(relative) ? relative.slice('assets/'.length, -'.xxx'.length) : undefined);
+  const gone = new Set(Object.keys(before ?? {}).filter((r) => !(r in owned) && !existsSync(assetPath(dataDir, r))).flatMap((r) => image(r) ?? []));
+  const keep = new Set(Object.keys(owned).flatMap((r) => image(r) ?? []));
+  const indexPath = join(dataDir, 'assets/index.json');
+  const entries = existsSync(indexPath) ? (JSON.parse(readFileSync(indexPath, 'utf8')) as Record<string, Json>[]) : [];
+  const packEntries = packDir !== undefined && existsSync(join(packDir, 'assets/index.json')) ? (JSON.parse(readFileSync(join(packDir, 'assets/index.json'), 'utf8')) as Record<string, Json>[]) : [];
+  const next = entries.filter((e) => !gone.has(e['id'] as string));
+  for (const e of packEntries) if (keep.has(e['id'] as string) && !next.some((n) => n['id'] === e['id'])) next.push(e);
+  if (JSON.stringify(next) !== JSON.stringify(entries)) {
+    mkdirSync(join(dataDir, 'assets'), { recursive: true });
+    writeFileReplacing(indexPath, canonicalPackText('assets/index.json', JSON.stringify(next)));
+  }
+  const drawings = join(dataDir, 'drawings');
+  const refOf = (file: string): string | undefined => {
+    try {
+      return (JSON.parse(readFileSync(file, 'utf8')) as { assetId?: string }).assetId;
+    } catch {
+      return undefined;
+    }
+  };
+  if (existsSync(drawings)) {
+    for (const name of readdirSync(drawings)) {
+      if (!name.endsWith('.photo-ref.json')) continue;
+      const id = refOf(join(drawings, name));
+      if (id !== undefined && gone.has(id)) rmSync(join(drawings, name), { force: true });
+    }
+  }
+  if (packDir === undefined || !existsSync(join(packDir, 'drawings'))) return;
+  for (const name of readdirSync(join(packDir, 'drawings'))) {
+    if (!name.endsWith('.photo-ref.json') || existsSync(join(drawings, name))) continue;
+    const id = refOf(join(packDir, 'drawings', name));
+    if (id === undefined || !keep.has(id)) continue;
+    mkdirSync(drawings, { recursive: true });
+    writeFileReplacing(join(drawings, name), canonicalPackText(`drawings/${name}`, readFileSync(join(packDir, 'drawings', name), 'utf8')));
+  }
 }
 
 /** What installing a pack would do, before anything is written. */
@@ -643,7 +697,7 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   if (Object.keys(code).length > 0) applyPackAssets(catalogDir, packDir, undefined, code);
   // vendor PDFs and fonts are files the catalog serves by content address: beside the catalog's data, owned by the pack
   const blobs = Object.fromEntries(Object.entries(assets).filter(([path]) => /^(?:docs|assets|fonts)\//.test(path) && !path.endsWith('.json')));
-  if (Object.keys(blobs).length > 0) applyPackAssets(catalogDir, packDir, undefined, blobs);
+  if (Object.keys(blobs).length > 0) applyPackLibrary(catalogDir, packDir, undefined, applyPackAssets(catalogDir, packDir, undefined, blobs));
   const record = installedRecordOf(plan.manifest, plan.added, assets, packDir);
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));

@@ -223,6 +223,14 @@ export function treeWorkbenchDeps(tree: CatalogTree, options: { orgId: string; b
     write: (path, value) => {
       if (!isDocPath(path)) throw new Error(`'${path}' is not a catalog document path`);
       tree.write(path, formatDoc(path, value));
+      // an asset the index no longer lists goes with its entry (a pack's photo, on update or disable)
+      if (path === 'data/assets/index.json' && Array.isArray(value)) {
+        const listed = new Set((value as { id?: unknown }[]).map((e) => e.id));
+        for (const file of tree.under('data/assets/')) {
+          const sha = /^data\/assets\/([0-9a-f]{64})\.[a-z0-9]+$/.exec(file)?.[1];
+          if (sha !== undefined && !listed.has(sha)) tree.remove(file);
+        }
+      }
     },
     remove: (path) => tree.remove(path),
   };

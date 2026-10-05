@@ -64,14 +64,14 @@ export class PackArchiveError extends Error {
 export const sha256 = (bytes: Uint8Array | string): string => createHash('sha256').update(bytes).digest('hex');
 
 const DATA_PATH = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\.json$/;
-const ASSET_PATH = /^(?:depictions|art)(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.(?:svg|png|jpe?g|webp)$/;
+const ASSET_PATH = /^(?:(?:depictions|art)(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.(?:svg|png|jpe?g|webp)|assets\/[0-9a-f]{64}\.(?:png|jpg))$/;
 const IMAGE_EXTENSION = /\.(?:svg|png|jpe?g|webp)$/;
 const DOC_PATH = /^(?:docs|assets)(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.pdf$/;
 const FONT_PATH = /^fonts(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.(?:ttf|otf|woff2)$/;
 const DOC_OR_FONT_EXTENSION = /\.(?:pdf|ttf|otf|woff2)$/;
 const CODE_EXTENSION = /\.(?:mjs|css)$/;
 
-/** An image a pack may ship: under `depictions/` or `art/`, an allowlisted type, a safe path. */
+/** An image a pack may ship: under `depictions/` or `art/`, an allowlisted type, a safe path; or `assets/<sha256>.png|jpg`, an image of the shared asset library. */
 export function isPackAssetPath(path: string): boolean {
   return ASSET_PATH.test(path) && path.length <= 200 && !path.split('/').includes('..');
 }
@@ -185,6 +185,7 @@ function checkedAssets(files: PackFiles): PackFiles {
     } else if (!imageMatchesExtension(path, bytes)) {
       throw new PackArchiveError(`'${path}' is not the kind of image its name says.`);
     }
+    if (path.startsWith('assets/') && path.slice('assets/'.length, -'.xxx'.length) !== sha256(bytes)) throw new PackArchiveError(`'${path}' is named by the sha256 of its bytes, and these are not it.`);
     total += kept.length;
     if (total > MAX_PACK_ASSETS_TOTAL_BYTES) throw new PackArchiveError(`The pack's images add up to more than a pack may carry (${MAX_PACK_ASSETS_TOTAL_BYTES / 1024 / 1024} MiB).`, 413);
     out.set(path, kept);
