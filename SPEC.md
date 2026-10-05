@@ -448,6 +448,18 @@ Every record (`RecordMeta`) and design may carry a **route** — `make`, `contra
 `maker`) or `buy` (with `suppliers`) — checked as warnings (`route-buy-no-supplier`,
 `route-contract-no-maker`) and shown as a badge. A product change raises `product.changed`.
 
+### Revisions of library records, and compare
+
+`record-revisions.ts`, `docs/revisions.md`. Every library record kind keeps numbered **revisions**
+(`data/revisions/<kind>/<id>.json`): a snapshot of the record, a note, who and when, its part number,
+its drawn 2D art and its model's content address. Saving one may first give the record the scheme's
+next **variant** number (`suggest` with `variantOf`; the prefix scheme's two-digit suffix, a
+declarative scheme's variant segment). **Where used** per revision reads the saved design versions'
+frozen definitions. The base **compare view** takes two records, a record and a revision, or two
+revisions: fields, 2D (side by side or a difference overlay) and 3D (side by side or a two-colour
+overlay). Revisions kept elsewhere come in through a module's **`revisionSources`** (module API
+1.2) or `PUT /api/revisions/:kind/:id`.
+
 ### Event webhooks
 
 Integrations are configuration, not code: owners subscribe URLs to events (design saved, version

@@ -128,7 +128,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `panels/{CableJourney,RecipeBar,RecipePanel,KnownPinsDialog,ProposalDetail}.tsx`, `cable-journey.*`, `recipe-edit.ts` | BASE-gen (rebuilt, §11) | the journey is `/resolver` ("Which cable do I need?"), the recipe bar and panel the editor's Recipe tab, known pins the Connect known pins dialog (it now also offers the recipe's joints); board proposals stay a gap (§11) |
 | the two ERP export/report panels | MODULE | the ERP export UI |
 | `bare-scart.ts` | MODULE | a shop-specific design transform |
-| `compare/*`, `revisions.ts`, `panels/RevisionsSection.tsx`, `compare.css` | MODULE | board-revision compare over the board designer's files |
+| `compare/*`, `revisions.ts`, `panels/RevisionsSection.tsx`, `compare.css` | BASE-gen (rebuilt, §11) | rebuilt generically: revisions of any library record (`record-revisions.ts`, the record page's Revisions section) and the base compare view's fields, 2D (side by side or difference overlay) and 3D (side by side or a two-colour overlay); the private surface-diff worker and the share's board art were not carried over |
 | `scripts/*` | DROP | one-off generators |
 
 ### 2.6 `packages/modules` (new)
@@ -154,7 +154,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | the ERP server module | MODULE | the ERP push/dry-run endpoints and their environment |
 | `server/board-import.ts` | MODULE | the board import runner over the share; uploads of open-format files go through `modules/board-import` instead |
 | `server/lineup.ts`, `server/products.ts`, `server/proposals.ts` | BASE-gen (rebuilt, §11) / MODULE | lineup and product grouping rebuilt (`server/products.ts`); declined board proposals stay out |
-| `server/models/{match,revision-art,revision-import,revisions-api,revisions}.ts` | MODULE | the share's model matcher and board revisions |
+| `server/models/{match,revision-art,revision-import,revisions-api,revisions}.ts` | MODULE / BASE-gen (rebuilt, §11) | the share's model matcher and revision import stay private (a module's `revisionSources` or the API bring them in); the revisions API is rebuilt as `server/revisions.ts` |
 | `server/scripts/{import-models,kicad-fetch,migrate-drawing-photos}.ts` | MODULE / DROP | importer and a one-shot migration; the KiCad library fetch is now the model-cache job's (`server/models/library-source.ts`) |
 | `src/cable-list.ts` | BASE-gen | rewritten: destination, wire, boards, features, PN from `productRef`/drawing; no sync column, product grouping or routes |
 | `src/routes/CablesRoute.tsx` | BASE-gen | sync filter, product merge/split, lineup link and register-only rows removed |
@@ -290,7 +290,8 @@ starter designs (the existing goldens use the frozen fixture catalog).
 | Board proposals | MODULE |
 | ERP integration (contract, transport, push, identity table, PN reconciliation) | MODULE |
 | Board, model and Gerber importers for open file formats (KiCad, Gerber, fab BOM/CPL), the board model from its KiCad file | BASE (new): `modules/board-import`, server `models/*` |
-| Discovering those files on the board designer's share; board revision compare | MODULE |
+| Discovering those files on the board designer's share | MODULE |
+| Record revisions and compare (fields, 2D, 3D), revisions from outside through `revisionSources` | BASE (rebuilt, §11) |
 | Shop work instructions, brand font, logo, traced drawing art | MODULE |
 | Live-clone deploy, proxy/tailnet/host specifics, private remote backup | DROP |
 
@@ -385,4 +386,12 @@ repository.
   roll-up per variant) and webhooks (`product.changed`). The private lineup's device-by-destination
   grid, store listings and route-by-series rule are not rebuilt: a private pack supplies its
   families and routes as data.
+- **Part revisions and compare** (`docs/revisions.md`): revisions of every library record kind
+  (`data/revisions/<kind>/<id>.json`: a snapshot, a note, its number, its 2D art and its model's
+  content address), the next variant number from the scheme on save, where used per revision (the
+  saved design versions built with it), the record page's Revisions section, and the base compare
+  view for two records, a record and a revision, or two revisions — fields, 2D side by side or as a
+  difference overlay, 3D side by side or as a two-colour overlay. A `revisionSources` extension
+  point (module API 1.2) and `PUT /api/revisions/:kind/:id` bring in revisions kept elsewhere: a
+  private module supplies only the discovery of one shop's file share.
 

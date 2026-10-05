@@ -37,12 +37,12 @@ feature belongs to the shop, it says "a private module".
 | Class | Count |
 | --- | --- |
 | present | 94 |
-| present (generic) | 11 |
+| present (generic) | 15 |
 | degraded | 7 |
 | missing, generic | 3 |
-| missing, private | 18 |
+| missing, private | 15 |
 | dropped | 7 |
-| **total** | **140** |
+| **total** | **141** |
 
 The base came through almost intact. The model, the validation rules (every issue
 code except the product, route, resolver and private-numbering ones), the editor, the
@@ -71,7 +71,7 @@ What was lost is mostly glue around the private parts:
 | A saved revision opened read-only (`?rev=N`) | present | |
 | Product lineup page | present (generic) | `/products`, Lineup tab, JSON and CSV export (`docs/products.md`) |
 | Board import page | present | `modules/board-import` (`/m/board-import/boards`): KiCad, Gerber and fab BOM/CPL files, reviewed and published as jobs (cs-5k1.13); only the private file-share discovery stays private |
-| Part compare view (2D art and 3D model diff, revisions) | missing, private | boundaries §2.5; the Library still draws Compare but nothing can supply it: cs-5k1.21 |
+| Part compare view (2D art and 3D model diff, revisions) | present (generic) | the base compare view: fields, 2D (side by side, difference overlay), 3D (side by side, two-colour overlay), revisions as sides (`docs/revisions.md`) |
 | Declined board-proposal tab | missing, private | resolver module |
 | Not-found view | present | |
 | Top bar: breadcrumb, unsaved dot, view switch, undo/redo, save, overflow menu | present | |
@@ -150,8 +150,8 @@ What was lost is mostly glue around the private parts:
 | A table for every kind: part number, name, kind columns, used, status, flags, id | present | |
 | Sorting, facet chips, search, remembered columns, cards on narrow screens | present | |
 | Record page: head, 2D/3D/photo views, properties, where used, editor, source | present | |
-| Revisions section of an in-house part | missing, private | board designer's files |
-| Compare action and pick-two mode | missing, private | hook gap: cs-5k1.21 |
+| Revisions section of an in-house part | present (generic) | every library record: save, number, where used per revision; outside revisions through `revisionSources` (boundaries §11) |
+| Compare action and pick-two mode | present (generic) | the slot (cs-5k1.21) and the base view; Compare with now on a revision |
 | New variant (connector construction), duplicate | present | |
 | Unused pinouts | present | |
 | Connector editor (body plus interface) | present | |
@@ -237,7 +237,8 @@ What was lost is mostly glue around the private parts:
 | Rules, devices routes | present (generic) | `/api/resolver/…` (`docs/resolver.md`) |
 | ERP identity, register and reconciliation routes | missing, private | |
 | Lineup and products routes | present (generic) | `/api/products/…`, `/api/lineup` (`docs/products.md`) |
-| Board import, part revisions, proposals and ERP routes | missing, private | |
+| Part revisions routes | present (generic) | `/api/revisions/…` (`docs/revisions.md`) |
+| Board import, proposals and ERP routes | missing, private | |
 | Validate before write, If-Match / ETag, unit of work, write lock, write journal | present | |
 | API index and 404 hints | present | |
 
@@ -315,7 +316,9 @@ cs-5k1.11 and cs-5k1.20 cross-reference it.
 2. **Generic part compare (cs-5k1.21).** The compare view went private together with
    board revisions. Comparing two library parts (2D artwork, 3D models) is generic.
    Recommendation: add the module slot now. Decide later whether the base itself
-   compares two parts.
+   compares two parts. **Decided and built** (owner 2026-10-05): the base compares two
+   records or their revisions in fields, 2D and 3D, and keeps revisions of every record
+   (`docs/revisions.md`); the slot stays for a module's own view.
 3. **History on the database backend (cs-5k1.4).** Recommendation: a History panel and
    restore in the base. The git mirror would be an opt-in job, for hubs that want an
    off-site, diffable trail. **Decided and built** as recommended.
