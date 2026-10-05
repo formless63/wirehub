@@ -12,7 +12,10 @@
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { useEffect, useState, type JSX } from 'react';
 
+import type { Sourcing } from '@wirehub/model';
+
 import { classes, useEditorApi } from '../context.ts';
+import { SourcingFields, withSourcing } from './SourcingFields.tsx';
 import type { EditorState } from '../store.ts';
 
 /** The note the Issues tab's one-click fix adds for a floating end. */
@@ -35,6 +38,18 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
   }, [state.design.notes]);
 
   const commit = (next: string[]): void => dispatch({ type: 'set-notes', notes: next });
+  const sourcingOfDesign = (): Sourcing => ({
+    ...(state.design.route === undefined ? {} : { route: state.design.route }),
+    ...(state.design.maker === undefined ? {} : { maker: state.design.maker }),
+    ...(state.design.suppliers === undefined ? {} : { suppliers: state.design.suppliers }),
+  });
+  const [sourcing, setSourcing] = useState<Sourcing>(sourcingOfDesign);
+  useEffect(() => setSourcing(sourcingOfDesign()), [state.design.route, state.design.maker, state.design.suppliers]);
+  const commitSourcing = (next: Sourcing): void => {
+    const was = sourcingOfDesign();
+    if (JSON.stringify(withSourcing({}, next)) === JSON.stringify(withSourcing({}, was))) return;
+    dispatch({ type: 'apply-design', design: withSourcing(state.design, next), description: next.route === was.route ? 'changed how the cable is sourced' : `set the route to ${next.route ?? 'not stated'}` });
+  };
 
   return (
     <div className="cs-panel cs-notes">
@@ -143,6 +158,22 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
             }}
           />
         </label>
+        {/* how the cable is sourced: the route commits at once, the names when focus leaves the block */}
+        <div
+          className="cs-sourcing"
+          onBlur={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            commitSourcing(sourcing);
+          }}
+        >
+          <SourcingFields
+            value={sourcing}
+            onChange={(next) => {
+              setSourcing(next);
+              if (next.route !== sourcing.route) commitSourcing(next);
+            }}
+          />
+        </div>
       </div>
     </div>
   );

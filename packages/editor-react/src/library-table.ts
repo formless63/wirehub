@@ -63,7 +63,7 @@ export interface LibraryColumn {
   fixed?: boolean;
 }
 
-export type LibraryFlag = '3D' | 'Art' | 'Photo' | 'Inferred' | 'Importer' | 'Pack';
+export type LibraryFlag = '3D' | 'Art' | 'Photo' | 'Inferred' | 'Importer' | 'Pack' | 'Make' | 'CM' | 'Buy';
 
 export interface LibraryRow {
   kind: LibraryKind;
@@ -112,7 +112,7 @@ const PN: LibraryColumn = { id: 'pn', header: 'PN', title: 'Part number — the 
 const NAME: LibraryColumn = { id: 'name', header: 'Name', width: 240, fixed: true };
 const USED: LibraryColumn = { id: 'used', header: 'Used', title: 'Designs and other definitions that use it', width: 58, numeric: true };
 const STATUS: LibraryColumn = { id: 'status', header: 'Status', width: 84, facet: true };
-const FLAGS: LibraryColumn = { id: 'flags', header: 'Flags', title: '3D model · drawn art · photo · inferred values · from the importer · from an installed pack', width: 120, facet: true };
+const FLAGS: LibraryColumn = { id: 'flags', header: 'Flags', title: '3D model · drawn art · photo · inferred values · from the importer · from an installed pack · made in house, by a contract manufacturer (CM) or bought in', width: 120, facet: true };
 const ID: LibraryColumn = { id: 'id', header: 'Id', width: 150, mono: true, hiddenByDefault: true };
 
 const KIND_COLUMNS: Record<LibraryKind, LibraryColumn[]> = {
@@ -359,6 +359,11 @@ export function libraryRows(
     if (ctx.art?.has(record.id) === true) flags.push('Art');
     if (ctx.photos?.has(record.id) === true) flags.push('Photo');
     if (isInferred(record.src)) flags.push('Inferred');
+    // how it is sourced (`products.ts` routes): in house, a contract manufacturer, bought in
+    const route = (record as { route?: string }).route;
+    if (route === 'make') flags.push('Make');
+    else if (route === 'contract') flags.push('CM');
+    else if (route === 'buy') flags.push('Buy');
     if (readOnly) flags.push('Importer');
     const pack = ctx.packs?.[record.id];
     // first: the narrow Flags column clips from the right, and this one explains why the record is read-only

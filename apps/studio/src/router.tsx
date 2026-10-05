@@ -35,6 +35,7 @@ import { SettingsRoute } from './routes/SettingsRoute.tsx';
 import { PartNumbersRoute } from './routes/PartNumbersRoute.tsx';
 import { HistoryRoute } from './routes/HistoryRoute.tsx';
 import { ResolverRoute } from './routes/ResolverRoute.tsx';
+import { ProductRoute, ProductsRoute } from './routes/ProductsRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
@@ -222,6 +223,20 @@ export const resolverRoute = createRoute({
   component: ResolverRoute,
 });
 
+/** `/products`: product families and the lineup (docs/products.md) */
+export const productsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/products',
+  component: ProductsRoute,
+});
+
+/** `/products/$id`: one product family, its variants, merge and split */
+export const productRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/products/$id',
+  component: ProductRoute,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   setupRoute,
@@ -238,6 +253,8 @@ const routeTree = rootRoute.addChildren([
   partNumbersRoute,
   historyRoute,
   resolverRoute,
+  productsRoute,
+  productRoute,
 ]);
 
 /**

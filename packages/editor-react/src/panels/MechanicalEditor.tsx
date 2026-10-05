@@ -20,6 +20,7 @@ import {
 import { slugify } from '../persistence.ts';
 import { Choice, Field, FormSection, SrcField } from './fields.tsx';
 import { CostFields, costOfExtra, withExtraCost } from './CostFields.tsx';
+import { SourcingFields, sourcingOfExtra, withExtraSourcing } from './SourcingFields.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
 
 export interface MechanicalEditorProps {
@@ -89,6 +90,16 @@ export function MechanicalEditor(props: MechanicalEditorProps): JSX.Element {
         cost={costOfExtra(draft.extra)}
         onChange={(cost) => {
           const extra = withExtraCost(draft.extra, cost);
+          const { extra: _drop, ...rest } = draft;
+          onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
+        }}
+      />
+    </FormSection>
+    <FormSection title="Sourcing" say="Optional. Made in house, by a contract manufacturer, or bought in.">
+      <SourcingFields
+        value={sourcingOfExtra(draft.extra)}
+        onChange={(sourcing) => {
+          const extra = withExtraSourcing(draft.extra, sourcing);
           const { extra: _drop, ...rest } = draft;
           onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
         }}

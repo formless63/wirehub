@@ -23,6 +23,7 @@ import {
   type CableDesign,
   type Db,
   type DesignStatus,
+  type PartRoute,
 } from '@wirehub/model';
 
 /** A design's own product PN as the list shows it, and why. */
@@ -42,6 +43,9 @@ export interface CableListEntry {
   label: string;
   /** production status — `active` when the design sets none (model `designStatus`) */
   status: DesignStatus;
+  /** how the cable is sourced (make / contract / buy), when it says; the maker for the tooltip */
+  route?: PartRoute;
+  maker?: string;
   /** the label's text before " → " */
   source: string;
   /** the label's text after " → ", in full */
@@ -265,6 +269,8 @@ export function cableListEntry(design: CableDesign, db: Db, context: CableListCo
     id: design.id,
     label: design.label,
     status: designStatus(design),
+    ...(design.route === undefined ? {} : { route: design.route }),
+    ...(design.maker === undefined ? {} : { maker: design.maker }),
     source,
     destination,
     destinationMain,

@@ -20,6 +20,7 @@ export const WEBHOOK_EVENTS = [
   { type: 'version.approved', label: 'Version approved', description: 'A submitted version was approved.' },
   { type: 'version.rejected', label: 'Version rejected', description: 'A submitted version was rejected.' },
   { type: 'version.released', label: 'Version released', description: 'A version became the released revision: when it is saved (approvals off) or approved (approvals on).' },
+  { type: 'product.changed', label: 'Product changed', description: 'A product family was created, changed, merged, split or removed.' },
   { type: 'part-number.assigned', label: 'Part number assigned', description: 'A part number was set or changed on a cable, a drawing or a library part.' },
   { type: 'pack.installed', label: 'Pack installed', description: 'A catalog pack was installed, updated or disabled.' },
   { type: 'job.finished', label: 'Job finished', description: 'A background job (an import, a model build, a backup watch …) finished or failed.' },
@@ -89,6 +90,8 @@ function fetchLinksOf(subject: EventSubject, type: string): { ui?: string; api?:
     }
     case 'pack':
       return { ui: '/library', api: '/api/packs', fetch: { packs: '/api/packs' } };
+    case 'product':
+      return { ui: `/products/${enc(subject.id)}`, api: `/api/products/${enc(subject.id)}`, fetch: { product: `/api/products/${enc(subject.id)}`, lineup: '/api/lineup', 'lineup.csv': '/api/lineup.csv' } };
     case 'job':
       return { ui: '/jobs', api: `/api/jobs/${enc(subject.id)}`, fetch: { job: `/api/jobs/${enc(subject.id)}` } };
     case 'catalog':

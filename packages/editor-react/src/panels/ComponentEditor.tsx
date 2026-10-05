@@ -31,6 +31,7 @@ import {
 import type { PickOption } from '../vocab.ts';
 import { Field, FormSection, RowTools, SrcField } from './fields.tsx';
 import { CostFields, costOfExtra, withExtraCost } from './CostFields.tsx';
+import { SourcingFields, sourcingOfExtra, withExtraSourcing } from './SourcingFields.tsx';
 import { Pick } from './Pick.tsx';
 import { PartNumberField } from './PartNumberField.tsx';
 
@@ -193,6 +194,17 @@ export function ComponentEditor(props: ComponentEditorProps): JSX.Element {
           cost={costOfExtra(draft.extra)}
           onChange={(cost) => {
             const extra = withExtraCost(draft.extra, cost);
+            const { extra: _drop, ...rest } = draft;
+            onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
+          }}
+        />
+      </FormSection>
+
+      <FormSection title="Sourcing" say="Optional. Made in house, by a contract manufacturer, or bought in.">
+        <SourcingFields
+          value={sourcingOfExtra(draft.extra)}
+          onChange={(sourcing) => {
+            const extra = withExtraSourcing(draft.extra, sourcing);
             const { extra: _drop, ...rest } = draft;
             onChange({ ...rest, ...(extra === undefined ? {} : { extra }) });
           }}

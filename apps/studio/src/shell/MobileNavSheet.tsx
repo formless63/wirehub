@@ -9,7 +9,7 @@
  */
 
 import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconHistory, IconList, IconRoute, IconX } from '@tabler/icons-react';
+import { IconBox, IconHistory, IconList, IconPackages, IconRoute, IconX } from '@tabler/icons-react';
 import { useEffect, type JSX } from 'react';
 
 import { useModules } from '../modules/ModulesContext.tsx';
@@ -20,6 +20,7 @@ const LINKS = [
   { to: '/library' as const, label: 'Library', icon: IconBox },
   { to: '/history' as const, label: 'History', icon: IconHistory },
   { to: '/resolver' as const, label: 'Which cable do I need?', icon: IconRoute },
+  { to: '/products' as const, label: 'Products', icon: IconPackages },
 ];
 
 export function MobileNavSheet(props: { open: boolean; onClose: () => void }): JSX.Element | null {

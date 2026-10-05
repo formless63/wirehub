@@ -6,7 +6,7 @@
  */
 
 import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconBuilding, IconListNumbers, IconChecklist, IconHistory, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconRoute, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
+import { IconBox, IconBuilding, IconListNumbers, IconChecklist, IconPackages, IconHistory, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconRoute, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { LockNameAvatar } from '../locks/LockNameAvatar.tsx';
@@ -67,6 +67,9 @@ export function Rail(): JSX.Element {
       })}
       <Link to="/resolver" aria-label="Which cable do I need?" title="Which cable do I need? — devices in, ranked options out" className={railIcon(pathname === '/resolver')}>
         <IconRoute size={18} />
+      </Link>
+      <Link to="/products" aria-label="Products" title="Products — families, variants and the lineup" className={railIcon(pathname.startsWith('/products'))}>
+        <IconPackages size={18} />
       </Link>
       <span className="grow" />
       <Link to="/history" aria-label="History" title="History — who changed what, and when" className={railIcon(pathname === '/history')}>
