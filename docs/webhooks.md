@@ -45,6 +45,7 @@ The API (owner, session): `GET`/`PUT /api/settings/webhooks`, `PUT`/`DELETE
 | `version.submitted` / `version.approved` / `version.rejected` | the release approval steps (approvals on) |
 | `version.released` | a version became the released revision: on save with approvals off, on approve with them on |
 | `part-number.assigned` | a number was set or changed on a cable (`productRef`), a drawing, or a library part |
+| `product.changed` | a product family was created, changed, merged, split or removed (`docs/products.md`); the payload links the family and the lineup |
 | `pack.installed` | a catalog pack was installed, updated or disabled |
 | `job.finished` | a background job finished or failed (not a webhook delivery itself) |
 | `catalog.changed` | any committed change: the records it touched |
@@ -77,7 +78,7 @@ could break a receiver becomes `/2`):
 ```
 
 - `actor.via` is `session`, `token`, `local` or `system`. `subject.kind` is `design`, a library kind
-  (`connectors`, `wires` …), `pack`, `job` or `catalog`.
+  (`connectors`, `wires` …), `product`, `pack`, `job` or `catalog`.
 - `summary` is the **diff summary**, small by construction: for `design.saved`, `changes` (change
   lines such as joints added or moved, at most 30) and counts; for `catalog.changed`, the `records`
   touched (`{ kind, key, op }`, at most 50); for `part-number.assigned`, the field, the number and

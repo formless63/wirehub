@@ -256,6 +256,7 @@ interface CableDesign {
   notes?: string[];                  // build-level annotations (drain policy etc.)
   extensions?: Record<string, unknown>;   // module-owned data, keyed by module id
   recipe?: CableRecipe;              // the devices it connects and the resolver's choices
+  route?: 'make' | 'contract' | 'buy'; maker?: string; suppliers?: PartSupplier[];
   src: string;
 }
 
@@ -369,7 +370,7 @@ versions and serialization, and never reads it.
 
 `Db` is the bundle `{ connectors, wires, components, pcbas, mechanicals?, bodies?,
 interfaces?, kits?, vocab?, tags?, validationRules?, devices?, conditioningRecipes?, hazards?,
-resolverPolicy? }` the catalog loads, plus — given by the host,
+resolverPolicy?, products? }` the catalog loads, plus — given by the host,
 for a design placing sub-assemblies — `assemblies?` (the designs those reach). A design may carry
 free `tags?: string[]` that declarative validation rules select by.
 
@@ -433,11 +434,25 @@ lengthMm, ids?, overrides? }`. `validateDesign` checks a design against its reci
 and kin, warnings); `inferCableRecipe` finds the recipe of a hand design; `rederive` rebuilds one.
 All of it is data a pack ships; the engine knows no field's devices.
 
+### Products, variants, the lineup and routes
+
+`products.ts`, `docs/products.md`. A **product family** (`products.json`, `Db.products`) groups the
+designs a shop sells: its number (one number, or a family pattern `CBL-00090-XX` its variants
+fill), `aliases` (other names and numbers), option axes, and **variants** — each a design with its
+own number, length and option values. `productIssues` checks them against the designs, the scheme
+and the released revisions; `mergeProducts` and `splitProduct` regroup them (merged families
+become aliases); `lineupRows` / `lineupCsv` list every variant with its released revision, cost
+roll-up and route. Product and variant numbers count as taken for every suggestion and in the
+duplicate report; a family's next variant number comes from the scheme (`variantOf`).
+Every record (`RecordMeta`) and design may carry a **route** — `make`, `contract` (with its
+`maker`) or `buy` (with `suppliers`) — checked as warnings (`route-buy-no-supplier`,
+`route-contract-no-maker`) and shown as a badge. A product change raises `product.changed`.
+
 ### Event webhooks
 
 Integrations are configuration, not code: owners subscribe URLs to events (design saved, version
-submitted / approved / released, part number assigned, pack installed, job finished, catalog
-changed) in Settings; each delivery is a `webhook` job carrying a versioned JSON payload
+submitted / approved / released, part number assigned, product changed, pack installed, job
+finished, catalog changed) in Settings; each delivery is a `webhook` job carrying a versioned JSON payload
 (`wirehub.event/1`: ids, links, the actor, a diff summary, fetch URLs) signed with HMAC-SHA256
 under the subscription's secret (kept encrypted in the settings secrets store), retried with
 backoff, logged and redeliverable. The receiver pulls full data through the API with a token

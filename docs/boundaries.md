@@ -65,8 +65,8 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `part-numbers.ts` | BASE-gen | **pluggable**: a `PartNumberScheme` interface, a built-in prefix scheme (`CON-00001`) configured by an optional `part-numbers.json`, `knownPartNumbers()`; the private scheme, register parsing, reconciliation and rule inference left behind |
 | `devices.ts`, `rules.ts`, `resolve.ts`, `derive-design.ts`, `derive-joints.ts`, `infer-recipe.ts`, `journey.ts` | BASE-gen (rebuilt, §11) | was MODULE; rebuilt generically as `devices.ts`, `resolve.ts`, `derive-cable.ts`, `cable-recipe.ts`: device profiles, conditioning recipes, hazards and a ranking policy as data, ranked options, derived designs, recipe inference and drift. No private device, rule or value carried over |
 | `board-proposal.ts` | MODULE | board proposals from resolver gaps |
-| `lineup.ts`, `products.ts` | MODULE | the product lineup and product merge/split |
-| `production-route.ts` | MODULE | in-house vs contract-manufactured routes, keyed on private PN series |
+| `lineup.ts`, `products.ts` | BASE-gen (rebuilt, §11) | rebuilt as `products.ts`: product families as data (`products.json`) with aliases, option axes and variants, merge and split, the lineup as JSON and CSV. The private lineup's device rows, store listings and product preferences stay data of a private pack |
+| `production-route.ts` | BASE-gen (rebuilt, §11) | a `route` field (`make`, `contract`, `buy`) with `maker` and `suppliers` on every record and design, checked and badged; no route is read from a numbering series (a shop that wants that writes a validation rule) |
 
 ### 2.2 `packages/catalog` (`@wirehub/catalog`)
 
@@ -110,7 +110,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `drawing/*` | BASE-gen | the ANSI-A drawing sheet kept; the shop's traced faces, cutaway art, logo, marking font and rights line removed (`drawing/assets.ts` is an empty hook) |
 | `wire-spec.ts` | BASE-gen | organisation, standard name and rights line are options (default "WireHub Standard", `WSS_` file prefix) |
 | the ERP folder (contract, transport, identity table, PN reconciliation, numbering status, mock server) | MODULE | the private ERP integration |
-| `lineup-export.ts` | MODULE | the configurator lineup export |
+| `lineup-export.ts` | BASE-gen (rebuilt, §11) | the generic lineup export: `GET /api/lineup` and `/api/lineup.csv` |
 | the shop's brand font and its licence | DROP | branding |
 | `scripts/*` | MODULE / DROP | ERP identity/report/contract tools, PN report, lineup export, previews, the drawing-asset extractor |
 
@@ -153,7 +153,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `server/models/*` | BASE-gen | 3D model links, uploads, STEP/STL/GLB conversion, KiCad library mapping kept; the share matcher (`match.ts`) and the revision art/import/API left behind; importer-specific paths generalised. The board assembly's way in is a `.kicad_pcb` uploaded on a board, built by the model-cache job with the KiCad library models fetched at a pinned commit (`library-source.ts`, cs-5k1.12) |
 | the ERP server module | MODULE | the ERP push/dry-run endpoints and their environment |
 | `server/board-import.ts` | MODULE | the board import runner over the share; uploads of open-format files go through `modules/board-import` instead |
-| `server/lineup.ts`, `server/products.ts`, `server/proposals.ts` | MODULE | lineup, product grouping, declined proposals |
+| `server/lineup.ts`, `server/products.ts`, `server/proposals.ts` | BASE-gen (rebuilt, §11) / MODULE | lineup and product grouping rebuilt (`server/products.ts`); declined board proposals stay out |
 | `server/models/{match,revision-art,revision-import,revisions-api,revisions}.ts` | MODULE | the share's model matcher and board revisions |
 | `server/scripts/{import-models,kicad-fetch,migrate-drawing-photos}.ts` | MODULE / DROP | importer and a one-shot migration; the KiCad library fetch is now the model-cache job's (`server/models/library-source.ts`) |
 | `src/cable-list.ts` | BASE-gen | rewritten: destination, wire, boards, features, PN from `productRef`/drawing; no sync column, product grouping or routes |
@@ -162,7 +162,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `src/part-numbers.browser.ts` | BASE-gen | scheme from `part-numbers.json` or a module |
 | `src/me.browser.ts`, `src/modules.browser.ts` | BASE (new) | who is signed in; the browser registry |
 | `src/{<erp>,board-import,lineup,products,proposals,revisions}.browser.ts`, the ERP link hook, `src/routes/{BoardImportRoute,CompareRoute,LineupRoute,LineupPush,ProductDialog,ProposalsView}.tsx` | MODULE | the UI of the module features above |
-| `src/shell/RouteChip.tsx` | MODULE | the production-route badge |
+| `src/shell/RouteChip.tsx` | BASE-gen (rebuilt, §11) | the route badge: `MAKE`, `CM`, `BUY`; the maker only in the tooltip |
 | `public/*` icons and the brand mark | DROP | replaced by a neutral placeholder icon |
 | `README.md` | BASE-gen | rewritten |
 
@@ -286,7 +286,8 @@ starter designs (the existing goldens use the frozen fixture catalog).
 | Editor canvas, library, wizard, versions, edit locks, login, optional git export | BASE-gen |
 | Part numbers | BASE-gen (pluggable scheme) |
 | Device resolver, recipes, journey, drift (generic engines; the devices are data) | BASE (rebuilt, §11) |
-| Board proposals, lineup, products, routes | MODULE |
+| Products, variants, merge and split, the lineup, routes | BASE (rebuilt, §11) |
+| Board proposals | MODULE |
 | ERP integration (contract, transport, push, identity table, PN reconciliation) | MODULE |
 | Board, model and Gerber importers for open file formats (KiCad, Gerber, fab BOM/CPL), the board model from its KiCad file | BASE (new): `modules/board-import`, server `models/*` |
 | Discovering those files on the board designer's share; board revision compare | MODULE |
@@ -374,4 +375,14 @@ repository.
   A private pack supplies only its devices, boards, recipes, hazards and policy. Board
   *proposals* (a new board drafted from a gap) are not rebuilt: a missing piece names what is
   missing, and drafting a board stays a follow-up.
+- **Products and variants** (`docs/products.md`): product families as data (`products.json`) with
+  aliases, option axes and variants (each a design, a number, a length, option values), merge and
+  split, product pages, the lineup as a view and as JSON and CSV (released revision, cost roll-up,
+  route per variant), and a `route` field (`make`, `contract`, `buy`, with `maker` and `suppliers`)
+  on every record and design, with warnings and a badge. Products work with the declarative
+  numbering (family patterns, next variant number, product numbers counted as taken), approvals
+  (released revisions in the lineup, a warning for a sold variant with none), costing (the BOM's
+  roll-up per variant) and webhooks (`product.changed`). The private lineup's device-by-destination
+  grid, store listings and route-by-series rule are not rebuilt: a private pack supplies its
+  families and routes as data.
 

@@ -74,6 +74,9 @@ A pack can carry configuration as data, not only records (`docs/catalog-store.md
   starter has. `verify-pack.mjs` runs `validateDb`, which checks them, and the pack's test should
   resolve at least one pair and derive a design that validates clean (`modules/pc-serial/test/resolver.test.ts`).
   A hub cannot disable the pack while a design's recipe names one of its devices.
+- **Products** (`products.json`) are a shop's own grouping: the bundled packs ship none. A pack that
+  is one shop's private data (or a published product range) may ship them; every variant must name a
+  design the pack or the starter has (`docs/products.md`).
 - The pack carries **no shop part numbers** and no `part-numbers.json` of its own (the layered read
   would make it the hub's scheme silently).
 

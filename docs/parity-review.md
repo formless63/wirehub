@@ -37,12 +37,12 @@ feature belongs to the shop, it says "a private module".
 | Class | Count |
 | --- | --- |
 | present | 94 |
-| present (generic) | 6 |
+| present (generic) | 11 |
 | degraded | 7 |
 | missing, generic | 3 |
-| missing, private | 22 |
+| missing, private | 18 |
 | dropped | 7 |
-| **total** | **139** |
+| **total** | **140** |
 
 The base came through almost intact. The model, the validation rules (every issue
 code except the product, route, resolver and private-numbering ones), the editor, the
@@ -69,7 +69,7 @@ What was lost is mostly glue around the private parts:
 | Cable workspace: build, schematic and documents views, selection in the URL | present | |
 | Library route per kind and record | present | |
 | A saved revision opened read-only (`?rev=N`) | present | |
-| Product lineup page | missing, private | resolver and lineup module |
+| Product lineup page | present (generic) | `/products`, Lineup tab, JSON and CSV export (`docs/products.md`) |
 | Board import page | present | `modules/board-import` (`/m/board-import/boards`): KiCad, Gerber and fab BOM/CPL files, reviewed and published as jobs (cs-5k1.13); only the private file-share discovery stays private |
 | Part compare view (2D art and 3D model diff, revisions) | missing, private | boundaries §2.5; the Library still draws Compare but nothing can supply it: cs-5k1.21 |
 | Declined board-proposal tab | missing, private | resolver module |
@@ -81,7 +81,7 @@ What was lost is mostly glue around the private parts:
 | Narrow / phone layout | present | |
 | Light and dark themes, following the system | present | |
 | Shop wordmark and icons | dropped | neutral WireHub brand |
-| Production-route badge | missing, private | |
+| Production-route badge | present (generic) | `MAKE` / `CM` / `BUY` on the cable list, a Library flag (boundaries §11) |
 
 ### Commands and shortcuts
 
@@ -105,7 +105,7 @@ What was lost is mostly glue around the private parts:
 | Retired designs hidden unless filtered; status chips | present | |
 | Revision chip and unreleased marker | present | |
 | Derived feature chips | present | |
-| Product grouping: aliases, builds, merge, split | missing, private | boundaries §2.1 |
+| Product grouping: aliases, builds, merge, split | present (generic) | product families with aliases, variants, merge and split; product pages (boundaries §11) |
 | Search rows for numbers known only to a private register | missing, private | |
 | Faint suggested number for an unnumbered design | degraded | the suggestion now appears only in the part-number field. The report in cs-5k1.3 brings the overview back |
 | Length-family part-number notation | present | |
@@ -218,7 +218,7 @@ What was lost is mostly glue around the private parts:
 | Feature | Class | Notes / bead |
 | --- | --- | --- |
 | Structural validation: references, paths, ends, pigtails, breakouts, scope, screens | present | every code carried over |
-| Product and production-route validation | missing, private | |
+| Product and production-route validation | present (generic) | `productIssues`, `route-buy-no-supplier`, `route-contract-no-maker` |
 | Recipe drift and override checks | present (generic) | `recipe-drift` and kin in `validateDesign` |
 | Nets, trace, bonds, breakout derivations | present | |
 | Schema migration v1 to v4 | present | |
@@ -236,7 +236,8 @@ What was lost is mostly glue around the private parts:
 | Vocab, tags, wire library, builds, drawings, assets, depictions, models, versions, locks, me, backup routes | present | |
 | Rules, devices routes | present (generic) | `/api/resolver/…` (`docs/resolver.md`) |
 | ERP identity, register and reconciliation routes | missing, private | |
-| Board import, part revisions, lineup, products, proposals and ERP routes | missing, private | |
+| Lineup and products routes | present (generic) | `/api/products/…`, `/api/lineup` (`docs/products.md`) |
+| Board import, part revisions, proposals and ERP routes | missing, private | |
 | Validate before write, If-Match / ETag, unit of work, write lock, write journal | present | |
 | API index and 404 hints | present | |
 
@@ -261,7 +262,7 @@ What was lost is mostly glue around the private parts:
 | Fixture catalog refresh | present | a documented copy |
 | Document and drawing preview scripts | missing, generic | covered by cs-5k1.7 |
 | Rendering measurement and raster-check scripts | dropped | development aids for private designs |
-| ERP, lineup and part-number report scripts | missing, private | |
+| ERP, lineup and part-number report scripts | missing, private | the lineup itself is `GET /api/lineup.csv` now |
 | Artwork import script | present | replaced by the upload in the UI |
 | Six design specs left out as "re-specify generically later" | missing, generic | rewritten generically (cs-5k1.14, done) |
 

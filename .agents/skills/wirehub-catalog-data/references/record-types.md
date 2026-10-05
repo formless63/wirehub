@@ -137,3 +137,18 @@ built-in or a pack's hazard of the same id off).
 
 One object: `order[]` of `missing`, `hazards`, `unverified`, `boards`, `prefer-boards`, `parts`,
 `conductors`, `straight`; optional `maxOptions`, `screens` (`both` or `source`); `src`.
+
+## products.json (ProductFamily)
+
+`id`, `label`, `variants[]`, `src`; optional `partNumber` (one number, or a family pattern with `X`s),
+`aliases[]`, `description`, `status`, `tags[]`, `options[]` (`{ id, label, values: [{ id, label }] }`).
+A variant: `id` (unique in the family), `design` (a design id), optional `label`, `partNumber`,
+`lengthMm`, `options` (axis id → value id), `status`, `note`. Checks (`productIssues`): ids, known
+designs and option values (errors); twins, a design in two families, a number outside the family
+pattern or refused by the scheme, a sold variant with nothing released (warnings).
+
+## Sourcing fields (any definition or design)
+
+`route` (`make`, `contract`, `buy`), `maker` (contract), `suppliers[]` (`{ supplier, number?, note? }`,
+buy). Warnings: `route-buy-no-supplier`, `route-contract-no-maker`; an unknown route is an error.
+

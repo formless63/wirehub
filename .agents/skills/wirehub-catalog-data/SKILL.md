@@ -30,7 +30,11 @@ the validators run. Write a record, then validate it (section 6).
 | conditioning recipe | `conditioning-recipes.json` | `id`, `label`, `conditioning`, `parts[]` (each a `placement`), `src` |
 | hazard | `hazards.json` | `id`, `label`, `severity`, `a`, `b`, `text`, `src` |
 | ranking policy | `resolver-policy.json` (one object) | `order[]` of criteria, `src` |
+| product family | `products.json` | `id`, `label`, `variants[]` (each `id` and `design`), `src` (`docs/products.md`) |
 
+Any definition (and any design) may also say how it is sourced: `route` (`make`, `contract`,
+`buy`), with `maker` for a contract-made part and `suppliers` (`[{ supplier, number? }]`) for a
+bought-in one (`docs/products.md`); leave them out of a pack unless the pack is one shop's own data.
 Any definition may also carry an optional `cost` (`unit`, `currency`, `per`, `breaks[]`, `moq`; a price
 per piece, or per metre for a wire stock). Pack data does not need prices; see `docs/interop.md`.
 Many records at once can come from a CSV through the Library's **Bulk CSV…** (`modules/csv-library`: a
@@ -199,6 +203,11 @@ See `references/record-types.md` for fields. The decisions that matter:
   `deviceLibraryIssues` (`validateDb` runs it) and try them: `resolve(db, { source: { device },
   destination: { device } })`, then `deriveCable` and `validateDesign` on the result. Examples:
   `modules/pc-serial/pack/devices.json`, `modules/pro-audio/pack/conditioning-recipes.json`.
+- **Products** (`products.json`) group designs into what is sold: a family `partNumber` (a pattern
+  like `CBL-00090-XX` its variants fill), `aliases`, `options` axes (`{ id, label, values: [{ id,
+  label }] }`) and `variants` (`{ id, design, partNumber?, lengthMm?, options?: { <axis>: <value> } }`).
+  Every variant names a design of the same catalog. Check with `productIssues(products, { designs })`.
+  Bundled packs ship no products (they are a shop's), but a pack of a published product range may.
 - **Do not hand-edit generated files**: `packages/catalog/data/tags/` (signal tags, instance slots, report) is built
   from the catalog by `packages/catalog/src/tags/build.ts` and checked by a test; `fixtures/v1/` is a
   frozen copy for snapshot tests (refresh deliberately, SPEC.md). Packs never ship tag tables: the

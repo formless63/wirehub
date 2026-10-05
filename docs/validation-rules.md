@@ -56,7 +56,9 @@ optional value with `exists` in `where`.
 
 ### Subjects (`each`) and the fields they offer
 
-Every scope also has `design` (`id`, `label`, `status`, `tags`, `productRef`, `labourMinutes`).
+Every scope also has `design` (`id`, `label`, `status`, `tags`, `productRef`, `labourMinutes`, `route`,
+`maker`). A library definition's `route` (`make`, `contract`, `buy`) is one of its plain fields
+(`docs/products.md`).
 A design's **tags** are free words set in the editor (the Notes panel, "Design tags") that rules can
 select designs by (`mil-spec`, `export`).
 
