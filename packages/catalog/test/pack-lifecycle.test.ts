@@ -136,7 +136,7 @@ describe('update with a diff (layered)', () => {
     const kept = JSON.parse(read(join(catalogDir, 'vocab/signals.json'))) as { entries: { id: string }[] };
     expect(kept.entries.map((e) => e.id)).toContain('can-l');
     expect(readInstalledPacks(packsDir).packs[0]?.added['vocab/signals.json']).not.toContain('can-l');
-    expect(createCatalog(layered()).loadDb().interfaces.some((i) => i.id === 'my-can')).toBe(true);
+    expect(createCatalog(layered()).loadDb().interfaces?.some((i) => i.id === 'my-can')).toBe(true);
   });
 
   it('refuses an update whose new records clash with a different local record', () => {
