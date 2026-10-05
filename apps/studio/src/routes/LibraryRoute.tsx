@@ -25,7 +25,7 @@
 
 import type { JSX } from 'react';
 import { useCallback, useMemo } from 'react';
-import { useMatches, useNavigate } from '@tanstack/react-router';
+import { Link, useMatches, useNavigate } from '@tanstack/react-router';
 import { Library, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
 
 import { useStudio } from '../studio-context.tsx';
@@ -119,11 +119,22 @@ export function LibraryRoute(): JSX.Element {
   // the tables' Used column and Art flag: every design, and which parts have drawn art
   const art = useMemo(() => new Set(browserDepictions().known()), []);
 
-  // importers modules contribute: an Import… button on every kind's list
-  const importActions = useMemo(() => {
-    if (modules.importers().length === 0) return undefined;
-    const button = <ModuleImport registry={modules} onImported={studio.onDefinitionsChange} />;
-    return { connectors: button, components: button, wires: button, pcbas: button, mechanicals: button };
+  // beside "+ New": Browse store (packs from the trusted store indexes), and the
+  // Import… button importers modules contribute
+  const listActions = useMemo(() => {
+    const store = (
+      <Link to="/library/store" className="cs-small" data-testid="browse-store" title="Catalog packs from the store indexes this hub trusts">
+        Browse store
+      </Link>
+    );
+    const button = modules.importers().length === 0 ? null : <ModuleImport registry={modules} onImported={studio.onDefinitionsChange} />;
+    const both = (
+      <>
+        {button}
+        {store}
+      </>
+    );
+    return { connectors: both, components: both, wires: both, pcbas: both, mechanicals: both };
   }, [modules, studio.onDefinitionsChange]);
 
   // edit locks: the selected definition is the record; a new one locks nothing
@@ -148,7 +159,7 @@ export function LibraryRoute(): JSX.Element {
         onSelectId={onSelectId}
         onOpenRecord={onOpenRecord}
         boardJourney={boardJourney}
-        {...(importActions === undefined ? {} : { listActions: importActions })}
+        listActions={listActions}
         {...(modules.panels('library-detail').length === 0
           ? {}
           : {

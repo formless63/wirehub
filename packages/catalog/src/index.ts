@@ -74,6 +74,22 @@ export {
   referencesTo,
 } from './pack-lifecycle.ts';
 export type { ChangedRecord, FieldChange, InstalledAcross, LocatedRecord, PackDiff, PackDisablePlan, PackInstallPreview, PackReference, PackUpdatePlan, RecordRef } from './pack-lifecycle.ts';
+export {
+  STORE_DISCLAIMER,
+  STORE_INDEX_FORMAT,
+  STORE_SIGNATURE_SUFFIX,
+  buildStoreIndex,
+  latestVersion,
+  parseStoreIndex,
+  parseStorePublicKey,
+  signStoreIndex,
+  storeKeyId,
+  storePrivateKey,
+  storePublicKeyFile,
+  storePublicKeyOf,
+  verifyStoreSignature,
+} from './store-index.ts';
+export type { StoreBundle, StoreIndex, StoreIndexPack, StoreIndexVersion, StoreSignatureCheck } from './store-index.ts';
 export type { InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */

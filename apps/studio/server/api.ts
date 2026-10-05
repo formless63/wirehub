@@ -53,6 +53,7 @@ import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
 import { packOwnerOf, packRecordRefusal } from './pack-guard.ts';
 import { PACKS_ROUTES, handlePacksRequest, isPacksPath } from './packs.ts';
+import { STORE_ROUTES, handleStoreRequest, isStorePath, type StoreDeps } from './store.ts';
 import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
@@ -249,6 +250,11 @@ export interface WorkbenchDeps {
    * from a pack. Those are read-only through the definition routes (fork to edit).
    */
   installedPacks?: () => Awaitable<InstalledPacks>;
+  /**
+   * The store indexes this deployment trusts (`store.ts`): absent → read from
+   * `WIREHUB_STORE_INDEXES` on each request.
+   */
+  store?: StoreDeps;
   /**
    * Jobs (`jobs/`, plan §2): module imports, model conversion and builds, and
    * the worker's housekeeping — run in this process (files) or by the worker
@@ -851,6 +857,7 @@ const ROUTES = [
   'GET    /api/setup',
   'POST   /api/setup',
   ...PACKS_ROUTES,
+  ...STORE_ROUTES,
   ...VERSION_ROUTES,
   ...LOCK_ROUTES,
 ] as const;
@@ -961,6 +968,11 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   // the installer), outside the unit of work, under the write lock
   if (isSetupPath(request.path)) {
     const run = (): Promise<ApiResponse> => handleSetupRequest(request, deps.setup, deps.modules);
+    return isWriteMethod(request.method) ? withWriteLock(run) : run();
+  }
+  // the store: verified indexes, and install through the pack lifecycle below
+  if (isStorePath(request.path, request.method)) {
+    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, deps.store);
     return isWriteMethod(request.method) ? withWriteLock(run) : run();
   }
   // the pack lifecycle: the same direct-write handler shape, on files and (through `setup.transact`) on Postgres

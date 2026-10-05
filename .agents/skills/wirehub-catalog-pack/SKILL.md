@@ -1,6 +1,6 @@
 ---
 name: wirehub-catalog-pack
-description: Build, version, verify and publish a WireHub catalog pack (a data-only bundle of catalog records for one domain, such as modules/av-video/pack) - wirehub-pack.json, layout, semver rules, licence and provenance, install through first-run /setup, testing alone and beside other packs, and the path toward the catalog store. Load when creating or changing a pack, a domain module's data, or when asked how packs install or are shared.
+description: Build, version, verify and publish a WireHub catalog pack (a data-only bundle of catalog records for one domain, such as modules/av-video/pack) - wirehub-pack.json, layout, semver rules, licence and provenance, install through first-run /setup, testing alone and beside other packs, and publishing in a signed catalog store index (scripts/store-index.mjs). Load when creating or changing a pack, a domain module's data, or when asked how packs install or are shared.
 ---
 
 # Building a catalog pack
@@ -36,9 +36,10 @@ bundled pack).
 Required by `readPackManifest`: `format: 1`, a kebab-case `id`, `version` (semver of the data),
 `license` (SPDX id; the default for the pack's records) and `name`. Used by bundled packs:
 `publisher: { id, name }`, `catalogSchema: 4`, `requires: { wirehub: ">=0.1 <1" }` (and
-`packs: { "<id>": "<range>" }` for dependencies), `description`, `counts`, `homepage`, `source`.
-`files` (sha256 per file), a `idPrefix`, and signatures belong to the store phases and are not
-produced or checked yet (`docs/catalog-store.md` sections 2 and 7). The manifest `id` should equal
+`packs: { "<id>": "<range>" }` for dependencies), `description`, `counts`, `homepage`, `source`, and
+`domain` (the field the store filters by; the id when absent). `files` (sha256 per file), a
+`idPrefix`, and manifest signatures belong to later store phases and are not produced or checked
+yet (a store index pins each bundle by sha256 instead) (`docs/catalog-store.md` sections 2 and 7). The manifest `id` should equal
 the `id` of the module's `catalogPacks` entry, and `version`/`license` should match it too.
 
 ## What a pack may contain
@@ -132,24 +133,40 @@ rules:
   (`requires.packs`, store design) or one pack taking the other's record by reference, never two
   different records with one id.
 
-## Publishing toward the catalog store
+## Publishing in the catalog store
 
-The store (`docs/catalog-store.md`) is a **design** with these pieces built: manifest, layered
-reading, install from a directory, per-record provenance fields and the pack lifecycle on both
-backends (update with a record-level diff, disable when nothing outside the pack uses its
-records, read-only marking with fork to edit; Library, Packs). Not built: signing, the store
-index, `pack verify`, review status. Installing a **newer version** of a bundled pack through the
-lifecycle shows what your edit changes, so keep ids stable and follow the semver rules above.
-What to do today:
+The store (`docs/catalog-store.md` section 4) is a **signed static index**: `index.json` lists packs,
+their versions, bundle URLs, sizes and sha256 hashes, and `index.json.minisig` beside it is a
+minisign-compatible ed25519 signature. A hub trusts an index by URL and public key
+(`WIREHUB_STORE_INDEXES`), refuses one whose signature does not match, refuses a bundle whose size or
+sha256 differs from the index, and installs through the same lifecycle as Install pack... (diff, then
+one change set; Library, Browse store). Built too: manifest, layered reading, install from a
+directory, per-record provenance, update with a diff, disable, read-only marking with fork to edit.
+Not built: manifest signatures, publisher keys, review status, yanking.
 
 1. Keep the pack a standalone directory that passes `verify-pack.mjs` with the manifest fields
-   above, so it can be archived as `<id>-<version>/` later.
-2. Submit it to this repository as a domain module (`wirehub-module`, `wirehub-contribute`), where
-   it ships bundled and is installed from `/setup`.
-3. A shop's own pack stays in the shop's module repository (`docs/modules.md`, "A private module in
-   its own repository"), built against `@wirehub/catalog`, never in this repository.
-4. For the store: a pack is organised by domain, named `<domain>` (a shop or maker may publish
-   `vendor-...` or `community-...`), reproducible when generated (name the converter version and the
-   pinned upstream commit in the manifest's `source`), and every cited source passes the
-   notes in `wirehub-import-public-data`. The store lists packs published by their authors, who are
-   responsible for their content and licensing.
+   above (give it a `domain`).
+2. **Bundled in this repository** (a domain module; `wirehub-module`, `wirehub-contribute`): it ships
+   with WireHub, is installed from `/setup`, and the pages workflow
+   (`.github/workflows/pages.yml`) puts it in the official index (`store-index.mjs official`) signed
+   with the `WIREHUB_STORE_SIGNING_KEY` secret. Bump its version as above.
+3. **Your own store** (a shop, maker or community pack, never in this repository): bundle, index,
+   sign and host it yourself, keeping the private key out of every repository:
+
+   ```
+   node scripts/store-index.mjs keygen --out ~/wirehub-store-keys
+   node scripts/store-index.mjs bundle path/to/pack --out my-store/
+   node scripts/store-index.mjs build my-store/ --store-id my-store --store-name "My packs"
+   node scripts/store-index.mjs sign my-store/index.json --key ~/wirehub-store-keys/wirehub-store.key
+   node scripts/store-index.mjs verify my-store/index.json --pubkey ~/wirehub-store-keys/wirehub-store.pub
+   ```
+
+   Serve `my-store/` over https, keep old bundles in it, re-run `build` and `sign` after each release, and
+   publish the index URL and the `RW...` public key (`pubkey --key ...` prints it) for hubs to add to
+   `WIREHUB_STORE_INDEXES`.
+4. A pack is organised by domain, named `<domain>` (a shop or maker may publish `vendor-...` or
+   `community-...`), reproducible when generated (name the converter version and the pinned upstream
+   commit in the manifest's `source`), and every cited source passes the notes in
+   `wirehub-import-public-data`. The store lists packs published by their authors, who are responsible
+   for their content and licensing; WireHub shows the licence and provenance as information and does
+   not review them.

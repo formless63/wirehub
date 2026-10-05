@@ -34,6 +34,7 @@ import { JobsRoute } from './routes/JobsRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
+const StoreRoute = lazyRouteComponent(() => import('./routes/StoreRoute.tsx'), 'StoreRoute');
 
 /** The workspace content a cable's URL can ask for; `build` is the default. */
 export type CableView = 'build' | 'schematic' | 'documents';
@@ -146,6 +147,13 @@ export const libraryIndexRoute = createRoute({
   },
 });
 
+/** `/library/store`: Browse store — packs from the trusted store indexes (a static path, so it wins over `$kind`) */
+export const libraryStoreRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/library/store',
+  component: StoreRoute,
+});
+
 export const libraryKindRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library/$kind',
@@ -185,6 +193,7 @@ const routeTree = rootRoute.addChildren([
   cablesRoute,
   cableRoute,
   libraryIndexRoute,
+  libraryStoreRoute,
   libraryKindRoute,
   libraryItemRoute,
   moduleRoute,

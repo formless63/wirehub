@@ -55,7 +55,7 @@ function DiffView({ diff }: { diff: PackDiff }): JSX.Element {
   );
 }
 
-function PlanView({ plan }: { plan: PackPlan }): JSX.Element {
+export function PlanView({ plan }: { plan: PackPlan }): JSX.Element {
   return (
     <div>
       {plan.diff === undefined ? null : <DiffView diff={plan.diff} />}
@@ -158,6 +158,7 @@ export function PacksPanel(): JSX.Element {
   return (
     <section className="mb-4 border-b border-line pb-3" data-testid="packs-panel">
       <h2 className="text-[13px] font-medium">Catalog packs</h2>
+      <a href="/library/store" className="underline">Browse store</a> for packs from the store indexes this hub trusts.
       {packs === undefined ? <div className="text-faint">Loading…</div> : packs.length === 0 ? <div className="text-faint">No packs are installed.</div> : null}
       <ul>
         {(packs ?? []).map((p) => (
