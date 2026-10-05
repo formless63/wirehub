@@ -22,7 +22,9 @@ import {
   type ConnectorDraft,
   type MechanicalDraft,
 } from '../src/library.ts';
+import { bodyDraftOf, bodyOfDraft } from '../src/connector-journey.ts';
 import { ConnectorEditor } from '../src/panels/ConnectorEditor.tsx';
+import { ConnectorJourney } from '../src/panels/ConnectorJourney.tsx';
 import { IssuesPanel } from '../src/panels/Derived.tsx';
 import { PartPanel } from '../src/panels/Inspector.tsx';
 import { MechanicalEditor } from '../src/panels/MechanicalEditor.tsx';
@@ -125,5 +127,38 @@ describe('the Library edits contacts and housings', () => {
     rerender(<ConnectorEditor draft={draft} onChange={onChange} idLocked />);
     fireEvent.click(screen.getByLabelText('plug unused cavities'));
     expect(connectorOf(draft).housing).toEqual({ plugUnused: true });
+  });
+});
+
+describe('a body\'s crimp housing (cs-5k1.27)', () => {
+  const xh = db.bodies!.find((b) => b.id === 'jst-xh-2')!;
+
+  it('a body keeps its housing through its draft, and the form edits it', () => {
+    expect(xh.housing).toBeDefined();
+    expect(bodyOfDraft(bodyDraftOf(xh)).housing).toEqual(xh.housing);
+    const without = bodyOfDraft({ ...bodyDraftOf(xh), housing: undefined });
+    expect('housing' in without).toBe(false);
+  });
+
+  it('the connector form shows the body\'s housing read-only while it has none of its own', () => {
+    const connector = db.connectors.find((c) => c.body === 'jst-xh-2' && c.housing === undefined)!;
+    render(<ConnectorEditor draft={connectorDraftOf(connector)} onChange={vi.fn()} idLocked bodyHousing={xh.housing!} />);
+    const note = screen.getByTestId('body-housing');
+    expect(note.textContent).toContain('xh-2-5');
+    expect(note.textContent).toContain('unsealed');
+    expect(note.textContent).toContain('Edit that on the body');
+  });
+
+  it('the journey edits the housing on the body and saves it with the body', () => {
+    const { container } = render(<ConnectorJourney db={db} readOnly={false} takenIds={db.connectors.map((c) => c.id)} start={{ body: 'jst-xh-2' }} onSaved={() => undefined} onClose={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit body' }));
+    // the body's own housing is on, with its systems
+    expect((screen.getByLabelText('crimp housing') as HTMLInputElement).checked).toBe(true);
+    const systems = container.querySelector<HTMLInputElement>('input[placeholder="sealed-1-5"]')!;
+    expect(systems.value).toBe('xh-2-5');
+    fireEvent.change(systems, { target: { value: 'xh-2-5, sealed-1-5' } });
+    expect(systems.value).toBe('xh-2-5, sealed-1-5');
+    fireEvent.click(screen.getByLabelText('crimp housing'));
+    expect(container.querySelector('input[placeholder="sealed-1-5"]')).toBeNull();
   });
 });

@@ -21,10 +21,11 @@ import {
   pinRowsReducer,
   type ConnectorDraft,
   type HousingDraft,
+  housingDraftOf,
   type PinRow,
   type RowAction,
 } from '../library.ts';
-import { resolveVocab } from '@wirehub/model';
+import { resolveVocab, type HousingSpec } from '@wirehub/model';
 
 import { signalRefOf, useVocab } from '../vocab.ts';
 import { Choice, Field, FormSection, RowTools, SrcField } from './fields.tsx';
@@ -37,6 +38,8 @@ export interface ConnectorEditorProps {
   onChange: (next: ConnectorDraft) => void;
   /** an existing record's id cannot change — every design refers to it by that */
   idLocked: boolean;
+  /** the housing its body carries, shown read-only while the connector has none of its own (edit it on the body) */
+  bodyHousing?: HousingSpec;
 }
 
 export function ConnectorEditor(props: ConnectorEditorProps): JSX.Element {
@@ -117,10 +120,14 @@ export function ConnectorEditor(props: ConnectorEditorProps): JSX.Element {
         <SrcField value={draft.src} onChange={(value) => set('src', value)} />
       </FormSection>
 
-      <HousingSection value={draft.housing} onChange={(housing) => {
-        const { housing: _old, ...rest } = draft;
-        onChange(housing === undefined ? rest : { ...rest, housing });
-      }} />
+      <HousingSection
+        value={draft.housing}
+        {...(props.bodyHousing === undefined ? {} : { inherited: housingDraftOf(props.bodyHousing) })}
+        onChange={(housing) => {
+          const { housing: _old, ...rest } = draft;
+          onChange(housing === undefined ? rest : { ...rest, housing });
+        }}
+      />
 
       <FormSection title="Cost" say="Optional. The BOM shows a cost only where parts are priced.">
         <CostFields
@@ -240,20 +247,46 @@ export function ConnectorEditor(props: ConnectorEditorProps): JSX.Element {
   );
 }
 
-const BLANK_HOUSING: HousingDraft = { systems: '', sealing: '', plugUnused: false, cavities: '', src: '' };
+export const BLANK_HOUSING: HousingDraft = { systems: '', sealing: '', plugUnused: false, cavities: '', src: '' };
+
+const SEALING_WORDS: Readonly<Record<string, string>> = { none: 'unsealed', 'per-wire': 'a seal on each wire', mat: 'mat seal in the housing' };
+
+/** A housing in a sentence, for the read-only view of the one a body carries. */
+export function housingSummary(housing: HousingDraft): string {
+  const parts = [
+    housing.systems.trim() === '' ? undefined : `contact systems ${housing.systems}`,
+    housing.sealing === '' ? undefined : SEALING_WORDS[housing.sealing],
+    housing.plugUnused ? 'unused cavities plugged' : undefined,
+    housing.cavities.trim() === '' ? undefined : `cavities ${housing.cavities}`,
+  ].filter((p): p is string => p !== undefined);
+  return parts.length === 0 ? 'a crimp housing (nothing more stated)' : parts.join('; ');
+}
 
 /**
  * A crimp housing's cavities: the contact systems they take, how wires are
  * sealed and whether unused cavities are plugged. Off for a solder-cup or PCB
- * connector (or one whose body already says).
+ * connector. On a connector, the housing its body carries (`inherited`) is
+ * shown while the connector has none of its own; on a body it is the record's
+ * own, and the usual place for it.
  */
-function HousingSection(props: { value: HousingDraft | undefined; onChange: (next: HousingDraft | undefined) => void }): JSX.Element {
+export function HousingSection(props: {
+  value: HousingDraft | undefined;
+  onChange: (next: HousingDraft | undefined) => void;
+  inherited?: HousingDraft;
+  /** the section's owner, for its words: a `connector` (default) or a `body` */
+  of?: 'connector' | 'body';
+}): JSX.Element {
   const value = props.value;
+  const of = props.of ?? 'connector';
   const set = <K extends keyof HousingDraft>(key: K, next: HousingDraft[K]): void => props.onChange({ ...(value ?? BLANK_HOUSING), [key]: next });
   return (
     <FormSection
       title="Crimp housing"
-      say="For a crimp housing: which contacts, seals and plugs its cavities take. A design then picks them per cavity, and the BOM counts them."
+      say={
+        of === 'body'
+          ? 'For a crimp housing: which contacts, seals and plugs its cavities take. Every connector on this body takes it, unless it states its own; a design then picks them per cavity, and the BOM counts them.'
+          : 'For a crimp housing: which contacts, seals and plugs its cavities take. A design then picks them per cavity, and the BOM counts them.'
+      }
       right={
         <label className="cs-check-label">
           <input
@@ -267,7 +300,13 @@ function HousingSection(props: { value: HousingDraft | undefined; onChange: (nex
       }
     >
       {value === undefined ? (
-        <p className="cs-empty">Not a crimp housing of its own (its body may still say it is).</p>
+        props.inherited === undefined ? (
+          <p className="cs-empty">{of === 'body' ? 'Not a crimp housing.' : 'Not a crimp housing of its own (its body may still say it is).'}</p>
+        ) : (
+          <p className="cs-empty" data-testid="body-housing">
+            Its body says it is a crimp housing: {housingSummary(props.inherited)}. Edit that on the body (the connector journey); tick the box to state a housing of this connector's own instead.
+          </p>
+        )
       ) : (
         <div className="cs-form-grid">
           <Field label="Contact systems" say="The contact system ids its contacts, seals and plugs name, comma-separated." value={value.systems} onChange={(next) => set('systems', next)} placeholder="sealed-1-5" mono />
