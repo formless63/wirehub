@@ -22,7 +22,7 @@ import type { Context, Hono } from 'hono';
 import { sessionStudioUser, type StudioUser } from '../me.ts';
 import { clientAddress } from '../env.ts';
 import { crossSiteRefusal } from '../request-guard.ts';
-import { renderInvitePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
+import { renderInvitePage, renderPeoplePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
 import { ROLES, type PeopleStore, type Person, type Role } from './people.ts';
 import { parseToken, READ_LIMITS, scopeFor, TOKEN_DAYS, TOKEN_SCOPES, WRITE_LIMITS, type TokenEnv, type TokenStore } from './tokens.ts';
 import { AUTH_BASE_PATH, EMAIL_NOT_ALLOWED, SIGN_IN_PATH, type StudioAuth } from './studio-auth.ts';
@@ -94,6 +94,39 @@ async function invitationsRoute(c: Context, people: PeopleStore, person: Person 
     return (await people.revokeInvitation(id)) ? json(200, { revoked: id }) : json(404, { error: 'No open invitation by that id.' });
   }
   return json(405, { error: `${c.req.method} is not something this address accepts.`, hint: 'It answers DELETE.' });
+}
+
+export const PEOPLE_PATH = '/api/people';
+export const PEOPLE_PAGE = '/settings/people';
+
+/** `/api/people` — owners only, with a session: who is in the hub, their roles, revoking access. */
+async function peopleRoute(c: Context, people: PeopleStore, person: Person | undefined): Promise<Response> {
+  if (person?.role !== 'owner') return json(403, { error: 'Only an owner manages the people of this hub.' });
+  const rest = c.req.path.slice(PEOPLE_PATH.length + 1);
+  if (rest === '') {
+    if (c.req.method !== 'GET') return json(405, { error: `${c.req.method} is not something this address accepts.`, hint: 'It answers GET.' });
+    return json(200, { people: await people.listPeople(), invitations: await people.listInvitations() });
+  }
+  const [id, action] = rest.split('/');
+  if (id === undefined || !/^[0-9a-f-]{36}$/.test(id)) return json(404, { error: 'No such person.' });
+  const said = (outcome: 'ok' | 'not-found' | 'last-owner'): Response =>
+    outcome === 'ok'
+      ? json(200, { people: [] })
+      : outcome === 'not-found'
+        ? json(404, { error: 'No such person.' })
+        : json(409, { error: 'The hub needs an owner who can sign in.', hint: 'Make someone else an owner first.' });
+  if (action === undefined && c.req.method === 'PATCH') {
+    const body = (await c.req.json().catch(() => ({}))) as { role?: unknown };
+    if (!(ROLES as readonly unknown[]).includes(body.role)) return json(400, { error: `A role is one of ${ROLES.join(', ')}.` });
+    const outcome = await people.setRole(id, body.role as Role);
+    return outcome === 'ok' ? json(200, { people: await people.listPeople() }) : said(outcome);
+  }
+  if ((action === 'disable' || action === 'enable') && c.req.method === 'POST') {
+    if (id === person.id && action === 'disable') return json(409, { error: 'You cannot revoke your own access.' });
+    const outcome = await people.setDisabled(id, action === 'disable');
+    return outcome === 'ok' ? json(200, { people: await people.listPeople() }) : said(outcome);
+  }
+  return json(405, { error: `${c.req.method} is not something this address accepts.` });
 }
 
 export const TOKENS_PATH = '/api/account/tokens';
@@ -267,6 +300,14 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       const person = await people.personByEmail(user.email);
       // the account is committed by now: link it to its person once
       if (person !== undefined && person.authUserId !== user.id) await people.linkAuthUser(user.email, user.id);
+      const own = path === PEOPLE_PATH || path.startsWith(`${PEOPLE_PATH}/`) || path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`) || path === TOKENS_PATH || path.startsWith(`${TOKENS_PATH}/`);
+      if (own) {
+        // these routes answer here, ahead of the API's own guards: the same cross-site rule
+        const crossSite = crossSiteRefusal({ method: c.req.method, origin: c.req.header('origin'), secFetchSite: c.req.header('sec-fetch-site'), host: c.req.header('x-forwarded-host') ?? c.req.header('host') ?? new URL(c.req.url).host });
+        if (crossSite !== undefined) return json(crossSite.status, crossSite.body);
+      }
+      if (path === PEOPLE_PATH || path.startsWith(`${PEOPLE_PATH}/`)) return peopleRoute(c, people, person);
+      if (person?.disabledAt !== undefined && person.disabledAt !== null) return json(403, { error: `${user.email} no longer has access to this hub.`, hint: 'Ask an owner.' });
       // a viewer reads; every write needs an editor or an owner (plan §4.5)
       if (person?.role === 'viewer' && WRITE_METHODS.has(c.req.method) && !path.startsWith('/api/locks') && !path.startsWith(TOKENS_PATH)) {
         return json(403, { error: `${user.email} can view this hub but not change it.`, hint: 'Nothing was changed. Ask an owner for the editor role.' });
@@ -274,6 +315,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       if (path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`)) return invitationsRoute(c, people, person, config.baseURL);
       if (auth.tokens !== undefined && (path === TOKENS_PATH || path.startsWith(`${TOKENS_PATH}/`))) return tokensRoute(c, auth.tokens, person, auth.tokenEnv ?? 'dev');
     }
+    if (people !== undefined && path === PEOPLE_PAGE && c.req.method === 'GET') return html(renderPeoplePage());
     if (people !== undefined && auth.tokens !== undefined && path === TOKENS_PAGE && c.req.method === 'GET') {
       return html(renderTokensPage());
     }

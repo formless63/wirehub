@@ -40,16 +40,22 @@ export function BackupDetails({ status, now }: { status: BackupStatus; now: Date
   return (
     <div className="flex flex-col gap-2">
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        {status.state === 'database' ? <Row label="Saved in">the database — every save is a change set</Row> : null}
+        {status.state === 'database' && status.lastChangeSet !== undefined && status.lastChangeSet !== null ? (
+          <Row label="Last save">
+            version {status.lastChangeSet.version} · {status.lastChangeSet.by} · {ago(status.lastChangeSet.at, now)}
+          </Row>
+        ) : null}
         {status.enabled ? null : <Row label="State">off — set WIREHUB_GIT_AUTOCOMMIT=true</Row>}
-        {status.enabled ? <Row label="State">{status.state}</Row> : null}
-        {status.enabled ? (
+        {status.enabled && status.state !== 'database' ? <Row label="State">{status.state}</Row> : null}
+        {status.enabled && status.state !== 'database' ? (
           <Row label="Remote">
             <span className="font-mono">
               {status.remote}/{status.branch}
             </span>
           </Row>
         ) : null}
-        {status.enabled ? <Row label="Waiting">{status.pendingCommits} commit{status.pendingCommits === 1 ? '' : 's'}</Row> : null}
+        {status.enabled && status.state !== 'database' ? <Row label="Waiting">{status.pendingCommits} commit{status.pendingCommits === 1 ? '' : 's'}</Row> : null}
         {status.lastPush === null ? null : (
           <Row label="Backed up">
             {ago(status.lastPush.at, now)} · <span className="font-mono">{status.lastPush.sha.slice(0, 8)}</span>

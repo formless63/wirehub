@@ -22,6 +22,8 @@ export interface Person {
   role: Role | 'service';
   /** `auth."user".id`, once linked */
   authUserId?: string | null;
+  /** set when an owner revoked this person's access */
+  disabledAt?: string | null;
 }
 
 export interface Invitation {
@@ -44,6 +46,12 @@ export interface PeopleStore {
   invitationByToken(token: string): Promise<Invitation | undefined>;
   markAccepted(id: string): Promise<void>;
   listInvitations(): Promise<Invitation[]>;
+  /** everyone in the org, owners first */
+  listPeople(): Promise<Person[]>;
+  /** change a person's role; refuses to leave the org without an owner who can sign in */
+  setRole(id: string, role: Role): Promise<'ok' | 'not-found' | 'last-owner'>;
+  /** revoke (or give back) a person's access: sessions ended, tokens revoked; their changes stay theirs */
+  setDisabled(id: string, disabled: boolean): Promise<'ok' | 'not-found' | 'last-owner'>;
   revokeInvitation(id: string): Promise<boolean>;
 }
 
@@ -76,7 +84,7 @@ export function pgPeople(db: Db, orgRef: OrgRef, options: { now?: () => Date } =
       // no org yet (first-run setup): nobody is a person of it
       typeof orgRef !== 'string' && orgRef() === undefined
         ? Promise.resolve(undefined)
-        : inOrg(db, org(), async (tx) => (await sql<Person>`SELECT id::text AS id, email, name, role, auth_user_id AS "authUserId" FROM studio.person WHERE email = ${email.toLowerCase()}`.execute(tx)).rows[0]),
+        : inOrg(db, org(), async (tx) => (await sql<Person>`SELECT id::text AS id, email, name, role, auth_user_id AS "authUserId", disabled_at AS "disabledAt" FROM studio.person WHERE email = ${email.toLowerCase()}`.execute(tx)).rows[0]),
 
     linkAuthUser: (email, authUserId) =>
       inOrg(db, org(), async (tx) => {
@@ -131,9 +139,45 @@ export function pgPeople(db: Db, orgRef: OrgRef, options: { now?: () => Date } =
       ).rows.map(invitationOf));
     },
 
+    listPeople: () =>
+      inOrg(db, org(), async (tx) =>
+        (
+          await sql<Person>`
+            SELECT id::text AS id, email, name, role, auth_user_id AS "authUserId", disabled_at AS "disabledAt" FROM studio.person
+             WHERE role <> 'service' ORDER BY (role = 'owner') DESC, lower(name), email`.execute(tx)
+        ).rows,
+      ),
+
+    setRole: (id, role) =>
+      inOrg(db, org(), async (tx) => {
+        const target = (await sql<{ role: string }>`SELECT role FROM studio.person WHERE id = ${id}::uuid FOR UPDATE`.execute(tx)).rows[0];
+        if (target === undefined) return 'not-found';
+        if (target.role === 'owner' && role !== 'owner' && (await liveOwners(tx)) <= 1) return 'last-owner';
+        await sql`UPDATE studio.person SET role = ${role} WHERE id = ${id}::uuid`.execute(tx);
+        return 'ok';
+      }),
+
+    setDisabled: (id, disabled) =>
+      inOrg(db, org(), async (tx) => {
+        const target = (await sql<{ role: string; auth_user_id: string | null; disabled_at: Date | null }>`SELECT role, auth_user_id, disabled_at FROM studio.person WHERE id = ${id}::uuid FOR UPDATE`.execute(tx)).rows[0];
+        if (target === undefined) return 'not-found';
+        if (disabled && target.role === 'owner' && target.disabled_at === null && (await liveOwners(tx)) <= 1) return 'last-owner';
+        await sql`UPDATE studio.person SET disabled_at = ${disabled ? sql`now()` : null} WHERE id = ${id}::uuid`.execute(tx);
+        if (disabled) {
+          // signed out everywhere, and no token of theirs works any more
+          if (target.auth_user_id !== null) await sql`DELETE FROM auth.session WHERE "userId" = ${target.auth_user_id}`.execute(tx);
+          await sql`UPDATE auth.api_token SET revoked_at = now() WHERE person_id = ${id}::uuid AND revoked_at IS NULL`.execute(tx);
+        }
+        return 'ok';
+      }),
+
     async revokeInvitation(id) {
       const result = await inOrg(db, org(), (tx) => sql`DELETE FROM auth.invitation WHERE id = ${id}::uuid AND org_id = ${org()}::uuid AND accepted_at IS NULL`.execute(tx));
       return Number(result.numAffectedRows ?? 0) > 0;
     },
   };
+}
+
+async function liveOwners(tx: Parameters<Parameters<typeof inOrg>[2]>[0]): Promise<number> {
+  return Number((await sql<{ n: string }>`SELECT count(*)::text AS n FROM studio.person WHERE role = 'owner' AND disabled_at IS NULL`.execute(tx)).rows[0]?.n ?? 0);
 }

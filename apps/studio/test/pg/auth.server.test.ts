@@ -152,6 +152,28 @@ describePg('auth on Postgres', () => {
     expect(evil.status).toBeGreaterThanOrEqual(400);
   });
 
+  it('an owner manages people: roles, revoking access, never the last owner', async () => {
+    const owner = new Jar();
+    await post('/api/auth/sign-in/email', { email: OWNER, password: 'correct horse battery' }, owner);
+    const viv = new Jar();
+    expect((await post('/api/auth/sign-in/email', { email: 'viv@example.test', password: 'another long password' }, viv)).status).toBe(200);
+    const list = (await (await call('/api/people', {}, owner)).json()) as { people: { id: string; email: string; role: string }[] };
+    const vivId = list.people.find((p) => p.email === 'viv@example.test')?.id as string;
+    const ownerId = list.people.find((p) => p.email === OWNER)?.id as string;
+    expect((await call('/api/people', {}, viv)).status).toBe(403);
+    const patch = (id: string, role: string) => call(`/api/people/${id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role }) }, owner);
+    expect((await patch(vivId, 'editor')).status).toBe(200);
+    expect((await patch(ownerId, 'viewer')).status).toBe(409);
+    // a page posting from elsewhere cannot do it
+    expect((await call(`/api/people/${vivId}`, { method: 'PATCH', headers: { 'content-type': 'application/json', origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' }, body: JSON.stringify({ role: 'owner' }) }, owner)).status).toBe(403);
+    expect((await post(`/api/people/${vivId}/disable`, {}, owner)).status).toBe(200);
+    // signed out everywhere, and kept out
+    expect((await call('/api/designs', {}, viv)).status).toBe(401);
+    expect((await post('/api/auth/sign-in/email', { email: 'viv@example.test', password: 'another long password' })).status).toBeGreaterThanOrEqual(400);
+    expect((await post(`/api/people/${vivId}/enable`, {}, owner)).status).toBe(200);
+    expect((await call('/settings/people', {}, owner)).status).toBe(200);
+  });
+
   it("attributes a signed-in person's save to them", async () => {
     const owner = new Jar();
     await post('/api/auth/sign-in/email', { email: OWNER, password: 'correct horse battery' }, owner);

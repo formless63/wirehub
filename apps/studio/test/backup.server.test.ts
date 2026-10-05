@@ -451,3 +451,13 @@ describe('generated tag files', () => {
     expect(paths).toEqual([]);
   });
 });
+
+describe('the indicator on the database backend', () => {
+  it('says Saved, with the last change set', async () => {
+    const { backupLabel } = await import('../src/backup.browser.ts');
+    const now = new Date('2026-10-05T12:10:00Z');
+    const base = { enabled: true, state: 'database' as const, message: '', lastCommit: null, lastPush: null, pendingCommits: 0, remote: '', branch: '', nextAttemptAt: null };
+    expect(backupLabel({ ...base, lastChangeSet: null }, now)).toEqual({ text: 'Saved', tone: 'ok' });
+    expect(backupLabel({ ...base, lastChangeSet: { version: '7', at: '2026-10-05T12:00:00Z', by: 'Ada' } }, now)).toEqual({ text: 'Saved 10 min ago', tone: 'ok' });
+  });
+});

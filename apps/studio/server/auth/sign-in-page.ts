@@ -198,3 +198,33 @@ if(cr){load();cr.addEventListener('submit',function(e){e.preventDefault();var sc
 var out=document.getElementById`,
     );
 }
+
+/** Settings → People (S4): who is in the hub, their roles, invitations, revoking access. Owners only (the API says so). */
+export function renderPeoplePage(): string {
+  const body = `<p class="who">Who may use this hub, and what they may do: an <b>owner</b> manages people, an <b>editor</b> changes the catalog, a <b>viewer</b> reads.</p>
+<ul id="people" class="who" style="padding-left:16px"></ul>
+<form id="invite" novalidate>
+<label for="iemail">Invite by email</label>
+<input id="iemail" name="iemail" type="email" required placeholder="someone@example.com">
+<label for="irole">Role</label>
+<select id="irole" name="irole"><option>editor</option><option>viewer</option><option>owner</option></select>
+<button class="btn primary" type="submit">Invite</button>
+</form>
+<p class="msg ok" id="link" style="word-break:break-all"></p>
+<ul id="invites" class="who" style="padding-left:16px"></ul>
+<p class="who"><a href="/">Back to the studio</a> · <a href="/account/tokens">My API tokens</a></p>`;
+  return renderSignInPage({ magicLink: false, next: '/' })
+    .replace('<title>Sign in · WireHub</title>', '<title>People · WireHub</title>')
+    .replace('<h1>WireHub <span>· sign in</span></h1>', '<h1>WireHub <span>· people</span></h1>')
+    .replace('max-width:300px', 'max-width:560px')
+    .replace(/<p class="msg" id="status"/, `${body}\n<p class="msg" id="status"`)
+    .replace(
+      'var out=document.getElementById',
+      `function call(m,p,b){return fetch(p,{method:m,headers:{'content-type':'application/json'},credentials:'same-origin',body:b===undefined?undefined:JSON.stringify(b)}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,body:j}})})}
+function el(tag,text){var e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e}
+function load(){call('GET','/api/people').then(function(r){if(!r.ok){say(r.body.error||'Only an owner manages people.','err');return}var ul=document.getElementById('people');ul.textContent='';r.body.people.forEach(function(p){var li=el('li',p.name+' <'+p.email+'> ');var sel=el('select');['owner','editor','viewer'].forEach(function(x){var o=el('option',x);if(x===p.role)o.selected=true;sel.appendChild(o)});sel.onchange=function(){call('PATCH','/api/people/'+p.id,{role:sel.value}).then(function(x){if(!x.ok)say(x.body.error,'err');load()})};li.appendChild(sel);var b=el('button',p.disabledAt?'Give access back':'Revoke access');b.className='btn';b.onclick=function(){call('POST','/api/people/'+p.id+'/'+(p.disabledAt?'enable':'disable')).then(function(x){if(!x.ok)say(x.body.error,'err');load()})};if(p.disabledAt)li.appendChild(el('span',' (access revoked) '));li.appendChild(b);ul.appendChild(li)});var iv=document.getElementById('invites');iv.textContent='';r.body.invitations.filter(function(i){return !i.acceptedAt}).forEach(function(i){var li=el('li','invited: '+i.email+' as '+i.role+', until '+i.expiresAt.slice(0,10)+' ');var b=el('button','Withdraw');b.className='btn';b.onclick=function(){call('DELETE','/api/invitations/'+i.id).then(load)};li.appendChild(b);iv.appendChild(li)})})}
+var inv=document.getElementById('invite');
+if(inv){load();inv.addEventListener('submit',function(e){e.preventDefault();call('POST','/api/invitations',{email:inv.iemail.value,role:inv.irole.value}).then(function(r){if(r.ok){document.getElementById('link').textContent='Send this link to '+r.body.invitation.email+' (shown once): '+r.body.link;inv.iemail.value='';load()}else{say(r.body.error||'Could not invite.','err')}})})}
+var out=document.getElementById`,
+    );
+}

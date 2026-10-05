@@ -158,7 +158,7 @@ export function pgTokens(db: Db, orgRef: OrgRef, options: { now?: () => Date } =
             SELECT t.id::text AS id, t.person_id::text AS person_id, t.name, t.env, t.scopes, t.created_at, t.expires_at, t.last_used_at, t.revoked_at,
                    p.email, p.name AS pname, p.role
               FROM auth.api_token t JOIN studio.person p ON p.id = t.person_id
-             WHERE t.token_sha256 = ${sha(value)} AND t.revoked_at IS NULL AND t.expires_at > ${now().toISOString()}::timestamptz`.execute(tx)
+             WHERE t.token_sha256 = ${sha(value)} AND t.revoked_at IS NULL AND t.expires_at > ${now().toISOString()}::timestamptz AND p.disabled_at IS NULL`.execute(tx)
         ).rows[0];
         if (row === undefined) return undefined;
         return { token: tokenOf(row), person: { id: row.person_id, email: row.email, name: row.pname, role: row.role } };

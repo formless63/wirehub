@@ -68,6 +68,8 @@ export interface SaveCommit {
 
 export interface StudioBackup extends BackupControl {
   readonly enabled: true;
+  /** the git export answers at once */
+  status(): BackupStatus;
   /** pull --rebase (and push anything pending) — run before serving */
   start(): Promise<void>;
   /**

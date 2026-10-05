@@ -14,6 +14,7 @@ import { CURRENT_SCHEMA_VERSION } from '@wirehub/model';
 
 import type { WorkbenchDeps } from '../api.ts';
 import type { BlobStore } from '../blobs.ts';
+import type { BackupControl, BackupStatus } from '../backup/status.ts';
 import type { DepictionDeps, DepictionStore } from '../depictions.ts';
 import { memoryLockStore } from '../locks/lock-store.ts';
 import { localStudioUser } from '../me.ts';
@@ -99,6 +100,8 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
         ? pgCommit({ db: options.db, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), verify: process.env.WIREHUB_BLOB_VERIFY !== 'off' })
         : pgCommitReadOnly,
     exportCatalog: async () => exportSnapshot(await cache.get()),
+    // the indicator: the database is the history (plan §7.6, D6) — its last change set
+    ...(options.db === undefined ? {} : { backup: databaseBackupControl(options.db, cache.orgId) }),
     blob: async (sha) => {
       const row = (await cache.get()).rows?.blobs.find((b) => b.sha256 === sha);
       if (row === undefined || options.blobs === undefined) return undefined;
@@ -222,8 +225,10 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
           },
         });
       }
+      // the host may have set what the browser shows about the instance: it stays
+      const instance = deps.instance;
       for (const key of Object.keys(deps)) delete (deps as unknown as Record<string, unknown>)[key];
-      Object.assign(deps, real);
+      Object.assign(deps, real, instance === undefined ? {} : { instance });
       Object.assign(depictionDeps, { store: real.depictions as DepictionStore, loadDb: real.loadDb, loadDesigns: async () => (await cache.get()).catalog.loadDesigns() });
       current = cache;
       orgId = id;
@@ -270,4 +275,28 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     await handle.close();
     throw error;
   }
+}
+
+/** `GET /api/backup` on the database backend: `{ state: 'database', lastChangeSet }` (plan §7.6). */
+export function databaseBackupControl(db: Db, orgId: string): BackupControl {
+  return {
+    async status(): Promise<BackupStatus> {
+      const last = await inOrg(db, orgId, async (tx) =>
+        (await sql<{ version: string; at: Date; by: string }>`SELECT catalog_version::text AS version, created_at AS at, actor_label AS by FROM studio.change_set ORDER BY id DESC LIMIT 1`.execute(tx)).rows[0],
+      );
+      return {
+        enabled: true,
+        state: 'database',
+        message: 'Every save is a change set in the database; backups are database dumps.',
+        lastCommit: null,
+        lastPush: null,
+        pendingCommits: 0,
+        remote: '',
+        branch: '',
+        nextAttemptAt: null,
+        lastChangeSet: last === undefined ? null : { version: last.version, at: last.at.toISOString(), by: last.by },
+      };
+    },
+    retry() {},
+  };
 }

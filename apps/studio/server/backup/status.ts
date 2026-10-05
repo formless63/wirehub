@@ -3,7 +3,8 @@
  * Node import so the pure API router (and the browser) can share it.
  */
 
-export type BackupState = 'ok' | 'pushing' | 'offline' | 'blocked';
+/** `database`: the database backend, whose saves are its history (no git export; plan §7.6) */
+export type BackupState = 'ok' | 'pushing' | 'offline' | 'blocked' | 'database';
 
 export interface BackupCommitInfo {
   sha: string;
@@ -26,6 +27,8 @@ export interface BackupStatus {
   branch: string;
   /** when the next push attempt is due, if one is scheduled */
   nextAttemptAt: string | null;
+  /** the database backend: its last change set (`state: 'database'`) */
+  lastChangeSet?: { version: string; at: string; by: string } | null;
 }
 
 export const BACKUP_DISABLED: BackupStatus = {
@@ -42,6 +45,6 @@ export const BACKUP_DISABLED: BackupStatus = {
 
 /** What the API router needs from the backup. */
 export interface BackupControl {
-  status(): BackupStatus;
+  status(): BackupStatus | Promise<BackupStatus>;
   retry(): void;
 }

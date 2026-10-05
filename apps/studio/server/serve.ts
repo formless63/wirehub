@@ -37,6 +37,7 @@ import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
 import { workbenchDepsFromEnv } from './default-deps.ts';
 import { backendFromEnv } from './pg/config.ts';
 import { envVar, legacyEnvWarning } from './env.ts';
+import { environmentRefusal, wirehubEnv } from './env-guard.ts';
 import { registry } from './modules.ts';
 import { generateSetupCode, parseSuggestedModules, setupBanner, setupNeeded } from './setup.ts';
 
@@ -52,6 +53,13 @@ if (!existsSync(join(distDir, 'index.html'))) {
 // hubs set up before the rename still use STUDIO_* names: they work, with one warning
 const legacyEnv = legacyEnvWarning(process.env);
 if (legacyEnv !== undefined) console.warn(`[env] ${legacyEnv}`);
+
+// a development and a production instance kept apart (WIREHUB_ENV; specs/postgres-backend.md §8.7)
+const refusal = environmentRefusal(process.env);
+if (refusal !== undefined) {
+  console.error(`[env] ${refusal}`);
+  process.exit(1);
+}
 
 const host = process.env.HOST ?? '0.0.0.0';
 const port = Number(process.env.PORT ?? 5183);
@@ -149,6 +157,9 @@ try {
 
 // first-run setup on the database makes the admin's account through the sign-in
 workbench.pg?.attachAuth(auth);
+// what the browser shows: a development instance's banner; People and API tokens when there are accounts
+const instanceEnv = wirehubEnv(process.env);
+deps.instance = { ...(instanceEnv === undefined ? {} : { env: instanceEnv }), accounts: auth?.people !== undefined };
 
 const app = createStandaloneApp({ distDir, deps, depictionDeps: workbench.depictionDeps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 

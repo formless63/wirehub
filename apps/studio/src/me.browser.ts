@@ -10,14 +10,17 @@ export interface StudioUser {
   name: string;
   email?: string;
   source: 'session' | 'local';
+  /** about this hub: a development instance (a banner), and whether it has people and API tokens */
+  instance?: { env?: 'dev' | 'prod'; accounts?: boolean };
 }
 
 export const meKey = ['me'] as const;
 
 /** The signed-in (or local) user; `local` when the API cannot be reached. */
 export async function loadMe(base = '/api'): Promise<StudioUser> {
-  const out = await request<{ user: StudioUser }>(`${base}/me`);
-  return out.ok ? out.value.user : { name: 'local', source: 'local' };
+  const out = await request<{ user: StudioUser; instance?: StudioUser['instance'] }>(`${base}/me`);
+  if (!out.ok) return { name: 'local', source: 'local' };
+  return out.value.instance === undefined ? out.value.user : { ...out.value.user, instance: out.value.instance };
 }
 
 /** Up to two initials for the avatar: "Ada Lovelace" → "AL", "ada" → "A". */

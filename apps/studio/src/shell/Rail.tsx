@@ -6,7 +6,7 @@
  */
 
 import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconList } from '@tabler/icons-react';
+import { IconBox, IconKey, IconList, IconUsers } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { LockNameAvatar } from '../locks/LockNameAvatar.tsx';
@@ -50,6 +50,21 @@ export function Rail(): JSX.Element {
         </Link>
       ))}
       <span className="grow" />
+      {me?.instance?.env === 'dev' ? (
+        <span title="A development instance: its data is a copy, not production" className="rounded bg-warn px-1 text-[9px] font-bold uppercase tracking-wide text-accent-ink">
+          dev
+        </span>
+      ) : null}
+      {me?.source === 'session' && me.instance?.accounts === true ? (
+        <>
+          <a href="/settings/people" aria-label="People of this hub" title="People of this hub" className={railIcon(false)}>
+            <IconUsers size={18} />
+          </a>
+          <a href="/account/tokens" aria-label="My API tokens" title="My API tokens" className={railIcon(false)}>
+            <IconKey size={18} />
+          </a>
+        </>
+      ) : null}
       {/* with the login off, also where this browser names itself for edit locks (50a.51) */}
       <LockNameAvatar user={user} who={who} signedIn={me?.source === 'session'} />
     </nav>

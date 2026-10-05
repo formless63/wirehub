@@ -90,5 +90,10 @@ describePg('setup mode', () => {
     const read = await call('/api/designs/de9-crossover', {}, cookie);
     const saved = await call('/api/designs/de9-crossover', { method: 'PUT', headers: { 'content-type': 'application/json', 'if-match': read.headers.get('etag') ?? '' }, body: JSON.stringify({ ...((await read.json()) as object), label: 'Saved by the admin' }) }, cookie);
     expect(saved.status).toBe(200);
+    // the indicator: the database is the history (plan §7.6, D6)
+    const backup = (await (await call('/api/backup', {}, cookie)).json()) as { state: string; lastChangeSet: { by: string } };
+    expect(backup.state).toBe('database');
+    expect(backup.lastChangeSet.by).toBe('Ada Admin');
+    expect((await post('/api/backup/retry', {}, cookie)).status).toBe(404);
   }, 120_000);
 });

@@ -218,6 +218,12 @@ export interface WorkbenchDeps {
   /** what changed, for `GET /api/events` (`events.ts`); absent → no stream */
   events?: EventHub;
   /**
+   * What the browser shows about this instance (`GET /api/me`): a development
+   * instance's banner (§8.7), and whether people, invitations and API tokens
+   * exist (the database backend with sign-in on).
+   */
+  instance?: { env?: 'dev' | 'prod'; accounts?: boolean };
+  /**
    * True while the hub has no organisation yet (the database backend before
    * first-run setup, plan §9.1): every route but `/api/setup` answers 503.
    */
@@ -1067,15 +1073,17 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
 
   const user = request.user ?? deps.localUser ?? LOCAL_FALLBACK;
   if (head === 'me' && id === undefined) {
-    return method === 'GET' ? ok({ user }) : methodNotAllowed(method, ['GET']);
+    return method === 'GET' ? ok({ user, ...(deps.instance === undefined ? {} : { instance: deps.instance }) }) : methodNotAllowed(method, ['GET']);
   }
 
   if (head === 'backup') {
-    if (id === undefined) return method === 'GET' ? ok(deps.backup?.status() ?? BACKUP_DISABLED) : methodNotAllowed(method, ['GET']);
+    if (id === undefined) return method === 'GET' ? ok((await deps.backup?.status()) ?? BACKUP_DISABLED) : methodNotAllowed(method, ['GET']);
     if (id === 'retry' && action === undefined) {
       if (method !== 'POST') return methodNotAllowed(method, ['POST']);
+      const current = (await deps.backup?.status()) ?? BACKUP_DISABLED;
+      if (current.state === 'database') return fail(404, 'Not used with the database backend.', 'Its saves are the database itself; backups are database dumps (docs/self-hosting.md).');
       deps.backup?.retry();
-      return ok(deps.backup?.status() ?? BACKUP_DISABLED);
+      return ok((await deps.backup?.status()) ?? BACKUP_DISABLED);
     }
   }
 

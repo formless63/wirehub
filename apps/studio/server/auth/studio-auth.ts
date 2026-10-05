@@ -184,7 +184,12 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
   const database = authDatabaseOf(overrides, config);
   const people = overrides.pg?.people;
   const listed = (email: string): boolean => config.allowedEmails.has(email.trim().toLowerCase());
-  const isAllowed = async (email: string): Promise<boolean> => listed(email) || (people !== undefined && (await people.personByEmail(email.trim())) !== undefined);
+  // a person whose access an owner revoked is refused, even when the allow-list names them
+  const isAllowed = async (email: string): Promise<boolean> => {
+    const person = people === undefined ? undefined : await people.personByEmail(email.trim());
+    if (person?.disabledAt !== undefined && person.disabledAt !== null) return false;
+    return listed(email) || person !== undefined;
+  };
   const mail = overrides.mailTransport ?? (config.smtp === undefined ? undefined : smtpTransport(config.smtp));
   const fetchImpl = overrides.fetch ?? fetch;
 

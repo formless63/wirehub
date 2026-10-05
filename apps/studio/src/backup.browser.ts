@@ -35,6 +35,8 @@ export type BackupTone = 'ok' | 'pending' | 'error' | 'off';
 
 /** The indicator's one line. */
 export function backupLabel(status: BackupStatus, now: Date): { text: string; tone: BackupTone } {
+  // the database backend: every save is in the database (plan §7.6)
+  if (status.state === 'database') return { text: status.lastChangeSet === undefined || status.lastChangeSet === null ? 'Saved' : `Saved ${ago(status.lastChangeSet.at, now)}`, tone: 'ok' };
   if (!status.enabled) return { text: 'Backup off', tone: 'off' };
   if (status.state === 'blocked') return { text: 'Backup blocked — needs attention', tone: 'error' };
   if (status.pendingCommits > 0) {
