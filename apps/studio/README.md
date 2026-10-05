@@ -60,7 +60,40 @@ packs enabled at setup in the gitignored `data/packs/` — never in the starter.
 ## Modules
 
 `modules.config.ts` is the deployment's module manifest: the modules this
-build includes. It is empty in the base. See `../../docs/modules.md`.
+build includes — the bundled domain modules (offered at first-run setup) and
+board import. See `../../docs/modules.md`.
+
+## Importing boards
+
+A board (PCBA) comes in from the files its designer already has. Open
+**Board import** in the rail (`/m/board-import/boards`), and in this order:
+
+1. **KiCad board.** Pick the `.kicad_pcb` (a `.net` netlist works too, without
+   art). Fill in what the file does not say — the part number, the revision if
+   the title block has none, an id — and press *Read the board*. The import runs
+   as a job; when it is done you see the board it would add (its terminals are
+   the landing pads and connector pins, its internal links the copper and the
+   two-legged parts between them), the files that would change and a preview of
+   its art. Check the notes — every derived record is marked for review — and
+   press *Publish*. Then *Attach … as its 3D model*: the studio builds the
+   board's model with the KiCad library parts it names (the first build fetches
+   them, so it needs the internet once; the viewer says "not built yet" until
+   the model-cache job has run).
+2. **Gerber set.** Pick the board and the `.zip` you send to the board house,
+   press *Render the art*, look at the top and bottom previews and publish. The
+   art replaces the outline drawing from step 1, and the wires land on the same
+   pads; a note says if a pad is not on copper (the board file and the Gerbers
+   are of different revisions).
+3. **BOM and placement.** Pick the board, the BOM `.csv` and, optionally, the
+   placement (CPL) `.csv`. The columns are found by their usual names; change
+   any that are wrong (a BOM from an unusual tool) before *Read the parts*.
+   Publishing adds one component record per distinct part (reusing ones the
+   Library has, by manufacturer or supplier number) and the board's
+   "Components on this board" list.
+
+Nothing is written before *Publish*, and nothing the Library already has is
+changed: re-importing a board under the same id keeps the one you have. The
+Library's *Import…* button takes the same files without the options.
 
 ## Optional git export of saves
 
