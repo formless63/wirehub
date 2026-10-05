@@ -1,0 +1,9 @@
+{
+  "publishers": [
+    {
+      "id": "my-shop",
+      "name": "My shop",
+      "key": "RWREPLACE-WITH-YOUR-PUBLISHER-PUBLIC-KEY"
+    }
+  ]
+}

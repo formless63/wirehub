@@ -1,0 +1,16 @@
+# Private keys never belong in this repository: they are secrets (see README.md).
+*.key
+*.pem
+*.p12
+*.pfx
+wirehub-store.key
+wirehub-publisher.key
+wirehub-store-keys/
+wirehub-publisher-keys/
+.env
+.env.*
+
+# build output
+_site/
+node_modules/
+.DS_Store

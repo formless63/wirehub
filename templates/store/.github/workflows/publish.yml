@@ -1,0 +1,42 @@
+name: Publish store
+
+# Builds the store (verify, bundle, index, sign) and publishes it on GitHub Pages.
+# Settings > Pages > Source must be "GitHub Actions". Secrets: see README.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The ref after @ pins the store tooling: use a WireHub release tag (or a commit SHA) and
+      # raise it when you want newer tooling. See README.md, "Pinning the tooling".
+      - uses: formless63/wirehub/.github/actions/build-store@main
+        with:
+          store-signing-key: ${{ secrets.WIREHUB_STORE_SIGNING_KEY }}
+          pack-signing-key: ${{ secrets.WIREHUB_PACK_SIGNING_KEY }}
+          # store-id and store-name default to the repository name; set them to say more:
+          # store-name: My shop's WireHub packs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

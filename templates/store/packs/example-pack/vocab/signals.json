@@ -1,0 +1,25 @@
+{
+  "id": "signals",
+  "label": "Signals",
+  "src": "example store template: synthetic, for demonstration only",
+  "entries": [
+    {
+      "id": "example-store-tick",
+      "label": "Example store tick",
+      "kind": "data",
+      "aliases": [
+        "EX STORE TICK"
+      ],
+      "src": "synthetic example",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example"
+          }
+        ]
+      }
+    }
+  ]
+}

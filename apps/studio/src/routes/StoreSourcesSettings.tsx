@@ -119,7 +119,11 @@ export function StoreSourcesSettings(): JSX.Element {
     <section className="mt-6 max-w-xl text-[12.5px]" data-testid="store-sources">
       <h2 className="mb-1 text-[13px] font-semibold">Store sources</h2>
       <p className="mb-2 text-faint">
-        Stores whose packs show up under Browse store, next to the official one. Anyone can host a store; WireHub does not check what a store lists. Each store&apos;s index must be signed with the key you give here.
+        Stores whose packs show up under Browse store, next to the official one. Anyone can host a store; WireHub does not check what a store lists. Each store&apos;s index must be signed with the key you give here. To run a store of your own, start from the{' '}
+        <a className="underline" href="https://github.com/formless63/wirehub/blob/main/docs/store-hosting.md" target="_blank" rel="noreferrer">
+          run your own store
+        </a>
+        .
       </p>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The stores could not be read.'}</div> : null}
       {view === undefined ? (

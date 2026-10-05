@@ -119,6 +119,7 @@ emails out of commits (`CONTRIBUTING.md`).
 - `docs/exports.md` — CSV/XLSX exports, the continuity tester export, wire labels, and rendering documents without a browser.
 - `docs/interop.md` — WireViz YAML import and export, bulk CSV library import, and part costing.
 - `docs/catalog-store.md` — catalog packs: format, provenance, install and update.
+- `docs/store-hosting.md` — run your own module store from a GitHub template (or any static host).
 - `docs/self-hosting.md` — install, the compose stack, secrets, storage, backups, development.
 - `specs/postgres-backend.md` — the database backend (Phase A built).
 - `docs/boundaries.md` — what this base was split from, and what it left out.
