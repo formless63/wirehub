@@ -12,8 +12,10 @@ import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import type { StudioUser } from '../server/me.ts';
 import { fileDocStore } from '../server/storage/doc-store.ts';
 import { memoryAssetStore } from '../server/assets.ts';
+import { memoryDrawingStore } from '../server/drawings.ts';
+import { memoryVersionStore } from '../server/versions.ts';
 import { depictionBlob } from '../server/default-deps.ts';
-import { runBenchRulesPackFlow, runVendorPdfPackFlow, runPadMapPreviewFlow, runSchemeAndSelectorsFlow, type FlowCall } from './migration-gaps-flow.ts';
+import { runBenchRulesPackFlow, runBrandingFlow, runPackFontFlow, runVendorPdfPackFlow, runPadMapPreviewFlow, runSchemeAndSelectorsFlow, type FlowCall } from './migration-gaps-flow.ts';
 
 describe('migration gaps (file backend)', () => {
   let root = '';
@@ -33,6 +35,10 @@ describe('migration gaps (file backend)', () => {
       installedPacks: () => ({ src: 'x', packs: installedAcross(dataDir, packs).packs }),
       docs: fileDocStore(join(root, 'catalog')),
       assets: memoryAssetStore(),
+      drawings: memoryDrawingStore(),
+      versions: memoryVersionStore(),
+      now: () => '2026-10-05T10:00:00.000Z',
+      localUser: { name: 'Owner', source: 'local' },
       blob: async (sha: string) => depictionBlob(sha, packs, join(root, 'catalog')),
       setup: { dataDir, packsDir: packs, prompt: false, now: () => '2026-10-05T12:00:00.000Z' },
     };
@@ -55,5 +61,13 @@ describe('migration gaps (file backend)', () => {
 
   it('signed vendor PDFs in a pack: pinned, installed, linked, served with safe headers, replaced and removed', async () => {
     await runVendorPdfPackFlow(call, { strictRemoval: true });
+  });
+
+  it('a licensed typeface and drawing art in Settings, Branding are stored as data and used by the sheets and PDFs', async () => {
+    await runBrandingFlow(call);
+  });
+
+  it('a font a data pack ships is a font the hub may choose, and goes with the pack', async () => {
+    await runPackFontFlow(call);
   });
 });

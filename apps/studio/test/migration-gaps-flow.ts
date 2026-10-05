@@ -6,6 +6,8 @@
  *   Settings' check, and a `cable-end` rule through the rules test;
  * - `runVendorPdfPackFlow`: signed-pack PDFs under `docs/` and `assets/` are pinned, installed, linked from library
  *   records, served by `/api/blobs` with safe headers, replaced on update and removed on disable;
+ * - `runBrandingFlow`: a licensed typeface and drawing art entered in Settings, Branding (and a font a pack ships)
+ *   are stored as data and used in the drawing, the HTML sheets and the PDFs;
  * - `runBenchRulesPackFlow`: a data pack's `bench-rules.json` is read at runtime, follows install, update and
  *   disable, and a bad rule refuses the pack;
  * - `runPadMapPreviewFlow`: a pack that ships an auxiliary PCBA pad table is previewed with the
@@ -13,6 +15,8 @@
  */
 
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { loadDesigns } from '@wirehub/catalog';
 import { renderBuildSheet } from '@wirehub/docs';
@@ -275,4 +279,146 @@ export async function runVendorPdfPackFlow(call: FlowCall, options: { strictRemo
   expect(gone.status, JSON.stringify(gone.body)).toBe(200);
   expect((await blob(v2)).status).toBe(404);
   expect(((await call('GET', '/api/db')).body as Db).components.some((c) => c.id === 'pdf-pack-r')).toBe(false);
+}
+
+/** a bundled Liberation Sans face with its family renamed (same length), so it is not mistaken for the bundled one */
+export function brandmark(bold = false): Uint8Array {
+  // vitest runs with the package as its working directory
+  const bytes = Buffer.from(readFileSync(join(process.cwd(), '..', '..', 'packages', 'docs', 'fonts', `LiberationSans-${bold ? 'Bold' : 'Regular'}.ttf`)));
+  const utf16be = (text: string): Buffer => Buffer.from(Buffer.from(text, 'utf16le').swap16());
+  // the name table keeps the family in Mac Roman (latin1) and in Windows (UTF-16BE) records
+  for (const [from, to] of [[Buffer.from('Liberation Sans', 'latin1'), Buffer.from('Brandmark Sans1', 'latin1')], [utf16be('Liberation Sans'), utf16be('Brandmark Sans1')]] as const) {
+    for (let at = bytes.indexOf(from); at >= 0; at = bytes.indexOf(from, at + from.length)) to.copy(bytes, at);
+  }
+  return new Uint8Array(bytes);
+}
+
+const textOf = (r: { bytes?: Uint8Array }): string => Buffer.from(r.bytes ?? new Uint8Array()).toString('latin1');
+
+export async function runBrandingFlow(call: FlowCall): Promise<void> {
+  const etagOf = async (): Promise<string> => (await call('GET', '/api/settings/branding', undefined, OWNER)).headers?.['ETag'] ?? '';
+  const put = async (body: unknown) => call('PUT', '/api/settings/branding', body, OWNER, { 'if-match': await etagOf() });
+  const doc = (kind: string, format: string) => call('GET', `/api/designs/de9-crossover/documents/${kind}?format=${format}`, undefined, OWNER);
+
+  // nothing uploaded yet; the page states what a font must be and what the uploader confirms
+  const none = await call('GET', '/api/settings/branding/fonts', undefined, OWNER);
+  expect(none.status, JSON.stringify(none.body)).toBe(200);
+  expect(none.body.fonts).toEqual([]);
+  expect(none.body.limits.formats).toEqual(['ttf', 'otf', 'woff2']);
+  const generic = await doc('build-sheet', 'html');
+  expect(textOf(generic)).not.toContain("font-family:'CS Brand'");
+
+  // an upload needs the licence confirmed, and a real font
+  const regular = brandmark(false);
+  const noLicence = await call('POST', '/api/settings/branding/fonts', { name: 'Brandmark-Regular.ttf', data: Buffer.from(regular).toString('base64') }, OWNER);
+  expect(noLicence.status).toBe(400);
+  expect(JSON.stringify(noLicence.body)).toMatch(/licence/);
+  const notFont = await call('POST', '/api/settings/branding/fonts', { name: 'x.ttf', data: Buffer.from('not a font at all, just text').toString('base64'), licence: true }, OWNER);
+  expect(notFont.status).toBe(400);
+  expect(JSON.stringify(notFont.body)).toMatch(/not a TrueType, OpenType or WOFF2 font/);
+  const big = await call('POST', '/api/settings/branding/fonts', { name: 'big.ttf', data: Buffer.alloc(2 * 1024 * 1024, 1).toString('base64'), licence: true }, OWNER);
+  expect(big.status).toBe(413);
+
+  const up = await call('POST', '/api/settings/branding/fonts', { name: 'Brandmark-Regular.ttf', data: Buffer.from(regular).toString('base64'), licence: true }, OWNER);
+  expect(up.status, JSON.stringify(up.body)).toBe(200);
+  expect(up.body.font).toMatchObject({ family: 'Brandmark Sans1', subfamily: 'Regular', format: 'ttf', source: 'upload', embeddable: true, rasterizable: true });
+  const bold = await call('POST', '/api/settings/branding/fonts', { name: 'Brandmark-Bold.ttf', data: Buffer.from(brandmark(true)).toString('base64'), licence: true }, OWNER);
+  expect(bold.status, JSON.stringify(bold.body)).toBe(200);
+  // the same bytes again are the same font (content addressed)
+  const again = await call('POST', '/api/settings/branding/fonts', { name: 'copy.ttf', data: Buffer.from(regular).toString('base64'), licence: true }, OWNER);
+  expect(again.body.font.id).toBe(up.body.font.id);
+  expect(((await call('GET', '/api/settings/branding/fonts', undefined, OWNER)).body.fonts as unknown[]).length).toBe(2);
+
+  // choosing a font this hub does not hold is refused; choosing the uploaded one sets it
+  expect((await put({ font: { regular: 'f'.repeat(64) } })).status).toBe(400);
+  const set = await put({ font: { regular: up.body.font.id, bold: bold.body.font.id } });
+  expect(set.status, JSON.stringify(set.body)).toBe(200);
+  expect(set.body.font.regular).toMatchObject({ id: up.body.font.id, family: 'Brandmark Sans1', mime: 'font/ttf', embeddable: true });
+  expect(set.body.font.regular.widths['A']).toBeGreaterThan(500);
+  expect(set.body.font.bold.id).toBe(bold.body.font.id);
+
+  // the HTML sheets and the drawing carry it inline; the browser engine's print keeps it first
+  const sheet = textOf(await doc('build-sheet', 'html'));
+  expect(sheet).toContain("font-family:'CS Brand'");
+  expect(sheet).toContain('data:font/ttf;base64,');
+  expect(sheet).toContain("--cs-font:'CS Brand'");
+  for (const kind of ['bom', 'test-spec']) expect(textOf(await doc(kind, 'html'))).toContain("font-family:'CS Brand'");
+  const drawing = textOf(await doc('drawing', 'html'));
+  expect(drawing).toContain("font-family:'CS Brand'");
+  expect(drawing).toContain(`font-family="'CS Brand','CS Sans'`);
+  expect(textOf(await doc('formboard', 'html'))).toContain("font-family:'CS Brand'");
+  // the drawing's PDF without a browser engine (rasterised) still draws, and the formboard's vector PDF embeds the face as a subset
+  const rasterPdf = await doc('drawing', 'pdf');
+  expect(rasterPdf.status, JSON.stringify(rasterPdf.body)).toBe(200);
+  expect(textOf(rasterPdf).startsWith('%PDF-')).toBe(true);
+  const vectorPdf = await doc('formboard', 'pdf');
+  expect(vectorPdf.status, JSON.stringify(vectorPdf.body)).toBe(200);
+  expect(textOf(vectorPdf)).toMatch(/\/BaseFont \/[A-Z]{6}\+BrandmarkSans1/);
+  expect(textOf(vectorPdf)).toMatch(/\/BaseFont \/[A-Z]{6}\+BrandmarkSans1-Bold/);
+
+  // drawing art: this hub's own faces and cutaways as data, cleaned on the way in
+  const cutaway = { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525 131"><script>alert(1)</script><rect id="zz-art-mark" width="10" height="10"/></svg>', width: 525, height: 131 };
+  const badArt = await put({ art: { cutaways: { 'Not An Id': cutaway } } });
+  expect(badArt.status).toBe(400);
+  expect((await put({ art: { cutaways: { 'shielded-2pair-24awg': { svg: 1 } } } })).status).toBe(400);
+  expect((await put({ art: { widgets: {} } })).status).toBe(400);
+  const art = await put({ art: { cutaways: { 'shielded-2pair-24awg': cutaway }, faces: { 'de9-female': { material: 'Test face', width: 20, height: 10, art: [{ d: 'M0 0L5 5' }], pins: [{ id: '1', x: 2, y: 2, w: 2, h: 2, shape: 'circle' }], labels: [], src: 'synthetic example' } } } });
+  expect(art.status, JSON.stringify(art.body)).toBe(200);
+  expect(art.body.ownArt.cutaways['shielded-2pair-24awg'].svg).not.toContain('script');
+  expect(art.body.art.faces['de9-female'].material).toBe('Test face');
+  const reread = await call('GET', '/api/settings/branding', undefined, OWNER);
+  expect(reread.body.ownArt.cutaways['shielded-2pair-24awg'].svg).toContain('zz-art-mark');
+  expect(reread.body.art.cutaways['shielded-2pair-24awg']).toBeDefined();
+  expect(((await call('GET', '/api/db')).body as Db).drawingArt?.faces?.['de9-female']).toBeDefined();
+  const artDoc = await doc('drawing', 'html');
+  expect(artDoc.status, JSON.stringify(artDoc.body)).toBe(200);
+  const withArt = textOf(artDoc);
+  expect(withArt).toContain('zz-art-mark');
+  expect(withArt).not.toContain('alert(1)');
+  // the typeface survives the art being saved (a PUT keeps what it does not mention)
+  expect((await call('GET', '/api/settings/branding', undefined, OWNER)).body.font.regular.id).toBe(up.body.font.id);
+
+  // removing them returns the generic sheets
+  const cleared = await put({ font: null, art: null });
+  expect(cleared.status, JSON.stringify(cleared.body)).toBe(200);
+  expect(cleared.body.font).toBeUndefined();
+  expect(textOf(await doc('build-sheet', 'html'))).not.toContain("font-family:'CS Brand'");
+  expect(textOf(await doc('drawing', 'html'))).not.toContain('zz-art-mark');
+  expect(((await call('GET', '/api/db')).body as Db).drawingArt).toBeUndefined();
+}
+
+const fontPack = (version: string, withLicence: boolean) => ({
+  format: 1,
+  manifest: { format: 1, id: 'font-pack', name: 'A licensed face', version, license: 'CC0-1.0' },
+  files: {
+    'components.json': [{ id: 'font-pack-r', label: '5 ohm resistor', kind: 'resistor', value: '5', terminals: [{ id: 'a' }, { id: 'b' }], src: SRC }],
+    'fonts/brandmark-regular.ttf': Buffer.from(brandmark(false)).toString('base64'),
+    ...(withLicence ? { 'fonts/brandmark-regular.json': { family: 'Brandmark Sans', license: 'LicenseRef-synthetic-example', src: SRC } } : {}),
+  },
+});
+
+export async function runPackFontFlow(call: FlowCall): Promise<void> {
+  const doc = (kind: string) => call('GET', `/api/designs/de9-crossover/documents/${kind}?format=html`, undefined, OWNER);
+  const etagOf = async (): Promise<string> => (await call('GET', '/api/settings/branding', undefined, OWNER)).headers?.['ETag'] ?? '';
+
+  // a font without its licence sidecar is refused whole
+  const bare = await call('POST', '/api/packs/install', { bundle: fontPack('1.0.0', false), apply: true }, OWNER);
+  expect(bare.status, JSON.stringify(bare.body)).toBe(422);
+  expect(JSON.stringify(bare.body)).toMatch(/needs fonts\/brandmark-regular\.json/);
+
+  // installed, it is a font the hub may choose, from the pack, with no upload and no checkbox
+  const done = await call('POST', '/api/packs/install', { bundle: fontPack('1.0.0', true), apply: true }, OWNER);
+  expect(done.status, JSON.stringify(done.body)).toBe(200);
+  const fonts = (await call('GET', '/api/settings/branding/fonts', undefined, OWNER)).body.fonts as { id: string; source: string; pack?: string; family: string }[];
+  expect(fonts.map((f) => [f.source, f.pack, f.family])).toEqual([['pack', 'font-pack', 'Brandmark Sans1']]);
+  const set = await call('PUT', '/api/settings/branding', { font: { regular: fonts[0]!.id } }, OWNER, { 'if-match': await etagOf() });
+  expect(set.status, JSON.stringify(set.body)).toBe(200);
+  expect(set.body.font.regular.id).toBe(fonts[0]!.id);
+  expect(Buffer.from((await doc('build-sheet')).bytes ?? new Uint8Array()).toString('latin1')).toContain("font-family:'CS Brand'");
+
+  // the pack goes: its font is no longer there, and the documents are set in the bundled sans again
+  const gone = await call('DELETE', '/api/packs/font-pack', undefined, OWNER);
+  expect(gone.status, JSON.stringify(gone.body)).toBe(200);
+  expect((await call('GET', '/api/settings/branding', undefined, OWNER)).body.font).toBeUndefined();
+  expect(Buffer.from((await doc('build-sheet')).bytes ?? new Uint8Array()).toString('latin1')).not.toContain("font-family:'CS Brand'");
 }

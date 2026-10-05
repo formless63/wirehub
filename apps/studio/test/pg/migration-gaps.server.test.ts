@@ -12,7 +12,7 @@ import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { pgSetupDeps } from '../../server/pg/setup.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
-import { runBenchRulesPackFlow, runVendorPdfPackFlow, runPadMapPreviewFlow, runSchemeAndSelectorsFlow, type FlowCall } from '../migration-gaps-flow.ts';
+import { runBenchRulesPackFlow, runBrandingFlow, runPackFontFlow, runVendorPdfPackFlow, runPadMapPreviewFlow, runSchemeAndSelectorsFlow, type FlowCall } from '../migration-gaps-flow.ts';
 import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 describePg('migration gaps on Postgres', () => {
@@ -61,5 +61,15 @@ describePg('migration gaps on Postgres', () => {
   it('signed vendor PDFs in a pack: pinned, installed, linked, served with safe headers, replaced and removed', async () => {
     const { call } = await hub('gaps-pdf');
     await runVendorPdfPackFlow(call);
+  }, 60_000);
+
+  it('a licensed typeface and drawing art in Settings, Branding are stored as data and used by the sheets and PDFs', async () => {
+    const { call } = await hub('gaps-branding');
+    await runBrandingFlow(call);
+  }, 60_000);
+
+  it('a font a data pack ships is a font the hub may choose, and goes with the pack', async () => {
+    const { call } = await hub('gaps-pack-font');
+    await runPackFontFlow(call);
   }, 60_000);
 });

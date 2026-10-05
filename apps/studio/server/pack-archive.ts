@@ -166,6 +166,10 @@ function checkedAssets(files: PackFiles): PackFiles {
       out.set(path, bytes);
       continue;
     }
+    if (path === 'drawing-art.json') {
+      out.set(path, cleanDrawingArt(bytes));
+      continue;
+    }
     if (!isPackAssetPath(path)) {
       out.set(path, bytes);
       continue;
@@ -185,6 +189,29 @@ function checkedAssets(files: PackFiles): PackFiles {
     out.set(path, kept);
   }
   return out;
+}
+
+/**
+ * A pack's `drawing-art.json` (faces, plugs and cutaways by definition id, `DrawingArt` in `@wirehub/docs`):
+ * every cutaway's SVG is stripped of scripts, handlers and external references, as a pack's images are,
+ * because the sheets embed it as markup. What it holds is otherwise checked when the pack is installed.
+ */
+function cleanDrawingArt(bytes: Uint8Array): Uint8Array {
+  let value: unknown;
+  try {
+    value = JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return bytes; // reported as invalid JSON with the pack's other files
+  }
+  const art = value as { cutaways?: Record<string, { svg?: unknown }> };
+  if (typeof art !== 'object' || art === null || typeof art.cutaways !== 'object' || art.cutaways === null) return bytes;
+  for (const [id, cutaway] of Object.entries(art.cutaways)) {
+    if (typeof cutaway?.svg !== 'string') continue;
+    const clean = stripUnsafeSvg(cutaway.svg);
+    if (clean.svg === undefined) throw new PackArchiveError(`drawing-art.json: the cutaway '${id}' is not a usable SVG: ${clean.error ?? 'unreadable'}.`);
+    cutaway.svg = clean.svg;
+  }
+  return encode(art);
 }
 
 /** path → bytes, as read from an archive, before anything touches disk. */

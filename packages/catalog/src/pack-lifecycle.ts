@@ -42,7 +42,8 @@ import {
   applyPackAssets,
   isAuxiliaryFile,
   mergeCatalogFile,
-  PCBA_PADS_FILE,
+  KEYED_FILES,
+  keyedRecords,
   isPlainObject,
   packAssetFiles,
   packFiles,
@@ -68,15 +69,12 @@ const RECORD_FILES = ['bodies', 'interfaces', 'connectors', 'wires', 'components
 /** The record files whose records are parts with a licence (a retired one keeps its licence and origin); the rule files hold the shop's own rules. */
 const PART_RECORD_FILES = RECORD_FILES.filter((f) => f !== 'validation-rules.json' && f !== 'bench-rules.json');
 
-/** The pad table is kept as records too, one per board (`{ boards: { <board id>: { src, terminals } } }`), so a pack owns its boards' pads. */
-const PADS_FILE = PCBA_PADS_FILE;
+/** The keyed files (the pad table, the drawing art) are kept as records too, one per key (`packs.ts`, `KEYED_FILES`), so a pack owns its boards' pads and its art. */
+const keyedFiles = Object.keys(KEYED_FILES);
 
-/** The records of a file's parsed value: a list's or an entry list's items, the pad table's boards (each with its id). */
+/** The records of a file's parsed value: a list's or an entry list's items, a keyed file's keys (each with its id). */
 function recordsOfFile(file: string, value: Json): Json[] {
-  if (file === PADS_FILE) {
-    const boards = isPlainObject(value) && isPlainObject(value['boards']) ? value['boards'] : {};
-    return Object.entries(boards).map(([id, board]) => (isPlainObject(board) ? { id, ...board } : { id }));
-  }
+  if (file in KEYED_FILES) return keyedRecords(file, value).map((r) => r.record);
   return recordsIn(value) ?? [];
 }
 
@@ -107,7 +105,7 @@ export function catalogRecords(source: CatalogSource): Map<string, LocatedRecord
   const out = new Map<string, LocatedRecord>();
   const files = [
     ...RECORD_FILES,
-    PADS_FILE,
+    ...keyedFiles,
     ...source.list('vocab').filter((n) => n.endsWith('.json')).map((n) => `vocab/${n}`),
     ...source.list('designs').filter((n) => n.endsWith('.json')).map((n) => `designs/${n}`),
   ];
@@ -356,19 +354,36 @@ export function newErrors(before: CatalogSource, after: CatalogSource): Issue[] 
   return libraryErrors(after).filter((i) => !known.has(issueKey(i)));
 }
 
-/** The pad table with the given boards put in place (or dropped), whatever else the file holds kept. */
-function mergePadsFile(currentText: string | undefined, drop: ReadonlySet<string>, put: ReadonlyMap<string, Json>, packText: string | undefined): string | null | undefined {
+/** A keyed file with the given records put in place (or dropped), whatever else the file holds kept. */
+function mergeKeyedFile(file: string, currentText: string | undefined, drop: ReadonlySet<string>, put: ReadonlyMap<string, Json>, packText: string | undefined): string | null | undefined {
   const current = currentText === undefined ? undefined : (JSON.parse(currentText) as Record<string, Json>);
   const pack = packText === undefined ? undefined : (JSON.parse(packText) as Record<string, Json>);
-  const base: Record<string, Json> = current ?? (pack === undefined ? {} : Object.fromEntries(Object.entries(pack).filter(([k]) => k !== 'boards')));
-  const boards: Record<string, Json> = isPlainObject(base['boards']) ? { ...(base['boards'] as Record<string, Json>) } : {};
-  for (const id of drop) if (!put.has(id)) delete boards[id];
-  for (const [id, record] of put) {
-    const { id: _id, ...board } = record as Record<string, Json>;
-    boards[id] = board;
+  const sections = KEYED_FILES[file] ?? [];
+  const base: Record<string, Json> = { ...(current ?? (pack === undefined ? {} : Object.fromEntries(Object.entries(pack).filter(([k]) => !sections.includes(k))))) };
+  const bySection = new Map<string, Record<string, Json>>(sections.map((s) => [s, isPlainObject(base[s]) ? { ...(base[s] as Record<string, Json>) } : {}] as const));
+  const place = (id: string): { section: string; key: string } => {
+    const slash = id.indexOf('/');
+    return sections.length === 1 || slash < 0 ? { section: sections[0] as string, key: id } : { section: id.slice(0, slash), key: id.slice(slash + 1) };
+  };
+  for (const id of drop) {
+    if (put.has(id)) continue;
+    const { section, key } = place(id);
+    delete bySection.get(section)?.[key];
   }
-  if (Object.keys(boards).length === 0 && drop.size > 0) return null;
-  const text = canonical({ ...base, boards });
+  for (const [id, record] of put) {
+    const { section, key } = place(id);
+    const { id: _id, ...entry } = record as Record<string, Json>;
+    const target = bySection.get(section);
+    if (target !== undefined) target[key] = entry;
+  }
+  const empty = [...bySection.values()].every((m) => Object.keys(m).length === 0);
+  if (empty && drop.size > 0) return null;
+  const next: Record<string, Json> = { ...base };
+  for (const [section, m] of bySection) {
+    if (Object.keys(m).length > 0) next[section] = m;
+    else delete next[section];
+  }
+  const text = canonical(next);
   return text === currentText ? undefined : text;
 }
 
@@ -379,7 +394,7 @@ function mergeFile(file: string, currentText: string | undefined, drop: Readonly
     if (put.has(id)) return packText === undefined ? undefined : packText;
     return drop.has(id) ? null : undefined;
   }
-  if (file === PADS_FILE) return mergePadsFile(currentText, drop, put, packText);
+  if (file in KEYED_FILES) return mergeKeyedFile(file, currentText, drop, put, packText);
   const current = currentText === undefined ? undefined : (JSON.parse(currentText) as Json);
   const pack = packText === undefined ? undefined : (JSON.parse(packText) as Json);
   const base = current ?? (pack !== undefined ? (Array.isArray(pack) ? [] : { ...(pack as Record<string, Json>), entries: [] }) : undefined);
@@ -512,9 +527,9 @@ export function planPackUpdate(view: CatalogSource, installed: readonly Installe
   const diff = diffRecords(owned, next);
   const gone = new Map([...owned].filter(([key]) => !next.has(key)));
   // a dropped record something outside the pack still uses is kept (retired), not removed under its users
-  const references = referencesTo(others, new Set([...gone.values()].filter((r) => !r.file.startsWith('designs/') && r.file !== PADS_FILE).map((r) => r.id)));
+  const references = referencesTo(others, new Set([...gone.values()].filter((r) => !r.file.startsWith('designs/') && !(r.file in KEYED_FILES)).map((r) => r.id)));
   const used = new Set(references.map((r) => r.to));
-  const retiring = new Map([...gone].filter(([, r]) => !r.file.startsWith('designs/') && r.file !== PADS_FILE && used.has(r.id)));
+  const retiring = new Map([...gone].filter(([, r]) => !r.file.startsWith('designs/') && !(r.file in KEYED_FILES) && used.has(r.id)));
   const dropped = new Map([...gone].filter(([key]) => !retiring.has(key)));
   const retiredMarked = new Map([...retiring].map(([key, r]) => [key, retiredAs(r, { id: entry.id, version: entry.version, license: entry.license })] as const));
   const puts = new Map([...next].filter(([key, r]) => !owned.has(key) || !same(owned.get(key)!.record, r.record)));
@@ -557,7 +572,7 @@ export function planPackDisable(view: CatalogSource, installed: readonly Install
   if (entry === undefined) throw new Error(`Pack '${id}' is not installed.`);
   const owned = ownedRecords(view, entry);
   const others = [...catalogRecords(view)].filter(([key]) => !owned.has(key)).map(([, r]) => r);
-  const references = referencesTo(others, new Set([...owned.values()].filter((r) => !r.file.startsWith('designs/') && r.file !== PADS_FILE).map((r) => r.id)));
+  const references = referencesTo(others, new Set([...owned.values()].filter((r) => !r.file.startsWith('designs/') && !(r.file in KEYED_FILES)).map((r) => r.id)));
   return {
     pack: { id, version: entry.version },
     records: [...owned.values()].map(refOf),

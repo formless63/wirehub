@@ -14,6 +14,7 @@ import type { CableDesign, Db } from '@wirehub/model';
 import { escapeHtml } from '../text.ts';
 import { registeredLogo, registeredTitleBlock } from './assets.ts';
 import { cutawayFor } from './cutaway.ts';
+import { brandFontFaces, brandStack, brandWidth } from './brand-font.ts';
 import { gothic, sans, sansBold } from './fonts.generated.ts';
 import { faceEdgeTop, faceEdgeX, type FaceArt, type FacePin } from './faces.ts';
 import {
@@ -33,8 +34,11 @@ import {
 export const SHEET_WIDTH = 792;
 export const SHEET_HEIGHT = 612;
 
-const FONT = "'CS Sans', Helvetica, Arial, sans-serif";
-const TABLE_FONT = "'CS Gothic', 'Century Gothic', 'URW Gothic', 'CS Sans', sans-serif";
+const FONT_BASE = "'CS Sans', Helvetica, Arial, sans-serif";
+const TABLE_FONT_BASE = "'CS Gothic', 'Century Gothic', 'URW Gothic', 'CS Sans', sans-serif";
+/** the stacks, with the hub's own typeface first when branding set one */
+const fontStack = (): string => brandStack(FONT_BASE);
+const tableFontStack = (): string => brandStack(TABLE_FONT_BASE);
 
 /* ------------------------------------------------------------------ *
  * Text metrics — the embedded faces' own advance widths
@@ -50,7 +54,7 @@ type Face = 'sans' | 'gothic';
 export function textWidth(text: string, size: number, bold = false, face: Face = 'sans'): number {
   const widths = face === 'gothic' ? gothic.widths : bold ? sansBold.widths : sans.widths;
   let units = 0;
-  for (const ch of text) units += widths[ch] ?? 556;
+  for (const ch of text) units += brandWidth(ch, bold) ?? widths[ch] ?? 556;
   return (units / 1000) * size;
 }
 
@@ -60,7 +64,7 @@ function roomy(text: string, size: number, bold = false, face: Face = 'sans'): n
 }
 
 function fontFaces(): string {
-  return [sans, sansBold, gothic]
+  return brandFontFaces() + [sans, sansBold, gothic]
     .map(
       (face) =>
         `@font-face{font-family:'${face.family}';font-weight:${face.weight};font-style:normal;src:url(data:font/woff2;base64,${face.woff2}) format('woff2')}`,
@@ -118,7 +122,7 @@ function text(x: number, y: number, value: string, size: number, options: { anch
   const anchor = options.anchor ?? 'start';
   let fontSize = size;
   if (options.fit !== undefined) {
-    const width = roomy(value, size, options.bold, options.family === TABLE_FONT ? 'gothic' : 'sans');
+    const width = roomy(value, size, options.bold, options.family === tableFontStack() ? 'gothic' : 'sans');
     if (width > options.fit) fontSize = Math.max(6, (size * options.fit) / width);
   }
   const attrs = [
@@ -237,7 +241,7 @@ function bomTable(drawing: Drawing): { svg: string; bottom: number } {
     const y = BOM_TOP + BOM_HEADER + i * BOM_ROW;
     out.push(line(c0, y, c4, y, 0.51));
   }
-  const cell = { family: TABLE_FONT };
+  const cell = { family: tableFontStack() };
   out.push(text((c0 + c1) / 2, 22.3, '#', 12, { ...cell, anchor: 'middle' }));
   out.push(text((c1 + c2) / 2, 22.3, 'Reference', 12, { ...cell, anchor: 'middle' }));
   out.push(text((c2 + c3) / 2, 22.3, 'Material', 12, { ...cell, anchor: 'middle' }));
@@ -868,7 +872,7 @@ export function drawingToSvg(drawing: Drawing, options: DrawingSvgOptions = {}):
   const bom = bomTable(drawing);
   const cable = cableAndFaces(drawing, bom.bottom);
   const parts = [
-    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="ra-drawing" viewBox="0 0 ${SHEET_WIDTH} ${SHEET_HEIGHT}" width="11in" height="8.5in" font-family="${esc(FONT)}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="ra-drawing" viewBox="0 0 ${SHEET_WIDTH} ${SHEET_HEIGHT}" width="11in" height="8.5in" font-family="${esc(fontStack())}">`,
     `<style>${fontFaces()}</style>`,
     `<rect width="${SHEET_WIDTH}" height="${SHEET_HEIGHT}" fill="#fff"/>`,
     `<rect x="${FRAME.x}" y="${FRAME.y}" width="${n(FRAME.right - FRAME.x)}" height="${n(FRAME.bottom - FRAME.y)}" fill="none" stroke="#000" stroke-width="0.5"/>`,

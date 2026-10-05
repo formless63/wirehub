@@ -57,6 +57,8 @@ export {
   installedRecordOf,
   isAuxiliaryFile,
   PCBA_PADS_FILE,
+  DRAWING_ART_FILE,
+  KEYED_FILES,
   packAssetFiles,
   installedPackDir,
   installedPackSources,

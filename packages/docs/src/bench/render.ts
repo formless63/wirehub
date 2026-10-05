@@ -16,6 +16,7 @@ import { catalogDepictions, type DepictionSource } from '@wirehub/layout';
 import { deriveDrawing, type DrawingFace } from '../drawing/model.ts';
 import { deriveBomSheet, type BomSheet, type BomSheetOptions } from '../bom-sheet.ts';
 import { deriveTestSpec, type Port, type TestSpec } from '../test-spec.ts';
+import { brandSheetCss } from '../drawing/brand-font.ts';
 import { SHEET_STYLESHEET } from '../styles.ts';
 import { compareStrings, escapeHtml } from '../text.ts';
 import { lengthFromMm } from '../units.ts';
@@ -554,7 +555,7 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
   pages.push({ title: 'Test', html: testPage(pages.length + 1, spec, db) });
 
   const total = pages.length;
-  const out: string[] = ['<div class="cs-root cs-sheet cs-bench">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}</style>`];
+  const out: string[] = ['<div class="cs-root cs-sheet cs-bench">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}${brandSheetCss()}</style>`];
   pages.forEach((page, i) => {
     const sheet = `${i + 1} of ${total}`;
     out.push(

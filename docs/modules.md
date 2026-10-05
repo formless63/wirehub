@@ -338,6 +338,23 @@ wins, so a module's `art.drawing` still beats the setting, and an unset field ke
 text. The drawing sheet's title block, the wire spec, and the bench build sheet / BOM header read
 it; no renderer is branded by hand.
 
+**A typeface and drawing art, as data.** Settings, Branding also takes a licensed font and drawing art, both stored
+with the hub and used wherever a document is drawn. **Typeface**: upload a TrueType, OpenType or WOFF2 file (static, not
+a variable font; up to 1.5 MiB) after ticking that you hold a licence that lets documents embed it; it is kept as an asset
+(the uploader's name goes in its `src`), and Regular (and optionally Bold) are chosen from the fonts the hub holds, which
+include any a data pack ships under `fonts/` (`docs/catalog-store.md`). The drawing, the HTML sheets (build sheet, BOM,
+test spec, wire spec, formboard) and the browser engine's PDFs carry the font inline, first in their font stacks, so a
+glyph it lacks falls through to the standard sans; layout measures the font's own advance widths. The PDFs the server
+draws itself use it where they can: the drawing's raster PDF reads a TrueType or OpenType file, and the formboard's vector
+PDF embeds a subset of a font with TrueType outlines (`.ttf`, or an `.otf` that has them); a CFF `.otf` or a WOFF2 keeps the
+standard sans there, and the page says which. The plain-text fallback PDFs (no browser engine configured) stay in the standard
+Helvetica. **Drawing art**: faces, plugs and cutaways by definition id, in the shape a module's `art.drawing` has, as JSON
+in Settings (this hub's own file, `data/drawing-art.json`); a data pack may ship a `drawing-art.json` too, the two layer
+key by key with this hub's winning, and a cutaway's SVG is cleaned of scripts and external references on the way in.
+A module's own `art.drawing` (its font too) still wins, as with the logo. The API: `GET`/`POST
+/api/settings/branding/fonts` (the fonts you may choose; upload with `"licence": true`), and `font` and `art` on `PUT
+/api/settings/branding` (`null` removes them).
+
 ### Job queues
 
 An integration may register queues of its own for work that outlasts a request or runs on a

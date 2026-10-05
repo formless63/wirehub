@@ -27,7 +27,7 @@ import { designChangeLines, errors, isReadableSchemaVersion, MAX_SCHEMA_VERSION,
 import type { ModuleRegistry } from '@wirehub/modules';
 
 import { cableListEntry, usedInFeature, type CableListContext, type CableListEntry, type CableListPnContext } from '../src/cable-list.ts';
-import { assetSummaryWithDataUri, isImageAsset, isModelAsset, type AssetStore } from './assets.ts';
+import { assetSummaryWithDataUri, isFontAsset, isImageAsset, isModelAsset, type AssetStore } from './assets.ts';
 import type { ConvertedModel } from './models/convert.ts';
 import type { ModelLinkStore } from './models/links.ts';
 import type { ModelCache } from './models/cache.ts';
@@ -906,7 +906,7 @@ async function getAssetIndex(deps: WorkbenchDeps): Promise<ApiResponse> {
     return fail(501, 'This studio does not keep a shared asset library.', 'There are no stored files to link.');
   }
   // models are listed by `/api/models`: a GLB is not a vendor document
-  return ok({ assets: (await deps.assets.list()).filter((asset) => !isModelAsset(asset)) });
+  return ok({ assets: (await deps.assets.list()).filter((asset) => !isModelAsset(asset) && !isFontAsset(asset)) });
 }
 
 const ASSET_ID = /^[0-9a-f]{64}$/;
@@ -1495,7 +1495,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   if (isRulesPath(parts)) return await handleRulesRequest(method, parts, request.body, deps, ifMatch);
   if (isPnSettingsPath(parts)) return await handlePartNumberSettings(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
 
-  const settings = await handleSettingsRequest(method, parts, request.body, { ...deps, store: storeDepsOf(deps) }, ifMatch);
+  const settings = await handleSettingsRequest(method, parts, request.body, { ...deps, store: storeDepsOf(deps) }, ifMatch, request.user ?? deps.localUser);
   if (settings !== undefined) return settings;
 
   const vocab = await handleVocabRequest(method, parts, request.body, deps, ifMatch);

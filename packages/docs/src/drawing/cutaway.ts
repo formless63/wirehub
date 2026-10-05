@@ -23,6 +23,7 @@ import { resolveElementPath, type ConductorElement, type Element, type GroupElem
 
 import { registeredCutaway, registeredDepictions } from './assets.ts';
 import { depictedCutaway } from './depiction-art.ts';
+import { brandStack, brandWidth } from './brand-font.ts';
 import { sans } from './fonts.generated.ts';
 
 export interface Cutaway {
@@ -38,7 +39,8 @@ const WIDTH = 525;
 const HEIGHT = 131;
 const CY = 64;
 const LEADER = '#e30613';
-const FONT = "'CS Sans', Helvetica, Arial, sans-serif";
+const FONT_BASE = "'CS Sans', Helvetica, Arial, sans-serif";
+const fontStack = (): string => brandStack(FONT_BASE);
 
 /** The jacket print drawn on a cutaway: the stock's part number, else its id, upper-cased. */
 function markingText(wire: WireDefinition): string {
@@ -110,7 +112,7 @@ function callout(c: Callout, textX: number): string {
   const tickY = labelY - 3;
   return [
     `<path d="M${n(c.x)} ${n(c.y)}V${n(tickY)}H${n(textX >= c.x ? textX - 2 : textX + labelWidth(c.lines[0] ?? '') + 2)}" fill="none" stroke="${LEADER}" stroke-width="0.75"/>`,
-    ...c.lines.map((line, i) => `<text x="${n(textX)}" y="${n(labelY + i * 9.6)}" font-size="8" font-family="${esc(FONT)}">${esc(line)}</text>`),
+    ...c.lines.map((line, i) => `<text x="${n(textX)}" y="${n(labelY + i * 9.6)}" font-size="8" font-family="${esc(fontStack())}">${esc(line)}</text>`),
   ].join('');
 }
 
@@ -365,11 +367,11 @@ export function drawCutaway(wire: WireDefinition): Cutaway {
   // sized from the face's own advance widths to sit inside the jacket
   const markLeft = jacketX + jrx + 14;
   const markRight = right - jr * 0.45;
-  const unit = [...markingText(wire)].reduce((sum, ch) => sum + (sans.widths[ch] ?? 600), 0) / 1000;
+  const unit = [...markingText(wire)].reduce((sum, ch) => sum + (brandWidth(ch, false) ?? sans.widths[ch] ?? 600), 0) / 1000;
   const markSize = Math.min(20, (markRight - markLeft) / unit);
   const markX = (markLeft + markRight) / 2;
   out.push(
-    `<text x="${n(markX)}" y="${n(CY + markSize * 0.36)}" font-size="${n(markSize)}" fill="#ffffff" text-anchor="middle" font-family="${esc(FONT)}">${esc(markingText(wire))}</text>`,
+    `<text x="${n(markX)}" y="${n(CY + markSize * 0.36)}" font-size="${n(markSize)}" fill="#ffffff" text-anchor="middle" font-family="${esc(fontStack())}">${esc(markingText(wire))}</text>`,
   );
   if (jacket?.kind === 'insulation') {
     const matte = /matte/i.test(`${jacket.material ?? ''} ${jacket.label ?? ''}`) ? 'Matte' : 'Flat';
@@ -477,10 +479,10 @@ function drawFigure8Cutaway(wire: WireDefinition): Cutaway {
   // the marking, on the lower leg
   const markLeft = jacketX + 24;
   const markRight = right - legH;
-  const unit = [...markingText(wire)].reduce((sum, ch) => sum + (sans.widths[ch] ?? 600), 0) / 1000;
+  const unit = [...markingText(wire)].reduce((sum, ch) => sum + (brandWidth(ch, false) ?? sans.widths[ch] ?? 600), 0) / 1000;
   const markSize = Math.min(legH * 0.62, (markRight - markLeft) / unit);
   out.push(
-    `<text x="${n((markLeft + markRight) / 2)}" y="${n(bottomY + markSize * 0.36)}" font-size="${n(markSize)}" fill="#ffffff" text-anchor="middle" font-family="${esc(FONT)}">${esc(markingText(wire))}</text>`,
+    `<text x="${n((markLeft + markRight) / 2)}" y="${n(bottomY + markSize * 0.36)}" font-size="${n(markSize)}" fill="#ffffff" text-anchor="middle" font-family="${esc(fontStack())}">${esc(markingText(wire))}</text>`,
   );
 
   return { body: [...out, callouts(labels)].join(''), width: WIDTH, height: HEIGHT, source: 'drawn' };

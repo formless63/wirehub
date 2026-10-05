@@ -11,7 +11,7 @@
  */
 
 import { parseBodyLayouts, parseConnectorArt, type BodyLayoutRecord } from '@wirehub/catalog';
-import { drawingArtProblems, registerBenchSteps, registerDrawingArt, type DrawingArt } from '@wirehub/docs';
+import { drawingArtProblems, registerBenchSteps, registerDrawingArt, type BrandFace, type DrawingArt } from '@wirehub/docs';
 import { benchRuleProblems, benchRulesProvider } from '@wirehub/model';
 import type { ModuleRegistry } from '@wirehub/modules';
 import { registerConnectorArt } from '@wirehub/render-svg';
@@ -67,6 +67,10 @@ export interface BrandingSettings {
   notes?: [string, string, string];
   tolerances?: [string, string][];
   logoDataUri?: string;
+  /** the hub's own typeface: the uploaded font files with their measured widths (`server/settings.ts`) */
+  font?: { regular: BrandFace & { id?: string }; bold?: BrandFace & { id?: string } };
+  /** drawing art held as data (`drawing-art.json`: this hub's and its packs'): faces, plugs and cutaways by definition id */
+  art?: { faces?: Record<string, unknown>; plugs?: Record<string, unknown>; cutaways?: Record<string, unknown> };
 }
 
 /** The drawing art a branding setting stands for; `undefined` when nothing is set (the generic text stays). */
@@ -83,10 +87,16 @@ export function brandingArt(settings: BrandingSettings | undefined): DrawingArt 
     ...(notes === undefined ? {} : { notes }),
     ...(tolerances === undefined ? {} : { tolerances }),
   };
-  if (png === undefined && Object.keys(titleBlock).length === 0) return undefined;
+  const { font, art } = settings;
+  const hasArt = art !== undefined && (art.faces !== undefined || art.plugs !== undefined || art.cutaways !== undefined);
+  if (png === undefined && Object.keys(titleBlock).length === 0 && font === undefined && !hasArt) return undefined;
   return {
     ...(Object.keys(titleBlock).length === 0 ? {} : { titleBlock }),
     ...(png === undefined ? {} : { logo: { pngBase64: png, box: BRANDING_LOGO_BOX } }),
+    ...(font === undefined ? {} : { font }),
+    ...(art?.faces === undefined ? {} : { faces: art.faces as DrawingArt['faces'] }),
+    ...(art?.plugs === undefined ? {} : { plugs: art.plugs as DrawingArt['plugs'] }),
+    ...(art?.cutaways === undefined ? {} : { cutaways: art.cutaways as DrawingArt['cutaways'] }),
   };
 }
 

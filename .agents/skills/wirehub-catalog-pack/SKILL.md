@@ -26,6 +26,9 @@ pack/
   validation-rules.json                           declarative design rules, optional (below)
   bench-rules.json                                work instructions as data, optional (below)
   pcba-pads.json                                  pads per board terminal, optional (below)
+  drawing-art.json                                faces, plugs, cutaways by definition id, optional (below)
+  docs/**/*.pdf  assets/**/*.pdf                  vendor datasheets, optional (below)
+  fonts/<name>.ttf|otf|woff2  fonts/<name>.json   a licensed typeface and its licence, optional (below)
 ```
 
 Images under `depictions/` and `art/` (`svg png jpg jpeg webp`, lowercase extensions) ship with the
@@ -35,6 +38,16 @@ external references on install. `packs.json` records the images the pack owns, s
 replaces or removes them and a disable deletes them (the catalog's own files are never touched).
 `store-index.mjs bundle` includes them and refuses an image a studio would not install
 (`docs/catalog-store.md` section 3).
+
+**Vendor PDFs and fonts.** A datasheet goes under `docs/` or `assets/` (lowercase `.pdf`, a plain file
+name) and a record links it with `"vendorDocs": [{ "asset": "<sha256 of the PDF>", "label": "…", "src": "…" }]`;
+the studio serves it at `/api/blobs/<sha256>` (an attachment with no inline script) and opens it in the app at
+`/api/assets/<sha256>`. A PDF is at most 4 MiB (6 MiB together), must start with `%PDF-` and must not contain a
+script, launch action or embedded file. A font goes under `fonts/` (`.ttf`, `.otf`, `.woff2`, at most 2 MiB) with a
+`fonts/<name>.json` beside it, `{ "family"?, "license", "src" }`, saying what licence lets documents embed it; a
+pack with a font and no licence file is refused. Both are pinned and signed with the pack (`sign-pack`), owned
+by it in `packs.json` and removed with it. A hub owner chooses a pack's font in Settings, Branding.
+`verify-pack.mjs` checks the paths, headers, sizes and the licence file.
 
 Every `.json` file (except the manifest) is picked up by `packFiles`
 (`packages/catalog/src/packs.ts`); a data file's path is its place in the catalog, so a pack's
@@ -69,6 +82,9 @@ A pack can carry configuration as data, not only records (`docs/catalog-store.md
   `verify-pack.mjs` reports a rule that cannot be printed.
 - **`pcba-pads.json`**: `{ "src": "…", "boards": { "<board id>": { "src": "…", "terminals": { "GND": [{ "ref": "GND1", "side": "top" }] } } } }`.
   A pack owns the pads of the boards it lists; the install preview validates designs against them.
+- **`drawing-art.json`**: `{ "src": "…", "faces": { "<connector id>": … }, "plugs": { … }, "cutaways": { "<wire id>": { "svg", "width", "height" } } }`,
+  the shape a module's `art.drawing` has (`docs/modules.md`). It layers key by key under the hub's own art, a
+  pack owns its keys, and a cutaway's SVG is stripped of scripts and external references on install.
 - **`partNumberScheme`** in `wirehub-pack.json`: a declarative numbering definition
   (`docs/part-numbers.md`) the pack **offers**. Installing never switches the hub's scheme: the install
   answer carries `offers.partNumberScheme`, Settings, Part numbers lists it, and an owner confirms the

@@ -19,6 +19,7 @@ import { designStatus, type CableDesign, type Db } from '@wirehub/model';
 
 import { bomSheetBody, bomSheetMarkdown, deriveBomSheet } from './bom-sheet.ts';
 import { benchOptions, type BuildSheetOptions, type SheetOptions } from './build-sheet.ts';
+import { brandSheetCss } from './drawing/brand-font.ts';
 import { SHEET_STYLESHEET } from './styles.ts';
 import { resolveTestParameters } from './exports/test-params.ts';
 import { deriveTestSpec } from './test-spec.ts';
@@ -48,7 +49,7 @@ export function documentBody(
   const title = options.title ?? design.label;
   return [
     '<div class="cs-root cs-sheet">',
-    `<style>${SHEET_STYLESHEET}</style>`,
+    `<style>${SHEET_STYLESHEET}${brandSheetCss()}</style>`,
     '<header class="cs-titleblock">',
     '<div class="cs-titleblock__bar">',
     `<span class="cs-titleblock__kind">${escapeHtml(kind)}</span>`,

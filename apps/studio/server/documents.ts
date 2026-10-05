@@ -64,6 +64,8 @@ export interface DocumentDeps extends SchemeDeps {
   wireLibrary?: WireLibraryStore;
   /** the asset store: the branding's logo is read from it */
   assets?: AssetStore;
+  /** bytes by content address: where the branding's typeface is read when a pack shipped it */
+  blob?: (sha256: string) => Promise<{ bytes: Uint8Array; mediaType: string } | undefined>;
   /** the browser engine the HTML sheets are printed to PDF with (`WIREHUB_PDF_ENGINE_URL`, `render/browser-pdf.ts`); absent: the headless PDFs */
   pdfEngine?: PdfEngine;
   /** the live settings: the PDF engine named in Settings when the host handed none over */
@@ -201,11 +203,12 @@ export function pdfHeaders(pdf: PdfProvenance | undefined): Record<string, strin
 }
 
 /** The hub's branding as drawing art for the sheets the server draws, as the browser registers it (`installBranding`). */
-async function brandingOf(deps: DocumentDeps): Promise<DrawingArt | undefined> {
+async function brandingOf(deps: DocumentDeps, db: Db): Promise<DrawingArt | undefined> {
   if (deps.docs === undefined) return undefined;
   try {
     const record = (await deps.docs.read(BRANDING_PATH)) as BrandingRecord | undefined;
-    return record === undefined ? undefined : brandingArt(await brandingView(record, deps.assets));
+    // the typeface, and the drawing art the library holds as data (this hub's file and its packs')
+    return brandingArt(await brandingView(record, deps.assets, { ...(deps.blob === undefined ? {} : { blob: deps.blob }), db }));
   } catch {
     // branding is presentation: a settings document that cannot be read leaves the generic text
     return undefined;
@@ -320,7 +323,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const artwork = section === 'documents' && ['schematic', 'build-sheet', 'bom'].includes(name) ? await artworkOf(deps, loaded) : undefined;
   const partNumbers = wantsProposals ? await partNumbersOf(deps, loaded) : undefined;
   // the title block's organisation, logo and notes: the sheets the browser draws with them
-  const branding = section === 'documents' && (name === 'drawing' || name === 'build-sheet' || name === 'bom' || name === 'test-spec') ? await brandingOf(deps) : undefined;
+  const branding = section === 'documents' && (name === 'drawing' || name === 'build-sheet' || name === 'bom' || name === 'test-spec' || name === 'formboard') ? await brandingOf(deps, loaded.db) : undefined;
 
   if (section === 'exports') {
     const format = baseExport(name);

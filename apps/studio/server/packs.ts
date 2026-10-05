@@ -26,7 +26,7 @@
  * deployment administration, like `/api/setup`).
  */
 
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -53,6 +53,7 @@ import {
   type PackInstallPreview,
   type PackUpdatePlan,
 } from '@wirehub/catalog';
+import { drawingArtProblems } from '@wirehub/docs';
 import type { CodeModuleManifest, ModuleRegistry } from '@wirehub/modules';
 
 import type { ApiResponse } from './api.ts';
@@ -85,6 +86,17 @@ const refuse = (status: number, error: string, hint?: string, extra?: object): A
 function shown<T extends { writes: unknown }>(plan: T): Omit<T, 'writes' | 'retiredRecords' | 'assets'> {
   const { writes: _writes, retiredRecords: _retired, assets: _assets, ...rest } = plan as T & { retiredRecords?: unknown; assets?: unknown };
   return rest;
+}
+
+/** What the sheets cannot use in a pack's `drawing-art.json` (faces, plugs, cutaways), named; empty when there is none or it is fine. */
+function drawingArtFileProblems(dir: string): string[] {
+  const path = join(dir, 'drawing-art.json');
+  if (!existsSync(path)) return [];
+  try {
+    return drawingArtProblems(JSON.parse(readFileSync(path, 'utf8'))).map((p) => `drawing-art.json: ${p}`);
+  } catch {
+    return ['drawing-art.json is not valid JSON'];
+  }
 }
 
 /** The directory of the version of pack `id` this build bundles (a module's `catalogPacks`), if any. */
@@ -291,7 +303,7 @@ async function installFromSource(rawBody: unknown, deps: SetupDeps, view: Catalo
       throw error;
     }
     const digest = sha256(bytes);
-    const problems = [...pinProblems, ...packSourceProblems(dir)];
+    const problems = [...pinProblems, ...packSourceProblems(dir), ...drawingArtFileProblems(dir)];
     if (problems.length > 0) {
       return refuse(422, `That is not a usable pack: ${problems[0]}${problems.length > 1 ? ` (and ${problems.length - 1} more)` : ''}.`, 'Nothing was installed. The problems are listed.', { verified: false, problems });
     }

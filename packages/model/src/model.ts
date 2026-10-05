@@ -644,6 +644,20 @@ export interface Db {
    * Absent means none.
    */
   benchRules?: BenchStepRule[];
+  /**
+   * Drawing art supplied as data (the catalog's `drawing-art.json`; a data pack may ship it): traced
+   * connector faces and plugs and wire cutaways, by definition id. Presentation data the model carries
+   * and never reads: `@wirehub/docs` draws with it (`DrawingArt`), and the studio checks it on the way in.
+   */
+  drawingArt?: DrawingArtData;
+}
+
+/** The shape of `drawing-art.json`; the values are `DrawingArt`'s (`@wirehub/docs`), which the model does not know. */
+export interface DrawingArtData {
+  src?: string;
+  faces?: Record<string, unknown>;
+  plugs?: Record<string, unknown>;
+  cutaways?: Record<string, unknown>;
 }
 
 /* ------------------------------------------------------------------ *

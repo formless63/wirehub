@@ -20,11 +20,12 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
-const { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, packFiles, readPackManifest } = await import(
+const { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, packAssetFiles, packFiles, readPackManifest } = await import(
   new URL('packages/catalog/src/index.ts', `file://${root}`).href
 );
 const { benchRuleProblems, declarativeSchemeProblems, ruleListProblems, validateDb, validateDesign } = await import(new URL('packages/model/src/index.ts', `file://${root}`).href);
 const { codeModuleManifestProblems, isCodeFilePath } = await import(new URL('packages/modules/src/index.ts', `file://${root}`).href);
+const { MAX_PACK_FONT_BYTES, MAX_PACK_PDF_BYTES, fontProblem, isPackDocPath, isPackFontPath, pdfProblem } = await import(new URL('apps/studio/server/pack-archive.ts', `file://${root}`).href);
 
 const dirs = process.argv.slice(2).map((d) => resolve(d));
 if (dirs.length === 0) {
@@ -52,6 +53,22 @@ console.log(`pack ${manifest.id}@${manifest.version} (${manifest.license})`);
 if (manifest.partNumberScheme !== undefined) for (const problem of declarativeSchemeProblems(manifest.partNumberScheme)) fail(`manifest partNumberScheme: ${problem}`);
 if (existsSync(join(packDir, 'bench-rules.json'))) for (const problem of benchRuleProblems(JSON.parse(readFileSync(join(packDir, 'bench-rules.json'), 'utf8')), 'bench-rules.json')) fail(problem);
 if (existsSync(join(packDir, 'validation-rules.json'))) for (const problem of ruleListProblems(JSON.parse(readFileSync(join(packDir, 'validation-rules.json'), 'utf8')))) fail(`validation-rules.json: ${problem}`);
+
+// vendor PDFs (docs/, assets/) and fonts (fonts/) are what a studio would install: the path, the header, the size, no active content
+for (const relative of packAssetFiles(packDir).filter((p) => /^(docs|assets|fonts)\//.test(p))) {
+  const bytes = new Uint8Array(readFileSync(join(packDir, relative)));
+  if (relative.endsWith('.pdf')) {
+    if (!isPackDocPath(relative)) fail(`${relative}: a pack's PDFs live under docs/ or assets/ with a plain file name`);
+    if (bytes.length > MAX_PACK_PDF_BYTES) fail(`${relative}: larger than a pack PDF may be (${MAX_PACK_PDF_BYTES / 1024 / 1024} MiB)`);
+    const problem = pdfProblem(bytes);
+    if (problem !== undefined) fail(`${relative} ${problem}`);
+  } else {
+    if (!isPackFontPath(relative)) fail(`${relative}: a pack's fonts live under fonts/ with a plain file name`);
+    if (bytes.length > MAX_PACK_FONT_BYTES) fail(`${relative}: larger than a pack font may be (${MAX_PACK_FONT_BYTES / 1024 / 1024} MiB)`);
+    const problem = fontProblem(relative, bytes);
+    if (problem !== undefined) fail(`${relative} ${problem}`);
+  }
+}
 
 // every record of the pack's own files cites a source
 for (const relative of packFiles(packDir)) {

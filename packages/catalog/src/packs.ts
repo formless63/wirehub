@@ -195,7 +195,7 @@ export function mergeCatalogFile(relative: string, texts: string[]): string {
     const lists = values as Record<string, Json>[];
     return canonical({ ...lists[0], entries: mergeRecords(lists.map((l) => l['entries'] as Json[])) });
   }
-  if ((relative.startsWith('tags/') || relative === PCBA_PADS_FILE) && values.every(isPlainObject)) {
+  if ((relative.startsWith('tags/') || relative in KEYED_FILES) && values.every(isPlainObject)) {
     return canonical(mergeObjects(values as Record<string, Json>[]));
   }
   return texts[0] as string;
@@ -204,8 +204,37 @@ export function mergeCatalogFile(relative: string, texts: string[]): string {
 /** The pad table beside the board records: pads per board, per terminal (`PcbaPadTable`). A pack may ship one. */
 export const PCBA_PADS_FILE = 'pcba-pads.json';
 
+/** The drawing art a hub or a pack supplies as data: `{ faces, plugs, cutaways }` by connector or wire id (`DrawingArt`, `@wirehub/docs`). */
+export const DRAWING_ART_FILE = 'drawing-art.json';
+
+/**
+ * Files that are one object of keyed sections rather than a list of records: the pad table (`boards`,
+ * keyed by board id) and the drawing art (`faces`, `plugs`, `cutaways`, keyed by definition id). They
+ * layer key by key, and the pack lifecycle treats each key as a record the pack owns (id `<key>`, or
+ * `<section>/<key>` when the file has several sections), so an update replaces them and a disable removes them.
+ */
+export const KEYED_FILES: Readonly<Record<string, readonly string[]>> = { [PCBA_PADS_FILE]: ['boards'], [DRAWING_ART_FILE]: ['faces', 'plugs', 'cutaways'] };
+
+/** The record id of one key of a keyed file. */
+export const keyedId = (file: string, section: string, key: string): string => ((KEYED_FILES[file] ?? []).length === 1 ? key : `${section}/${key}`);
+
+/** The records of a keyed file's parsed value, each `{ id, ...value }`. */
+export function keyedRecords(file: string, value: Json): { id: string; section: string; key: string; record: Json }[] {
+  const out: { id: string; section: string; key: string; record: Json }[] = [];
+  if (!isPlainObject(value)) return out;
+  for (const section of KEYED_FILES[file] ?? []) {
+    const entries = value[section];
+    if (!isPlainObject(entries)) continue;
+    for (const [key, entry] of Object.entries(entries)) {
+      const id = keyedId(file, section, key);
+      out.push({ id, section, key, record: isPlainObject(entry) ? { id, ...entry } : { id } });
+    }
+  }
+  return out;
+}
+
 /** The record files of a catalog (merged in place by id; the pad table by board); every other JSON file a pack ships is auxiliary and layered as a whole. */
-const RECORD_FILE_NAMES = new Set(['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'validation-rules', 'bench-rules', 'pcba-pads'].map((n) => `${n}.json`));
+const RECORD_FILE_NAMES = new Set(['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'validation-rules', 'bench-rules', 'pcba-pads', 'drawing-art'].map((n) => `${n}.json`));
 
 /**
  * A data file that is not a list of records the lifecycle tracks by id: the pad
@@ -447,24 +476,31 @@ function planAgainst(local: CatalogSource, installed: InstalledPacks, packDir: s
     if (localText === undefined) {
       writes[relative] = packText;
       const parsed = JSON.parse(packText) as Json;
-      const records = relative === PCBA_PADS_FILE ? (isPlainObject(parsed) && isPlainObject(parsed['boards']) ? Object.keys(parsed['boards']).map((id) => ({ id })) : []) : recordsIn(parsed);
+      const records = relative in KEYED_FILES ? keyedRecords(relative, parsed) : recordsIn(parsed);
       added[relative] = records === undefined ? [] : records.map(idOf).filter((id): id is string => id !== undefined);
       continue;
     }
     const packValue = JSON.parse(packText) as Json;
     const localValue = JSON.parse(localText) as Json;
-    if (relative === PCBA_PADS_FILE) {
-      // the pad table is merged board by board: a board the catalog already has, differently, is a conflict
-      const have = isPlainObject(localValue) && isPlainObject(localValue['boards']) ? (localValue['boards'] as Record<string, Json>) : {};
-      const incoming = isPlainObject(packValue) && isPlainObject(packValue['boards']) ? (packValue['boards'] as Record<string, Json>) : {};
-      const fresh: Record<string, Json> = {};
-      for (const [id, board] of Object.entries(incoming)) {
-        if (!(id in have)) fresh[id] = board;
-        else if (JSON.stringify(have[id]) !== JSON.stringify(board)) conflicts.push(`${relative}: '${id}' already has different pads`);
-      }
-      if (Object.keys(fresh).length > 0) {
-        added[relative] = Object.keys(fresh);
-        writes[relative] = canonical({ ...(localValue as Record<string, Json>), boards: { ...have, ...fresh } });
+    if (relative in KEYED_FILES) {
+      // a keyed file (the pad table, the drawing art) is merged key by key: one the catalog already has, differently, is a conflict
+      const have = new Map(keyedRecords(relative, localValue).map((r) => [r.id, r] as const));
+      const fresh = keyedRecords(relative, packValue).filter((r) => {
+        const mine = have.get(r.id);
+        if (mine === undefined) return true;
+        if (JSON.stringify(mine.record) !== JSON.stringify(r.record)) conflicts.push(`${relative}: '${r.id}' already exists with different content`);
+        return false;
+      });
+      if (fresh.length > 0) {
+        added[relative] = fresh.map((r) => r.id);
+        const merged: Record<string, Json> = { ...(localValue as Record<string, Json>) };
+        for (const r of fresh) {
+          const section = isPlainObject(merged[r.section]) ? { ...(merged[r.section] as Record<string, Json>) } : {};
+          const entries = (packValue as Record<string, Json>)[r.section] as Record<string, Json>;
+          section[r.key] = entries[r.key];
+          merged[r.section] = section;
+        }
+        writes[relative] = canonical(merged);
       }
       continue;
     }

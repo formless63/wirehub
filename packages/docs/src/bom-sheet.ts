@@ -31,6 +31,7 @@ import { deriveBom, type BomCategory, type BomLine } from './bom.ts';
 import { headerHtml, sheetHeader, type DocumentFacts, type SheetHeader } from './bench/header.ts';
 import { trunkSides } from './bench/model.ts';
 import { trunkSegment, type DrawingMeta } from './drawing/model.ts';
+import { brandSheetCss } from './drawing/brand-font.ts';
 import { SHEET_STYLESHEET } from './styles.ts';
 import { BENCH_STYLESHEET } from './bench/styles.ts';
 import { compareStrings, escapeHtml, escapeMarkdownCell, facts } from './text.ts';
@@ -401,7 +402,7 @@ function costHtml(cost: CostSummary): string {
 }
 
 export function bomSheetBody(sheet: BomSheet): string {
-  const parts: string[] = ['<div class="cs-root cs-sheet cs-bench">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}</style>`, headerHtml(sheet.header)];
+  const parts: string[] = ['<div class="cs-root cs-sheet cs-bench">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}${brandSheetCss()}</style>`, headerHtml(sheet.header)];
   if (sheet.header.productPn === undefined && sheet.header.family === undefined) {
     parts.push(
       `<p class="cs-callout">No part number for this cable.${
