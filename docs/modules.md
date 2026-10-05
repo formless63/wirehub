@@ -253,13 +253,25 @@ catalog record's) are `specs/drawing-language.md` §7. Depictions of bundled mod
 browser through globs over `modules/*/pack/depictions/`; an *installed* third-party pack's SVG
 files are not copied by `installPackLayer` yet (it copies `.json` only).
 
-**Bench work instructions** are a docs-level hook, `registerBenchSteps(provider)`
-(`packages/docs/src/bench/standard-work.ts`, `specs/drawing-language.md` §8): a provider returns
-steps for `prep`, `end`, `assembly`, `solder` or `qa`, or `undefined` to keep the generic ones.
-It is **not** a module extension point yet: the provider's inputs are the bench types
-(`BenchEnd`, `ShellSet`), which a module cannot name without importing `@wirehub/docs`. Hoisting
-those types into `@wirehub/model` (or a thin `BenchStepsContribution` over plain facts) is the
-step that makes it a module point; the bead stays open for it.
+**Bench work instructions** are the module point `bench: { rules?, provider? }`
+(`specs/drawing-language.md` §8). The build sheet prints a shop's own steps in place of the
+generic ones, per phase (`prep`, `end`, `assembly`, `solder`, `qa`). The types (`Step`,
+`BenchEnd`, `ShellSet`, `BenchStepsProvider`, `BenchStepRule`) live in `@wirehub/model`
+(`bench-types.ts`), so a module names them without importing `@wirehub/docs`.
+
+- **As data**: `rules` is plain JSON a module or pack ships (import it with `with { type: 'json' }`):
+  `{ id, phase, when?: { connector?, family?, wire?, stockFamily? }, steps: [{ text, src, images?, tools?, checks? }] }`.
+  `when` matches the connector definitions or families at the end, or the stock; a rule with no
+  `when` always applies; the steps of all matching rules, in order, replace the generic steps of
+  that phase. `solder` and `qa` rules take no `when`. `images` are `data:image/` URIs or `https:` URLs,
+  `tools` print as a line, each of `checks` with a tick box. Every step needs a `src`.
+- **As code**: `provider` is the `BenchStepsProvider` with the bench facts in hand (stock, end,
+  terminations, shells).
+
+The host validates the rules at start (`benchRuleProblems`; a bad rule stops the start with a
+sentence per problem) and registers them in manifest order, rules before the module's provider; the
+first registration with an answer for a phase wins. `modules/example` shows both. The
+lower-level `registerBenchSteps(provider)` in `@wirehub/docs` is what the host calls.
 
 
 **The hub's own identity.** A hub with no branding module still sets its organisation name,

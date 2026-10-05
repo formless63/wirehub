@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, readPackManifest } from '@wirehub/catalog';
-import { readSignalWords, validateDb, validateDesign, type CableDesign, type Db } from '@wirehub/model';
+import { benchRuleProblems, benchRulesProvider, readSignalWords, validateDb, validateDesign, type CableDesign, type Db } from '@wirehub/model';
 import { createRegistry, manifestProblems, type WireHubModule } from '@wirehub/modules';
 import { describe, expect, it } from 'vitest';
 
@@ -34,7 +34,7 @@ describe('the example module', () => {
   it('contributes to every extension point of the module API', () => {
     const keys = Object.keys(example).sort();
     // every optional member of WireHubModule is set (a new extension point added to the API fails this until the example shows it)
-    const everyPoint: (keyof WireHubModule)[] = ['setup', 'catalogPacks', 'importers', 'exporters', 'partNumberScheme', 'validationRules', 'integrations', 'panels', 'compareViews', 'routes', 'authProviders', 'commitHook', 'documents', 'derived'];
+    const everyPoint: (keyof WireHubModule)[] = ['setup', 'catalogPacks', 'importers', 'exporters', 'partNumberScheme', 'validationRules', 'integrations', 'panels', 'compareViews', 'routes', 'authProviders', 'commitHook', 'documents', 'derived', 'bench'];
     for (const point of everyPoint) expect(keys, point).toContain(point);
     expect(registry.domains().map((m) => m.id)).toEqual(['example']);
     expect(registry.catalogPacks().map((p) => p.id)).toEqual(['example']);
@@ -108,5 +108,18 @@ describe('the example module', () => {
     expect(out['summary.json']).toMatchObject({ designs: 2, joints: 2, connectors: [{ def: 'de9-male', count: 2 }] });
     expect(out['summary.md']).toBe('# Example summary\n\n2 designs, 2 joints.\n\n- de9-male: 2\n');
     expect(deriveSummary({ designs: [design(), { ...design(), id: 'b' }], db: starter })).toEqual(out);
+  });
+
+  it('ships bench work steps as valid data rules plus a code provider', () => {
+    const [bench] = registry.bench();
+    expect(bench?.module).toBe('example');
+    expect(benchRuleProblems(bench?.rules ?? [])).toEqual([]);
+    // the rules answer the end phase only for a D-Sub end, and leave other phases to the generic steps
+    const provider = benchRulesProvider(bench?.rules ?? []);
+    const dsub = { side: 'a', segmentEnds: [], bridges: [], terminations: [{ instance: 'j1', kind: 'connector', def: 'de9-male', label: 'DE-9', landings: [], mounted: [] }] } as const;
+    const steps = provider.end?.(dsub as never, withPack);
+    expect(steps?.[0]?.tools).toEqual(['flux pen', 'helping hands']);
+    expect(provider.prep?.({ id: 'x', structure: { children: [] } } as never, false)).toBeUndefined();
+    expect(bench?.provider?.qa?.[0]?.checks).toHaveLength(1);
   });
 });

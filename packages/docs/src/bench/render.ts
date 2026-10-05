@@ -50,7 +50,11 @@ function depictionSourceOf(option: boolean | DepictionSource | undefined): Depic
 
 function stepsHtml(steps: readonly Step[]): string {
   if (steps.length === 0) return '';
-  return `<ol class="cs-steps">${steps.map((s) => `<li><span>${escapeHtml(s.text)}<span class="cs-src">${escapeHtml(s.src)}</span></span></li>`).join('')}</ol>`;
+  const extras = (s: Step): string =>
+    `${(s.images ?? []).map((src) => `<img class="cs-stepimg" src="${escapeHtml(src)}" alt="">`).join('')}${
+      s.tools === undefined || s.tools.length === 0 ? '' : `<span class="cs-tools">Tools: ${escapeHtml(s.tools.join(', '))}</span>`
+    }${(s.checks ?? []).map((c) => `<span class="cs-stepcheck"><span class="cs-check"></span> ${escapeHtml(c)}</span>`).join('')}`;
+  return `<ol class="cs-steps">${steps.map((s) => `<li><span>${escapeHtml(s.text)}${extras(s)}<span class="cs-src">${escapeHtml(s.src)}</span></span></li>`).join('')}</ol>`;
 }
 
 function stage(n: number, title: string, sub?: string): string {

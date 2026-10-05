@@ -218,3 +218,9 @@ returns steps, or `undefined` to leave the generic ones (common cable-prep and s
 practice, each step citing its source). The first provider with an answer wins; a provider
 sees the stock, the end's terminations and the shells, so instructions can differ per
 family or termination.
+
+A module reaches the hook through its `bench` contribution (`docs/modules.md`): either a
+`provider` with the signature above or declarative `rules` (`BenchStepRule`, in
+`@wirehub/model` `bench-types.ts`) that match on connector, family, wire or stock family and
+carry steps with text, images, tools and checks. The bench types are hoisted into the model so
+`@wirehub/modules` can name them.
