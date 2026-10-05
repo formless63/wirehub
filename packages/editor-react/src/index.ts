@@ -570,8 +570,8 @@ export type { DepictionArtwork, DepictionSource } from '@wirehub/render-svg';
 export { EditorContext, useEditorApi } from './context.ts';
 export type { EditorApi } from './context.ts';
 /* The same cable on another trunk stock. */
-export { canSwapTrunkStock, withTrunkStock } from './stock-swap.ts';
-export type { StockSwapResult } from './stock-swap.ts';
+export { canSwapTrunkStock, previewTrunkStock, swappableStocks, withTrunkStock } from './stock-swap.ts';
+export type { StockSwapResult, TrunkMove } from './stock-swap.ts';
 
 /* Library tabs, shells and kits */
 export { LIBRARY_KINDS, isLibraryKind } from './definitions.ts';

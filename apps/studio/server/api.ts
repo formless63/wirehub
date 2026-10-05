@@ -590,8 +590,10 @@ async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown)
   if (!move.ok) return move.response;
   if (await deps.designs.has(move.newId)) return alreadyExists(move.newId);
 
+  // a copy is a new part: it does not inherit the original's product reference (a number is never reused)
+  const { productRef: _original, ...inherited } = source;
   const copy: CableDesign = {
-    ...source,
+    ...inherited,
     id: move.newId,
     label: move.newLabel ?? `${source.label} (copy)`,
     // provenance travels with the facts: the copy states its own descent so a

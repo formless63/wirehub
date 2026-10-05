@@ -179,6 +179,29 @@ export async function duplicateDesign(
   }));
 }
 
+/**
+ * "Make variant": a new design that is `source` with its trunk moved onto another stock
+ * (`withTrunkStock`, already computed by the caller as `variant`). It is stored as a copy, so it
+ * is reported as `duplicated` and the host opens it; the original is untouched. The copy is a new
+ * part: it carries no product reference of its own to clash with the original's.
+ */
+export async function variantDesign(
+  adapter: PersistenceAdapter,
+  from: string,
+  variant: CableDesign,
+  fields: { id: string; label: string },
+): Promise<LifecycleResult> {
+  const bad = checkName(fields.id, fields.label);
+  if (bad !== undefined) return bad;
+  const { productRef: _own, ...rest } = variant;
+  const copy: CableDesign = { ...rest, id: fields.id, label: fields.label.trim() };
+  return settle(await adapter.create(copy), (design) => ({
+    ok: true,
+    change: { kind: 'duplicated', design, from },
+    status: `made ${design.id} from ${from} on another stock`,
+  }));
+}
+
 export async function renameDesign(
   adapter: PersistenceAdapter,
   from: string,

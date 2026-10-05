@@ -25,6 +25,7 @@ import {
   duplicateDesign,
   renameDesign,
   saveDesign,
+  variantDesign,
   type CatalogChange,
   type LifecycleProblem,
   type LifecycleResult,
@@ -38,6 +39,7 @@ export type DialogKind =
   | 'wizard'
   | 'new'
   | 'duplicate'
+  | 'variant'
   | 'rename'
   | 'delete';
 
@@ -45,6 +47,7 @@ export type DialogKind =
 export type LifecycleAction =
   | 'rename'
   | 'duplicate'
+  | 'variant'
   | 'delete'
   | 'new';
 
@@ -173,6 +176,8 @@ export function useDesignLifecycle(props: DesignLifecycleProps): DesignLifecycle
       openNew();
       return;
     }
+    // a variant needs the library to know which stocks the trunk can move to
+    if (action === 'variant' && props.db === undefined) return;
     setDialog(action);
   };
 
@@ -207,4 +212,4 @@ export function useDesignLifecycle(props: DesignLifecycleProps): DesignLifecycle
   };
 }
 
-export { createDesign, createWiredDesign, deleteDesign, duplicateDesign, renameDesign };
+export { createDesign, createWiredDesign, deleteDesign, duplicateDesign, renameDesign, variantDesign };

@@ -12,17 +12,19 @@
 
 import type { CableDesign, Db } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
-import { useState, type FormEvent, type JSX } from 'react';
+import { useMemo, useState, type FormEvent, type JSX } from 'react';
 
 import type { LifecycleProblem } from '../lifecycle.ts';
 import type { DesignSummary, PersistenceAdapter } from '../persistence.ts';
 import { suggestDesignId } from '../persistence.ts';
+import { previewTrunkStock, swappableStocks } from '../stock-swap.ts';
 import { NewCableWizard } from './NewCableWizard.tsx';
 import {
   createDesign,
   deleteDesign,
   duplicateDesign,
   renameDesign,
+  variantDesign,
   type DesignLifecycleApi,
   type DialogKind,
 } from './useDesignLifecycle.ts';
@@ -31,6 +33,7 @@ const DIALOG_TITLE: Record<DialogKind, string> = {
   wizard: 'New cable',
   new: 'New design',
   duplicate: 'Save a copy',
+  variant: 'Make a variant',
   rename: 'Rename this design',
   delete: 'Delete this design',
 };
@@ -41,6 +44,8 @@ const DIALOG_SAY: Record<DialogKind, string> = {
   new: 'Starts an empty cable. You add the connectors, wire and board on the canvas afterwards.',
   duplicate:
     'Copies this cable — every part and every joint — under a new name. The original is left exactly as it is.',
+  variant:
+    'Copies this cable onto another wire stock. The trunk moves across by conductor colour; everything else is copied as it is, and this cable is left exactly as it is.',
   rename: 'Changes this cable’s name and id. The design itself is not altered.',
   delete: '',
 };
@@ -165,6 +170,115 @@ function NameDialog(props: DialogProps): JSX.Element {
         </button>
         <button type="submit" className="cs-primary" disabled={props.busy}>
           {props.busy ? 'Working…' : DIALOG_TITLE[props.kind]}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * "Make variant": pick a stock the trunk can move to (only the ones
+ * `canSwapTrunkStock` accepts), see which conductors go where, name the copy.
+ */
+function VariantDialog(props: {
+  design: CableDesign;
+  db: Db;
+  taken: string[];
+  busy: boolean;
+  dirty: boolean;
+  problem: LifecycleProblem | undefined;
+  onCancel: () => void;
+  onSubmit: (variant: CableDesign, fields: { id: string; label: string }) => void;
+}): JSX.Element {
+  const stocks = useMemo(() => swappableStocks(props.design, props.db), [props.design, props.db]);
+  const [stockId, setStockId] = useState(stocks[0]?.id ?? '');
+  const stock = stocks.find((w) => w.id === stockId);
+  const shortLabel = (label: string): string => label.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const suggestedLabel = stock === undefined ? '' : `${props.design.label} (on ${shortLabel(stock.label)})`;
+  const [label, setLabel] = useState<string | undefined>(undefined);
+  const [id, setId] = useState<string | undefined>(undefined);
+  const shownLabel = label ?? suggestedLabel;
+  const shownId = id ?? suggestDesignId(shownLabel, props.taken);
+  const preview = useMemo(() => (stock === undefined ? undefined : previewTrunkStock(props.design, props.db, stock.id)), [props.design, props.db, stock]);
+
+  const submit = (event: FormEvent): void => {
+    event.preventDefault();
+    if (preview === undefined) return;
+    props.onSubmit(preview.design, { id: shownId, label: shownLabel });
+  };
+
+  return (
+    <form className="cs-modal-card" onSubmit={submit}>
+      <h2>{DIALOG_TITLE.variant}</h2>
+      <p className="cs-modal-say">{DIALOG_SAY.variant}</p>
+      {props.dirty ? (
+        <p className="cs-modal-warn">You have changes that are not saved yet; the variant includes them. This cable itself stays as it is saved.</p>
+      ) : null}
+      {stocks.length === 0 ? (
+        <p className="cs-modal-say">There is no other wire stock in the library this cable’s trunk could move to.</p>
+      ) : (
+        <>
+          <label className="cs-field">
+            <span>Wire stock</span>
+            <select value={stockId} aria-label="Wire stock" onChange={(event) => setStockId(event.target.value)}>
+              {stocks.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.label}
+                </option>
+              ))}
+            </select>
+            <small>Only stocks the trunk can move to are listed.</small>
+          </label>
+          {preview === undefined ? null : (
+            <div className="cs-variant-preview" aria-label="What moves">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Conductor</th>
+                    <th>Now</th>
+                    <th>On {stock === undefined ? 'the new stock' : shortLabel(stock.label)}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.moves.map((m) => (
+                    <tr key={m.colour} data-colour={m.colour}>
+                      <td>{m.colour}</td>
+                      <td>
+                        <code>{m.from}</code>
+                      </td>
+                      <td>{m.to === undefined ? <em>no such core — not carried across</em> : <code>{m.to}</code>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {preview.spare.length === 0 ? null : <p className="cs-modal-say">New cores left unconnected at both ends: {preview.spare.join(', ')}.</p>}
+              {preview.lost.length === 0 ? null : (
+                <ul className="cs-problem-list" aria-label="Not carried across">
+                  {preview.lost.map((line, index) => (
+                    <li key={index}>{line}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          <label className="cs-field">
+            <span>Name</span>
+            <input value={shownLabel} onChange={(event) => setLabel(event.target.value)} />
+          </label>
+          <label className="cs-field">
+            <span>Id</span>
+            <input value={shownId} onChange={(event) => setId(event.target.value)} />
+            <small>Lowercase words joined by hyphens; suggested from the name until you change it.</small>
+          </label>
+        </>
+      )}
+      {props.problem === undefined ? null : <Problem problem={props.problem} />}
+      <div className="cs-modal-actions">
+        <button type="button" className="cs-quiet" onClick={props.onCancel} disabled={props.busy}>
+          Cancel
+        </button>
+        <button type="submit" className="cs-primary" disabled={props.busy || stock === undefined}>
+          {props.busy ? 'Working…' : 'Make variant'}
         </button>
       </div>
     </form>
@@ -308,6 +422,18 @@ export function DesignLifecycleDialogs(props: DesignLifecycleDialogsProps): JSX.
               onCancel={api.close}
               onBlank={() => api.setDialog('new')}
               onCatalogChange={api.finishWizard}
+            />
+          ) : dialog === 'variant' && props.db !== undefined ? (
+            <VariantDialog
+              key="variant"
+              design={props.design}
+              db={props.db}
+              taken={api.taken}
+              busy={api.busy}
+              dirty={api.dirty}
+              problem={api.problem}
+              onCancel={api.close}
+              onSubmit={(variant, fields) => void api.run(() => variantDesign(props.persistence, props.design.id, variant, fields))}
             />
           ) : dialog === 'delete' ? (
             <DeleteDialog
