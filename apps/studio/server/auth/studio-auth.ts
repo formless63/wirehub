@@ -121,6 +121,12 @@ export interface StudioAuthOverrides {
   providers?: readonly AuthProviderContribution[];
   /** the environment `…Env` entries of those providers are read from (default `process.env`) */
   providerEnv?: Readonly<Record<string, string | undefined>>;
+  /**
+   * The providers as they change (runtime code modules, `specs/runtime-modules.md`
+   * §3): `liveStudioAuth` rebuilds the sign-in when the list changes, as it does
+   * for a settings change. Takes the place of `providers`.
+   */
+  liveProviders?: { current(): readonly AuthProviderContribution[]; subscribe(listener: () => void): () => void };
   pg?: { url: string; people: PeopleStore; tokens?: TokenStore; tokenEnv?: TokenEnv; limiter?: RateLimiter; setupMode?: () => boolean; notifier?: Notifier };
 }
 
@@ -436,8 +442,18 @@ export async function liveStudioAuth(settings: RuntimeSettings, overrides: Studi
   if (!authRequested(settings.base)) return undefined;
   // one rate limiter for every rebuild: a reload must not reset the budgets
   if (overrides.pg !== undefined && overrides.pg.tokens !== undefined && overrides.pg.limiter === undefined) overrides = { ...overrides, pg: { ...overrides.pg, limiter: new RateLimiter() } };
-  const moduleProviders = overrides.providers?.length ?? 0;
-  const configOf = (env: Readonly<Record<string, string | undefined>>): AuthConfigEnabled => readAuthConfig(env, { moduleProviders }) as AuthConfigEnabled;
+  const live = overrides.liveProviders;
+  const providersNow = (): readonly AuthProviderContribution[] => live?.current() ?? overrides.providers ?? [];
+  const configOf = (env: Readonly<Record<string, string | undefined>>): AuthConfigEnabled => readAuthConfig(env, { moduleProviders: providersNow().length }) as AuthConfigEnabled;
+  const providerKey = (): string => {
+    const list = providersNow();
+    try {
+      return JSON.stringify(list.map((p) => [p.kind, p.id, p.label, p.config]), (_key, value: unknown) => (typeof value === 'function' ? undefined : value));
+    } catch {
+      // a plugin object that does not serialise: its identity is its id
+      return list.map((p) => `${p.kind}:${p.id}:${p.label}`).join(',');
+    }
+  };
   let problem: string | undefined;
   let config: AuthConfigEnabled;
   try {
@@ -450,9 +466,9 @@ export async function liveStudioAuth(settings: RuntimeSettings, overrides: Studi
     config = configOf(settings.base);
   }
   const database = authDatabaseOf(overrides, config);
-  const build = (next: AuthConfigEnabled): Promise<StudioAuth> => createStudioAuth(next, { ...overrides, sharedDatabase: database });
+  const build = (next: AuthConfigEnabled): Promise<StudioAuth> => createStudioAuth(next, { ...overrides, providers: providersNow(), sharedDatabase: database });
   let inner = await build(config);
-  let signature = JSON.stringify(config);
+  let signature = `${JSON.stringify(config)}|${providerKey()}`;
   const reload = async (): Promise<void> => {
     let next: AuthConfigEnabled;
     try {
@@ -462,7 +478,7 @@ export async function liveStudioAuth(settings: RuntimeSettings, overrides: Studi
       log(`[auth] ${problem}`);
       return;
     }
-    const nextSignature = JSON.stringify(next);
+    const nextSignature = `${JSON.stringify(next)}|${providerKey()}`;
     if (nextSignature === signature) {
       problem = undefined;
       return;
@@ -480,6 +496,10 @@ export async function liveStudioAuth(settings: RuntimeSettings, overrides: Studi
   };
   let chain: Promise<void> = Promise.resolve();
   settings.onChange(() => {
+    chain = chain.then(reload, reload);
+  });
+  // a module's sign-in method came or went: the same rebuild
+  live?.subscribe(() => {
     chain = chain.then(reload, reload);
   });
   return {

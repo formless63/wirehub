@@ -38,7 +38,10 @@ import { workbenchDepsFromEnv } from './default-deps.ts';
 import { backendFromEnv } from './pg/config.ts';
 import { envVar, legacyEnvWarning } from './env.ts';
 import { environmentRefusal, wirehubEnv } from './env-guard.ts';
-import { registry } from './modules.ts';
+import { builtinModules, registry } from './modules.ts';
+import { attachCodeModules } from './code-modules/index.ts';
+import { createSystemControl, inFlightCounter, type DrainStep } from './system.ts';
+import { withWriteLock } from './storage/write-lock.ts';
 import { deepHealthCheck, startHealthMonitor } from './health.ts';
 import { liveNotifier, notifierFromEnv } from './notify.ts';
 import { backupMaxAgeHours } from './runtime-settings.ts';
@@ -152,6 +155,16 @@ const settings = workbench.settings;
 setInterval(() => void settings.refresh().catch((error: unknown) => console.warn(`[settings] ${error instanceof Error ? error.message : String(error)}`)), 60_000).unref();
 if (settings.cipher === undefined) console.log('[settings] no settings key (WIREHUB_SETTINGS_KEY): secrets cannot be saved in Settings; set them in the environment');
 
+// runtime code modules (specs/runtime-modules.md): the installed and enabled ones, loaded into the live
+// registry before sign-in is built (a module may add a sign-in method); they follow every catalog change
+const codeModules = attachCodeModules(deps, {
+  builtins: builtinModules,
+  live: registry,
+  ...(workbench.backend === 'files' && deps.setup !== undefined ? { files: { dataDir: deps.setup.dataDir, ...(deps.setup.packsDir === undefined ? {} : { packsDir: deps.setup.packsDir }) } } : {}),
+});
+await codeModules.host.sync();
+codeModules.host.markBooted();
+
 // the monitoring webhook (WIREHUB_NOTIFY_URL, or Settings → Notifications; plan §8.6): events are logged either way
 const notifier = liveNotifier(() => settings.env());
 
@@ -161,8 +174,8 @@ const notifier = liveNotifier(() => settings.env());
 let auth: StudioAuth | undefined;
 try {
   const live = await liveStudioAuth(settings, {
-      // sign-in methods the deployment's modules add (docs/modules.md)
-      providers: registry.authProviders(),
+      // sign-in methods the deployment's modules add (docs/modules.md); a runtime module's come and go with it
+      liveProviders: { current: () => registry.authProviders(), subscribe: (listener) => registry.subscribe(listener) },
       ...(workbench.pg === undefined
       ? {}
       : {
@@ -206,9 +219,38 @@ const deepHealth = deepHealthCheck({
 // runs while a webhook is set (it may be set in Settings later)
 startHealthMonitor(deepHealth, notifier);
 
-const app = createStandaloneApp({ distDir, deps, depictionDeps: workbench.depictionDeps, deepHealth, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
+// Restart WireHub (Settings, owners; specs/runtime-modules.md §4): drain, then exit with the restart code for
+// the container's restart policy to bring the process back. Nothing outside the app is involved.
+const inFlight = inFlightCounter();
+let server: ReturnType<typeof serve> | undefined;
+const drainSteps = (): DrainStep[] => [
+  {
+    name: 'stop accepting connections',
+    run: async () => {
+      server?.close();
+      (server as { closeIdleConnections?: () => void } | undefined)?.closeIdleConnections?.();
+    },
+  },
+  { name: 'finish the requests in flight', run: () => inFlight.idle() },
+  {
+    // held until the process ends: no write starts after this, none is left half done
+    name: 'take the write lock',
+    run: () => new Promise<void>((taken) => void withWriteLock(() => { taken(); return new Promise<never>(() => {}); })),
+  },
+  ...(workbench.pg === undefined
+    ? []
+    : [{ name: 'tell the worker to restart', run: async () => (await import('./pg/control.ts')).notifyControl(workbench.pg!.db, workbench.pg!.orgId(), 'restart') }]),
+  { name: 'stop following the catalog', run: async () => codeModules.stop() },
+  { name: 'close the sign-in', run: async () => auth?.close?.() },
+  { name: 'close the stores and pools', run: () => workbench.close() },
+  { name: 'close the remaining connections', run: async () => (server as { closeAllConnections?: () => void } | undefined)?.closeAllConnections?.() },
+];
+const system = createSystemControl({ steps: drainSteps, supervised: process.env.WIREHUB_RESTART_SUPERVISED === 'true' });
+deps.system = system;
 
-serve({ fetch: app.fetch, hostname: host, port }, (info) => {
+const app = createStandaloneApp({ distDir, deps, depictionDeps: workbench.depictionDeps, deepHealth, inFlight, restarting: () => system.restarting(), ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
+
+server = serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`WireHub serving ${distDir}`);
   console.log(`  http://${info.address === '0.0.0.0' || info.address === '::' ? 'localhost' : info.address}:${info.port}`);
   console.log(`  (bound to ${host}:${info.port} — reachable on the LAN unless HOST was narrowed)`);

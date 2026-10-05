@@ -24,6 +24,7 @@ import './boot-env.ts';
 import { environmentRefusal } from './env-guard.ts';
 import { backendFromEnv } from './pg/config.ts';
 import { startWorker, type RunningWorker } from './worker-run.ts';
+import { RESTART_EXIT_CODE } from './system.ts';
 
 const fatal = (line: string): never => {
   console.error(`[worker] ${line}`);
@@ -40,18 +41,20 @@ try {
 
 let stopping = false;
 let running: RunningWorker | undefined;
-async function shutdown(signal: string): Promise<void> {
+async function shutdown(signal: string, code = 0): Promise<void> {
   if (stopping) return;
   stopping = true;
   console.log(`[worker] ${signal}: stopping (a running job finishes first, up to 30 s)`);
   await running?.stop();
-  process.exit(0);
+  if (code === RESTART_EXIT_CODE) console.log(`[worker] exiting with code ${RESTART_EXIT_CODE} (restart requested, not a crash)`);
+  process.exit(code);
 }
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 
 try {
-  running = await startWorker({}, () => stopping);
+  // Settings, Restart WireHub: the studio drains, and tells this process through the database
+  running = await startWorker({ onRestart: () => void shutdown('restart requested', RESTART_EXIT_CODE) }, () => stopping);
   if (running === undefined) process.exit(0);
 } catch (error) {
   fatal(error instanceof Error ? error.message : String(error));

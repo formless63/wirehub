@@ -37,6 +37,7 @@ import {
   canonical,
   idOf,
   installPackLayer,
+  installedRecordOf,
   installedPackDir,
   applyPackAssets,
   isPlainObject,
@@ -541,7 +542,7 @@ export function applyPackUpdate(dataDir: string, packsDir: string | undefined, p
   const assets = applyPackAssets(dataDir, packDir, readInstalledPacks(dataDir).packs.find((p) => p.id === manifest.id)?.assets, plan.assets);
   saveInstalled(dataDir, (packs) =>
     packs.map((p) =>
-      p.id === manifest.id ? { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }) } : p,
+      p.id === manifest.id ? installedRecordOf(manifest, plan.added, assets, packDir) : p,
     ),
   );
 }
@@ -580,7 +581,8 @@ export function packSourceProblems(packDir: string): string[] {
   }
   if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(manifest.version)) problems.push(`the manifest's version '${manifest.version}' is not semver (1.2.0)`);
   const files = packFiles(packDir);
-  if (files.length === 0) problems.push('the pack has no data files');
+  // a pack that carries a code module may have no records of its own
+  if (files.length === 0 && manifest.module === undefined) problems.push('the pack has no data files');
   for (const relative of files) {
     let value: Json;
     try {

@@ -257,7 +257,8 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
             }, () => id)
           : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, liveEnv, notify }));
       // git-mirror is always a kind: it may be set up in Settings at any time (a run without one skips)
-      const kinds = [...JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)), ...moduleJobKinds(real.modules)];
+      // the module kinds follow the (live) registry: a runtime code module's queue counts once it is loaded
+      const kinds = () => [...JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)), ...moduleJobKinds(real.modules)];
       real.jobs = createJobService({
         store,
         runner,

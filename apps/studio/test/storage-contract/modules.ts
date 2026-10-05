@@ -21,8 +21,9 @@ export const exampleRegistry = createRegistry([example]);
 
 const b64 = (text: string): string => Buffer.from(text, 'utf8').toString('base64');
 
-export async function moduleScenario(base: WorkbenchDeps, send?: (request: ApiRequest) => Promise<ApiResponse>): Promise<string[]> {
-  const deps: WorkbenchDeps = { ...base, modules: exampleRegistry, now: base.now ?? (() => '2026-10-05T12:00:00.000Z'), today: base.today ?? (() => '2026-10-05') };
+export async function moduleScenario(base: WorkbenchDeps, send?: (request: ApiRequest) => Promise<ApiResponse>, options: { ownModules?: boolean } = {}): Promise<string[]> {
+  // `ownModules`: the backend's registry has the example already (installed at runtime, `code-modules-scenario.ts`)
+  const deps: WorkbenchDeps = { ...base, modules: options.ownModules === true ? base.modules : exampleRegistry, now: base.now ?? (() => '2026-10-05T12:00:00.000Z'), today: base.today ?? (() => '2026-10-05') };
   const log: string[] = [];
   const call = async (label: string, request: ApiRequest, status: number): Promise<ApiResponse> => {
     const response = await (send ?? ((r: ApiRequest) => handleWorkbenchRequest(r, deps)))(request);

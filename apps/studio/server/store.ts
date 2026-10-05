@@ -56,6 +56,7 @@ import type { ModuleRegistry } from '@wirehub/modules';
 import type { ApiResponse } from './api.ts';
 import type { Env } from './env.ts';
 import type { StudioUser } from './me.ts';
+import type { CodeModuleHost } from './code-modules/host.ts';
 import { PackArchiveError, fetchPack, isZip, readPackBytes, sha256, type FetchPackOptions } from './pack-archive.ts';
 import { handlePacksRequest } from './packs.ts';
 import type { SetupDeps } from './setup.ts';
@@ -233,6 +234,7 @@ export async function handleStoreRequest(
   modules: ModuleRegistry | undefined,
   store: StoreDeps = storeIndexesFromEnv(),
   user?: StudioUser,
+  code?: CodeModuleHost,
 ): Promise<ApiResponse> {
   if (setup === undefined) return refuse(501, 'This host has no pack management.', 'Catalog packs are installed by the deployment here.');
   const method = request.method.toUpperCase();
@@ -325,7 +327,7 @@ export async function handleStoreRequest(
 
   if (p === '/api/packs/store/install') {
     if (method !== 'POST') return refuse(405, `${method} is not something this address accepts.`, 'It answers POST.');
-    const body = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as { index?: unknown; id?: unknown; version?: unknown; apply?: unknown; acceptMajor?: unknown; sha256?: unknown; force?: unknown };
+    const body = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as { index?: unknown; id?: unknown; version?: unknown; apply?: unknown; acceptMajor?: unknown; sha256?: unknown; force?: unknown; consent?: unknown };
     if (typeof body.index !== 'string' || typeof body.id !== 'string') return refuse(400, 'Name the index and the pack: { "index": "<index url>", "id": "<pack id>" }.', 'GET /api/packs/store lists them.');
     const trusted = trustedNow.indexes.find((i) => i.url === body.index);
     if (trusted === undefined) return refuse(404, `'${body.index}' is not a store index this hub trusts.`, 'The trusted indexes are WIREHUB_STORE_INDEXES and the stores added (and enabled) in Settings; GET /api/packs/store lists them.');
@@ -408,10 +410,11 @@ export async function handleStoreRequest(
     }
     // the ordinary install flow: verification, the diff, and with apply one change set
     const answer = await handlePacksRequest(
-      { method: 'POST', path: '/api/packs/install', body: { ...source, ...(body.apply === true ? { apply: true } : {}), ...(body.acceptMajor === true ? { acceptMajor: true } : {}) } },
+      { method: 'POST', path: '/api/packs/install', body: { ...source, ...(body.apply === true ? { apply: true } : {}), ...(body.acceptMajor === true ? { acceptMajor: true } : {}), ...(body.consent === undefined ? {} : { consent: body.consent }) }, ...(user === undefined ? {} : { user }) },
       setup,
       modules,
-      { origin },
+      // a pack with code is trusted only through a publisher the index names, whose signature held above
+      { origin, store: origin.signedBy === undefined ? { index: trusted.url, unsigned: true } : { index: trusted.url, keys: origin.signedBy }, ...(code === undefined ? {} : { code }) },
     );
     const from = {
       index: trusted.url,

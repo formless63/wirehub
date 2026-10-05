@@ -850,8 +850,8 @@ export async function commitChangeSet(base: WorkbenchDeps, set: ChangeSet, extra
     derived.push('tags');
   }
   if (wanted.has('module') && base.derived !== undefined) {
-    await base.derived.regenerate();
-    derived.push('module');
+    // over a live registry the store exists with no module declaring a record: then nothing was derived
+    if ((await base.derived.regenerate()).length > 0 || base.modules === undefined || base.modules.derived().length > 0) derived.push('module');
   }
   return { applied: set.changes.length, derived };
 }

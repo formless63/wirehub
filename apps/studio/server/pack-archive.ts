@@ -5,10 +5,13 @@
  *
  * Everything is bounded: sizes, file counts, paths, and the URL fetch (https
  * only, a size limit, a timeout, no private addresses, redirects followed one
- * by one with the same checks). Nothing is executed or evaluated; only `.json`
- * data files, the manifest and the images of `depictions/**` and `art/**` are kept
- * (svg, png, jpg, webp: the type must match the bytes, SVG is stripped of anything
- * active, and each file and the total are size-limited).
+ * by one with the same checks). Nothing is executed or evaluated here; only `.json`
+ * data files, the manifest, the images of `depictions/**` and `art/**` (svg, png,
+ * jpg, webp: the type must match the bytes, SVG is stripped of anything active,
+ * and each file and the total are size-limited) and a code module's entries
+ * (`code/<module>/server.mjs`, `browser.mjs`, `browser.css`: UTF-8 text,
+ * size-limited; whether they may be installed at all is `code-modules/trust.ts`'s
+ * decision) are kept.
  *
  * Formats:
  * - **zip**: the pack directory zipped (`wirehub-pack.json` at the top, or inside one
@@ -25,6 +28,7 @@ import { isIP } from 'node:net';
 import { inflateRawSync } from 'node:zlib';
 
 import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
+import { isCodeFilePath } from '@wirehub/modules';
 
 export const MAX_PACK_BYTES = 8 * 1024 * 1024;
 export const MAX_PACK_UNPACKED_BYTES = 24 * 1024 * 1024;
@@ -32,6 +36,9 @@ export const MAX_PACK_FILES = 300;
 /** one image of a pack, and all of a pack's images together (decoded) */
 export const MAX_PACK_ASSET_BYTES = 2 * 1024 * 1024;
 export const MAX_PACK_ASSETS_TOTAL_BYTES = 12 * 1024 * 1024;
+/** one code file of a pack (`code/<module>/…`), and all of them together */
+export const MAX_PACK_CODE_BYTES = 4 * 1024 * 1024;
+export const MAX_PACK_CODE_TOTAL_BYTES = 8 * 1024 * 1024;
 export const PACK_FETCH_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 3;
 
@@ -49,15 +56,16 @@ export const sha256 = (bytes: Uint8Array | string): string => createHash('sha256
 const DATA_PATH = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\.json$/;
 const ASSET_PATH = /^(?:depictions|art)(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.(?:svg|png|jpe?g|webp)$/;
 const IMAGE_EXTENSION = /\.(?:svg|png|jpe?g|webp)$/;
+const CODE_EXTENSION = /\.(?:mjs|css)$/;
 
 /** An image a pack may ship: under `depictions/` or `art/`, an allowlisted type, a safe path. */
 export function isPackAssetPath(path: string): boolean {
   return ASSET_PATH.test(path) && path.length <= 200 && !path.split('/').includes('..');
 }
 
-/** A relative path a pack file may have: `.json`, or an image under `depictions/`/`art/`; no `..`, no dot-segments, not absolute. */
+/** A relative path a pack file may have: `.json`, an image under `depictions/`/`art/`, or a code module's entry under `code/`; no `..`, no dot-segments, not absolute. */
 export function isPackFilePath(path: string): boolean {
-  return (DATA_PATH.test(path) && path.length <= 200 && !path.split('/').includes('..')) || isPackAssetPath(path);
+  return (DATA_PATH.test(path) && path.length <= 200 && !path.split('/').includes('..')) || isPackAssetPath(path) || isCodeFilePath(path);
 }
 
 const startsWith = (b: Uint8Array, magic: number[], at = 0): boolean => magic.every((m, i) => b[at + i] === m);
@@ -79,7 +87,21 @@ function imageMatchesExtension(path: string, b: Uint8Array): boolean {
 function checkedAssets(files: PackFiles): PackFiles {
   const out: PackFiles = new Map();
   let total = 0;
+  let code = 0;
   for (const [path, bytes] of files) {
+    if (isCodeFilePath(path)) {
+      if (bytes.length === 0) throw new PackArchiveError(`'${path}' is empty.`);
+      if (bytes.length > MAX_PACK_CODE_BYTES) throw new PackArchiveError(`'${path}' is larger than a module's code file may be (${MAX_PACK_CODE_BYTES / 1024 / 1024} MiB).`, 413);
+      code += bytes.length;
+      if (code > MAX_PACK_CODE_TOTAL_BYTES) throw new PackArchiveError(`The pack's code adds up to more than a pack may carry (${MAX_PACK_CODE_TOTAL_BYTES / 1024 / 1024} MiB).`, 413);
+      try {
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch {
+        throw new PackArchiveError(`'${path}' is not UTF-8 text.`);
+      }
+      out.set(path, bytes);
+      continue;
+    }
     if (!isPackAssetPath(path)) {
       out.set(path, bytes);
       continue;
@@ -153,7 +175,7 @@ function readZipRaw(bytes: Uint8Array): PackFiles {
     const local = u32(bytes, at + 42);
     const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
     at += 46 + skip;
-    if (name.endsWith('/') || name.startsWith('__MACOSX/') || !(name.endsWith('.json') || IMAGE_EXTENSION.test(name) || name.endsWith(PACK_SIGNATURE_FILE))) continue;
+    if (name.endsWith('/') || name.startsWith('__MACOSX/') || !(name.endsWith('.json') || IMAGE_EXTENSION.test(name) || CODE_EXTENSION.test(name) || name.endsWith(PACK_SIGNATURE_FILE))) continue;
     if (name.includes('\\') || name.startsWith('/') || name.split('/').some((s) => s === '..' || s.startsWith('.'))) {
       throw new PackArchiveError(`The zip holds an unsafe path: '${name}'.`);
     }
@@ -168,13 +190,14 @@ function readZipRaw(bytes: Uint8Array): PackFiles {
   let total = 0;
   for (const { name, flags, method, compressed, size, local } of entries) {
     const path = name.slice(strip);
-    if (!path.endsWith('.json') && !isPackAssetPath(path) && path !== PACK_SIGNATURE_FILE) continue;
+    if (!path.endsWith('.json') && !isPackAssetPath(path) && !isCodeFilePath(path) && path !== PACK_SIGNATURE_FILE) continue;
     if (path === PACK_SIGNATURE_FILE && size > MAX_SIGNATURE_BYTES) throw new PackArchiveError(`The pack's ${PACK_SIGNATURE_FILE} is larger than a signature may be.`, 413);
     if ((flags & 1) !== 0) throw new PackArchiveError('Encrypted zips are not supported.');
     if (compressed === 0xffffffff || size === 0xffffffff) throw new PackArchiveError('Zip64 archives are not supported.');
     total += size;
     if (size > MAX_PACK_BYTES || total > MAX_PACK_UNPACKED_BYTES) throw new PackArchiveError('The zip unpacks to more than a pack may be.', 413);
-    if (!path.endsWith('.json') && size > MAX_PACK_ASSET_BYTES) throw new PackArchiveError(`'${path}' is larger than a pack image may be (${MAX_PACK_ASSET_BYTES / 1024 / 1024} MiB).`, 413);
+    if (isCodeFilePath(path) && size > MAX_PACK_CODE_BYTES) throw new PackArchiveError(`'${path}' is larger than a module's code file may be (${MAX_PACK_CODE_BYTES / 1024 / 1024} MiB).`, 413);
+    if (!path.endsWith('.json') && !isCodeFilePath(path) && size > MAX_PACK_ASSET_BYTES) throw new PackArchiveError(`'${path}' is larger than a pack image may be (${MAX_PACK_ASSET_BYTES / 1024 / 1024} MiB).`, 413);
     if (local + 30 > bytes.length || u32(bytes, local) !== 0x04034b50) throw new PackArchiveError('The zip is damaged (a file header is missing).');
     const start = local + 30 + u16(bytes, local + 26) + u16(bytes, local + 28);
     const raw = bytes.subarray(start, start + compressed);
@@ -215,6 +238,11 @@ function readBundleRaw(value: unknown): PackFiles {
   if (entries.length > MAX_PACK_FILES) throw new PackArchiveError(`The bundle has too many files (${entries.length}).`);
   for (const [path, content] of entries) {
     if (!isPackFilePath(path) || path === 'wirehub-pack.json') throw new PackArchiveError(`'${path}' is not a path a pack file may have.`);
+    if (isCodeFilePath(path)) {
+      if (typeof content !== 'string') throw new PackArchiveError(`'${path}' is a code file: its value is its text.`);
+      out.set(path, new TextEncoder().encode(content));
+      continue;
+    }
     if (isPackAssetPath(path)) {
       if (typeof content !== 'string' || !/^[A-Za-z0-9+/\s]*={0,2}$/.test(content)) throw new PackArchiveError(`'${path}' is an image: its value is the file, base64 encoded.`);
       out.set(path, new Uint8Array(Buffer.from(content, 'base64')));

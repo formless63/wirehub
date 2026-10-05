@@ -205,7 +205,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
   deps.jobs = createJobService({
     store: jobStore,
     runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, liveEnv: () => deps.runtimeSettings?.env() ?? process.env, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps) })),
-    kinds: ['import', 'model-cache', ...moduleJobKinds(deps.modules)],
+    // the module queues follow the registry: a runtime code module's queue runs here as soon as it is loaded
+    kinds: () => ['import', 'model-cache', ...moduleJobKinds(deps.modules)],
   });
   deps.afterCommit = modelCacheTrigger(() => deps.jobs);
   // what Settings changes without a restart (runtime-settings.ts), over this environment

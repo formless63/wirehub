@@ -59,6 +59,44 @@ export interface PackManifest {
    * pack (`pack-signature.ts`). Written by `store-index.mjs sign-pack`.
    */
   files?: Record<string, string>;
+  /**
+   * The code module the pack carries (`specs/runtime-modules.md`): its entries
+   * under `code/<module id>/`, the module API it was built against, and what it
+   * declares it uses. Checked by the host (`@wirehub/modules`
+   * `codeModuleManifestProblems`); absent for a data pack.
+   */
+  module?: PackModule;
+}
+
+/** A pack manifest's `module` block (the shape `@wirehub/modules` names `CodeModuleManifest`). */
+export interface PackModule {
+  id: string;
+  version: string;
+  label: string;
+  apiVersion: string;
+  /** `code/<id>/server.mjs` */
+  server: string;
+  /** `code/<id>/browser.mjs` */
+  browser?: string;
+  /** `code/<id>/browser.css` */
+  css?: string;
+  extensionPoints: string[];
+  permissions: string[];
+  description?: string;
+}
+
+/** The code module of an installed pack, as `packs.json` records it. */
+export interface InstalledModule {
+  id: string;
+  version: string;
+  label: string;
+  apiVersion: string;
+  /** sha256 of each entry as installed */
+  files: { server: string; browser?: string; css?: string };
+  extensionPoints: string[];
+  permissions: string[];
+  /** how its signature was trusted: a store's publisher key, or a key an owner pinned; the keys that verified */
+  trust?: { via: 'store' | 'pinned'; keys: string[] };
 }
 
 export const PACK_MANIFEST = 'wirehub-pack.json';
@@ -85,6 +123,8 @@ export interface InstalledPack {
    * installed from a file, a URL or a module.
    */
   origin?: { index: string; publisher?: string; signedBy?: string[] };
+  /** the code module the pack carries (`PackManifest.module`), with the sha256 of its files */
+  module?: InstalledModule;
 }
 
 /** `packs.json`: the packs installed into this catalog. */
@@ -200,24 +240,48 @@ export function packFiles(dir: string): string[] {
 }
 
 /**
- * The art files of a pack that are not JSON — the images under `depictions/`
- * and `art/` (`svg`, `png`, `jpg`, `webp`) — relative, sorted. A layered install copies
- * them beside the data files, so a pack's faces and cutaways arrive with it
- * (`specs/drawing-language.md` §7).
+ * The files of a pack that are not JSON — the images under `depictions/` and
+ * `art/` (`svg`, `png`, `jpg`, `webp`) and a code module's entries under `code/`
+ * (`.mjs`, `.css`; `specs/runtime-modules.md`) — relative, sorted. A layered
+ * install copies them beside the data files, so a pack's faces, cutaways and
+ * code arrive with it (`specs/drawing-language.md` §7).
  */
 export function packAssetFiles(dir: string): string[] {
   const out: string[] = [];
-  const walk = (relative: string): void => {
+  const walk = (relative: string, name: RegExp): void => {
     if (!existsSync(join(dir, relative))) return;
     for (const entry of readdirSync(join(dir, relative), { withFileTypes: true })) {
       const path = `${relative}/${entry.name}`;
-      if (entry.isDirectory()) walk(path);
-      else if (entry.isFile() && /\.(svg|png|jpe?g|webp)$/.test(entry.name)) out.push(path);
+      if (entry.isDirectory()) walk(path, name);
+      else if (entry.isFile() && name.test(entry.name)) out.push(path);
     }
   };
-  walk('depictions');
-  walk('art');
+  walk('depictions', /\.(svg|png|jpe?g|webp)$/);
+  walk('art', /\.(svg|png|jpe?g|webp)$/);
+  walk('code', /\.(mjs|css)$/);
   return out.sort();
+}
+
+/**
+ * The `packs.json` record of a pack about to be installed from `packDir`: its
+ * id, version, licence, the records it added, the files it owns and, for a pack
+ * that carries code, the module with the sha256 of its entries.
+ */
+export function installedRecordOf(manifest: PackManifest, added: Record<string, string[]>, assets: Record<string, string>, packDir: string): InstalledPack {
+  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added, ...(Object.keys(assets).length === 0 ? {} : { assets }) };
+  const m = manifest.module;
+  if (m === undefined) return record;
+  const sha = (relative: string): string => createHash('sha256').update(readFileSync(join(packDir, relative))).digest('hex');
+  record.module = {
+    id: m.id,
+    version: m.version,
+    label: m.label,
+    apiVersion: m.apiVersion,
+    files: { server: sha(m.server), ...(m.browser === undefined ? {} : { browser: sha(m.browser) }), ...(m.css === undefined ? {} : { css: sha(m.css) }) },
+    extensionPoints: [...m.extensionPoints],
+    permissions: [...m.permissions],
+  };
+  return record;
 }
 
 /** sha256 of an asset as it is stored; a JSON file is hashed in the form the stores write it (2-space, trailing newline). */
@@ -402,7 +466,10 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   // the merging installer keeps a pack's depictions as `data/depictions/…` documents (as before); it records the
   // files the pack ships like a layered install does, so an update brings them beside the catalog and keeps the record the same
   const assets = packOwnedAssets(packDir);
-  const record: InstalledPack = { id: plan.manifest.id, version: plan.manifest.version, license: plan.manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }) };
+  // a code module's entries are files the loader reads: beside the catalog's data (`<catalog>/code/<module>/…`)
+  const code = Object.fromEntries(Object.entries(assets).filter(([path]) => path.startsWith('code/')));
+  if (Object.keys(code).length > 0) applyPackAssets(catalogDir, packDir, undefined, code);
+  const record = installedRecordOf(plan.manifest, plan.added, assets, packDir);
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));
   return plan;
@@ -515,7 +582,7 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
   rmSync(target, { recursive: true, force: true });
   renameSync(staging, target);
   const assets = packOwnedAssets(packDir);
-  const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added: plan.added, ...(Object.keys(assets).length === 0 ? {} : { assets }) };
+  const record = installedRecordOf(manifest, plan.added, assets, packDir);
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(packsDir, PACKS_FILE), canonical(installed));
   return { manifest, added: plan.added, alreadyInstalled: false };
@@ -527,10 +594,23 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
  * the pack is not recorded there.
  */
 export function setInstalledPackOrigin(dir: string, id: string, origin: InstalledPack['origin']): void {
+  updateInstalledPack(dir, id, (entry) => {
+    if (origin === undefined) delete entry.origin;
+    else entry.origin = origin;
+  });
+}
+
+/** Record how an installed pack's code module was trusted (`InstalledModule.trust`). Nothing happens without a module. */
+export function setInstalledModuleTrust(dir: string, id: string, trust: NonNullable<InstalledModule['trust']>): void {
+  updateInstalledPack(dir, id, (entry) => {
+    if (entry.module !== undefined) entry.module.trust = trust;
+  });
+}
+
+function updateInstalledPack(dir: string, id: string, change: (entry: InstalledPack) => void): void {
   const installed = readInstalledPacks(dir);
   const entry = installed.packs.find((p) => p.id === id);
   if (entry === undefined) return;
-  if (origin === undefined) delete entry.origin;
-  else entry.origin = origin;
+  change(entry);
   writeFileReplacing(join(dir, PACKS_FILE), canonical(installed));
 }

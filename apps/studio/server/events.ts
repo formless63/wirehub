@@ -9,7 +9,11 @@
  * browsers; local publishing is then a no-op (the NOTIFY does it).
  */
 
-export type StudioEvent = { type: 'catalog'; version: string } | { type: 'locks'; record: string };
+export type StudioEvent =
+  | { type: 'catalog'; version: string }
+  | { type: 'locks'; record: string }
+  /** a process-control message for the worker (`NOTIFY studio_control`, `pg/control.ts`); never streamed to browsers */
+  | { type: 'control'; action: 'restart' };
 
 export interface EventHub {
   publish(event: StudioEvent): void;

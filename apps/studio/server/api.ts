@@ -59,6 +59,9 @@ import { withWriteLock } from './storage/write-lock.ts';
 import { handleSetupRequest, isSetupPath, type SetupDeps } from './setup.ts';
 import { packOwnerOf, packRecordRefusal } from './pack-guard.ts';
 import { PACKS_ROUTES, handlePacksRequest, isPacksPath } from './packs.ts';
+import { CODE_MODULE_ROUTES, handleCodeModulesRequest, isCodeModulesPath } from './code-modules/api.ts';
+import type { CodeModuleHost } from './code-modules/host.ts';
+import type { SystemControl } from './system.ts';
 import { STORE_ROUTES, handleStoreRequest, isStorePath, storeIndexesFromEnv, type StoreDeps } from './store.ts';
 import { isWriteMethod } from './request-guard.ts';
 import type { CatalogExport } from './pg/export.ts';
@@ -264,6 +267,14 @@ export interface WorkbenchDeps {
    * under `/api/modules/<id>/…`. Absent → none.
    */
   modules?: ModuleRegistry;
+  /**
+   * Runtime code modules (`code-modules/`, `specs/runtime-modules.md`): the host
+   * that loads the installed ones into `modules` (a live registry). Absent → a
+   * pack that carries code is refused and `/api/code-modules` answers 501.
+   */
+  codeModules?: CodeModuleHost;
+  /** Restarting from the UI (`system.ts`): the boot id and the drain. Absent → `/api/system/restart` answers 501. */
+  system?: SystemControl;
   /**
    * First-run setup (`setup.ts`): where domain modules' packs are installed
    * and the selection is kept. Absent → `/api/setup` answers 501.
@@ -929,6 +940,7 @@ const ROUTES = [
   'GET    /api/setup',
   'POST   /api/setup',
   ...PACKS_ROUTES,
+  ...CODE_MODULE_ROUTES,
   ...STORE_ROUTES,
   ...VERSION_ROUTES,
   ...LOCK_ROUTES,
@@ -1081,13 +1093,21 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   if (isStoreSourcesQueryPath(request.path, request.method)) return handleStoreSourcesQuery(request, { ...(deps.docs === undefined ? {} : { docs: deps.docs }), store: storeDepsOf(deps), ...(deps.setup === undefined ? {} : { setup: deps.setup }) });
   // the store: verified indexes, and install through the pack lifecycle below
   if (isStorePath(request.path, request.method)) {
-    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, storeDepsOf(deps), request.user);
-    return isWriteMethod(request.method) ? withWriteLock(run) : run();
+    const user = request.user ?? deps.localUser;
+    const run = (): Promise<ApiResponse> => handleStoreRequest(request, deps.setup, deps.modules, storeDepsOf(deps), user, deps.codeModules);
+    return isWriteMethod(request.method) ? withWriteLock(() => afterCodeChange(run, deps)) : run();
   }
   // the pack lifecycle: the same direct-write handler shape, on files and (through `setup.transact`) on Postgres
   if (isPacksPath(request.path)) {
-    const run = (): Promise<ApiResponse> => handlePacksRequest(request, deps.setup, deps.modules);
-    return isWriteMethod(request.method) ? withWriteLock(run) : run();
+    const user = request.user ?? deps.localUser;
+    const run = (): Promise<ApiResponse> => handlePacksRequest({ ...request, ...(user === undefined ? {} : { user }) }, deps.setup, deps.modules, { ...(deps.codeModules === undefined ? {} : { code: deps.codeModules }) });
+    return isWriteMethod(request.method) ? withWriteLock(() => afterCodeChange(run, deps)) : run();
+  }
+  // runtime code modules and restarting from the UI (specs/runtime-modules.md)
+  if (isCodeModulesPath(request.path)) {
+    const user = request.user ?? deps.localUser;
+    const run = (): Promise<ApiResponse> => handleCodeModulesRequest({ ...request, ...(user === undefined ? {} : { user }) }, deps);
+    return isWriteMethod(request.method) && !request.path.startsWith('/api/system/') ? withWriteLock(run) : run();
   }
   if (isModelPath(request.path)) {
     const ifMatch = request.headers?.['if-match'];
@@ -1146,6 +1166,24 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
     return response;
   };
   return isWriteMethod(request.method) ? withWriteLock(run) : run();
+}
+
+/**
+ * A pack install, update or removal that touched a code module: the host loads
+ * the new set before the answer is sent, so the page that asked sees it at once,
+ * and the answer says what became of the module (on files the catalog event is
+ * published here; on Postgres the commit's NOTIFY does it).
+ */
+async function afterCodeChange(run: () => Promise<ApiResponse>, deps: WorkbenchDeps): Promise<ApiResponse> {
+  const answer = await run();
+  const body = answer.body as { installed?: unknown; code?: { module?: { id?: string } }; module?: { id?: string; removed?: boolean } } | null;
+  if (answer.status >= 400 || body === null || typeof body !== 'object') return answer;
+  const touched = (body.installed === true && body.code?.module?.id) || (body.module?.removed === true && body.module.id) || undefined;
+  if (touched === undefined || deps.codeModules === undefined) return answer;
+  if (deps.setup?.transact === undefined) await publishCatalog(deps);
+  await deps.codeModules.sync();
+  const status = deps.codeModules.status().find((s) => s.id === touched);
+  return { ...answer, body: { ...body, ...(status === undefined ? {} : { moduleStatus: status }) } };
 }
 
 /**
