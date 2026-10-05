@@ -92,11 +92,13 @@ A library record may carry an optional **price** (additive; records without one 
 
 - `unit` is per piece, or per **metre** for a wire stock (`per` says otherwise); `currency` is an ISO
   code and defaults to the hub's; `breaks` give the unit price from `minQty` up (the base price applies
-  below the first); `moq` is information. Edited in the Library under **Cost**; `validateDb` checks it.
+  below the first); `moq` is information. Edited in the Library under **Cost**, the breaks as a small table (one row per break, with its saving against the base price); `validateDb` checks it.
 - **Engineering settings, Costing**: the hub's `currency` and a `labourRatePerHour`. They are part of
   `data/settings/engineering.json` (`costing`).
 - A design records `labourMinutes` (hand labour for one cable; the model has no per-operation times, so it is
-  one figure per design; edited at the foot of the notes panel).
+  one figure per design; edited at the foot of the notes panel). Per-operation times (cut, strip, crimp, solder)
+  are not in the model: they would be a shop's standard work, so they are an idea for a module, as are live
+  supplier pricing and FX rates (the base stays deterministic and offline).
 - The **BOM** (sheet, markdown, `bom.csv`, the XLSX) gains unit and extended cost per line, a Cost section
   with materials, labour and the total for one cable, and, for a **build quantity** (the field beside the BOM,
   `?quantity=N` on the API), the total for the build with quantity breaks read at line quantity x N.
