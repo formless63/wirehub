@@ -14,7 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState, type JSX } from 'react';
 
-import { loadSetup, saveSetup, signInAdmin, slugOf, type SetupView } from '../setup.browser.ts';
+import { loadSetup, partNumbersChanged, pnExample, saveSetup, signInAdmin, slugOf, type SetupView } from '../setup.browser.ts';
 import { StudioMark } from '../shell/Wordmark.tsx';
 
 export function SetupRoute(): JSX.Element {
@@ -33,6 +33,9 @@ export function SetupRoute(): JSX.Element {
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [password, setPassword] = useState('');
+  // part numbers: the offered prefixes, edited in place
+  const [pnPrefixes, setPnPrefixes] = useState<Record<string, string>>({});
+  const [pnDigits, setPnDigits] = useState(5);
 
   useEffect(() => {
     let live = true;
@@ -43,6 +46,11 @@ export function SetupRoute(): JSX.Element {
         return;
       }
       setView(out.value);
+      const pn = out.value.create?.partNumbers;
+      if (pn?.scheme === 'prefix') {
+        setPnPrefixes({ ...pn.prefixes });
+        setPnDigits(pn.digits);
+      }
       setPicked(new Set(out.value.domains.filter((d) => d.enabled || d.suggested).map((d) => d.id)));
     });
     return () => {
@@ -62,11 +70,16 @@ export function SetupRoute(): JSX.Element {
     setProblem(undefined);
     const create = view?.create;
     const admin = create === undefined || (create.admin === 'none' && adminEmail.trim() === '') ? undefined : { name: adminName.trim(), email: adminEmail.trim(), ...(create.admin === 'password' ? { password } : {}) };
+    const pn = create?.partNumbers;
+    const partNumbers =
+      create === undefined || create.claim === true || pn?.scheme !== 'prefix' || !partNumbersChanged(pn, pnPrefixes, pnDigits)
+        ? undefined
+        : { prefixes: Object.fromEntries(pn.kinds.map((kind) => [kind, (pnPrefixes[kind] ?? '').trim()])), digits: pnDigits };
     const out = await saveSetup(
       [...picked],
       '/api',
       view?.codeRequired === true ? code : undefined,
-      create === undefined ? undefined : { ...(create.claim === true ? {} : { org: { name: orgName.trim(), slug: slug.trim() }, catalog }), ...(admin === undefined ? {} : { admin }) },
+      create === undefined ? undefined : { ...(create.claim === true ? {} : { org: { name: orgName.trim(), slug: slug.trim() }, catalog }), ...(admin === undefined ? {} : { admin }), ...(partNumbers === undefined ? {} : { partNumbers }) },
     );
     if (!out.ok) {
       setBusy(false);
@@ -189,6 +202,47 @@ export function SetupRoute(): JSX.Element {
                     </span>
                   </label>
                 </fieldset>
+                )}
+                {view.create.claim === true || view.create.partNumbers === undefined ? null : view.create.partNumbers.scheme === 'module' ? (
+                  <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                    <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Part numbers</legend>
+                    <p className="m-0 text-[12px] text-dim">This build numbers parts with its own scheme, {view.create.partNumbers.label}. It is fixed.</p>
+                  </fieldset>
+                ) : (
+                  <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                    <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Part numbers</legend>
+                    <p className="m-0 text-[12px] text-dim">
+                      Each kind of part gets a prefix and a running number, like {pnExample(pnPrefixes.connector ?? 'CON', pnDigits)}. The defaults are fine; change them
+                      to match numbers you already use. A kind with no prefix is not numbered.
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+                      {view.create.partNumbers.kinds.map((kind) => (
+                        <label key={kind} className="flex flex-col gap-0.5 text-[12px] text-dim">
+                          {kind}
+                          <input
+                            className="rounded border border-line bg-panel px-2 py-1 font-mono text-[13px] uppercase text-ink"
+                            value={pnPrefixes[kind] ?? ''}
+                            disabled={busy}
+                            maxLength={8}
+                            aria-label={`Prefix for ${kind}`}
+                            onChange={(event) => setPnPrefixes({ ...pnPrefixes, [kind]: event.target.value.toUpperCase() })}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <label className="flex flex-col gap-1 text-[12px] text-dim">
+                      Digits
+                      <input
+                        type="number"
+                        min={1}
+                        max={12}
+                        className="w-[80px] rounded border border-line bg-panel px-2 py-1 font-mono text-[13px] text-ink"
+                        value={pnDigits}
+                        disabled={busy}
+                        onChange={(event) => setPnDigits(Number(event.target.value))}
+                      />
+                    </label>
+                  </fieldset>
                 )}
               </>
             )}

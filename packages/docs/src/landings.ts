@@ -66,10 +66,11 @@ export function screensText(members: readonly string[]): string {
  * indicated together; the copper is what matters): `shields (all 7 copper
  * screens + drain, bonded)`.
  */
-function massText(wire: WireDefinition, members: readonly string[]): string {
-  const copper = members.filter((path) => !isFoilPath(wire, path) && path !== 'drain' && !/\.drain$/.test(path));
+export function massText(wire: WireDefinition, members: readonly string[]): string {
+  const copper = members.filter((path) => path !== 'drain' && !/\.drain$/.test(path) && !isFoilPath(wire, path));
   const drain = members.some((path) => path === 'drain' || /\.drain$/.test(path));
-  return `shields (all ${copper.length} copper screens${drain ? ' + drain' : ''}, bonded)`;
+  if (copper.length === 0) return drain ? 'shields (drain only, bonded; no copper screens)' : 'shields (no copper screens, bonded)';
+  return `shields (all ${copper.length} copper screen${copper.length === 1 ? '' : 's'}${drain ? ' + drain' : ''}, bonded)`;
 }
 
 function landingOf(design: CableDesign, key: string): TerminalRef | undefined {

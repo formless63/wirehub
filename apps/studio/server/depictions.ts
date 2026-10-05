@@ -1335,6 +1335,11 @@ function readBytes(req: IncomingMessage): Promise<Uint8Array> {
  */
 export function depictionMiddleware(
   deps: DepictionDeps = defaultDepictionDeps(),
+  /**
+   * Run writes in the host's unit of work (`transactingDepictionDeps`): given the
+   * deps and whether the request is `?dryRun=1`, answer the deps to handle it with.
+   */
+  wrap?: (deps: DepictionDeps, dryRun: boolean) => DepictionDeps,
 ): (req: IncomingMessage, res: ServerResponse, next: () => void) => void {
   return (req, res, next) => {
     const path = req.url ?? '';
@@ -1388,7 +1393,7 @@ export function depictionMiddleware(
               : { contentType: req.headers['content-type'] }),
             ...(raw.length === 0 ? {} : { raw }),
           },
-          deps,
+          wrap === undefined ? deps : wrap(deps, new URL(path, 'http://localhost').searchParams.get('dryRun') === '1'),
         );
         if ('bytes' in response) {
           res.statusCode = response.status;

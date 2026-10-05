@@ -39,6 +39,8 @@ import { backendFromEnv } from './pg/config.ts';
 import { envVar, legacyEnvWarning } from './env.ts';
 import { environmentRefusal, wirehubEnv } from './env-guard.ts';
 import { registry } from './modules.ts';
+import { deepHealthCheck, startHealthMonitor } from './health.ts';
+import { notifierFromEnv } from './notify.ts';
 import { generateSetupCode, parseSuggestedModules, setupBanner, setupNeeded } from './setup.ts';
 
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
@@ -124,6 +126,15 @@ if (unknownSuggested.length > 0) {
   console.warn(`[setup] WIREHUB_SUGGESTED_MODULES names no domain module of this build: ${unknownSuggested.join(', ')} (offered: ${registry.domains().map((m) => m.id).join(', ')}).`);
 }
 
+// the monitoring webhook (WIREHUB_NOTIFY_URL, plan §8.6): optional; events are logged either way
+let notifier: ReturnType<typeof notifierFromEnv>;
+try {
+  notifier = notifierFromEnv(process.env);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+
 // the stores: files (default) or Postgres (WIREHUB_BACKEND=pg; specs/postgres-backend.md)
 let workbench: Awaited<ReturnType<typeof workbenchDepsFromEnv>>;
 try {
@@ -150,6 +161,7 @@ try {
             tokens: pgTokens(workbench.pg.db, workbench.pg.orgId),
             tokenEnv: tokenEnvOf(process.env),
             setupMode: workbench.pg.setupMode,
+            notifier,
           },
         }),
     });
@@ -165,7 +177,18 @@ workbench.pg?.attachAuth(auth);
 const instanceEnv = wirehubEnv(process.env);
 deps.instance = { ...(instanceEnv === undefined ? {} : { env: instanceEnv }), accounts: auth?.people !== undefined };
 
-const app = createStandaloneApp({ distDir, deps, depictionDeps: workbench.depictionDeps, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
+// /healthz?deep=1 (plan §8.3) and the monitor that turns its failures into alerts
+const deepHealth = deepHealthCheck({
+  ...(workbench.pg === undefined ? {} : { db: workbench.pg.db }),
+  ...(blobs === undefined ? {} : { blobs }),
+  modules: registry.modules,
+  ...((process.env.WIREHUB_BACKUP_MARKER ?? '').trim() === '' ? {} : { backupMarker: (process.env.WIREHUB_BACKUP_MARKER as string).trim() }),
+  ...(instanceEnv === undefined ? {} : { env: instanceEnv }),
+  ...((process.env.WIREHUB_VERSION ?? '') === '' ? {} : { version: process.env.WIREHUB_VERSION as string }),
+});
+if (notifier.enabled) startHealthMonitor(deepHealth, notifier);
+
+const app = createStandaloneApp({ distDir, deps, depictionDeps: workbench.depictionDeps, deepHealth, ...(auth === undefined ? {} : { auth }), ...(backup === undefined ? {} : { backup }) });
 
 serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`WireHub serving ${distDir}`);
