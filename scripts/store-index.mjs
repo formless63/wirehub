@@ -9,8 +9,9 @@
 //       print the public key (RW…) of a private key; without --key, reads the
 //       WIREHUB_STORE_SIGNING_KEY environment variable
 //   node scripts/store-index.mjs bundle <pack-dir>... --out <dir>
-//       zip each pack directory as <dir>/<id>-<version>.zip (stored, fixed dates:
-//       the same pack always gives the same bytes)
+//       zip each pack directory as <dir>/<id>-<version>.zip (stored, sorted, fixed dates:
+//       the same pack always gives the same bytes), its depictions/** and art/** images
+//       included; refuses a pack a studio would not install (image type or size)
 //   node scripts/store-index.mjs build <bundles-dir> [--out <file>] [--store-id <id>]
 //       [--store-name <name>] [--homepage <url>] [--base-url <url>] [--generated <iso>]
 //       index every bundle (.zip or JSON bundle) in the directory into index.json
@@ -140,6 +141,19 @@ export function bundlePack(packDir, out) {
   if (typeof manifest.id !== 'string' || typeof manifest.version !== 'string') die(`${packDir}: the manifest names no id or version`);
   const folder = `${manifest.id}-${manifest.version}`;
   const bytes = zip(filesOf(packDir).map((path) => [`${folder}/${path}`, readFileSync(join(packDir, path))]));
+  // what a studio would unpack must carry every image the pack ships (depictions/**, art/**): the
+  // allowlist and the size limits are the installer's (`pack-archive.ts`), so a pack that would be refused is refused here
+  let read;
+  try {
+    read = archive.readPackBytes(bytes).files;
+  } catch (error) {
+    die(`${packDir}: ${error.message}`);
+  }
+  for (const path of filesOf(packDir)) {
+    if (/^(depictions|art)\//.test(path) && /\.(svg|png|jpe?g|webp|JPE?G|PNG|SVG|WEBP)$/.test(path) && !read.has(path)) {
+      die(`${packDir}: '${path}' is an image a studio would not install (lowercase svg/png/jpg/jpeg/webp, safe file names under depictions/ or art/).`);
+    }
+  }
   mkdirSync(out, { recursive: true });
   const file = join(out, `${folder}.zip`);
   writeFileSync(file, bytes);

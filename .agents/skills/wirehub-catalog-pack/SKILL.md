@@ -25,6 +25,14 @@ pack/
   designs/<id>.json                               example designs, optional
 ```
 
+Images under `depictions/` and `art/` (`svg png jpg jpeg webp`, lowercase extensions) ship with the
+pack: an uploaded zip, a JSON bundle (an image's `files` value is its base64) and a store bundle all
+carry them, at most 2 MiB each and 12 MiB in all; an SVG is stripped of scripts, handlers and
+external references on install. `packs.json` records the images the pack owns, so an update
+replaces or removes them and a disable deletes them (the catalog's own files are never touched).
+`store-index.mjs bundle` includes them and refuses an image a studio would not install
+(`docs/catalog-store.md` section 3).
+
 Every `.json` file (except the manifest) is picked up by `packFiles`
 (`packages/catalog/src/packs.ts`); a data file's path is its place in the catalog, so a pack's
 `vocab/signals.json` extends the starter's list of that name. Files must be canonical JSON

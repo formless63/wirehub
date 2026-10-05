@@ -280,6 +280,58 @@ function stripElements(svg: string): { body: string; removed: string[] } {
   return { body: out, removed };
 }
 
+/**
+ * The safety half of `sanitizeSvgBody` on its own, for an SVG that is kept as the
+ * author drew it (a pack's depictions: no repaint, no rescale): scripts, styles,
+ * foreign content, images and animation are dropped, so are event handlers, style
+ * attributes and external references (only `#fragment` and `data:` ones stay), and a
+ * DOCTYPE / entity declaration is refused. Returns what it removed, by name.
+ */
+export function stripUnsafeSvg(svg: string): { svg?: string; removed: string[]; error?: string } {
+  if (/<!ENTITY/i.test(svg)) return { removed: [], error: 'it declares an XML entity' };
+  const stripped = stripElements(svg);
+  const removed = [...stripped.removed];
+  let handlers = 0;
+  let external = 0;
+  const out = stripped.body
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<\?xml[\s\S]*?\?>/g, '')
+    .replace(/<!DOCTYPE[^>]*>/gi, '')
+    .replace(/<([a-zA-Z][\w:.-]*)((?:"[^"]*"|'[^']*'|[^>"'])*?)(\/?)>/g, (_m, name: string, rawAttrs: string, close: string) => {
+      const kept: string[] = [];
+      for (const attr of rawAttrs.matchAll(/([a-zA-Z][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g)) {
+        const key = (attr[1] ?? '').toLowerCase();
+        const value = attr[2] ?? attr[3];
+        if (/^on[a-z]+$/.test(key)) {
+          handlers += 1;
+          continue;
+        }
+        if (key === 'style') {
+          removed.push('style attribute');
+          continue;
+        }
+        if (value === undefined) {
+          kept.push(attr[1] ?? '');
+          continue;
+        }
+        if ((key === 'href' || key === 'xlink:href') && !value.startsWith('#') && !/^data:image\/(png|jpe?g|webp);base64,/i.test(value)) {
+          external += 1;
+          continue;
+        }
+        if (/url\(\s*['"]?\s*(?!#)/i.test(value) || /^\s*javascript:/i.test(value)) {
+          external += 1;
+          continue;
+        }
+        kept.push(`${attr[1]}="${value.replace(/"/g, '&quot;')}"`);
+      }
+      return `<${name}${kept.length === 0 ? '' : ` ${kept.join(' ')}`}${close}>`;
+    });
+  if (handlers > 0) removed.push('event handlers');
+  if (external > 0) removed.push('external references');
+  if (!/<svg[\s>]/i.test(out)) return { removed, error: 'it has no <svg> element' };
+  return { svg: `${out.trim()}\n`, removed: [...new Set(removed)] };
+}
+
 const KEEP_PAINT = new Set(['none', 'currentcolor', 'inherit', 'transparent']);
 
 /** Elements whose `fill` is the mark itself, not a filled area. */
