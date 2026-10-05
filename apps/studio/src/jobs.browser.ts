@@ -13,6 +13,8 @@ export interface JobStepView {
 export interface ImportProposal {
   definitions: Record<string, { id: string; label: string }[]>;
   existing: string[];
+  /** records replaced by an edited version (update mode), by kind */
+  updated?: Record<string, { id: string; label: string }[]>;
   designs: { id: string; label: string }[];
   existingDesigns: string[];
   /** board revisions whose placed parts are proposed, `<board>@<revision>` */

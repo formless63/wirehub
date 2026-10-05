@@ -41,17 +41,27 @@ file back into the same library reproduces its expressible joints on the same co
 
 ## Bulk CSV library import (`modules/csv-library`)
 
-**Library, Bulk CSV…** takes a CSV of connectors, wire stocks, components or mechanicals.
+**Library, Bulk CSV…** takes a CSV or an XLSX sheet (the first one) of connectors, wire stocks, components,
+mechanicals, boards (PCBAs) or kits.
 
 1. Pick the file; the kind is read from a `type` column or from the headers, and can be changed.
 2. **Map columns.** Each field of the kind has a drop-down of the file's columns (pre-filled by header
    name), and a box for one value to use on every row (a kind, a currency). **Batch source** fills the
    `src` of rows that have none.
 3. **Dry run.** Per row: new, already in the library (skipped, never overwritten; the fields where the
-   file differs are shown) or invalid, with every reason (no source, a bad number, a duplicate id or part
+   file differs are shown), with **Update existing records** on, an update (each changed field, before and
+   after) or unchanged, or invalid, with every reason (no source, a bad number, a duplicate id or part
    number, a value the library's validation refuses).
 4. **Review.** The canonical file goes to an import job; its plan is reviewed and **Publish** commits
-   all the new records as one change set. Invalid rows are not part of it.
+   all the new records (and the updates) as one change set. Invalid rows are not part of it.
+
+**Update mode** (the `library-csv-update` importer) diffs a row against the record the library has under its
+id and saves the result as an edit of that record, checked like any save and made against the version the
+import read (one that moved since fails the publish, nothing written). A blank cell keeps what the record has;
+what the columns cannot say is kept too (a pin's signal, a board's pads and structured link paths, a kit
+line's note, a wire stock's pairs and drains: a stock that is not a flat list of conductors keeps its structure
+and a note says so). A row that changes nothing is reported as unchanged; a changed `src` alone is not a change.
+Each row still needs every required column, as for a new record.
 
 Every record needs a `src`. Templates (one click each in the dialog; `templateCsv(kind)` in the module)
 have the canonical columns and one worked example row. Columns, in order:
@@ -60,10 +70,13 @@ have the canonical columns and one worked example row. Columns, in order:
 - wires: `type, id, label, part_number, manufacturer, spec_ref, conductors, colours, area_mm2, material, od_mm, shield, src` + cost. Conductors are `c1..cN` in the colour order; `shield` is none, foil, braid, spiral or tape.
 - components: `type, id, label, kind, category, value, part_number, mpn, manufacturer, package, tolerance, terminals, src` + cost.
 - mechanicals: `type, id, label, kind, part_number, revision, src` + cost.
+- boards: `type, id, label, part_number, revision, build, kicad_project, status, terminals, terminal_labels, links, src` + cost. `terminals` is ids separated by semicolons (or a count); `links` is declared continuity, `from>to` or `from>to:via` separated by semicolons.
+- kits: `type, id, label, sku, contents, src` + cost. `contents` is `kind:id` or `kind:id:quantity` separated by semicolons (`connector:de9-male;mechanical:jackscrew-4-40:2`).
 - cost columns: `unit_cost, currency, cost_per, cost_breaks, moq` (breaks as `10:0.80;100:0.60`).
 
 A blank `id` is derived from the name. A file uploaded straight through **Import…** must already use the
-canonical headers (a `type` column and the field keys); the mapping dialog writes that file.
+canonical headers (a `type` column and the field keys); the mapping dialog writes that file. An XLSX is read
+without a dependency (stored or deflated zip, shared or inline strings; formulas show their cached value).
 
 ## Costing
 

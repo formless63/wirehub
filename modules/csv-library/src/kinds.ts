@@ -4,9 +4,9 @@
  * spreadsheet might use; the mapping step pairs a file's headers with these.
  */
 
-export type LibraryKind = 'connectors' | 'wires' | 'components' | 'mechanicals';
+export type LibraryKind = 'connectors' | 'wires' | 'components' | 'mechanicals' | 'pcbas' | 'kits';
 
-export const LIBRARY_KINDS: readonly LibraryKind[] = ['connectors', 'wires', 'components', 'mechanicals'];
+export const LIBRARY_KINDS: readonly LibraryKind[] = ['connectors', 'wires', 'components', 'mechanicals', 'pcbas', 'kits'];
 
 export interface FieldSpec {
   key: string;
@@ -85,6 +85,28 @@ export const FIELDS: Readonly<Record<LibraryKind, readonly FieldSpec[]>> = {
     SRC,
     ...COST_FIELDS,
   ],
+  pcbas: [
+    ID,
+    LABEL,
+    { key: 'part_number', label: 'Part number', required: true, hint: 'the board\'s orderable number', aliases: ['pn', 'sku', 'partno', 'part_no', 'part'] },
+    { key: 'revision', label: 'Revision', required: true, hint: 'the released revision this tracks', aliases: ['rev'] },
+    { key: 'build', label: 'Build', hint: 'the assembly variant, such as a fab house\'s basic tier' },
+    { key: 'kicad_project', label: 'KiCad project', hint: 'a reference string only', aliases: ['project'] },
+    { key: 'status', label: 'Status', hint: 'active, development, legacy or retired; blank is active' },
+    { key: 'terminals', label: 'Terminals', required: true, hint: 'the terminal ids separated by semicolons (vid;gnd;+5v), or a count (4 gives 1;2;3;4)', aliases: ['pads', 'pins'] },
+    { key: 'terminal_labels', label: 'Terminal labels', hint: 'one per terminal, separated by semicolons', aliases: ['pad_labels'] },
+    { key: 'links', label: 'Internal links', hint: 'declared continuity, separated by semicolons: from>to, or from>to:via for a part in the path (gnd1>gnd2;in>out:C1 220 uF)', aliases: ['internal_links', 'continuity'] },
+    SRC,
+    ...COST_FIELDS,
+  ],
+  kits: [
+    ID,
+    LABEL,
+    { key: 'sku', label: 'SKU', required: true, hint: 'the kit\'s orderable number', aliases: ['part_number', 'pn', 'kit_number'] },
+    { key: 'contents', label: 'Contents', required: true, hint: 'the parts, separated by semicolons: kind:id or kind:id:quantity (connector:de9-male:1;mechanical:de9-hood:1); kind is connector, pcba, mechanical, component or wire', aliases: ['parts', 'bill_of_parts', 'lines'] },
+    SRC,
+    ...COST_FIELDS,
+  ],
 };
 
 /** A worked example row per kind, for the template (synthetic values). */
@@ -93,6 +115,8 @@ export const EXAMPLE: Readonly<Record<LibraryKind, Readonly<Record<string, strin
   wires: { id: 'example-2core', label: 'Example 2-core, 0.25 mm2', conductors: '2', colours: 'red;black', area_mm2: '0.25', material: 'tinned-copper', od_mm: '3.2', shield: 'none', src: 'synthetic example', unit_cost: '0.62', cost_per: 'm', cost_breaks: '100:0.5' },
   components: { id: 'resistor-10k-example', label: '10 kΩ resistor, 1%, 0603', kind: 'resistor', value: '10 kΩ', package: '0603', tolerance: '1%', terminals: '2', src: 'synthetic example', unit_cost: '0.002', currency: 'USD' },
   mechanicals: { id: 'de9-hood-example', label: 'DE-9 hood example', kind: 'shell', revision: 'A', src: 'synthetic example', unit_cost: '0.8' },
+  pcbas: { id: 'breakout-example', label: 'Breakout board example', part_number: 'EX-PCBA-1', revision: 'A', terminals: 'in;out;gnd', terminal_labels: 'Input;Output;Ground', links: 'in>out:C1 100 nF', src: 'synthetic example', unit_cost: '4.2', currency: 'USD' },
+  kits: { id: 'kit-de9-example', label: 'DE-9 example kit', sku: 'KIT-EXAMPLE-1', contents: 'connector:de9-male:1;mechanical:de9-backshell:1', src: 'synthetic example' },
 };
 
 export const TYPE_COLUMN = 'type';
@@ -113,6 +137,8 @@ export function kindOfType(text: string): LibraryKind | undefined {
   if (/^(wires?|wire_stocks?|stocks?|cables?)$/.test(t)) return 'wires';
   if (/^components?$/.test(t)) return 'components';
   if (/^(mechanicals?|mechanical_parts?|hardware)$/.test(t)) return 'mechanicals';
+  if (/^(pcbas?|pcbs?|boards?)$/.test(t)) return 'pcbas';
+  if (/^kits?$/.test(t)) return 'kits';
   return undefined;
 }
 
@@ -122,6 +148,8 @@ const SIGNATURE: Readonly<Record<LibraryKind, readonly string[]>> = {
   wires: ['conductors', 'colours', 'area_mm2', 'od_mm', 'shield'],
   components: ['value', 'terminals', 'package', 'tolerance', 'mpn'],
   mechanicals: ['revision'],
+  pcbas: ['terminal_labels', 'links', 'kicad_project', 'build'],
+  kits: ['sku', 'contents'],
 };
 
 /** The one kind the headers point to, or `undefined` when none or several do. */

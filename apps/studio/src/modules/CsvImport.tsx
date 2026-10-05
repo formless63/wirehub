@@ -1,6 +1,6 @@
 /**
- * "Bulk CSV…" in the Library (cs-5k1.19): pick a CSV of connectors, wire
- * stocks, components or mechanicals, pair its columns with the record's fields,
+ * "Bulk CSV…" in the Library (cs-5k1.19): pick a CSV or XLSX sheet of connectors, wire
+ * stocks, components, mechanicals, boards or kits, pair its columns with the record's fields,
  * see a dry run (what is new, what the library already has and how the file
  * differs, which rows are invalid and why), then send the canonical file to the
  * import job, whose plan is reviewed and published as one change set from
@@ -11,14 +11,20 @@
  * what the dry run shows is what the job will plan.
  */
 
-import { analyseCsv, applyMapping, detectKind, FIELDS, kindOfType, LIBRARY_KINDS, parseCsv, suggestMapping, templateCsv, templateFileName, TYPE_COLUMN, type LibraryKind } from '@wirehub/module-csv-library';
+import { analyseCsv, applyMapping, detectKind, FIELDS, kindOfType, LIBRARY_KINDS, looksLikeZip, parseCsv, readXlsx, suggestMapping, templateCsv, templateFileName, TYPE_COLUMN, type LibraryKind } from '@wirehub/module-csv-library';
 import { useMemo, useRef, useState, type JSX } from 'react';
 
 import { uploadImportJob, startImportJob } from '../jobs.browser.ts';
 import { useStudio } from '../studio-context.tsx';
 import { ImportJob } from './ImportJob.tsx';
 
-const KIND_LABEL: Record<LibraryKind, string> = { connectors: 'Connectors', wires: 'Wire stocks', components: 'Components', mechanicals: 'Mechanicals' };
+const KIND_LABEL: Record<LibraryKind, string> = { connectors: 'Connectors', wires: 'Wire stocks', components: 'Components', mechanicals: 'Mechanicals', pcbas: 'Boards (PCBAs)', kits: 'Kits' };
+
+/** a value in the dry run's change list, short */
+const show = (value: unknown): string => {
+  const text = value === undefined ? '(none)' : typeof value === 'string' ? value : JSON.stringify(value);
+  return text.length > 60 ? `${text.slice(0, 59)}…` : text;
+};
 
 function download(name: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
@@ -45,6 +51,7 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
   const [mapping, setMapping] = useState<Record<string, number | undefined>>({});
   const [fixed, setFixed] = useState<Record<string, string>>({});
   const [batchSrc, setBatchSrc] = useState('');
+  const [update, setUpdate] = useState(false);
   const [message, setMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string>();
@@ -57,7 +64,13 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
   };
 
   const read = async (file: File): Promise<void> => {
-    const parsed = parseCsv(await file.text());
+    let parsed: string[][];
+    try {
+      parsed = /\.xlsx$/i.test(file.name) || looksLikeZip(new Uint8Array(await file.slice(0, 4).arrayBuffer())) ? await readXlsx(new Uint8Array(await file.arrayBuffer())) : parseCsv(await file.text());
+    } catch (error) {
+      setMessage(`${file.name}: ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
     if (parsed.length < 2) {
       setMessage(`${file.name} has no data rows.`);
       return;
@@ -73,10 +86,11 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
   };
 
   const csv = useMemo(() => (rows.length === 0 ? '' : applyMapping(rows, kind, mapping, batchSrc, fixed)), [rows, kind, mapping, batchSrc, fixed]);
-  const analysis = useMemo(() => (csv === '' ? undefined : analyseCsv(csv, studio.db, { kind })), [csv, studio.db, kind]);
+  const analysis = useMemo(() => (csv === '' ? undefined : analyseCsv(csv, studio.db, { kind, update })), [csv, studio.db, kind, update]);
   const counts = {
     new: analysis?.rows.filter((r) => r.status === 'new').length ?? 0,
     exists: analysis?.rows.filter((r) => r.status === 'exists').length ?? 0,
+    update: analysis?.rows.filter((r) => r.status === 'update').length ?? 0,
     invalid: analysis?.rows.filter((r) => r.status === 'invalid').length ?? 0,
   };
 
@@ -86,8 +100,9 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
     try {
       const bytes = new TextEncoder().encode(csv);
       const name = `${fileName.replace(/\.csv$/i, '')}-mapped.csv`;
-      let queued = await uploadImportJob('csv-library', 'library-csv', name, bytes);
-      if (!queued.ok && (queued.status === 415 || queued.status === 405)) queued = await startImportJob('csv-library', 'library-csv', name, toBase64(bytes));
+      const importer = update ? 'library-csv-update' : 'library-csv';
+      let queued = await uploadImportJob('csv-library', importer, name, bytes);
+      if (!queued.ok && (queued.status === 415 || queued.status === 405)) queued = await startImportJob('csv-library', importer, name, toBase64(bytes));
       if (!queued.ok) {
         setMessage(queued.status === 501 ? 'This studio runs no import jobs. Download the mapped file and use Import… instead.' : `${queued.error}${queued.hint === undefined ? '' : ` ${queued.hint}`}`);
         return;
@@ -105,7 +120,7 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
         ref={input}
         type="file"
         hidden
-        accept=".csv,text/csv"
+        accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         data-testid="csv-import-file"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -113,7 +128,7 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
           if (file !== undefined) void read(file);
         }}
       />
-      <button type="button" className="cs-small" title="Import connectors, wire stocks, components or mechanicals from a CSV, with a column mapping and a dry run" onClick={() => input.current?.click()}>
+      <button type="button" className="cs-small" title="Import library parts from a CSV or an XLSX sheet, with a column mapping and a dry run" onClick={() => input.current?.click()}>
         Bulk CSV…
       </button>
       {message === undefined || open ? null : (
@@ -139,6 +154,9 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
             <label>
               Source for rows without one{' '}
               <input aria-label="Batch source" value={batchSrc} onChange={(e) => setBatchSrc(e.target.value)} placeholder="e.g. supplier catalog 2026" className="w-56 rounded border border-line bg-panel px-1" />
+            </label>
+            <label title="A row for an id the library has changes that record (blank cells keep what it has) instead of being skipped; the dry run shows each change">
+              <input type="checkbox" aria-label="Update existing records" checked={update} onChange={(e) => setUpdate(e.target.checked)} /> Update existing records
             </label>
             <span className="text-faint">Templates:</span>
             {LIBRARY_KINDS.map((k) => (
@@ -189,7 +207,7 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
             </tbody>
           </table>
           <div role="status" data-testid="csv-dry-run">
-            Dry run: {counts.new} new, {counts.exists} already in the library (left as they are), {counts.invalid} invalid.
+            Dry run: {counts.new} new, {update ? `${counts.update} to update, ${counts.exists} unchanged` : `${counts.exists} already in the library (left as they are)`}, {counts.invalid} invalid.
           </div>
           {analysis === undefined || analysis.rows.length === 0 ? null : (
             <table className="w-full border-collapse" aria-label="Dry run">
@@ -206,8 +224,18 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
                   <tr key={r.row} data-status={r.status}>
                     <td>{r.row}</td>
                     <td className="font-mono">{r.id}</td>
-                    <td>{r.status === 'new' ? 'new' : r.status === 'exists' ? 'exists, skipped' : 'invalid'}</td>
-                    <td>{r.problems.length > 0 ? r.problems.join('; ') : r.status === 'exists' ? (r.differs.length === 0 ? 'identical' : `file differs in ${r.differs.join(', ')}`) : ''}</td>
+                    <td>{r.status === 'new' ? 'new' : r.status === 'update' ? 'update' : r.status === 'exists' ? (update ? 'unchanged' : 'exists, skipped') : 'invalid'}</td>
+                    <td>
+                      {r.problems.length > 0
+                        ? r.problems.join('; ')
+                        : r.status === 'update'
+                          ? (r.changes ?? []).map((c) => `${c.field}: ${show(c.before)} → ${show(c.after)}`).join('; ')
+                          : r.status === 'exists'
+                            ? r.differs.length === 0
+                              ? 'identical'
+                              : `file differs in ${r.differs.join(', ')}`
+                            : ''}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -221,8 +249,10 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
           ))}
           {message === undefined ? null : <div role="alert">{message}</div>}
           <div>
-            <button type="button" className="cs-primary" disabled={busy || counts.new === 0} onClick={() => void review()}>
-              {counts.new === 0 ? 'Nothing new to import' : `Review ${counts.new} new record${counts.new === 1 ? '' : 's'}`}
+            <button type="button" className="cs-primary" disabled={busy || counts.new + counts.update === 0} onClick={() => void review()}>
+              {counts.new + counts.update === 0
+                ? 'Nothing to import'
+                : `Review ${[counts.new > 0 ? `${counts.new} new` : '', counts.update > 0 ? `${counts.update} updated` : ''].filter((t) => t !== '').join(' and ')} record${counts.new + counts.update === 1 ? '' : 's'}`}
             </button>
             <button type="button" disabled={busy || csv === ''} onClick={() => download(`${fileName.replace(/\.csv$/i, '')}-mapped.csv`, csv)}>
               Download mapped file

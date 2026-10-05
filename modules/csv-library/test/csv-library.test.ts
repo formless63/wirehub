@@ -1,9 +1,11 @@
 import { loadDb } from '@wirehub/catalog';
 import { validateDb, type Db } from '@wirehub/model';
 import { createRegistry } from '@wirehub/modules';
+import { deflateRawSync } from 'node:zlib';
+
 import { describe, expect, it } from 'vitest';
 
-import { LIBRARY_KINDS, analyseCsv, applyMapping, csvLibrary, detectKind, importLibraryCsv, parseCsv, suggestMapping, templateCsv, toCsv } from '../src/index.ts';
+import { LIBRARY_KINDS, analyseCsv, applyMapping, csvLibrary, detectKind, importLibraryCsv, importLibraryFile, parseCsv, readXlsx, suggestMapping, templateCsv, toCsv } from '../src/index.ts';
 
 const db = loadDb();
 const bytes = (t: string): Uint8Array => new TextEncoder().encode(t);
@@ -134,6 +136,169 @@ describe('column mapping', () => {
 
 describe('module', () => {
   it('registers a CSV importer', () => {
-    expect(createRegistry([csvLibrary]).importersFor('parts.csv').map((i) => i.id)).toEqual(['library-csv']);
+    expect(createRegistry([csvLibrary]).importersFor('parts.csv').map((i) => i.id)).toEqual(['library-csv', 'library-csv-update']);
+  });
+});
+
+const HEAD_COMPONENT = 'type,id,label,kind,value,package,terminals,src,unit_cost';
+
+describe('update existing', () => {
+  const existing = db.components[0]!; // r-150
+  const row = (over: Partial<Record<string, string>> = {}): string => {
+    const c: Record<string, string> = { id: existing.id, label: existing.label, kind: 'resistor', value: existing.value ?? '', package: existing.package ?? '', terminals: '', src: 'datasheet X', unit_cost: '', ...over };
+    return `${HEAD_COMPONENT}\ncomponent,${['id', 'label', 'kind', 'value', 'package', 'terminals', 'src', 'unit_cost'].map((k) => `"${c[k]}"`).join(',')}\n`;
+  };
+
+  it('without update mode an existing id is skipped and the differences listed', () => {
+    const a = analyseCsv(row({ package: '0805' }), db);
+    expect(a.rows[0]).toMatchObject({ status: 'exists', differs: ['package'] });
+    expect(a.updates.components).toEqual([]);
+  });
+
+  it('diffs and applies: the changed fields, the whole record kept otherwise, the file\'s src', () => {
+    const a = analyseCsv(row({ package: '0805', unit_cost: '0.01' }), db, { update: true });
+    expect(a.rows[0]).toMatchObject({ status: 'update', differs: ['package', 'cost', 'src'] });
+    expect(a.rows[0]!.changes!.find((c) => c.field === 'package')).toEqual({ field: 'package', before: 'axial', after: '0805' });
+    const updated = a.updates.components[0]!;
+    expect(updated).toMatchObject({ id: existing.id, package: '0805', partNumber: existing.partNumber, tolerance: existing.tolerance, terminals: existing.terminals, cost: { unit: 0.01 }, src: 'datasheet X' });
+    expect(a.records.components).toEqual([]);
+  });
+
+  it('a row that changes nothing is unchanged, even with a different citation', () => {
+    const a = analyseCsv(row(), db, { update: true });
+    expect(a.rows[0]).toMatchObject({ status: 'exists', differs: [] });
+    expect(a.updates.components).toEqual([]);
+  });
+
+  it('a new id in update mode is still new, and a bad update is invalid and not applied', () => {
+    const csv = `${HEAD_COMPONENT}\ncomponent,r-new,New one,resistor,1 kΩ,0603,2,datasheet,\ncomponent,${existing.id},"${existing.label}",,,,,datasheet,\n`;
+    const a = analyseCsv(csv, db, { update: true });
+    expect(a.rows.map((r) => r.status)).toEqual(['new', 'invalid']);
+    expect(a.rows[1]!.problems.join()).toContain('no kind');
+    expect(a.records.components.map((c) => c.id)).toEqual(['r-new']);
+  });
+
+  it('the importer proposes updates beside new records, and notes them', () => {
+    const csv = row({ package: '0805' }).trimEnd() + '\ncomponent,r-new,New one,resistor,1 kΩ,0603,2,datasheet,\n';
+    const r = importLibraryCsv('p.csv', bytes(csv), db, { update: true });
+    expect(r.definitions!.components!.map((c) => c.id)).toEqual(['r-new']);
+    expect(r.updates!.components!.map((c) => c.id)).toEqual([existing.id]);
+    expect(r.notes.join('\n')).toContain('1 to update');
+  });
+
+  it('connector pins keep what they carry beyond a label; a flat wire stock is replaced, a structured one left alone', () => {
+    const male = db.connectors.find((c) => c.id === 'de9-male')!;
+    const pins = male.pins.map((p) => p.id).join(';');
+    const csv = `type,id,label,family,pins,src,contact_rating_a\nconnector,de9-male,"${male.label}",${male.family},${pins},cited,5\n`;
+    const a = analyseCsv(csv, db, { update: true });
+    expect(a.rows[0]!.problems).toEqual([]);
+    expect(a.updates.connectors[0]!.pins).toEqual(male.pins);
+    expect(a.updates.connectors[0]!.contactRatingA).toBe(5);
+    const wire = db.wires.find((w) => w.id === 'cat5e-utp')!;
+    const w = analyseCsv(`type,id,label,conductors,colours,src,od_mm\nwire,cat5e-utp,"${wire.label}",2,red;black,cited,6\n`, db, { update: true });
+    expect(w.updates.wires[0]!.structure).toEqual(wire.structure);
+    expect(w.updates.wires[0]!.odMm).toBe(6);
+    expect(w.notes.join()).toContain('structure');
+  });
+});
+
+describe('boards and kits', () => {
+  const PCBA = 'type,id,label,part_number,revision,terminals,terminal_labels,links,src\n';
+  it('imports a board with terminals and declared continuity', () => {
+    const a = analyseCsv(`${PCBA}pcba,my-board,My board,PCA-9,B,a;b;gnd,A in;B out;Ground,a>b:C1 100 nF;gnd>gnd,datasheet\n`, db);
+    expect(a.rows[0]!.problems).toEqual([]);
+    expect(a.records.pcbas[0]).toMatchObject({ id: 'my-board', partNumber: 'PCA-9', revision: 'B', terminals: [{ id: 'a', label: 'A in' }, { id: 'b', label: 'B out' }, { id: 'gnd', label: 'Ground' }], internalLinks: [{ from: 'a', to: 'b', via: 'C1 100 nF' }, { from: 'gnd', to: 'gnd' }] });
+  });
+  it('refuses a board with a link to a terminal it does not have, or a bad link', () => {
+    const a = analyseCsv(`${PCBA}pcba,b1,B1,P,A,a;b,,a>zz,s\npcba,b2,B2,P2,A,a;b,,a-b,s\n`, db);
+    expect(a.rows.map((r) => r.status)).toEqual(['invalid', 'invalid']);
+    expect(a.rows[1]!.problems.join()).toContain('from>to');
+  });
+  it('updates a board without losing pads or structured links', () => {
+    const board = db.pcbas[0]!;
+    const links = board.internalLinks.map((l) => `${l.from}>${l.to}${l.via === undefined ? '' : `:${l.via}`}`).join(';');
+    const csv = `${PCBA}pcba,${board.id},"${board.label}",${board.partNumber},Rev2,${board.terminals.map((t) => t.id).join(';')},,${links},cited\n`;
+    const a = analyseCsv(csv, db, { update: true });
+    expect(a.rows[0]).toMatchObject({ status: 'update', differs: ['revision', 'src'] });
+    expect(a.updates.pcbas[0]).toMatchObject({ terminals: board.terminals, internalLinks: board.internalLinks, integratedConnectors: board.integratedConnectors });
+  });
+  it('imports a kit from kind:id:quantity lines, and refuses a part the library does not have', () => {
+    const KIT = 'type,id,label,sku,contents,src\n';
+    const ok = analyseCsv(`${KIT}kit,kit-a,Kit A,KIT-9,connector:de9-male;mechanical:jackscrew-4-40:2,cited\n`, db);
+    expect(ok.records.kits[0]!.contents).toEqual([{ part: { kind: 'connector', def: 'de9-male' }, qty: 1 }, { part: { kind: 'mechanical', def: 'jackscrew-4-40' }, qty: 2 }]);
+    const bad = analyseCsv(`${KIT}kit,kit-b,Kit B,KIT-8,connector:nope:1,cited\nkit,kit-c,Kit C,KIT-7,widget:x,cited\n`, db);
+    expect(bad.rows.map((r) => r.status)).toEqual(['invalid', 'invalid']);
+    expect(bad.rows[0]!.problems.join()).toContain('does not have');
+  });
+  it('a kit and a part may share an id, since kits have their own id space; updating a kit keeps line notes', () => {
+    const kit = db.kits![0]!;
+    const contents = kit.contents.map((l) => `${l.part.kind}:${l.part.def}:${l.qty + 1}`).join(';');
+    const a = analyseCsv(`type,id,label,sku,contents,src\nkit,${kit.id},${kit.label},${kit.sku},${contents},cited\n`, db, { update: true });
+    expect(a.rows[0]!.status).toBe('update');
+    expect(a.updates.kits[0]!.contents.map((l) => [l.qty, l.src])).toEqual(kit.contents.map((l) => [l.qty + 1, l.src]));
+  });
+});
+
+/** A one-sheet workbook as a zip, hand-built: stored or deflated entries, shared strings or inline. */
+function workbook(sheetXml: string, options: { deflate: boolean; shared?: string[] }): Uint8Array {
+  const crc = (data: Uint8Array): number => {
+    let c = ~0;
+    for (const b of data) {
+      c ^= b;
+      for (let k = 0; k < 8; k += 1) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+    }
+    return ~c >>> 0;
+  };
+  const files: [string, string][] = [
+    ['xl/workbook.xml', '<workbook xmlns:r="x"><sheets><sheet name="Parts" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+    ['xl/_rels/workbook.xml.rels', '<Relationships><Relationship Id="rId1" Type="t" Target="worksheets/sheet1.xml"/></Relationships>'],
+    ['xl/worksheets/sheet1.xml', sheetXml],
+    ...(options.shared === undefined ? [] : ([['xl/sharedStrings.xml', `<sst>${options.shared.map((t) => `<si><t>${t}</t></si>`).join('')}</sst>`]] as [string, string][])),
+  ];
+  const out: number[] = [];
+  const central: number[] = [];
+  const le = (v: number, n: number): number[] => Array.from({ length: n }, (_, i) => (v >>> (8 * i)) & 0xff);
+  for (const [name, text] of files) {
+    const raw = new TextEncoder().encode(text);
+    const data = options.deflate ? new Uint8Array(deflateRawSync(raw)) : raw;
+    const nm = [...new TextEncoder().encode(name)];
+    const method = options.deflate ? 8 : 0;
+    const common = [...le(0, 2), ...le(method, 2), ...le(0, 4), ...le(crc(raw), 4), ...le(data.length, 4), ...le(raw.length, 4), ...le(nm.length, 2), ...le(0, 2)];
+    central.push(...le(0x02014b50, 4), ...le(20, 2), ...le(20, 2), ...common.slice(0, 16), ...common.slice(16), ...le(0, 2), ...le(0, 2), ...le(0, 2), ...le(0, 4), ...le(out.length, 4), ...nm);
+    out.push(...le(0x04034b50, 4), ...le(20, 2), ...common, ...nm, ...data);
+  }
+  const dir = out.length;
+  out.push(...central, ...le(0x06054b50, 4), ...le(0, 4), ...le(files.length, 2), ...le(files.length, 2), ...le(central.length, 4), ...le(dir, 4), ...le(0, 2));
+  return Uint8Array.from(out);
+}
+
+describe('XLSX input', () => {
+  const sheet =
+    '<worksheet><sheetData>' +
+    '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="D1" t="inlineStr"><is><t>src</t></is></c></row>' +
+    '<row r="2"><c r="A2" t="inlineStr"><is><t>r-xlsx</t></is></c><c r="B2"><v>12.5</v></c><c r="D2" t="s"><v>2</v></c></row>' +
+    '</sheetData></worksheet>';
+  for (const deflate of [false, true]) {
+    it(`reads shared and inline strings, numbers and skipped columns (${deflate ? 'deflated' : 'stored'})`, async () => {
+      const rows = await readXlsx(workbook(sheet, { deflate, shared: ['id', 'value', 'cited &amp; checked'] }));
+      expect(rows).toEqual([['id', 'value', '', 'src'], ['r-xlsx', '12.5', '', 'cited & checked']]);
+    });
+  }
+  it('imports a workbook like the CSV of its sheet, in both modes', async () => {
+    const xml =
+      '<worksheet><sheetData><row r="1">' +
+      ['type', 'id', 'label', 'kind', 'value', 'package', 'src'].map((h, i) => `<c r="${'ABCDEFG'[i]}1" t="inlineStr"><is><t>${h}</t></is></c>`).join('') +
+      '</row><row r="2">' +
+      ['component', 'r-xlsx', 'Sheet resistor', 'resistor', '2 kΩ', '0603', 'datasheet'].map((h, i) => `<c r="${'ABCDEFG'[i]}2" t="inlineStr"><is><t>${h}</t></is></c>`).join('') +
+      '</row></sheetData></worksheet>';
+    const file = workbook(xml, { deflate: true });
+    const first = await importLibraryFile('parts.xlsx', file, db);
+    expect(first.definitions!.components!.map((c) => c.id)).toEqual(['r-xlsx']);
+    const withIt: typeof db = { ...db, components: [...db.components, first.definitions!.components![0]!] };
+    expect((await importLibraryFile('parts.xlsx', file, withIt)).notes.join()).toContain('already in the library');
+    expect((await importLibraryFile('parts.xlsx', file, withIt, { update: true })).notes.join()).toContain('changes nothing');
+  });
+  it('says what is wrong with a file that is not a workbook', async () => {
+    await expect(readXlsx(new Uint8Array([1, 2, 3, 4]))).rejects.toThrow('not an XLSX workbook');
   });
 });

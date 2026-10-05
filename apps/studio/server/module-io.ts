@@ -22,6 +22,7 @@ import type { ContinuityData, ImportedDepiction, ImportResult, ModuleRegistry } 
 
 import type { ApiResponse } from './api.ts';
 import type { BatchRequestItem } from './batch.ts';
+import { contentETag } from './etag.ts';
 import type { DepictionStore } from './depictions.ts';
 import type { DocStore } from './storage/doc-store.ts';
 
@@ -46,13 +47,15 @@ export function parseModuleIoPath(path: string): ModuleIoPath | undefined {
 
 const refuse = (status: number, error: string, hint: string): ApiResponse => ({ status, body: { error, hint } });
 
-const KINDS = ['connectors', 'wires', 'components', 'pcbas', 'mechanicals'] as const;
+const KINDS = ['connectors', 'wires', 'components', 'pcbas', 'mechanicals', 'kits'] as const;
 
 export interface Proposal {
   /** definitions the importer proposes that the library does not have yet, by kind */
   definitions: Record<string, { id: string; label: string }[]>;
   /** ids the library already has (skipped, never overwritten), `<kind>/<id>`; `board-parts/<board>@<rev>` and `depictions/<id>` too */
   existing: string[];
+  /** records the importer replaces with an edited version (update mode), by kind: saved as edits, in the same change set */
+  updated?: Record<string, { id: string; label: string }[]>;
   designs: { id: string; label: string }[];
   existingDesigns: string[];
   /** board revisions whose placed parts are proposed, `<board>@<revision>` (present only when the importer proposed some) */
@@ -84,6 +87,16 @@ export function proposalOf(result: ImportResult, db: Db, designIds: ReadonlySet<
       taken.add(record.id);
       (proposal.definitions[kind] ??= []).push({ id: record.id, label: record.label });
       requests.push({ method: 'POST', path: `/api/definitions/${kind}`, body: record });
+    }
+  }
+  for (const kind of KINDS) {
+    const kept = new Map(((db[kind] ?? []) as { id: string }[]).map((r) => [r.id, r]));
+    for (const record of (result.updates?.[kind] ?? []) as { id: string; label: string }[]) {
+      const have = kept.get(record.id);
+      if (have === undefined || JSON.stringify(have) === JSON.stringify(record)) continue;
+      ((proposal.updated ??= {})[kind] ??= []).push({ id: record.id, label: record.label });
+      // the edit is made against the record as the importer read it: one that moved since fails its precondition
+      requests.push({ method: 'PUT', path: `/api/definitions/${kind}/${record.id}`, ifMatch: contentETag(have), body: record });
     }
   }
   for (const design of result.designs ?? []) {

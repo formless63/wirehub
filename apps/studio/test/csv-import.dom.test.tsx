@@ -93,4 +93,25 @@ describe('bulk CSV import', () => {
     const made = await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/test-resistor-2' }, deps);
     expect(made.body).toMatchObject({ partNumber: 'RT-2', src: 'supplier catalog', cost: { unit: 0.02 } });
   }, 30_000);
+
+  it('update mode shows each change in the dry run and reviews it as an update', async () => {
+    render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: ['/library/components'] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={registry} />);
+    const input = (await screen.findByTestId('csv-import-file')) as HTMLInputElement;
+    const file = ['type,id,label,kind,value,package,src', 'component,r-150,"Resistor 150 Ω, 0.25 W",resistor,150 Ω,0805,datasheet'].join('\n');
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [new File([file], 'update.csv', { type: 'text/csv' })] } });
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Bulk CSV import' });
+    expect(within(dialog).getByTestId('csv-dry-run').textContent).toContain('1 already in the library (left as they are)');
+    fireEvent.click(within(dialog).getByLabelText('Update existing records'));
+    expect(within(dialog).getByTestId('csv-dry-run').textContent).toContain('1 to update, 0 unchanged');
+    expect(within(dialog).getByRole('table', { name: 'Dry run' }).textContent).toContain('package: axial → 0805');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Review 1 updated record' }));
+    const job = await screen.findByRole('dialog', { name: 'Import job' });
+    await waitFor(() => expect(within(job).getByTestId('job-status').getAttribute('data-status')).toBe('done'), { timeout: 5000 });
+    expect(job.textContent).toContain('1 updated components: r-150');
+    fireEvent.click(within(job).getByRole('button', { name: 'Publish 1 record' }));
+    await waitFor(() => expect(within(job).getByTestId('job-message').textContent).toContain('Published'));
+    expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/definitions/components/r-150' }, deps)).body).toMatchObject({ package: '0805' });
+  }, 30_000);
 });
