@@ -35,10 +35,15 @@ import { StaleRecordError } from '../../server/storage/change-set.ts';
 export interface WriteBackend {
   deps: WorkbenchDeps;
   depictionDeps: DepictionDeps;
+  /** how a request reaches the studio: straight into the router (default), or over HTTP (`http.ts`, SA1) */
+  transport?: {
+    call: (request: ApiRequest) => Promise<ApiResponse>;
+    depiction: (request: { method: string; path: string; json?: unknown }) => Promise<{ status: number; body?: unknown; bytes?: Uint8Array }>;
+  };
   close?: () => Promise<void>;
 }
 
-const fixed = {
+export const fixed = {
   now: () => '2026-10-04T12:00:00.000Z',
   today: () => '2026-10-04',
   localUser: { name: 'Contract Tester', email: 'tester@example.com', source: 'local' as const },
@@ -63,8 +68,9 @@ function summary(response: ApiResponse | { status: number; body?: unknown; bytes
 export async function writeScenario(backend: WriteBackend): Promise<{ log: string[]; exported: CatalogExport }> {
   const deps: WorkbenchDeps = { ...backend.deps, ...fixed };
   const log: string[] = [];
+  const send = backend.transport?.call ?? ((request: ApiRequest) => handleWorkbenchRequest(request, deps));
   const call = async (label: string, request: ApiRequest, status: number): Promise<ApiResponse> => {
-    const response = await handleWorkbenchRequest(request, deps);
+    const response = await send(request);
     log.push(`${label}: ${summary(response)}`);
     expect(response.status, `${label}: ${JSON.stringify(response.body).slice(0, 300)}`).toBe(status);
     return response;
@@ -115,13 +121,20 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
   await call('detach', { method: 'DELETE', path: '/api/models/connectors/de9-female', headers: { 'if-match': etag(model) } }, 200);
 
   // artwork, staged and committed with its manifest
-  const artwork = await handleDepictionRequest(
-    { method: 'POST', path: '/api/depictions/de9-female/mating-face', contentType: 'application/json', raw: new TextEncoder().encode(JSON.stringify({ fileName: 'face.svg', widthMm: 31, data: Buffer.from(SVG).toString('base64') })) },
-    transactingDepictionDeps(backend.depictionDeps, deps),
-  );
+  const upload = { fileName: 'face.svg', widthMm: 31, data: Buffer.from(SVG).toString('base64') };
+  const artwork =
+    backend.transport !== undefined
+      ? await backend.transport.depiction({ method: 'POST', path: '/api/depictions/de9-female/mating-face', json: upload })
+      : await handleDepictionRequest(
+          { method: 'POST', path: '/api/depictions/de9-female/mating-face', contentType: 'application/json', raw: new TextEncoder().encode(JSON.stringify(upload)) },
+          transactingDepictionDeps(backend.depictionDeps, deps),
+        );
   log.push(`artwork: ${artwork.status}`);
   expect(artwork.status, JSON.stringify('body' in artwork ? artwork.body : '')).toBe(201);
-  const artworkDetail = await handleDepictionRequest({ method: 'GET', path: '/api/depictions/de9-female' }, backend.depictionDeps);
+  const artworkDetail =
+    backend.transport !== undefined
+      ? await backend.transport.depiction({ method: 'GET', path: '/api/depictions/de9-female' })
+      : await handleDepictionRequest({ method: 'GET', path: '/api/depictions/de9-female' }, backend.depictionDeps);
   log.push(`artwork detail: ${summary(artworkDetail)}`);
 
   // delete (with its confirm token)
@@ -134,7 +147,7 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
   await uow.deps.designs.write('contract-new', { ...(a as object), label: 'should not land' } as never);
   await uow.deps.designs.write('de9-crossover', { ...(b as object), label: 'should not land either' } as never);
   // another request lands between this one's read and its commit
-  const theirs = await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/de9-crossover' }, deps);
+  const theirs = await send({ method: 'GET', path: '/api/designs/de9-crossover' });
   await call('their save', { method: 'PUT', path: '/api/designs/de9-crossover', body: { ...(theirs.body as object), label: 'changed by someone else' }, headers: { 'if-match': etag(theirs) } }, 200);
   await expect(uow.commit({ method: 'PUT', path: '/api/designs/contract-new' })).rejects.toThrow(StaleRecordError);
   const after = await call('all or nothing', { method: 'GET', path: '/api/designs/contract-new' }, 200);

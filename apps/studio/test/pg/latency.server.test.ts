@@ -88,4 +88,35 @@ describePg('read latency (S3)', () => {
     // loose: a loaded shared box must not fail the suite; the report carries the numbers
     expect(worst).toBeLessThan(50);
   }, 120_000);
+
+  it('S5: a design save on Postgres, derived tags included, on the starter and at 100 designs / 1,000 definitions', async () => {
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { syntheticCatalog } = await import('./synthetic.ts');
+    const { fsBlobStore } = await import('../../server/blobs.ts');
+    const work = mkdtempSync(join(tmpdir(), 'wirehub-s5-'));
+    const lines: string[] = [];
+    try {
+      const synthetic = await importCatalog(pgh.db, { org: { slug: 'synthetic', create: true }, files: readCatalogTree(syntheticCatalog(join(work, 'cat'))), blobs: fsBlobStore(join(work, 'blobs')) });
+      for (const [name, org] of [['starter', cache.orgId], ['synthetic', synthetic.orgId]] as const) {
+        const deps = pgWorkbenchDeps({ cache: new SnapshotCache(pgh.db, org), db: pgh.db });
+        const times: number[] = [];
+        for (let i = 0; i < 25; i += 1) {
+          const read = await handleWorkbenchRequest({ method: 'GET', path: '/api/designs/de9-crossover' }, deps);
+          const design = read.body as { label: string };
+          const started = performance.now();
+          const saved = await handleWorkbenchRequest({ method: 'PUT', path: '/api/designs/de9-crossover', body: { ...design, label: `Save ${i}` }, headers: { 'if-match': read.headers?.ETag ?? '' } }, deps);
+          times.push(performance.now() - started);
+          expect(saved.status).toBe(200);
+        }
+        times.sort((a, b) => a - b);
+        lines.push(`${name.padEnd(10)} design save p50 ${p(times, 0.5).toFixed(1)} ms, p95 ${p(times, 0.95).toFixed(1)} ms (target ≤ 800 ms p95)`);
+        expect(p(times, 0.95)).toBeLessThan(800);
+      }
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+    console.log(`[S5]\n${lines.join('\n')}`);
+  }, 300_000);
 });

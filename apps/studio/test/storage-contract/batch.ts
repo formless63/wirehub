@@ -12,11 +12,16 @@ import { contentETag } from '../../server/etag.ts';
 
 const docsModule = defineModule({ id: 'acme-docs', label: 'Acme docs', version: '0.0.1', documents: [{ path: 'data/acme/', class: 'imported' }] });
 
-export async function batchScenario(base: WorkbenchDeps): Promise<string[]> {
-  const deps: WorkbenchDeps = { ...base, modules: createRegistry([docsModule]), now: () => '2026-10-05T12:00:00.000Z', today: () => '2026-10-05' };
+/** The deps the batch session expects: a module that owns `data/acme/` documents, a fixed clock. */
+export function withBatchModule(base: WorkbenchDeps): WorkbenchDeps {
+  return { ...base, modules: createRegistry([docsModule]), now: base.now ?? (() => '2026-10-05T12:00:00.000Z'), today: base.today ?? (() => '2026-10-05') };
+}
+
+export async function batchScenario(base: WorkbenchDeps, send?: (request: ApiRequest) => Promise<ApiResponse>): Promise<string[]> {
+  const deps = withBatchModule(base);
   const log: string[] = [];
   const call = async (label: string, request: ApiRequest, status: number): Promise<ApiResponse> => {
-    const response = await handleWorkbenchRequest(request, deps);
+    const response = await (send ?? ((r: ApiRequest) => handleWorkbenchRequest(r, deps)))(request);
     log.push(`${label}: ${response.status} ${response.headers?.ETag ?? ''} ${JSON.stringify(response.body)}`);
     expect(response.status, `${label}: ${JSON.stringify(response.body).slice(0, 300)}`).toBe(status);
     return response;

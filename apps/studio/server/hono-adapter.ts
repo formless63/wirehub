@@ -280,8 +280,10 @@ export function mountWorkbenchApi(
     if (isDepictionPath(path)) {
       return handleDepiction(method, path, c.req.header('content-type'), c.req.raw, depictionDeps, backup, deps);
     }
-    // module routes take their options as a query string; nothing else reads one
-    return handleJson(method, isModulePath(path) ? `${path}${new URL(c.req.url).search}` : path, c.req.raw, deps, backup);
+    // module routes take their options as a query string; a dry run is `?dryRun=1`; nothing else reads one
+    const search = new URL(c.req.url).search;
+    const withQuery = isModulePath(path) || new URLSearchParams(search).get('dryRun') === '1';
+    return handleJson(method, withQuery ? `${path}${search}` : path, c.req.raw, deps, backup);
   };
   // what changed, as server-sent events (B6): ahead of compression, which would buffer the stream
   app.get('/api/events', (c) => {
