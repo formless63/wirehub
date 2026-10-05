@@ -99,7 +99,7 @@ A board that fits one sheet at the chosen scale has one tile.
 | `format` | Answer |
 | --- | --- |
 | `svg` (default) | the overview; with `page=n`, tile n (a page past the last is `400`, naming how many there are) |
-| `pdf` | every page, overview first, one rasterised image per page at 150 dpi in the paper's size |
+| `pdf` | every page, overview first, as vector drawing in the paper's size, its text set in the bundled Liberation Sans embedded as a subset TrueType font (`apps/studio/server/render/ttf.ts`, no dependency), so it reads the same in every viewer and on every printer |
 | `html` | every page in one self-contained document, page-broken, `@page` sized (also the Documents view) |
 
 `scale` is a number (`0.5`) or a ratio (`1:2`); anything else is `400`. `rev` and `variation`
