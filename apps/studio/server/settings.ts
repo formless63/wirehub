@@ -124,7 +124,8 @@ function fail(status: number, error: string, hint?: string): ApiResponse {
   return { status, body: { error, ...(hint === undefined ? {} : { hint }) } };
 }
 
-async function view(record: BrandingRecord | undefined, assets: AssetStore | undefined): Promise<BrandingView> {
+/** The branding as the API answers it: the record and the logo's bytes as a data URI. */
+export async function brandingView(record: BrandingRecord | undefined, assets: AssetStore | undefined): Promise<BrandingView> {
   if (record === undefined) return { src: SRC };
   const found = record.logo === undefined || assets === undefined ? undefined : await assets.get(record.logo);
   return { ...record, ...(found === undefined ? {} : { logoDataUri: assetDataUri(found.record.mime, found.bytes) }) };
@@ -200,7 +201,7 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
   if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = (await deps.docs.read(BRANDING_PATH)) as BrandingRecord | undefined;
   const etag = contentETag(current ?? null);
-  if (method === 'GET') return { status: 200, body: await view(current, deps.assets), headers: { ETag: etag } };
+  if (method === 'GET') return { status: 200, body: await brandingView(current, deps.assets), headers: { ETag: etag } };
   if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
   const guard = checkIfMatch(ifMatch, etag, 'settings', 'branding');
   if (guard !== undefined) return guard;
@@ -281,5 +282,5 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
   if (empty) await deps.docs.remove(BRANDING_PATH);
   else await deps.docs.write(BRANDING_PATH, next);
   const saved = empty ? undefined : next;
-  return { status: 200, body: await view(saved, deps.assets), headers: { ETag: contentETag(saved ?? null) } };
+  return { status: 200, body: await brandingView(saved, deps.assets), headers: { ETag: contentETag(saved ?? null) } };
 }

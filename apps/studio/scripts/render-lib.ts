@@ -66,6 +66,8 @@ export interface Fetched {
   fileName?: string;
   /** the error sentence, for a refusal */
   error?: string;
+  /** why a PDF is the headless one rather than the printed HTML sheet (`X-WireHub-PDF-Fallback`) */
+  note?: string;
 }
 
 export interface RenderSource {
@@ -111,6 +113,7 @@ export async function renderToFiles(
   for (const path of paths) {
     const answer = await source.get(path);
     if (answer.status !== 200) throw new RenderCliError(`${answer.error ?? `The studio answered ${answer.status}.`} (${path})`);
+    if (answer.note !== undefined) io.log(`note: ${answer.note} (${path})`);
     if (args.out === '-') {
       if (paths.length > 1) throw new RenderCliError('--out - writes one file to stdout; name a directory for all.');
       io.stdout(answer.bytes);
@@ -139,7 +142,11 @@ export function httpSource(url: string, token: string, fetchImpl: typeof fetch =
     async get(path) {
       const res = await fetchImpl(`${url.replace(/\/+$/, '')}${path}`, { headers: { authorization: `Bearer ${token}` } });
       const bytes = new Uint8Array(await res.arrayBuffer());
-      if (res.status === 200) return { status: 200, bytes, ...(fileNameOf(res.headers.get('content-disposition')) === undefined ? {} : { fileName: fileNameOf(res.headers.get('content-disposition')) as string }) };
+      const note = res.headers.get('x-wirehub-pdf-fallback');
+      if (res.status === 200) {
+        const fileName = fileNameOf(res.headers.get('content-disposition'));
+        return { status: 200, bytes, ...(fileName === undefined ? {} : { fileName }), ...(note === null ? {} : { note }) };
+      }
       let error: string | undefined;
       try {
         const body = JSON.parse(new TextDecoder().decode(bytes)) as { error?: string; hint?: string };
@@ -158,7 +165,8 @@ export function localSource(route: (request: { method: string; path: string }) =
     async get(path) {
       const out = await route({ method: 'GET', path });
       const fileName = fileNameOf(out.headers?.['Content-Disposition']);
-      if (out.status === 200 && out.bytes !== undefined) return { status: 200, bytes: out.bytes, ...(fileName === undefined ? {} : { fileName }) };
+      const note = out.headers?.['X-WireHub-PDF-Fallback'];
+      if (out.status === 200 && out.bytes !== undefined) return { status: 200, bytes: out.bytes, ...(fileName === undefined ? {} : { fileName }), ...(note === undefined ? {} : { note }) };
       const body = out.body as { error?: string; hint?: string } | null;
       const error = [body?.error, body?.hint].filter(Boolean).join(' ');
       return { status: out.status, bytes: new Uint8Array(), ...(error === '' ? {} : { error }) };

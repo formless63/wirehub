@@ -19,15 +19,18 @@
  */
 
 import { isDesignId } from '@wirehub/catalog';
-import { BASE_EXPORTS, baseExport, parseScale, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, baseExport, parseScale, readTestParameters, type DrawingArt, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import { knownPartNumbers, releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type DesignVersionFile, type KnownPartNumber, type PartNumberScheme, type VersionSummary } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
 import type { DrawingStore } from './drawings.ts';
-import { type ApprovalFacts, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
-import { approvalPolicy, BRANDING_PATH, effectiveTestDefaults, type BrandingRecord } from './settings.ts';
+import { type ApprovalFacts, type PdfProvenance, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
+import { approvalPolicy, BRANDING_PATH, brandingView, effectiveTestDefaults, type BrandingRecord } from './settings.ts';
+import { brandingArt } from '../module-art.ts';
+import type { AssetStore } from './assets.ts';
+import type { PdfEngine } from './render/browser-pdf.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
 import { withDesignLibrary } from './assemblies.ts';
@@ -58,6 +61,10 @@ export interface DocumentDeps extends SchemeDeps {
   depictions?: DepictionStore;
   /** the wire stock recipes and parts the spec sheet reads */
   wireLibrary?: WireLibraryStore;
+  /** the asset store: the branding's logo is read from it */
+  assets?: AssetStore;
+  /** the browser engine the HTML sheets are printed to PDF with (`WIREHUB_PDF_ENGINE_URL`, `render/browser-pdf.ts`); absent: the headless PDFs */
+  pdfEngine?: PdfEngine;
 }
 
 function fail(status: number, error: string, hint?: string): ApiResponse {
@@ -182,7 +189,27 @@ function positive(value: string | null, name: string): number | undefined | ApiR
   return Number(value);
 }
 
-function file(output: { mimeType: string; fileName: string; body: string | Uint8Array }, inline: boolean): ApiResponse {
+/** The response headers that say how a PDF was made (`docs/exports.md`): the renderer, and why the browser engine was not used when it could have been. */
+export function pdfHeaders(pdf: PdfProvenance | undefined): Record<string, string> {
+  if (pdf === undefined) return {};
+  // a header is ASCII on one line
+  const ascii = (text: string): string => text.replace(/[^\x20-\x7e]/g, '?').slice(0, 400);
+  return { 'X-WireHub-PDF-Renderer': pdf.renderer, ...(pdf.fallback === undefined ? {} : { 'X-WireHub-PDF-Fallback': ascii(pdf.fallback) }) };
+}
+
+/** The hub's branding as drawing art for the sheets the server draws, as the browser registers it (`installBranding`). */
+async function brandingOf(deps: DocumentDeps): Promise<DrawingArt | undefined> {
+  if (deps.docs === undefined) return undefined;
+  try {
+    const record = (await deps.docs.read(BRANDING_PATH)) as BrandingRecord | undefined;
+    return record === undefined ? undefined : brandingArt(await brandingView(record, deps.assets));
+  } catch {
+    // branding is presentation: a settings document that cannot be read leaves the generic text
+    return undefined;
+  }
+}
+
+function file(output: { mimeType: string; fileName: string; body: string | Uint8Array }, inline: boolean, extraHeaders: Record<string, string> = {}): ApiResponse {
   const bytes = typeof output.body === 'string' ? new TextEncoder().encode(output.body) : output.body;
   return {
     status: 200,
@@ -194,6 +221,7 @@ function file(output: { mimeType: string; fileName: string; body: string | Uint8
       // a rendered sheet is a document, never a page that runs anything
       'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
       'X-Content-Type-Options': 'nosniff',
+      ...extraHeaders,
     },
   };
 }
@@ -213,7 +241,7 @@ async function wireSpec(method: string, id: string, query: URLSearchParams, deps
   // the hub's branding (settings): who issues it and what its files are called; the browser registers the same
   const branding = (await deps.docs?.read(BRANDING_PATH)) as BrandingRecord | undefined;
   try {
-    const out = renderWireSpec(wire, asked, {
+    const options = {
       ...(branding?.organisation === undefined ? {} : { organisation: branding.organisation }),
       ...(branding?.standard === undefined ? {} : { standard: branding.standard }),
       ...(branding?.rights === undefined ? {} : { rightsNotice: branding.rights }),
@@ -221,9 +249,25 @@ async function wireSpec(method: string, id: string, query: URLSearchParams, deps
       ...(recipe === undefined ? {} : { recipe }),
       ...(library === undefined ? {} : { parts: library.parts }),
       ...(manufacturers === undefined ? {} : { manufacturers }),
-      ...(paper === null ? {} : { paper }),
-    });
-    return file(out, true);
+      ...(paper === null ? {} : { paper: paper as 'A4' | 'letter' }),
+    };
+    if (asked === 'pdf') {
+      // the sheet printed by the browser engine, when there is one; else the headless pages
+      let fallback = 'No browser PDF engine is configured (WIREHUB_PDF_ENGINE_URL), so this is the headless PDF, not the printed HTML sheet (format=html prints that in a browser).';
+      if (deps.pdfEngine !== undefined) {
+        const html = renderWireSpec(wire, 'html', options);
+        try {
+          const bytes = await deps.pdfEngine.htmlToPdf(html.body as string);
+          return file({ mimeType: 'application/pdf', fileName: html.fileName.replace(/\.html$/, '.pdf'), body: bytes }, true, pdfHeaders({ renderer: 'browser' }));
+        } catch (error) {
+          const why = error instanceof Error ? error.message : String(error);
+          console.warn(`[documents] browser PDF of the ${id} spec sheet: ${why}; sent the headless PDF instead`);
+          fallback = `The browser PDF engine failed (${why}), so this is the headless PDF, not the printed HTML sheet.`;
+        }
+      }
+      return file(renderWireSpec(wire, 'pdf', options), true, pdfHeaders({ renderer: 'text-layout', fallback }));
+    }
+    return file(renderWireSpec(wire, asked, options), true);
   } catch (error) {
     return fail(422, `The spec sheet of ${id} could not be rendered.`, error instanceof Error ? error.message : String(error));
   }
@@ -271,6 +315,8 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const wantsProposals = (section === 'documents' && (name === 'bom' || name === 'build-sheet')) || (section === 'exports' && (name === 'bom.csv' || name === 'production.xlsx'));
   const artwork = section === 'documents' && ['schematic', 'build-sheet', 'bom'].includes(name) ? await artworkOf(deps, loaded) : undefined;
   const partNumbers = wantsProposals ? await partNumbersOf(deps, loaded) : undefined;
+  // the title block's organisation, logo and notes: the sheets the browser draws with them
+  const branding = section === 'documents' && (name === 'drawing' || name === 'build-sheet' || name === 'bom' || name === 'test-spec') ? await brandingOf(deps) : undefined;
 
   if (section === 'exports') {
     const format = baseExport(name);
@@ -318,8 +364,10 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
     ...(artwork === undefined ? {} : { depictions: artwork }),
     ...(partNumbers === undefined ? {} : { partNumbers }),
+    ...(branding === undefined ? {} : { branding }),
+    ...(deps.pdfEngine === undefined ? {} : { pdfEngine: deps.pdfEngine }),
     today: today(),
   });
   if (!result.ok) return fail(result.status, result.error, result.hint);
-  return file(result.output, result.output.mimeType.startsWith('text/html') || result.output.mimeType === 'image/svg+xml' || result.output.mimeType === 'application/pdf');
+  return file(result.output, result.output.mimeType.startsWith('text/html') || result.output.mimeType === 'image/svg+xml' || result.output.mimeType === 'application/pdf', pdfHeaders(result.pdf));
 }

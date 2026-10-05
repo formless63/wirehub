@@ -25,6 +25,9 @@
 # Optional parts are profiles, chosen with COMPOSE_PROFILES in .env:
 #   backup       restic backups through Backrest (web UI on port 9898):
 #                backup-init, backup-dump, backup-mirror, backrest
+#   pdf          the browser PDF engine (Gotenberg: headless Chromium) that
+#                prints the HTML sheets to PDF exactly as a browser does;
+#                also set WIREHUB_PDF_ENGINE_URL=http://pdf:3000
 #
 # Using your own Postgres or S3: delete the blocks between ">>> bundled-…" and
 # "<<< bundled-…" and set DATABASE_ADMIN_URL or the S3_* variables (the config
@@ -79,6 +82,9 @@ services:
       WIREHUB_NOTIFY_FORMAT:
       WIREHUB_STORE_INDEXES:
       WIREHUB_STORE_HIDE_UNREVIEWED:
+      # the browser PDF engine (profile `pdf`): http://pdf:3000; unset = the headless PDFs
+      WIREHUB_PDF_ENGINE_URL:
+      WIREHUB_PDF_ENGINE_TIMEOUT_MS:
       # the file Backrest's post-snapshot hook touches (profile `backup`); the deep health check reads it
       WIREHUB_BACKUP_MARKER: ${WIREHUB_BACKUP_MARKER:-/backup-marker/.last-snapshot}
       # sign-in: on, with email + password accounts; first-run setup makes the admin
@@ -437,6 +443,36 @@ services:
     restart: unless-stopped
     # internal: the staging services; public: a repository on another machine
     networks: [internal, public]
+
+  # --- profile `pdf`: the browser PDF engine -------------------------------
+  # Gotenberg (Apache-2.0), an HTTP API around headless Chromium: the app posts
+  # a self-contained sheet and gets its PDF back (docs/exports.md). Reachable
+  # only from the stack; JavaScript off and every outbound address refused,
+  # so a sheet can fetch nothing. Point the app at it with
+  # WIREHUB_PDF_ENGINE_URL=http://pdf:3000.
+  pdf:
+    profiles: [pdf]
+    image: gotenberg/gotenberg:8.37.0-chromium
+    command:
+      - gotenberg
+      - --api-timeout=30s
+      - --api-disable-download-from
+      - --webhook-disable
+      - --prometheus-disable-collect
+      - --chromium-disable-javascript
+      - --chromium-deny-public-ips
+      - --chromium-deny-private-ips
+      - --chromium-max-concurrency=2
+      - --chromium-restart-after=50
+      - --log-level=warn
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+    mem_limit: 1g
+    restart: unless-stopped
+    networks: [internal]
 
 networks:
   # postgres and garage are reachable only from the stack, never published

@@ -107,6 +107,11 @@ bash setup-env.sh</code></pre>
   </fieldset>
 
   <fieldset>
+    <legend>Printed PDFs</legend>
+    <label class="choice"><input type="checkbox" name="pdf.enabled"> Browser PDF engine <span class="hint">the <code>pdf</code> profile: Gotenberg (headless Chromium, about 1 GB of memory) prints the build sheet, BOM, test spec and drawing to PDF exactly as a browser does; off = plain text-layout PDFs</span></label>
+  </fieldset>
+
+  <fieldset>
     <legend>Sign-in</legend>
     <label class="choice"><input type="checkbox" name="oidc.enabled"> Sign in with OIDC <span class="hint">Authentik, Keycloak, Google, Entra …; off = anyone who reaches the port can edit</span></label>
     <div class="when" data-when="oidc.enabled">

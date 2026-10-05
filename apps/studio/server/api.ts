@@ -63,6 +63,7 @@ import { isDocPath, type CatalogFileStore, type DocStore } from './storage/doc-s
 import { moduleJobsFor } from './jobs/module-queues.ts';
 import { deriveContinuityExport, type TestParameters } from '@wirehub/docs';
 import { handleDocumentRequest, DOCUMENT_ROUTES } from './documents.ts';
+import type { PdfEngine } from './render/browser-pdf.ts';
 import { ImportExtrasRefused, parseModuleIoPath, proposalOf, runExporter, runImporter, stageImportExtras, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { JobService } from './jobs/types.ts';
@@ -172,6 +173,8 @@ export interface WorkbenchDeps {
   loadPartNumberFiles?: () => Awaitable<PartNumberFiles>;
   /** the organisation's default continuity test parameters (`WIREHUB_TEST_DEFAULTS`) */
   testDefaults?: TestParameters;
+  /** the browser engine the HTML sheets are printed to PDF with (`WIREHUB_PDF_ENGINE_URL`, `render/browser-pdf.ts`); absent: the headless PDFs */
+  pdfEngine?: PdfEngine;
   /**
    * The shared, content-addressed image asset store
    * — what the drawing photo picker lists and dedupes against. Optional so a

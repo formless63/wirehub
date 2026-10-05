@@ -10,10 +10,13 @@
  *   labels      svg (the label sheet) · pdf · csv
  *   formboard   svg (the overview, or one tile with ?page=) · pdf (overview then every tile) · html (all pages)
  *
- * `html` is the browser's own render, byte for byte (same functions). `svg` and
+ * `html` is the browser's own render, byte for byte (same functions). With a
+ * browser PDF engine configured (`browser-pdf.ts`, `WIREHUB_PDF_ENGINE_URL`)
+ * the `pdf` of the three text sheets and of the drawing sheet is that HTML
+ * printed by Chromium, as the browser's Print prints it. Without one, `svg` and
  * `pdf` of the three text sheets are a plain page layout of the sheet's text
  * (`layout.ts`) — tables and notes, without the figures — because laying out
- * HTML needs a browser engine this repository does not ship; the schematic,
+ * HTML needs a browser engine the WireHub image does not ship; the schematic,
  * the drawing sheet and the label sheet are drawings already, so they come out
  * as themselves (SVG) or as a rasterised page (PDF); the formboard is the exception, its
  * PDF is vector (`vector.ts`), so a 1:1 nail-board tile prints crisp.
@@ -41,6 +44,8 @@ import {
   testSpecToMarkdown,
   deriveTestSpec,
   resolveTestParameters,
+  registerDrawingArt,
+  type DrawingArt,
   type DrawingMeta,
   type FormatOptions,
   type FormatOutput,
@@ -49,6 +54,7 @@ import {
 import type { CableDesign, Db, KnownPartNumber, PartNumberScheme } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
 
+import type { PdfEngine } from './browser-pdf.ts';
 import { layoutMarkdown, PAPER } from './layout.ts';
 import { pagesToPdf, type PdfPage } from './pdf.ts';
 import { svgToPdfPage } from './raster.ts';
@@ -122,11 +128,35 @@ export interface DocumentRequest {
   partNumbers?: { scheme: PartNumberScheme; known: readonly KnownPartNumber[] };
   /** a date to stamp when the sheet settings ask for one (the library renders no clock) */
   today?: string;
+  /** the hub's branding as drawing art (`brandingArt`), registered only while the sheet is drawn — after any module's art, so a module still wins */
+  branding?: DrawingArt;
+  /** the browser engine the HTML sheets are printed to PDF with (`browser-pdf.ts`); absent: the plain PDFs */
+  pdfEngine?: PdfEngine;
+}
+
+/** How a PDF was made: `browser` is the HTML sheet printed by the engine; `fallback` says why a sheet that could be was not. */
+export interface PdfProvenance {
+  renderer: 'browser' | 'text-layout' | 'raster' | 'vector';
+  fallback?: string;
 }
 
 export type DocumentResult =
-  | { ok: true; output: FormatOutput }
+  | { ok: true; output: FormatOutput; pdf?: PdfProvenance }
   | { ok: false; status: number; error: string; hint: string };
+
+/** The documents whose PDF is their HTML sheet printed by the browser engine, when one is configured. */
+export const BROWSER_PDF_KINDS: ReadonlySet<DocumentKind> = new Set(['build-sheet', 'bom', 'test-spec', 'drawing']);
+
+/** Run a synchronous sheet render with the hub's branding registered, and only then (the registry is shared). */
+export function withBranding<T>(art: DrawingArt | undefined, render: () => T): T {
+  if (art === undefined) return render();
+  const off = registerDrawingArt(art);
+  try {
+    return render();
+  } finally {
+    off();
+  }
+}
 
 const MIME: Readonly<Record<DocumentFormat, string>> = {
   html: 'text/html; charset=utf-8',
@@ -168,15 +198,43 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     depictions: request.depictions ?? true,
     ...(request.partNumbers === undefined ? {} : { partNumbers: request.partNumbers }),
   };
-  const out = (body: string | Uint8Array, fileFormat: DocumentFormat = format): DocumentResult => ({
+  const marked = (html: string): string => (request.unreleased === true ? withUnreleasedMark(html, request.unreleasedLabel) : html);
+  let pdf: PdfProvenance | undefined;
+  const out = (body: string | Uint8Array, fileFormat: DocumentFormat = format, renderer?: PdfProvenance['renderer']): DocumentResult => ({
     ok: true,
     output: {
       mimeType: MIME[fileFormat],
       fileName: `${stem(request)}.${fileFormat}`,
-      body: request.unreleased === true && typeof body === 'string' && fileFormat === 'html' ? withUnreleasedMark(body, request.unreleasedLabel) : body,
+      body: typeof body === 'string' && fileFormat === 'html' ? marked(body) : body,
     },
+    ...(fileFormat === 'pdf' && renderer !== undefined ? { pdf: { ...pdf, renderer } } : {}),
   });
+  const drawingOptions = { meta, ...(request.photo === undefined ? {} : { photo: request.photo }) };
+  /** the HTML sheet of a document that has one (not the formboard: its PDF is vector already) */
+  const sheetHtml = (): string =>
+    withBranding(request.branding, () =>
+      kind === 'build-sheet'
+        ? renderBuildSheet(design, db, options)
+        : kind === 'bom'
+          ? renderBomSheet(design, db, options)
+          : kind === 'test-spec'
+            ? renderTestSpecSheet(design, db, options)
+            : renderDrawingSheet(design, db, drawingOptions),
+    );
   try {
+    if (format === 'pdf' && BROWSER_PDF_KINDS.has(kind)) {
+      if (request.pdfEngine === undefined) {
+        pdf = { renderer: 'text-layout', fallback: 'No browser PDF engine is configured (WIREHUB_PDF_ENGINE_URL), so this is the headless PDF, not the printed HTML sheet (format=html prints that in a browser).' };
+      } else {
+        try {
+          return out(await request.pdfEngine.htmlToPdf(marked(sheetHtml())), 'pdf', 'browser');
+        } catch (error) {
+          const why = error instanceof Error ? error.message : String(error);
+          console.warn(`[documents] browser PDF of ${design.id} ${kind}: ${why}; sent the headless PDF instead`);
+          pdf = { renderer: 'text-layout', fallback: `The browser PDF engine failed (${why}), so this is the headless PDF, not the printed HTML sheet.` };
+        }
+      }
+    }
     if (format === 'csv') {
       const id = { 'build-sheet': 'wire-list.csv', bom: 'bom.csv', 'test-spec': 'continuity.csv', labels: 'labels.csv' }[kind as 'bom'];
       const made = baseExport(id)!.render(design, db, options);
@@ -191,14 +249,13 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
           svg = renderSchematic(design, db, { depictions: false });
         }
         if (format === 'svg') return out(svg);
-        return out(pagesToPdf([await svgToPdfPage({ svg, width: 841.89, height: 595.28, margin: 24 })], titleOf(request)));
+        return out(pagesToPdf([await svgToPdfPage({ svg, width: 841.89, height: 595.28, margin: 24 })], titleOf(request)), 'pdf', 'raster');
       }
       case 'drawing': {
-        const drawingOptions = { meta, ...(request.photo === undefined ? {} : { photo: request.photo }) };
-        if (format === 'html') return out(renderDrawingSheet(design, db, drawingOptions));
-        const svg = renderDrawingSheet(design, db, { ...drawingOptions, fragment: true });
+        if (format === 'html') return out(sheetHtml());
+        const svg = withBranding(request.branding, () => renderDrawingSheet(design, db, { ...drawingOptions, fragment: true }));
         if (format === 'svg') return out(svg);
-        return out(pagesToPdf([await svgToPdfPage({ svg, width: 792, height: 612 })], titleOf(request)));
+        return out(pagesToPdf([await svgToPdfPage({ svg, width: 792, height: 612 })], titleOf(request)), 'pdf', 'raster');
       }
       case 'formboard': {
         const board = deriveFormboard(design, db, { ...(request.variation === undefined ? {} : { variation: request.variation }), drawing: meta });
@@ -214,7 +271,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
         for (const svg of formboardSvgPages(board, sheetOptions)) {
           pages.push(svgToVectorPdfPage(svg, { width: (mm.w / 25.4) * 72, height: (mm.h / 25.4) * 72 }));
         }
-        return out(pagesToPdf(pages, titleOf(request)));
+        return out(pagesToPdf(pages, titleOf(request)), 'pdf', 'vector');
       }
       case 'labels': {
         const labels = deriveLabels(design, db);
@@ -228,23 +285,20 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
           const h = (Number(mm?.[2] ?? 297) / 25.4) * 72;
           pages.push(await svgToPdfPage({ svg, width: w, height: h, dpi: 300 }));
         }
-        return out(pagesToPdf(pages, titleOf(request)));
+        return out(pagesToPdf(pages, titleOf(request)), 'pdf', 'raster');
       }
       default: {
-        if (format === 'html') {
-          const html =
-            kind === 'build-sheet' ? renderBuildSheet(design, db, options) : kind === 'bom' ? renderBomSheet(design, db, options) : renderTestSpecSheet(design, db, options);
-          return out(html);
-        }
+        if (format === 'html') return out(sheetHtml());
         const parameters = resolveTestParameters(meta.test, request.testDefaults);
-        const markdown =
+        const markdown = withBranding(request.branding, () =>
           kind === 'build-sheet'
             ? buildSheetMarkdown(design, db, options)
             : kind === 'bom'
               ? renderBomMarkdown(design, db, options)
-              : testSpecToMarkdown(deriveTestSpec(design, db, { continuityOhmsMax: parameters.continuityOhmsMax }), parameters);
+              : testSpecToMarkdown(deriveTestSpec(design, db, { continuityOhmsMax: parameters.continuityOhmsMax }), parameters),
+        );
         const pages = layoutMarkdown(markdown, { paper: PAPER[paper], footer: `${design.id} ${kind}${request.revisionNumber === undefined ? '' : ` rev ${request.revisionNumber}`}` });
-        return format === 'svg' ? out(pagesToSvg(pages)) : out(pagesToPdf(pages.map((page): PdfPage => ({ kind: 'ops', page })), titleOf(request)));
+        return format === 'svg' ? out(pagesToSvg(pages)) : out(pagesToPdf(pages.map((page): PdfPage => ({ kind: 'ops', page })), titleOf(request)), 'pdf', 'text-layout');
       }
     }
   } catch (error) {
