@@ -11,7 +11,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import type { StudioUser } from '../server/me.ts';
 import { fileDocStore } from '../server/storage/doc-store.ts';
-import { runBenchRulesPackFlow, runPadMapPreviewFlow, runSchemeAndSelectorsFlow, type FlowCall } from './migration-gaps-flow.ts';
+import { memoryAssetStore } from '../server/assets.ts';
+import { depictionBlob } from '../server/default-deps.ts';
+import { runBenchRulesPackFlow, runVendorPdfPackFlow, runPadMapPreviewFlow, runSchemeAndSelectorsFlow, type FlowCall } from './migration-gaps-flow.ts';
 
 describe('migration gaps (file backend)', () => {
   let root = '';
@@ -30,6 +32,8 @@ describe('migration gaps (file backend)', () => {
       modules: createRegistry([]),
       installedPacks: () => ({ src: 'x', packs: installedAcross(dataDir, packs).packs }),
       docs: fileDocStore(join(root, 'catalog')),
+      assets: memoryAssetStore(),
+      blob: async (sha: string) => depictionBlob(sha, packs, join(root, 'catalog')),
       setup: { dataDir, packsDir: packs, prompt: false, now: () => '2026-10-05T12:00:00.000Z' },
     };
     call = async (method, path, body, user?: StudioUser, headers?: Record<string, string>) =>
@@ -47,5 +51,9 @@ describe('migration gaps (file backend)', () => {
 
   it('a numbering scheme with exclusions, unions and multi-segment matches, and cable-end rule selectors, through the API', async () => {
     await runSchemeAndSelectorsFlow(call);
+  });
+
+  it('signed vendor PDFs in a pack: pinned, installed, linked, served with safe headers, replaced and removed', async () => {
+    await runVendorPdfPackFlow(call, { strictRemoval: true });
   });
 });

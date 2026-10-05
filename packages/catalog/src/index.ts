@@ -46,6 +46,7 @@ export {
   assetPath,
   assetSha,
   flatAssetPath,
+  dataRelativeOf,
   packOwnedAssets,
   reconcileAssets,
   catalogWithPacksSource,

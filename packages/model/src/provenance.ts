@@ -54,9 +54,24 @@ export interface DerivedFrom {
   version: string;
 }
 
+/**
+ * One of a manufacturer's own documents (a datasheet, a drawing) for a record: a PDF held by
+ * content address, in the shared asset library or shipped in a data pack (`docs/` or `assets/`),
+ * so it opens in the app and is served by `/api/blobs/<asset>`. A citation, never our document number.
+ */
+export interface VendorDoc {
+  /** the sha256 of the PDF's bytes, hex */
+  asset: string;
+  /** what it is, in words ("the vendor C146 technical datasheet") */
+  label: string;
+  src: string;
+}
+
 /** The optional fields a catalog record may carry besides `src`. */
 export interface RecordMeta {
   license?: string;
+  /** the manufacturer's own documents for this record, by content address (`VendorDoc`) */
+  vendorDocs?: VendorDoc[];
   provenance?: RecordProvenance;
   derivedFrom?: DerivedFrom;
   /** optional price (`cost.ts`); absent = unpriced */
@@ -164,6 +179,18 @@ export function recordMetaIssues(record: object, where: string): Issue[] {
           });
         }
       }
+    }
+  }
+
+  const docs = r['vendorDocs'];
+  if (docs !== undefined) {
+    if (!Array.isArray(docs) || docs.length > 20) bad('record-vendor-docs', 'vendorDocs must be a list of at most 20 { asset, label, src }');
+    else {
+      docs.forEach((doc, index) => {
+        if (!isObject(doc) || typeof doc['asset'] !== 'string' || !/^[0-9a-f]{64}$/.test(doc['asset']) || !isText(doc['label']) || !isText(doc['src'])) {
+          bad('record-vendor-docs', `vendorDocs[${index}] must be { asset (the sha256 of the PDF, 64 hex digits), label, src }`);
+        }
+      });
     }
   }
 

@@ -14,7 +14,7 @@ export type { AmpacityRow, ContactRow, DbRules, DesignElectrical, ElectricalRepo
 export { costIssues, costingRulesProblems, costUnit, isCurrencyCode, unitPriceAt } from './cost.ts';
 export type { CostingRules, PartCost, PriceBreak } from './cost.ts';
 export { PROVENANCE_METHODS, isSourceUrl, isSpdxLike, recordMetaIssues } from './provenance.ts';
-export type { DerivedFrom, ProvenanceMethod, ProvenanceReview, ProvenanceSource, RecordMeta, RecordProvenance } from './provenance.ts';
+export type { DerivedFrom, ProvenanceMethod, ProvenanceReview, ProvenanceSource, RecordMeta, RecordProvenance, VendorDoc } from './provenance.ts';
 export {
   isGroup,
   isElectricalElement,

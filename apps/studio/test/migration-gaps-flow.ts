@@ -4,11 +4,15 @@
  *
  * - `runSchemeAndSelectorsFlow`: a numbering scheme with exclusions, range unions and multi-segment matches through
  *   Settings' check, and a `cable-end` rule through the rules test;
+ * - `runVendorPdfPackFlow`: signed-pack PDFs under `docs/` and `assets/` are pinned, installed, linked from library
+ *   records, served by `/api/blobs` with safe headers, replaced on update and removed on disable;
  * - `runBenchRulesPackFlow`: a data pack's `bench-rules.json` is read at runtime, follows install, update and
  *   disable, and a bad rule refuses the pack;
  * - `runPadMapPreviewFlow`: a pack that ships an auxiliary PCBA pad table is previewed with the
  *   same data the installed catalog will have, so preview validation equals post-install validation.
  */
+
+import { createHash } from 'node:crypto';
 
 import { loadDesigns } from '@wirehub/catalog';
 import { renderBuildSheet } from '@wirehub/docs';
@@ -185,4 +189,90 @@ export async function runSchemeAndSelectorsFlow(call: FlowCall): Promise<void> {
   expect(run.body.designs.map((d: any) => [d.id, d.issues, d.examples[0].where])).toEqual([['de9-terminal-board', 1, 'w1@b']]);
   const view = await call('GET', '/api/rules', undefined, OWNER);
   expect(view.body.subjects.design).toContain('cable-end');
+}
+
+const sha = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
+/** a small, valid-looking PDF; `mark` makes each one different */
+export const pdfBytes = (mark: string, extra = ''): Uint8Array => new TextEncoder().encode(`%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R ${extra}>>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n% ${mark}\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`);
+const b64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64');
+
+const pdfPack = (version: string, pdfs: Record<string, Uint8Array>, link: Uint8Array | undefined, manifestExtra: object = {}) => ({
+  format: 1,
+  manifest: { format: 1, id: 'pdf-pack', name: 'Vendor documents', version, license: 'CC0-1.0', ...manifestExtra },
+  files: {
+    'components.json': [
+      {
+        id: 'pdf-pack-r',
+        label: '4 ohm resistor',
+        kind: 'resistor',
+        value: '4',
+        terminals: [{ id: 'a' }, { id: 'b' }],
+        ...(link === undefined ? {} : { vendorDocs: [{ asset: sha(link), label: 'the vendor datasheet', src: 'synthetic example: a vendor document' }] }),
+        src: SRC,
+      },
+    ],
+    ...Object.fromEntries(Object.entries(pdfs).map(([path, bytes]) => [path, b64(bytes)])),
+  },
+});
+
+export async function runVendorPdfPackFlow(call: FlowCall, options: { strictRemoval?: boolean } = {}): Promise<void> {
+  const v1 = pdfBytes('datasheet one');
+  const other = pdfBytes('drawing');
+  const blob = (bytes: Uint8Array) => call('GET', `/api/blobs/${sha(bytes)}`);
+
+  // refused whole: not a PDF, a PDF with a script, a path that is not docs/ or assets/, a PDF that is too large, a pin that does not match
+  const notPdf = await call('POST', '/api/packs/install', { bundle: pdfPack('1.0.0', { 'docs/a.pdf': new TextEncoder().encode('<html>not a pdf</html>') }, undefined) }, OWNER);
+  expect(notPdf.status, JSON.stringify(notPdf.body)).toBe(400);
+  expect(JSON.stringify(notPdf.body)).toMatch(/not a PDF/);
+  const script = await call('POST', '/api/packs/install', { bundle: pdfPack('1.0.0', { 'docs/a.pdf': pdfBytes('x', '/OpenAction << /S /JavaScript /JS (app.alert(1)) >> ') }, undefined) }, OWNER);
+  expect(script.status, JSON.stringify(script.body)).toBe(400);
+  expect(JSON.stringify(script.body)).toMatch(/active content/);
+  const elsewhere = await call('POST', '/api/packs/install', { bundle: pdfPack('1.0.0', { 'sheets/a.pdf': v1 }, undefined) }, OWNER);
+  expect(elsewhere.status).toBe(400);
+  const big = await call('POST', '/api/packs/install', { bundle: pdfPack('1.0.0', { 'docs/big.pdf': new Uint8Array([...pdfBytes('big'), ...new Uint8Array(5 * 1024 * 1024)]) }, undefined) }, OWNER);
+  expect(big.status, JSON.stringify(big.body).slice(0, 200)).toBe(413);
+  const pinned = await call('POST', '/api/packs/install', { bundle: pdfPack('1.0.0', { 'docs/a.pdf': v1 }, undefined, { files: { 'docs/a.pdf': sha(other), 'components.json': '0'.repeat(64) } }) }, OWNER);
+  expect(pinned.status, JSON.stringify(pinned.body)).toBe(422);
+  expect(JSON.stringify(pinned.body)).toMatch(/does not match the sha256/);
+
+  // install: pinned, installed, linked from the record, served by content address as an attachment that cannot run
+  const files = { 'docs/c146-datasheet.pdf': v1, 'assets/vendor/drawing.pdf': other };
+  const done = await call('POST', '/api/packs/install', { bundle: pdfPack('1.0.0', files, v1), apply: true }, OWNER);
+  expect(done.status, JSON.stringify(done.body)).toBe(200);
+  expect(done.body.installed).toBe(true);
+  const db = (await call('GET', '/api/db')).body as Db;
+  expect(db.components.find((c) => c.id === 'pdf-pack-r')?.vendorDocs).toEqual([{ asset: sha(v1), label: 'the vendor datasheet', src: 'synthetic example: a vendor document' }]);
+  const served = await blob(v1);
+  expect(served.status, JSON.stringify(served.body)).toBe(200);
+  expect(served.bytes && Buffer.from(served.bytes).equals(Buffer.from(v1))).toBe(true);
+  const h = Object.fromEntries(Object.entries(served.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
+  expect(h['content-disposition']).toMatch(/^attachment; filename="[A-Za-z0-9._-]+\.pdf"$/);
+  expect(h['x-content-type-options']).toBe('nosniff');
+  expect(h['content-security-policy']).toContain("default-src 'none'");
+  expect((await blob(other)).status).toBe(200);
+  // opens in the app by the same address the library's vendor documents use
+  const inApp = await call('GET', `/api/assets/${sha(v1)}`);
+  expect(inApp.status, JSON.stringify(inApp.body)).toBe(200);
+  expect(inApp.bytes && Buffer.from(inApp.bytes).equals(Buffer.from(v1))).toBe(true);
+  // a record whose link is malformed is an error of the library, not a silent dead link
+  const { validateDb } = await import('@wirehub/model');
+  const broken: Db = { ...db, components: db.components.map((c) => (c.id === 'pdf-pack-r' ? { ...c, vendorDocs: [{ asset: 'nope', label: '', src: '' }] } : c)) };
+  expect(validateDb(broken).some((i) => i.code === 'record-vendor-docs')).toBe(true);
+
+  // update: the PDF that changed is replaced, the one that went is removed
+  const v2 = pdfBytes('datasheet two');
+  const update = await call('POST', '/api/packs/install', { bundle: pdfPack('1.1.0', { 'docs/c146-datasheet.pdf': v2 }, v2), apply: true }, OWNER);
+  expect(update.status, JSON.stringify(update.body)).toBe(200);
+  expect(update.body.kind).toBe('update');
+  expect((await blob(v2)).status).toBe(200);
+  if (options.strictRemoval) {
+    expect((await blob(v1)).status).toBe(404);
+    expect((await blob(other)).status).toBe(404);
+  }
+
+  // disable: the pack's PDFs go with it
+  const gone = await call('DELETE', '/api/packs/pdf-pack', undefined, OWNER);
+  expect(gone.status, JSON.stringify(gone.body)).toBe(200);
+  expect((await blob(v2)).status).toBe(404);
+  expect(((await call('GET', '/api/db')).body as Db).components.some((c) => c.id === 'pdf-pack-r')).toBe(false);
 }

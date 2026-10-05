@@ -44,6 +44,7 @@ import {
   mergeCatalogFile,
   PCBA_PADS_FILE,
   isPlainObject,
+  packAssetFiles,
   packFiles,
   packOwnedAssets,
   readInstalledPacks,
@@ -671,6 +672,20 @@ export function packSourceProblems(packDir: string): string[] {
       else for (const p of benchRuleProblems(rules, 'bench-rules.json')) problems.push(p);
     } catch {
       // not JSON: reported with the other files below
+    }
+  }
+  // a font a pack ships says whose it is and under what licence: `fonts/<name>.json` beside it, `{ family?, license, src }`
+  for (const font of packAssetFiles(packDir).filter((f) => f.startsWith('fonts/'))) {
+    const sidecar = join(packDir, font.replace(/\.[^./]+$/, '.json'));
+    let meta: unknown;
+    try {
+      meta = existsSync(sidecar) ? JSON.parse(readFileSync(sidecar, 'utf8')) : undefined;
+    } catch {
+      meta = undefined;
+    }
+    const m = meta as { license?: unknown; src?: unknown } | undefined;
+    if (m === undefined || typeof m.license !== 'string' || m.license.trim() === '' || typeof m.src !== 'string' || m.src.trim() === '') {
+      problems.push(`${font}: a font needs ${font.replace(/\.[^./]+$/, '.json')} beside it naming its "license" (the terms that let documents embed it) and its "src"`);
     }
   }
   const files = packFiles(packDir);

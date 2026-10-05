@@ -12,7 +12,7 @@ import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { pgSetupDeps } from '../../server/pg/setup.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
-import { runBenchRulesPackFlow, runPadMapPreviewFlow, runSchemeAndSelectorsFlow, type FlowCall } from '../migration-gaps-flow.ts';
+import { runBenchRulesPackFlow, runVendorPdfPackFlow, runPadMapPreviewFlow, runSchemeAndSelectorsFlow, type FlowCall } from '../migration-gaps-flow.ts';
 import { describePg, freshDatabase, type TestDatabase, testBlobs } from './harness.ts';
 
 describePg('migration gaps on Postgres', () => {
@@ -56,5 +56,10 @@ describePg('migration gaps on Postgres', () => {
   it('a numbering scheme with exclusions, unions and multi-segment matches, and cable-end rule selectors, through the API', async () => {
     const { call } = await hub('gaps-scheme');
     await runSchemeAndSelectorsFlow(call);
+  }, 60_000);
+
+  it('signed vendor PDFs in a pack: pinned, installed, linked, served with safe headers, replaced and removed', async () => {
+    const { call } = await hub('gaps-pdf');
+    await runVendorPdfPackFlow(call);
   }, 60_000);
 });

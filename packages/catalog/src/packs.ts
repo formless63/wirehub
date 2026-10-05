@@ -271,7 +271,8 @@ export function packFiles(dir: string): string[] {
 
 /**
  * The files of a pack that are not JSON — the images under `depictions/` and
- * `art/` (`svg`, `png`, `jpg`, `webp`) and a code module's entries under `code/`
+ * `art/` (`svg`, `png`, `jpg`, `webp`), vendor PDFs under `docs/` and `assets/`,
+ * fonts under `fonts/` (`ttf`, `otf`, `woff2`) and a code module's entries under `code/`
  * (`.mjs`, `.css`; `specs/runtime-modules.md`) — relative, sorted. A layered
  * install copies them beside the data files, so a pack's faces, cutaways and
  * code arrive with it (`specs/drawing-language.md` §7).
@@ -288,6 +289,9 @@ export function packAssetFiles(dir: string): string[] {
   };
   walk('depictions', /\.(svg|png|jpe?g|webp)$/);
   walk('art', /\.(svg|png|jpe?g|webp)$/);
+  walk('docs', /\.pdf$/);
+  walk('assets', /\.pdf$/);
+  walk('fonts', /\.(ttf|otf|woff2)$/);
   walk('code', /\.(mjs|css)$/);
   return out.sort();
 }
@@ -335,11 +339,18 @@ export function packOwnedAssets(dir: string): Record<string, string> {
 
 /** Where a pack asset sits in a catalog tree (`<root>/data`, `<root>/depictions`), given the data directory. */
 export function assetPath(dataDir: string, relative: string): string {
-  return relative.startsWith('depictions/') ? join(dirname(dataDir), relative) : join(dataDir, relative);
+  return relative.startsWith('depictions/') ? join(dirname(dataDir), relative) : join(dataDir, dataRelativeOf(relative));
 }
 
-/** The path of a pack asset in a flattened catalog (`depictions/…`, `data/art/…`). */
-export const flatAssetPath = (relative: string): string => (relative.startsWith('depictions/') ? relative : `data/${relative}`);
+/**
+ * Where a pack's file sits under the catalog's `data/`: where it is in the pack, except a pack's
+ * `assets/…` PDFs, which go to `pack-assets/…` (`data/assets/` is the shared asset library, whose
+ * files are named by their hash).
+ */
+export const dataRelativeOf = (relative: string): string => (relative.startsWith('assets/') ? `pack-assets/${relative.slice('assets/'.length)}` : relative);
+
+/** The path of a pack asset in a flattened catalog (`depictions/…`, `data/art/…`, `data/docs/…`, `data/fonts/…`). */
+export const flatAssetPath = (relative: string): string => (relative.startsWith('depictions/') ? relative : `data/${dataRelativeOf(relative)}`);
 
 /** What to do with a pack's asset files: write, remove, and which the pack owns afterwards. */
 export interface AssetOps {
@@ -515,6 +526,9 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   // a code module's entries are files the loader reads: beside the catalog's data (`<catalog>/code/<module>/…`)
   const code = Object.fromEntries(Object.entries(assets).filter(([path]) => path.startsWith('code/')));
   if (Object.keys(code).length > 0) applyPackAssets(catalogDir, packDir, undefined, code);
+  // vendor PDFs and fonts are files the catalog serves by content address: beside the catalog's data, owned by the pack
+  const blobs = Object.fromEntries(Object.entries(assets).filter(([path]) => /^(?:docs|assets|fonts)\//.test(path) && !path.endsWith('.json')));
+  if (Object.keys(blobs).length > 0) applyPackAssets(catalogDir, packDir, undefined, blobs);
   const record = installedRecordOf(plan.manifest, plan.added, assets, packDir);
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));
