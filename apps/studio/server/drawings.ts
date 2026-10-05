@@ -27,7 +27,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync } from 'nod
 import { dirname } from 'node:path';
 
 import { dataPath, isDesignId } from '@wirehub/catalog';
-import type { DrawingMeta, LengthVariant, SheetSettings } from '@wirehub/docs';
+import { readTestParameters, type DrawingMeta, type LengthVariant, type SheetSettings } from '@wirehub/docs';
 
 import { assetDataUri, decodeImageDataUri, fileAssetStore, memoryAssetStore, type AssetStore } from './assets.ts';
 import { writeFileAtomic } from './atomic-write.ts';
@@ -211,7 +211,7 @@ export function readDrawingMeta(value: unknown): { ok: true; meta: DrawingMeta }
   const problems: string[] = [];
   const meta: DrawingMeta = {};
   for (const key of Object.keys(input)) {
-    if (![...TEXT_FIELDS, 'lengths', 'materials', 'remarks', 'cutaway', 'sheet'].includes(key)) problems.push(`'${key}' is not a drawing field.`);
+    if (![...TEXT_FIELDS, 'lengths', 'materials', 'remarks', 'cutaway', 'sheet', 'test'].includes(key)) problems.push(`'${key}' is not a drawing field.`);
   }
   if (input.cutaway !== undefined) {
     if (input.cutaway !== 'art' && input.cutaway !== 'drawn') problems.push("cutaway must be 'art' or 'drawn'.");
@@ -267,6 +267,11 @@ export function readDrawingMeta(value: unknown): { ok: true; meta: DrawingMeta }
   if (input.sheet !== undefined) {
     const sheet = readSheetSettings(input.sheet, problems);
     if (sheet !== undefined) meta.sheet = sheet;
+  }
+  if (input.test !== undefined) {
+    const test = readTestParameters(input.test);
+    if (!test.ok) problems.push(...test.problems);
+    else if (Object.keys(test.parameters).length > 0) meta.test = test.parameters;
   }
   return problems.length > 0 ? { ok: false, problems } : { ok: true, meta };
 }

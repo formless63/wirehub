@@ -27,6 +27,7 @@ import type { CableDesign, Db, KnownPartNumber, PartNumberScheme } from '@wirehu
 import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { DocumentFacts } from './bench/header.ts';
+import type { TestParameters } from './exports/test-params.ts';
 import { benchSheetBody, type BenchSheetOptions } from './bench/render.ts';
 import type { DrawingMeta } from './drawing/model.ts';
 import type { GroundLanding } from './landings.ts';
@@ -60,6 +61,10 @@ export interface SheetOptions {
    */
   generatedAt?: string;
   document?: DocumentIdentity;
+  /** the design's test parameters, printed on the continuity spec (`exports/test-params.ts`) */
+  testParameters?: TestParameters;
+  /** the organisation's defaults under them */
+  testDefaults?: TestParameters;
   /** emit only the `.cs-root` element, for embedding in a host page */
   fragment?: boolean;
 }
@@ -154,6 +159,7 @@ export function benchOptions(options: BuildSheetOptions): BenchSheetOptions {
     ...(options.revisionNumber === undefined ? {} : { revision: options.revisionNumber }),
     ...(options.document === undefined ? {} : { document: options.document }),
     ...(options.generatedAt === undefined ? {} : { generatedAt: options.generatedAt }),
+    ...(options.testDefaults === undefined ? {} : { testDefaults: options.testDefaults }),
   };
 }
 

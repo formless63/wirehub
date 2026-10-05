@@ -57,6 +57,8 @@ export interface LengthVariant {
   overallMm?: number;
 }
 
+import type { TestParameters } from '../exports/test-params.ts';
+
 /**
  * The drawing sidecar: what goes on the sheet that the electrical model does
  * not (and should not) carry. Stored beside the design as
@@ -94,7 +96,14 @@ export interface DrawingMeta {
    * per-design home of title-block facts. The drawing sheet ignores it.
    */
   sheet?: SheetSettings;
+  /**
+   * The continuity spec's test parameters for this design (threshold, isolation
+   * and hipot voltage and dwell); anything unset takes the organisation's
+   * default, then the base's (`exports/test-params.ts`).
+   */
+  test?: TestParameters;
   src?: string;
+
 }
 
 /** The printed sheets' page and document identity, as the studio stores them. */

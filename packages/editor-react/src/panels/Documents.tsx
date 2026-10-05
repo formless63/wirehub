@@ -21,7 +21,7 @@
  */
 
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
-import { variationsOf, type DocumentFacts, type DrawingMeta } from '@wirehub/docs';
+import { BASE_EXPORTS, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 import { IconDownload, IconMarkdown, IconPrinter } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
@@ -42,6 +42,7 @@ import {
   draftStatus,
   isEmptyDesign,
   isStaleWrite,
+  renderExport,
   mergeDrawingMeta,
   mergeField,
   renderDocument,
@@ -62,6 +63,7 @@ import {
 import type { PartNumberData } from '../part-numbers.ts';
 import { DrawingForm, drawingDate } from './DrawingForm.tsx';
 import { SheetOptions } from './SheetOptions.tsx';
+import { TestParametersRow } from './TestParametersRow.tsx';
 import { JsonPane } from './JsonPane.tsx';
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 import { useEditLocked } from './edit-session.ts';
@@ -120,6 +122,8 @@ export interface DocumentsProps {
    * as its cable list shows them. Absent: derived.
    */
   facts?: (design: CableDesign, db: Db) => DocumentFacts;
+  /** the organisation's default test parameters (under the design's own) */
+  testDefaults?: TestParameters;
 }
 
 const EMPTY_SIDECAR: DrawingSidecar = { meta: {} };
@@ -341,6 +345,7 @@ export function DocumentsPane({
   release,
   partNumbers,
   facts,
+  testDefaults,
   extensions,
   readOnly = false,
 }: DocumentsProps): JSX.Element {
@@ -476,6 +481,8 @@ export function DocumentsPane({
           ...(docFacts === undefined ? {} : { facts: docFacts }),
           ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
           ...(typeof target === 'number' ? { revisionNumber: target } : {}),
+          ...(kind === 'test-spec' && sidecar.draft.meta.test !== undefined ? { testParameters: sidecar.draft.meta.test } : {}),
+          ...((kind === 'test-spec' || kind === 'build-sheet') && testDefaults !== undefined ? { testDefaults } : {}),
         });
       setRendered({
         kind,
@@ -485,7 +492,7 @@ export function DocumentsPane({
     }, debounceMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- target only matters as the revision number
-  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, typeof target === 'number' ? target : -1]);
+  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
 
   const result = rendered?.kind === kind ? rendered.result : undefined;
   const html = result !== undefined && 'html' in result ? result.html : undefined;
@@ -517,6 +524,33 @@ export function DocumentsPane({
       }
     },
     [docDesign, docDb],
+  );
+  const downloadExport = useCallback(
+    (id: string): void => {
+      if (id === '') return;
+      const meta = sidecar.draft.meta;
+      const options: FormatOptions = {
+        ...sheetRenderOptions(
+          { ...(meta.sheet === undefined ? {} : { sheet: meta.sheet }), ...(meta.partNumber === undefined ? {} : { partNumber: meta.partNumber }), ...(revisionFixed ?? meta.revision) === undefined ? {} : { revision: (revisionFixed ?? meta.revision) as string } },
+          docDesign,
+          () => drawingDate(new Date()),
+        ),
+        drawing: meta,
+        ...(pnInputs === undefined ? {} : { partNumbers: pnInputs }),
+        ...(docFacts === undefined ? {} : { facts: docFacts }),
+        ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
+        ...(typeof target === 'number' ? { revisionNumber: target } : {}),
+        ...(meta.test === undefined ? {} : { testParameters: meta.test }),
+        ...(testDefaults === undefined ? {} : { testDefaults }),
+      };
+      const made = renderExport(id, docDesign, docDb, options);
+      if ('error' in made) setCopyNote(made.error);
+      else {
+        downloadOutput(made.output);
+        setCopyNote(undefined);
+      }
+    },
+    [sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, target, revisionFixed, testDefaults],
   );
   const tabLabel = kind === 'json' ? 'JSON' : DOCUMENT_LABELS[kind];
 
@@ -607,6 +641,28 @@ export function DocumentsPane({
             <IconMarkdown size={14} aria-hidden /> Copy
           </button>
         ) : null}
+        <select
+          className="cs-input cs-doc-export"
+          aria-label="Export"
+          title="Download the BOM, wire list, cut list, continuity data or wire labels as a file"
+          disabled={empty || pending}
+          value=""
+          onChange={(event) => {
+            downloadExport(event.target.value);
+            event.target.value = '';
+          }}
+        >
+          <option value="">Export…</option>
+          {(['production', 'tester', 'labels'] as const).map((group) => (
+            <optgroup key={group} label={{ production: 'Production', tester: 'Continuity tester', labels: 'Labels' }[group]}>
+              {BASE_EXPORTS.filter((format) => format.group === group).map((format) => (
+                <option key={format.id} value={format.id} title={format.description}>
+                  {format.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
         {(extensions?.exporters ?? []).map((exporter) => (
           <button
             key={exporter.id}
@@ -696,6 +752,7 @@ export function DocumentsPane({
           dirty={sidecar.dirty}
           saving={sidecar.saving}
         />
+        {kind === 'test-spec' ? <TestParametersRow meta={sidecar.draft.meta} onMeta={sidecar.setMeta} {...(testDefaults === undefined ? {} : { defaults: testDefaults })} /> : null}
         </fieldset>
       ) : null}
 

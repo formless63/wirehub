@@ -244,6 +244,54 @@ describe('<CableEditor> — Canvas | Documents', () => {
     }
   });
 
+  it('the Export menu downloads the production, tester and label files from the design shown', async () => {
+    const blobs: Blob[] = [];
+    const names: string[] = [];
+    Object.defineProperty(URL, 'createObjectURL', { value: (blob: Blob) => (blobs.push(blob), 'blob:x'), configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: () => undefined, configurable: true });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
+    try {
+      render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} />);
+      const menu = screen.getByRole('combobox', { name: 'Export' }) as HTMLSelectElement;
+      const ids = Array.from(menu.querySelectorAll('option')).map((o) => o.value).filter((v) => v !== '');
+      expect(ids).toEqual(['bom.csv', 'wire-list.csv', 'cut-list.csv', 'production.xlsx', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg']);
+      for (const id of ids) fireEvent.change(menu, { target: { value: id } });
+      expect(names).toEqual(ids.map((id) => `${design.id}-${id.split('.')[0]}.${id.split('.')[1]}`));
+      expect(await blobs[0]!.text()).toMatch(/^section,part_number,description,quantity,unit/);
+      expect(blobs[0]!.type).toContain('text/csv');
+    } finally {
+      click.mockRestore();
+    }
+  });
+
+  it('the continuity spec takes test parameters, saved in the sidecar', async () => {
+    vi.useFakeTimers();
+    const derive = spyRender();
+    const save = vi.fn(async (_id: string, meta: DrawingMeta) => ({ ok: true as const, value: meta }));
+    const drawings: DrawingAdapter = {
+      load: async () => ({ ok: true, value: { meta: {} } }),
+      save,
+      savePhoto: async () => ({ ok: true, value: {} }),
+    };
+    render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} render={derive} drawings={drawings} testDefaults={{ isolationVolts: 250 }} />);
+    await act(async () => void (await vi.advanceTimersByTimeAsync(10)));
+    expect(screen.queryByRole('group', { name: 'Test parameters' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continuity spec' }));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(10)));
+    const volts = screen.getByRole('spinbutton', { name: 'Isolation test voltage' }) as HTMLInputElement;
+    expect(volts.placeholder).toBe('250');
+    fireEvent.change(volts, { target: { value: '500' } });
+    act(() => void vi.advanceTimersByTime(10));
+    const last = derive.mock.calls[derive.mock.calls.length - 1]!;
+    expect(last[0]).toBe('test-spec');
+    expect(last[3]).toMatchObject({ testParameters: { isolationVolts: 500 }, testDefaults: { isolationVolts: 250 } });
+    await act(async () => void fireEvent.click(screen.getByRole('button', { name: 'Save' })));
+    expect(save).toHaveBeenCalledWith(design.id, { test: { isolationVolts: 500 } });
+  });
+
   it('sheet options shape the sheets and save into the drawing sidecar', async () => {
     vi.useFakeTimers();
     const derive = spyRender();
