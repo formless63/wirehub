@@ -30,6 +30,8 @@ import {
   type PackSource,
   type StoreNotice,
 } from '../packs.browser.ts';
+import type { CodePreviewView } from '../code-modules.browser.ts';
+import { CodeConsent } from './CodeConsent.tsx';
 
 const short = (value: unknown): string => {
   const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -99,8 +101,11 @@ export function PacksPanel(): JSX.Element {
   const [packs, setPacks] = useState<InstalledPackView[] | undefined>(undefined);
   const [message, setMessage] = useState<string | undefined>(undefined);
   /** the pending action: an update or disable preview of one pack, or an install preview */
-  const [pending, setPending] = useState<{ kind: 'update' | 'disable' | 'install'; id: string; plan: PackPlan; applicable: boolean; source?: PackSource; sha256?: string } | undefined>(undefined);
+  const [pending, setPending] = useState<{ kind: 'update' | 'disable' | 'install'; id: string; plan: PackPlan; applicable: boolean; source?: PackSource; sha256?: string; code?: CodePreviewView } | undefined>(undefined);
   const [url, setUrl] = useState('');
+  /** a code module's publisher key, for an upload (pinned when it installs), and the owner's consent */
+  const [trustKey, setTrustKey] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   // a viewer reads: no install, update or disable (the server refuses them too)
   const [canWrite, setCanWrite] = useState(true);
@@ -138,7 +143,9 @@ export function PacksPanel(): JSX.Element {
     const problems = listed !== undefined && listed.length > 0 ? listed : undefined;
     setMessage(answer.ok ? undefined : `${sentence(answer)}${problems === undefined ? '' : ` ${problems.join('; ')}`}`);
     if (problems !== undefined) return;
-    setPending({ kind, id, plan, applicable: answer.body['applicable'] !== false && plan.ok, ...(source === undefined ? {} : { source }), ...(typeof answer.body['sha256'] === 'string' ? { sha256: answer.body['sha256'] } : {}) });
+    setAgreed(false);
+    const code = answer.body['code'] as CodePreviewView | undefined;
+    setPending({ kind, id, plan, applicable: answer.body['applicable'] !== false && plan.ok, ...(source === undefined ? {} : { source }), ...(typeof answer.body['sha256'] === 'string' ? { sha256: answer.body['sha256'] } : {}), ...(code === undefined ? {} : { code }) });
   };
 
   const run = async (work: () => Promise<void>): Promise<void> => {
@@ -159,13 +166,15 @@ export function PacksPanel(): JSX.Element {
           ? await applyUpdate(pending.id, major)
           : pending.kind === 'disable'
             ? await disablePack(pending.id)
-            : await applyInstall(pending.source as PackSource, pending.sha256 ?? '', major);
+            : await applyInstall(pending.source as PackSource, pending.sha256 ?? '', major, '/api', { trustKey, ...(pending.code === undefined ? {} : { consent: { code: pending.code.consent } }) });
       if (!answer.ok) {
         showPlan(answer, pending.kind, pending.id, pending.source);
         return;
       }
+      const status = answer.body['moduleStatus'] as { state?: string; error?: string; restartPending?: boolean } | undefined;
+      const codeNote = pending.code === undefined ? '' : status?.state === 'loaded' ? (pending.code.apply === 'live' ? ' Its code runs now.' : ' Its code runs now; its job queues start after Restart WireHub (Settings).') : ` Its code is not running: ${status?.error ?? 'see Settings, Code modules'}.`;
       const offersScheme = answer.body['offers'] !== undefined && (answer.body['offers'] as { partNumberScheme?: unknown }).partNumberScheme !== undefined;
-      await finish(`${pending.kind === 'disable' ? `Disabled ${pending.id}.` : `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`);
+      await finish(`${pending.kind === 'disable' ? `Disabled ${pending.id}.` : `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`}${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`);
     });
 
   return (
@@ -220,10 +229,20 @@ export function PacksPanel(): JSX.Element {
                   setMessage('That file is neither a zip nor a JSON pack bundle.');
                   return;
                 }
-                showPlan(await previewInstall(source), 'install', file.name, source);
+                showPlan(await previewInstall(source, '/api', { trustKey }), 'install', file.name, source);
               });
             }}
           />
+        </div>
+        <div className="mt-1">
+          <input
+            aria-label="Publisher key for a code module"
+            placeholder="Publisher key (RW…), for a pack with code"
+            value={trustKey}
+            onChange={(e) => setTrustKey(e.target.value)}
+            className="w-80 border border-line px-1"
+          />{' '}
+          <span className="text-faint">only for a code module from a file or address: its publisher's public key, compared with the publisher another way (owners)</span>
         </div>
         <div className="mt-1">
           <input type="url" aria-label="Pack address" placeholder="https://…/pack.zip" value={url} onChange={(e) => setUrl(e.target.value)} className="w-80 border border-line px-1" />
@@ -231,7 +250,7 @@ export function PacksPanel(): JSX.Element {
             type="button"
             className="ml-2 underline"
             disabled={busy || url.trim() === ''}
-            onClick={() => void run(async () => showPlan(await previewInstall({ url: url.trim() }), 'install', url.trim(), { url: url.trim() }))}
+            onClick={() => void run(async () => showPlan(await previewInstall({ url: url.trim() }, '/api', { trustKey }), 'install', url.trim(), { url: url.trim() }))}
           >
             Fetch and preview
           </button>
@@ -246,7 +265,8 @@ export function PacksPanel(): JSX.Element {
             {pending.plan.pack.to ?? pending.plan.pack.version ? ` ${pending.plan.pack.to ?? pending.plan.pack.version}` : ''}
           </b>
           <PlanView plan={pending.plan} />
-          <button type="button" disabled={busy || !pending.applicable} onClick={() => void confirm()} className="mr-2 underline">
+          {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
+          <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="mr-2 underline">
             {pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable pack' : 'Install'}
           </button>
           <button type="button" onClick={() => setPending(undefined)} className="underline">

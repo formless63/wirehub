@@ -110,6 +110,23 @@ describe('the store template', { timeout: 180_000 }, () => {
     expect((await get(`/api/settings/stores/preview?${new URLSearchParams({ url: STORE_URL, key: fixture.publicKey })}`)).status).toBe(422);
   });
 
+  it('builds a code module from modules/ into a signed pack beside the data packs', () => {
+    const { publisherPub } = makeKeys();
+    // a module package, as a store repository holds it (its own files only: @wirehub/* come from the tooling)
+    cpSync(join(repo, 'modules/example'), join(repoDir, 'modules/example'), { recursive: true, filter: (path) => !path.includes('node_modules') });
+    const run = build(repoDir, secrets());
+    expect(run.status, run.output.slice(-3000)).toBe(0);
+    const site = join(repoDir, '_site');
+    expect(readdirSync(site).filter((f) => f.endsWith('.zip')).sort()).toEqual(['example-0.1.0.zip', 'example-pack-0.1.0.zip']);
+    const index = JSON.parse(readFileSync(join(site, 'index.json'), 'utf8'));
+    expect(index.packs.find((p: { id: string }) => p.id === 'example')).toMatchObject({ versions: [expect.objectContaining({ version: '0.1.0', signedBy: [publisherPub] })] });
+    expect(node('verify-pack-signature', join(site, 'example-0.1.0.zip'), '--pubkey', publisherPub)).toMatch(/verified/);
+    // without the publisher key there is no build: a hub would refuse unsigned code anyway
+    const unsigned = build(repoDir, { ...secrets(), WIREHUB_PACK_SIGNING_KEY: '' });
+    expect(unsigned.status).not.toBe(0);
+    expect(unsigned.output).toMatch(/holds code modules/);
+  });
+
   it('keeps every version directory and refuses a build that is not set up', () => {
     const { publisherPub } = makeKeys();
     // a second version beside the first, as the README says to release

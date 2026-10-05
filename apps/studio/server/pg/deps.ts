@@ -258,7 +258,8 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
             }, () => id)
           : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, liveEnv, notify }), undefined, (job) => real.webhooks?.jobFinished(job));
       // git-mirror is always a kind: it may be set up in Settings at any time (a run without one skips)
-      const kinds = [...JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)), ...moduleJobKinds(real.modules)];
+      // the module kinds follow the (live) registry: a runtime code module's queue counts once it is loaded
+      const kinds = () => [...JOB_KINDS.filter((k) => k !== 'convert' || (jobMode === 'worker' && options.blobs !== undefined)), ...moduleJobKinds(real.modules)];
       real.jobs = createJobService({
         store,
         runner,
@@ -334,9 +335,9 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
           },
         });
       }
-      // the host may have set what the browser shows about the instance: it stays
+      // the host may have set what the browser shows about the instance (and its code modules, its restart): it stays
       const instance = deps.instance;
-      const kept = { ...(instance === undefined ? {} : { instance }), ...(deps.runtimeSettings === undefined ? {} : { runtimeSettings: deps.runtimeSettings }), ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }), ...(deps.pdfEngine === undefined ? {} : { pdfEngine: deps.pdfEngine }) };
+      const kept = { ...(instance === undefined ? {} : { instance }), ...(deps.runtimeSettings === undefined ? {} : { runtimeSettings: deps.runtimeSettings }), ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }), ...(deps.pdfEngine === undefined ? {} : { pdfEngine: deps.pdfEngine }), ...(deps.codeModules === undefined ? {} : { codeModules: deps.codeModules }), ...(deps.system === undefined ? {} : { system: deps.system }) };
       for (const key of Object.keys(deps)) delete (deps as unknown as Record<string, unknown>)[key];
       Object.assign(deps, real, kept);
       Object.assign(depictionDeps, { store: real.depictions as DepictionStore, loadDb: real.loadDb, loadDesigns: async () => (await cache.get()).catalog.loadDesigns() });

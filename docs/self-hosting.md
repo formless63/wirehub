@@ -333,6 +333,9 @@ cap or another container.
 | `S3_BACKUP_ACCESS_KEY_ID`, `S3_BACKUP_SECRET_ACCESS_KEY` | the backup mirror's key, read by the `backup-mirror` container |
 | `GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `GARAGE_CAPACITY` | the bundled Garage's own configuration |
 | `WIREHUB_WORKER` | whether the `worker` service exists |
+| `WIREHUB_ALLOW_CODE_MODULES` | the server's kill switch for runtime code modules (default true; `false` wins over Settings > Code modules): what code an install may run is the operator's decision |
+| `WIREHUB_RESTART_SUPERVISED` | declares that something restarts the app when it exits (compose: `restart: unless-stopped`), so Settings > Restart WireHub is offered as safe |
+| `WIREHUB_MODULE_CACHE_DIR` | where the app and the worker write the code modules they import (default the system temp directory; a cache, rebuilt from the catalog at every start) |
 | `WIREHUB_STEP_RSS_LIMIT_MB` | sized to the worker's `mem_limit` |
 | `WIREHUB_MODEL_SOURCES`, `WIREHUB_MODEL_CACHE_DIR`, `WIREHUB_PACKS_DIR`, `WIREHUB_KICAD_LIBRARY_DIR` | paths of mounts and volumes |
 | `WIREHUB_KICAD_LIBRARY_FETCH` | whether the worker may reach the internet at all: an air-gap decision of the install |
@@ -446,6 +449,25 @@ a warning badge in the Packs panel with the version to update to), and **revoke*
 pack signed only by that key is refused, and flagged where installed).
 "Reviewed versions only" (Settings > Integrations, or `WIREHUB_STORE_HIDE_UNREVIEWED=true`) makes the
 hub list and install only versions the index marks reviewed or flagged; by default every version is shown, with its status.
+
+**Code modules.** Besides data packs, an **owner** can install modules that run code in the hub
+(an ERP link, a house rule, a panel): from a store whose index lists the module's publisher, or as
+a signed file with the publisher's public key, which the hub then pins. The install shows what the
+module may do and asks for the owner's consent; the module runs at once, without a restart, and is
+turned on or off under Settings > Code modules. The hub's image does not change, and nothing
+outside the app is involved. To forbid code modules on an install, set
+`WIREHUB_ALLOW_CODE_MODULES=false` on the app and the worker (the built-in modules still run);
+owners can also turn them off in Settings. Design: `specs/runtime-modules.md`, `docs/modules.md`.
+
+**Restart WireHub.** Settings > Code modules > Restart WireHub (owners) finishes a change only a
+fresh process applies (a code module's job queues). The app stops taking requests, lets the ones
+in flight finish, closes cleanly and exits with code **75** — logged as `[restart] requested by
+<name>: exiting with code 75 (restart requested, not a crash)`, so it is told apart from a crash
+(exit 1) — and the worker, told through the database, does the same. Compose's
+`restart: unless-stopped` (on the app, the worker and every long-running service) starts both
+again; the page shows "Restarting WireHub…" and reconnects by itself. Under another supervisor,
+keep a restart policy that restarts on a non-zero exit (`on-failure` or `always`) and set
+`WIREHUB_RESTART_SUPERVISED=true`. Proof on a real stack: `bash scripts/restart-smoke.sh <image>`.
 
 ### Your own PostgreSQL or S3
 

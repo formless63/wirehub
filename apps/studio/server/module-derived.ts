@@ -12,7 +12,7 @@
  */
 
 import type { CableDesign, Db } from '@wirehub/model';
-import type { ModuleRegistry } from '@wirehub/modules';
+import { isLiveRegistry, type ModuleRegistry } from '@wirehub/modules';
 
 import type { DerivedStore } from './derived.ts';
 import { formatDoc, type DocStore } from './storage/doc-store.ts';
@@ -29,12 +29,19 @@ export function derivedPath(module: string, file: string): string {
   return `data/derived/${module}/${file}`;
 }
 
-/** A `DerivedStore` over the registry's derived records; `undefined` when no module declares any. */
+/**
+ * A `DerivedStore` over the registry's derived records; `undefined` when no
+ * module declares any. Over a live registry (runtime code modules) the store
+ * always exists and reads the declared records at each regeneration, so a
+ * module installed later keeps its derived files too.
+ */
 export function moduleDerivedStore(registry: ModuleRegistry | undefined, source: ModuleDerivedSource): DerivedStore | undefined {
-  const declared = registry?.derived() ?? [];
-  if (declared.length === 0) return undefined;
+  const live = isLiveRegistry(registry);
+  if (!live && (registry?.derived() ?? []).length === 0) return undefined;
   return {
     async regenerate(): Promise<DerivedKind[]> {
+      const declared = registry?.derived() ?? [];
+      if (declared.length === 0) return [];
       const db = await source.loadDb();
       const designs = [...(await source.loadDesigns())].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
       let changed = false;

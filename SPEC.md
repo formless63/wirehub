@@ -58,7 +58,7 @@ packages/catalog/               @wirehub/catalog — the file-backed catalog: lo
   data/                         CatalogSource (filesystem or in-memory), the starter catalog,
   fixtures/v1/                  its frozen copy for snapshot tests, signal-tag builder,
   src/                          artwork (depiction) loading and import
-packages/modules/               @wirehub/modules — the build-time module registry
+packages/modules/               @wirehub/modules — the module registry (built-in and runtime)
 packages/layout/                ELK layout of a design into a drawable graph
 packages/render-svg/            deterministic SVG schematics and cross-sections
 packages/docs/                  build sheet, BOM, continuity spec, drawing sheet, wire spec
@@ -426,8 +426,11 @@ A module is a plain object contributing to fixed extension points — catalog pa
 importers, exporters / document types, a part-number scheme, validation rules, integrations
 (server routes under `/api/modules/<id>/…`), UI panels and routes, auth providers, an editor
 commit hook, and — for an optional **domain module** — a setup entry that first-run setup
-(`/setup`) offers. A deployment lists its modules in `apps/studio/modules.config.ts`; the
-registry is built at build time. There is no runtime plugin loading. `@wirehub/modules` is
+(`/setup`) offers. The image's built-in modules are listed in `apps/studio/modules.config.ts`;
+on top of them an owner installs **runtime code modules** from a store or a signed upload in the
+UI (owner decision 2026-10-05: one public image for everyone), loaded into a live registry without
+a rebuild, and Settings can restart WireHub when a change needs a fresh process
+(`specs/runtime-modules.md`). `@wirehub/modules` is
 MIT; modules that use only the module API may take any licence (`MODULE-EXCEPTION.md`).
 Full design: `docs/modules.md`.
 

@@ -1,13 +1,16 @@
 ---
 name: wirehub-module
-description: Create or change a WireHub module package (modules/<id> in this repo, or a private module in its own repo) - scaffold from modules/example, write the manifest with defineModule, add extension points (catalog packs, setup, importers, exporters, part-number scheme, validation rules, integrations, panels, compare views, routes, auth providers, commit hook, documents, derived records, bench steps), register it in apps/studio/modules.config.ts, choose a licence, test it, and run it behind the dev flag. Load when asked to add a module, a domain module, or any extension point.
+description: Create or change a WireHub module package (modules/<id> in this repo, or a private module in its own repo) - scaffold from modules/example, write the manifest with defineModule, add extension points (catalog packs, setup, importers, exporters, part-number scheme, validation rules, integrations, panels, compare views, routes, auth providers, commit hook, documents, derived records, bench steps), then either build it into the image (apps/studio/modules.config.ts) or ship it as a signed runtime code module (wirehub-module build, a store or an upload), choose a licence, test it, and run it. Load when asked to add a module, a domain module, a runtime/store code module, or any extension point.
 ---
 
 # Authoring a WireHub module
 
-A module is an npm package that calls `defineModule` from `@wirehub/modules` and is listed in the
-deployment's manifest at build time. There is no runtime plugin loading. Read `docs/modules.md`
-first (principles, extension point table, mounting details); this skill is the procedure.
+A module is an npm package that calls `defineModule` from `@wirehub/modules`. It reaches a hub one
+of two ways: **built in** (listed in `apps/studio/modules.config.ts`, bundled with the image) or as a
+**runtime code module** (built by `wirehub-module build` into a signed bundle that an owner installs
+from a store or an upload, and the hub loads without a rebuild; `specs/runtime-modules.md`). The
+module object is the same either way. Read `docs/modules.md` first (principles, extension point
+table, mounting details); this skill is the procedure.
 
 Decide first whether you need a module at all. **Configuration comes before code**
 (`docs/modules.md`, "Configuration or code?"): a numbering convention is a declarative part-number
@@ -120,6 +123,28 @@ config generator (`site/build.mjs`) reads the list from `modules.config.ts` and 
 A private module in its own repository follows `docs/modules.md`, "Adding it to a deployment"
 (git dependency or workspace folder, import in the manifest, `pnpm build && pnpm test`).
 
+## 4b. Or ship it as a runtime code module
+
+Everyone runs the same public image; a shop's own module is normally installed at runtime. The
+module package stays as above (its `pack/` becomes the bundle's data); then:
+
+1. Build and sign: `pnpm --filter studio wirehub-module build <module dir> --out <dir> --key <publisher.key>
+   --publisher-id <id> --publisher-name <name> --zip` (`apps/studio/scripts/wirehub-module.ts`; keys from
+   `node scripts/store-index.mjs publisher-keygen`, kept outside every repository). It bundles the server
+   and browser entries with the app's own Vite (React stays the host's), writes the manifest's `module`
+   block (the `apiVersion`, the extension points and permissions it derived from your module object),
+   pins every file and signs. Not allowed at runtime: `migrations`; `setup` and `catalogPacks` are ignored
+   (the bundle carries the data).
+2. Check it: `node .agents/skills/wirehub-catalog-pack/scripts/verify-pack.mjs <dir>/<id>-<version>`.
+3. Publish it: put the package under `modules/` of a store made from `templates/store` (its workflow
+   builds and signs it with the store's publisher key; `templates/store/README.md`), or hand the zip
+   and your public key to an owner, who installs it under Library, Modules, Install pack… with the key.
+4. An owner consents (the install lists what it may do), it runs at once; job queues start after
+   Settings, Code modules, Restart WireHub. A module that throws at load is disabled automatically.
+
+Test the runtime path the way `apps/studio/test/code-modules.server.test.ts` does (build, install by
+upload and from a signed test store, the module's points answering without a restart).
+
 ## 5. Licence
 
 The module's licence is its author's choice: a module that talks to WireHub only through the
@@ -169,4 +194,5 @@ write their mapping from the format's public documentation (WireViz is GPL-3.0: 
 - [ ] only the extension points you need; pure where the base is pure; no `.tsx`
 - [ ] namespaced: rule codes, `/api/modules/<id>/`, `/m/<id>/`, `extensions.<id>`
 - [ ] `manifestProblems` empty, tests and `build` green
+- [ ] runtime: `wirehub-module build` signs it, `verify-pack.mjs` passes, no `migrations`
 - [ ] no shop-specific names, hosts or paths in anything public (`wirehub-contribute`)

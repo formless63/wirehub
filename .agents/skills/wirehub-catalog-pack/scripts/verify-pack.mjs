@@ -9,10 +9,12 @@
 // 4. with other pack directories: installs each of them first into the same copy,
 //    then this pack, and again in the opposite order (the order must not matter);
 // 5. checks the pack's own files for a `src` on every record, the manifest's `partNumberScheme`
-//    (a declarative numbering scheme it offers) and `validation-rules.json` (declarative rules).
+//    (a declarative numbering scheme it offers) and `validation-rules.json` (declarative rules);
+// 6. for a pack that carries a code module (`module` in the manifest, specs/runtime-modules.md):
+//    the block is sound and names entries the pack has, and no other file sits under code/.
 // Writes nothing outside a temporary directory. Exits 1 on any problem.
 
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +24,7 @@ const { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSou
   new URL('packages/catalog/src/index.ts', `file://${root}`).href
 );
 const { declarativeSchemeProblems, ruleListProblems, validateDb, validateDesign } = await import(new URL('packages/model/src/index.ts', `file://${root}`).href);
+const { codeModuleManifestProblems, isCodeFilePath } = await import(new URL('packages/modules/src/index.ts', `file://${root}`).href);
 
 const dirs = process.argv.slice(2).map((d) => resolve(d));
 if (dirs.length === 0) {
@@ -58,6 +61,19 @@ for (const relative of packFiles(packDir)) {
   }
   if (!Array.isArray(value) && Array.isArray(value.entries) && !value.src) fail(`${relative}: the list has no src`);
   if (!Array.isArray(value) && value.entries === undefined && !value.src) fail(`${relative}: the document has no src`);
+}
+
+// a code module: its manifest block, its entries
+if (manifest.module !== undefined) {
+  for (const problem of codeModuleManifestProblems(manifest.module)) fail(`module: ${problem}`);
+  const named = [manifest.module.server, manifest.module.browser, manifest.module.css].filter((p) => typeof p === 'string');
+  for (const path of named) if (!existsSync(join(packDir, path))) fail(`module: ${path} is named but not in the pack`);
+  const walk = (relative) =>
+    existsSync(join(packDir, relative))
+      ? readdirSync(join(packDir, relative), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${relative}/${e.name}`) : [`${relative}/${e.name}`]))
+      : [];
+  for (const path of walk('code')) if (!isCodeFilePath(path) || !named.includes(path)) fail(`module: ${path} is under code/ but not one of the module's entries`);
+  console.log(`code module ${manifest.module.id}@${manifest.module.version} (module API ${manifest.module.apiVersion}): ${manifest.module.extensionPoints.join(', ')}`);
 }
 
 // the pack over the starter catalog

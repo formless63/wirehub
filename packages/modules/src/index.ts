@@ -8,10 +8,12 @@
  * lists the modules it wants in its **manifest** (`apps/studio/modules.config.ts`)
  * and the registry built from that list is what every host reads.
  *
- * There is **no runtime plugin loading**: a module is an npm workspace
- * package (or a git dependency) imported by the manifest and bundled with
- * the app. See `docs/modules.md` for the design and how a private module
- * lives in its own repository.
+ * A module is either **built in** — an npm workspace package (or a git
+ * dependency) imported by the manifest and bundled with the image — or a
+ * **runtime code module**: a signed bundle an owner installs from a store or
+ * an upload, which the host loads into a live registry (`runtime.ts`,
+ * `specs/runtime-modules.md`). See `docs/modules.md` for the design and how a
+ * private module lives in its own repository.
  *
  * Everything here is pure and framework-free: UI contributions are carried as
  * opaque component references the host renders (`unknown` here, so this
@@ -699,3 +701,5 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
 
 /** The registry of a deployment with no modules. */
 export const EMPTY_REGISTRY: ModuleRegistry = createRegistry([]);
+
+export * from './runtime.ts';

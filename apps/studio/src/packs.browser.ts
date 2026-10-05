@@ -108,9 +108,16 @@ export async function sourceOfFile(file: File): Promise<PackSource> {
   return { bundle: JSON.parse(new TextDecoder().decode(bytes)) as unknown };
 }
 
-export const previewInstall = (source: PackSource, base = '/api'): Promise<PackAnswer> => call('POST', `${base}/packs/install`, source);
-export const applyInstall = (source: PackSource, sha256: string, acceptMajor: boolean, base = '/api'): Promise<PackAnswer> =>
-  call('POST', `${base}/packs/install`, { ...source, apply: true, sha256, acceptMajor });
+/** For a pack that carries a code module: the publisher key to trust (an upload) and the owner's consent (`specs/runtime-modules.md` §2). */
+export interface CodeInstallExtras {
+  trustKey?: string;
+  consent?: { code: string };
+}
+const extrasOf = (extra: CodeInstallExtras): CodeInstallExtras => ({ ...(extra.trustKey === undefined || extra.trustKey.trim() === '' ? {} : { trustKey: extra.trustKey.trim() }), ...(extra.consent === undefined ? {} : { consent: extra.consent }) });
+
+export const previewInstall = (source: PackSource, base = '/api', extra: CodeInstallExtras = {}): Promise<PackAnswer> => call('POST', `${base}/packs/install`, { ...source, ...extrasOf(extra) });
+export const applyInstall = (source: PackSource, sha256: string, acceptMajor: boolean, base = '/api', extra: CodeInstallExtras = {}): Promise<PackAnswer> =>
+  call('POST', `${base}/packs/install`, { ...source, apply: true, sha256, acceptMajor, ...extrasOf(extra) });
 
 /* ------------------------------------------------------------------ *
  * The store (`/api/packs/store`, `server/store.ts`)
@@ -179,8 +186,8 @@ export const listStore = (base = '/api'): Promise<PackAnswer> => call('GET', `${
 /** `force`: install a yanked version anyway (owners only; the server refuses anyone else). */
 export const previewStoreInstall = (pack: { index: string; id: string; version?: string; force?: boolean }, base = '/api'): Promise<PackAnswer> =>
   call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, ...(pack.version === undefined ? {} : { version: pack.version }), ...(pack.force === true ? { force: true } : {}) });
-export const applyStoreInstall = (pack: { index: string; id: string; version: string; force?: boolean }, sha256: string, acceptMajor: boolean, base = '/api'): Promise<PackAnswer> =>
-  call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, version: pack.version, apply: true, sha256, acceptMajor, ...(pack.force === true ? { force: true } : {}) });
+export const applyStoreInstall = (pack: { index: string; id: string; version: string; force?: boolean }, sha256: string, acceptMajor: boolean, base = '/api', consent?: { code: string }): Promise<PackAnswer> =>
+  call('POST', `${base}/packs/store/install`, { index: pack.index, id: pack.id, version: pack.version, apply: true, sha256, acceptMajor, ...(pack.force === true ? { force: true } : {}), ...(consent === undefined ? {} : { consent }) });
 
 /** One line for a review status. */
 export function reviewText(review: StoreReviewView | undefined): string {

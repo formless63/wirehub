@@ -29,7 +29,8 @@ export function requesterOf(user: StudioUser | undefined): JobRequester | undefi
 export interface JobServiceOptions {
   store: JobStore;
   runner: JobRunner;
-  kinds: readonly JobKind[];
+  /** the kinds it runs; a function where they follow a live module registry (runtime code modules' queues) */
+  kinds: readonly JobKind[] | (() => readonly JobKind[]);
   worker?: JobService['worker'];
   /** where an uploaded input goes (`import.ts` `stageImportInput`); default inline */
   stageInput?: JobService['stageInput'];
@@ -40,11 +41,14 @@ export interface JobServiceOptions {
 export function createJobService(options: JobServiceOptions): JobService {
   const { store, runner } = options;
   const pollMs = options.pollMs ?? 250;
+  const kindsNow = (): readonly JobKind[] => (typeof options.kinds === 'function' ? options.kinds() : options.kinds);
   return {
     describe: runner.describe,
-    kinds: options.kinds,
+    get kinds() {
+      return kindsNow();
+    },
     async enqueue(kind, request, by, enqueueOptions) {
-      if (!options.kinds.includes(kind)) throw new Error(`this studio does not run '${kind}' jobs`);
+      if (!kindsNow().includes(kind)) throw new Error(`this studio does not run '${kind}' jobs`);
       const job = await store.create(kind, request, requesterOf(by));
       await runner.submit(job, enqueueOptions);
       return job;

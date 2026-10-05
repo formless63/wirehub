@@ -340,6 +340,8 @@ export function mountWorkbenchApi(
       const queue: StudioEvent[] = [];
       let wake: (() => void) | undefined;
       const unsubscribe = events.subscribe((event) => {
+        // process control is between the server's processes, not for the page
+        if (event.type === 'control') return;
         queue.push(event);
         wake?.();
       });

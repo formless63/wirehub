@@ -16,6 +16,8 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { loadMe } from '../me.browser.ts';
 import { applyStoreInstall, listStore, noticeText, previewStoreInstall, reviewText, type PackAnswer, type PackPlan, type StoreIndexView, type StoreNotice, type StorePackView, type StoreReviewView } from '../packs.browser.ts';
 import { PlanView } from './PacksPanel.tsx';
+import type { CodePreviewView } from '../code-modules.browser.ts';
+import { CodeConsent } from './CodeConsent.tsx';
 
 const sentence = (a: PackAnswer): string => `${a.error ?? `That failed (HTTP ${a.status}).`}${a.hint === undefined ? '' : ` ${a.hint}`}`;
 const kb = (bytes: number): string => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(bytes < 10_240 ? 1 : 0)} KB`);
@@ -31,6 +33,8 @@ interface Pending {
   yanked?: { reason: string };
   publisher?: string;
   force: boolean;
+  /** the code module the pack carries: shown for consent before Install */
+  code?: CodePreviewView;
 }
 
 export function StoreBrowser(): JSX.Element {
@@ -45,6 +49,7 @@ export function StoreBrowser(): JSX.Element {
   const [storeUrl, setStoreUrl] = useState('');
   const [message, setMessage] = useState<string | undefined>(undefined);
   const [pending, setPending] = useState<Pending | undefined>(undefined);
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   // a viewer reads the store; installing is for owners and editors (the server refuses too)
   const [canWrite, setCanWrite] = useState(false);
@@ -120,7 +125,10 @@ export function StoreBrowser(): JSX.Element {
         return;
       }
       if (!answer.ok) setMessage(sentence(answer));
+      setAgreed(false);
+      const code = answer.body['code'] as CodePreviewView | undefined;
       setPending({
+        ...(code === undefined ? {} : { code }),
         pack,
         version: from.version,
         sha256: from.sha256,
@@ -137,14 +145,16 @@ export function StoreBrowser(): JSX.Element {
   const confirm = (): Promise<void> =>
     run(async () => {
       if (pending === undefined) return;
-      const answer = await applyStoreInstall({ index: pending.pack.index, id: pending.pack.id, version: pending.version, force: pending.force }, pending.sha256, pending.plan.major === true);
+      const answer = await applyStoreInstall({ index: pending.pack.index, id: pending.pack.id, version: pending.version, force: pending.force }, pending.sha256, pending.plan.major === true, '/api', pending.code === undefined ? undefined : { code: pending.code.consent });
       if (!answer.ok) {
         setMessage(sentence(answer));
         return;
       }
       setPending(undefined);
+      const status = answer.body['moduleStatus'] as { state?: string; error?: string } | undefined;
+      const codeNote = pending.code === undefined ? '' : status?.state === 'loaded' ? (pending.code.apply === 'live' ? ' Its code runs now.' : ' Its code runs now; its job queues start after Restart WireHub (Settings).') : ` Its code is not running: ${status?.error ?? 'see Settings, Code modules'}.`;
       const offersScheme = answer.body['offers'] !== undefined && (answer.body['offers'] as { partNumberScheme?: unknown }).partNumberScheme !== undefined;
-      setMessage(`${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.pack.id} ${pending.version}.${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`);
+      setMessage(`${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.pack.id} ${pending.version}.${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`);
       await reload();
     });
 
@@ -280,7 +290,8 @@ export function StoreBrowser(): JSX.Element {
             </div>
           )}
           <PlanView plan={pending.plan} />
-          <button type="button" disabled={busy || !pending.applicable} onClick={() => void confirm()} className="mr-2 underline">
+          {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
+          <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="mr-2 underline">
             {pending.kind === 'update' ? 'Update' : 'Install'}
           </button>
           <button type="button" onClick={() => setPending(undefined)} className="underline">

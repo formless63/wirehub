@@ -22,17 +22,18 @@ export interface DocStore {
   remove(path: string): Awaitable<void>;
 }
 
-/** Binary files of the catalog that are not documents: a pack's art, `data/art/<name>.<image>`. Written only through a change set. */
+/** Binary files of the catalog that are not documents: a pack's art, `data/art/<name>.<image>`, and a code module's entries, `data/code/<module>/…`. Written only through a change set. */
 export interface CatalogFileStore {
   write(path: string, bytes: Uint8Array): Awaitable<void>;
   remove(path: string): Awaitable<void>;
 }
 
 const FILE_PATH = /^data\/art\/[A-Za-z0-9._/-]+\.(svg|png|jpe?g|webp)$/;
+const CODE_PATH = /^data\/code\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:server\.mjs|browser\.mjs|browser\.css)$/;
 
-/** A path a catalog file may live at: `data/art/…`, an image name, no `..`, no dot-files. */
+/** A path a catalog file may live at: `data/art/…` with an image name, or a code module's entry `data/code/<module>/…`; no `..`, no dot-files. */
 export function isCatalogFilePath(path: string): boolean {
-  return FILE_PATH.test(path) && !path.split('/').some((s) => s === '..' || s.startsWith('.'));
+  return (FILE_PATH.test(path) || CODE_PATH.test(path)) && !path.split('/').some((s) => s === '..' || s.startsWith('.'));
 }
 
 const DOC_PATH = /^data\/[A-Za-z0-9._/-]+\.(json|md|txt)$/;

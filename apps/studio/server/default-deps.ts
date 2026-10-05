@@ -197,7 +197,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
   deps.jobs = createJobService({
     store: jobStore,
     runner: inlineJobRunner(jobStore, () => ({ ...baseJobHandlers({ deps, liveEnv: () => deps.runtimeSettings?.env() ?? process.env, ...(options.blobs === undefined ? {} : { blobs: options.blobs }) }), ...moduleJobHandlers(deps.modules, deps) }), undefined, (job) => deps.webhooks?.jobFinished(job)),
-    kinds: ['import', 'model-cache', 'webhook', ...moduleJobKinds(deps.modules)],
+    // the module queues follow the registry: a runtime code module's queue runs here as soon as it is loaded
+    kinds: () => ['import', 'model-cache', 'webhook', ...moduleJobKinds(deps.modules)],
   });
   // outbound event webhooks: deliveries are jobs, signed with a secret kept in the settings secrets store
   deps.webhooks = createWebhookEmitter({ docs: () => deps.docs, jobs: () => deps.jobs, env: () => deps.runtimeSettings?.env() ?? process.env });

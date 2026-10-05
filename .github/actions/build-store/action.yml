@@ -1,6 +1,7 @@
 name: Build a WireHub module store
 description: >-
-  Verifies, bundles, indexes and signs a directory of WireHub catalog packs into a static store
+  Verifies, bundles, indexes and signs a directory of WireHub catalog packs (and builds code modules
+  into signed packs) into a static store
   (index.json, index.json.minisig, wirehub-store.pub and the pack bundles), and uploads it as a
   GitHub Pages artifact. The tooling comes with this action: pin the action's ref and you have
   pinned the tooling (docs/store-hosting.md).
@@ -17,6 +18,10 @@ inputs:
     description: Directory whose subdirectories are packs (each holding a wirehub-pack.json). Keep a directory per released version.
     required: false
     default: packs
+  modules-dir:
+    description: Directory whose subdirectories are code-module packages (each with a package.json), built into signed packs with `wirehub-module build`. Needs pack-signing-key and a publisher in the meta file.
+    required: false
+    default: modules
   meta:
     description: The store-meta.json file (publishers, review status, yanked versions, revoked keys).
     required: false
@@ -75,6 +80,7 @@ runs:
         WIREHUB_STORE_SIGNING_KEY: ${{ inputs.store-signing-key }}
         WIREHUB_PACK_SIGNING_KEY: ${{ inputs.pack-signing-key }}
         STORE_PACKS_DIR: ${{ inputs.packs-dir }}
+        STORE_MODULES_DIR: ${{ inputs.modules-dir }}
         STORE_META: ${{ inputs.meta }}
         STORE_OUT: ${{ inputs.output-dir }}
         STORE_ID: ${{ inputs.store-id != '' && inputs.store-id || github.event.repository.name }}

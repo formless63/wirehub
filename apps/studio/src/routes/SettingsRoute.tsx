@@ -16,6 +16,7 @@ import { RulesSettings } from './RulesSettings.tsx';
 import { RuntimeSettings } from './RuntimeSettings.tsx';
 import { WebhookSettings } from './WebhookSettings.tsx';
 import { StoreSourcesSettings } from './StoreSourcesSettings.tsx';
+import { CodeModulesSettings } from './CodeModulesSettings.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 const FIELDS = [
@@ -194,6 +195,7 @@ export function SettingsRoute(): JSX.Element {
       <RulesSettings />
       <WebhookSettings />
       <StoreSourcesSettings />
+      <CodeModulesSettings />
       <RuntimeSettings />
     </div>
   );

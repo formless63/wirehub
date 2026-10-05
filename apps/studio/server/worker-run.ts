@@ -10,7 +10,7 @@ import { hostname } from 'node:os';
 
 import { sql } from 'kysely';
 import type { PgBoss } from 'pg-boss';
-import type { ModuleRegistry } from '@wirehub/modules';
+import { isLiveRegistry, type ModuleRegistry, type WireHubModule } from '@wirehub/modules';
 
 import { blobStoreFromEnv, type BlobStore } from './blobs.ts';
 import { memoryEventHub } from './events.ts';
@@ -28,6 +28,9 @@ import { checkDatabase, pgWorkbenchDeps } from './pg/deps.ts';
 import { beat, bossJobRunner, bossQueueName, BOSS_SCHEMA, lastBeat, pgJobHandlers, pgJobStore, startBoss, type BossPayload } from './pg/jobs.ts';
 import { SnapshotCache } from './pg/snapshot.ts';
 import { describeMirror, gitMirrorConfigFromEnv } from './history/mirror.ts';
+import { attachCodeModules } from './code-modules/index.ts';
+import type { CodeModuleHost } from './code-modules/host.ts';
+import { builtinModules, registry } from './modules.ts';
 
 export interface WorkerOptions {
   env?: Record<string, string | undefined>;
@@ -37,6 +40,12 @@ export interface WorkerOptions {
   log?: (line: string) => void;
   /** retries while the database or the blob store is still starting (default 30, 2 s apart) */
   attempts?: number;
+  /** the image's built-in modules, when `modules` is a live registry of a test's own (default `modules.config.ts`) */
+  builtins?: readonly WireHubModule[];
+  /** the studio asked for a restart (`NOTIFY studio_control`): the caller drains and exits (`worker.ts`) */
+  onRestart?: () => void;
+  /** the module cache directory for runtime code modules (default `WIREHUB_MODULE_CACHE_DIR`) */
+  moduleCacheDir?: string;
 }
 
 export interface RunningWorker {
@@ -48,6 +57,8 @@ export interface RunningWorker {
   settings: RuntimeSettings;
   /** the schedules in force, by kind (they move when the settings do) */
   schedules(): Readonly<Record<string, string>>;
+  /** the runtime code modules this worker loaded (absent with a fixed registry of a test's own) */
+  codeModules?: CodeModuleHost;
   stop(): Promise<void>;
 }
 
@@ -131,6 +142,36 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     const events = memoryEventHub();
     await cache.listen(config.url, events).catch((error: unknown) => log(`LISTEN unavailable (${error instanceof Error ? error.message : String(error)}); settings follow the heartbeat`));
     unfollow = settings.follow(events);
+    // runtime code modules (specs/runtime-modules.md): the same set the studio runs, loaded before the queues are
+    // bound, and following the same notification; a restart request from Settings arrives on studio_control
+    const live = options.modules === undefined ? registry : isLiveRegistry(options.modules) ? options.modules : undefined;
+    let codeModules: CodeModuleHost | undefined;
+    if (live !== undefined) {
+      const attached = attachCodeModules(deps, { builtins: options.builtins ?? builtinModules, live, log: (line) => log(`[modules] ${line}`), ...(options.moduleCacheDir === undefined ? {} : { cacheDir: options.moduleCacheDir }) });
+      codeModules = attached.host;
+      const stopFollowing = events.subscribe((event) => {
+        if (event.type === 'catalog') void attached.host.sync();
+      });
+      const previous = unfollow;
+      unfollow = () => {
+        previous?.();
+        stopFollowing();
+        attached.stop();
+      };
+      await attached.host.sync();
+      attached.host.markBooted();
+    }
+    const stopControl = events.subscribe((event) => {
+      if (event.type === 'control' && event.action === 'restart') {
+        log('restart requested by the studio (Settings, Restart WireHub)');
+        options.onRestart?.();
+      }
+    });
+    const followed = unfollow;
+    unfollow = () => {
+      followed?.();
+      stopControl();
+    };
     const liveEnv = (): Record<string, string | undefined> => ({ ...settings.env() });
     const store = pgJobStore(handle.db, org);
     const notify = liveNotifier(() => settings.env());
@@ -251,6 +292,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
       handle,
       settings,
       schedules: () => ({ ...inForce }),
+      ...(codeModules === undefined ? {} : { codeModules }),
       stop: async () => {
         await applying;
         await stop();

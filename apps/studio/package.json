@@ -15,6 +15,7 @@
     "brand:icons": "node scripts/brand-icons.mjs",
     "studio-api": "node --experimental-strip-types scripts/studio-api.ts",
     "render": "node --experimental-strip-types scripts/render.ts",
+    "wirehub-module": "node --experimental-strip-types scripts/wirehub-module.ts",
     "db:bootstrap": "node --experimental-strip-types server/pg/cli.ts bootstrap",
     "db:migrate": "node --experimental-strip-types server/pg/cli.ts migrate",
     "pg:import": "node --experimental-strip-types server/pg/cli.ts import",

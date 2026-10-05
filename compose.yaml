@@ -118,6 +118,10 @@ services:
       WIREHUB_LOCAL_USER:
       # jobs run in the worker service; off = in the app (then drop the worker service)
       WIREHUB_WORKER:
+      # code modules an owner installs at runtime (a store or a signed upload): false turns them all off
+      WIREHUB_ALLOW_CODE_MODULES:
+      # Settings > Restart WireHub exits the app; restart: unless-stopped (below) starts it again
+      WIREHUB_RESTART_SUPERVISED: "true"
       TZ: ${TZ:-UTC}
     ports:
       - "${WIREHUB_BIND:-127.0.0.1}:${WIREHUB_PORT:-5183}:5183"
@@ -226,6 +230,8 @@ services:
       # optional: the git mirror into a repository mounted into the worker; a remote
       # (and its key or token), the build window and alerts are set in Settings
       WIREHUB_GIT_MIRROR_PATH:
+      # the same runtime code modules as the app (and the same switch)
+      WIREHUB_ALLOW_CODE_MODULES:
       TZ: ${TZ:-UTC}
     volumes:
       - secrets:/run/wirehub:ro

@@ -104,7 +104,7 @@ async function describe(base: WorkbenchDeps, change: RecordChange): Promise<DryC
 export async function dryRunAnswer(uow: UnitOfWork, response: ApiResponse, extra: Record<string, unknown> = {}): Promise<ApiResponse> {
   if (response.status >= 400) return response;
   const changes = await Promise.all(uow.changes.map((c) => describe(uow.base, c)));
-  const derived = [...new Set([...derivedFor(uow.changes), ...uow.derive])].filter((k) => k !== 'module' || uow.base.derived !== undefined);
+  const derived = [...new Set([...derivedFor(uow.changes), ...uow.derive])].filter((k) => k !== 'module' || (uow.base.derived !== undefined && (uow.base.modules === undefined || uow.base.modules.derived().length > 0)));
   return { status: 200, body: { dryRun: true, status: response.status, body: response.body, ...extra, changes, derived } };
 }
 

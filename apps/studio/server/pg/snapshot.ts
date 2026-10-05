@@ -170,6 +170,7 @@ export class SnapshotCache {
           if (payload.version !== this.current?.version) void this.reload().catch(() => {});
           if (payload.version !== undefined) events?.deliver({ type: 'catalog', version: payload.version });
         } else if (message.channel === 'studio_locks' && payload.record !== undefined) events?.deliver({ type: 'locks', record: payload.record });
+        else if (message.channel === 'studio_control' && (payload as { action?: unknown }).action === 'restart') events?.deliver({ type: 'control', action: 'restart' });
       } catch {
         // not ours
       }
@@ -178,6 +179,7 @@ export class SnapshotCache {
       await client.connect();
       await client.query('LISTEN studio_catalog');
       await client.query('LISTEN studio_locks');
+      await client.query('LISTEN studio_control');
     } catch (error) {
       // a connection that never got to listen is still a connection: close it before reporting
       await client.end().catch(() => {});

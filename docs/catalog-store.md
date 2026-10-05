@@ -20,9 +20,11 @@ versioned bundles of catalog records, each record optionally carrying its proven
 a deployment installs and updates from the Library. The store lists packs published by their
 authors, who are responsible for their content and licensing.
 
-Packs are **data, never code**. A pack cannot add behaviour; that is what modules are for
-(`docs/modules.md`). That is what makes it safe to install a pack at runtime from the UI,
-which modules deliberately cannot do.
+A data pack is **data, never code**: it cannot add behaviour, which is what makes it safe for
+owners and editors to install from the UI. Behaviour is what modules are for (`docs/modules.md`),
+and a pack may also **carry a code module** (§2, "A pack with code"): then it is the owners' to
+install, it must be signed by a publisher the hub trusts, and the owner consents to what the code
+may do (`specs/runtime-modules.md`).
 
 ## 1. Domain packs
 
@@ -84,6 +86,27 @@ fieldbus-1.4.0/
   "homepage": "https://…", "source": "https://…"   // where the pack is built from
 }
 ```
+
+### A pack with code
+
+A pack may carry a **code module** (`specs/runtime-modules.md` §1): a `module` block in the manifest
+(the module's id, version, label, the `apiVersion` of `@wirehub/modules` it was built against, its
+entries, the extension points and permissions it declares) and its entries at
+`code/<module id>/server.mjs`, `browser.mjs` and `browser.css`. They are pinned in `files` like
+every other file, so the publisher's signature covers them; a code-only pack has no record files.
+`pnpm --filter studio wirehub-module build <module package> --key …` writes such a pack.
+
+- **Install** takes the same doors and the same diff as any pack, plus: owners only (never a
+  token), the pack signed by a publisher the index lists (a store install) or by a key the owner
+  pins (`trustKey` on an upload, or Settings > Code modules), an API this hub runs, and the owner's
+  consent (`consent: { code: "<id>@<version>" }`) after the preview's `code` block. Anything else
+  is refused, nothing written. `packs.json` records the module with the sha256 of its entries and
+  how it was trusted.
+- **Where the code lives**: in the pack's layer (files) or as catalog files in the blob store
+  (Postgres), owned by the pack like its images: an update replaces them, removing the pack removes
+  them and the module.
+- **Index and store**: nothing new in the index format; the store template builds module packages
+  under `modules/` into signed packs (`templates/store/README.md`).
 
 ### Records in a pack
 
@@ -526,7 +549,7 @@ Trademarks (USB, HDMI, product names) appear as plain nominative names.
   and disables are one change set through the normal write path, so they are audited and
   versioned like any other change.
 - **Modules**: `CatalogPackContribution` packs install at build time through the same
-  verification.
+  verification; a pack that carries a code module installs at runtime (§2, "A pack with code").
 - **UI**: Modules → Catalog packs (installed list, update with diff, disable, Install pack…),
   and in the Library a read-only chip and Fork to edit on a record that came from a pack, and
   Library → **Browse store** (the packs of the trusted store indexes, install and update with diff).

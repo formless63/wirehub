@@ -19,6 +19,7 @@ import { defaultWorkbenchDeps } from './default-deps.ts';
 import { defaultDepictionDeps, type DepictionDeps } from './depictions.ts';
 import { mountWorkbenchApi } from './hono-adapter.ts';
 import { mountStaticApp } from './static.ts';
+import type { inFlightCounter } from './system.ts';
 
 export interface StandaloneAppOptions {
   /** the `vite build` output directory to serve — `dist/index.html` must exist */
@@ -35,10 +36,29 @@ export interface StandaloneAppOptions {
   backup?: StudioBackup;
   /** `/healthz?deep=1` (plan §8.3); absent → the deep form answers the plain one plus `deep: null` */
   deepHealth?: () => Promise<DeepHealth>;
+  /** requests in flight, for a restart's drain (`system.ts`); the event stream is not counted */
+  inFlight?: ReturnType<typeof inFlightCounter>;
+  /** true once a restart drains: new requests are answered 503 (the boot address excepted, so the page can wait) */
+  restarting?: () => boolean;
 }
 
 export function createStandaloneApp(options: StandaloneAppOptions): Hono {
   const app = new Hono();
+  // a restart from Settings (`system.ts`): count what is in flight, refuse what comes after the drain began
+  if (options.inFlight !== undefined || options.restarting !== undefined) {
+    app.use('*', async (c, next) => {
+      if (options.restarting?.() === true && c.req.path !== '/healthz' && c.req.path !== '/api/system/boot') {
+        return c.json({ state: 'restarting', error: 'WireHub is restarting.', hint: 'It will be back in a moment; the page reconnects by itself.' }, 503, { 'retry-after': '5' });
+      }
+      if (options.inFlight === undefined || c.req.path === '/api/events') return next();
+      const leave = options.inFlight.enter();
+      try {
+        await next();
+      } finally {
+        leave();
+      }
+    });
+  }
   // the container healthcheck: ahead of the login gate, so it answers without a session
   app.get('/healthz', async (c) => {
     const backup = options.backup?.status() ?? BACKUP_DISABLED;

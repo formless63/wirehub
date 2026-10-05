@@ -52,6 +52,9 @@ export {
   installPack,
   installPackLayer,
   setInstalledPackOrigin,
+  setInstalledModuleTrust,
+  installedRecordOf,
+  packAssetFiles,
   installedPackDir,
   installedPackSources,
   localPartOf,
@@ -60,6 +63,7 @@ export {
   packFiles,
   planPackInstall,
   readInstalledPacks,
+  writeFileReplacing,
   readPackManifest,
 } from './packs.ts';
 export {
@@ -106,7 +110,7 @@ export {
 export type { StoreBundle, StoreIndex, StoreIndexPack, StoreIndexVersion, StoreMeta, StorePublisher, StoreReview, StoreRevokedKey, StoreSignatureCheck, StoreYank } from './store-index.ts';
 export { PACK_SIGNATURE, packDigests, packFileDigest, packFileProblems, packManifestMessage, signPackManifest, splitPackSignatures, verifyPackSignature } from './pack-signature.ts';
 export type { PackSignatureCheck } from './pack-signature.ts';
-export type { AssetOps, InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest } from './packs.ts';
+export type { AssetOps, InstalledModule, InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest, PackModule } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */
 export function dataPath(relative: string): string {
