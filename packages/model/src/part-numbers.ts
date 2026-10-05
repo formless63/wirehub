@@ -259,6 +259,7 @@ export function knownPartNumbers(
     pcbas: readonly { id: string; label: string; partNumber?: string }[];
     mechanicals?: readonly { id: string; label: string; partNumber?: string; kind: string }[];
     kits?: readonly { id?: string; sku: string; label: string }[];
+    products?: readonly { id: string; label: string; partNumber?: string; variants: readonly { id: string; label?: string; partNumber?: string }[] }[];
   },
   designs: readonly { id: string; label: string; productRef?: string }[] = [],
   extra: readonly KnownPartNumber[] = [],
@@ -276,6 +277,10 @@ export function knownPartNumbers(
   }
   for (const k of db.kits ?? []) add(k.sku, 'kit', k.label, `kits.json ${k.sku}`);
   for (const d of designs) add(d.productRef, 'design', d.label, `designs/${d.id}.json`);
+  for (const p of db.products ?? []) {
+    if (p.partNumber !== undefined && !/X/.test(p.partNumber)) add(p.partNumber, 'design', p.label, `products/${p.id}`);
+    for (const v of p.variants) add(v.partNumber, 'design', `${p.label} ${v.label ?? v.id}`, `products/${p.id}/${v.id}`);
+  }
   out.push(...extra);
   return out;
 }

@@ -565,3 +565,22 @@ export { componentForPart, deriveCable, matingBody, matingConnector, plugsInto, 
 export type { DeriveCableOptions, DerivedCable } from './derive-cable.ts';
 export { alignIds, derivedBody, describeOverride, inferCableRecipe, recipeDrift, recipeIssues, recipeJointProposals, rederive, renameBody } from './cable-recipe.ts';
 export type { CableRecipe, RecipeDrift, RecipeInference } from './cable-recipe.ts';
+
+// ---- products, variants, the lineup, and how a part is sourced ----
+export {
+  PART_ROUTES,
+  ROUTE_LABELS,
+  findProduct,
+  isVariantNumber,
+  lineupCsv,
+  lineupRows,
+  mergeProducts,
+  productIssues,
+  productPartNumbers,
+  productsOfDesign,
+  routeIssues,
+  sourcingShapeIssues,
+  splitProduct,
+  suggestVariantNumber,
+} from './products.ts';
+export type { LineupInputs, LineupRow, PartRoute, PartSupplier, ProductCheckContext, ProductEdit, ProductFamily, ProductOptionAxis, ProductOptionValue, ProductVariant, Sourcing } from './products.ts';

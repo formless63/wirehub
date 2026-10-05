@@ -84,7 +84,7 @@ type Numbered = { id: string; label: string; partNumber?: string };
 
 /** Every number written anywhere in the catalog, the designs and their drawings. */
 export function partNumberHolders(
-  db: Pick<Db, 'connectors' | 'wires' | 'components' | 'pcbas' | 'mechanicals' | 'bodies' | 'kits'>,
+  db: Pick<Db, 'connectors' | 'wires' | 'components' | 'pcbas' | 'mechanicals' | 'bodies' | 'kits' | 'products'>,
   designs: readonly Pick<CableDesign, 'id' | 'label' | 'productRef'>[] = [],
   drawings: PnDrawings = {},
   scheme: PartNumberScheme = DEFAULT_PART_NUMBER_SCHEME,
@@ -110,6 +110,11 @@ export function partNumberHolders(
   for (const d of designs) {
     add(d.productRef, 'design', d.id, d.label, `designs/${d.id}`, `designs/${d.id}`, 'productRef');
     add(drawings[d.id]?.partNumber, 'design', d.id, d.label, `drawings/${d.id}`, `designs/${d.id}`, 'drawing');
+  }
+  // a product family's own number, and each variant's — a variant is the design it names, so its number is not a second holder of that design's
+  for (const p of db.products ?? []) {
+    if (p.partNumber !== undefined && !/X/.test(p.partNumber)) add(p.partNumber, 'design', p.id, p.label, `products/${p.id}`, `products/${p.id}`, 'partNumber');
+    for (const v of p.variants) add(v.partNumber, 'design', v.design, `${p.label} ${v.label ?? v.id}`, `products/${p.id}/${v.id}`, `designs/${v.design}`, 'partNumber');
   }
   return out;
 }

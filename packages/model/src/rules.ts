@@ -395,7 +395,7 @@ function plain(record: object): Scope {
 
 function designScope(design: CableDesign): Scope {
   return {
-    ...plain({ id: design.id, label: design.label, ...(design.productRef === undefined ? {} : { productRef: design.productRef }), status: design.status ?? 'active', ...(design.labourMinutes === undefined ? {} : { labourMinutes: design.labourMinutes }) }),
+    ...plain({ id: design.id, label: design.label, ...(design.productRef === undefined ? {} : { productRef: design.productRef }), status: design.status ?? 'active', ...(design.labourMinutes === undefined ? {} : { labourMinutes: design.labourMinutes }), ...(design.route === undefined ? {} : { route: design.route }), ...(design.maker === undefined ? {} : { maker: design.maker }) }),
     tags: Array.isArray((design as { tags?: unknown }).tags) ? ((design as { tags: unknown[] }).tags.filter((t) => typeof t === 'string') as string[]) : [],
   };
 }

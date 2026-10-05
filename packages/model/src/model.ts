@@ -17,6 +17,7 @@ import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts'
 import type { AssemblyLibrary } from './subassemblies.ts';
 import type { ConditioningRecipe, DeviceProfile, HazardRule, ResolverPolicy } from './devices.ts';
 import type { CableRecipe } from './cable-recipe.ts';
+import type { PartRoute, PartSupplier, ProductFamily } from './products.ts';
 
 /* ------------------------------------------------------------------ *
  * Wire structure — hierarchical elements
@@ -646,6 +647,8 @@ export interface Db {
   hazards?: HazardRule[];
   /** how the resolver ranks options (`resolver-policy.json`); absent = the default */
   resolverPolicy?: ResolverPolicy;
+  /** product families (`products.ts`, the catalog's `products.json`): the designs a shop sells, grouped, with their variants */
+  products?: ProductFamily[];
 }
 
 /* ------------------------------------------------------------------ *
@@ -1049,6 +1052,12 @@ export interface CableDesign {
    * body. Absent: a hand design.
    */
   recipe?: CableRecipe;
+  /** how the cable is sourced (`products.ts`): made in house, by a contract manufacturer, or bought in finished */
+  route?: PartRoute;
+  /** who sells it, for a bought-in cable */
+  suppliers?: PartSupplier[];
+  /** who builds it, for a contract-manufactured cable */
+  maker?: string;
   src: string;
   /**
    * Data owned by modules, keyed by module id (`docs/modules.md`). The base
