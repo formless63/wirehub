@@ -135,10 +135,10 @@ test_volts, duration_s, note`, where `type` is:
 
 Three layers, the later one wins: the base's defaults; the organisation's, set on the
 Settings page under **Testing** (kept in `data/settings/engineering.json`, so it travels with
-the catalog) or, as a fallback, in the environment as
+the catalog) or in the environment as
 `WIREHUB_TEST_DEFAULTS='{"isolationVolts":250,"hipotVolts":1500,"hipotSeconds":2}'` (a bad
-value stops the server at start with one line; a parameter set on the page overrides the
-variable's); the design's own, edited on the
+value stops the server at start with one line; a parameter the variable sets wins over the
+page and shows there as "set by the server"); the design's own, edited on the
 Continuity spec tab and saved in the drawing sidecar (`test` in `data/drawings/<id>.json`).
 They are printed on the continuity spec (and the threshold is quoted in its expected
 readings and on the build sheet's Test page) and carried in the exports. They are settings,

@@ -25,6 +25,7 @@ import type { StudioUser } from '../me.ts';
 import { commitAuthor, commitMessage, STUDIO_COMMITTER, type GitIdentity, type SaveRequest } from './commit-message.ts';
 import { execGit, type GitResult, type GitRunner } from './git.ts';
 import type { BackupCommitInfo, BackupControl, BackupState, BackupStatus } from './status.ts';
+import { namesOwnerOnlySettings } from '../runtime-settings.ts';
 
 export { BACKUP_DISABLED, type BackupCommitInfo, type BackupState, type BackupStatus } from './status.ts';
 
@@ -249,7 +250,9 @@ export function createStudioBackup(options: BackupOptions): StudioBackup {
         save.paths
           .map((p) => relative(repoDir, resolve(p)))
           .filter((p) => p !== '' && !p.startsWith('..') && !isAbsolute(p))
-          .map((p) => p.split('\\').join('/')),
+          .map((p) => p.split('\\').join('/'))
+          // the owner-only settings documents (sign-in, notifications, integrations) are never committed
+          .filter((p) => !namesOwnerOnlySettings(p)),
       ),
     ].sort();
     if (inRepo.length === 0) return;

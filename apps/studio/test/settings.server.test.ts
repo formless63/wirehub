@@ -172,12 +172,33 @@ describe('engineering settings (testing defaults, electrical thresholds, approva
     expect((await eng(d, 'PUT', { costing: { labourRatePerHour: -2 } }, saved.headers!.ETag!)).status).toBe(400);
   });
 
-  it('the settings override the environment fallback per parameter', async () => {
+  it('a parameter the server sets (WIREHUB_TEST_DEFAULTS) wins over the settings, per parameter', async () => {
     const { docs } = deps();
     const env = { isolationVolts: 100, hipotVolts: 1500 };
     expect(await effectiveTestDefaults({ docs, testDefaults: env })).toEqual(env);
-    await docs.write(ENGINEERING_PATH, { testDefaults: { isolationVolts: 250 }, src: 'x' });
-    expect(await effectiveTestDefaults({ docs, testDefaults: env })).toEqual({ isolationVolts: 250, hipotVolts: 1500 });
-    expect(await effectiveTestDefaults({ docs })).toEqual({ isolationVolts: 250 });
+    await docs.write(ENGINEERING_PATH, { testDefaults: { isolationVolts: 250, hipotSeconds: 2 }, src: 'x' });
+    expect(await effectiveTestDefaults({ docs, testDefaults: env })).toEqual({ isolationVolts: 100, hipotVolts: 1500, hipotSeconds: 2 });
+    expect(await effectiveTestDefaults({ docs })).toEqual({ isolationVolts: 250, hipotSeconds: 2 });
   });
+
+  it('shows the server\'s parameters as such, keeps what was saved for them, and refuses to change them here', async () => {
+    const { deps: base, docs } = deps();
+    const d: WorkbenchDeps = { ...base, testDefaults: { isolationVolts: 100 } };
+    const first = await eng(d, 'GET');
+    expect((first.body as { env: { testDefaults: unknown } }).env.testDefaults).toEqual({ isolationVolts: 100 });
+    // another value for a parameter the server sets: refused, saving nothing
+    const refused = await eng(d, 'PUT', { testDefaults: { isolationVolts: 250, hipotVolts: 1200 } }, first.headers!.ETag!);
+    expect(refused.status).toBe(409);
+    expect(JSON.stringify(refused.body)).toMatch(/set by the server \(WIREHUB_TEST_DEFAULTS\)/);
+    expect(docs.docs.has(ENGINEERING_PATH)).toBe(false);
+    // the rest saves; the server's own value may be adopted (sent back as it is)
+    const adopted = await eng(d, 'PUT', { testDefaults: { isolationVolts: 100, hipotVolts: 1200 } }, first.headers!.ETag!);
+    expect(adopted.status).toBe(200);
+    expect(docs.docs.get(ENGINEERING_PATH)).toMatchObject({ testDefaults: { isolationVolts: 100, hipotVolts: 1200 } });
+    // a later save that leaves the server's parameter out keeps what was saved for it
+    const kept = await eng(d, 'PUT', { testDefaults: { hipotVolts: 1300 } }, adopted.headers!.ETag!);
+    expect(docs.docs.get(ENGINEERING_PATH)).toMatchObject({ testDefaults: { isolationVolts: 100, hipotVolts: 1300 } });
+    expect(kept.status).toBe(200);
+  });
+
 });

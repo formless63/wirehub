@@ -46,7 +46,8 @@ export type ApproverRole = 'owner' | 'editor';
 /**
  * `data/settings/engineering.json`: how this hub tests, checks and releases.
  * Every section optional; an absent section means the built-in behaviour (and,
- * for `testDefaults`, the `WIREHUB_TEST_DEFAULTS` environment variable).
+ * for `testDefaults`, the `WIREHUB_TEST_DEFAULTS` environment variable). Where the variable
+ * sets a parameter it wins over this document, as every runtime setting does.
  */
 export interface EngineeringRecord {
   /** the organisation's default continuity test parameters */
@@ -66,11 +67,14 @@ export async function readEngineering(docs: DocStore | undefined): Promise<Engin
   return docs === undefined ? undefined : ((await docs.read(ENGINEERING_PATH)) as EngineeringRecord | undefined);
 }
 
-/** The test defaults in force: the environment's (fallback) with the settings page's laid over, parameter by parameter. */
+/**
+ * The test defaults in force, parameter by parameter: what `WIREHUB_TEST_DEFAULTS` sets wins (the
+ * settings rule: a variable that is set is "set by the server"), then what Settings saved.
+ */
 export async function effectiveTestDefaults(deps: { docs?: DocStore; testDefaults?: TestParameters }): Promise<TestParameters | undefined> {
   const set = (await readEngineering(deps.docs))?.testDefaults;
   if (set === undefined && deps.testDefaults === undefined) return undefined;
-  const merged = { ...(deps.testDefaults ?? {}), ...(set ?? {}) };
+  const merged = { ...(set ?? {}), ...(deps.testDefaults ?? {}) };
   return Object.keys(merged).length === 0 ? undefined : merged;
 }
 
@@ -119,7 +123,7 @@ const MAX_TOLERANCE_ROWS = 5;
 interface SettingsDeps extends Pick<StoreSourceDeps, 'store' | 'setup'> {
   docs?: DocStore;
   assets?: AssetStore;
-  /** the environment's test defaults (`WIREHUB_TEST_DEFAULTS`): the fallback the engineering settings override */
+  /** the environment's test defaults (`WIREHUB_TEST_DEFAULTS`): parameters it sets win over the engineering settings */
   testDefaults?: TestParameters;
 }
 
@@ -166,10 +170,22 @@ async function handleEngineering(method: string, body: unknown, deps: SettingsDe
   const input = body as Record<string, unknown>;
   const next: EngineeringRecord = { src: ENGINEERING_SRC };
   const td = input['testDefaults'];
-  if (td !== undefined && td !== null) {
-    const read = readTestParameters(td);
+  {
+    const read = td === undefined || td === null ? ({ ok: true, parameters: {} } as const) : readTestParameters(td);
     if (!read.ok) return fail(400, `The test defaults are not valid: ${read.problems.join(' ')}`);
-    if (Object.keys(read.parameters).length > 0) next.testDefaults = read.parameters;
+    const parameters: Record<string, number> = { ...read.parameters };
+    // a parameter the server's variable sets is not changed here: what was saved is kept (or the server's own value adopted)
+    for (const [key, fromServer] of Object.entries(deps.testDefaults ?? {})) {
+      const saved = (current?.testDefaults as Record<string, number> | undefined)?.[key];
+      const given = parameters[key];
+      if (given !== undefined && given !== saved && given !== fromServer) {
+        return fail(409, `${key} is set by the server (WIREHUB_TEST_DEFAULTS); it cannot be changed here.`, 'Leave it out, or ask whoever runs the server to unset the variable.');
+      }
+      if (given === fromServer) continue;
+      if (saved === undefined) delete parameters[key];
+      else parameters[key] = saved;
+    }
+    if (Object.keys(parameters).length > 0) next.testDefaults = parameters as TestParameters;
   }
   const el = input['electrical'];
   if (el !== undefined && el !== null) {

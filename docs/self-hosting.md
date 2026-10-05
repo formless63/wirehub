@@ -236,6 +236,14 @@ history, which record only when one was set. Keep a copy of `settings_key`
 with your backup password, or re-enter those secrets after a restore onto
 fresh volumes.
 
+**Who sees the sign-in, notification and integration settings.** Those three
+documents (`data/settings/sign-in.json`, `notifications.json`,
+`integrations.json`) name identity providers, mail servers, webhooks and
+remotes, so they are owner-only everywhere: `GET /api/export` leaves them out
+for editors and viewers (an owner's export includes them, listed under
+`owner_only`), the git mirror and the file backend's git export never commit
+them, and the history shows an editor that one changed but not what it held.
+
 The variables most people set in `.env` (every one is explained in `.env.example`):
 
 | Variable | Default | |
@@ -316,7 +324,7 @@ can also be given as a file (`NAME_FILE`).
 | --- | --- |
 | `WIREHUB_PDF_ENGINE_URL` | wires the stack's `pdf` profile, so `compose.yaml` still passes it and the config generator writes it with the profile; without it, Settings > Integrations names an engine |
 | `WIREHUB_STORE_INDEXES` | the stores the server trusts, shown read-only beside the ones added under Settings > Store sources (the server's win on the same URL) |
-| `WIREHUB_TEST_DEFAULTS` | a fallback of continuity test parameters; Settings > Testing overrides it parameter by parameter (older than this rule, and kept as built) |
+| `WIREHUB_TEST_DEFAULTS` | continuity test parameters as JSON. Like every runtime setting, a parameter it sets wins and shows read-only as "set by the server" under Settings > Testing; the parameters it leaves out are set there (changed in v0.2.0: it used to be a fallback Settings overrode) |
 
 **Sign-in** is on: first-run setup makes the admin's account, and the admin
 invites everyone else. Single sign-on (OIDC), magic links over SMTP and the
@@ -457,7 +465,11 @@ the change set's message and the trailers `WireHub-Change-Set` and
 It never forces: if someone else pushed to its branch while it had commits of
 its own to push, the job fails, alerts (Settings > Notifications) and waits for
 you; files outside `data/` and `depictions/` (a README) are left alone. The
-mirror is a copy, not the backup — keep the backups below.
+owner-only settings documents (sign-in, notifications, integrations) are not
+mirrored; a mirror kept before v0.2.0 drops them at its next commit, but they
+stay in its older commits (rewrite that repository's history, or start a new
+one, if it must not hold them). The mirror is a copy, not the backup — keep the
+backups below.
 
 Set it up under **Settings > Integrations**: the remote (`ssh://…` or
 `https://…`, never with a password in it), the branch, the schedule, and its
@@ -624,23 +636,93 @@ roles are recreated), then restore the dump as above. Try it on a copy first. Re
 <https://github.com/formless63/wirehub/releases>; the image is tagged `X.Y.Z`,
 `X.Y`, `X` (from 1.0) and `latest`. Pin a full version in production.
 
-**Settings that moved into the app** (this release; "What lives where"
-above). The default `compose.yaml` no longer passes the runtime variables —
-`AUTH_ALLOWED_EMAILS`, `AUTH_LOCAL_ACCOUNTS`, `AUTH_OIDC_*`, `AUTH_SMTP_*`,
-`WIREHUB_NOTIFY_*`, `WIREHUB_STORE_HIDE_UNREVIEWED`,
-`WIREHUB_STORE_ALLOW_USER_SOURCES`, `WIREHUB_PDF_ENGINE_TIMEOUT_MS`,
-`WIREHUB_CONVERT_WINDOW` and the git mirror's remote settings — so after
-upgrading, enter them once under Settings (an owner), then delete them from
-your `.env`. Until you do, keep them in force by adding them under the
-service's `environment:` in a `compose.override.yaml`; a variable that reaches
-the app always wins. Sign-in keeps working through the upgrade for email +
-password accounts; a hub that signs in **only** through OIDC or magic links
-must carry those variables over (the override) before it upgrades, or an owner
-must still have a password.
+### Upgrading to v0.2.0: settings moved into the app
 
-**Renamed variables.** WireHub's own settings are named `WIREHUB_*`. An `.env`
-from before the rename that still says `STUDIO_*` keeps working, with one
-warning at startup naming each one to rename (`apps/studio/server/env.ts`).
+Read this before you upgrade a hub that sets sign-in, alerts or the git mirror
+in its `.env`. The default `compose.yaml` no longer passes the runtime
+variables to the app (list in "What lives where"): `AUTH_ALLOWED_EMAILS`,
+`AUTH_LOCAL_ACCOUNTS`, `AUTH_OIDC_*`, `AUTH_SMTP_*`, `WIREHUB_NOTIFY_*`,
+`WIREHUB_STORE_HIDE_UNREVIEWED`, `WIREHUB_STORE_ALLOW_USER_SOURCES`,
+`WIREHUB_PDF_ENGINE_TIMEOUT_MS`, `WIREHUB_CONVERT_WINDOW`, the git mirror's
+remote settings and the token budgets. Nothing is lost, and no click is
+needed to keep a hub running, but a variable that no longer reaches the app
+stops applying, so choose one of these **before** deploying:
+
+1. **Keep them as they are** (safest): put the variables you use under the
+   service's `environment:` in a `compose.override.yaml` next to
+   `compose.yaml`. A variable that reaches the app is honoured exactly as
+   before and wins over Settings (the page shows it "set by the server"). A
+   value pulled from `.env` needs its own line, because compose passes only
+   what `environment:` names:
+
+   ```yaml
+   # compose.override.yaml: the app for sign-in, store and PDF settings;
+   # add the same lines under `worker:` for alerts, the git mirror and job settings
+   services:
+     wirehub:
+       environment:
+         AUTH_OIDC_ISSUER: ${AUTH_OIDC_ISSUER:-}
+         AUTH_OIDC_CLIENT_ID: ${AUTH_OIDC_CLIENT_ID:-}
+         AUTH_OIDC_CLIENT_SECRET: ${AUTH_OIDC_CLIENT_SECRET:-}
+         AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS:-}
+         AUTH_SMTP_HOST: ${AUTH_SMTP_HOST:-}
+         AUTH_SMTP_FROM: ${AUTH_SMTP_FROM:-}
+         AUTH_SMTP_USER: ${AUTH_SMTP_USER:-}
+         AUTH_SMTP_PASS: ${AUTH_SMTP_PASS:-}
+     worker:
+       environment:
+         WIREHUB_NOTIFY_URL: ${WIREHUB_NOTIFY_URL:-}
+         WIREHUB_GIT_MIRROR_URL: ${WIREHUB_GIT_MIRROR_URL:-}
+   ```
+
+   (An empty value counts as not set. A secret given as a file works too:
+   mount it and set `AUTH_OIDC_CLIENT_SECRET_FILE`.)
+2. **Move them into the app**: with the override in place, sign in as an owner,
+   open **Settings** and press **Adopt the server's values**. Every setting the
+   server still sets is copied into Settings, secrets (the OIDC client secret,
+   the SMTP password, the webhook URL and token, the mirror's token and key)
+   into the encrypted store; `WIREHUB_TEST_DEFAULTS` is copied too. Then delete
+   the variables and the override and redeploy: nothing changes. (It needs the
+   install's `settings_key`; the stack generates one, and an existing install
+   gains it on its next start.)
+
+**If you already deployed without doing either.** Sign-in is not lost, but a
+hub that signed in **only** through OIDC or magic links now has email +
+password accounts as its only method, and nobody there has a password. The
+sign-in page then says so ("There is no way to sign in to this hub right now")
+instead of showing a form that cannot work. Two ways back, neither touches
+your data:
+
+- put the variables back in a `compose.override.yaml` as above and
+  `docker compose up -d`; or
+- set an owner's password from the server's shell (it asks twice, hidden, or
+  reads one line from standard input; at least 12 characters), then sign in
+  with it and fill in Settings:
+
+  ```
+  docker compose exec wirehub node --experimental-strip-types --no-warnings \
+    --import ./server/boot-env.ts server/pg/cli.ts owner-password --email you@example.com
+  ```
+
+  `--email` may be left out when the hub has one owner. It makes the owner's
+  email + password login when there is none, or replaces the password (ending
+  that person's sessions). The same command recovers an owner who turned
+  **Email + password accounts** off in Settings and lost the identity provider;
+  also set `AUTH_LOCAL_ACCOUNTS=true` in the override then, since a variable
+  that is set wins.
+
+**`WIREHUB_TEST_DEFAULTS` changed.** It used to be a fallback that Settings >
+Testing overrode. It now follows the rule every runtime setting follows: a
+parameter the variable sets **wins** and shows read-only as "set by the
+server", and Settings supplies the parameters it leaves out. If you set it and
+also saved a different value for one of its parameters in Settings, the
+variable's value is now the one in force (so the value saved there is kept but
+not used). Adopt the server's values to copy the variable into Settings, or
+unset the variable to go back to the Settings value.
+
+**Who sees what.** The sign-in, notification and integration settings are now
+left out of `/api/export` for editors and viewers, never committed to the git
+mirror, and hidden from non-owners in the history ("Settings", above).
 
 ## Development
 

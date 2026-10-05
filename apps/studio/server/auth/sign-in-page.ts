@@ -14,6 +14,12 @@ export interface SignInPageModel {
   magicLink: boolean;
   /** the email + password form (database backend, plan §9.3) */
   localAccounts?: boolean;
+  /**
+   * nobody can sign in: no identity provider, no magic link, and email + password accounts that
+   * nobody holds a password for (an upgrade whose sign-in settings stayed behind in the old
+   * environment). The page says how to get back in instead of offering a form that cannot work.
+   */
+  noMethod?: boolean;
   /** where to go after signing in — already sanitised by the caller */
   next: string;
   /** an error code from the query string (`?error=`) */
@@ -67,7 +73,11 @@ export function renderSignInPage(model: SignInPageModel): string {
       parts.push(`<button class="btn${model.oidc === undefined && provider === model.providers?.[0] ? ' primary' : ''}" type="button" data-sso data-provider="${esc(provider.providerId)}">Sign in with ${esc(provider.name)}</button>`);
     }
     const sso = model.oidc !== undefined || (model.providers ?? []).length > 0;
-    if (model.localAccounts === true) {
+    if (model.noMethod === true) {
+      parts.push(`<div class="msg err" role="alert" id="no-method"><p><b>There is no way to sign in to this hub right now.</b></p>
+<p>No single sign-on or magic-link email is set up, and no account has a password. If this hub was upgraded, its sign-in settings (OIDC, SMTP, allowed emails) were in the server's environment and the new <code>compose.yaml</code> no longer passes them.</p>
+<p>Whoever runs the server can fix it, without any data loss: put those variables back in a <code>compose.override.yaml</code>, or set an owner's password with <code>docker compose exec wirehub node --experimental-strip-types --no-warnings --import ./server/boot-env.ts server/pg/cli.ts owner-password</code>. See <b>Upgrades</b> in docs/self-hosting.md.</p></div>`);
+    } else if (model.localAccounts === true) {
       if (sso) parts.push('<div class="or"><span>or</span></div>');
       parts.push(`<form id="password" novalidate>
 <label for="pw-email">Email</label>
@@ -78,7 +88,7 @@ export function renderSignInPage(model: SignInPageModel): string {
 </form>`);
     }
     if (model.magicLink) {
-      if (sso || model.localAccounts === true) parts.push('<div class="or"><span>or</span></div>');
+      if (sso || (model.localAccounts === true && model.noMethod !== true)) parts.push('<div class="or"><span>or</span></div>');
       parts.push(`<form id="magic" novalidate>
 <label for="email">Email</label>
 <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
@@ -119,6 +129,8 @@ input:focus,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1p
 .msg{margin:0;font-size:12px}
 .msg.err{color:var(--err)}
 .msg.ok{color:var(--ok)}
+.msg p{margin:0 0 6px}
+code{font-size:11px;word-break:break-all}
 .who{margin:0;color:var(--dim)}
 .who b{color:var(--ink);font-weight:500}
 </style>

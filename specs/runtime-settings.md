@@ -25,8 +25,41 @@ Every runtime setting keeps its environment variable. For each one:
 3. else the built-in default.
 
 A value saved in Settings while the variable is set is kept (shown as *saved*) and applies again if
-the variable goes. `WIREHUB_TEST_DEFAULTS` is the one older exception and stays as it was built:
-a fallback the Settings page's Testing section overrides parameter by parameter.
+the variable goes. `WIREHUB_TEST_DEFAULTS` follows the same rule (v0.2.0, cs-26a), parameter by
+parameter: a parameter the variable sets wins and the Testing section shows it read-only as *set by
+the server (`WIREHUB_TEST_DEFAULTS`)*; the parameters it leaves out come from Settings, then the
+built-in defaults. Changing a parameter the variable sets is refused (409); echoing the server's own
+value is allowed (that is how it is adopted). This reverses the older "fallback Settings overrides".
+
+### 2.1 Upgrading: the environment is honoured, and can be adopted
+
+An upgraded hub whose runtime variables still reach the app (a `compose.override.yaml`) behaves
+exactly as before: precedence rule 1 needs no click. `compose.yaml` itself no longer passes them
+(cs-gm8), so the release notes (`docs/self-hosting.md`, "Upgrading to v0.2.0") carry the override
+recipe, and three safety nets exist for a hub that upgrades without it:
+
+- **Adopt the server's values** (`POST /api/settings/adopt`, a button in Settings, owners only, a signed-in
+  session): every setting whose variable is set is copied into its group document, secrets into the
+  encrypted store, `WIREHUB_TEST_DEFAULTS` into the engineering document's test defaults; one change set,
+  the response names keys (never values) and any value the parsers would refuse (`skipped`). The variables
+  keep winning while set; once dropped, nothing changes. `GET /api/settings/runtime` carries `adoptable`
+  (owners): what the button would copy. Without `WIREHUB_SETTINGS_KEY` it refuses (409) rather than skip secrets.
+- **The sign-in page says so when nobody can sign in**: no OIDC, no SMTP, no module provider, and email +
+  password accounts that no live person has a password for (`PeopleStore.hasPasswordLogin`). It then
+  names the way back (the override, the command below) instead of an unusable form.
+- **`cli.ts owner-password [--email] [--org]`** (`server/pg/owner-password.ts`): sets an owner's email +
+  password login from the server's shell (password on stdin or a hidden prompt, at least 12 characters;
+  creates the Better Auth account or replaces the password and ends that person's sessions).
+
+## 2.2 Owner-only documents stay with owners
+
+The sign-in, notifications and integrations documents (`OWNER_ONLY_SETTINGS_PATHS`):
+
+- `GET /api/export` omits them unless the caller is an owner, whose export lists them under `owner_only`;
+- the git mirror (pg) never writes them (its tree is filtered; their change rows are not replayed) and the file
+  backend's git export never stages them;
+- history entries show a non-owner that the document changed (its name) but its before/after states are
+  `{ known: false }` and not restorable. (Secrets are in no document, so none of this changes for them.)
 
 ## 3. Where the values are
 
@@ -48,7 +81,8 @@ Non-secret values are **catalog documents**, one per group:
 
 `{ values: { "<area>.<name>": value }, secrets?: { "<key>": "<ISO time set>" }, src }`. They are
 written through the unit of work like every other setting: `If-Match` on the group's ETag, both
-backends, one change set in the history, in the export and the git mirror. Owner-only groups refuse
+backends, one change set in the history, in the export. The owner-only ones are not in anyone else's
+export or in the git mirror (§2.2); Jobs & limits is in both. Owner-only groups refuse
 editors, viewers and personal API tokens (security-sensitive settings are changed in a signed-in
 session), and their values are not shown to anyone but an owner.
 
@@ -87,6 +121,7 @@ GET    /api/settings/runtime            groups, fields (source: server | setting
 PUT    /api/settings/runtime/<group>    { values } — a key left out is unset (If-Match)
 PUT    /api/settings/secrets/<key>      { value } — write-only
 DELETE /api/settings/secrets/<key>
+POST   /api/settings/adopt              copy the server's values into Settings (owner, signed in) → { adopted, skipped }
 ```
 
 ## 6. Live apply

@@ -53,6 +53,8 @@ export interface PeopleStore {
   /** revoke (or give back) a person's access: sessions ended, tokens revoked; their changes stay theirs */
   setDisabled(id: string, disabled: boolean): Promise<'ok' | 'not-found' | 'last-owner'>;
   revokeInvitation(id: string): Promise<boolean>;
+  /** whether anyone who still has access has an email + password login (the sign-in page says so when nobody can sign in) */
+  hasPasswordLogin(): Promise<boolean>;
 }
 
 const sha = (token: string): string => createHash('sha256').update(token).digest('hex');
@@ -170,6 +172,19 @@ export function pgPeople(db: Db, orgRef: OrgRef, options: { now?: () => Date } =
         }
         return 'ok';
       }),
+
+    hasPasswordLogin: () =>
+      typeof orgRef !== 'string' && orgRef() === undefined
+        ? Promise.resolve(false)
+        : inOrg(db, org(), async (tx) =>
+            Number(
+              (
+                await sql<{ n: string }>`
+                  SELECT count(*)::text AS n FROM studio.person p JOIN auth.account a ON a."userId" = p.auth_user_id
+                   WHERE p.disabled_at IS NULL AND p.role <> 'service' AND a.password IS NOT NULL`.execute(tx)
+              ).rows[0]?.n ?? 0,
+            ) > 0,
+          ),
 
     async revokeInvitation(id) {
       const result = await inOrg(db, org(), (tx) => sql`DELETE FROM auth.invitation WHERE id = ${id}::uuid AND org_id = ${org()}::uuid AND accepted_at IS NULL`.execute(tx));

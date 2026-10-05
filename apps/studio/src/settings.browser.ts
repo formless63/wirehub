@@ -248,8 +248,18 @@ export interface RuntimeGroupView {
 export interface RuntimeSettingsView {
   groups: RuntimeGroupView[];
   secrets: { available: boolean; note?: string };
+  /** owners only: the settings the server's environment sets that Settings does not yet hold the same value for */
+  adoptable?: { key: string; env: string; label: string }[];
   problems: string[];
 }
+
+export interface AdoptResult {
+  adopted: string[];
+  skipped: { key: string; label: string; why: string }[];
+}
+
+/** Copy the server's values (its environment's runtime settings) into Settings, secrets into the encrypted store. */
+export const adoptServerValues = (base = '/api'): Promise<Outcome<AdoptResult>> => request<AdoptResult>(`${base}/settings/adopt`, { method: 'POST', body: {} });
 
 export const fetchRuntimeSettings = (base = '/api'): Promise<Outcome<RuntimeSettingsView>> => request<RuntimeSettingsView>(`${base}/settings/runtime`, { method: 'GET' });
 

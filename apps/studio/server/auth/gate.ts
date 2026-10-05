@@ -251,6 +251,9 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
   app.get(SIGN_IN_PATH, async (c) => {
     const user = await auth.sessionUser(c.req.raw.headers);
     const error = c.req.query('error');
+    // email + password is all there is, and nobody has a password: say so instead of a form that cannot work
+    const noMethod =
+      config().oidc === undefined && config().smtp === undefined && (auth.providers ?? []).length === 0 && config().localAccounts && auth.setupMode?.() !== true && auth.people !== undefined && !(await auth.people.hasPasswordLogin().catch(() => true));
     return html(
       renderSignInPage({
         ...(config().oidc === undefined
@@ -259,6 +262,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
         ...((auth.providers ?? []).length === 0 ? {} : { providers: auth.providers }),
         magicLink: config().smtp !== undefined,
         localAccounts: config().localAccounts,
+        ...(noMethod ? { noMethod: true } : {}),
         next: safeNext(c.req.query('next')),
         ...(error === undefined || error === '' ? {} : { error }),
         ...(user === null ? {} : { signedInAs: { email: user.email, allowed: await auth.isAllowed(user.email) } }),

@@ -75,4 +75,25 @@ describe('Runtime settings', () => {
     expect(document.body.textContent).not.toContain('hidden-topic');
     expect((within(screen.getByTestId('secret-notify.url')).getByLabelText('Webhook URL') as HTMLInputElement).value).toBe('');
   }, 30_000);
+
+  it('offers to adopt the server’s values, and copies them into Settings with one click', async () => {
+    mount();
+    const banner = await screen.findByTestId('adopt-server-values');
+    expect(within(banner).getByText(/Largest import file \(MB\)/)).toBeTruthy();
+    fireEvent.click(within(banner).getByRole('button', { name: 'Adopt the server’s values' }));
+    await waitFor(() => expect(screen.queryByTestId('adopt-server-values')).toBeNull());
+    expect(await deps.docs!.read('data/settings/jobs.json')).toMatchObject({ values: { 'jobs.importMaxMb': 25 } });
+    // the variable still wins while it is set
+    expect(settings.env().WIREHUB_IMPORT_MAX_MB).toBe('25');
+  }, 30_000);
+
+  it('shows a test parameter the server sets as set by the server, read-only', async () => {
+    deps.testDefaults = { isolationVolts: 100 };
+    mount();
+    const form = await screen.findByTestId('engineering-settings');
+    expect(within(form).getAllByText('set by the server (WIREHUB_TEST_DEFAULTS)')).toHaveLength(1);
+    const locked = within(form).getAllByRole('textbox').filter((el) => (el as HTMLInputElement).disabled);
+    expect(locked).toHaveLength(1);
+    expect((locked[0] as HTMLInputElement).value).toBe('100');
+  }, 30_000);
 });

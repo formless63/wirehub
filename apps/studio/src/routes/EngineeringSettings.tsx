@@ -1,7 +1,7 @@
 /**
  * The engineering half of `/settings` (`server/settings.ts`): the continuity
- * test defaults (a hub-wide fallback under each design's own, over the
- * `WIREHUB_TEST_DEFAULTS` variable), the thresholds of the electrical rules, and
+ * test defaults (a hub-wide fallback under each design's own; a parameter the
+ * `WIREHUB_TEST_DEFAULTS` variable sets wins, shown "set by the server"), the thresholds of the electrical rules, and
  * release approvals. One form, one save; an empty field means "not set".
  */
 
@@ -59,7 +59,8 @@ export function EngineeringSettings(): JSX.Element {
 
   const save = async (): Promise<void> => {
     if (query.data === undefined) return;
-    const test = numbers(draft.test);
+    // a parameter the server sets is left out: the server keeps what was saved for it
+    const test = numbers(Object.fromEntries(Object.entries(draft.test).filter(([k]) => query.data?.env?.testDefaults?.[k] === undefined)));
     const rules = numbers({ ampacityDerate: draft.rules.ampacityDerate, contactDerate: draft.rules.contactDerate, maxDropV: draft.rules.maxDropV, maxDropPct: draft.rules.maxDropPct });
     const bad = test.bad ?? rules.bad;
     if (bad !== undefined) {
@@ -97,10 +98,17 @@ export function EngineeringSettings(): JSX.Element {
 
   const built = query.data?.builtIn?.electrical;
   const fromEnv = query.data?.env?.testDefaults ?? undefined;
-  const input = (label: string, value: string, set: (v: string) => void, placeholder?: string): JSX.Element => (
+  const input = (label: string, value: string, set: (v: string) => void, placeholder?: string, locked = false): JSX.Element => (
     <label key={label} className="flex items-center justify-between gap-3">
-      <span>{label}</span>
-      <input className="w-28 rounded border border-line bg-panel px-2 py-1" aria-label={label} value={value} disabled={readOnly} inputMode="decimal" placeholder={placeholder} onChange={(e) => set(e.target.value)} />
+      <span className="flex flex-wrap items-center gap-2">
+        {label}
+        {locked ? (
+          <span className="rounded border border-line px-1 text-[11px] text-faint" title="The server's WIREHUB_TEST_DEFAULTS sets this; it wins over Settings.">
+            set by the server (WIREHUB_TEST_DEFAULTS)
+          </span>
+        ) : null}
+      </span>
+      <input className="w-28 rounded border border-line bg-panel px-2 py-1" aria-label={label} value={value} disabled={readOnly || locked} inputMode="decimal" placeholder={placeholder} onChange={(e) => set(e.target.value)} />
     </label>
   );
 
@@ -118,14 +126,15 @@ export function EngineeringSettings(): JSX.Element {
         <h2 className="text-[13px] font-semibold">Testing</h2>
         <p className="text-faint">
           Default continuity test parameters for every design; a design's own values still win. Empty keeps the built-in value
-          {fromEnv === undefined ? '' : ' (or the one set by WIREHUB_TEST_DEFAULTS, which these override)'}.
+          {fromEnv === undefined ? '' : '. A parameter the server sets (WIREHUB_TEST_DEFAULTS) wins and is read-only here'}.
         </p>
         {TEST_PARAMETER_KEYS.map((k) =>
           input(
             `${TEST_PARAMETER_LABELS[k].label} (${TEST_PARAMETER_LABELS[k].unit})`,
-            draft.test[k] ?? '',
+            fromEnv?.[k] === undefined ? (draft.test[k] ?? '') : String(fromEnv[k]),
             (v) => setDraft({ ...draft, test: { ...draft.test, [k]: v } }),
-            String(fromEnv?.[k] ?? (DEFAULT_TEST_PARAMETERS as Record<string, number | undefined>)[k] ?? ''),
+            String((DEFAULT_TEST_PARAMETERS as Record<string, number | undefined>)[k] ?? ''),
+            fromEnv?.[k] !== undefined,
           ),
         )}
       </section>

@@ -31,11 +31,15 @@ import {
   type HistoryEntryDetail,
   type HistoryPage,
   type Known,
+  type RecordDiff,
   type RestoreAnswer,
   type Subject,
+  UNKNOWN,
 } from '../../src/history/types.ts';
 import type { ApiRequest, ApiResponse, WorkbenchDeps } from '../api.ts';
 import { decodeImageDataUri } from '../assets.ts';
+import type { StudioUser } from '../me.ts';
+import { namesOwnerOnlySettings } from '../runtime-settings.ts';
 import { contentETag, ifMatchSatisfied, staleWriteResponse } from '../etag.ts';
 import type { DefinitionKind } from '../definition-store.ts';
 import type { HistoryQuery, HistorySource } from './source.ts';
@@ -157,7 +161,7 @@ export async function handleHistoryRequest(request: ApiRequest, deps: WorkbenchD
     if (subjectText !== null && subject === undefined) return badSubject(subjectText);
     const found = await source.detail(id, subject);
     if (found === undefined) return fail(404, `There is no change ${JSON.stringify(id)} in this hub's history.`, 'Pick one from the History list.');
-    const detail: HistoryEntryDetail = { capabilities, ...found };
+    const detail: HistoryEntryDetail = { capabilities, ...found, records: hideOwnerOnly(found.records, request.user) };
     if (subject !== undefined && capabilities.restore) {
       const current = await currentParts(subject, deps);
       detail.current = Object.fromEntries(quotedParts(subject).map((part) => [part, etagOf(current[part])]));
@@ -166,6 +170,15 @@ export async function handleHistoryRequest(request: ApiRequest, deps: WorkbenchD
   }
 
   return fail(404, `${pathPart} is not part of the history API.`, `Try one of: ${HISTORY_ROUTES.join('; ')}.`);
+}
+
+/**
+ * The sign-in, notifications and integrations settings documents are owner-only: for anyone else
+ * the history says that they changed (the record is named) but not what they held, before or after.
+ */
+function hideOwnerOnly(records: RecordDiff[], user: StudioUser | undefined): RecordDiff[] {
+  if (user === undefined || user.role === undefined || user.role === 'owner') return records;
+  return records.map((r) => (namesOwnerOnlySettings(r.subject) || namesOwnerOnlySettings(r.label) ? { ...r, op: 'unknown' as const, before: UNKNOWN, after: UNKNOWN, restorable: false } : r));
 }
 
 /** The value a known state holds, or the refusal that it was not recorded. */

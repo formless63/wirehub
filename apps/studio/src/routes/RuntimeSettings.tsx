@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { runtimeSettingsKey, runtimeSettingsQuery, saveRuntimeGroup, saveRuntimeSecret, type RuntimeFieldView, type RuntimeGroupView, type RuntimeValue } from '../settings.browser.ts';
+import { adoptServerValues, engineeringKey, runtimeSettingsKey, runtimeSettingsQuery, saveRuntimeGroup, saveRuntimeSecret, type RuntimeFieldView, type RuntimeGroupView, type RuntimeValue } from '../settings.browser.ts';
 
 type Draft = Record<string, Record<string, string | boolean>>;
 
@@ -188,6 +188,36 @@ function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: R
   );
 }
 
+function AdoptServerValues({ items, onDone }: { items: { key: string; env: string; label: string }[]; onDone: () => void }): JSX.Element {
+  const [busy, setBusy] = useState(false);
+  const adopt = async (): Promise<void> => {
+    setBusy(true);
+    const out = await adoptServerValues();
+    setBusy(false);
+    if (!out.ok) {
+      toast.error(out.message, { description: out.hint });
+      return;
+    }
+    const skipped = out.value.skipped.map((s) => `${s.label} ${s.why}`);
+    toast.success(`Adopted ${out.value.adopted.length} setting${out.value.adopted.length === 1 ? '' : 's'} from the server.`, skipped.length === 0 ? undefined : { description: `Not copied: ${skipped.join(' ')}` });
+    onDone();
+  };
+  return (
+    <div className="flex flex-col gap-2 rounded border border-line p-3" data-testid="adopt-server-values">
+      <span className="font-medium">The server still sets {items.length} of these</span>
+      <span className="text-faint">{items.map((i) => i.label).join(', ')}.</span>
+      <span className="text-faint">
+        Adopting copies them into Settings (secrets into the encrypted store), so you can then delete the variables from your deployment and nothing changes. While a variable is set it still wins.
+      </span>
+      <div>
+        <button type="button" className="rounded border border-line px-3 py-1 disabled:opacity-50" disabled={busy} onClick={() => void adopt()}>
+          {busy ? 'Adopting…' : 'Adopt the server’s values'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function RuntimeSettings(): JSX.Element {
   const client = useQueryClient();
   const query = useQuery(runtimeSettingsQuery);
@@ -195,7 +225,10 @@ export function RuntimeSettings(): JSX.Element {
   useEffect(() => {
     if (query.data !== undefined) setDraft(draftOf(query.data.groups));
   }, [query.data]);
-  const refetch = (): void => void client.invalidateQueries({ queryKey: runtimeSettingsKey });
+  const refetch = (): void => {
+    void client.invalidateQueries({ queryKey: runtimeSettingsKey });
+    void client.invalidateQueries({ queryKey: engineeringKey });
+  };
 
   if (query.isError) return <div className="mt-8 border-t border-line pt-4 text-faint">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div>;
   if (query.data === undefined) return <div className="mt-6 text-faint">Loading…</div>;
@@ -214,6 +247,7 @@ export function RuntimeSettings(): JSX.Element {
         </div>
       ) : null}
       {data.secrets.available ? null : <div className="text-faint">{data.secrets.note}</div>}
+      {data.adoptable !== undefined && data.adoptable.length > 0 ? <AdoptServerValues items={data.adoptable} onDone={refetch} /> : null}
       {data.groups.map((group) => (
         <Group key={group.id} group={group} draft={draft[group.id] ?? {}} setDraft={(d) => setDraft({ ...draft, [group.id]: d })} secretsAvailable={data.secrets.available} refetch={refetch} />
       ))}

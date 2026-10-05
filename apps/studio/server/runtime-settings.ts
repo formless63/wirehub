@@ -149,6 +149,20 @@ export const SETTING_FIELDS: readonly (SettingDef & { group: SettingGroupId })[]
 export const groupById = (id: string): SettingGroup | undefined => SETTING_GROUPS.find((g) => g.id === id);
 export const fieldByKey = (key: string): (SettingDef & { group: SettingGroupId }) | undefined => SETTING_FIELDS.find((f) => f.key === key);
 
+/**
+ * The settings documents only an owner may see: sign-in & accounts, notifications and
+ * integrations (they name identity providers, mail servers, webhooks and remotes). They are
+ * left out of the export for everyone else, never reach the git mirror, and their history
+ * bodies are shown to owners only.
+ */
+export const OWNER_ONLY_SETTINGS_PATHS: readonly string[] = SETTING_GROUPS.filter((g) => g.role === 'owner').map((g) => g.path);
+
+/** Whether `path` (`data/settings/sign-in.json`, or the same without `data/`) is an owner-only settings document. */
+export const isOwnerOnlySettingsPath = (path: string): boolean => OWNER_ONLY_SETTINGS_PATHS.some((p) => path === p || p === `data/${path}`);
+
+/** Whether some text (a history subject or label) names an owner-only settings document. */
+export const namesOwnerOnlySettings = (text: string): boolean => OWNER_ONLY_SETTINGS_PATHS.some((p) => text.includes(p) || text.includes(p.replace(/^data\//, '')));
+
 export type SettingValue = string | number | boolean | string[];
 
 /** `data/settings/<group>.json` */
