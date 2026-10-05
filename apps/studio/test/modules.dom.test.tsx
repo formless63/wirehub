@@ -186,7 +186,10 @@ describe('the Library', () => {
     const actions = seen.library?.['listActions'] as Record<string, { props: { children: unknown[] } }>;
     expect(actions['components']?.props.children[0]).toBeNull();
     expect(actions['components']?.props.children[1]).not.toBeNull();
-    expect(seen.library?.['detailExtras']).toBeUndefined();
+    // the record's History is the base's own; no module panel beside it
+    const detail = await screen.findByTestId('detail');
+    expect(within(detail).getByTestId('history-button')).toBeDefined();
+    expect(within(detail).queryByTestId('example-library')).toBeNull();
   });
 });
 

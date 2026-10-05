@@ -45,6 +45,8 @@ import { useStudio } from '../studio-context.tsx';
 import { useEditorChrome } from './editor-chrome.tsx';
 import { StatusChip } from './StatusChip.tsx';
 import { ReleaseChip } from '../versions/ReleaseChip.tsx';
+import { HistoryButton } from '../history/HistoryPanel.tsx';
+import { designRecord } from '../locks/records.ts';
 
 const VIEWS: readonly { key: CableView; label: string }[] = [
   { key: 'build', label: 'Build' },
@@ -151,6 +153,16 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
           <StatusChip status={cableId !== undefined && studio.cableId === cableId ? studio.design?.status : undefined} />
           {/* contract-manufactured (310/311): a generic badge, never a partner's name */}
           <ReleaseChip id={cableId} rev={search?.rev} />
+          {/* the cable's change history: who changed what, and restore an earlier state */}
+          <HistoryButton
+            compact
+            subject={designRecord(cableId)}
+            label={`design ${cableId}`}
+            {...(dirty ? { restoreBlocked: 'Save or discard your edits first — a restore replaces the saved design' } : {})}
+            onRestored={(answer) => {
+              if (answer.value !== undefined && studio.cableId === cableId) studio.reloadCable(answer.value as Parameters<typeof studio.reloadCable>[0]);
+            }}
+          />
           {dirty ? (
             <span
               title="Unsaved changes"

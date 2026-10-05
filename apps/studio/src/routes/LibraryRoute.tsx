@@ -40,6 +40,8 @@ import { browserDepictions } from '../depictions.browser.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { ModuleImport } from '../modules/ModuleImport.tsx';
 import { ModulePanels } from '../modules/slots.tsx';
+import { HistoryButton } from '../history/HistoryPanel.tsx';
+import { definitionNoun } from '../history/types.ts';
 
 const KIND_FROM_URL: Readonly<Record<string, LibraryKind>> = {
   connectors: 'connectors',
@@ -160,13 +162,15 @@ export function LibraryRoute(): JSX.Element {
         onOpenRecord={onOpenRecord}
         boardJourney={boardJourney}
         listActions={listActions}
-        {...(modules.panels('library-detail').length === 0
-          ? {}
-          : {
-              detailExtras: (record: { kind: LibraryKind; id: string }) => (
-                <ModulePanels registry={modules} slot="library-detail" context={{ db: studio.db, record, readOnly: false }} />
-              ),
-            })}
+        detailExtras={(record: { kind: LibraryKind; id: string }) => (
+          <>
+            {/* the record's change history: who changed what, and restore an earlier state */}
+            <div className="cs-row" data-testid="library-history">
+              <HistoryButton subject={definitionRecord(record.kind, record.id)} label={`${definitionNoun(record.kind)} ${record.id}`} onRestored={studio.onDefinitionsChange} />
+            </div>
+            {modules.panels('library-detail').length === 0 ? null : <ModulePanels registry={modules} slot="library-detail" context={{ db: studio.db, record, readOnly: false }} />}
+          </>
+        )}
         {...(partNumbers === undefined ? {} : { partNumbers })}
         {...(partNumbers?.designs === undefined ? {} : { designs: partNumbers.designs })}
         art={art}
