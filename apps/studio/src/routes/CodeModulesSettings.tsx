@@ -31,11 +31,13 @@ export function CodeModulesSettings(): JSX.Element {
     queryKey: codeModulesKey,
     queryFn: async () => {
       const out = await fetchCodeModules();
+      // a host without code modules (a development server, a test): said quietly, not as an error
+      if (!out.ok && out.status === 501) return null;
       if (!out.ok) throw new Error(out.message);
       return out.value;
     },
   });
-  const view = query.data;
+  const view = query.data ?? undefined;
   const [busy, setBusy] = useState(false);
   const [key, setKey] = useState('');
   const [label, setLabel] = useState('');
@@ -81,8 +83,9 @@ export function CodeModulesSettings(): JSX.Element {
         Modules that run code in this hub, installed from a store or a signed upload (Library, Modules). The modules built into this image always run. Only owners install, turn on or off, or restart.
       </p>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The code modules could not be read.'}</div> : null}
+      {query.data === null ? <div className="text-faint">This server does not run code modules.</div> : null}
       {view === undefined ? (
-        query.isError ? null : <div className="text-faint">Loading…</div>
+        query.isError || query.data === null ? null : <div className="text-faint">Loading…</div>
       ) : (
         <>
           <label className="flex items-center gap-2">
