@@ -125,7 +125,7 @@ then appear under **Library, Browse store**. Server administrators can instead s
 
 ## Pinning the tooling
 
-`publish.yml` uses `formless63/wirehub/.github/actions/build-store@v0.3.0` <!-- x-release-please-version -->. The ref after `@` is the
+`publish.yml` uses `formless63/wirehub/.github/actions/build-store@v0.4.0` <!-- x-release-please-version -->. The ref after `@` is the
 version of WireHub's store tooling your builds run, because the action carries the tooling with it.
 For repeatable builds pin it to a **release tag** (`@v0.2.0`) or a **commit SHA**, and raise it on
 purpose when you want newer tooling (release notes: WireHub's `CHANGELOG.md`). Dependabot
