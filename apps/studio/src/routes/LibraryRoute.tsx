@@ -26,13 +26,15 @@
 import type { JSX } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useMatches, useNavigate } from '@tanstack/react-router';
-import { LIBRARY_KINDS, Library, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
+import { LIBRARY_KINDS, Library, RevisionsSection, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
+import { isRevisionKind } from '@wirehub/model';
 
 import { useStudio } from '../studio-context.tsx';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';
 import { workbenchDocuments } from '../persistence.browser.ts';
 import { workbenchBuilds } from '../builds.browser.ts';
 import { workbenchModels } from '../models.browser.ts';
+import { workbenchRevisions } from '../revisions.browser.ts';
 import { EditLockScope } from '../locks/EditLockScope.tsx';
 import { LockMarker } from '../locks/LockMarker.tsx';
 import { definitionRecord } from '../locks/records.ts';
@@ -89,6 +91,7 @@ export function LibraryRoute(): JSX.Element {
   const vendorDocuments = useMemo(() => workbenchDocuments(), []);
   // each record's 3D model
   const models = useMemo(() => workbenchModels(), []);
+  const revisions = useMemo(() => workbenchRevisions(), []);
   const selectedId = params.id;
   // the compare view: a module's, or the base's field diff — `Library`'s Compare actions open it
   const [compare, setCompare] = useState<{ a: string; b?: string } | undefined>(undefined);
@@ -179,6 +182,20 @@ export function LibraryRoute(): JSX.Element {
             <div className="cs-row" data-testid="library-history">
               <HistoryButton subject={definitionRecord(record.kind, record.id)} label={`${definitionNoun(record.kind)} ${record.id}`} onRestored={studio.onDefinitionsChange} />
             </div>
+            {/* the record's saved revisions: where each is used, compare, save the next (docs/revisions.md) */}
+            {isRevisionKind(record.kind) ? (
+              <RevisionsSection
+                key={`${record.kind}/${record.id}`}
+                kind={record.kind}
+                id={record.id}
+                revisions={revisions}
+                artwork={studio.artwork}
+                models={models}
+                readOnly={studio.me?.role === 'viewer'}
+                onCompare={(a, b) => setCompare({ a, ...(b === undefined ? {} : { b }) })}
+                onChanged={() => studio.onDefinitionsChange()}
+              />
+            ) : null}
             {modules.panels('library-detail').length === 0 ? null : <ModulePanels registry={modules} slot="library-detail" context={{ db: studio.db, record, readOnly: false }} />}
           </>
         )}
@@ -188,7 +205,7 @@ export function LibraryRoute(): JSX.Element {
         onOpenDesign={(id) => void navigate({ to: '/cables/$id', params: { id } })}
       />
       </EditLockScope>
-      {compare === undefined ? null : <CompareHost registry={modules} db={studio.db} a={compare.a} {...(compare.b === undefined ? {} : { b: compare.b })} onClose={() => setCompare(undefined)} />}
+      {compare === undefined ? null : <CompareHost registry={modules} db={studio.db} a={compare.a} {...(compare.b === undefined ? {} : { b: compare.b })} revisions={revisions} artwork={studio.artwork} models={models} onClose={() => setCompare(undefined)} />}
     </div>
   );
 }

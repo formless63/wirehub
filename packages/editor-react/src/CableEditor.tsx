@@ -91,6 +91,7 @@ import type { CatalogChange } from './lifecycle.ts';
 import type { DesignSummary, Outcome, PersistenceAdapter } from './persistence.ts';
 import { DesignActions } from './panels/DesignActions.tsx';
 import { ConnectKnownPinsDialog } from './panels/ConnectKnownPinsDialog.tsx';
+import { RecipePanel, recipeDriftCount } from './panels/RecipePanel.tsx';
 import { DesignLifecycleDialogs } from './panels/DesignLifecycleDialogs.tsx';
 import { useDesignLifecycle, type LifecycleAction } from './panels/useDesignLifecycle.ts';
 import { nodeTypes } from './nodes/index.tsx';
@@ -402,14 +403,15 @@ const VIEW_LABELS: Record<View, string> = {
 };
 type DockTab = 'preview' | 'json';
 /** The right panel's tabs (spec: ui-redesign, Canvas v2 item 6). */
-type SideTab = 'connection' | 'part' | 'nets' | 'issues' | 'notes';
-const SIDE_TABS: readonly SideTab[] = ['connection', 'part', 'nets', 'issues', 'notes'];
+type SideTab = 'connection' | 'part' | 'nets' | 'issues' | 'notes' | 'recipe';
+const SIDE_TABS: readonly SideTab[] = ['connection', 'part', 'nets', 'issues', 'notes', 'recipe'];
 const SIDE_TAB_LABELS: Record<SideTab, string> = {
   connection: 'Connection',
   part: 'Part',
   nets: 'Nets',
   issues: 'Issues',
   notes: 'Notes',
+  recipe: 'Recipe',
 };
 
 /**
@@ -577,7 +579,9 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   const [overlay, setOverlay] = useState<ArtworkOverlay>(EMPTY_OVERLAY);
   const [dock, setDock] = useState<DockTab>('preview');
   const [side, setSide] = useState<SideTab>('issues');
-  const sideTabs: readonly SideTab[] = SIDE_TABS;
+  // the Recipe tab where it means something: the design has a recipe, or the library has devices to infer one from
+  const sideTabs: readonly SideTab[] = SIDE_TABS.filter((t) => t !== 'recipe' || state.design.recipe !== undefined || (state.db.devices ?? []).length > 0);
+  const recipeDrift = useMemo(() => recipeDriftCount(state.design, state), [state.design, state.db]);
   /** the node picker; `undefined` means it is closed */
   const [picker, setPicker] = useState<{ anchor?: TerminalRef } | undefined>(undefined);
   const openPicker = useCallback((anchor?: TerminalRef): void => setPicker({ anchor }), []);
@@ -1725,6 +1729,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                     {tab === 'issues' && state.issues.length > 0 ? (
                       <span className="cs-conn-tab-badge">{state.issues.length}</span>
                     ) : null}
+                    {tab === 'recipe' && recipeDrift > 0 ? <span className="cs-conn-tab-badge">{recipeDrift}</span> : null}
                   </button>
                 ))}
                 {/* portrait phone widths only — `.cs-side-close` is
@@ -1745,6 +1750,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
               {side === 'nets' ? <NetsPanel state={state} /> : null}
               {side === 'issues' ? <IssuesPanel state={state} depictions={depictions} /> : null}
               {side === 'notes' ? <NotesPanel state={state} /> : null}
+              {side === 'recipe' ? <RecipePanel state={state} readOnly={readOnly || editLocked} /> : null}
               </fieldset>
               {props.extensions?.inspector === undefined ? null : (
                 <div className="cs-extension-slot" data-slot="cable-inspector">

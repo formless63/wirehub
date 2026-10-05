@@ -70,6 +70,7 @@ pack can ship:
 | design rules ("a boot on every connector of family F", "power conductors at least 0.5 mm²") | **validation rules** | Settings, Validation rules; a pack's `validation-rules.json` (`docs/validation-rules.md`) |
 | another system told when something happens (an ERP, a chat channel) | **event webhooks**, and the API with a token | Settings, Webhooks (`docs/webhooks.md`) |
 | your catalog: connectors, wires, signals, example cables | a **catalog pack** | `docs/catalog-store.md` |
+| the devices your cables connect, the parts a level change takes, connections never to make, how options rank | **device profiles, conditioning recipes, hazards, a ranking policy** | `/resolver`, Devices and recipes; a pack's `devices.json` … (`docs/resolver.md`) |
 | the organisation's name, logo, thresholds, approvals, alerts | **Settings** | `specs/runtime-settings.md` |
 
 An integration is rarely code: the system subscribes to **version released** and pulls the BOM
@@ -270,6 +271,7 @@ export const acme = defineModule({
 | **Integrations** | `IntegrationContribution { id, label, env?, routes?: { method, path, writes?, handle(request) }[], queues?: JobQueueContribution[] }` | server only | **yes** — `/api/modules/<module>/<path>`; `writes: true` routes take the write lock; a route path may not start with `_`; `queues` are job queues (below) |
 | **UI panels** | `PanelContribution { id, label, slot: 'cable-inspector' \| 'cable-documents' \| 'library-detail' \| 'settings', component }`; the component takes `PanelProps` | browser | **yes** — below |
 | **Compare views** | `CompareViewContribution { id, label, kinds?, component }`; the component takes `CompareProps` | browser | **yes** — below |
+| **Revision sources** | `RevisionSourceContribution { id, label, kinds?, list({ kind, id, record? }, db) → ExternalRevision[] }` — revisions of library records from outside the hub (a file share, a PLM) | server | **yes** — listed read-only beside the hub's own revisions (`docs/revisions.md`); module API 1.2 |
 | **UI routes** | `UiRouteContribution { path, label, icon?, component }` under `/m/<module>/`; the component takes `RouteProps` | browser | **yes** — below |
 | **Auth providers** | `AuthProviderContribution { id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }` | server | **yes** — below; the base's own OIDC is still configured by environment |
 | **Documents** | `DocumentContribution { path: 'data/<prefix>/' \| 'data/<file>', class: 'imported' \| 'report' }` — catalog documents the module owns | server | **yes** — `PUT /api/docs/*path` writes only these (scope `imports` for an API token); the file backend's catalog version covers their directories |
@@ -433,13 +435,14 @@ panels are listed per module on `/modules`, which the rail links to only when so
 one. `api(method, path, body?)` calls the module's own routes
 (`/api/modules/<module>/<path>`) and resolves `{ status, body }`.
 
-**Compare views.** The Library's **Compare** actions (a record's head, and the list's pick-two
-mode) open a compare view. The base ships a generic one — a field diff of two records of one kind
-(`RecordCompare`: changed fields by default, unchanged on request, the second record chosen from a
-list when only one was given). `registry.compareViewFor(kind)` returns the first module view that
+**Compare views.** The Library's **Compare** actions (a record's head, the list's pick-two
+mode, and a revision's **Compare with now**) open a compare view. The base ships a generic one —
+two records of one kind, a record and one of its revisions, or two revisions (`RecordCompare`:
+fields, changed by default; each side's 2D art side by side or laid over each other; both models
+side by side or overlaid, `docs/revisions.md`). `registry.compareViewFor(kind)` returns the first module view that
 declares the kind (`kinds`; absent means every kind) and the Library uses it instead, inside the
 same error boundary as a panel. The component receives `CompareProps`:
-`{ module, db, a: { kind, id }, b?: { kind, id }, api, onClose }` — `a` is the record Compare was
+`{ module, db, a: { kind, id, rev? }, b?: { kind, id, rev? }, api, onClose }` (`rev`: a saved revision of the record) — `a` is the record Compare was
 pressed on (or the first ticked), `b` the second when it has been chosen (a view with no `b` asks
 for it), and `onClose` returns to the Library. A module's own view is where a board's artwork and
 3D revisions, or two shells' dimensions, are shown side by side.
@@ -520,8 +523,9 @@ It is installed once by `<App>` and removed when the app unmounts.
   person reviews and accepts them in the Library. The file formats themselves are read by the
   public `modules/board-import`; a private module adds only the share's discovery (which
   folder, which revision is released) and calls the same parsing.
-- *A product resolver*: rules and a panel; its recipe data under `extensions.<module>`; a
-  commit hook that records hand edits against the recipe.
+- *A shop's products*: not a module any more. The device resolver, recipes and drift checks are in
+  the base (`docs/resolver.md`); the shop's devices, recipes, hazards and ranking policy are data
+  in a private pack. A module adds only what data cannot say (a rule that needs code).
 - *House rules*: a validation rule `acme/no-unsleeved-splice` that warns when a splice has no
   heat-shrink instance attached.
 
@@ -544,7 +548,7 @@ The design is `specs/runtime-modules.md`; this is the summary.
   index lists, or by a key an owner pins (`trustKey` on the upload, or Settings → Code modules).
   The preview lists what it may do and the apply needs `consent: { code: "<id>@<version>" }`. A
   module built for another major of the module API, or a newer minor, is refused (`MODULE_API_VERSION`,
-  now `1.1`). `migrations` cannot be used at runtime; `setup` and `catalogPacks` are ignored (the
+  now `1.2`). `migrations` cannot be used at runtime; `setup` and `catalogPacks` are ignored (the
   pack is the data).
 - **Loading.** The server, the worker and the page load the enabled modules into a **live
   registry** (`createLiveRegistry`, `composeRegistry`): the built-ins first, then runtime modules in
@@ -617,7 +621,7 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 - The registry API (`@wirehub/modules`) and the model types are the module contract.
   Breaking changes to them bump the base's major version and are listed in the changelog.
-- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.1`) is what a runtime bundle records as its
+- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.2`) is what a runtime bundle records as its
   `apiVersion`: a hub runs a bundle of the same major and a minor no newer than its own.
 - A module declares the base range it supports in `peerDependencies`; pnpm warns on a
   mismatch at install.

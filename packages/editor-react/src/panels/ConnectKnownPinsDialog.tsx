@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import { proposeKnownJoints, type CableDesign, type Db, type Joint, type TerminalRef } from '@wirehub/model';
+import { jointKey, proposeKnownJoints, recipeJointProposals, type CableDesign, type Db, type Joint, type TerminalRef } from '@wirehub/model';
 
 const show = (ref: TerminalRef): string => `${ref.instance} ${ref.terminal}${ref.end === undefined ? '' : ` (end ${ref.end})`}`;
 
@@ -20,7 +20,15 @@ export function ConnectKnownPinsDialog(props: {
   /** the joints to add, and the description the one undo step carries */
   onApply: (joints: Joint[], description: string) => void;
 }): JSX.Element {
-  const plan = useMemo(() => proposeKnownJoints(props.design, props.db), [props.design, props.db]);
+  // the tags' proposals, then — for a design with a recipe — the joints the recipe derives that it lacks
+  const plan = useMemo(() => {
+    const known = proposeKnownJoints(props.design, props.db);
+    const seen = new Set(known.proposals.map((p) => jointKey(p.joint)));
+    const fromRecipe = recipeJointProposals(props.design, props.db)
+      .filter((p) => !seen.has(jointKey(p.joint)))
+      .map((p) => ({ kind: 'recipe' as const, joint: p.joint, why: p.why }));
+    return { proposals: [...known.proposals, ...fromRecipe], ambiguous: known.ambiguous };
+  }, [props.design, props.db]);
   const [skipped, setSkipped] = useState<ReadonlySet<number>>(new Set());
   const chosen = plan.proposals.filter((_, i) => !skipped.has(i));
   const toggle = (i: number): void =>
@@ -36,7 +44,7 @@ export function ConnectKnownPinsDialog(props: {
       <div className="cs-modal-card">
         <h2>Connect known pins</h2>
         <p className="cs-modal-say">
-          Joints the catalog’s own signal tags settle: a conductor end and a pin on that end of the cable that carry the same signal, and a connector mounted on a board.
+          Joints the catalog’s own signal tags settle: a conductor end and a pin on that end of the cable that carry the same signal, and a connector mounted on a board — and, for a cable with a recipe, the joints its recipe derives that it lacks.
           Nothing is applied until you say so, and it is one undo step.
         </p>
         {plan.proposals.length === 0 ? (

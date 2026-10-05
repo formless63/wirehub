@@ -1,0 +1,37 @@
+[
+  {
+    "id": "line-to-mic-pad-40db",
+    "label": "Line-to-mic pad, about −40 dB",
+    "conditioning": "attenuation",
+    "from": {
+      "kind": "audio",
+      "level": "line"
+    },
+    "to": {
+      "level": "mic"
+    },
+    "parts": [
+      {
+        "component": "r-6k8",
+        "placement": "series",
+        "note": "in each leg"
+      },
+      {
+        "component": "r-68",
+        "placement": "shunt",
+        "note": "each leg to pin 1"
+      }
+    ],
+    "location": "dest-head",
+    "src": "voltage divider per leg: 2 × 68 Ω / (2 × 6.8 kΩ + 2 × 68 Ω) ≈ 0.0099, about −40 dB, line level (+4 dBu) to microphone level; synthetic example of an in-line balanced pad",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "voltage divider per leg: 2 × 68 Ω / (2 × 6.8 kΩ + 2 × 68 Ω) ≈ 0.0099, about −40 dB, line level (+4 dBu) to microphone level; synthetic example of an in-line balanced pad"
+        }
+      ]
+    }
+  }
+]

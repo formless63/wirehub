@@ -40,6 +40,9 @@ import { recordMetaIssues } from './provenance.ts';
 import { validateVocab, vocabEntry, vocabReferenceIssues } from './vocab.ts';
 import { validateInterfaces } from './interfaces.ts';
 import { validateKits } from './kits.ts';
+import { deviceLibraryIssues } from './devices.ts';
+import { recipeIssues } from './cable-recipe.ts';
+import { productIssues, routeIssues, sourcingShapeIssues } from './products.ts';
 import {
   bondedSetOf,
   isFullyBonded,
@@ -823,6 +826,20 @@ export function validateDb(db: Db, options: { scheme?: PartNumberScheme } = {}):
     issues.push({ code: 'bench-rule-invalid', severity: 'warning', message: problem, where: 'bench-rules' });
   }
 
+  // devices, conditioning recipes, hazards and the ranking policy (`devices.ts`)
+  issues.push(...deviceLibraryIssues(db));
+  // routes: a bought-in part names a supplier, a contract-made one its maker (`products.ts`)
+  const sourced: [string, readonly (Parameters<typeof routeIssues>[0] & { id: string })[]][] = [
+    ['connectors', db.connectors],
+    ['wires', db.wires],
+    ['components', db.components],
+    ['pcbas', db.pcbas],
+    ['mechanicals', db.mechanicals ?? []],
+    ['kits', (db.kits ?? []).map((k) => ({ ...k, id: k.id ?? k.sku }))],
+  ];
+  for (const [group, list] of sourced) for (const r of list) issues.push(...routeIssues(r, `${group}/${r.id}`));
+  // product families: their own structure (the designs they name are checked with the designs, `productIssues`)
+  issues.push(...productIssues(db.products ?? []));
   return issues;
 }
 
@@ -1105,6 +1122,10 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
   issues.push(...breakoutIssues(design, db));
   // other designs placed as sub-assemblies (`subassemblies.ts`)
   issues.push(...subassemblyIssues(design, db));
+  // a design derived from devices: drift against its recipe (`cable-recipe.ts`)
+  issues.push(...recipeIssues(design, db));
+  // how it is sourced (`products.ts`): the shape, and what a route asks for
+  issues.push(...sourcingShapeIssues(design, 'design'), ...routeIssues(design, `design ${design.id}`));
 
   // conductor ends soldered at one end and floating at the other; a breakout
   // accounts for its ends: a pass-through continues (connected), an NC end

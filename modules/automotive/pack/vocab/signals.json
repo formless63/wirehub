@@ -22,7 +22,8 @@
             "title": "ISO 11898-2"
           }
         ]
-      }
+      },
+      "diffPair": "can-l"
     },
     {
       "id": "can-l",
@@ -43,7 +44,8 @@
             "title": "ISO 11898-2"
           }
         ]
-      }
+      },
+      "diffPair": "can-h"
     },
     {
       "id": "kline",
@@ -138,6 +140,26 @@
         "sources": [
           {
             "title": "SAE J1962 / ISO 15031-3 mandated pin assignment (public regulatory fact, cited by number)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sensor-signal",
+      "label": "Sensor signal (analog)",
+      "short": "SIG",
+      "kind": "analog",
+      "aliases": [
+        "Sensor output",
+        "SIG"
+      ],
+      "src": "a ratiometric analog sensor output read by a control unit; synthetic example",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "a ratiometric analog sensor output read by a control unit; synthetic example"
           }
         ]
       }

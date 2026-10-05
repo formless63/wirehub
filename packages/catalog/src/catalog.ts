@@ -28,6 +28,11 @@ import type {
   ValidationRule,
   BenchStepRule,
   DrawingArtData,
+  ConditioningRecipe,
+  DeviceProfile,
+  HazardRule,
+  ResolverPolicy,
+  ProductFamily,
   CostingRules,
   ElectricalRules,
   Db,
@@ -193,7 +198,19 @@ export function createCatalog(source: CatalogSource) {
     const benchRules = readOptional<BenchStepRule[]>('bench-rules.json');
     // drawing art as data (`drawing-art.json`: faces, plugs and cutaways by definition id; a pack may ship it)
     const drawingArt = readOptional<DrawingArtData>('drawing-art.json');
+    // the device resolver's library (`devices.json`, `conditioning-recipes.json`, `hazards.json`, `resolver-policy.json`; packs ship them)
+    const devices = readOptional<DeviceProfile[]>('devices.json');
+    const conditioningRecipes = readOptional<ConditioningRecipe[]>('conditioning-recipes.json');
+    const hazards = readOptional<HazardRule[]>('hazards.json');
+    const resolverPolicy = readOptional<ResolverPolicy>('resolver-policy.json');
+    // product families (`products.json`): the designs a shop sells, grouped, with their variants
+    const products = readOptional<ProductFamily[]>('products.json');
     return {
+      ...(Array.isArray(products) && products.length > 0 ? { products } : {}),
+      ...(Array.isArray(devices) && devices.length > 0 ? { devices } : {}),
+      ...(Array.isArray(conditioningRecipes) && conditioningRecipes.length > 0 ? { conditioningRecipes } : {}),
+      ...(Array.isArray(hazards) && hazards.length > 0 ? { hazards } : {}),
+      ...(resolverPolicy !== undefined && typeof resolverPolicy === 'object' && !Array.isArray(resolverPolicy) ? { resolverPolicy } : {}),
       ...(rules === undefined ? {} : { rules }),
       ...(Array.isArray(validationRules) && validationRules.length > 0 ? { validationRules } : {}),
       ...(Array.isArray(benchRules) && benchRules.length > 0 ? { benchRules } : {}),

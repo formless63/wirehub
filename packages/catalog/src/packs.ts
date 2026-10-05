@@ -234,7 +234,8 @@ export function keyedRecords(file: string, value: Json): { id: string; section: 
 }
 
 /** The record files of a catalog (merged in place by id; the pad table by board); every other JSON file a pack ships is auxiliary and layered as a whole. */
-const RECORD_FILE_NAMES = new Set(['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'validation-rules', 'bench-rules', 'pcba-pads', 'drawing-art'].map((n) => `${n}.json`));
+export const RECORD_FILES: readonly string[] = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'devices', 'conditioning-recipes', 'hazards', 'products', 'validation-rules', 'bench-rules'].map((n) => `${n}.json`);
+const RECORD_FILE_NAMES = new Set<string>([...RECORD_FILES, ...Object.keys(KEYED_FILES)]);
 
 /**
  * A data file that is not a list of records the lifecycle tracks by id: the pad

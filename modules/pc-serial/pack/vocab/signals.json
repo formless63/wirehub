@@ -20,7 +20,10 @@
             "title": "TIA-574 / EIA-232"
           }
         ]
-      }
+      },
+      "pairsWith": [
+        "rs232-rxd"
+      ]
     },
     {
       "id": "rs232-rxd",
@@ -57,7 +60,10 @@
             "title": "TIA-574 / EIA-232"
           }
         ]
-      }
+      },
+      "pairsWith": [
+        "rs232-cts"
+      ]
     },
     {
       "id": "rs232-cts",
@@ -93,7 +99,11 @@
             "title": "TIA-574 / EIA-232"
           }
         ]
-      }
+      },
+      "pairsWith": [
+        "rs232-dsr",
+        "rs232-dcd"
+      ]
     },
     {
       "id": "rs232-dsr",
@@ -166,7 +176,8 @@
             "title": "TIA-485-A; PROFIBUS DP line N"
           }
         ]
-      }
+      },
+      "diffPair": "rs485-b"
     },
     {
       "id": "rs485-b",
@@ -185,7 +196,8 @@
             "title": "TIA-485-A; PROFIBUS DP line P"
           }
         ]
-      }
+      },
+      "diffPair": "rs485-a"
     },
     {
       "id": "usb-dp",
@@ -203,7 +215,8 @@
             "title": "USB 2.0 Specification §6.5 (USB-IF)"
           }
         ]
-      }
+      },
+      "diffPair": "usb-dn"
     },
     {
       "id": "usb-dn",
@@ -221,7 +234,8 @@
             "title": "USB 2.0 Specification §6.5 (USB-IF)"
           }
         ]
-      }
+      },
+      "diffPair": "usb-dp"
     }
   ]
 }

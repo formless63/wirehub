@@ -26,6 +26,7 @@ feature belongs to the shop, it says "a private module".
 | Class | Meaning |
 | --- | --- |
 | **present** | same or better |
+| **present (generic)** | was missing, private; rebuilt in the base as a generic engine, its data left to packs (`docs/boundaries.md` §11) |
 | **degraded** | present, but weaker (the row says how) |
 | **missing, generic** | belongs in the base or a public module |
 | **missing, private** | belongs to a future private module (already covered by `docs/boundaries.md`) |
@@ -35,12 +36,13 @@ feature belongs to the shop, it says "a private module".
 
 | Class | Count |
 | --- | --- |
-| present | 93 |
+| present | 94 |
+| present (generic) | 19 |
 | degraded | 7 |
-| missing, generic | 4 |
-| missing, private | 27 |
+| missing, generic | 3 |
+| missing, private | 12 |
 | dropped | 7 |
-| **total** | **138** |
+| **total** | **142** |
 
 The base came through almost intact. The model, the validation rules (every issue
 code except the product, route, resolver and private-numbering ones), the editor, the
@@ -67,10 +69,10 @@ What was lost is mostly glue around the private parts:
 | Cable workspace: build, schematic and documents views, selection in the URL | present | |
 | Library route per kind and record | present | |
 | A saved revision opened read-only (`?rev=N`) | present | |
-| Product lineup page | missing, private | resolver and lineup module |
+| Product lineup page | present (generic) | `/products`, Lineup tab, JSON and CSV export (`docs/products.md`) |
 | Board import page | present | `modules/board-import` (`/m/board-import/boards`): KiCad, Gerber and fab BOM/CPL files, reviewed and published as jobs (cs-5k1.13); only the private file-share discovery stays private |
-| Part compare view (2D art and 3D model diff, revisions) | missing, private | boundaries §2.5; the Library still draws Compare but nothing can supply it: cs-5k1.21 |
-| Declined board-proposal tab | missing, private | resolver module |
+| Part compare view (2D art and 3D model diff, revisions) | present (generic) | the base compare view: fields, 2D (side by side, difference overlay), 3D (side by side, two-colour overlay), revisions as sides (`docs/revisions.md`) |
+| Declined board-proposal tab | present (generic) | `/resolver`, Proposals tab (boundaries §11) |
 | Not-found view | present | |
 | Top bar: breadcrumb, unsaved dot, view switch, undo/redo, save, overflow menu | present | |
 | Make-variant menu | degraded | its two shop-specific entries were dropped. The generic "move onto another stock" transform survives in code with no UI: cs-5k1.10 |
@@ -79,7 +81,7 @@ What was lost is mostly glue around the private parts:
 | Narrow / phone layout | present | |
 | Light and dark themes, following the system | present | |
 | Shop wordmark and icons | dropped | neutral WireHub brand |
-| Production-route badge | missing, private | |
+| Production-route badge | present (generic) | `MAKE` / `CM` / `BUY` on the cable list, a Library flag (boundaries §11) |
 
 ### Commands and shortcuts
 
@@ -90,8 +92,8 @@ What was lost is mostly glue around the private parts:
 | Auto-arrange, fit view, find pin, add part (Tab / `+`), select and pan tools | present | |
 | Rename, duplicate, delete, new cable, theme, go-to commands | present | |
 | Two shop-specific "copy as variant" commands | dropped | |
-| Connect known pins: propose missing joints | missing, generic | its generic half needs only signal tags: cs-5k1.8 |
-| Recipe and overrides command | missing, private | |
+| Connect known pins: propose missing joints | present | signal tags (cs-5k1.8), and the joints a design's recipe derives (boundaries §11) |
+| Recipe and overrides command | present (generic) | the editor's Recipe tab: record as overrides, re-derive, detach (boundaries §11) |
 
 ### Cable list
 
@@ -103,7 +105,7 @@ What was lost is mostly glue around the private parts:
 | Retired designs hidden unless filtered; status chips | present | |
 | Revision chip and unreleased marker | present | |
 | Derived feature chips | present | |
-| Product grouping: aliases, builds, merge, split | missing, private | boundaries §2.1 |
+| Product grouping: aliases, builds, merge, split | present (generic) | product families with aliases, variants, merge and split; product pages (boundaries §11) |
 | Search rows for numbers known only to a private register | missing, private | |
 | Faint suggested number for an unnumbered design | degraded | the suggestion now appears only in the part-number field. The report in cs-5k1.3 brings the overview back |
 | Length-family part-number notation | present | |
@@ -127,7 +129,7 @@ What was lost is mostly glue around the private parts:
 | Breakout editing: split a segment, set fates, attach legs | present | |
 | Moulds and other mechanicals on the canvas | present | |
 | Inspector tabs: connection, part, nets, issues, notes | present | |
-| Recipe tab and recipe bar | missing, private | |
+| Recipe tab and recipe bar | present (generic) | the Recipe tab, its drift badge (boundaries §11) |
 | Advanced JSON pane | present | |
 | Unsaved-changes guard, local draft persistence, offline cache | present | |
 | Edit locks: request, decline, takeover, lock banner | present | |
@@ -138,7 +140,7 @@ What was lost is mostly glue around the private parts:
 | --- | --- | --- |
 | Wizard fast path: ends, stock, landing by role | present | now reads the vocabulary, not hard-coded signal names |
 | A shop-specific bare-head preset | dropped | boundaries §10 |
-| Resolver journey (device and requirement ranking) | missing, private | |
+| Resolver journey (device and requirement ranking) | present (generic) | `/resolver`, "Which cable do I need?" (`docs/resolver.md`) |
 | Connector body templates | present | domain templates in modules |
 
 ### Library
@@ -148,8 +150,8 @@ What was lost is mostly glue around the private parts:
 | A table for every kind: part number, name, kind columns, used, status, flags, id | present | |
 | Sorting, facet chips, search, remembered columns, cards on narrow screens | present | |
 | Record page: head, 2D/3D/photo views, properties, where used, editor, source | present | |
-| Revisions section of an in-house part | missing, private | board designer's files |
-| Compare action and pick-two mode | missing, private | hook gap: cs-5k1.21 |
+| Revisions section of an in-house part | present (generic) | every library record: save, number, where used per revision; outside revisions through `revisionSources` (boundaries §11) |
+| Compare action and pick-two mode | present (generic) | the slot (cs-5k1.21) and the base view; Compare with now on a revision |
 | New variant (connector construction), duplicate | present | |
 | Unused pinouts | present | |
 | Connector editor (body plus interface) | present | |
@@ -167,7 +169,7 @@ What was lost is mostly glue around the private parts:
 | Vendor documents on parts | present | |
 | Signal-tag editing | present | |
 | Inline vocabulary editing | present | |
-| Declined-proposal list | missing, private | |
+| Declined-proposal list | present (generic) | the Proposals tab |
 | Read-only imported records | present | better: pack records are read-only, with fork |
 | Part-number field with suggestion and format checks | present | over the pluggable scheme |
 | Duplicate part-number protection | degraded | the prior studio avoided reuse through a private register. The base checks format only: cs-5k1.3 |
@@ -216,14 +218,14 @@ What was lost is mostly glue around the private parts:
 | Feature | Class | Notes / bead |
 | --- | --- | --- |
 | Structural validation: references, paths, ends, pigtails, breakouts, scope, screens | present | every code carried over |
-| Product and production-route validation | missing, private | |
-| Recipe drift and override checks | missing, private | |
+| Product and production-route validation | present (generic) | `productIssues`, `route-buy-no-supplier`, `route-contract-no-maker` |
+| Recipe drift and override checks | present (generic) | `recipe-drift` and kin in `validateDesign` |
 | Nets, trace, bonds, breakout derivations | present | |
 | Schema migration v1 to v4 | present | |
 | Wire recipes | present | |
 | Kits | present | the SKU grammar is now a generic token rule |
-| Devices, rules, resolver, recipe inference | missing, private | |
-| Board proposals | missing, private | |
+| Devices, rules, resolver, recipe inference | present (generic) | the engines in `@wirehub/model`; devices, recipes, hazards and policy are data (boundaries §11) |
+| Board proposals | present (generic) | `proposeBoards`, decline, accept (`docs/resolver.md`) |
 
 ### Server and API
 
@@ -232,8 +234,12 @@ What was lost is mostly glue around the private parts:
 | Designs: list, read, write, create, duplicate, rename, delete | present | |
 | Definitions: CRUD and usage | present | |
 | Vocab, tags, wire library, builds, drawings, assets, depictions, models, versions, locks, me, backup routes | present | |
-| Rules, devices, ERP identity, register and reconciliation routes | missing, private | |
-| Board import, part revisions, lineup, products, proposals and ERP routes | missing, private | |
+| Rules, devices routes | present (generic) | `/api/resolver/…` (`docs/resolver.md`) |
+| ERP identity, register and reconciliation routes | missing, private | |
+| Lineup and products routes | present (generic) | `/api/products/…`, `/api/lineup` (`docs/products.md`) |
+| Part revisions routes | present (generic) | `/api/revisions/…` (`docs/revisions.md`) |
+| Proposals routes | present (generic) | `/api/proposals…` |
+| Board import and ERP routes | missing, private | |
 | Validate before write, If-Match / ETag, unit of work, write lock, write journal | present | |
 | API index and 404 hints | present | |
 
@@ -258,7 +264,7 @@ What was lost is mostly glue around the private parts:
 | Fixture catalog refresh | present | a documented copy |
 | Document and drawing preview scripts | missing, generic | covered by cs-5k1.7 |
 | Rendering measurement and raster-check scripts | dropped | development aids for private designs |
-| ERP, lineup and part-number report scripts | missing, private | |
+| ERP, lineup and part-number report scripts | missing, private | the lineup itself is `GET /api/lineup.csv` now |
 | Artwork import script | present | replaced by the upload in the UI |
 | Six design specs left out as "re-specify generically later" | missing, generic | rewritten generically (cs-5k1.14, done) |
 
@@ -311,7 +317,9 @@ cs-5k1.11 and cs-5k1.20 cross-reference it.
 2. **Generic part compare (cs-5k1.21).** The compare view went private together with
    board revisions. Comparing two library parts (2D artwork, 3D models) is generic.
    Recommendation: add the module slot now. Decide later whether the base itself
-   compares two parts.
+   compares two parts. **Decided and built** (owner 2026-10-05): the base compares two
+   records or their revisions in fields, 2D and 3D, and keeps revisions of every record
+   (`docs/revisions.md`); the slot stays for a module's own view.
 3. **History on the database backend (cs-5k1.4).** Recommendation: a History panel and
    restore in the base. The git mirror would be an opt-in job, for hubs that want an
    off-site, diffable trail. **Decided and built** as recommended.

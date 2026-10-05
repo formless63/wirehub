@@ -2,7 +2,7 @@
   "format": 1,
   "id": "pc-serial",
   "name": "PC & serial",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": {
     "id": "wirehub",
     "name": "WireHub bundled modules"
@@ -13,5 +13,5 @@
     "wirehub": ">=0.1 <1"
   },
   "counts": {},
-  "description": "PC and serial: RS-232 and RS-485 signals and levels; the RS-232 DTE and RS-485 (PROFIBUS DP) pinouts on DE-9; USB 2.0 on a Type-A plug; a null-modem cable, an RS-485 cable to a terminated adapter board and a USB LED supply lead."
+  "description": "PC and serial: RS-232 and RS-485 signals and levels; the RS-232 DTE and RS-485 (PROFIBUS DP) pinouts on DE-9; USB 2.0 on a Type-A plug; a null-modem cable, an RS-485 cable to a terminated adapter board and a USB LED supply lead. Device profiles for the resolver: a PC serial port, an RS-232 instrument, an RS-485 field device and a plug-on RS-232 to RS-485 converter board, with an RS-485 termination recipe."
 }

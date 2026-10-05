@@ -1,6 +1,6 @@
 ---
 name: wirehub-catalog-data
-description: Author or edit WireHub catalog records by hand - connector bodies, interfaces (pinouts), connectors, wire stocks, components, mechanicals, kits, PCBAs, vocabulary (signals, levels, lanes, families, colour codes), and example designs - with the right ids, required fields, src citations, CC0 licensing and canonical JSON, then run the validators. Load when adding or correcting any JSON under packages/catalog/data or a module's pack/.
+description: Author or edit WireHub catalog records by hand - connector bodies, interfaces (pinouts), connectors, wire stocks, components, mechanicals, kits, PCBAs, vocabulary (signals, levels, lanes, families, colour codes), device profiles, conditioning recipes and hazards for the resolver, and example designs - with the right ids, required fields, src citations, CC0 licensing and canonical JSON, then run the validators. Load when adding or correcting any JSON under packages/catalog/data or a module's pack/.
 ---
 
 # Authoring catalog records
@@ -27,7 +27,15 @@ the validators run. Write a record, then validate it (section 6).
 | bench rule | `bench-rules.json` (array) | `id`, `phase`, `src`, `when?`, `steps[]` (each with `text`, `src`); `docs/modules.md` |
 | validation rule | `validation-rules.json` (array) | `id`, `severity`, `each`, `require`, `message`, `src` (below) |
 | numbering scheme | `part-numbers.json` (one object) | the prefix config, or a declarative definition (below) |
+| device profile | `devices.json` | `id`, `label`, `ports[]` (each `id` and an `interface` or `pins`), `src` (below) |
+| conditioning recipe | `conditioning-recipes.json` | `id`, `label`, `conditioning`, `parts[]` (each a `placement`), `src` |
+| hazard | `hazards.json` | `id`, `label`, `severity`, `a`, `b`, `text`, `src` |
+| ranking policy | `resolver-policy.json` (one object) | `order[]` of criteria, `src` |
+| product family | `products.json` | `id`, `label`, `variants[]` (each `id` and `design`), `src` (`docs/products.md`) |
 
+Any definition (and any design) may also say how it is sourced: `route` (`make`, `contract`,
+`buy`), with `maker` for a contract-made part and `suppliers` (`[{ supplier, number? }]`) for a
+bought-in one (`docs/products.md`); leave them out of a pack unless the pack is one shop's own data.
 Any definition may also carry an optional `cost` (`unit`, `currency`, `per`, `breaks[]`, `moq`; a price
 per piece, or per metre for a wire stock). Pack data does not need prices; see `docs/interop.md`.
 Many records at once can come from a CSV through the Library's **Bulk CSV…** (`modules/csv-library`: a
@@ -184,6 +192,28 @@ See `references/record-types.md` for fields. The decisions that matter:
   (`w1:red@b and w1:black@b are left free …`) so its own floating-end warnings are explained. Place
   only designs of the same catalog or pack, never one that places the design back (a cycle). Example:
   `packages/catalog/data/designs/dc-y-from-leads.json` placing `dc-pigtail-lead.json` twice.
+- **Devices and recipes** (the resolver, `docs/resolver.md`). A device profile names a port's
+  `interface` and the device's own jack (`body`, or `gender`): the cable's plug is the connector of
+  that interface on the mating body, so the pinout and the plug must exist. Per position, `pins`
+  states what the device does: `signal`, `dir` as the device sees it (`out`, `in`, `bidir`,
+  `passive`), `level` (vocabulary `levels`), `accepts`, `needs` (vocabulary `conditioning`), and
+  `"nc"` for an open position; cite each from the standard or datasheet that says it, and say
+  `confidence: "inferred"` where you reasoned it. A port's `requires` asks for a conditioning on one
+  or two positions (a termination across a bus pair). A variant `extends` its parent and states
+  only what differs. An adapter board is a device with `board` (a PCBA id), a mating port with
+  `terminals` (the board's prefix) and a pads port with `terminals: ""`. In the vocabulary, give a
+  transmit signal `pairsWith: ["<its receive>"]` and the two lines of a differential pair `diffPair`.
+  A conditioning recipe names its `conditioning`, the level change it makes (`from` / `to`) when it
+  is one, and its `parts`, each a component id (or a `kind` and `value`) with a `placement`
+  (`series`, `shunt`, `across`); cite the arithmetic behind the values. Check them with
+  `deviceLibraryIssues` (`validateDb` runs it) and try them: `resolve(db, { source: { device },
+  destination: { device } })`, then `deriveCable` and `validateDesign` on the result. Examples:
+  `modules/pc-serial/pack/devices.json`, `modules/pro-audio/pack/conditioning-recipes.json`.
+- **Products** (`products.json`) group designs into what is sold: a family `partNumber` (a pattern
+  like `CBL-00090-XX` its variants fill), `aliases`, `options` axes (`{ id, label, values: [{ id,
+  label }] }`) and `variants` (`{ id, design, partNumber?, lengthMm?, options?: { <axis>: <value> } }`).
+  Every variant names a design of the same catalog. Check with `productIssues(products, { designs })`.
+  Bundled packs ship no products (they are a shop's), but a pack of a published product range may.
 - **Do not hand-edit generated files**: `packages/catalog/data/tags/` (signal tags, instance slots, report) is built
   from the catalog by `packages/catalog/src/tags/build.ts` and checked by a test; `fixtures/v1/` is a
   frozen copy for snapshot tests (refresh deliberately, SPEC.md). Packs never ship tag tables: the

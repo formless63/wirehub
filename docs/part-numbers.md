@@ -134,6 +134,9 @@ number, turn `immutable` off for the correction.
   a switch are kept, listed, and never rewritten.
 - **Save guards**: a save that gives a second part a number already in use is refused; with
   `immutable`, a save that changes an existing number is refused.
+- **Products** (`docs/products.md`): a product family's number and its variants' numbers count as
+  taken; a family pattern (`CBL-00090-XX`) stands for its variants, and **Next number** on a family
+  asks `suggest` for the next variant (`variantOf` the family's number) — a variant segment fills it.
 
 ## In a data pack
 

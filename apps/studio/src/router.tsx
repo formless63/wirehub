@@ -34,6 +34,8 @@ import { JobsRoute } from './routes/JobsRoute.tsx';
 import { SettingsRoute } from './routes/SettingsRoute.tsx';
 import { PartNumbersRoute } from './routes/PartNumbersRoute.tsx';
 import { HistoryRoute } from './routes/HistoryRoute.tsx';
+import { ResolverRoute } from './routes/ResolverRoute.tsx';
+import { ProductRoute, ProductsRoute } from './routes/ProductsRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
@@ -214,6 +216,27 @@ export const historyRoute = createRoute({
   component: HistoryRoute,
 });
 
+/** `/resolver`: "Which cable do I need?" — devices in, ranked options out, a design made from one (docs/resolver.md) */
+export const resolverRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/resolver',
+  component: ResolverRoute,
+});
+
+/** `/products`: product families and the lineup (docs/products.md) */
+export const productsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/products',
+  component: ProductsRoute,
+});
+
+/** `/products/$id`: one product family, its variants, merge and split */
+export const productRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/products/$id',
+  component: ProductRoute,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   setupRoute,
@@ -229,6 +252,9 @@ const routeTree = rootRoute.addChildren([
   settingsRoute,
   partNumbersRoute,
   historyRoute,
+  resolverRoute,
+  productsRoute,
+  productRoute,
 ]);
 
 /**

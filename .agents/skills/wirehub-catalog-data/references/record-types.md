@@ -107,3 +107,48 @@ Common issue codes: `unknown-def`, `unknown-terminal`, `unknown-element-path`, `
 `contact-insulation-range`, `seal-wire-range`, `cavity-part-housing`, `cavity-no-contact`,
 `cavity-no-seal`, `cavity-unplugged`, `cavity-plug-on-used`, `cavity-contact-unused`,
 `cavity-not-crimp` (warnings).
+
+## devices.json (DeviceProfile)
+
+`id`, `label`, `ports[]`, `src`; optional `kind` (kebab word), `manufacturer`, `model`, `extends`
+(a parent device), `aliases[]`, `board` (an adapter: a PCBA id), `status`, `note`, and the
+licence and provenance fields. A port: `id`; `label?`; `interface?` (an interface id); `body?` (the
+device's jack, a body id) or `gender?`; `role?` (`source`, `sink`, `both`); `pins?` (position id to
+`"nc"` or `{ signal, dir?, level?, accepts?[], needs?[], confidence?, note?, src? }`); `requires?[]`
+(`{ id, conditioning, positions[1..2], text?, src }`); `terminals?` (adapters: the board's prefix,
+or `""` for pads). Checks (`deviceLibraryIssues`): kebab and unique ids, `extends` known and not
+looping, interface, body, board and vocabulary ids known, positions the interface has, an open
+`{ oneOf }` pin bound (warning), `src` (warning).
+
+## conditioning-recipes.json (ConditioningRecipe)
+
+`id`, `label`, `conditioning` (vocabulary `conditioning`), `parts[]`, `src`; optional `from` and `to`
+(`{ signal?, kind?, level? }`), `location` (vocabulary `locations`), `bidirectional`, `note`. A part:
+`placement` (`series`, `shunt`, `across`) and `component` (a component id) or `kind` with `value`.
+
+## hazards.json (HazardRule)
+
+`id`, `label`, `severity` (`reject`, `warning`), `a` and `b` (patterns: `kinds`, `notKinds`, `signals`,
+`notSignals`, `dirs`, `levels`), `text` (`{a}` and `{b}` stand for the two pins), `src`; optional
+`relation` (`same-signal`, `different-signal`, `different-level`) and `enabled` (`false` switches a
+built-in or a pack's hazard of the same id off).
+
+## resolver-policy.json (ResolverPolicy)
+
+One object: `order[]` of `missing`, `hazards`, `unverified`, `boards`, `prefer-boards`, `parts`,
+`conductors`, `straight`; optional `maxOptions`, `screens` (`both` or `source`); `src`.
+
+## products.json (ProductFamily)
+
+`id`, `label`, `variants[]`, `src`; optional `partNumber` (one number, or a family pattern with `X`s),
+`aliases[]`, `description`, `status`, `tags[]`, `options[]` (`{ id, label, values: [{ id, label }] }`).
+A variant: `id` (unique in the family), `design` (a design id), optional `label`, `partNumber`,
+`lengthMm`, `options` (axis id → value id), `status`, `note`. Checks (`productIssues`): ids, known
+designs and option values (errors); twins, a design in two families, a number outside the family
+pattern or refused by the scheme, a sold variant with nothing released (warnings).
+
+## Sourcing fields (any definition or design)
+
+`route` (`make`, `contract`, `buy`), `maker` (contract), `suppliers[]` (`{ supplier, number?, note? }`,
+buy). Warnings: `route-buy-no-supplier`, `route-contract-no-maker`; an unknown route is an error.
+

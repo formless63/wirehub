@@ -61,8 +61,8 @@ describe('Library Compare', () => {
     mount(`/library/connectors/${first!.id}`, bare);
     fireEvent.click(await compareButton());
     const dialog = await screen.findByRole('dialog', { name: 'Compare records' });
-    fireEvent.change(within(dialog).getByLabelText('Compare with'), { target: { value: second!.id } });
-    expect(within(dialog).getByRole('table', { name: 'Field differences' })).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText('Compare with'), { target: { value: `connectors/${second!.id}` } });
+    expect(await within(dialog).findByRole('table', { name: 'Field differences' })).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog', { name: 'Compare records' })).toBeNull();
   });

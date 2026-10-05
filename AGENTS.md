@@ -16,7 +16,7 @@ assemblies** as canonical definitions — a hierarchical wire model, a connector
 library (bodies + interfaces), discrete components, PCBAs as black boxes with
 declared internal continuity — from which schematics, build sheets, BOMs,
 continuity specs and drawings derive. It is the open base: anything specific to
-one shop (an ERP link, a board importer for one file share, a product resolver,
+one shop (an ERP link, a board importer for one file share,
 branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code.
 
 ## Commands

@@ -1,0 +1,70 @@
+[
+  {
+    "id": "rs232-rs485-converter",
+    "label": "RS-232 to RS-485 converter board (synthetic)",
+    "revision": "A",
+    "terminals": [
+      {
+        "id": "A",
+        "label": "A (data −)",
+        "signal": "rs485-a"
+      },
+      {
+        "id": "B",
+        "label": "B (data +)",
+        "signal": "rs485-b"
+      },
+      {
+        "id": "GND",
+        "label": "Signal ground",
+        "role": "gnd"
+      },
+      {
+        "id": "SHLD",
+        "label": "Shield",
+        "signal": "gnd-chassis"
+      }
+    ],
+    "integratedConnectors": [
+      {
+        "connectorDefId": "de9-female-rs232",
+        "terminalPrefix": "j1"
+      }
+    ],
+    "internalLinks": [
+      {
+        "from": "j1.5",
+        "to": "GND"
+      },
+      {
+        "from": "j1.shell",
+        "to": "SHLD"
+      },
+      {
+        "from": "j1.3",
+        "to": "B",
+        "via": "U1 RS-232 receiver → RS-485 driver"
+      },
+      {
+        "from": "j1.3",
+        "to": "A",
+        "via": "U1 RS-232 receiver → RS-485 driver"
+      },
+      {
+        "from": "B",
+        "to": "j1.2",
+        "via": "U1 RS-485 receiver → RS-232 driver"
+      }
+    ],
+    "src": "synthetic example: a generic converter board; the transceiver is declared as passages, not modelled",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "synthetic example: a generic converter board; the transceiver is declared as passages, not modelled"
+        }
+      ]
+    }
+  }
+]

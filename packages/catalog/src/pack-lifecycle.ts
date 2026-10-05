@@ -43,6 +43,7 @@ import {
   isAuxiliaryFile,
   mergeCatalogFile,
   KEYED_FILES,
+  RECORD_FILES,
   keyedRecords,
   isPlainObject,
   packAssetFiles,
@@ -64,8 +65,6 @@ import { fsCatalogSource, type CatalogSource } from './source.ts';
  * ------------------------------------------------------------------ */
 
 /** The record files of a catalog; vocabulary lists and designs are found by listing. */
-const RECORD_FILES = ['bodies', 'interfaces', 'connectors', 'wires', 'components', 'mechanicals', 'kits', 'pcbas', 'validation-rules', 'bench-rules'].map((n) => `${n}.json`);
-
 /** The record files whose records are parts with a licence (a retired one keeps its licence and origin); the rule files hold the shop's own rules. */
 const PART_RECORD_FILES = RECORD_FILES.filter((f) => f !== 'validation-rules.json' && f !== 'bench-rules.json');
 

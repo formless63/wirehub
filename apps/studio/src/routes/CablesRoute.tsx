@@ -48,6 +48,7 @@ import {
   IconChevronDown,
   IconFilter,
   IconPlus,
+  IconRoute,
   IconStack2,
 } from '@tabler/icons-react';
 import { DESIGN_STATUSES } from '@wirehub/model';
@@ -59,6 +60,7 @@ import { entryMatches } from '../pn-search.ts';
 import { cableListKey, loadCableList } from '../queries.ts';
 import { cablesRoute, type CableListSort, type CablesSearch } from '../router.tsx';
 import { StatusChip } from '../shell/StatusChip.tsx';
+import { RouteChip } from '../shell/RouteChip.tsx';
 import { RevChip } from '../versions/RevChip.tsx';
 import { useStudio } from '../studio-context.tsx';
 import { LockMarker } from '../locks/LockMarker.tsx';
@@ -96,6 +98,7 @@ function NotesCell({ entry }: { entry: CableListEntry }): JSX.Element {
   return (
     <span className="flex min-w-0 items-center gap-1 overflow-hidden">
       <StatusChip status={entry.status} />
+      <RouteChip route={entry.route} maker={entry.maker} />
       <RevChip rev={entry.rev} unreleased={entry.unreleased} />
       {(entry.features ?? []).map((f) => (
         <span
@@ -672,6 +675,15 @@ export function CablesRoute(): JSX.Element {
         >
           <IconBox size={14} />
           <span className="max-[1099px]:hidden">Library</span>
+        </Link>
+        <Link
+          to="/resolver"
+          title="Which cable do I need? — pick two devices, get ranked options"
+          aria-label="Which cable do I need?"
+          className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-panel px-2.5 text-[12.5px] text-ink no-underline"
+        >
+          <IconRoute size={14} />
+          <span className="max-[1099px]:hidden">Which cable?</span>
         </Link>
         <button
           type="button"

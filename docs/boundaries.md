@@ -63,10 +63,10 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `recipe.ts` → `body.ts` | BASE-gen | the design body, its diff and the override patch language kept; the recipe types and `captureHandEdits` went to the module side (an editor commit hook replaces the latter) |
 | `wire-display.ts` | BASE-gen | stock names from the wire's own label and lay order; no family table |
 | `part-numbers.ts` | BASE-gen | **pluggable**: a `PartNumberScheme` interface, a built-in prefix scheme (`CON-00001`) configured by an optional `part-numbers.json`, `knownPartNumbers()`; the private scheme, register parsing, reconciliation and rule inference left behind |
-| `devices.ts`, `rules.ts`, `resolve.ts`, `derive-design.ts`, `derive-joints.ts`, `infer-recipe.ts`, `journey.ts` | MODULE | the console resolver: devices, input requirements, conditioning, hazards, ranking policy, recipe derivation and inference, the cable journey |
-| `board-proposal.ts` | MODULE | board proposals from resolver gaps |
-| `lineup.ts`, `products.ts` | MODULE | the product lineup and product merge/split |
-| `production-route.ts` | MODULE | in-house vs contract-manufactured routes, keyed on private PN series |
+| `devices.ts`, `rules.ts`, `resolve.ts`, `derive-design.ts`, `derive-joints.ts`, `infer-recipe.ts`, `journey.ts` | BASE-gen (rebuilt, §11) | was MODULE; rebuilt generically as `devices.ts`, `resolve.ts`, `derive-cable.ts`, `cable-recipe.ts`: device profiles, conditioning recipes, hazards and a ranking policy as data, ranked options, derived designs, recipe inference and drift. No private device, rule or value carried over |
+| `board-proposal.ts` | BASE-gen (rebuilt, §11) | rebuilt as `proposals.ts`: drafts from resolver gaps, declined and accepted in `data/proposals.json`, a development PCBA started from an accepted one |
+| `lineup.ts`, `products.ts` | BASE-gen (rebuilt, §11) | rebuilt as `products.ts`: product families as data (`products.json`) with aliases, option axes and variants, merge and split, the lineup as JSON and CSV. The private lineup's device rows, store listings and product preferences stay data of a private pack |
+| `production-route.ts` | BASE-gen (rebuilt, §11) | a `route` field (`make`, `contract`, `buy`) with `maker` and `suppliers` on every record and design, checked and badged; no route is read from a numbering series (a shop that wants that writes a validation rule) |
 
 ### 2.2 `packages/catalog` (`@wirehub/catalog`)
 
@@ -78,7 +78,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `src/depictions/{generate,gerber}.ts` | MODULE | pinmaps-driven generation and the gerber art pipeline over the board designer's share. Gerber art from an uploaded Gerber set is now public: `modules/board-import` (§10.1) |
 | `src/tags/{build,classify}.ts` | BASE | scrubbed; report text generalised |
 | `src/importer/*`, `src/kicad/*`, `src/easyeda/*`, `src/components/*`, `src/readme/*` | MODULE | the board importers (pinmaps, KiCad-direct, EasyEDA, fab BOM/CPL, board READMEs) as tied to the share's layout. The open formats (KiCad board and netlist, Gerber, fab BOM/CPL) are now read by the public `modules/board-import`, reimplemented over the importer contract (§10.1); the share's discovery, the pinmaps extraction, EasyEDA and the board READMEs stay private |
-| `src/recipe-check.ts` | MODULE | the recipe report |
+| `src/recipe-check.ts` | BASE-gen (rebuilt, §11) | the recipe report is `recipeDrift` / `recipeIssues` (validation issues) and `GET /api/resolver/designs/:id` |
 | `scripts/*` (40 scripts) | MODULE / DROP | board pipelines, imports and one-shot data migrations of the private catalog; none copied |
 | `data/` (every file and folder) | DROP | replaced by a synthetic starter catalog (§4) |
 | `data/devices/`, `data/rules/`, `data/builds/`, `data/legacy/`, `data/kicad-maps/`, `data/exports/`, `data/part-numbers/`, `pin-tables.json`, `pcbas.*.json`, `pcba-*.json`, `board-*.json/md`, `models*.json`, `part-revisions.json`, `kicad-models.json`, identity table, gerber/EasyEDA reports | MODULE | the shop's proprietary data: device pinouts, boards, PN tables, sourcing, recipes, imports |
@@ -110,7 +110,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `drawing/*` | BASE-gen | the ANSI-A drawing sheet kept; the shop's traced faces, cutaway art, logo, marking font and rights line removed (`drawing/assets.ts` is an empty hook) |
 | `wire-spec.ts` | BASE-gen | organisation, standard name and rights line are options (default "WireHub Standard", `WSS_` file prefix) |
 | the ERP folder (contract, transport, identity table, PN reconciliation, numbering status, mock server) | MODULE | the private ERP integration |
-| `lineup-export.ts` | MODULE | the configurator lineup export |
+| `lineup-export.ts` | BASE-gen (rebuilt, §11) | the generic lineup export: `GET /api/lineup` and `/api/lineup.csv` |
 | the shop's brand font and its licence | DROP | branding |
 | `scripts/*` | MODULE / DROP | ERP identity/report/contract tools, PN report, lineup export, previews, the drawing-asset extractor |
 
@@ -125,10 +125,10 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `stock-swap.ts` | BASE-gen | generic `withTrunkStock` / `canSwapTrunkStock`; the one-stock shortcut removed |
 | `panels/useDesignLifecycle.ts`, `DesignActions.tsx`, `DesignLifecycleDialogs.tsx`, `CableEditor.tsx` | BASE-gen | the two shop-specific "make a variant" actions and the recipe UI removed |
 | `body-templates.ts` | BASE-gen | console connector templates removed |
-| `panels/{CableJourney,RecipeBar,RecipePanel,KnownPinsDialog,ProposalDetail}.tsx`, `cable-journey.*`, `recipe-edit.ts` | MODULE | the resolver UI |
+| `panels/{CableJourney,RecipeBar,RecipePanel,KnownPinsDialog,ProposalDetail}.tsx`, `cable-journey.*`, `recipe-edit.ts` | BASE-gen (rebuilt, §11) | the journey is `/resolver` ("Which cable do I need?"), the recipe bar and panel the editor's Recipe tab, known pins the Connect known pins dialog (it now also offers the recipe's joints); board proposals stay a gap (§11) |
 | the two ERP export/report panels | MODULE | the ERP export UI |
 | `bare-scart.ts` | MODULE | a shop-specific design transform |
-| `compare/*`, `revisions.ts`, `panels/RevisionsSection.tsx`, `compare.css` | MODULE | board-revision compare over the board designer's files |
+| `compare/*`, `revisions.ts`, `panels/RevisionsSection.tsx`, `compare.css` | BASE-gen (rebuilt, §11) | rebuilt generically: revisions of any library record (`record-revisions.ts`, the record page's Revisions section) and the base compare view's fields, 2D (side by side or difference overlay) and 3D (side by side or a two-colour overlay); the private surface-diff worker and the share's board art were not carried over |
 | `scripts/*` | DROP | one-off generators |
 
 ### 2.6 `packages/modules` (new)
@@ -153,8 +153,8 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `server/models/*` | BASE-gen | 3D model links, uploads, STEP/STL/GLB conversion, KiCad library mapping kept; the share matcher (`match.ts`) and the revision art/import/API left behind; importer-specific paths generalised. The board assembly's way in is a `.kicad_pcb` uploaded on a board, built by the model-cache job with the KiCad library models fetched at a pinned commit (`library-source.ts`, cs-5k1.12) |
 | the ERP server module | MODULE | the ERP push/dry-run endpoints and their environment |
 | `server/board-import.ts` | MODULE | the board import runner over the share; uploads of open-format files go through `modules/board-import` instead |
-| `server/lineup.ts`, `server/products.ts`, `server/proposals.ts` | MODULE | lineup, product grouping, declined proposals |
-| `server/models/{match,revision-art,revision-import,revisions-api,revisions}.ts` | MODULE | the share's model matcher and board revisions |
+| `server/lineup.ts`, `server/products.ts`, `server/proposals.ts` | BASE-gen (rebuilt, §11) / MODULE | lineup and product grouping rebuilt (`server/products.ts`); declined board proposals stay out |
+| `server/models/{match,revision-art,revision-import,revisions-api,revisions}.ts` | MODULE / BASE-gen (rebuilt, §11) | the share's model matcher and revision import stay private (a module's `revisionSources` or the API bring them in); the revisions API is rebuilt as `server/revisions.ts` |
 | `server/scripts/{import-models,kicad-fetch,migrate-drawing-photos}.ts` | MODULE / DROP | importer and a one-shot migration; the KiCad library fetch is now the model-cache job's (`server/models/library-source.ts`) |
 | `src/cable-list.ts` | BASE-gen | rewritten: destination, wire, boards, features, PN from `productRef`/drawing; no sync column, product grouping or routes |
 | `src/routes/CablesRoute.tsx` | BASE-gen | sync filter, product merge/split, lineup link and register-only rows removed |
@@ -162,7 +162,7 @@ Renamed: the word "core" names a separate product; the truth model is now
 | `src/part-numbers.browser.ts` | BASE-gen | scheme from `part-numbers.json` or a module |
 | `src/me.browser.ts`, `src/modules.browser.ts` | BASE (new) | who is signed in; the browser registry |
 | `src/{<erp>,board-import,lineup,products,proposals,revisions}.browser.ts`, the ERP link hook, `src/routes/{BoardImportRoute,CompareRoute,LineupRoute,LineupPush,ProductDialog,ProposalsView}.tsx` | MODULE | the UI of the module features above |
-| `src/shell/RouteChip.tsx` | MODULE | the production-route badge |
+| `src/shell/RouteChip.tsx` | BASE-gen (rebuilt, §11) | the route badge: `MAKE`, `CM`, `BUY`; the maker only in the tooltip |
 | `public/*` icons and the brand mark | DROP | replaced by a neutral placeholder icon |
 | `README.md` | BASE-gen | rewritten |
 
@@ -285,10 +285,13 @@ starter designs (the existing goldens use the frozen fixture catalog).
 | Build sheet, BOM, continuity spec, drawing sheet, wire spec | BASE-gen |
 | Editor canvas, library, wizard, versions, edit locks, login, optional git export | BASE-gen |
 | Part numbers | BASE-gen (pluggable scheme) |
-| Console resolver, recipes, journey, board proposals, lineup, products, routes | MODULE |
+| Device resolver, recipes, journey, drift (generic engines; the devices are data) | BASE (rebuilt, §11) |
+| Products, variants, merge and split, the lineup, routes | BASE (rebuilt, §11) |
+| Board proposals: drafts from resolver gaps, decline, accept | BASE (rebuilt, §11) |
 | ERP integration (contract, transport, push, identity table, PN reconciliation) | MODULE |
 | Board, model and Gerber importers for open file formats (KiCad, Gerber, fab BOM/CPL), the board model from its KiCad file | BASE (new): `modules/board-import`, server `models/*` |
-| Discovering those files on the board designer's share; board revision compare | MODULE |
+| Discovering those files on the board designer's share | MODULE |
+| Record revisions and compare (fields, 2D, 3D), revisions from outside through `revisionSources` | BASE (rebuilt, §11) |
 | Shop work instructions, brand font, logo, traced drawing art | MODULE |
 | Live-clone deploy, proxy/tailnet/host specifics, private remote backup | DROP |
 
@@ -354,4 +357,42 @@ the KiCad library models it names (CC-BY-SA; fetched into the cache, never commi
 **What stays private** is only the discovery of those files on one shop's share (which
 folder, which revision is released) and the importers that are specific to it
 (pinmaps, EasyEDA, board READMEs, revision compare).
+
+## 11. After the split: generic engines rebuilt (owner 2026-10-05)
+
+The owner's principle: WireHub should be as capable as possible; only proprietary **data** and
+shop-specific bits stay private. Three capabilities had been left out whole as "private" although
+their engines are generic. They are rebuilt in the base from their behaviour, with generic names
+and examples; nothing (code, data, device, part number or wording) was copied from the private
+repository.
+
+- **The device resolver and recipes** (`docs/resolver.md`): device profiles, conditioning recipes,
+  hazards and a ranking policy as catalog data (`devices.json`, `conditioning-recipes.json`,
+  `hazards.json`, `resolver-policy.json`), a generic resolver over signals and levels (pairing
+  through the vocabulary's `pairsWith` and `diffPair`, not a field's lanes), adapter boards as
+  devices, derived designs, recipes on designs with drift as validation issues and inference, the
+  API, the "Which cable do I need?" page, the editor's Recipe tab and the recipe's joints in Connect
+  known pins. Examples ship in the bundled `pc-serial`, `pro-audio` and `automotive` packs.
+  A private pack supplies only its devices, boards, recipes, hazards and policy. Board
+  **proposals** are rebuilt too: drafts from the resolver's gaps (pads, known parts, nets, what is
+  open), declined with a reason and remembered, or accepted as a development board; other sources
+  file proposals through the API.
+- **Products and variants** (`docs/products.md`): product families as data (`products.json`) with
+  aliases, option axes and variants (each a design, a number, a length, option values), merge and
+  split, product pages, the lineup as a view and as JSON and CSV (released revision, cost roll-up,
+  route per variant), and a `route` field (`make`, `contract`, `buy`, with `maker` and `suppliers`)
+  on every record and design, with warnings and a badge. Products work with the declarative
+  numbering (family patterns, next variant number, product numbers counted as taken), approvals
+  (released revisions in the lineup, a warning for a sold variant with none), costing (the BOM's
+  roll-up per variant) and webhooks (`product.changed`). The private lineup's device-by-destination
+  grid, store listings and route-by-series rule are not rebuilt: a private pack supplies its
+  families and routes as data.
+- **Part revisions and compare** (`docs/revisions.md`): revisions of every library record kind
+  (`data/revisions/<kind>/<id>.json`: a snapshot, a note, its number, its 2D art and its model's
+  content address), the next variant number from the scheme on save, where used per revision (the
+  saved design versions built with it), the record page's Revisions section, and the base compare
+  view for two records, a record and a revision, or two revisions — fields, 2D side by side or as a
+  difference overlay, 3D side by side or as a two-colour overlay. A `revisionSources` extension
+  point (module API 1.2) and `PUT /api/revisions/:kind/:id` bring in revisions kept elsewhere: a
+  private module supplies only the discovery of one shop's file share.
 

@@ -15,8 +15,8 @@ of a physical body and a pinout, and PCBAs are first-class black boxes with decl
 continuity.
 
 This repository is the **open base**. What one shop needs and no other does — its ERP link,
-its numbering scheme, its product resolver, importers for its own file layout, its branding —
-is a **module** (`docs/modules.md`). Public catalog data is distributed as **catalog packs**
+importers for its own file layout, its branding — is a **module** (`docs/modules.md`); what one
+shop knows (its devices, its numbering, its rules) is **data** a private pack or Settings supplies. Public catalog data is distributed as **catalog packs**
 (`docs/catalog-store.md`). What was deliberately left out of the base is recorded in
 `docs/boundaries.md`.
 
@@ -255,6 +255,8 @@ interface CableDesign {
   joints: { a: TerminalRef; b: TerminalRef; note?: string }[];
   notes?: string[];                  // build-level annotations (drain policy etc.)
   extensions?: Record<string, unknown>;   // module-owned data, keyed by module id
+  recipe?: CableRecipe;              // the devices it connects and the resolver's choices
+  route?: 'make' | 'contract' | 'buy'; maker?: string; suppliers?: PartSupplier[];
   src: string;
 }
 
@@ -367,7 +369,8 @@ versions and serialization, and never reads it.
 - Serialization is plain JSON of the types above — no classes, no Maps in the model.
 
 `Db` is the bundle `{ connectors, wires, components, pcbas, mechanicals?, bodies?,
-interfaces?, kits?, vocab?, tags?, validationRules? }` the catalog loads, plus — given by the host,
+interfaces?, kits?, vocab?, tags?, validationRules?, devices?, conditioningRecipes?, hazards?,
+resolverPolicy?, products? }` the catalog loads, plus — given by the host,
 for a design placing sub-assemblies — `assemblies?` (the designs those reach). A design may carry
 free `tags?: string[]` that declarative validation rules select by.
 
@@ -408,11 +411,62 @@ subject (`connector`, `conductor`, `signal-path`, `cable-end`, `connector-def` �
 template. No code runs: evaluation is bounded (depth, node count, a step budget). Their issues
 carry the code `rule:<id>`. Code rules in a module remain for the complex cases.
 
+### Devices and the resolver
+
+"Which cable do I need?" (`devices.ts`, `resolve.ts`, `derive-cable.ts`, `cable-recipe.ts`;
+`docs/resolver.md`). **Device profiles** (`devices.json`) are what cables plug into: ports, each
+an interface on the device's jack (a body, or a gender), with per-position facts laid over the
+interface — signal, direction, level, what the cable must add (`needs`), confidence — and port
+requirements (a termination across a pair). A variant `extends` its parent. A device with a
+`board` is an **adapter**: one port mates a device, the other is its cable pads.
+**Conditioning recipes** (`conditioning-recipes.json`) say what a conditioning takes: a level
+conversion (`from` → `to`) or a requirement, as components in `series`, `shunt` or `across`.
+**Hazards** (`hazards.json`, over built-in ones) are patterns over the two pins of a connection,
+`reject` or `warning`. The **ranking policy** (`resolver-policy.json`) orders the criteria.
+Signals pair through the vocabulary: `pairsWith` (transmit onto receive) and `diffPair`.
+
+`resolve(db, { source, destination })` lists every option — wired by signal (direct, or
+conditioned by recipes), straight pin for pin, or through adapter boards — ranked, each with
+reasons, hazards, missing pieces and unconfirmed facts; options a reject hazard matches are
+refused with why. `deriveCable` turns one into a design (plugs, a suggested stock, joints, the
+recipes' parts, status `development`) that carries `recipe: { source, destination, option, stock,
+lengthMm, ids?, overrides? }`. `validateDesign` checks a design against its recipe (`recipe-drift`
+and kin, warnings); `inferCableRecipe` finds the recipe of a hand design; `rederive` rebuilds one.
+When nothing is complete, `proposeBoards` drafts boards and adapters for the missing pieces;
+people decline them (remembered in `proposals.json`) or start a development board from one.
+All of it is data a pack ships; the engine knows no field's devices.
+
+### Products, variants, the lineup and routes
+
+`products.ts`, `docs/products.md`. A **product family** (`products.json`, `Db.products`) groups the
+designs a shop sells: its number (one number, or a family pattern `CBL-00090-XX` its variants
+fill), `aliases` (other names and numbers), option axes, and **variants** — each a design with its
+own number, length and option values. `productIssues` checks them against the designs, the scheme
+and the released revisions; `mergeProducts` and `splitProduct` regroup them (merged families
+become aliases); `lineupRows` / `lineupCsv` list every variant with its released revision, cost
+roll-up and route. Product and variant numbers count as taken for every suggestion and in the
+duplicate report; a family's next variant number comes from the scheme (`variantOf`).
+Every record (`RecordMeta`) and design may carry a **route** — `make`, `contract` (with its
+`maker`) or `buy` (with `suppliers`) — checked as warnings (`route-buy-no-supplier`,
+`route-contract-no-maker`) and shown as a badge. A product change raises `product.changed`.
+
+### Revisions of library records, and compare
+
+`record-revisions.ts`, `docs/revisions.md`. Every library record kind keeps numbered **revisions**
+(`data/revisions/<kind>/<id>.json`): a snapshot of the record, a note, who and when, its part number,
+its drawn 2D art and its model's content address. Saving one may first give the record the scheme's
+next **variant** number (`suggest` with `variantOf`; the prefix scheme's two-digit suffix, a
+declarative scheme's variant segment). **Where used** per revision reads the saved design versions'
+frozen definitions. The base **compare view** takes two records, a record and a revision, or two
+revisions: fields, 2D (side by side or a difference overlay) and 3D (side by side or a two-colour
+overlay). Revisions kept elsewhere come in through a module's **`revisionSources`** (module API
+1.2) or `PUT /api/revisions/:kind/:id`.
+
 ### Event webhooks
 
 Integrations are configuration, not code: owners subscribe URLs to events (design saved, version
-submitted / approved / released, part number assigned, pack installed, job finished, catalog
-changed) in Settings; each delivery is a `webhook` job carrying a versioned JSON payload
+submitted / approved / released, part number assigned, product changed, pack installed, job
+finished, catalog changed) in Settings; each delivery is a `webhook` job carrying a versioned JSON payload
 (`wirehub.event/1`: ids, links, the actor, a diff summary, fetch URLs) signed with HMAC-SHA256
 under the subscription's secret (kept encrypted in the settings secrets store), retried with
 backoff, logged and redeliverable. The receiver pulls full data through the API with a token
@@ -461,7 +515,10 @@ T568B, a patch cable and a crossover), `pro-audio` (audio signals, XLR, RCA and 
 stocks, a microphone cable and a Y lead) — these three suggested at setup — and
 `av-video` (video signals, VGA and SCART, a VGA cable) and `automotive` (bus signals, the
 OBD-II plug, a generic sealed 3-way connector family with its crimp contacts, seals, cavity
-plug and crimp tool, and a sealed sensor lead). Pack data is CC0-1.0 and every record keeps its `src`; pack records carry no
+plug and crimp tool, and a sealed sensor lead). `pc-serial`, `pro-audio` and `automotive` also
+ship device profiles and conditioning recipes for the resolver (a PC port to an RS-485 device
+through a converter board, a line output into a microphone input through a pad, a control unit
+to sensors of two pinouts). Pack data is CC0-1.0 and every record keeps its `src`; pack records carry no
 part numbers. The base code knows no domain's signals: label reading goes through the
 vocabulary (`signal-words.ts`), and signal kinds are open strings.
 
@@ -506,3 +563,6 @@ cases live in its module's tests, over the starter plus that module's pack.
 5. **More generic coverage**: connector art for the families that draw as generic
    rectangles today (RJ45, XLR, USB, JST, terminal block), re-covered tests for what the
    private suite tested on private data, generic specs for the drawing language.
+6. **Generic engines once left private** (owner 2026-10-05: only proprietary data stays
+   private): the device resolver and recipes (`docs/resolver.md`), products and variants, part
+   revisions and compare — engines in the base, the data in packs.

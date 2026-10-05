@@ -9,7 +9,13 @@ RS-232, RS-485 and USB for WireHub, as a catalog pack (`pack/`):
   the base's DE-9 bodies, and USB 2.0 on a Type-A plug;
 - three example cables: a DE-9 null modem with local handshake loopbacks,
   an RS-485 cable to the base's terminated adapter board, and a USB LED
-  supply lead with a series resistor.
+  supply lead with a series resistor;
+- for the resolver (`docs/resolver.md`): a desktop PC's COM port, an RS-232
+  instrument, an RS-485 field device that asks for a bus termination, a
+  plug-on RS-232 to RS-485 converter board as an adapter device, and the
+  120 Ω termination recipe. RS-232 transmit, request and terminal-ready lines
+  pair with their receive, clear and set-ready lines (`pairsWith`), and A/B
+  and D+/D− are differential pairs (`diffPair`).
 
 The pack is laid over the starter catalog: it uses the base's DE-9 bodies,
 stocks, components, backshell and board. Enable it at first-run setup

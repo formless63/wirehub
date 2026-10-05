@@ -18,6 +18,7 @@
  */
 
 import { costIssues, type PartCost } from './cost.ts';
+import { sourcingShapeIssues, type PartRoute, type PartSupplier } from './products.ts';
 import type { Issue } from './model.ts';
 
 /** How a record's values were obtained. */
@@ -76,6 +77,12 @@ export interface RecordMeta {
   derivedFrom?: DerivedFrom;
   /** optional price (`cost.ts`); absent = unpriced */
   cost?: PartCost;
+  /** how the part is sourced (`products.ts`): made in house, by a contract manufacturer, or bought in */
+  route?: PartRoute;
+  /** who sells it, for a bought-in part */
+  suppliers?: readonly PartSupplier[];
+  /** who builds it, for a contract-manufactured part */
+  maker?: string;
 }
 
 const SPDX_ID = /^(?:LicenseRef-[A-Za-z0-9.-]+|[A-Za-z0-9][A-Za-z0-9.-]*\+?)$/;
@@ -201,5 +208,6 @@ export function recordMetaIssues(record: object, where: string): Issue[] {
     }
   }
   issues.push(...costIssues(record, where));
+  issues.push(...sourcingShapeIssues(record, where));
   return issues;
 }

@@ -82,6 +82,18 @@ export interface SignalEntry extends VocabEntry {
    * is taken without asking, with a note on the design.
    */
   standIn?: string;
+  /**
+   * The signals this one is wired to on the far device: a transmit line lands
+   * on the other end's receive line (`txd` → `rxd`), a request on a clear.
+   * The device resolver (`resolve.ts`) pairs pins through it; the relation is
+   * read both ways, so one side naming it is enough.
+   */
+  pairsWith?: string[];
+  /**
+   * The other line of this signal's differential pair (`data-a` ↔ `data-b`):
+   * a derived cable gives the two one twisted pair when its stock has one.
+   */
+  diffPair?: string;
 }
 
 /** An entry of `lanes`: the role a conductor plays along the cable. */
@@ -343,7 +355,7 @@ function crossRefIssues(vocab: Vocab): Issue[] {
     for (const id of entry.returnFor ?? []) {
       if (!has('signals', id)) issues.push(issue('vocab-unknown', `signal '${entry.id}' returns unknown signal '${id}'`, `vocab/signals/${entry.id}`));
     }
-    for (const id of [...(entry.near ?? []), ...(entry.standIn === undefined ? [] : [entry.standIn])]) {
+    for (const id of [...(entry.near ?? []), ...(entry.standIn === undefined ? [] : [entry.standIn]), ...(entry.pairsWith ?? []), ...(entry.diffPair === undefined ? [] : [entry.diffPair])]) {
       if (!has('signals', id)) issues.push(issue('vocab-unknown', `signal '${entry.id}' names unknown signal '${id}'`, `vocab/signals/${entry.id}`));
     }
   }

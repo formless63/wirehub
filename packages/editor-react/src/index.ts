@@ -616,3 +616,7 @@ export type { EditorExtensions, EditorSlotContext, ExtraDocumentOutput, ExtraExp
 export { dbWithLibrary, mergeLibraries, missingDesigns, versionsOf } from './assemblies.ts';
 export type { AssembliesAdapter } from './assemblies.ts';
 export type { SubassemblyNodeData } from './derive.ts';
+export { RevisionsSection } from './panels/RevisionsSection.tsx';
+export { compareSideId, parseCompareSide } from './revisions.ts';
+export type { CompareSide, RevisionSummary, RevisionsAdapter, RevisionsView, SaveRevisionInput } from './revisions.ts';
+export { SourcingFields, sourcingOfExtra, withExtraSourcing, withSourcing } from './panels/SourcingFields.tsx';

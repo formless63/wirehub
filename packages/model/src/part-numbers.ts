@@ -203,6 +203,20 @@ export function prefixPartNumberScheme(config: PrefixSchemeConfig = DEFAULT_PREF
       return [];
     },
     suggest(subject, known) {
+      // a variant of a number this scheme reads: the next free two-digit suffix on its base (`CON-00012-01`)
+      const of = subject.variantOf === undefined ? undefined : split(subject.variantOf);
+      if (of !== undefined && config.allowRevisionSuffix === true) {
+        const base = `${of.prefix}${sep}${of.number}`;
+        let top = /^\d+$/.test(of.suffix.slice(sep.length)) ? Number(of.suffix.slice(sep.length)) : 0;
+        for (const k of known) {
+          const p = split(k.pn);
+          const n = p === undefined ? '' : p.suffix.slice(sep.length);
+          if (p !== undefined && p.prefix === of.prefix && p.number === of.number && /^\d+$/.test(n)) top = Math.max(top, Number(n));
+        }
+        if (top < 99) {
+          return { pn: `${base}${sep}${String(top + 1).padStart(2, '0')}`, rule: 'next-variant', explanation: `the next free variant of ${base}${top === 0 ? '' : ` after ${base}${sep}${String(top).padStart(2, '0')}`}` };
+        }
+      }
       const prefix = config.prefixes[subject.kind];
       if (prefix === undefined) return undefined;
       let max = 0;
@@ -259,6 +273,7 @@ export function knownPartNumbers(
     pcbas: readonly { id: string; label: string; partNumber?: string }[];
     mechanicals?: readonly { id: string; label: string; partNumber?: string; kind: string }[];
     kits?: readonly { id?: string; sku: string; label: string }[];
+    products?: readonly { id: string; label: string; partNumber?: string; variants: readonly { id: string; label?: string; partNumber?: string }[] }[];
   },
   designs: readonly { id: string; label: string; productRef?: string }[] = [],
   extra: readonly KnownPartNumber[] = [],
@@ -276,6 +291,10 @@ export function knownPartNumbers(
   }
   for (const k of db.kits ?? []) add(k.sku, 'kit', k.label, `kits.json ${k.sku}`);
   for (const d of designs) add(d.productRef, 'design', d.label, `designs/${d.id}.json`);
+  for (const p of db.products ?? []) {
+    if (p.partNumber !== undefined && !/X/.test(p.partNumber)) add(p.partNumber, 'design', p.label, `products/${p.id}`);
+    for (const v of p.variants) add(v.partNumber, 'design', `${p.label} ${v.label ?? v.id}`, `products/${p.id}/${v.id}`);
+  }
   out.push(...extra);
   return out;
 }
