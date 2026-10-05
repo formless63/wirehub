@@ -11,7 +11,9 @@
 
 import { createContext, useContext } from 'react';
 import {
+  holdersOfNumber,
   knownPartNumbers,
+  partNumberHolders,
   type CableDesign,
   type ComponentDefinition,
   type ConnectorDefinition,
@@ -69,6 +71,11 @@ export interface SuggestResult {
 
 export interface PartNumberScope {
   check: (pn: string, kind: PnKind) => PnIssue[];
+  /**
+   * Where else this number is already written (`connectors/de9-male`, `designs/…`), not counting the
+   * record being edited (nor its body twin, nor the same design's other copy). Empty when it is free.
+   */
+  taken: (pn: string, target: PartNumberTarget) => string[];
   suggest: (target: PartNumberTarget) => SuggestResult;
 }
 
@@ -112,9 +119,36 @@ function kindOfTarget(target: PartNumberTarget): PnKind {
   return target.kind;
 }
 
+/** What physical thing a draft is, as `part-number-health.ts` identifies it: a connector is its body's twin. */
+function identityOfTarget(target: PartNumberTarget): string | undefined {
+  const id = target.def.id.trim();
+  if (id === '') return undefined;
+  switch (target.kind) {
+    case 'connector':
+      return target.def.body === undefined ? `connectors/${id}` : `body/${target.def.body}`;
+    case 'component':
+      return `components/${id}`;
+    case 'wire':
+      return `wires/${id}`;
+    case 'pcba':
+      return `pcbas/${id}`;
+    case 'mechanical':
+      return `mechanicals/${id}`;
+    case 'kit':
+      return `kits/${id}`;
+    case 'design':
+      return `designs/${id}`;
+  }
+}
+
 export function partNumberScope(data: PartNumberData, db: Db): PartNumberScope {
   return {
     check: (pn, kind) => (pn.trim() === '' ? [] : data.scheme.check(pn, kind)),
+    taken: (pn, target) => {
+      if (pn.trim() === '') return [];
+      const holders = partNumberHolders(db, data.designs ?? [], data.drawings ?? {}, data.scheme);
+      return holdersOfNumber(holders, pn, data.scheme, identityOfTarget(target)).map((h) => h.where);
+    },
     suggest: (target) => {
       const placed = withTarget(db, target);
       // a cable being numbered: the draft among the designs, its own number set aside (it is what we are suggesting)

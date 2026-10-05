@@ -99,6 +99,21 @@ function esc(value: string): string {
 
 type Anchor = 'start' | 'middle' | 'end';
 
+/** The rights line as the title block's three centred rows: broken at spaces so each row fits, the rest dropped never (the last row takes it). */
+function rightsRows(line: string | undefined): string[] {
+  const rows = ['', '', ''];
+  if (line === undefined) return rows;
+  let at = 0;
+  for (const word of line.split(/\s+/).filter((w) => w !== '')) {
+    const next = rows[at] === '' ? word : `${rows[at]} ${word}`;
+    if (next.length > 34 && at < 2 && rows[at] !== '') {
+      at += 1;
+      rows[at] = word;
+    } else rows[at] = next;
+  }
+  return rows;
+}
+
 function text(x: number, y: number, value: string, size: number, options: { anchor?: Anchor; bold?: boolean; family?: string; fill?: string; fit?: number } = {}): string {
   const anchor = options.anchor ?? 'start';
   let fontSize = size;
@@ -165,7 +180,7 @@ function titleBlock(drawing: Drawing): string {
   out.push(value(344.2, 519.5, 532.9, drawing.partNumber, true));
   out.push(value(519.5, 606.1, 532.9, drawing.revision));
   out.push(value(606.1, right, 531.3, drawing.material));
-  out.push(value(519.5, 606.1, 563, drawing.designer));
+  out.push(value(519.5, 606.1, 563, drawing.designer === '' ? (registeredTitleBlock().designer ?? '') : drawing.designer));
   out.push(value(606.1, 692.9, 563.2, drawing.date));
   const text0 = registeredTitleBlock();
   out.push(value(692.9, 736.2, 562.6, text0.size ?? 'A'));
@@ -174,7 +189,7 @@ function titleBlock(drawing: Drawing): string {
   out.push(value(606.1, 692.9, 593.9, '-'));
   out.push(value(692.9, right, 594.1, '1 of 1'));
 
-  const rights = ['', '', ''];
+  const rights = rightsRows(text0.rights);
   rights.forEach((row, i) => out.push(text(289.9, 558.8 + i * 7.2, row, 6, { anchor: 'middle' })));
     (text0.notes ?? ['ALL DIMENSIONS ARE', 'IN MM UNLESS', 'OTHERWISE SPECIFIED']).forEach((row, i) =>
     out.push(text(388.5, 568.1 + i * 7.2, row, 6.1, { anchor: 'middle' })),

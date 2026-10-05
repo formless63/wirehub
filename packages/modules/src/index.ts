@@ -76,11 +76,64 @@ export interface ExportOutput {
   body: string | Uint8Array;
 }
 
+/**
+ * The continuity spec as neutral data: what a tester-specific exporter reads
+ * (`ExporterContribution.source: 'continuity'`). Point ids are
+ * `<instance>.<terminal>`. The base's own CSV and JSON exports are renderings of
+ * this same shape (`docs/exports.md`), so a module adds a tester's dialect
+ * without re-deriving a single connection.
+ */
+export interface ContinuityData {
+  format: 'wirehub.continuity';
+  version: 1;
+  design: { id: string; label: string; productRef?: string };
+  /** the test parameters in force: the design's own over the organisation's over the base's */
+  parameters: {
+    /** a continuity reading at or below this passes (Ω) */
+    continuityOhmsMax: number;
+    /** DC volts applied for isolation checks */
+    isolationVolts: number;
+    /** an isolation reading at or above this passes (MΩ) */
+    isolationMinMohm: number;
+    /** how long the isolation voltage is held (s) */
+    isolationSeconds: number;
+    /** withstand test volts and duration; absent = no hipot step */
+    hipotVolts?: number;
+    hipotSeconds?: number;
+    hipotMaxMicroamps?: number;
+  };
+  /** every probe point */
+  points: { id: string; instance: string; terminal: string; label?: string; end: string; signal: string; net?: string }[];
+  /** the net-to-pin pairs: every point of one net is the same node */
+  nets: { net: string; signal: string; points: string[] }[];
+  /** pairs that are connected, and how a meter reads them */
+  connections: {
+    id: string;
+    kind: 'path' | 'commoned';
+    from: string;
+    to: string;
+    expect: 'continuity' | 'resistance' | 'open-dc' | 'conditional' | 'unverified';
+    ohms?: number;
+    through?: string;
+  }[];
+  /** pairs that must read open */
+  isolation: { id: string; a: string; b: string; end: string; rule: string; netA?: string; netB?: string }[];
+  /** deliberate opens */
+  opens: { id: string; kind: string; point: string; why: string }[];
+}
+
 export interface ExporterContribution {
   id: string;
   label: string;
   /** one sentence for the Documents view */
   description?: string;
+  /**
+   * What the host hands `render` besides the design. `'design'` (the default):
+   * nothing more. `'continuity'`: `options.continuity` is the design's
+   * `ContinuityData`, derived by the host with the design's test parameters —
+   * the way to write a continuity tester's own format.
+   */
+  source?: 'design' | 'continuity';
   render(design: CableDesign, db: Db, options?: Readonly<Record<string, unknown>>): ExportOutput | Promise<ExportOutput>;
 }
 
@@ -192,6 +245,34 @@ export interface PanelProps {
   /** a read-only view (a saved revision, someone else's edit lock): no writes */
   readOnly: boolean;
   api: ModuleApi;
+}
+
+/**
+ * A compare view for Library records: two records of one kind side by side (a board's artwork
+ * and 3D model revisions, two shells' dimensions …). The base ships a generic field diff
+ * (`RecordCompare`); a module that registers a view for a kind replaces it for that kind.
+ */
+export interface CompareViewContribution {
+  id: string;
+  label: string;
+  /** the Library kinds it compares (`pcbas`, `mechanicals`, …); absent = every kind */
+  kinds?: readonly string[];
+  /** a React component taking `CompareProps` (`unknown` here, so this package needs no React) */
+  component: unknown;
+}
+
+/** What the Library hands a compare view: the record(s) by kind and id, the library, and a way back. */
+export interface CompareProps {
+  /** the module that contributed the view */
+  module: string;
+  db: Db;
+  /** the record the Compare action was pressed on, or the first one ticked */
+  a: { kind: string; id: string };
+  /** the second record, once chosen; absent: the view asks for it */
+  b?: { kind: string; id: string };
+  api: ModuleApi;
+  /** close the compare view and go back to the Library */
+  onClose: () => void;
 }
 
 export interface UiRouteContribution {
@@ -326,6 +407,8 @@ export interface WireHubModule {
   validationRules?: readonly ValidationRuleContribution[];
   integrations?: readonly IntegrationContribution[];
   panels?: readonly PanelContribution[];
+  /** compare views for Library records (the base's generic field diff stands in where none is registered) */
+  compareViews?: readonly CompareViewContribution[];
   routes?: readonly UiRouteContribution[];
   authProviders?: readonly AuthProviderContribution[];
   /** at most one module in a deployment may set this */
@@ -376,6 +459,10 @@ export interface ModuleRegistry {
   importersFor(fileName: string): readonly (ImporterContribution & { module: string })[];
   exporters(): readonly (ExporterContribution & { module: string })[];
   panels(slot: PanelContribution['slot']): readonly (PanelContribution & { module: string })[];
+  /** every module's compare view, in manifest order */
+  compareViews(): readonly (CompareViewContribution & { module: string })[];
+  /** the first compare view that takes Library `kind`, or `undefined` (the host then uses the generic field diff) */
+  compareViewFor(kind: string): (CompareViewContribution & { module: string }) | undefined;
   routes(): readonly (UiRouteContribution & { module: string })[];
   integrations(): readonly (IntegrationContribution & { module: string })[];
   /** every module's job queues, with the job kind each runs as (`<module>:<queue>`) */
@@ -450,6 +537,11 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
       if (!ROUTE_PATH.test(route.path)) problems.push(`module '${m.id}' UI route '${route.path}' must be lowercase kebab segments joined by '/'`);
       if (paths.has(route.path)) problems.push(`module '${m.id}' has two UI routes at '${route.path}'`);
       paths.add(route.path);
+    }
+    const compares = new Set<string>();
+    for (const view of m.compareViews ?? []) {
+      if (compares.has(view.id)) problems.push(`module '${m.id}' has two compare views with id '${view.id}'`);
+      compares.add(view.id);
     }
     const panels = new Set<string>();
     for (const panel of m.panels ?? []) {
@@ -526,6 +618,8 @@ export function createRegistry(modules: readonly WireHubModule[]): ModuleRegistr
     },
     exporters: () => list.flatMap((m) => tag(m, m.exporters)),
     panels: (slot) => list.flatMap((m) => tag(m, m.panels)).filter((p) => p.slot === slot),
+    compareViews: () => list.flatMap((m) => tag(m, m.compareViews)),
+    compareViewFor: (kind) => list.flatMap((m) => tag(m, m.compareViews)).find((v) => v.kinds === undefined || v.kinds.includes(kind)),
     routes: () => list.flatMap((m) => tag(m, m.routes)),
     integrations: () => list.flatMap((m) => tag(m, m.integrations)),
     queues: () => list.flatMap((m) => (m.integrations ?? []).flatMap((i) => (i.queues ?? []).map((q) => ({ ...q, module: m.id, kind: `${m.id}:${q.id}` })))),

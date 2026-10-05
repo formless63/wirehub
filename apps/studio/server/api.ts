@@ -39,6 +39,8 @@ import { readDrawingMeta, readPhoto, type DrawingStore } from './drawings.ts';
 import type { DesignStore } from './designs.ts';
 import { handleWireLibraryRequest, WIRE_LIBRARY_ROUTES, type WireLibraryStore } from './wire-library.ts';
 import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
+import { refuseTakenDesignNumber } from './part-number-guard.ts';
+import { SETTINGS_ROUTES, handleSettingsRequest } from './settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
 import { LOCAL_FALLBACK, ME_ROUTES, type StudioUser } from './me.ts';
@@ -59,6 +61,8 @@ import type { CatalogExport } from './pg/export.ts';
 import type { DepictionDeps, DepictionStore } from './depictions.ts';
 import { isDocPath, type CatalogFileStore, type DocStore } from './storage/doc-store.ts';
 import { moduleJobsFor } from './jobs/module-queues.ts';
+import { deriveContinuityExport, type TestParameters } from '@wirehub/docs';
+import { handleDocumentRequest, DOCUMENT_ROUTES } from './documents.ts';
 import { parseModuleIoPath, proposalOf, runExporter, runImporter, type ModuleIoPath } from './module-io.ts';
 import { batchItemRequest, dryRunAnswer, isDryRun, readBatch } from './batch.ts';
 import type { JobService } from './jobs/types.ts';
@@ -159,6 +163,8 @@ export interface WorkbenchDeps {
    * suggest reads today's file.
    */
   loadPartNumberFiles?: () => Awaitable<PartNumberFiles>;
+  /** the organisation's default continuity test parameters (`WIREHUB_TEST_DEFAULTS`) */
+  testDefaults?: TestParameters;
   /**
    * The shared, content-addressed image asset store
    * — what the drawing photo picker lists and dedupes against. Optional so a
@@ -562,6 +568,8 @@ async function putDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMat
 
   const rejection = validated(parsed.design, await deps.loadDb(), deps.modules);
   if (rejection !== undefined) return rejection;
+  const taken = await refuseTakenDesignNumber(deps, id, 'productRef', parsed.design.productRef, current.productRef);
+  if (taken !== undefined) return taken;
 
   await deps.designs.write(id, parsed.design);
   const stored = await deps.designs.read(id);
@@ -593,8 +601,10 @@ async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown)
   if (!move.ok) return move.response;
   if (await deps.designs.has(move.newId)) return alreadyExists(move.newId);
 
+  // a copy is a new part: it does not inherit the original's product reference (a number is never reused)
+  const { productRef: _original, ...inherited } = source;
   const copy: CableDesign = {
-    ...source,
+    ...inherited,
     id: move.newId,
     label: move.newLabel ?? `${source.label} (copy)`,
     // provenance travels with the facts: the copy states its own descent so a
@@ -707,7 +717,7 @@ async function drawingRequest(
   // one version per sidecar (meta + photo): either save must quote it
   const tagOf = async (): Promise<Record<string, string>> => ({ ETag: contentETag(await drawings.read(id)) });
   if (action === undefined) {
-    if (method === 'GET') return ok(await drawings.read(id), 200, await tagOf());
+    if (method === 'GET') return ok({ ...(await drawings.read(id)), ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }) }, 200, await tagOf());
     if (method !== 'PUT') return methodNotAllowed(method, ['GET', 'PUT']);
     const guard = checkIfMatch(ifMatch, contentETag(await drawings.read(id)), 'drawing', id);
     if (guard !== undefined) return guard;
@@ -715,6 +725,8 @@ async function drawingRequest(
     if (!parsed.ok) {
       return fail(422, 'Those drawing details could not be saved.', `Nothing was changed. ${parsed.problems.join(' ')}`);
     }
+    const taken = await refuseTakenDesignNumber(deps, id, 'drawing', parsed.meta.partNumber, (await drawings.read(id)).meta.partNumber);
+    if (taken !== undefined) return taken;
     await drawings.writeMeta(id, parsed.meta);
     return ok(parsed.meta, 200, await tagOf());
   }
@@ -844,6 +856,7 @@ const ROUTES = [
   'PUT    /api/docs/*path',
   'DELETE /api/docs/*path',
   'GET    /api/part-numbers',
+  ...DOCUMENT_ROUTES,
   'GET    /api/drawings',
   'GET    /api/drawings/:id',
   'PUT    /api/drawings/:id',
@@ -853,6 +866,7 @@ const ROUTES = [
   'GET    /api/assets/:id',
   ...DEFINITION_ROUTES,
   ...MODEL_ROUTES,
+  ...SETTINGS_ROUTES,
   ...VOCAB_ROUTES,
   ...WIRE_LIBRARY_ROUTES,
   ...BUILDS_ROUTES,
@@ -930,7 +944,13 @@ async function handleModuleIo(request: ApiRequest, io: ModuleIoPath, deps: Workb
   if (io.kind === 'export') {
     if (method !== 'GET') return methodNotAllowed(method, ['GET']);
     const query = new URLSearchParams(request.path.split('?')[1] ?? '');
-    return runExporter(deps.modules, io, query, async (id) => (isDesignId(id) ? deps.designs.read(id) : undefined), await deps.loadDb());
+    return runExporter(deps.modules, io, query, async (id) => (isDesignId(id) ? deps.designs.read(id) : undefined), await deps.loadDb(), async (design, db) => {
+      const parameters = (await deps.drawings?.read(design.id))?.meta.test;
+      return deriveContinuityExport(design, db, {
+        ...(parameters === undefined ? {} : { parameters }),
+        ...(deps.testDefaults === undefined ? {} : { defaults: deps.testDefaults }),
+      });
+    });
   }
   if (method !== 'POST') return methodNotAllowed(method, ['POST']);
   // `job: true`: the importer runs as a job (the worker on Postgres) and keeps a plan to publish (§7.5)
@@ -1204,6 +1224,11 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     return method === 'GET' ? ok(await deps.loadDb()) : methodNotAllowed(method, ['GET']);
   }
 
+  if ((head === 'exports' && id === undefined) || (head === 'designs' && (action === 'documents' || action === 'exports'))) {
+    const documents = await handleDocumentRequest(method, parts, new URLSearchParams(request.path.split('?')[1] ?? ''), deps);
+    if (documents !== undefined) return documents;
+  }
+
   if (head === 'part-numbers' && id === undefined) {
     return method === 'GET' ? await getPartNumbers(deps) : methodNotAllowed(method, ['GET']);
   }
@@ -1227,6 +1252,9 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     // the commit rebuilds the table with the save (unit-of-work.ts, derivedFor)
     return definitions;
   }
+
+  const settings = await handleSettingsRequest(method, parts, request.body, deps, ifMatch);
+  if (settings !== undefined) return settings;
 
   const vocab = await handleVocabRequest(method, parts, request.body, deps, ifMatch);
   if (vocab !== undefined) return vocab;

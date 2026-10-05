@@ -1,0 +1,196 @@
+/**
+ * Documents and exports without a browser — `/api/designs/:id/documents/:kind`
+ * and `/api/designs/:id/exports/:format` (`docs/exports.md`).
+ *
+ *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…
+ *       kind: schematic · build-sheet · bom · test-spec · drawing · labels
+ *       format: html · svg · pdf · csv (which a kind comes in: `render/index.ts`)
+ *   GET /api/designs/:id/exports/:format?rev=…
+ *       format: bom.csv · wire-list.csv · cut-list.csv · production.xlsx ·
+ *       continuity.csv · continuity.json · labels.csv · labels.svg
+ *   GET /api/exports   the list of export formats
+ *
+ * `rev` is a saved revision number, or `latest`; without it the working copy is
+ * rendered. A revision renders from the definitions frozen when it was saved,
+ * the working copy from the live library. Same functions as the browser's
+ * Documents view, so the answer is the file the toolbar would download.
+ */
+
+import { isDesignId } from '@wirehub/catalog';
+import { BASE_EXPORTS, baseExport, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { versionDb, type CableDesign, type Db } from '@wirehub/model';
+
+import type { ApiResponse } from './api.ts';
+import type { DesignStore } from './designs.ts';
+import type { DrawingStore } from './drawings.ts';
+import { DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
+import type { VersionStore } from './versions.ts';
+import type { Awaitable } from './storage/change-set.ts';
+
+export const DOCUMENT_ROUTES = [
+  'GET    /api/designs/:id/documents/:kind',
+  'GET    /api/designs/:id/exports/:format',
+  'GET    /api/exports',
+] as const;
+
+export interface DocumentDeps {
+  designs: DesignStore;
+  loadDb: () => Awaitable<Db>;
+  versions?: VersionStore;
+  drawings?: DrawingStore;
+  /** the organisation's default test parameters (`WIREHUB_TEST_DEFAULTS`) */
+  testDefaults?: TestParameters;
+}
+
+function fail(status: number, error: string, hint?: string): ApiResponse {
+  return { status, body: { error, ...(hint === undefined ? {} : { hint }) } };
+}
+
+/** `WIREHUB_TEST_DEFAULTS`: a JSON object of test parameters. Throws a sentence when it is not one. */
+export function testDefaultsFromEnv(env: Readonly<Record<string, string | undefined>>): TestParameters | undefined {
+  const raw = env['WIREHUB_TEST_DEFAULTS'];
+  if (raw === undefined || raw.trim() === '') return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('WIREHUB_TEST_DEFAULTS is not JSON. Set it to an object such as {"isolationVolts":250}.');
+  }
+  const read = readTestParameters(parsed);
+  if (!read.ok) throw new Error(`WIREHUB_TEST_DEFAULTS is not valid: ${read.problems.join(' ')}`);
+  return Object.keys(read.parameters).length === 0 ? undefined : read.parameters;
+}
+
+interface Loaded {
+  design: CableDesign;
+  db: Db;
+  drawing: DrawingMeta;
+  photo?: string;
+  target: 'working' | number | undefined;
+}
+
+async function load(deps: DocumentDeps, id: string, rev: string | null): Promise<Loaded | ApiResponse> {
+  const working = await deps.designs.read(id);
+  if (working === undefined) return fail(404, `There is no design called '${id}'.`, 'Pick one from GET /api/designs.');
+  const live = await deps.loadDb();
+  const sidecar = deps.drawings === undefined ? undefined : await deps.drawings.read(id);
+  const drawing: DrawingMeta = sidecar?.meta ?? {};
+  const photo = sidecar?.photo;
+  const keepsRevisions = deps.versions !== undefined;
+  if (rev === null || rev === '') {
+    return { design: working, db: live, drawing, ...(photo === undefined ? {} : { photo }), target: keepsRevisions ? 'working' : undefined };
+  }
+  if (deps.versions === undefined) return fail(501, 'This studio does not keep saved revisions.', 'Leave out ?rev= to render the working copy.');
+  let number: number;
+  if (rev === 'latest') {
+    const all = await deps.versions.revisions(id);
+    const last = all[all.length - 1];
+    if (last === undefined) return fail(404, `'${id}' has no saved revision.`, 'Save a version first, or leave out ?rev=.');
+    number = last;
+  } else if (/^\d{1,6}$/.test(rev)) number = Number(rev);
+  else return fail(400, `'${rev}' is not a revision number.`, 'Use a whole number such as 2, or latest.');
+  const file = await deps.versions.read(id, number);
+  if (file === undefined) return fail(404, `'${id}' has no saved Rev ${number}.`, 'GET /api/designs/:id/versions lists the revisions.');
+  return { design: { ...file.design, id }, db: versionDb(file.definitions, live), drawing, ...(photo === undefined ? {} : { photo }), target: number };
+}
+
+function today(): string {
+  const d = new Date();
+  const pad = (v: number): string => String(v).padStart(2, '0');
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+}
+
+function positive(value: string | null, name: string): number | undefined | ApiResponse {
+  if (value === null || value === '') return undefined;
+  if (!/^\d{1,4}$/.test(value) || Number(value) < 1) return fail(400, `${name} must be a whole number from 1.`);
+  return Number(value);
+}
+
+function file(output: { mimeType: string; fileName: string; body: string | Uint8Array }, inline: boolean): ApiResponse {
+  const bytes = typeof output.body === 'string' ? new TextEncoder().encode(output.body) : output.body;
+  return {
+    status: 200,
+    body: null,
+    bytes,
+    contentType: output.mimeType,
+    headers: {
+      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${output.fileName.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
+      // a rendered sheet is a document, never a page that runs anything
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
+      'X-Content-Type-Options': 'nosniff',
+    },
+  };
+}
+
+/** `undefined` when the path is not one of the document routes. */
+export async function handleDocumentRequest(method: string, parts: string[], query: URLSearchParams, deps: DocumentDeps): Promise<ApiResponse | undefined> {
+  const [, head, id, section, name, ...rest] = parts;
+  if (head === 'exports' && id === undefined) {
+    if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
+    return {
+      status: 200,
+      body: {
+        exports: BASE_EXPORTS.map(({ id: formatId, label, description, group }) => ({ id: formatId, label, description, group })),
+        documents: DOCUMENT_KINDS.map((kind) => ({ kind, default: DEFAULT_FORMAT[kind] })),
+        formats: DOCUMENT_FORMATS,
+      },
+    };
+  }
+  if (head !== 'designs' || id === undefined || (section !== 'documents' && section !== 'exports')) return undefined;
+  if (rest.length > 0 || name === undefined) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${DOCUMENT_ROUTES.join('; ')}.`);
+  if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
+  if (!isDesignId(id)) return fail(400, `${JSON.stringify(id)} cannot be used as a design id.`);
+
+  const loaded = await load(deps, id, query.get('rev'));
+  if ('status' in loaded) return loaded;
+  const page = positive(query.get('page'), 'page');
+  if (typeof page === 'object') return page;
+  const copies = positive(query.get('copies'), 'copies');
+  if (typeof copies === 'object') return copies;
+  const paper = query.get('paper');
+  if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
+  const variation = query.get('variation') ?? undefined;
+  const meta = releaseMeta(loaded.drawing, loaded.target);
+
+  if (section === 'exports') {
+    const format = baseExport(name);
+    if (format === undefined) return fail(404, `There is no export called '${name}'.`, `Formats: ${BASE_EXPORTS.map((f) => f.id).join(', ')}.`);
+    const options: FormatOptions = {
+      drawing: meta,
+      ...(paper === null ? {} : { paper }),
+      ...(variation === undefined ? {} : { variation }),
+      ...(typeof loaded.target === 'number' ? { revisionNumber: loaded.target } : {}),
+      ...(meta.test === undefined ? {} : { testParameters: meta.test }),
+      ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }),
+      ...(page === undefined ? {} : { page }),
+      ...(copies === undefined ? {} : { copies }),
+    };
+    try {
+      return file(format.render(loaded.design, loaded.db, options), false);
+    } catch (error) {
+      return fail(422, `${format.label} could not be made for ${id}.`, error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  if (!isDocumentKind(name)) return fail(404, `There is no document called '${name}'.`, `Documents: ${DOCUMENT_KINDS.join(', ')}.`);
+  const asked = query.get('format');
+  if (asked !== null && !isDocumentFormat(asked)) return fail(400, `'${asked}' is not a format.`, `Formats: ${DOCUMENT_FORMATS.join(', ')}.`);
+  const result = await renderDocument({
+    kind: name,
+    format: asked === null ? DEFAULT_FORMAT[name] : (asked as (typeof DOCUMENT_FORMATS)[number]),
+    design: loaded.design,
+    db: loaded.db,
+    drawing: meta,
+    ...(loaded.photo === undefined ? {} : { photo: loaded.photo }),
+    ...(typeof loaded.target === 'number' ? { revisionNumber: loaded.target } : {}),
+    ...(loaded.target === 'working' ? { unreleased: true } : {}),
+    ...(paper === null ? {} : { paper }),
+    ...(variation === undefined ? {} : { variation }),
+    ...(page === undefined ? {} : { page }),
+    ...(copies === undefined ? {} : { copies }),
+    ...(deps.testDefaults === undefined ? {} : { testDefaults: deps.testDefaults }),
+    today: today(),
+  });
+  if (!result.ok) return fail(result.status, result.error, result.hint);
+  return file(result.output, result.output.mimeType.startsWith('text/html') || result.output.mimeType === 'image/svg+xml' || result.output.mimeType === 'application/pdf');
+}

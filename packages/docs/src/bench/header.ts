@@ -15,6 +15,7 @@ import { designStatus, findWire, type CableDesign, type Db } from '@wirehub/mode
 
 import type { DrawingMeta, LengthVariant } from '../drawing/model.ts';
 import { trunkSegment } from '../drawing/model.ts';
+import { registeredTitleBlock } from '../drawing/assets.ts';
 import { escapeHtml } from '../text.ts';
 import { feetAttribute, feetFromMm, lengthFromMm } from '../units.ts';
 
@@ -65,6 +66,10 @@ export interface SheetHeader {
   /** production status — `active`, `development`, `legacy`, `retired` */
   status: string;
   designer: string;
+  /** the organisation the sheet is issued by, when the deployment names one */
+  organisation?: string;
+  /** a rights / confidentiality line, when the deployment sets one */
+  rights?: string;
   date?: string;
   generatedAt?: string;
 }
@@ -105,6 +110,7 @@ export function variationsOf(partNumber: string | undefined, lengths: readonly L
 
 export function sheetHeader(design: CableDesign, db: Db, input: HeaderInput): SheetHeader {
   const drawing = input.drawing ?? {};
+  const registered = registeredTitleBlock();
   // one PN everywhere: the sheet options' own document number for this print
   // (when it is not just the drawing's PN or the productRef), else the
   // design's productRef, else the drawing's PN
@@ -135,7 +141,9 @@ export function sheetHeader(design: CableDesign, db: Db, input: HeaderInput): Sh
     ...(sync === undefined || sync === '' ? {} : { sync }),
     ...(destination === undefined || destination === '' ? {} : { destination }),
     status: designStatus(design),
-    designer: drawing.designer ?? DEFAULT_DESIGNER,
+    designer: drawing.designer ?? registered.designer ?? DEFAULT_DESIGNER,
+    ...(registered.organisation === undefined ? {} : { organisation: registered.organisation }),
+    ...(registered.rights === undefined ? {} : { rights: registered.rights }),
     ...(drawing.date === undefined ? {} : { date: drawing.date }),
     ...(input.generatedAt === undefined ? {} : { generatedAt: input.generatedAt }),
   };
@@ -183,6 +191,7 @@ export function headerHtml(header: SheetHeader, options: { sheet?: string } = {}
     cell('Revision', rev, 'cs-tb__rev', true),
     '</div>',
     '<div class="cs-tb__row">',
+    ...(header.organisation === undefined ? [] : [cell('Issued by', header.organisation)]),
     cell('Design', header.designId, 'cs-tb__mono'),
     cell('Stock', header.stock),
     cell('Sync', header.sync ?? '—'),
@@ -192,6 +201,7 @@ export function headerHtml(header: SheetHeader, options: { sheet?: string } = {}
     ...(header.generatedAt === undefined ? [] : [cell('Printed', header.generatedAt)]),
     ...(options.sheet === undefined ? [] : [cell('Sheet', options.sheet)]),
     '</div>',
+    ...(header.rights === undefined ? [] : [`<div class="cs-tb__rights">${escapeHtml(header.rights)}</div>`]),
     '</header>',
   ].join('');
 }

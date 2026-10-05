@@ -1,0 +1,111 @@
+/**
+ * A small PDF writer: pages of text and rules (`layout.ts`) set in the
+ * standard Helvetica faces, and pages that are a raster image (an SVG
+ * rendered by resvg). No dependency beyond Node's zlib; deterministic (no
+ * creation date, no id).
+ */
+
+import { deflateSync } from 'node:zlib';
+
+import { winAnsiByte, type Op, type Page } from './layout.ts';
+
+export type PdfPage =
+  | { kind: 'ops'; page: Page }
+  | { kind: 'image'; width: number; height: number; at: { x: number; y: number; w: number; h: number }; pixelWidth: number; pixelHeight: number; rgb: Uint8Array };
+
+const n = (v: number): string => String(Math.round(v * 100) / 100);
+
+function pdfString(text: string): string {
+  let out = '(';
+  for (const ch of text) {
+    const b = winAnsiByte(ch);
+    if (ch === '(' || ch === ')' || ch === '\\') out += `\\${ch}`;
+    else if (b < 0x20 || b > 0x7e) out += `\\${b.toString(8).padStart(3, '0')}`;
+    else out += ch;
+  }
+  return `${out})`;
+}
+
+function content(page: Page): string {
+  const out: string[] = [];
+  for (const op of page.ops as Op[]) {
+    if (op.t === 'text') {
+      out.push(`BT ${op.grey === true ? '0.45 g' : '0 g'} /${op.bold ? 'F2' : 'F1'} ${n(op.size)} Tf ${n(op.x)} ${n(page.height - op.y)} Td ${pdfString(op.text)} Tj ET`);
+    } else if (op.t === 'line') {
+      out.push(`0.55 G ${n(op.w)} w ${n(op.x1)} ${n(page.height - op.y1)} m ${n(op.x2)} ${n(page.height - op.y2)} l S`);
+    } else {
+      out.push(`${n(op.fill)} g ${n(op.x)} ${n(page.height - op.y - op.h)} ${n(op.w)} ${n(op.h)} re f`);
+    }
+  }
+  return out.join('\n');
+}
+
+export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array {
+  const objects: (string | Uint8Array)[] = [];
+  /** the dictionary that precedes each stream object */
+  const contentDict = new Map<number, string>();
+  const imageDict = new Map<number, string>();
+  const add = (body: string | Uint8Array): number => {
+    objects.push(body);
+    return objects.length;
+  };
+  // 1 catalog, 2 pages, 3 info, 4 F1, 5 F2 — pages follow
+  add('');
+  add('');
+  add(`<< /Title ${pdfString(title)} /Producer (WireHub) >>`);
+  add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  const kids: number[] = [];
+  pages.forEach((p, i) => {
+    const w = p.kind === 'ops' ? p.page.width : p.width;
+    const h = p.kind === 'ops' ? p.page.height : p.height;
+    const pageNo = objects.length + 1;
+    const streamNo = pageNo + 1;
+    kids.push(pageNo);
+    let resources = '/Font << /F1 4 0 R /F2 5 0 R >>';
+    let stream: Uint8Array;
+    let imageNo: number | undefined;
+    if (p.kind === 'ops') {
+      stream = deflateSync(Buffer.from(content(p.page), 'latin1'));
+    } else {
+      imageNo = streamNo + 1;
+      resources += ` /XObject << /Im${i} ${imageNo} 0 R >>`;
+      stream = deflateSync(Buffer.from(`q ${n(p.at.w)} 0 0 ${n(p.at.h)} ${n(p.at.x)} ${n(p.at.y)} cm /Im${i} Do Q`, 'latin1'));
+    }
+    add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${n(w)} ${n(h)}] /Resources << ${resources} >> /Contents ${streamNo} 0 R >>`);
+    add(stream);
+    if (p.kind === 'image' && imageNo !== undefined) {
+      const raw = deflateSync(p.rgb);
+      add(raw);
+      // the dictionaries of the two streams are written below, by position
+      imageDict.set(imageNo, `<< /Type /XObject /Subtype /Image /Width ${p.pixelWidth} /Height ${p.pixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${raw.length} >>`);
+    }
+    contentDict.set(streamNo, `<< /Filter /FlateDecode /Length ${stream.length} >>`);
+  });
+  objects[0] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objects[1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`;
+  // `Info` is object 3; the trailer points at it
+
+  const chunks: Buffer[] = [Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', 'latin1')];
+  const offsets: number[] = [];
+  let length = chunks[0]!.length;
+  objects.forEach((body, i) => {
+    offsets.push(length);
+    const no = i + 1;
+    const dict = contentDict.get(no) ?? imageDict.get(no);
+    const head = Buffer.from(`${no} 0 obj\n`, 'latin1');
+    const tail = Buffer.from('\nendobj\n', 'latin1');
+    const middle =
+      typeof body === 'string'
+        ? Buffer.from(body, 'latin1')
+        : Buffer.concat([Buffer.from(`${dict}\nstream\n`, 'latin1'), Buffer.from(body), Buffer.from('\nendstream', 'latin1')]);
+    for (const part of [head, middle, tail]) {
+      chunks.push(part);
+      length += part.length;
+    }
+  });
+  const xref = length;
+  const table = [`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`, ...offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`)].join('');
+  chunks.push(Buffer.from(`${table}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info 3 0 R >>\nstartxref\n${xref}\n%%EOF\n`, 'latin1'));
+  return new Uint8Array(Buffer.concat(chunks));
+}

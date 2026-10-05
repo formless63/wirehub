@@ -5,6 +5,7 @@
  * only defines where they go.
  */
 
+import type { TestParameters } from '@wirehub/docs';
 import type { CableDesign, Db } from '@wirehub/model';
 import type { ReactNode } from 'react';
 
@@ -30,7 +31,16 @@ export interface ExtraExporter {
   label: string;
   /** one sentence, the button's tooltip */
   description?: string;
-  render(design: CableDesign, db: Db): ExtraDocumentOutput | Promise<ExtraDocumentOutput>;
+  /** `context`: the Documents view's test parameters, for an exporter that writes a tester's format */
+  render(design: CableDesign, db: Db, context?: ExtraExportContext): ExtraDocumentOutput | Promise<ExtraDocumentOutput>;
+}
+
+/** What the Documents view knows that an exporter may need besides the design. */
+export interface ExtraExportContext {
+  /** the design's own test parameters (the drawing sidecar's `test`) */
+  testParameters?: TestParameters;
+  /** the organisation's defaults under them */
+  testDefaults?: TestParameters;
 }
 
 export interface EditorExtensions {

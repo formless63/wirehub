@@ -213,6 +213,7 @@ people set:
 | `COMPOSE_PROFILES` | — | optional parts: `backup` |
 | `WIREHUB_IMAGE` | the release `compose.yaml` came from | another tag, or a locally built image |
 | `WIREHUB_SUGGESTED_MODULES` | — | modules pre-ticked at `/setup` |
+| `WIREHUB_TEST_DEFAULTS` | — | JSON of default continuity test parameters, e.g. `{"isolationVolts":250}` (`docs/exports.md`) |
 | `AUTH_ENABLED` | `true` | sign-in; `false` lets anyone who reaches the port edit |
 | `AUTH_LOCAL_ACCOUNTS`, `AUTH_OIDC_*`, `AUTH_ALLOWED_EMAILS` | email + password on | sign-in methods (`apps/studio/README.md`) |
 | `WIREHUB_TRUST_PROXY` | — | `1` behind a reverse proxy you trust |

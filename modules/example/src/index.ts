@@ -16,6 +16,7 @@
  * | integration        | `GET status`, `POST echo` (a route that takes the write lock) |
  * | job queue          | `example:recount`, started by `POST recount`, read by `GET recount` |
  * | panels             | all four slots                                                |
+ * | compare view       | Library compare for shells and hardware (`mechanicals`)       |
  * | UI route           | `/m/example/status`, with a rail icon                         |
  * | auth provider      | a demo OAuth 2 sign-in button (it does not sign anyone in)    |
  * | commit hook        | counts edits under `extensions.example`                       |
@@ -26,10 +27,10 @@
  */
 
 import { prefixPartNumberScheme } from '@wirehub/model';
-import { defineModule } from '@wirehub/modules';
+import { defineModule, type ContinuityData } from '@wirehub/modules';
 
-import { deriveSummary, importResistors, jointsCsv, MODULE_ID, recordEdit, recountCatalog, todoLabelRule } from './logic.ts';
-import { DocumentsPanel, InspectorPanel, LibraryPanel, SettingsPanel, StatusPage } from './ui.ts';
+import { deriveSummary, importResistors, jointsCsv, MODULE_ID, recordEdit, recountCatalog, testerNetlist, todoLabelRule } from './logic.ts';
+import { CompareView, DocumentsPanel, InspectorPanel, LibraryPanel, SettingsPanel, StatusPage } from './ui.ts';
 
 export { dataOf, deriveSummary, importResistors, jointsCsv, recordEdit, recountCatalog, todoLabelRule } from './logic.ts';
 export type { ExampleData } from './logic.ts';
@@ -55,7 +56,17 @@ export const example = defineModule({
   }),
   validationRules: [{ id: 'todo-label', label: 'A label must not say TODO', check: todoLabelRule }],
   importers: [{ id: 'resistor-csv', label: 'Resistors (CSV)', accepts: ['.csv'], import: (input) => importResistors(input.fileName, input.bytes) }],
-  exporters: [{ id: 'joints-csv', label: 'Joints (CSV)', description: 'Every joint of the design, one row each', render: (design) => jointsCsv(design) }],
+  exporters: [
+    { id: 'joints-csv', label: 'Joints (CSV)', description: 'Every joint of the design, one row each', render: (design) => jointsCsv(design) },
+    // a continuity tester's format, from the neutral continuity data the host derives (docs/exports.md)
+    {
+      id: 'tester-netlist',
+      label: 'Tester netlist',
+      description: 'Nets and isolation pairs in a made-up tester format',
+      source: 'continuity',
+      render: (design, _db, options) => testerNetlist(design, options?.['continuity'] as ContinuityData | undefined),
+    },
+  ],
   integrations: [
     {
       id: 'status',
@@ -93,6 +104,7 @@ export const example = defineModule({
     { id: 'library', label: 'Example library panel', slot: 'library-detail', component: LibraryPanel },
     { id: 'settings', label: 'Example settings panel', slot: 'settings', component: SettingsPanel },
   ],
+  compareViews: [{ id: 'example-compare', label: 'Example compare view', kinds: ['mechanicals'], component: CompareView }],
   routes: [{ path: 'status', label: 'Example status', icon: 'IconPlug', component: StatusPage }],
   authProviders: [
     {

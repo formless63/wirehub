@@ -88,6 +88,7 @@ import { ArtworkPane } from './panels/Artwork.tsx';
 import type { CatalogChange } from './lifecycle.ts';
 import type { DesignSummary, Outcome, PersistenceAdapter } from './persistence.ts';
 import { DesignActions } from './panels/DesignActions.tsx';
+import { ConnectKnownPinsDialog } from './panels/ConnectKnownPinsDialog.tsx';
 import { DesignLifecycleDialogs } from './panels/DesignLifecycleDialogs.tsx';
 import { useDesignLifecycle, type LifecycleAction } from './panels/useDesignLifecycle.ts';
 import { nodeTypes } from './nodes/index.tsx';
@@ -336,6 +337,8 @@ export interface EditorHandle {
   openPicker: () => void;
   /** opens the canvas's find-a-pin box — what `/` drives */
   findPin: () => void;
+  /** opens "Connect known pins": the joints the signal tags settle, for review before they are added */
+  connectKnownPins: () => void;
 }
 
 /** the canvas toolbar's mode — `derive.ts`'s node drag stays on in `'select'`, off in `'pan'` */
@@ -513,6 +516,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
    */
   const [partsOpen, setPartsOpen] = useState(false);
   const [pinSearchOpen, setPinSearchOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
   /**
    * The right panel, at portrait phone widths: `.cs-side`
    * is a fixed drawer there instead of a squeezed permanent column (see
@@ -1092,6 +1096,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       openLifecycle: (action) => latest.current.lifecycle.openLifecycle(action),
       openPicker: () => latest.current.openPicker(undefined),
       findPin: () => setPinSearchOpen(true),
+      connectKnownPins: () => setConnectOpen(true),
     }),
     [],
   );
@@ -1206,6 +1211,18 @@ const CableEditorInner = forwardRef(function CableEditorInner(
               dismiss
             </button>
           </div>
+        )}
+
+        {!connectOpen || !canEdit ? null : (
+          <ConnectKnownPinsDialog
+            design={state.design}
+            db={state.db}
+            onCancel={() => setConnectOpen(false)}
+            onApply={(joints, description) => {
+              dispatch({ type: 'apply-design', design: { ...state.design, joints: [...state.design.joints, ...joints] }, description, record: true });
+              setConnectOpen(false);
+            }}
+          />
         )}
 
         {chrome !== 'host' || props.persistence === undefined ? null : (

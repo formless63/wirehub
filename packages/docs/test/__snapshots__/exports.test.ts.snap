@@ -1,0 +1,1042 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`dc-led-lead > the CSV exports match their snapshots > bom.csv 1`] = `
+"section,part_number,description,quantity,unit,location,instances,variation_pn,notes
+Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end · LED module connector,j2,,2 pins · attaches: w1@b
+Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,Source end · supply terminal block,j1,,4 pins · attaches: w1@a
+Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",3,ft,wire run,w1,,Ø 3.5 mm
+Shells & hardware,MEC-00002,"Heat-shrink sleeve 6 mm, 40 mm long",1,ea,unspecified,m1,,
+Discrete parts,CMP-00001,"Resistor 150 Ω, 0.25 W",1,ea,Source end,r1,,
+"
+`;
+
+exports[`dc-led-lead > the CSV exports match their snapshots > continuity.csv 1`] = `
+"type,id,net,signal,from,to,expect,limit,unit,test_volts,duration_s,note
+net-pin,net/net-2/j1.2,net-2,ground,j1.2,,on-net,,,,,
+net-pin,net/net-2/j2.2,net-2,ground,j2.2,,on-net,,,,,
+continuity,path/j1:1->j2:1,,,j1.1,j2.1,resistance,150,ohm,,,r1 (150 Ω)
+isolation,isolation/power vs ground/j2:1|j2:2,,,j2.1,j2.2,open,10,Mohm,100,1,power vs ground (b)
+open,open/j1:3,,,j1.3 (3),,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
+open,open/j1:4,,,j1.4 (4),,open,,,,,"unused-pin: Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
+"
+`;
+
+exports[`dc-led-lead > the CSV exports match their snapshots > continuity.json 1`] = `
+"{
+  "format": "wirehub.continuity",
+  "version": 1,
+  "design": {
+    "id": "dc-led-lead",
+    "label": "Terminal block → JST XH 2-pin, LED supply lead with series resistor"
+  },
+  "parameters": {
+    "continuityOhmsMax": 5,
+    "isolationVolts": 100,
+    "isolationMinMohm": 10,
+    "isolationSeconds": 1
+  },
+  "points": [
+    {
+      "id": "j1.1",
+      "instance": "j1",
+      "terminal": "1",
+      "label": "1",
+      "end": "a",
+      "signal": "other",
+      "net": "net-1"
+    },
+    {
+      "id": "j1.2",
+      "instance": "j1",
+      "terminal": "2",
+      "label": "2",
+      "end": "a",
+      "signal": "other",
+      "net": "net-2"
+    },
+    {
+      "id": "j1.3",
+      "instance": "j1",
+      "terminal": "3",
+      "label": "3",
+      "end": "a",
+      "signal": "other"
+    },
+    {
+      "id": "j1.4",
+      "instance": "j1",
+      "terminal": "4",
+      "label": "4",
+      "end": "a",
+      "signal": "other"
+    },
+    {
+      "id": "j2.1",
+      "instance": "j2",
+      "terminal": "1",
+      "label": "+V",
+      "end": "b",
+      "signal": "power",
+      "net": "net-3"
+    },
+    {
+      "id": "j2.2",
+      "instance": "j2",
+      "terminal": "2",
+      "label": "0 V",
+      "end": "b",
+      "signal": "ground",
+      "net": "net-2"
+    }
+  ],
+  "nets": [
+    {
+      "net": "net-2",
+      "signal": "ground",
+      "points": [
+        "j1.2",
+        "j2.2"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "path/j1:1->j2:1",
+      "kind": "path",
+      "from": "j1.1",
+      "to": "j2.1",
+      "expect": "resistance",
+      "ohms": 150,
+      "through": "r1 (150 Ω)"
+    }
+  ],
+  "isolation": [
+    {
+      "id": "isolation/power vs ground/j2:1|j2:2",
+      "a": "j2.1",
+      "b": "j2.2",
+      "end": "b",
+      "rule": "power vs ground",
+      "netA": "net-3",
+      "netB": "net-2"
+    }
+  ],
+  "opens": [
+    {
+      "id": "open/j1:3",
+      "kind": "unused-pin",
+      "point": "j1.3 (3)",
+      "why": "Terminal block, 4-way, 5.08 mm pin 3 carries no connection in this design."
+    },
+    {
+      "id": "open/j1:4",
+      "kind": "unused-pin",
+      "point": "j1.4 (4)",
+      "why": "Terminal block, 4-way, 5.08 mm pin 4 carries no connection in this design."
+    }
+  ]
+}
+"
+`;
+
+exports[`dc-led-lead > the CSV exports match their snapshots > cut-list.csv 1`] = `
+"stock_part_number,stock,piece,length_mm,length_in,quantity,variation_pn,segments
+WIR-00005,"DC power cable, 2 × 24 AWG, red/black",trunk,1000,39.4,1,,w1
+"
+`;
+
+exports[`dc-led-lead > the CSV exports match their snapshots > labels.csv 1`] = `
+"label_id,segment,end,designation,line_1,line_2,line_3,offset_mm,position,stock_part_number,length_mm
+w1/a,w1,a,W1,W1-A,"at J1, R1",to J2,40,40 mm from the source end of the jacket,WIR-00005,1000
+w1/b,w1,b,W1,W1-B,at J2,"to J1, R1",40,40 mm from the destination end of the jacket,WIR-00005,1000
+"
+`;
+
+exports[`dc-led-lead > the CSV exports match their snapshots > wire-list.csv 1`] = `
+"segment,stock_part_number,stock,element,kind,colour,a_landing,a_pad,b_landing,b_pad,length_mm,notes
+w1,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",red,core,red,r1.b,,j2.1,,1000,+V
+w1,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",black,core,black,j1.2,,j2.2,,1000,0 V
+"
+`;
+
+exports[`dc-y-splitter > the CSV exports match their snapshots > bom.csv 1`] = `
+"section,part_number,description,quantity,unit,location,instances,variation_pn,notes
+Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end · channel 1 plug,j2,,2 pins · attaches: w2@b
+Connectors,CON-00010,"JST XH 2-pin housing, DC (1 = +V)",1,ea,Destination end · channel 2 plug,j3,,2 pins · attaches: w3@b
+Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,Source end · supply terminal block,j1,,4 pins · attaches: w1@a
+Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",5,ft,stem,w1,,Ø 5 mm
+Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",1,ft,channel 1 leg,w2,,Ø 3.5 mm
+Wire,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",1,ft,channel 2 leg,w3,,Ø 3.5 mm
+Shells & hardware,MEC-00001,Moulded Y splitter body,1,ea,unspecified,m1,,
+"
+`;
+
+exports[`dc-y-splitter > the CSV exports match their snapshots > continuity.csv 1`] = `
+"type,id,net,signal,from,to,expect,limit,unit,test_volts,duration_s,note
+net-pin,net/net-1/j1.1,net-1,power,j1.1,,on-net,,,,,
+net-pin,net/net-1/j2.1,net-1,power,j2.1,,on-net,,,,,
+net-pin,net/net-2/j1.2,net-2,ground,j1.2,,on-net,,,,,
+net-pin,net/net-2/j2.2,net-2,ground,j2.2,,on-net,,,,,
+net-pin,net/net-3/j1.3,net-3,power,j1.3,,on-net,,,,,
+net-pin,net/net-3/j3.1,net-3,power,j3.1,,on-net,,,,,
+net-pin,net/net-4/j1.4,net-4,ground,j1.4,,on-net,,,,,
+net-pin,net/net-4/j3.2,net-4,ground,j3.2,,on-net,,,,,
+isolation,isolation/power vs ground/j2:1|j2:2,,,j2.1,j2.2,open,10,Mohm,100,1,power vs ground (b)
+isolation,isolation/power vs ground/j2:1|j3:2,,,j2.1,j3.2,open,10,Mohm,100,1,power vs ground (b)
+isolation,isolation/power vs ground/j2:2|j3:1,,,j2.2,j3.1,open,10,Mohm,100,1,power vs ground (b)
+isolation,isolation/power vs ground/j3:1|j3:2,,,j3.1,j3.2,open,10,Mohm,100,1,power vs ground (b)
+open,open/w1:drain@a,,,w1 drain @a (Drain),,open,,,,,unterminated: drain is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 1 covers it.
+open,open/w1:drain@b,,,w1 drain @b (Drain),,open,,,,,unterminated: drain is not terminated at either end of w1: this design carries the conductor but does not use it.
+"
+`;
+
+exports[`dc-y-splitter > the CSV exports match their snapshots > continuity.json 1`] = `
+"{
+  "format": "wirehub.continuity",
+  "version": 1,
+  "design": {
+    "id": "dc-y-splitter",
+    "label": "Terminal block → moulded Y → 2× JST XH, two-channel DC splitter"
+  },
+  "parameters": {
+    "continuityOhmsMax": 5,
+    "isolationVolts": 100,
+    "isolationMinMohm": 10,
+    "isolationSeconds": 1
+  },
+  "points": [
+    {
+      "id": "j1.1",
+      "instance": "j1",
+      "terminal": "1",
+      "label": "1",
+      "end": "a",
+      "signal": "other",
+      "net": "net-1"
+    },
+    {
+      "id": "j1.2",
+      "instance": "j1",
+      "terminal": "2",
+      "label": "2",
+      "end": "a",
+      "signal": "other",
+      "net": "net-2"
+    },
+    {
+      "id": "j1.3",
+      "instance": "j1",
+      "terminal": "3",
+      "label": "3",
+      "end": "a",
+      "signal": "other",
+      "net": "net-3"
+    },
+    {
+      "id": "j1.4",
+      "instance": "j1",
+      "terminal": "4",
+      "label": "4",
+      "end": "a",
+      "signal": "other",
+      "net": "net-4"
+    },
+    {
+      "id": "j2.1",
+      "instance": "j2",
+      "terminal": "1",
+      "label": "+V",
+      "end": "b",
+      "signal": "power",
+      "net": "net-1"
+    },
+    {
+      "id": "j2.2",
+      "instance": "j2",
+      "terminal": "2",
+      "label": "0 V",
+      "end": "b",
+      "signal": "ground",
+      "net": "net-2"
+    },
+    {
+      "id": "j3.1",
+      "instance": "j3",
+      "terminal": "1",
+      "label": "+V",
+      "end": "b",
+      "signal": "power",
+      "net": "net-3"
+    },
+    {
+      "id": "j3.2",
+      "instance": "j3",
+      "terminal": "2",
+      "label": "0 V",
+      "end": "b",
+      "signal": "ground",
+      "net": "net-4"
+    }
+  ],
+  "nets": [
+    {
+      "net": "net-1",
+      "signal": "power",
+      "points": [
+        "j1.1",
+        "j2.1"
+      ]
+    },
+    {
+      "net": "net-2",
+      "signal": "ground",
+      "points": [
+        "j1.2",
+        "j2.2"
+      ]
+    },
+    {
+      "net": "net-3",
+      "signal": "power",
+      "points": [
+        "j1.3",
+        "j3.1"
+      ]
+    },
+    {
+      "net": "net-4",
+      "signal": "ground",
+      "points": [
+        "j1.4",
+        "j3.2"
+      ]
+    }
+  ],
+  "connections": [],
+  "isolation": [
+    {
+      "id": "isolation/power vs ground/j2:1|j2:2",
+      "a": "j2.1",
+      "b": "j2.2",
+      "end": "b",
+      "rule": "power vs ground",
+      "netA": "net-1",
+      "netB": "net-2"
+    },
+    {
+      "id": "isolation/power vs ground/j2:1|j3:2",
+      "a": "j2.1",
+      "b": "j3.2",
+      "end": "b",
+      "rule": "power vs ground",
+      "netA": "net-1",
+      "netB": "net-4"
+    },
+    {
+      "id": "isolation/power vs ground/j2:2|j3:1",
+      "a": "j2.2",
+      "b": "j3.1",
+      "end": "b",
+      "rule": "power vs ground",
+      "netA": "net-2",
+      "netB": "net-3"
+    },
+    {
+      "id": "isolation/power vs ground/j3:1|j3:2",
+      "a": "j3.1",
+      "b": "j3.2",
+      "end": "b",
+      "rule": "power vs ground",
+      "netA": "net-3",
+      "netB": "net-4"
+    }
+  ],
+  "opens": [
+    {
+      "id": "open/w1:drain@a",
+      "kind": "unterminated",
+      "point": "w1 drain @a (Drain)",
+      "why": "drain is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 1 covers it."
+    },
+    {
+      "id": "open/w1:drain@b",
+      "kind": "unterminated",
+      "point": "w1 drain @b (Drain)",
+      "why": "drain is not terminated at either end of w1: this design carries the conductor but does not use it."
+    }
+  ]
+}
+"
+`;
+
+exports[`dc-y-splitter > the CSV exports match their snapshots > cut-list.csv 1`] = `
+"stock_part_number,stock,piece,length_mm,length_in,quantity,variation_pn,segments
+WIR-00005,"DC power cable, 2 × 24 AWG, red/black",channel 1 leg,300,11.8,1,,w2
+WIR-00005,"DC power cable, 2 × 24 AWG, red/black",channel 2 leg,300,11.8,1,,w3
+WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",trunk,1500,59.1,1,,w1
+"
+`;
+
+exports[`dc-y-splitter > the CSV exports match their snapshots > labels.csv 1`] = `
+"label_id,segment,end,designation,line_1,line_2,line_3,offset_mm,position,stock_part_number,length_mm
+w1/a,w1,a,W1,W1-A,at J1,"to W2, W3",40,40 mm from the source end of the jacket,WIR-00002,1500
+w1/b,w1,b,W1,W1-B,"at W2, W3",to J1,40,40 mm from the destination end of the jacket,WIR-00002,1500
+w2/a,w2,a,W2,W2-A,at W1,to J2,40,40 mm from the source end of the jacket,WIR-00005,300
+w2/b,w2,b,W2,W2-B,at J2,to W1,40,40 mm from the destination end of the jacket,WIR-00005,300
+w3/a,w3,a,W3,W3-A,at W1,to J3,40,40 mm from the source end of the jacket,WIR-00005,300
+w3/b,w3,b,W3,W3-B,at J3,to W1,40,40 mm from the destination end of the jacket,WIR-00005,300
+"
+`;
+
+exports[`dc-y-splitter > the CSV exports match their snapshots > wire-list.csv 1`] = `
+"segment,stock_part_number,stock,element,kind,colour,a_landing,a_pad,b_landing,b_pad,length_mm,notes
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-1.a,core,white,j1.1,,,,1500,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-1.b,core,blue,j1.2,,,,1500,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.a,core,white,j1.3,,,,1500,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.b,core,orange,j1.4,,,,1500,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",drain,drain,,,,,,1500,Drain
+w2,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",red,core,red,,,j2.1,,300,+V
+w2,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",black,core,black,,,j2.2,,300,0 V
+w3,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",red,core,red,,,j3.1,,300,+V
+w3,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",black,core,black,,,j3.2,,300,0 V
+"
+`;
+
+exports[`de9-crossover > the CSV exports match their snapshots > bom.csv 1`] = `
+"section,part_number,description,quantity,unit,location,instances,variation_pn,notes
+Connectors,CON-00012,"DE-9 female, pins by number",1,ea,Source end · end A,j1,,10 pins · attaches: w1@a
+Connectors,CON-00012,"DE-9 female, pins by number",1,ea,Destination end · end B,j2,,10 pins · attaches: w1@b
+Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",6,ft,wire run,w1,,Ø 5 mm
+Shells & hardware,SHL-00001,DE-9 metal backshell with strain relief,1,ea,Source end,m1,,attaches: j1
+Shells & hardware,SHL-00001,DE-9 metal backshell with strain relief,1,ea,Destination end,m3,,attaches: j2
+Shells & hardware,HW-00001,Jackscrew 4-40 UNC (pair),1,ea,Source end,m2,,attaches: m1
+Shells & hardware,HW-00001,Jackscrew 4-40 UNC (pair),1,ea,Destination end,m4,,attaches: m3
+"
+`;
+
+exports[`de9-crossover > the CSV exports match their snapshots > continuity.csv 1`] = `
+"type,id,net,signal,from,to,expect,limit,unit,test_volts,duration_s,note
+net-pin,net/net-1/j1.1,net-1,other,j1.1,,on-net,,,,,
+net-pin,net/net-1/j1.4,net-1,other,j1.4,,on-net,,,,,
+net-pin,net/net-1/j1.6,net-1,other,j1.6,,on-net,,,,,
+net-pin,net/net-2/j1.2,net-2,other,j1.2,,on-net,,,,,
+net-pin,net/net-2/j2.3,net-2,other,j2.3,,on-net,,,,,
+net-pin,net/net-3/j1.3,net-3,other,j1.3,,on-net,,,,,
+net-pin,net/net-3/j2.2,net-3,other,j2.2,,on-net,,,,,
+net-pin,net/net-4/j1.5,net-4,other,j1.5,,on-net,,,,,
+net-pin,net/net-4/j2.5,net-4,other,j2.5,,on-net,,,,,
+net-pin,net/net-5/j1.7,net-5,other,j1.7,,on-net,,,,,
+net-pin,net/net-5/j1.8,net-5,other,j1.8,,on-net,,,,,
+net-pin,net/net-7/j2.1,net-7,other,j2.1,,on-net,,,,,
+net-pin,net/net-7/j2.4,net-7,other,j2.4,,on-net,,,,,
+net-pin,net/net-7/j2.6,net-7,other,j2.6,,on-net,,,,,
+net-pin,net/net-8/j2.7,net-8,other,j2.7,,on-net,,,,,
+net-pin,net/net-8/j2.8,net-8,other,j2.8,,on-net,,,,,
+open,open/w1:drain@b,,,w1 drain @b (Drain),,open,,,,,"cut-end: drain is terminated at the other end of w1 and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
+open,open/w1:pair-2.b@a,,,w1 pair-2.b @a,,open,,,,,unterminated: pair-2.b is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 2 covers it.
+open,open/w1:pair-2.b@b,,,w1 pair-2.b @b,,open,,,,,unterminated: pair-2.b is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 2 covers it.
+open,open/j1:9,,,j1.9 (9),,open,,,,,"unused-pin: DE-9 female, pins by number pin 9 carries no connection in this design."
+open,open/j2:9,,,j2.9 (9),,open,,,,,"unused-pin: DE-9 female, pins by number pin 9 carries no connection in this design."
+open,open/j2:shell,,,j2.shell (Shell),,open,,,,,"unused-pin: DE-9 female, pins by number pin shell carries no connection in this design."
+"
+`;
+
+exports[`de9-crossover > the CSV exports match their snapshots > continuity.json 1`] = `
+"{
+  "format": "wirehub.continuity",
+  "version": 1,
+  "design": {
+    "id": "de9-crossover",
+    "label": "DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks"
+  },
+  "parameters": {
+    "continuityOhmsMax": 5,
+    "isolationVolts": 100,
+    "isolationMinMohm": 10,
+    "isolationSeconds": 1
+  },
+  "points": [
+    {
+      "id": "j1.1",
+      "instance": "j1",
+      "terminal": "1",
+      "label": "1",
+      "end": "a",
+      "signal": "other",
+      "net": "net-1"
+    },
+    {
+      "id": "j1.2",
+      "instance": "j1",
+      "terminal": "2",
+      "label": "2",
+      "end": "a",
+      "signal": "other",
+      "net": "net-2"
+    },
+    {
+      "id": "j1.3",
+      "instance": "j1",
+      "terminal": "3",
+      "label": "3",
+      "end": "a",
+      "signal": "other",
+      "net": "net-3"
+    },
+    {
+      "id": "j1.4",
+      "instance": "j1",
+      "terminal": "4",
+      "label": "4",
+      "end": "a",
+      "signal": "other",
+      "net": "net-1"
+    },
+    {
+      "id": "j1.5",
+      "instance": "j1",
+      "terminal": "5",
+      "label": "5",
+      "end": "a",
+      "signal": "other",
+      "net": "net-4"
+    },
+    {
+      "id": "j1.6",
+      "instance": "j1",
+      "terminal": "6",
+      "label": "6",
+      "end": "a",
+      "signal": "other",
+      "net": "net-1"
+    },
+    {
+      "id": "j1.7",
+      "instance": "j1",
+      "terminal": "7",
+      "label": "7",
+      "end": "a",
+      "signal": "other",
+      "net": "net-5"
+    },
+    {
+      "id": "j1.8",
+      "instance": "j1",
+      "terminal": "8",
+      "label": "8",
+      "end": "a",
+      "signal": "other",
+      "net": "net-5"
+    },
+    {
+      "id": "j1.9",
+      "instance": "j1",
+      "terminal": "9",
+      "label": "9",
+      "end": "a",
+      "signal": "other"
+    },
+    {
+      "id": "j1.shell",
+      "instance": "j1",
+      "terminal": "shell",
+      "label": "Shell",
+      "end": "a",
+      "signal": "ground",
+      "net": "net-6"
+    },
+    {
+      "id": "j2.1",
+      "instance": "j2",
+      "terminal": "1",
+      "label": "1",
+      "end": "b",
+      "signal": "other",
+      "net": "net-7"
+    },
+    {
+      "id": "j2.2",
+      "instance": "j2",
+      "terminal": "2",
+      "label": "2",
+      "end": "b",
+      "signal": "other",
+      "net": "net-3"
+    },
+    {
+      "id": "j2.3",
+      "instance": "j2",
+      "terminal": "3",
+      "label": "3",
+      "end": "b",
+      "signal": "other",
+      "net": "net-2"
+    },
+    {
+      "id": "j2.4",
+      "instance": "j2",
+      "terminal": "4",
+      "label": "4",
+      "end": "b",
+      "signal": "other",
+      "net": "net-7"
+    },
+    {
+      "id": "j2.5",
+      "instance": "j2",
+      "terminal": "5",
+      "label": "5",
+      "end": "b",
+      "signal": "other",
+      "net": "net-4"
+    },
+    {
+      "id": "j2.6",
+      "instance": "j2",
+      "terminal": "6",
+      "label": "6",
+      "end": "b",
+      "signal": "other",
+      "net": "net-7"
+    },
+    {
+      "id": "j2.7",
+      "instance": "j2",
+      "terminal": "7",
+      "label": "7",
+      "end": "b",
+      "signal": "other",
+      "net": "net-8"
+    },
+    {
+      "id": "j2.8",
+      "instance": "j2",
+      "terminal": "8",
+      "label": "8",
+      "end": "b",
+      "signal": "other",
+      "net": "net-8"
+    },
+    {
+      "id": "j2.9",
+      "instance": "j2",
+      "terminal": "9",
+      "label": "9",
+      "end": "b",
+      "signal": "other"
+    },
+    {
+      "id": "j2.shell",
+      "instance": "j2",
+      "terminal": "shell",
+      "label": "Shell",
+      "end": "b",
+      "signal": "ground"
+    }
+  ],
+  "nets": [
+    {
+      "net": "net-1",
+      "signal": "other",
+      "points": [
+        "j1.1",
+        "j1.4",
+        "j1.6"
+      ]
+    },
+    {
+      "net": "net-2",
+      "signal": "other",
+      "points": [
+        "j1.2",
+        "j2.3"
+      ]
+    },
+    {
+      "net": "net-3",
+      "signal": "other",
+      "points": [
+        "j1.3",
+        "j2.2"
+      ]
+    },
+    {
+      "net": "net-4",
+      "signal": "other",
+      "points": [
+        "j1.5",
+        "j2.5"
+      ]
+    },
+    {
+      "net": "net-5",
+      "signal": "other",
+      "points": [
+        "j1.7",
+        "j1.8"
+      ]
+    },
+    {
+      "net": "net-7",
+      "signal": "other",
+      "points": [
+        "j2.1",
+        "j2.4",
+        "j2.6"
+      ]
+    },
+    {
+      "net": "net-8",
+      "signal": "other",
+      "points": [
+        "j2.7",
+        "j2.8"
+      ]
+    }
+  ],
+  "connections": [],
+  "isolation": [],
+  "opens": [
+    {
+      "id": "open/w1:drain@b",
+      "kind": "cut-end",
+      "point": "w1 drain @b (Drain)",
+      "why": "drain is terminated at the other end of w1 and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
+    },
+    {
+      "id": "open/w1:pair-2.b@a",
+      "kind": "unterminated",
+      "point": "w1 pair-2.b @a",
+      "why": "pair-2.b is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 2 covers it."
+    },
+    {
+      "id": "open/w1:pair-2.b@b",
+      "kind": "unterminated",
+      "point": "w1 pair-2.b @b",
+      "why": "pair-2.b is not terminated at either end of w1: this design carries the conductor but does not use it. Design note 2 covers it."
+    },
+    {
+      "id": "open/j1:9",
+      "kind": "unused-pin",
+      "point": "j1.9 (9)",
+      "why": "DE-9 female, pins by number pin 9 carries no connection in this design."
+    },
+    {
+      "id": "open/j2:9",
+      "kind": "unused-pin",
+      "point": "j2.9 (9)",
+      "why": "DE-9 female, pins by number pin 9 carries no connection in this design."
+    },
+    {
+      "id": "open/j2:shell",
+      "kind": "unused-pin",
+      "point": "j2.shell (Shell)",
+      "why": "DE-9 female, pins by number pin shell carries no connection in this design."
+    }
+  ]
+}
+"
+`;
+
+exports[`de9-crossover > the CSV exports match their snapshots > cut-list.csv 1`] = `
+"stock_part_number,stock,piece,length_mm,length_in,quantity,variation_pn,segments
+WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",trunk,1830,72,1,,w1
+"
+`;
+
+exports[`de9-crossover > the CSV exports match their snapshots > labels.csv 1`] = `
+"label_id,segment,end,designation,line_1,line_2,line_3,offset_mm,position,stock_part_number,length_mm
+w1/a,w1,a,W1,W1-A,at J1,to J2,40,40 mm from the source end of the jacket,WIR-00002,1830
+w1/b,w1,b,W1,W1-B,at J2,to J1,40,40 mm from the destination end of the jacket,WIR-00002,1830
+"
+`;
+
+exports[`de9-crossover > the CSV exports match their snapshots > wire-list.csv 1`] = `
+"segment,stock_part_number,stock,element,kind,colour,a_landing,a_pad,b_landing,b_pad,length_mm,notes
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-1.a,core,white,j1.3,,j2.2,,1830,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-1.b,core,blue,j1.2,,j2.3,,1830,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.a,core,white,j1.5,,j2.5,,1830,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.b,core,orange,,,,,1830,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",drain,drain,,,,,,1830,Drain
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,j1.shell,,,,1830,Shield mass
+"
+`;
+
+exports[`de9-terminal-board > the CSV exports match their snapshots > bom.csv 1`] = `
+"section,part_number,description,quantity,unit,location,instances,variation_pn,notes
+Boards,PCA-00001,"Terminal adapter board, one terminated pair (synthetic)",1,ea,Destination end,u1,,integrated: terminal-block-4
+Connectors,CON-00013,"DE-9 male, pins by number",1,ea,Source end · line connector,j1,,10 pins · attaches: w1@a
+Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",3,ft,wire run,w1,,Ø 5 mm
+Shells & hardware,SHL-00001,DE-9 metal backshell with strain relief,1,ea,Source end,m1,,attaches: j1
+"
+`;
+
+exports[`de9-terminal-board > the CSV exports match their snapshots > continuity.csv 1`] = `
+"type,id,net,signal,from,to,expect,limit,unit,test_volts,duration_s,note
+net-pin,net/net-1/j1.3,net-1,other,j1.3,,on-net,,,,,
+net-pin,net/net-1/u1.tb.2,net-1,other,u1.tb.2,,on-net,,,,,
+net-pin,net/net-2/j1.5,net-2,other,j1.5,,on-net,,,,,
+net-pin,net/net-2/u1.tb.3,net-2,other,u1.tb.3,,on-net,,,,,
+net-pin,net/net-4/j1.8,net-4,other,j1.8,,on-net,,,,,
+net-pin,net/net-4/u1.tb.1,net-4,other,u1.tb.1,,on-net,,,,,
+net-pin,net/net-5/j1.shell,net-5,ground,j1.shell,,on-net,,,,,
+net-pin,net/net-5/u1.tb.4,net-5,ground,u1.tb.4,,on-net,,,,,
+continuity,path/j1:3->j1:8,,,j1.3,j1.8,resistance,120,ohm,,,R1 120 Ω
+open,open/w1:pair-2.b@b,,,w1 pair-2.b @b,,open,,,,,"cut-end: pair-2.b is terminated at the other end of w1 and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
+open,open/j1:1,,,j1.1 (1),,open,,,,,"unused-pin: DE-9 male, pins by number pin 1 carries no connection in this design."
+open,open/j1:2,,,j1.2 (2),,open,,,,,"unused-pin: DE-9 male, pins by number pin 2 carries no connection in this design."
+open,open/j1:4,,,j1.4 (4),,open,,,,,"unused-pin: DE-9 male, pins by number pin 4 carries no connection in this design."
+open,open/j1:7,,,j1.7 (7),,open,,,,,"unused-pin: DE-9 male, pins by number pin 7 carries no connection in this design."
+open,open/j1:9,,,j1.9 (9),,open,,,,,"unused-pin: DE-9 male, pins by number pin 9 carries no connection in this design."
+"
+`;
+
+exports[`de9-terminal-board > the CSV exports match their snapshots > continuity.json 1`] = `
+"{
+  "format": "wirehub.continuity",
+  "version": 1,
+  "design": {
+    "id": "de9-terminal-board",
+    "label": "DE-9 → terminal adapter board, terminated pair"
+  },
+  "parameters": {
+    "continuityOhmsMax": 5,
+    "isolationVolts": 100,
+    "isolationMinMohm": 10,
+    "isolationSeconds": 1
+  },
+  "points": [
+    {
+      "id": "j1.1",
+      "instance": "j1",
+      "terminal": "1",
+      "label": "1",
+      "end": "a",
+      "signal": "other"
+    },
+    {
+      "id": "j1.2",
+      "instance": "j1",
+      "terminal": "2",
+      "label": "2",
+      "end": "a",
+      "signal": "other"
+    },
+    {
+      "id": "j1.3",
+      "instance": "j1",
+      "terminal": "3",
+      "label": "3",
+      "end": "a",
+      "signal": "other",
+      "net": "net-1"
+    },
+    {
+      "id": "j1.4",
+      "instance": "j1",
+      "terminal": "4",
+      "label": "4",
+      "end": "a",
+      "signal": "other"
+    },
+    {
+      "id": "j1.5",
+      "instance": "j1",
+      "terminal": "5",
+      "label": "5",
+      "end": "a",
+      "signal": "other",
+      "net": "net-2"
+    },
+    {
+      "id": "j1.6",
+      "instance": "j1",
+      "terminal": "6",
+      "label": "6",
+      "end": "a",
+      "signal": "other",
+      "net": "net-3"
+    },
+    {
+      "id": "j1.7",
+      "instance": "j1",
+      "terminal": "7",
+      "label": "7",
+      "end": "a",
+      "signal": "other"
+    },
+    {
+      "id": "j1.8",
+      "instance": "j1",
+      "terminal": "8",
+      "label": "8",
+      "end": "a",
+      "signal": "other",
+      "net": "net-4"
+    },
+    {
+      "id": "j1.9",
+      "instance": "j1",
+      "terminal": "9",
+      "label": "9",
+      "end": "a",
+      "signal": "other"
+    },
+    {
+      "id": "j1.shell",
+      "instance": "j1",
+      "terminal": "shell",
+      "label": "Shell",
+      "end": "a",
+      "signal": "ground",
+      "net": "net-5"
+    },
+    {
+      "id": "u1.tb.1",
+      "instance": "u1",
+      "terminal": "tb.1",
+      "label": "1",
+      "end": "b",
+      "signal": "other",
+      "net": "net-4"
+    },
+    {
+      "id": "u1.tb.2",
+      "instance": "u1",
+      "terminal": "tb.2",
+      "label": "2",
+      "end": "b",
+      "signal": "other",
+      "net": "net-1"
+    },
+    {
+      "id": "u1.tb.3",
+      "instance": "u1",
+      "terminal": "tb.3",
+      "label": "3",
+      "end": "b",
+      "signal": "other",
+      "net": "net-2"
+    },
+    {
+      "id": "u1.tb.4",
+      "instance": "u1",
+      "terminal": "tb.4",
+      "label": "4",
+      "end": "b",
+      "signal": "other",
+      "net": "net-5"
+    }
+  ],
+  "nets": [
+    {
+      "net": "net-1",
+      "signal": "other",
+      "points": [
+        "j1.3",
+        "u1.tb.2"
+      ]
+    },
+    {
+      "net": "net-2",
+      "signal": "other",
+      "points": [
+        "j1.5",
+        "u1.tb.3"
+      ]
+    },
+    {
+      "net": "net-4",
+      "signal": "other",
+      "points": [
+        "j1.8",
+        "u1.tb.1"
+      ]
+    },
+    {
+      "net": "net-5",
+      "signal": "ground",
+      "points": [
+        "j1.shell",
+        "u1.tb.4"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "path/j1:3->j1:8",
+      "kind": "path",
+      "from": "j1.3",
+      "to": "j1.8",
+      "expect": "resistance",
+      "ohms": 120,
+      "through": "R1 120 Ω"
+    }
+  ],
+  "isolation": [],
+  "opens": [
+    {
+      "id": "open/w1:pair-2.b@b",
+      "kind": "cut-end",
+      "point": "w1 pair-2.b @b",
+      "why": "pair-2.b is terminated at the other end of w1 and deliberately open here — the house drain/shield policy, not a missed joint. Design note 1 covers it."
+    },
+    {
+      "id": "open/j1:1",
+      "kind": "unused-pin",
+      "point": "j1.1 (1)",
+      "why": "DE-9 male, pins by number pin 1 carries no connection in this design."
+    },
+    {
+      "id": "open/j1:2",
+      "kind": "unused-pin",
+      "point": "j1.2 (2)",
+      "why": "DE-9 male, pins by number pin 2 carries no connection in this design."
+    },
+    {
+      "id": "open/j1:4",
+      "kind": "unused-pin",
+      "point": "j1.4 (4)",
+      "why": "DE-9 male, pins by number pin 4 carries no connection in this design."
+    },
+    {
+      "id": "open/j1:7",
+      "kind": "unused-pin",
+      "point": "j1.7 (7)",
+      "why": "DE-9 male, pins by number pin 7 carries no connection in this design."
+    },
+    {
+      "id": "open/j1:9",
+      "kind": "unused-pin",
+      "point": "j1.9 (9)",
+      "why": "DE-9 male, pins by number pin 9 carries no connection in this design."
+    }
+  ]
+}
+"
+`;
+
+exports[`de9-terminal-board > the CSV exports match their snapshots > cut-list.csv 1`] = `
+"stock_part_number,stock,piece,length_mm,length_in,quantity,variation_pn,segments
+WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",trunk,1000,39.4,1,,w1
+"
+`;
+
+exports[`de9-terminal-board > the CSV exports match their snapshots > labels.csv 1`] = `
+"label_id,segment,end,designation,line_1,line_2,line_3,offset_mm,position,stock_part_number,length_mm
+w1/a,w1,a,W1,W1-A,at J1,to U1,40,40 mm from the source end of the jacket,WIR-00002,1000
+w1/b,w1,b,W1,W1-B,at U1,to J1,40,40 mm from the destination end of the jacket,WIR-00002,1000
+"
+`;
+
+exports[`de9-terminal-board > the CSV exports match their snapshots > wire-list.csv 1`] = `
+"segment,stock_part_number,stock,element,kind,colour,a_landing,a_pad,b_landing,b_pad,length_mm,notes
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-1.a,core,white,j1.3,,u1.B,,1000,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-1.b,core,blue,j1.8,,u1.A,,1000,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.a,core,white,j1.5,,u1.GND,,1000,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pair-2.b,core,orange,j1.6,,,,1000,
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",drain,drain,,,,,,1000,Drain
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,j1.shell,,,,1000,Shield mass
+w1,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",pigtail:shield,pigtail,,,,u1.SHLD,,1000,Shield mass
+"
+`;

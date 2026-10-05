@@ -24,9 +24,9 @@
  */
 
 import type { JSX } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useMatches, useNavigate } from '@tanstack/react-router';
-import { Library, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
+import { LIBRARY_KINDS, Library, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
 
 import { useStudio } from '../studio-context.tsx';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';
@@ -42,6 +42,7 @@ import { ModuleImport } from '../modules/ModuleImport.tsx';
 import { ModulePanels } from '../modules/slots.tsx';
 import { HistoryButton } from '../history/HistoryPanel.tsx';
 import { definitionNoun } from '../history/types.ts';
+import { CompareHost } from '../modules/CompareHost.tsx';
 
 const KIND_FROM_URL: Readonly<Record<string, LibraryKind>> = {
   connectors: 'connectors',
@@ -87,6 +88,8 @@ export function LibraryRoute(): JSX.Element {
   // each record's 3D model
   const models = useMemo(() => workbenchModels(), []);
   const selectedId = params.id;
+  // the compare view: a module's, or the base's field diff — `Library`'s Compare actions open it
+  const [compare, setCompare] = useState<{ a: string; b?: string } | undefined>(undefined);
   // a board's page walks its journey: builds are read and saved here (an
   // importer module may add the import step — docs/modules.md)
   const boardJourney = useMemo((): BoardJourneyHost => ({ builds: workbenchBuilds() }), []);
@@ -162,6 +165,8 @@ export function LibraryRoute(): JSX.Element {
         onOpenRecord={onOpenRecord}
         boardJourney={boardJourney}
         listActions={listActions}
+        onCompare={(a, b) => setCompare({ a, ...(b === undefined ? {} : { b }) })}
+        compareKinds={LIBRARY_KINDS}
         detailExtras={(record: { kind: LibraryKind; id: string }) => (
           <>
             {/* the record's change history: who changed what, and restore an earlier state */}
@@ -177,6 +182,7 @@ export function LibraryRoute(): JSX.Element {
         onOpenDesign={(id) => void navigate({ to: '/cables/$id', params: { id } })}
       />
       </EditLockScope>
+      {compare === undefined ? null : <CompareHost registry={modules} db={studio.db} a={compare.a} {...(compare.b === undefined ? {} : { b: compare.b })} onClose={() => setCompare(undefined)} />}
     </div>
   );
 }

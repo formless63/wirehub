@@ -50,6 +50,7 @@ import { baseJobHandlers } from './jobs/handlers.ts';
 import { moduleJobHandlers, moduleJobKinds } from './jobs/module-queues.ts';
 import { modelCacheTrigger } from './jobs/model-cache.ts';
 import { createJobService, inlineJobRunner, memoryJobStore } from './jobs/service.ts';
+import { testDefaultsFromEnv } from './documents.ts';
 
 /** A catalog data file, parsed; `undefined` when it is not there. */
 function rawJson(relative: string): unknown {
@@ -186,11 +187,15 @@ export async function workbenchDepsFromEnv(
   pg?: { db: import('./pg/db.ts').Db; orgId: () => string | undefined; setupMode: () => boolean; url: string; attachAuth: (auth: import('./auth/studio-auth.ts').StudioAuth | undefined) => void };
 }> {
   const backend = backendFromEnv(env);
+  const testDefaults = testDefaultsFromEnv(env);
   if (backend === 'files') {
-    return { backend, deps: defaultWorkbenchDeps(options), depictionDeps: defaultDepictionDeps(), describe: 'files (packages/catalog/data)', close: async () => {} };
+    const deps = defaultWorkbenchDeps(options);
+    if (testDefaults !== undefined) deps.testDefaults = testDefaults;
+    return { backend, deps, depictionDeps: defaultDepictionDeps(), describe: 'files (packages/catalog/data)', close: async () => {} };
   }
   const { openPgBackend } = await import('./pg/deps.ts');
   const pg = await openPgBackend(env, { ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.setupCode === undefined ? {} : { setupCode: options.setupCode }) });
+  if (testDefaults !== undefined) pg.deps.testDefaults = testDefaults;
   return {
     backend,
     deps: pg.deps,

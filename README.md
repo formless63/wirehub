@@ -114,6 +114,7 @@ emails out of commits (`CONTRIBUTING.md`).
 - `SPEC.md` — the model and the plan; the single source of truth.
 - `docs/modules.md` — extension points, domain modules, and how a private module lives
   in its own repository.
+- `docs/exports.md` — CSV/XLSX exports, the continuity tester export, wire labels, and rendering documents without a browser.
 - `docs/catalog-store.md` — catalog packs: format, provenance, install and update.
 - `docs/self-hosting.md` — install, the compose stack, secrets, storage, backups, development.
 - `specs/postgres-backend.md` — the database backend (Phase A built).

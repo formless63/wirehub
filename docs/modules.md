@@ -168,11 +168,12 @@ export const acme = defineModule({
 | **Catalog packs** | `CatalogPackContribution { id, label, version, root?, license? }` — a data directory laid out like `packages/catalog/data` plus `wirehub-pack.json`; `root` a path or `file:` URL | server, at install | **yes** — installed by first-run setup for domain modules (`/setup`); `layeredCatalogSource` reads one without installing |
 | **Setup (domain)** | `SetupContribution { kind: 'domain', description, suggested? }` | server + browser | **yes** — `/setup` lists `registry.domains()` |
 | **Importers** | `ImporterContribution { id, label, accepts: ['.kicad_pcb'], import(input, db) → { definitions?, designs?, notes } }` — proposes records, never writes | server | **yes** — the Library's **Import…** button (every kind's list) offers the importers that take the file; the person reviews the proposal and accepts it; `POST /api/modules/<module>/_import/<importer>` (below); with `job: true` it runs as a job instead (the worker on Postgres) and its plan is published with `POST /api/jobs/<job>/publish` (`specs/postgres-backend.md` §7.5) |
-| **Exporters / document types** | `ExporterContribution { id, label, description?, render(design, db, options) → { mimeType, fileName, body } }` | browser and server | **yes** — one download button per exporter in the cable's Documents toolbar; `GET /api/modules/<module>/_export/<exporter>?design=<id>` (below) |
+| **Exporters / document types** | `ExporterContribution { id, label, description?, source?, render(design, db, options) → { mimeType, fileName, body } }` — `source: 'continuity'` makes the host pass the neutral continuity data as `options.continuity`, for a tester's own format (`docs/exports.md`) | browser and server | **yes** — one download button per exporter in the cable's Documents toolbar; `GET /api/modules/<module>/_export/<exporter>?design=<id>` (below) |
 | **PN schemes** | `PartNumberScheme { id, label, parse, check, suggest }` (`@wirehub/model`) | everywhere | **yes** — the editor's PN field, the library, BOM proposals |
 | **Validation rules** | `ValidationRuleContribution { id, label, check(design, db) → Issue[] }` | everywhere | **yes** — every design save runs them after `validateDesign` |
 | **Integrations** | `IntegrationContribution { id, label, env?, routes?: { method, path, writes?, handle(request) }[], queues?: JobQueueContribution[] }` | server only | **yes** — `/api/modules/<module>/<path>`; `writes: true` routes take the write lock; a route path may not start with `_`; `queues` are job queues (below) |
 | **UI panels** | `PanelContribution { id, label, slot: 'cable-inspector' \| 'cable-documents' \| 'library-detail' \| 'settings', component }`; the component takes `PanelProps` | browser | **yes** — below |
+| **Compare views** | `CompareViewContribution { id, label, kinds?, component }`; the component takes `CompareProps` | browser | **yes** — below |
 | **UI routes** | `UiRouteContribution { path, label, icon?, component }` under `/m/<module>/`; the component takes `RouteProps` | browser | **yes** — below |
 | **Auth providers** | `AuthProviderContribution { id, label, kind: 'oidc' \| 'oauth2' \| 'other', config }` | server | **yes** — below; the base's own OIDC is still configured by environment |
 | **Documents** | `DocumentContribution { path: 'data/<prefix>/' \| 'data/<file>', class: 'imported' \| 'report' }` — catalog documents the module owns | server | **yes** — `PUT /api/docs/*path` writes only these (scope `imports` for an API token); the file backend's catalog version covers their directories |
@@ -210,6 +211,16 @@ It is **not** a module extension point yet: the provider's inputs are the bench 
 (`BenchEnd`, `ShellSet`), which a module cannot name without importing `@wirehub/docs`. Hoisting
 those types into `@wirehub/model` (or a thin `BenchStepsContribution` over plain facts) is the
 step that makes it a module point; the bead stays open for it.
+
+
+**The hub's own identity.** A hub with no branding module still sets its organisation name,
+standard name, rights line, default designer and a PNG logo on `/settings` (an owner or an
+editor; stored as `data/settings/branding.json` plus a sanitised asset, so both backends keep it
+with the catalog). The app registers them as drawing art (`titleBlock.organisation / standard /
+rights / designer`, and `logo`) **after** the modules' art. The first registration to set a part
+wins, so a module's `art.drawing` still beats the setting, and an unset field keeps the generic
+text. The drawing sheet's title block, the wire spec, and the bench build sheet / BOM header read
+it; no renderer is branded by hand.
 
 ### Job queues
 
@@ -289,6 +300,17 @@ panels are listed per module on `/modules`, which the rail links to only when so
 one. `api(method, path, body?)` calls the module's own routes
 (`/api/modules/<module>/<path>`) and resolves `{ status, body }`.
 
+**Compare views.** The Library's **Compare** actions (a record's head, and the list's pick-two
+mode) open a compare view. The base ships a generic one — a field diff of two records of one kind
+(`RecordCompare`: changed fields by default, unchanged on request, the second record chosen from a
+list when only one was given). `registry.compareViewFor(kind)` returns the first module view that
+declares the kind (`kinds`; absent means every kind) and the Library uses it instead, inside the
+same error boundary as a panel. The component receives `CompareProps`:
+`{ module, db, a: { kind, id }, b?: { kind, id }, api, onClose }` — `a` is the record Compare was
+pressed on (or the first ticked), `b` the second when it has been chosen (a view with no `b` asks
+for it), and `onClose` returns to the Library. A module's own view is where a board's artwork and
+3D revisions, or two shells' dimensions, are shown side by side.
+
 **UI routes.** `/m/<module>/<path>` renders the route's component with `RouteProps`
 (`{ module, path, db, api }`) inside the shell. A route with an `icon` (a Tabler icon name from
 `IconPlug`, `IconPuzzle`, `IconReport`, `IconSettings`, `IconTool`, `IconBox`, `IconList`; anything
@@ -310,7 +332,8 @@ route may not use it.
 
 **Exporters.** The Documents toolbar renders the design on screen in the browser (so drafts
 export too) and downloads the file; `GET /api/modules/<module>/_export/<exporter>?design=<id>`
-renders a *stored* design on the server, with the other query parameters as `options`.
+renders a *stored* design on the server, with the other query parameters as `options`. The base's own
+exports (BOM, wire and cut lists, continuity, labels) and the headless rendering are in `docs/exports.md`.
 
 **Auth providers.** `kind: 'oidc'` takes `{ issuer, clientId, clientSecret?, scopes?, emailClaim?, name? }`;
 `'oauth2'` takes `{ authorizationUrl, tokenUrl, userInfoUrl, clientId, clientSecret?, scopes?, emailClaim?, name? }`;

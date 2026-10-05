@@ -35,12 +35,13 @@
  * their own `retry: false` client; a real page gets the default.
  */
 
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryObserver, useQueryClient } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useState, type JSX } from 'react';
 import { registerBodyLayouts, setCommitHook } from '@wirehub/editor-react';
 import { registerDrawingArt } from '@wirehub/docs';
-import { installModuleArt } from '../module-art.ts';
+import { installBranding, installModuleArt } from '../module-art.ts';
+import { brandingQuery } from './settings.browser.ts';
 import { browserDepictions } from './depictions.browser.ts';
 import type { ModuleRegistry } from '@wirehub/modules';
 import { Toaster } from 'sonner';
@@ -102,6 +103,19 @@ export function App({
   }, [modules]);
   // the drawings the modules carry: connector faces, body layouts, sheet art
   useEffect(() => installModuleArt(modules, registerBodyLayouts), [modules]);
+  // the hub's own identity (Hub settings) as drawing art — registered after the modules' art, which therefore still wins
+  useEffect(() => {
+    let off = (): void => {};
+    const observer = new QueryObserver(queryClient, brandingQuery);
+    const stop = observer.subscribe((result) => {
+      off();
+      off = installBranding(result.data);
+    });
+    return () => {
+      stop();
+      off();
+    };
+  }, [queryClient, modules]);
   // the drawing sheet reads connector faces and cutaways from the same depiction tree as the schematic
   useEffect(() => {
     const live = browserDepictions();

@@ -63,6 +63,9 @@ export async function moduleScenario(base: WorkbenchDeps, send?: (request: ApiRe
   expect(new TextDecoder().decode(exported.bytes)).toMatch(/^a,b,note\n/);
   expect(exported.contentType).toBe('text/csv');
   await call('export of a missing design', { method: 'GET', path: '/api/modules/example/_export/joints-csv?design=nope' }, 404);
+  // a tester exporter reads the neutral continuity data the host derives (docs/exports.md)
+  const tester = await call('export tester netlist', { method: 'GET', path: '/api/modules/example/_export/tester-netlist?design=de9-crossover' }, 200);
+  expect(new TextDecoder().decode(tester.bytes)).toMatch(/^; de9-crossover — EXAMPLE tester format\nCONT_MAX 5\nISO 100V 10MOHM 1S\nNET net-1 j1\.1 j1\.4 j1\.6\n/);
 
   // owned documents: written by path under the module's prefix, never a derived file
   const doc = await call('write module document', { method: 'PUT', path: '/api/docs/data/example/notes.json', body: { src: 'synthetic example', n: 1 }, headers: { 'if-match': contentETag(null) } }, 200);

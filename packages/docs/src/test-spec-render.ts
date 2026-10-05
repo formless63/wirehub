@@ -9,6 +9,7 @@
  */
 
 import { escapeHtml, facts, htmlTable, markdownTable } from './text.ts';
+import { testParameterLines, type ResolvedTestParameters } from './exports/test-params.ts';
 import {
   SIDE_WORD,
   type GroundLandingCheck,
@@ -37,6 +38,7 @@ const PATH_HEADERS = [
 const ISOLATION_HEADERS = ['End', 'Rule', 'A', 'B', 'Expected', 'Why'];
 const COMMONED_HEADERS = ['End', 'A', 'B', 'Expected', 'Commoned by design (source)'];
 const OPEN_HEADERS = ['Kind', 'Terminal', 'Expected', 'Why'];
+const PARAMETER_HEADERS = ['Parameter', 'Value'];
 const LANDING_HEADERS = ['End', 'Pigtail', 'Screens', 'Lands on', 'Expected', 'Prep'];
 
 function landingRow(check: GroundLandingCheck): string[] {
@@ -133,13 +135,20 @@ const METER_PREAMBLE =
  * Markdown
  * ------------------------------------------------------------------ */
 
-export function testSpecToMarkdown(spec: TestSpec): string {
+export function testSpecToMarkdown(spec: TestSpec, parameters?: ResolvedTestParameters): string {
   const out: string[] = [];
   out.push(`# Continuity & test spec — ${spec.designLabel}`);
   out.push('');
   out.push(facts([`\`${spec.designId}\``, spec.productRef]));
   out.push('');
   out.push(summaryLine(spec));
+
+  if (parameters !== undefined) {
+    out.push('');
+    out.push('## Test parameters');
+    out.push('');
+    out.push(markdownTable(PARAMETER_HEADERS, testParameterLines(parameters)));
+  }
 
   if (spec.violations.length > 0) {
     out.push('');
@@ -196,11 +205,16 @@ export function testSpecToMarkdown(spec: TestSpec): string {
  * HTML fragment
  * ------------------------------------------------------------------ */
 
-export function testSpecToHtml(spec: TestSpec): string {
+export function testSpecToHtml(spec: TestSpec, parameters?: ResolvedTestParameters): string {
   const parts: string[] = [];
   parts.push('<section class="cs-section cs-testspec">');
   parts.push('<h2 class="cs-section__h">Continuity &amp; test spec</h2>');
   parts.push(`<p class="cs-meta">${escapeHtml(summaryLine(spec))}</p>`);
+
+  if (parameters !== undefined) {
+    parts.push('<h3 class="cs-section__h3">Test parameters</h3>');
+    parts.push(htmlTable('cs-table cs-table--parameters', PARAMETER_HEADERS, testParameterLines(parameters)));
+  }
 
   if (spec.violations.length > 0) {
     parts.push('<h3 class="cs-section__h3">Isolation violations</h3>');

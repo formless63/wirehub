@@ -8,6 +8,8 @@
  * that leaves the stack still says what it belongs to.
  */
 
+import { deriveLabels, labelsHtml } from '../exports/labels.ts';
+import { resolveTestParameters, type TestParameters } from '../exports/test-params.ts';
 import { findWire, isFullyBonded, validateDesign, type CableDesign, type Db } from '@wirehub/model';
 import { catalogDepictions, type DepictionSource } from '@wirehub/layout';
 
@@ -29,6 +31,8 @@ import { suppliedEnds, type SuppliedEnd } from '../supplied.ts';
 
 export interface BenchSheetOptions extends BomSheetOptions {
   title?: string;
+  /** the organisation's test-parameter defaults (the design's own are the sidecar's `test`) */
+  testDefaults?: TestParameters;
 }
 
 function depictionSourceOf(option: boolean | DepictionSource | undefined): DepictionSource | undefined {
@@ -283,7 +287,8 @@ function assemblyPage(n: number, bench: Bench, design: CableDesign, db: Db, supp
     const steps = assemblySteps(design, db, end, sets, wire);
     return `<div>${block(end.side === 'a' ? 'Source end' : 'Destination end', `${setHtml}${stepsHtml(steps)}`)}</div>`;
   });
-  return `${stage(n, 'Assembly', 'shells, hardware, strain relief')}<div class="cs-cols">${cols.join('')}</div>`;
+  const labels = block('Wire labels', labelsHtml(deriveLabels(design, db)));
+  return `${stage(n, 'Assembly', 'shells, hardware, strain relief')}<div class="cs-cols">${cols.join('')}</div>${labels}`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -319,7 +324,7 @@ function shortExpect(expected: string, dc: boolean | undefined): string {
   const ohms = /≈\s*[\d.,]+\s*[kM]?Ω/.exec(expected);
   if (ohms !== null) return ohms[0];
   if (/OPEN/.test(expected) && !/beep/.test(expected)) return 'OPEN';
-  return 'Beep < 5 Ω';
+  return `Beep < ${/< ([\d.]+) Ω/.exec(expected)?.[1] ?? '5'} Ω`;
 }
 
 function signalWord(signal: string): string {
@@ -454,7 +459,7 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
   const header = options.title === undefined ? bom.header : { ...bom.header, title: options.title, kind: 'BENCH BUILD SHEET' };
   header.kind = 'BENCH BUILD SHEET';
   const bench = deriveBench(design, db);
-  const spec = deriveTestSpec(design, db);
+  const spec = deriveTestSpec(design, db, { continuityOhmsMax: resolveTestParameters(options.drawing?.test, options.testDefaults).continuityOhmsMax });
   const drawing = deriveDrawing(design, db, options.drawing ?? {});
   const trunkId = trunkSegment(design, db)?.id;
   const supplied = suppliedEnds(design, db);

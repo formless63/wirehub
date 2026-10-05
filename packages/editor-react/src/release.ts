@@ -43,16 +43,4 @@ export function targetRevision(target: DocumentTarget): string {
   return target === 'working' ? '—' : String(target);
 }
 
-/**
- * Stamp a rendered document UNRELEASED: a large diagonal mark on every page
- * (a fixed element repeats per printed page). Inserted before `</body>`, so
- * the document's own markup and stylesheet are untouched.
- */
-export function withUnreleasedMark(html: string): string {
-  const mark =
-    '<div class="cs-unreleased-mark" aria-hidden="true" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2147483647">' +
-    '<span style="transform:rotate(-28deg);font:700 88px/1 system-ui,sans-serif;letter-spacing:.12em;color:rgba(200,30,30,.16);border:6px solid rgba(200,30,30,.16);padding:6px 28px;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact">UNRELEASED</span>' +
-    '</div>';
-  const at = html.lastIndexOf('</body>');
-  return at < 0 ? `${html}${mark}` : `${html.slice(0, at)}${mark}${html.slice(at)}`;
-}
+export { withUnreleasedMark } from '@wirehub/docs';
