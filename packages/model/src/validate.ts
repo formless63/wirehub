@@ -27,6 +27,7 @@ import {
   type WireDefinition,
 } from './model.ts';
 import { compatibilityIssues } from './compat.ts';
+import { cavityIssues, terminationDbIssues } from './crimp.ts';
 import { pnDuplicateIssues } from './part-number-health.ts';
 import type { PartNumberScheme } from './part-numbers.ts';
 import { breakoutFates, breakoutIssues, inScope, segmentElectricalPaths } from './breakouts.ts';
@@ -769,6 +770,8 @@ export function validateDb(db: Db, options: { scheme?: PartNumberScheme } = {}):
   // connector bodies and interfaces (data model v2 §1.2)
   issues.push(...validateInterfaces(db));
   issues.push(...validateKits(db));
+  // crimp contacts, seals, plugs and tools (`crimp.ts`)
+  issues.push(...terminationDbIssues(db));
 
   return issues;
 }
@@ -1092,6 +1095,8 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
   }
 
   issues.push(...compatibilityIssues(design, db));
+  // contacts, seals and plugs per cavity (`crimp.ts`)
+  issues.push(...cavityIssues(design, db));
 
   return issues;
 }

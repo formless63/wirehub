@@ -11,6 +11,7 @@ import type { SignalRef, SignalTags, Vocab } from './vocab.ts';
 import type { ConnectorBody, Interface } from './interfaces.ts';
 import type { KitDefinition } from './kits.ts';
 import type { RecordMeta } from './provenance.ts';
+import type { CavityAssignment, HousingSpec, TerminationSpec } from './crimp.ts';
 
 /* ------------------------------------------------------------------ *
  * Wire structure — hierarchical elements
@@ -309,6 +310,13 @@ export interface ConnectorDefinition extends RecordMeta {
   body?: string;
   /** the pinout (`Db.interfaces`) it carries on that body */
   interface?: string;
+  /**
+   * A crimp housing's cavities (`crimp.ts`): the contact systems they take,
+   * whether each wire is sealed and whether unused cavities are plugged.
+   * Absent = not a crimp housing as far as the catalog knows (a solder-cup or
+   * PCB connector has none); falls back to the body's.
+   */
+  housing?: HousingSpec;
 }
 
 /* ------------------------------------------------------------------ *
@@ -529,6 +537,17 @@ export interface PcbaDefinition extends RecordMeta {
  * (the cable BOM covers shells and hardware
  * alongside PCBs/PCBAs and connectors).
  */
+/**
+ * What a mechanical part is. `shell`, `fastener` and `other` are housings and
+ * hardware; `contact` (a crimp terminal), `seal` (a wire or cavity seal) and
+ * `plug` (a cavity plug or blind) go into a crimp housing's cavities, and
+ * `tool` is the crimp tool or applicator a contact needs — a tool is never a
+ * BOM line.
+ */
+export type MechanicalKind = 'shell' | 'fastener' | 'other' | 'contact' | 'seal' | 'plug' | 'tool';
+
+export const MECHANICAL_KINDS: readonly MechanicalKind[] = ['shell', 'fastener', 'other', 'contact', 'seal', 'plug', 'tool'];
+
 export interface MechanicalDefinition extends RecordMeta {
   id: string;
   label: string;
@@ -536,7 +555,13 @@ export interface MechanicalDefinition extends RecordMeta {
   partNumber?: string;
   /** the released revision this definition tracks, when the source has one */
   revision?: string;
-  kind: 'shell' | 'fastener' | 'other';
+  kind: MechanicalKind;
+  /**
+   * For a crimp termination part (`kind` `contact`, `seal`, `plug` or
+   * `tool`): what it fits and the wire it takes (`crimp.ts`). Absent on
+   * shells and hardware.
+   */
+  termination?: TerminationSpec;
   /**
    * A pre-terminated sub-assembly the contract manufacturer supplies — the
    * "stripped to X" stock: the end it arrives terminated
@@ -679,6 +704,12 @@ export interface ConnectorInstance {
    * when derivation can't tell (an instance with no joints yet).
    */
   mounting?: string;
+  /**
+   * The crimp contact, seal or plug in each cavity of a crimp housing
+   * (`crimp.ts`), by pin id. Absent = none recorded (always so on a
+   * solder-cup or PCB connector).
+   */
+  cavities?: CavityAssignment[];
 }
 
 export interface SegmentInstance {
