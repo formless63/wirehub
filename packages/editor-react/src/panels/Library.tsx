@@ -152,6 +152,8 @@ export interface LibraryProps {
    * mode. Item ids are `<kind>/<id>`.
    */
   onCompare?: (a: string, b?: string) => void;
+  /** the kinds that get Compare actions; default: boards and mechanicals (what the compare view first served) */
+  compareKinds?: readonly LibraryKind[];
   /**
    * The kind the list shows, when a host puts it in the URL (`/library/$kind`).
    * Uncontrolled (starts at `connectors`) when omitted — `CableEditor`'s own
@@ -526,6 +528,9 @@ function connectorArtProps(db: Db, connector: ConnectorDefinition): { connector:
   if (body === undefined) return { connector };
   return { connector, body, sharedBy: interfacesOnBody(db, body.id).map((p) => p.label) };
 }
+
+/** Compare actions where a host gives no `compareKinds`: the two kinds the compare view first served. */
+const DEFAULT_COMPARE_KINDS: readonly LibraryKind[] = ['pcbas', 'mechanicals'];
 
 export function Library(props: LibraryProps): JSX.Element {
   const [uncontrolledKind, setUncontrolledKind] = useState<LibraryKind>('connectors');
@@ -1050,7 +1055,7 @@ export function Library(props: LibraryProps): JSX.Element {
     } else if ((kind === 'components' || kind === 'mechanicals' || kind === 'kits' || (kind === 'pcbas' && !readOnly)) && definitions !== undefined) {
       recordActions.push({ id: 'duplicate', label: 'Duplicate', title: 'A new record starting as a copy of this one', onClick: openDuplicate });
     }
-    if (props.onCompare !== undefined && (kind === 'pcbas' || kind === 'mechanicals')) {
+    if (props.onCompare !== undefined && (props.compareKinds ?? DEFAULT_COMPARE_KINDS).includes(kind)) {
       const id = mode.id;
       recordActions.push({ id: 'compare', label: 'Compare', title: 'Open this part in the compare view', onClick: () => props.onCompare?.(`${kind}/${id}`) });
     }
@@ -1149,7 +1154,7 @@ export function Library(props: LibraryProps): JSX.Element {
             + New {DEFINITION_NOUNS[kind]}
           </button>
           {props.listActions?.[kind] ?? null}
-          {props.onCompare !== undefined && (kind === 'pcbas' || kind === 'mechanicals') ? (
+          {props.onCompare !== undefined && (props.compareKinds ?? DEFAULT_COMPARE_KINDS).includes(kind) ? (
             comparePick === undefined ? (
               <button type="button" className="cs-small" title="Tick two parts to put them side by side" onClick={() => setComparePick([])}>
                 Compare

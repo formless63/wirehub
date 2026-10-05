@@ -34,7 +34,7 @@ describe('the example module', () => {
   it('contributes to every extension point of the module API', () => {
     const keys = Object.keys(example).sort();
     // every optional member of WireHubModule is set (a new extension point added to the API fails this until the example shows it)
-    const everyPoint: (keyof WireHubModule)[] = ['setup', 'catalogPacks', 'importers', 'exporters', 'partNumberScheme', 'validationRules', 'integrations', 'panels', 'routes', 'authProviders', 'commitHook', 'documents', 'derived'];
+    const everyPoint: (keyof WireHubModule)[] = ['setup', 'catalogPacks', 'importers', 'exporters', 'partNumberScheme', 'validationRules', 'integrations', 'panels', 'compareViews', 'routes', 'authProviders', 'commitHook', 'documents', 'derived'];
     for (const point of everyPoint) expect(keys, point).toContain(point);
     expect(registry.domains().map((m) => m.id)).toEqual(['example']);
     expect(registry.catalogPacks().map((p) => p.id)).toEqual(['example']);
@@ -44,6 +44,9 @@ describe('the example module', () => {
     expect(registry.exporters().map((e) => e.id)).toEqual(['joints-csv']);
     expect(registry.integrations().flatMap((i) => (i.routes ?? []).map((r) => `${r.method} ${r.path}${r.writes === true ? ' (writes)' : ''}`))).toEqual(['GET status', 'POST recount', 'GET recount', 'POST echo (writes)']);
     for (const slot of ['cable-inspector', 'cable-documents', 'library-detail', 'settings'] as const) expect(registry.panels(slot), slot).toHaveLength(1);
+    expect(registry.compareViews().map((v) => v.id)).toEqual(['example-compare']);
+    expect(registry.compareViewFor('mechanicals')?.module).toBe('example');
+    expect(registry.compareViewFor('connectors')).toBeUndefined();
     expect(registry.queues().map((q) => q.kind)).toEqual(['example:recount']);
     expect(registry.routes().map((r) => r.path)).toEqual(['status']);
     expect(registry.authProviders().map((a) => a.id)).toEqual(['example-sso']);

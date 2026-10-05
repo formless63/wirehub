@@ -13,7 +13,7 @@ import { Component, useMemo, type ComponentType, type ErrorInfo, type JSX, type 
 
 import { moduleApi } from './api.ts';
 
-class PanelBoundary extends Component<{ label: string; children: ReactNode }, { error?: string }> {
+export class PanelBoundary extends Component<{ label: string; children: ReactNode }, { error?: string }> {
   override state: { error?: string } = {};
   static getDerivedStateFromError(error: unknown): { error: string } {
     return { error: error instanceof Error ? error.message : String(error) };

@@ -570,6 +570,10 @@ export type { DepictionArtwork, DepictionSource } from '@wirehub/render-svg';
 export { EditorContext, useEditorApi } from './context.ts';
 export type { EditorApi } from './context.ts';
 /* The same cable on another trunk stock. */
+export { diffRecords, libraryRecord, libraryRecordIds } from './record-diff.ts';
+export type { DiffRow, DiffStatus } from './record-diff.ts';
+export { RecordCompare } from './panels/RecordCompare.tsx';
+export type { RecordRef } from './panels/RecordCompare.tsx';
 export { canSwapTrunkStock, previewTrunkStock, swappableStocks, withTrunkStock } from './stock-swap.ts';
 export type { StockSwapResult, TrunkMove } from './stock-swap.ts';
 
