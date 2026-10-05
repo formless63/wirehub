@@ -177,6 +177,15 @@ function fail(status: number, error: string, hint?: string): ApiResponse {
   return { status, body: { error, ...(hint === undefined ? {} : { hint }) } };
 }
 
+/** The library the settings read the drawing art from; branding is presentation, so a library that cannot be read leaves the art out. */
+async function libraryOf(deps: Pick<SettingsDeps, 'loadDb'>): Promise<Db | undefined> {
+  try {
+    return deps.loadDb === undefined ? undefined : await deps.loadDb();
+  } catch {
+    return undefined;
+  }
+}
+
 /** The bytes of a font by content address: an uploaded asset, else a file a pack shipped. */
 async function fontBytes(id: string, assets: AssetStore | undefined, context: BrandingContext): Promise<Uint8Array | undefined> {
   const asset = assets === undefined ? undefined : await assets.get(id);
@@ -445,7 +454,10 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
   const current = (await deps.docs.read(BRANDING_PATH)) as BrandingRecord | undefined;
   const ownArt = (await deps.docs.read(DRAWING_ART_PATH)) as DrawingArtData | undefined;
   const etag = contentETag({ branding: current ?? null, art: ownArt ?? null });
-  const context = async (): Promise<BrandingContext> => ({ ...(deps.blob === undefined ? {} : { blob: deps.blob }), ...(deps.loadDb === undefined ? {} : { db: await deps.loadDb() }) });
+  const context = async (): Promise<BrandingContext> => {
+    const db = await libraryOf(deps);
+    return { ...(deps.blob === undefined ? {} : { blob: deps.blob }), ...(db === undefined ? {} : { db }) };
+  };
   if (method === 'GET') {
     const view = await brandingView(current, deps.assets, await context());
     // the art this hub entered itself, apart from what packs add (the page edits only its own)
@@ -559,7 +571,7 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
   } else if (nextArt !== ownArt) await deps.docs.write(DRAWING_ART_PATH, nextArt);
   const saved = empty ? undefined : next;
   // the answer shows the art as it will draw: this hub's own over what its packs add (the library as read before this save, less the keys this hub's file held)
-  const library = deps.loadDb === undefined ? undefined : await deps.loadDb();
+  const library = await libraryOf(deps);
   const view = await brandingView(saved, deps.assets, { ...(deps.blob === undefined ? {} : { blob: deps.blob }), ...(library === undefined ? {} : { db: { ...library, ...layeredArt(library.drawingArt, ownArt, nextArt) } }) });
   return { status: 200, body: { ...view, ...(nextArt === undefined ? {} : { ownArt: nextArt }) }, headers: { ETag: contentETag({ branding: saved ?? null, art: nextArt ?? null }) } };
 }
