@@ -12,6 +12,7 @@ import { runImportJob } from './import.ts';
 import { parseWindow, runModelCacheJob, sourcesFromEnv, type ModelCacheJobOptions } from './model-cache.ts';
 import type { Notifier } from '../notify.ts';
 import type { JobHandlers } from './types.ts';
+import { backoffFromEnv, runWebhookJob } from '../webhooks/deliver.ts';
 
 export interface BaseHandlerOptions {
   deps: WorkbenchDeps;
@@ -47,6 +48,15 @@ export function baseJobHandlers(options: BaseHandlerOptions): JobHandlers {
       return outcome;
     },
   };
+  // delivering one webhook (`webhooks/deliver.ts`); the docs, the settings (secrets) and the queue are read at each run
+  handlers.webhook = (context) =>
+    runWebhookJob(context, {
+      docs: () => options.deps.docs,
+      settings: () => options.deps.runtimeSettings,
+      jobs: () => options.deps.jobs,
+      ...(options.deps.webhookFetch === undefined ? {} : { fetch: options.deps.webhookFetch }),
+      backoffSeconds: () => backoffFromEnv(envNow()),
+    });
   if (options.blobs !== undefined && options.orgId !== undefined) {
     const { blobs, orgId } = options;
     handlers.convert = (context) => runConvertJob(context, { blobs, orgId });

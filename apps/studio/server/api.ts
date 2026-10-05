@@ -40,13 +40,17 @@ import type { DesignStore } from './designs.ts';
 import { handleWireLibraryRequest, WIRE_LIBRARY_ROUTES, type WireLibraryStore } from './wire-library.ts';
 import { checkIfMatch, contentETag, staleWriteResponse } from './etag.ts';
 import { refuseTakenDesignNumber } from './part-number-guard.ts';
+import { WEBHOOK_ROUTES, handleWebhooksRequest, isWebhooksPath } from './webhooks/api.ts';
+import { clip, packEventOf, pnAssignedEvent } from './webhooks/derive.ts';
+import type { DomainEvent } from './webhooks/events.ts';
+import type { WebhookEmitter } from './webhooks/emitter.ts';
 import { RULES_ROUTES, handleRulesRequest, isRulesPath } from './rules-settings.ts';
 import { PN_SETTINGS_ROUTES, handlePartNumberSettings, isPnSettingsPath } from './pn-settings.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
 import { RUNTIME_SETTINGS_ROUTES, handleRuntimeSettingsRequest, handleSettingsAdopt, handleSettingsSecret, isSettingsAdoptPath, isSettingsSecretPath } from './runtime-settings-api.ts';
 import { isOwnerOnlySettingsPath } from './runtime-settings.ts';
-import { SETTING_GROUPS, runtimeEnv, type RuntimeSettings } from './runtime-settings.ts';
+import { runtimeEnv, type RuntimeSettings } from './runtime-settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
 import { LOCAL_FALLBACK, ME_ROUTES, type StudioUser } from './me.ts';
@@ -123,6 +127,12 @@ export interface ApiResponse {
    * client; the backup commit lists them under its subject.
    */
   changes?: string[];
+  /**
+   * What happened, for the outbound webhooks (`webhooks/`): set by a handler,
+   * emitted by `handleWorkbenchRequest` once the change set has committed.
+   * Server-side only, like `changes`.
+   */
+  events?: DomainEvent[];
 }
 
 export interface WorkbenchDeps {
@@ -301,6 +311,13 @@ export interface WorkbenchDeps {
    * answers 501.
    */
   runtimeSettings?: RuntimeSettings;
+  /**
+   * Outbound event webhooks (`webhooks/`): queues a delivery per matching subscription.
+   * Absent: no events are sent.
+   */
+  webhooks?: WebhookEmitter;
+  /** `fetch` for webhook deliveries; injected by tests */
+  webhookFetch?: typeof fetch;
 }
 
 /** `GET /api/part-numbers`' file half; `designs` and `drawings` come from the stores. */
@@ -615,10 +632,20 @@ async function putDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, ifMat
   await deps.designs.write(id, parsed.design);
   const stored = await deps.designs.read(id);
   const changes = designChangeLines(current, stored ?? parsed.design);
+  const saved = stored ?? parsed.design;
+  const subject = { kind: 'design', id, label: saved.label };
+  const pn = pnAssignedEvent(subject, 'productRef', current.productRef, saved.productRef);
   return {
     ...ok(stored, 200, stored === undefined ? undefined : { ETag: contentETag(stored) }),
     ...(changes.length === 0 ? {} : { changes }),
+    events: [{ type: 'design.saved', subject, summary: { action: 'updated', changes: clip(changes), instances: instanceCounts(saved), joints: saved.joints.length } }, ...(pn === undefined ? [] : [pn])],
   };
+}
+
+/** What a design holds, as counts, for an event's summary. */
+function instanceCounts(design: CableDesign): Record<string, number> {
+  const i = design.instances;
+  return { connectors: i.connectors.length, segments: i.segments.length, components: i.components.length, pcbas: i.pcbas.length, mechanical: (i.mechanical ?? []).length };
 }
 
 async function postDesign(deps: WorkbenchDeps, body: unknown): Promise<ApiResponse> {
@@ -632,7 +659,10 @@ async function postDesign(deps: WorkbenchDeps, body: unknown): Promise<ApiRespon
 
   await deps.designs.write(id, parsed.design);
   const created = await deps.designs.read(id);
-  return ok(created, 201, created === undefined ? undefined : { ETag: contentETag(created) });
+  const made = created ?? parsed.design;
+  const subject = { kind: 'design', id, label: made.label };
+  const pn = pnAssignedEvent(subject, 'productRef', undefined, made.productRef);
+  return { ...ok(created, 201, created === undefined ? undefined : { ETag: contentETag(created) }), events: [{ type: 'design.saved', subject, summary: { action: 'created', instances: instanceCounts(made), joints: made.joints.length } }, ...(pn === undefined ? [] : [pn])] };
 }
 
 async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown): Promise<ApiResponse> {
@@ -657,7 +687,7 @@ async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown)
 
   await deps.designs.write(move.newId, copy);
   const created = await deps.designs.read(move.newId);
-  return ok(created, 201, created === undefined ? undefined : { ETag: contentETag(created) });
+  return { ...ok(created, 201, created === undefined ? undefined : { ETag: contentETag(created) }), events: [{ type: 'design.saved', subject: { kind: 'design', id: move.newId, label: (created ?? copy).label }, summary: { action: 'duplicated', from: id } }] };
 }
 
 /**
@@ -700,7 +730,7 @@ async function renameDesign(deps: WorkbenchDeps, id: DesignId, body: unknown, if
     await deps.versions?.move(id, move.newId);
   }
   const stored = await deps.designs.read(move.newId);
-  return ok(stored, 200, stored === undefined ? undefined : { ETag: contentETag(stored) });
+  return { ...ok(stored, 200, stored === undefined ? undefined : { ETag: contentETag(stored) }), events: [{ type: 'design.saved', subject: { kind: 'design', id: move.newId, label: (stored ?? renamed).label }, summary: { action: move.newId === id ? 'relabelled' : 'renamed', ...(move.newId === id ? {} : { previousId: id }) } }] };
 }
 
 /**
@@ -735,7 +765,7 @@ async function deleteDesign(deps: WorkbenchDeps, id: DesignId, body: unknown): P
   }
   await deps.designs.remove(id);
   await deps.drawings?.remove(id);
-  return ok({ deleted: id });
+  return { ...ok({ deleted: id }), events: [{ type: 'design.deleted', subject: { kind: 'design', id }, summary: {} }] };
 }
 
 /* ------------------------------------------------------------------ *
@@ -773,10 +803,12 @@ async function drawingRequest(
     if (!parsed.ok) {
       return fail(422, 'Those drawing details could not be saved.', `Nothing was changed. ${parsed.problems.join(' ')}`);
     }
-    const taken = await refuseTakenDesignNumber(deps, id, 'drawing', parsed.meta.partNumber, (await drawings.read(id)).meta.partNumber);
+    const previousPn = (await drawings.read(id)).meta.partNumber;
+    const taken = await refuseTakenDesignNumber(deps, id, 'drawing', parsed.meta.partNumber, previousPn);
     if (taken !== undefined) return taken;
     await drawings.writeMeta(id, parsed.meta);
-    return ok(parsed.meta, 200, await tagOf());
+    const pn = pnAssignedEvent({ kind: 'design', id }, 'drawing', previousPn, parsed.meta.partNumber);
+    return { ...ok(parsed.meta, 200, await tagOf()), ...(pn === undefined ? {} : { events: [pn] }) };
   }
   if (action === 'photo' && rest.length === 0) {
     if (method !== 'PUT') return methodNotAllowed(method, ['PUT']);
@@ -918,6 +950,7 @@ const ROUTES = [
   ...SETTINGS_ROUTES,
   ...PN_SETTINGS_ROUTES,
   ...RULES_ROUTES,
+  ...WEBHOOK_ROUTES,
   ...RUNTIME_SETTINGS_ROUTES,
   ...VOCAB_ROUTES,
   ...WIRE_LIBRARY_ROUTES,
@@ -1062,6 +1095,18 @@ export function storeDepsOf(deps: WorkbenchDeps): StoreDeps {
  * belong in front of `routeWorkbenchRequest`, here.
  */
 export async function handleWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiResponse> {
+  const response = await dispatchWorkbenchRequest(request, deps);
+  // outbound webhooks: what the request did, once its change set has committed (never fails the request)
+  if (deps.webhooks !== undefined && response.status < 400 && isWriteMethod(request.method) && !isDryRun(request.path)) {
+    const path = request.path.split('?')[0] ?? '';
+    const pack = isPacksPath(path) || isStorePath(path, request.method) ? packEventOf(request.method.toUpperCase(), path, response.body) : undefined;
+    const events = [...(response.events ?? []), ...(pack === undefined ? [] : [pack])];
+    if (events.length > 0) await deps.webhooks.emit(events, { user: request.user ?? deps.localUser ?? LOCAL_FALLBACK }).catch(() => undefined);
+  }
+  return response;
+}
+
+async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiResponse> {
   // 3D models keep their own write discipline: a STEP conversion
   // takes seconds and must not hold every other save behind the write lock,
   // so the handler takes the lock itself around the link write only
@@ -1191,10 +1236,12 @@ async function runBatch(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiRe
   }
   const uow = new UnitOfWork(deps);
   const results: { status: number; body: unknown; etag?: string }[] = [];
+  const events: DomainEvent[] = [];
   for (const [i, item] of batch.requests.entries()) {
     const answer = await routeWorkbenchRequest(batchItemRequest(item, request), uow.deps);
     const etag = answer.headers?.ETag;
     results.push({ status: answer.status, body: answer.body, ...(etag === undefined ? {} : { etag }) });
+    events.push(...(answer.events ?? []));
     if (answer.status >= 400) {
       return { status: answer.status, body: { committed: false, failed: i, error: `Request ${i} was refused, so nothing was written.`, results } };
     }
@@ -1203,7 +1250,7 @@ async function runBatch(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiRe
   const committed = await commitUnit(uow, { method: 'POST', path: '/api/batch', body: { message: batch.message ?? `Batch of ${batch.requests.length} requests` }, ...(request.user === undefined ? {} : { user: request.user }) }, { status: 200, body: { committed: true, results } });
   if (committed.status >= 400) return { status: committed.status, body: { ...(committed.body as object), committed: false, results } };
   if (uow.changes.length > 0) await publishCatalog(deps);
-  return committed;
+  return events.length === 0 ? committed : { ...committed, events };
 }
 
 /** Tell the event stream the catalog moved (a backend that hears its own NOTIFY drops this). */
@@ -1323,7 +1370,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   if (head === 'docs' && id !== undefined) {
     // an owner-only settings group's document is shown to owners only, like its page
     const docPath = parts.slice(2).join('/');
-    if (SETTING_GROUPS.some((g) => g.role === 'owner' && g.path === docPath) && !(user.role === undefined || user.role === 'owner')) return fail(403, `${docPath} is shown to owners.`);
+    if (isOwnerOnlySettingsPath(docPath) && !(user.role === undefined || user.role === 'owner')) return fail(403, `${docPath} is shown to owners.`);
     return await docRequest(method, docPath, request.body, deps, request.headers?.['if-match']);
   }
 
@@ -1379,6 +1426,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   const runtime = await handleRuntimeSettingsRequest(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
   if (runtime !== undefined) return runtime;
 
+  if (isWebhooksPath(parts)) return await handleWebhooksRequest(method, parts, request.path, request.body, deps, ifMatch, request.user ?? deps.localUser);
   if (isRulesPath(parts)) return await handleRulesRequest(method, parts, request.body, deps, ifMatch);
   if (isPnSettingsPath(parts)) return await handlePartNumberSettings(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
 

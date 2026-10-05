@@ -61,6 +61,7 @@ import type { ModuleRegistry } from '@wirehub/modules';
 
 import type { InstalledPacks } from '@wirehub/catalog';
 import { refuseChangedNumber } from './part-number-guard.ts';
+import { pnAssignedEvent } from './webhooks/derive.ts';
 import { partNumberSchemeOf } from './part-number-scheme.ts';
 
 import type { ApiError, ApiResponse } from './api.ts';
@@ -1040,7 +1041,8 @@ async function putDefinition(
   if (rejection !== undefined) return rejection;
 
   await store.write(kind, next);
-  return ok(parsed.record, 200, { ETag: contentETag(parsed.record) });
+  const pn = pnAssignedEvent({ kind, id, label: (parsed.record as { label?: string }).label ?? id }, numberField, pnOf(current), pnOf(parsed.record));
+  return { ...ok(parsed.record, 200, { ETag: contentETag(parsed.record) }), ...(pn === undefined ? {} : { events: [pn] }) };
 }
 
 /** The kinds a design instantiates by id — one id space between them (`validateDb` duplicate-id). */
@@ -1092,7 +1094,10 @@ async function postDefinition(
   if (rejection !== undefined) return rejection;
 
   await store.write(kind, next);
-  return ok(parsed.record, 201, { ETag: contentETag(parsed.record) });
+  const numberField = kind === 'kits' ? 'sku' : 'partNumber';
+  const given = (parsed.record as unknown as Record<string, unknown>)[numberField];
+  const pn = pnAssignedEvent({ kind, id, label: (parsed.record as { label?: string }).label ?? id }, numberField, undefined, typeof given === 'string' ? given : undefined);
+  return { ...ok(parsed.record, 201, { ETag: contentETag(parsed.record) }), ...(pn === undefined ? {} : { events: [pn] }) };
 }
 
 /**

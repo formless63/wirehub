@@ -21,7 +21,7 @@ import type { StudioUser } from '../me.ts';
 import type { Awaitable, RecordChange } from '../storage/change-set.ts';
 
 /** The base's queues (§2). A module's queue is `<module>:<queue>`. */
-export const JOB_KINDS = ['import', 'convert', 'model-cache', 'derive', 'blob-gc', 'backup', 'git-mirror'] as const;
+export const JOB_KINDS = ['import', 'convert', 'model-cache', 'derive', 'blob-gc', 'backup', 'git-mirror', 'webhook'] as const;
 export type BaseJobKind = (typeof JOB_KINDS)[number];
 /** A queue a module registered (`@wirehub/modules` `JobQueueContribution`): `<module id>:<queue id>`. */
 export type ModuleJobKind = `${string}:${string}`;
@@ -113,7 +113,14 @@ export interface JobStore {
 /** Hands a recorded job to whatever runs it. */
 export interface JobRunner {
   readonly describe: string;
-  submit(job: JobRun): Promise<void>;
+  /** `delayMs`: do not start before this long from now (a webhook's retry backoff) */
+  submit(job: JobRun, options?: { delayMs?: number }): Promise<void>;
+}
+
+/** Options of `JobService.enqueue`. */
+export interface EnqueueOptions {
+  /** do not start before this long from now */
+  delayMs?: number;
 }
 
 export interface JobContext {
@@ -130,7 +137,7 @@ export interface JobService {
   readonly describe: string;
   /** the kinds this deployment can run */
   readonly kinds: readonly JobKind[];
-  enqueue(kind: JobKind, request: Record<string, unknown>, by?: StudioUser): Promise<JobRun>;
+  enqueue(kind: JobKind, request: Record<string, unknown>, by?: StudioUser, options?: EnqueueOptions): Promise<JobRun>;
   get(id: string): Promise<JobRun | undefined>;
   list(options?: { kind?: JobKind; limit?: number }): Promise<JobRun[]>;
   files(id: string): Promise<PlanFile[]>;
