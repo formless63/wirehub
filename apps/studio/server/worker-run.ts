@@ -22,6 +22,7 @@ import { openPg, resolveOrgId, type PgHandle } from './pg/db.ts';
 import { checkDatabase, pgWorkbenchDeps } from './pg/deps.ts';
 import { beat, bossJobRunner, bossQueueName, BOSS_SCHEMA, lastBeat, pgJobHandlers, pgJobStore, startBoss, type BossPayload } from './pg/jobs.ts';
 import { SnapshotCache } from './pg/snapshot.ts';
+import { describeMirror, gitMirrorConfigFromEnv } from './history/mirror.ts';
 
 export interface WorkerOptions {
   env?: Record<string, string | undefined>;
@@ -147,6 +148,12 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     ];
     const window = /^\s*(\d{1,2}):(\d{2})\s*-/.exec(env.WIREHUB_CONVERT_WINDOW ?? '');
     if (window !== null) scheduled.push({ kind: 'model-cache', cron: `${Number(window[2])} ${Number(window[1])} * * *` });
+    // the git mirror, when configured: every change set as a commit (cs-5k1.4)
+    const mirror = gitMirrorConfigFromEnv(env);
+    if (mirror !== undefined) {
+      scheduled.push({ kind: 'git-mirror', cron: mirror.cron });
+      log(`git mirror to ${describeMirror(mirror)}`);
+    }
     // a module queue's own schedule
     scheduled.push(...moduleSchedules(deps.modules));
     for (const s of scheduled) {
@@ -166,7 +173,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     beatTimer.unref?.();
 
     // the boot sweep: every live model key built, the derived records sound, the backups looked at
-    for (const kind of ['model-cache', 'derive', 'backup'] as const) {
+    for (const kind of ['model-cache', 'derive', 'backup', 'git-mirror'] as const) {
       if (kinds.includes(kind)) await jobs.enqueue(kind, { reason: 'boot' });
     }
     log(`working ${kinds.join(', ')} for org ${org}; blobs ${blobs?.describe ?? 'none'}; schedules ${scheduled.map((s) => `${s.kind} "${s.cron}"`).join(', ')} (${tz})`);

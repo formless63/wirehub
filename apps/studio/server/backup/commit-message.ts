@@ -14,6 +14,7 @@
  * where the path has none), so it needs no knowledge of any store.
  */
 
+import { parseSubject, subjectLabel } from '../../src/history/types.ts';
 import type { StudioUser } from '../me.ts';
 
 export interface GitIdentity {
@@ -98,6 +99,12 @@ export function describeSave(request: SaveRequest): string {
   // a module importer's accepted proposal: /api/modules/<module>/_import/<importer>
   if (head === 'modules' && parts[1] === '_import' && parts[0] !== undefined && parts[2] !== undefined) {
     return oneLine(`import ${field(request.body, 'fileName') ?? 'a file'} with ${parts[0]}/${parts[2]}`);
+  }
+  // a restore from the history: /api/history/records/<subject>/restore
+  if (head === 'history' && parts[0] === 'records' && parts[1] !== undefined && parts[2] === 'restore') {
+    const subject = parseSubject(parts[1]);
+    const entry = field(request.body, 'entry');
+    return oneLine(`restore ${subject === undefined ? parts[1] : subjectLabel(subject)}${entry === undefined ? '' : ` to change ${entry.length === 40 ? entry.slice(0, 12) : entry}`}`);
   }
   let kind = KINDS[head] ?? singular(head);
   let action = VERBS[method] ?? method.toLowerCase();

@@ -21,7 +21,7 @@ import type { StudioUser } from '../me.ts';
 import type { Awaitable, RecordChange } from '../storage/change-set.ts';
 
 /** The base's queues (§2). A module's queue is `<module>:<queue>`. */
-export const JOB_KINDS = ['import', 'convert', 'model-cache', 'derive', 'blob-gc', 'backup'] as const;
+export const JOB_KINDS = ['import', 'convert', 'model-cache', 'derive', 'blob-gc', 'backup', 'git-mirror'] as const;
 export type BaseJobKind = (typeof JOB_KINDS)[number];
 /** A queue a module registered (`@wirehub/modules` `JobQueueContribution`): `<module id>:<queue id>`. */
 export type ModuleJobKind = `${string}:${string}`;

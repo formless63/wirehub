@@ -33,6 +33,7 @@ import { ModuleRoute, ModulesRoute } from './routes/ModuleRoute.tsx';
 import { JobsRoute } from './routes/JobsRoute.tsx';
 import { SettingsRoute } from './routes/SettingsRoute.tsx';
 import { PartNumbersRoute } from './routes/PartNumbersRoute.tsx';
+import { HistoryRoute } from './routes/HistoryRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
@@ -203,6 +204,13 @@ export const partNumbersRoute = createRoute({
   component: PartNumbersRoute,
 });
 
+/** `/history`: the hub's change history — who changed what, when; filters by person, date and kind */
+export const historyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/history',
+  component: HistoryRoute,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   setupRoute,
@@ -217,6 +225,7 @@ const routeTree = rootRoute.addChildren([
   jobsRoute,
   settingsRoute,
   partNumbersRoute,
+  historyRoute,
 ]);
 
 /**

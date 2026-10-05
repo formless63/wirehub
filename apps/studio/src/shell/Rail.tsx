@@ -6,7 +6,7 @@
  */
 
 import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconBuilding, IconListNumbers, IconChecklist, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
+import { IconBox, IconBuilding, IconListNumbers, IconChecklist, IconHistory, IconKey, IconList, IconPlug, IconPuzzle, IconReport, IconSettings, IconTool, IconUsers } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { LockNameAvatar } from '../locks/LockNameAvatar.tsx';
@@ -66,6 +66,9 @@ export function Rail(): JSX.Element {
         );
       })}
       <span className="grow" />
+      <Link to="/history" aria-label="History" title="History — who changed what, and when" className={railIcon(pathname === '/history')}>
+        <IconHistory size={18} />
+      </Link>
       {hasImporters ? (
         <Link to="/jobs" aria-label="Jobs" title="Jobs — imports to review and publish, model builds" className={railIcon(pathname === '/jobs')}>
           <IconChecklist size={18} />

@@ -25,6 +25,7 @@ import { watchAudit } from './audit-watch.ts';
 import { runBackupJob, runBlobGcJob } from './gc.ts';
 import { putDerivedModel } from './model-cache.ts';
 import type { SnapshotCache } from './snapshot.ts';
+import { describeMirror, gitMirrorConfigFromEnv, runGitMirrorJob } from '../history/mirror.ts';
 
 export const BOSS_SCHEMA = 'pgboss';
 
@@ -248,7 +249,23 @@ export function pgHousekeepingHandlers(options: HousekeepingOptions): JobHandler
   // a standing failure repeats at most every six hours; an audit finding once a day
   const alerts = options.notify === undefined ? undefined : throttled(options.notify, 6 * 3_600_000);
   const auditAlerts = options.notify === undefined ? undefined : throttled(options.notify, 24 * 3_600_000);
+  // the git mirror (opt-in, WIREHUB_GIT_MIRROR_*): every change set as a commit (cs-5k1.4)
+  const mirror = gitMirrorConfigFromEnv(env);
+  const mirrorAlerts = options.notify === undefined ? undefined : throttled(options.notify, 6 * 3_600_000);
   return {
+    ...(mirror === undefined || options.cache === undefined
+      ? {}
+      : {
+          'git-mirror': async (context) => {
+            try {
+              return await runGitMirrorJob(context, { db, orgId, cache: options.cache!, config: mirror, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), ...(options.deps.modules === undefined ? {} : { modules: options.deps.modules }) });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              await mirrorAlerts?.notify({ event: 'git-mirror-failed', severity: 'high', title: 'Git mirror stopped', message: `${describeMirror(mirror)}: ${message}` });
+              throw error;
+            }
+          },
+        }),
     derive: (context) => runDeriveJob(context, options.deps, options.cache === undefined ? {} : { refresh: () => options.cache!.discard() }),
     'blob-gc': (context) =>
       runBlobGcJob(context, {

@@ -319,9 +319,9 @@ export function mountWorkbenchApi(
     // an importer's file as raw bytes (no base64, no JSON): always a job
     const io = parseModuleIoPath(path);
     if (io?.kind === 'import' && method === 'PUT') return handleImportUpload(io, c.req.raw, deps, backup);
-    // module routes take their options as a query string; a dry run is `?dryRun=1`; nothing else reads one
+    // module routes and the history take their options as a query string; a dry run is `?dryRun=1`; nothing else reads one
     const search = new URL(c.req.url).search;
-    const withQuery = isModulePath(path) || new URLSearchParams(search).get('dryRun') === '1';
+    const withQuery = isModulePath(path) || path === '/api/history' || path.startsWith('/api/history/') || new URLSearchParams(search).get('dryRun') === '1';
     return handleJson(method, withQuery ? `${path}${search}` : path, c.req.raw, deps, backup);
   };
   // what changed, as server-sent events (B6): ahead of compression, which would buffer the stream
