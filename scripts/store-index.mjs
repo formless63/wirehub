@@ -61,7 +61,10 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const store = await import(new URL('packages/catalog/src/store-index.ts', `file://${root}`).href);
 const packSig = await import(new URL('packages/catalog/src/pack-signature.ts', `file://${root}`).href);
-const archive = await import(new URL('apps/studio/server/pack-archive.ts', `file://${root}`).href);
+// The pack archive reader needs the workspace installed (it resolves @wirehub/catalog); the commands that
+// only handle keys and signatures do not, so `keygen` works from a plain clone of the repository.
+const NO_ARCHIVE = new Set(['keygen', 'pubkey', 'publisher-keygen', 'sign', 'verify', 'official-pubkey']);
+const archive = NO_ARCHIVE.has(process.argv.slice(2).find((a) => !a.startsWith('--'))) ? undefined : await import(new URL('apps/studio/server/pack-archive.ts', `file://${root}`).href);
 
 export const OFFICIAL_STORE = { id: 'wirehub', name: 'WireHub bundled packs', homepage: 'https://github.com/formless63/wirehub' };
 

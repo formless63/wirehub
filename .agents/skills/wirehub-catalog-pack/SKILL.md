@@ -161,7 +161,11 @@ versions and revoked keys (`docs/catalog-store.md`, "As built (phase 5)").
    with WireHub, is installed from `/setup`, and the pages workflow
    (`.github/workflows/pages.yml`) puts it in the official index (`store-index.mjs official`) signed
    with the `WIREHUB_STORE_SIGNING_KEY` secret. Bump its version as above.
-3. **Your own store** (a shop, maker or community pack, never in this repository): bundle, index,
+3. **Your own store** (a shop, maker or community pack, never in this repository). The easy way is
+   the **store template** (`templates/store/`, `docs/store-hosting.md`): a GitHub template repository
+   whose workflow calls this repository's `.github/actions/build-store` action (verify, bundle,
+   index, sign with secrets, publish on Pages; pin the action's ref to pin the tooling). Put each pack
+   version in its own directory under `packs/` and keep the old ones. By hand, bundle, index,
    sign and host it yourself, keeping the private key out of every repository:
 
    ```

@@ -1,0 +1,88 @@
+name: Build a WireHub module store
+description: >-
+  Verifies, bundles, indexes and signs a directory of WireHub catalog packs into a static store
+  (index.json, index.json.minisig, wirehub-store.pub and the pack bundles), and uploads it as a
+  GitHub Pages artifact. The tooling comes with this action: pin the action's ref and you have
+  pinned the tooling (docs/store-hosting.md).
+
+inputs:
+  store-signing-key:
+    description: PEM text of the store key (a secret; `store-index.mjs keygen` makes it). Signs index.json.
+    required: true
+  pack-signing-key:
+    description: PEM text of the publisher key (a secret; `publisher-keygen` makes it). Signs every pack when set.
+    required: false
+    default: ''
+  packs-dir:
+    description: Directory whose subdirectories are packs (each holding a wirehub-pack.json). Keep a directory per released version.
+    required: false
+    default: packs
+  meta:
+    description: The store-meta.json file (publishers, review status, yanked versions, revoked keys).
+    required: false
+    default: store-meta.json
+  store-id:
+    description: Kebab-case id of the store. Defaults to the repository name.
+    required: false
+    default: ''
+  store-name:
+    description: Display name of the store. Defaults to the repository name.
+    required: false
+    default: ''
+  homepage:
+    description: The store's homepage URL. Defaults to the repository's URL.
+    required: false
+    default: ''
+  base-url:
+    description: Absolute URL the bundles are served from (bundle URLs are relative to the index when empty; that is what you want on Pages).
+    required: false
+    default: ''
+  output-dir:
+    description: Where the static site is written.
+    required: false
+    default: _site
+  upload-pages-artifact:
+    description: Upload the site as the Pages artifact ('true' or 'false').
+    required: false
+    default: 'true'
+
+outputs:
+  public-key:
+    description: The store's public key (RW...), what people paste into Settings > Store sources.
+    value: ${{ steps.build.outputs.public-key }}
+  output-dir:
+    description: The directory holding the built site.
+    value: ${{ steps.build.outputs.output-dir }}
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        package_json_file: ${{ github.action_path }}/../../../package.json
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    # the bundler reads packs back with the studio's own archive reader, which resolves workspace packages
+    - name: Install the store tooling
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../..
+      run: pnpm install --frozen-lockfile --ignore-scripts --filter "studio..."
+    - name: Verify, bundle, index and sign
+      id: build
+      shell: bash
+      env:
+        WIREHUB_STORE_SIGNING_KEY: ${{ inputs.store-signing-key }}
+        WIREHUB_PACK_SIGNING_KEY: ${{ inputs.pack-signing-key }}
+        STORE_PACKS_DIR: ${{ inputs.packs-dir }}
+        STORE_META: ${{ inputs.meta }}
+        STORE_OUT: ${{ inputs.output-dir }}
+        STORE_ID: ${{ inputs.store-id != '' && inputs.store-id || github.event.repository.name }}
+        STORE_NAME: ${{ inputs.store-name != '' && inputs.store-name || github.event.repository.name }}
+        STORE_HOMEPAGE: ${{ inputs.homepage != '' && inputs.homepage || github.event.repository.html_url }}
+        STORE_BASE_URL: ${{ inputs.base-url }}
+      run: bash "${{ github.action_path }}/build-store.sh"
+    - uses: actions/upload-pages-artifact@v3
+      if: ${{ inputs.upload-pages-artifact == 'true' }}
+      with:
+        path: ${{ steps.build.outputs.output-dir }}

@@ -336,7 +336,7 @@ node scripts/store-index.mjs pubkey --key ~/wirehub-store-keys/wirehub-store.key
 `sign` and `pubkey` also read the key from `WIREHUB_STORE_SIGNING_KEY` (the PEM text). Without a
 key `sign` says the index is left unsigned and exits 0 (`--required` makes it fail).
 
-**Hosting your own index.** A store is static files: put the bundles, `index.json` and
+**Hosting your own index.** `docs/store-hosting.md` is the short way: a GitHub template repository (`templates/store`) and a reusable action that build, sign and publish a store with no tooling of your own. By hand, a store is static files: put the bundles, `index.json` and
 `index.json.minisig` in one directory on any https host (GitHub Pages, an object store, a web
 server), keep every version you published in it (the index lists what the directory holds, and a
 design built on an old version can be re-validated against it), rebuild and re-sign after every
