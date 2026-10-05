@@ -46,6 +46,9 @@ importers:
       '@wirehub/editor-react':
         specifier: workspace:*
         version: link:../../packages/editor-react
+      '@wirehub/layout':
+        specifier: workspace:*
+        version: link:../../packages/layout
       '@wirehub/model':
         specifier: workspace:*
         version: link:../../packages/model

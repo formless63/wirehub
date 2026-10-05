@@ -20,7 +20,8 @@
 
 import { isDesignId } from '@wirehub/catalog';
 import { BASE_EXPORTS, baseExport, readTestParameters, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
-import { releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type VersionSummary } from '@wirehub/model';
+import { knownPartNumbers, releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type DesignVersionFile, type KnownPartNumber, type PartNumberScheme, type VersionSummary } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
@@ -29,6 +30,9 @@ import { type ApprovalFacts, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, i
 import { approvalPolicy, effectiveTestDefaults } from './settings.ts';
 import type { DocStore } from './storage/doc-store.ts';
 import type { VersionStore } from './versions.ts';
+import type { DepictionStore } from './depictions.ts';
+import { depictionIdsOf, revisionDepictions, safeCatalog, storeDepictions } from './render/depictions.ts';
+import { partNumberSchemeOf, type SchemeDeps } from './part-number-scheme.ts';
 import { isWireSpecFormat, renderWireSpec, WIRE_SPEC_FORMATS } from './render/wire-spec.ts';
 import type { WireLibraryStore } from './wire-library.ts';
 import type { Awaitable } from './storage/change-set.ts';
@@ -40,7 +44,7 @@ export const DOCUMENT_ROUTES = [
   'GET    /api/exports',
 ] as const;
 
-export interface DocumentDeps {
+export interface DocumentDeps extends SchemeDeps {
   designs: DesignStore;
   loadDb: () => Awaitable<Db>;
   versions?: VersionStore;
@@ -49,6 +53,8 @@ export interface DocumentDeps {
   testDefaults?: TestParameters;
   /** catalog documents by path: where the engineering settings live */
   docs?: DocStore;
+  /** the artwork store: given it, the sheets draw its artwork (uploaded boards included), not only the catalog tree's */
+  depictions?: DepictionStore;
   /** the wire stock recipes and parts the spec sheet reads */
   wireLibrary?: WireLibraryStore;
 }
@@ -80,6 +86,8 @@ interface Loaded {
   target: 'working' | number | undefined;
   /** set when the hub requires approvals and a saved revision is rendered */
   approvals?: ApprovalFacts;
+  /** the saved revision's file, when one is rendered: its frozen artwork is drawn */
+  version?: DesignVersionFile;
 }
 
 async function load(deps: DocumentDeps, id: string, rev: string | null): Promise<Loaded | ApiResponse> {
@@ -122,8 +130,40 @@ async function load(deps: DocumentDeps, id: string, rev: string | null): Promise
     drawing,
     ...(photo === undefined ? {} : { photo }),
     target: number,
+    version: file,
     ...(policy.enabled ? { approvals: { ...(file.approval === undefined ? {} : { approval: file.approval }) } } : {}),
   };
+}
+
+/** The artwork the sheets draw: the store's (uploaded boards too) when the hub keeps one, a revision's own copy over it. `undefined`: the catalog tree, as before. */
+async function artworkOf(deps: DocumentDeps, loaded: Loaded): Promise<DepictionSource | undefined> {
+  if (deps.depictions === undefined && loaded.version === undefined) return undefined;
+  try {
+    const live = deps.depictions === undefined ? safeCatalog() : await storeDepictions(deps.depictions, depictionIdsOf(loaded.design, loaded.db));
+    return loaded.version === undefined || deps.versions === undefined ? live : await revisionDepictions(deps.versions, loaded.version, live);
+  } catch {
+    // artwork is presentation: a store that cannot be read draws the catalog's tree
+    return undefined;
+  }
+}
+
+/** The numbering scheme and every number in use: what the BOM's proposals for unnumbered parts read. */
+async function partNumbersOf(deps: DocumentDeps, loaded: Loaded): Promise<{ scheme: PartNumberScheme; known: readonly KnownPartNumber[] } | undefined> {
+  if (deps.loadPartNumberFiles === undefined && deps.modules === undefined) return undefined;
+  try {
+    const designs: CableDesign[] = [];
+    const pns: KnownPartNumber[] = [];
+    for (const summary of await deps.designs.list()) {
+      const design = await deps.designs.read(summary.id);
+      if (design === undefined) continue;
+      designs.push(design);
+      const pn = (await deps.drawings?.read(summary.id))?.meta.partNumber;
+      if (pn !== undefined) pns.push({ pn, kind: 'design', source: `drawings/${summary.id}` });
+    }
+    return { scheme: await partNumberSchemeOf(deps), known: knownPartNumbers(loaded.db, designs, pns) };
+  } catch {
+    return undefined;
+  }
 }
 
 function today(): string {
@@ -213,6 +253,10 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const meta = releaseMeta(loaded.drawing, loaded.target, loaded.approvals);
   const orgDefaults = await effectiveTestDefaults(deps);
 
+  const wantsProposals = (section === 'documents' && (name === 'bom' || name === 'build-sheet')) || (section === 'exports' && (name === 'bom.csv' || name === 'production.xlsx'));
+  const artwork = section === 'documents' && ['schematic', 'build-sheet', 'bom'].includes(name) ? await artworkOf(deps, loaded) : undefined;
+  const partNumbers = wantsProposals ? await partNumbersOf(deps, loaded) : undefined;
+
   if (section === 'exports') {
     const format = baseExport(name);
     if (format === undefined) return fail(404, `There is no export called '${name}'.`, `Formats: ${BASE_EXPORTS.map((f) => f.id).join(', ')}.`);
@@ -226,6 +270,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
       ...(page === undefined ? {} : { page }),
       ...(copies === undefined ? {} : { copies }),
       ...(quantity === undefined ? {} : { buildQty: quantity }),
+      ...(partNumbers === undefined ? {} : { partNumbers }),
     };
     try {
       return file(format.render(loaded.design, loaded.db, options), false);
@@ -253,6 +298,8 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(copies === undefined ? {} : { copies }),
     ...(quantity === undefined ? {} : { buildQty: quantity }),
     ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
+    ...(artwork === undefined ? {} : { depictions: artwork }),
+    ...(partNumbers === undefined ? {} : { partNumbers }),
     today: today(),
   });
   if (!result.ok) return fail(result.status, result.error, result.hint);

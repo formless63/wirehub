@@ -201,10 +201,10 @@ with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
   browser engine, which this repository does not ship. For the full sheet use `html` and
   print to PDF in a browser. The PDF is written by `apps/studio/server/render/pdf.ts` with
   no dependency, in Helvetica; characters outside Latin-1 are transliterated (`Ω` as `ohm`).
-- Board artwork on the headless build sheet and schematic comes from the catalog's artwork
-  tree; the database backend serves its artwork to the browser only, so a headless render
-  of a design with uploaded artwork may draw those boards as plain blocks. The BOM's
-  part-number proposals for unnumbered parts are also left out.
+- Board artwork on the headless schematic, build sheet and BOM comes from the hub's artwork
+  store — on the database backend that includes uploaded artwork — over the catalog's own
+  tree, and a saved revision draws the artwork it was saved with (as the browser does). The
+  BOM carries the numbering scheme's proposals for unnumbered parts.
 
 ### Command line
 

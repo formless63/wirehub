@@ -39,7 +39,8 @@ import {
   type FormatOutput,
   type TestParameters,
 } from '@wirehub/docs';
-import type { CableDesign, Db } from '@wirehub/model';
+import type { CableDesign, Db, KnownPartNumber, PartNumberScheme } from '@wirehub/model';
+import type { DepictionSource } from '@wirehub/render-svg';
 
 import { layoutMarkdown, PAPER } from './layout.ts';
 import { pagesToPdf, type PdfPage } from './pdf.ts';
@@ -101,6 +102,10 @@ export interface DocumentRequest {
   unreleased?: boolean;
   /** the word the mark carries (default UNRELEASED; a saved version still awaiting approval says UNAPPROVED) */
   unreleasedLabel?: string;
+  /** board artwork the sheets draw (default: the catalog's own tree) */
+  depictions?: DepictionSource;
+  /** the numbering scheme and every number in use: unnumbered BOM parts carry a proposal */
+  partNumbers?: { scheme: PartNumberScheme; known: readonly KnownPartNumber[] };
   /** a date to stamp when the sheet settings ask for one (the library renders no clock) */
   today?: string;
 }
@@ -145,7 +150,8 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     ...(request.page === undefined ? {} : { page: request.page }),
     ...(request.copies === undefined ? {} : { copies: request.copies }),
     ...(request.buildQty === undefined ? {} : { buildQty: request.buildQty }),
-    depictions: true,
+    depictions: request.depictions ?? true,
+    ...(request.partNumbers === undefined ? {} : { partNumbers: request.partNumbers }),
   };
   const out = (body: string | Uint8Array, fileFormat: DocumentFormat = format): DocumentResult => ({
     ok: true,
@@ -165,7 +171,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
       case 'schematic': {
         let svg: string;
         try {
-          svg = renderSchematic(design, db);
+          svg = renderSchematic(design, db, request.depictions === undefined ? {} : { depictions: request.depictions });
         } catch {
           svg = renderSchematic(design, db, { depictions: false });
         }

@@ -34,6 +34,7 @@
     "@wirehub/catalog": "workspace:*",
     "@wirehub/docs": "workspace:*",
     "@wirehub/editor-react": "workspace:*",
+    "@wirehub/layout": "workspace:*",
     "@wirehub/model": "workspace:*",
     "@wirehub/module-automotive": "workspace:*",
     "@wirehub/module-av-video": "workspace:*",
