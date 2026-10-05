@@ -40,9 +40,9 @@ export const EXPECTED_LOG = [
   expect.stringMatching(/^gerbers preview: 200 \{"definitions":\{\},"depictions":\["synthetic-adapter-rev-2"\],/),
   'gerbers: done',
   expect.stringMatching(/^gerbers proposal: \{"definitions":\{\},"depictions":\["synthetic-adapter-rev-2"\],/),
-  // the export leaves artwork out, so a replaced SVG reads as new in the plan
-  'gerbers plan: new depictions/synthetic-adapter-rev-2/board-bottom.svg svg=true',
-  'gerbers plan: new depictions/synthetic-adapter-rev-2/board-top.svg svg=true',
+  // a replaced SVG is a change, not a new file (cs-5k1.31)
+  'gerbers plan: changed depictions/synthetic-adapter-rev-2/board-bottom.svg svg=true',
+  'gerbers plan: changed depictions/synthetic-adapter-rev-2/board-top.svg svg=true',
   'gerbers plan: changed depictions/synthetic-adapter-rev-2/meta.json',
   'gerbers publish: 200 applied 3',
   'art after gerbers: gerber/gerber; anchor A {"x":5,"y":5,"side":"top","pads":[{"ref":"TP1","pad":"1","x":5,"y":5,"side":"top"}]}',
@@ -53,9 +53,9 @@ export const EXPECTED_LOG = [
   'fab-bom publish: 200 applied 6',
   'board parts: Synthetic adapter 2 C1=capacitor-100nf-0603,C2=capacitor-100nf-0603,J1=connector-conn-01x03-pinheader-1x03-p2.54mm-vertical,R1=resistor-120r-0603,R2=resistor-1k-0603,U1=ic-xcvr-soic-8',
   'components: capacitor-100nf-0603,connector-conn-01x03-pinheader-1x03-p2.54mm-vertical,ic-xcvr-soic-8,resistor-120r-0603,resistor-1k-0603',
-  'model upload: 200 kicad-board assembly@2a697f25 data/model-sources/<sha>.kicad_pcb.txt {"footprints":12,"libraryModels":1,"embeddedModels":0}',
+  'model upload: 200 kicad-board assembly@2a697f25 data/model-sources/<sha>.kicad_pcb.txt,depictions/synthetic-adapter-rev-2/board-bottom.svg,depictions/synthetic-adapter-rev-2/board-top.svg {"footprints":12,"libraryModels":1,"embeddedModels":0}',
   'model built before the job: false',
-  'model-cache: built pcbas/synthetic-adapter-rev-2 failed []; library asked 2a697f25:kicad-packages3D/Resistor_SMD.3dshapes/R_0603_1608Metric.step; instances 1',
+  'model-cache: built pcbas/synthetic-adapter-rev-2 failed []; library asked 2a697f25:kicad-packages3D/Resistor_SMD.3dshapes/R_0603_1608Metric.step; instances 1; art top true bottom true',
   'model built after the job: true',
 ];
 

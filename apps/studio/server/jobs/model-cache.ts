@@ -63,14 +63,16 @@ export interface ModelCacheJobOptions {
   put?: (key: string, glb: Uint8Array, meta: { triangles: number; inputs: unknown; jobId: string }) => Promise<void>;
 }
 
-/** The catalog's depiction art as a source (`depictions/<id>/board-top.svg`): text files of the catalog itself. */
+/**
+ * The catalog's depiction art as a source (`depictions/<id>/board-top.svg`).
+ * Artwork is a binary file: the catalog export lists it only by content
+ * address, so it is read from the artwork store.
+ */
 export function catalogArtSources(deps: WorkbenchDeps): SourceReader {
-  let files: Record<string, string> | undefined;
   return async (path) => {
-    if (!path.startsWith('depictions/')) return undefined;
-    files ??= (await deps.exportCatalog?.())?.files ?? {};
-    const text = files[path];
-    return text === undefined ? undefined : new TextEncoder().encode(text);
+    const m = /^depictions\/([^/]+)\/([^/]+)$/.exec(path);
+    if (m === null || deps.depictions === undefined) return undefined;
+    return deps.depictions.readAsset(m[1]!, m[2]!);
   };
 }
 

@@ -28,6 +28,7 @@ import { routeWorkbenchRequest, type ApiResponse, type WorkbenchDeps } from '../
 import { batchItemRequest } from '../batch.ts';
 import type { BlobStore } from '../blobs.ts';
 import type { StudioUser } from '../me.ts';
+import { boardArtFiles, relinkWithArt } from '../models/board-art.ts';
 import { ImportExtrasRefused, proposalOf, readImportOptions, stageImportExtras } from '../module-io.ts';
 import { CatalogTree, treeWorkbenchDeps } from '../pg/tree.ts';
 import { commitChangeSet, UnitOfWork } from '../storage/unit-of-work.ts';
@@ -110,8 +111,15 @@ export async function planFiles(deps: WorkbenchDeps, changes: readonly RecordCha
     const content = typeof raw === 'string' ? raw : svg === undefined ? undefined : new TextDecoder().decode(svg);
     if (content === undefined) continue;
     const before = exported.files[path];
-    if (before === content) continue;
-    out.push({ path, status: before === undefined ? 'new' : 'changed', ...(typeof before === 'string' ? { beforeEtag: sha256(before) } : {}), content });
+    // artwork is a binary file: the export lists it by content address (`blobs`), not as text
+    const beforeBlob = before === undefined ? exported.blobs?.[path] : undefined;
+    if (before === content || (beforeBlob !== undefined && beforeBlob === sha256(content))) continue;
+    out.push({
+      path,
+      status: before === undefined && beforeBlob === undefined ? 'new' : 'changed',
+      ...(typeof before === 'string' ? { beforeEtag: sha256(before) } : beforeBlob === undefined ? {} : { beforeEtag: beforeBlob }),
+      content,
+    });
   }
   return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
@@ -153,6 +161,12 @@ export async function runImportJob(context: JobContext, { deps, blobs }: ImportD
     const { keptDepictions } = await stageImportExtras(uow.deps, extras);
     for (const id of keptDepictions) summary.existing.push(`depictions/${id}`);
     if (summary.depictions !== undefined) summary.depictions = summary.depictions.filter((id) => !keptDepictions.includes(id));
+    // a board whose Gerber art was just imported shows it on its 3D model: re-key the model's link (cs-5k1.29)
+    for (const id of summary.depictions ?? []) {
+      const link = await uow.deps.modelLinks?.get(`pcbas/${id}`);
+      const next = link === undefined ? undefined : relinkWithArt(link, await boardArtFiles(uow.deps.depictions, id));
+      if (next !== undefined) await uow.deps.modelLinks!.put(next);
+    }
   } catch (error) {
     if (error instanceof ImportExtrasRefused) throw new Error(error.message);
     throw error;

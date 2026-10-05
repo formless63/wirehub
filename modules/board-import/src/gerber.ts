@@ -6,9 +6,11 @@
  * standard apertures (C, R, O, P) and aperture macros (primitives 1, 4, 5, 7,
  * 20, 21, 22, with `$n` variables and arithmetic), linear and circular
  * interpolation (G01/G02/G03, G74/G75), flashes, regions (G36/G37), polarity
- * (`%LPD%`/`%LPC%`) and file attributes (`%TF…%`). Step-and-repeat and the
- * mirroring/rotation/scaling statements (`%SR`, `%LM`, `%LR`, `%LS`) are
- * reported, not applied: board houses' layer files rarely carry them.
+ * (`%LPD%`/`%LPC%`), file attributes (`%TF…%`), step-and-repeat (`%SR`, a
+ * panel's copies of the block) and the aperture mirroring, rotation and
+ * scaling statements (`%LM`, `%LR`, `%LS`, which move a flash, not a stroke or
+ * a region). Macro bodies are in the file's units, like the rest of an inch
+ * file; Excellon routed slots (G85, and G00/M15/G01/M16 routs) are slots.
  *
  * Output coordinates are millimetres with **y pointing down** (Gerber's y is
  * negated), the frame the KiCad board file uses — so the board art and the
@@ -51,6 +53,8 @@ interface Aperture {
   kind: 'C' | 'R' | 'O' | 'P' | 'macro';
   params: number[];
   macro?: string;
+  /** a macro's length unit: mm per file unit where it was defined (its body is in file units) */
+  unit?: number;
 }
 
 type Expr = (vars: Map<number, number>) => number;
@@ -262,6 +266,20 @@ export function plotGerber(text: string): LayerPlot {
   let contourStart: Point | undefined;
   let lastOp = 'D02';
   let pos: Point = { x: 0, y: 0 };
+  // aperture transformation (`%LM%`, `%LR%`, `%LS%`) and the open step-and-repeat block (`%SR%`)
+  const tf = { mx: 1, my: 1, rot: 0, ls: 1 };
+  interface StepRepeat {
+    nx: number;
+    ny: number;
+    /** step distances, mm */
+    dx: number;
+    dy: number;
+    el: number;
+    fl: number;
+    st: number;
+    bounds?: { x0: number; y0: number; x1: number; y1: number };
+  }
+  let sr: StepRepeat | undefined;
   const warned = new Set<string>();
   const warn = (w: string): void => {
     if (!warned.has(w)) {
@@ -279,6 +297,43 @@ export function plotGerber(text: string): LayerPlot {
       b.x1 = Math.max(b.x1, x + r);
       b.y1 = Math.max(b.y1, yy + r);
     }
+    if (sr !== undefined) {
+      const q = sr.bounds;
+      if (q === undefined) sr.bounds = { x0: x - r, y0: yy - r, x1: x + r, y1: yy + r };
+      else {
+        q.x0 = Math.min(q.x0, x - r);
+        q.y0 = Math.min(q.y0, yy - r);
+        q.x1 = Math.max(q.x1, x + r);
+        q.y1 = Math.max(q.y1, yy + r);
+      }
+    }
+  };
+  /** end the step-and-repeat block: the copies of what it drew, one per step */
+  const closeStepRepeat = (): void => {
+    const block = sr;
+    sr = undefined;
+    if (block === undefined) return;
+    const elements = plot.elements.slice(block.el);
+    const flashes = plot.flashes.slice(block.fl);
+    const strokes = plot.strokes.slice(block.st);
+    for (let ix = 0; ix < block.nx; ix++) {
+      for (let iy = 0; iy < block.ny; iy++) {
+        if (ix === 0 && iy === 0) continue;
+        const ox = ix * block.dx;
+        // gerber y is up, the output's is down
+        const oy = -iy * block.dy;
+        for (const e of elements) plot.elements.push({ dark: e.dark, svg: `<g transform="translate(${n(ox)} ${n(oy)})">${e.svg}</g>` });
+        for (const f of flashes) plot.flashes.push({ ...f, x: f.x + ox, y: f.y + oy });
+        for (const line of strokes) plot.strokes.push(line.map((q) => ({ x: q.x + ox, y: q.y + oy })));
+        const q = block.bounds;
+        if (q !== undefined && plot.bounds !== undefined) {
+          plot.bounds.x0 = Math.min(plot.bounds.x0, q.x0 + ox);
+          plot.bounds.x1 = Math.max(plot.bounds.x1, q.x1 + ox);
+          plot.bounds.y0 = Math.min(plot.bounds.y0, q.y0 + oy);
+          plot.bounds.y1 = Math.max(plot.bounds.y1, q.y1 + oy);
+        }
+      }
+    }
   };
   const coord = (raw: string): number => {
     if (raw.includes('.')) return Number(raw) * scale;
@@ -291,7 +346,7 @@ export function plotGerber(text: string): LayerPlot {
   const emit = (svg: string): void => {
     plot.elements.push({ dark, svg });
   };
-  const flashAperture = (ap: Aperture, at: Point, polarity: boolean): void => {
+  const flashPlain = (ap: Aperture, at: Point, polarity: boolean): void => {
     const add = (svg: string, d = polarity): void => {
       plot.elements.push({ dark: d, svg });
     };
@@ -328,6 +383,24 @@ export function plotGerber(text: string): LayerPlot {
         break;
     }
   };
+  /** a flash with the aperture transformation (mirror, then rotate, then scale, about the flash) applied */
+  const flashAperture = (ap: Aperture, at: Point, polarity: boolean): void => {
+    const e0 = plot.elements.length;
+    const f0 = plot.flashes.length;
+    flashPlain(ap, at, polarity);
+    if (tf.mx === 1 && tf.my === 1 && tf.rot === 0 && tf.ls === 1) return;
+    const o = out(at);
+    const transform = `translate(${n(o.x)} ${n(o.y)}) scale(${n(tf.ls)}) rotate(${n(-tf.rot)}) scale(${tf.mx} ${tf.my}) translate(${n(-o.x)} ${n(-o.y)})`;
+    for (let k = e0; k < plot.elements.length; k++) plot.elements[k] = { ...plot.elements[k]!, svg: `<g transform="${transform}">${plot.elements[k]!.svg}</g>` };
+    const quarter = Math.abs(tf.rot % 90) < 1e-9;
+    const swap = quarter && Math.abs(Math.round(tf.rot / 90)) % 2 === 1;
+    for (let k = f0; k < plot.flashes.length; k++) {
+      const f = plot.flashes[k]!;
+      const [hw, hh] = quarter ? (swap ? [f.hh, f.hw] : [f.hw, f.hh]) : [Math.hypot(f.hw, f.hh), Math.hypot(f.hw, f.hh)];
+      plot.flashes[k] = { ...f, hw: hw * tf.ls, hh: hh * tf.ls };
+      grow(f.x, -f.y, Math.max(hw, hh) * tf.ls);
+    }
+  };
   const flashMacro = (ap: Aperture, at: Point, polarity: boolean): void => {
     const body = macros.get(ap.macro ?? '');
     if (body === undefined) {
@@ -343,7 +416,16 @@ export function plotGerber(text: string): LayerPlot {
       }
       const p = statement.primitive!;
       const v = p.args.map((e) => e(vars));
-      const exposure = (v[0] ?? 1) !== 0;
+      // lengths are in the file's units: millimetres from here on (rotations, vertex counts and exposure are not lengths)
+      const unit = ap.unit ?? 1;
+      if (unit !== 1) {
+        const lengths: number[] =
+          p.code === 1 ? [1, 2, 3] : p.code === 2 || p.code === 20 ? [1, 2, 3, 4, 5] : p.code === 21 || p.code === 22 ? [1, 2, 3, 4] : p.code === 5 ? [2, 3, 4] : p.code === 7 ? [0, 1, 2, 3, 4] : [];
+        if (p.code === 4) for (let k = 2; k < 2 + 2 * (Math.round(v[1] ?? 0) + 1); k++) lengths.push(k);
+        for (const k of lengths) if (v[k] !== undefined) v[k] = v[k]! * unit;
+      }
+      // the thermal (7) has no exposure argument: it is always dark
+      const exposure = p.code === 7 || (v[0] ?? 1) !== 0;
       const add = (svg: string): void => {
         plot.elements.push({ dark: exposure ? polarity : !polarity, svg });
       };
@@ -525,7 +607,7 @@ export function plotGerber(text: string): LayerPlot {
           const standard = name === 'C' || name === 'R' || name === 'O' || name === 'P';
           // apertures' sizes are in file units; polygon vertex counts and rotations are not
           const scaled = standard ? params.map((p, k) => (name === 'P' && k > 0 ? p : p * scale)) : params.map((p) => p);
-          apertures.set(Number(m[1]), standard ? { kind: name as Aperture['kind'], params: scaled } : { kind: 'macro', params: scaled.map((p) => p * scale), macro: name });
+          apertures.set(Number(m[1]), standard ? { kind: name as Aperture['kind'], params: scaled } : { kind: 'macro', params: params.map((p) => p), macro: name, unit: scale });
         }
       } else if (first.startsWith('AM')) {
         macros.set(first.slice(2), parseMacro(blocks.slice(1)));
@@ -534,8 +616,28 @@ export function plotGerber(text: string): LayerPlot {
       } else if (first.startsWith('TF')) {
         const [key, ...rest] = first.slice(2).split(',');
         if (key !== undefined) plot.attributes[key] = rest.join(',');
-      } else if (/^(SR|LM|LR|LS)/.test(first) && !/^SR$|^SRX1Y1/.test(first) && first !== 'LMN' && !/^LR0(\.0*)?$/.test(first) && !/^LS1(\.0*)?$/.test(first)) {
-        warn(`%${first.slice(0, 2)}% (step-repeat, mirror, rotate or scale) is not applied`);
+      } else if (first.startsWith('SR')) {
+        closeStepRepeat();
+        const m = /^SR(?:X(\d+))?(?:Y(\d+))?(?:I([-+]?[\d.]+))?(?:J([-+]?[\d.]+))?$/.exec(first);
+        if (m === null) warn(`%${first}% is not understood`);
+        else {
+          const nx = Number(m[1] ?? 1);
+          const ny = Number(m[2] ?? 1);
+          if (nx * ny > 100_000) warn(`step-and-repeat of ${nx} x ${ny} is too large and is not applied`);
+          else if (nx * ny > 1) sr = { nx, ny, dx: Number(m[3] ?? 0) * scale, dy: Number(m[4] ?? 0) * scale, el: plot.elements.length, fl: plot.flashes.length, st: plot.strokes.length };
+        }
+      } else if (first.startsWith('LM')) {
+        const m = /^LM(N|X|Y|XY)$/.exec(first);
+        if (m === null) warn(`%${first}% is not understood`);
+        else {
+          tf.mx = m[1] === 'X' || m[1] === 'XY' ? -1 : 1;
+          tf.my = m[1] === 'Y' || m[1] === 'XY' ? -1 : 1;
+        }
+      } else if (first.startsWith('LR')) {
+        tf.rot = Number(first.slice(2)) || 0;
+      } else if (first.startsWith('LS')) {
+        const v = Number(first.slice(2));
+        tf.ls = v > 0 ? v : 1;
       }
       continue;
     }
@@ -619,6 +721,7 @@ export function plotGerber(text: string): LayerPlot {
     pos = target;
   }
   if (region) closeContour();
+  closeStepRepeat();
   return plot;
 }
 
@@ -632,6 +735,8 @@ export interface Drill {
   y: number;
   diameter: number;
   plated?: boolean;
+  /** a routed slot (G85, or a rout between M15 and M16): the other end, output frame; the slot is `diameter` wide */
+  to?: { x: number; y: number };
 }
 
 export function isExcellon(text: string): boolean {
@@ -649,6 +754,7 @@ export function parseExcellon(text: string): { drills: Drill[]; warnings: string
   let plated: boolean | undefined;
   let last: Point = { x: 0, y: 0 };
   let leadingZeros = true;
+  let toolDown = false;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (line === '') continue;
@@ -688,13 +794,20 @@ export function parseExcellon(text: string): { drills: Drill[]; warnings: string
       tool = Number(select[1]);
       continue;
     }
-    if (/^(G85|G00|G01|M15|M16|M17)/.test(line)) {
-      if (!warnings.includes('routed slots are not drawn')) warnings.push('routed slots are not drawn');
+    if (line === 'M15') {
+      toolDown = true;
+      continue;
+    }
+    if (line === 'M16' || line === 'M17') {
+      toolDown = false;
       continue;
     }
     if (header) continue;
-    const xy = /^(?:G\d+)?(?:X([+-]?[\d.]+))?(?:Y([+-]?[\d.]+))?$/.exec(line);
-    if (xy === null || (xy[1] === undefined && xy[2] === undefined)) continue;
+    const parsed = /^(?:G0*(\d+))?((?:X[+-]?[\d.]+)?(?:Y[+-]?[\d.]+)?)(?:(?:A|I|J)[+-]?[\d.]+)*(?:G85((?:X[+-]?[\d.]+)?(?:Y[+-]?[\d.]+)?))?$/.exec(line);
+    if (parsed === null) continue;
+    const [, gText, from, slotEnd] = parsed;
+    const g = gText === undefined ? undefined : Number(gText);
+    if (from === '' && slotEnd === undefined) continue;
     const value = (s: string | undefined, prev: number): number => {
       if (s === undefined) return prev;
       if (s.includes('.')) return Number(s) * scale;
@@ -705,8 +818,39 @@ export function parseExcellon(text: string): { drills: Drill[]; warnings: string
       const v = leadingZeros ? Number(digits) / 10 ** decimals : Number(digits.padEnd((inch ? 2 : 3) + decimals, '0')) / 10 ** decimals;
       return sign * v * scale;
     };
-    last = { x: value(xy[1], last.x), y: value(xy[2], last.y) };
+    const at = (text: string): Point => ({ x: value(/X([+-]?[\d.]+)/.exec(text)?.[1], last.x), y: value(/Y([+-]?[\d.]+)/.exec(text)?.[1], last.y) });
     const diameter = tool === undefined ? undefined : tools.get(tool);
+    const slot = (a: Point, b: Point): void => {
+      if (diameter === undefined) return;
+      drills.push({ x: a.x, y: -a.y, diameter, to: { x: b.x, y: -b.y }, ...(plated === undefined ? {} : { plated }) });
+    };
+    if (slotEnd !== undefined) {
+      // `X…Y…G85X…Y…`: a slot from the first position to the second
+      const start = at(from!);
+      last = at(slotEnd);
+      slot(start, last);
+      continue;
+    }
+    if (g === 85) {
+      // `G85X…Y…` on its own line: from where the last position was
+      const start = last;
+      last = at(from!);
+      slot(start, last);
+      continue;
+    }
+    const target = at(from!);
+    if (g === 0) {
+      // a rapid move: the start of a rout, not a hole
+      last = target;
+      continue;
+    }
+    if (g === 1 || g === 2 || g === 3) {
+      if ((g === 2 || g === 3) && !warnings.includes('routed arcs are drawn as straight slots')) warnings.push('routed arcs are drawn as straight slots');
+      if (toolDown) slot(last, target);
+      last = target;
+      continue;
+    }
+    last = target;
     if (diameter === undefined) continue;
     drills.push({ x: last.x, y: -last.y, diameter, ...(plated === undefined ? {} : { plated }) });
   }

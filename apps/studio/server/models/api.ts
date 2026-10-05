@@ -27,7 +27,9 @@ import { DEFINITION_KINDS, isDefinitionKind, type DefinitionKind } from '../defi
 import { checkIfMatch, contentETag } from '../etag.ts';
 import type { Awaitable } from '../storage/change-set.ts';
 import { withWriteLock } from '../storage/write-lock.ts';
+import type { DepictionStore } from '../depictions.ts';
 import { boardLibraryRefs } from './assembly.ts';
+import { boardArtFiles } from './board-art.ts';
 import { sha256Hex, sourceKey, type ModelBuild, type ModelCache, type SourceFile } from './cache.ts';
 import { MAX_MODEL_TRIANGLES } from './finish.ts';
 import { parseKicadPcb } from './kicad-pcb.ts';
@@ -54,6 +56,8 @@ export interface ModelDeps {
   cache?: ModelCache;
   /** catalog documents: where an uploaded board file is kept as a model source (`MODEL_SOURCES_DIR`) */
   docs?: DocStore;
+  /** artwork: a board's gerber-tier art is painted on its model (`board-art.ts`) */
+  depictions?: DepictionStore;
   loadDb: () => Awaitable<Db>;
   /** injectable for tests; the real one forks the STEP child */
   convert?: (bytes: Uint8Array, name: string) => Promise<ConvertedModel>;
@@ -90,6 +94,7 @@ export function modelDepsOf(deps: WorkbenchDeps, user?: StudioUser): ModelDeps {
     ...(deps.assets === undefined ? {} : { assets: deps.assets }),
     ...(deps.modelCache === undefined ? {} : { cache: deps.modelCache }),
     ...(deps.docs === undefined ? {} : { docs: deps.docs }),
+    ...(deps.depictions === undefined ? {} : { depictions: deps.depictions }),
     loadDb: deps.loadDb,
     ...(deps.convertModel === undefined ? {} : { convert: deps.convertModel }),
     ...(who === undefined ? {} : { who }),
@@ -319,7 +324,7 @@ async function uploadBoardFile(
   const stored = new TextEncoder().encode(text);
   const sha = sha256Hex(stored);
   const path = `${MODEL_SOURCES_DIR}/${sha}.kicad_pcb.txt`;
-  const files: SourceFile[] = [{ path, sha256: sha }];
+  const files: SourceFile[] = [{ path, sha256: sha }, ...(await boardArtFiles(deps.depictions, upload.id))];
   const build: ModelBuild = { kind: 'assembly', library: KICAD_LIBRARY.commit };
   const refs = boardLibraryRefs(board);
   const current = await deps.links!.get(upload.record);
