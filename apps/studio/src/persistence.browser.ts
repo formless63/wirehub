@@ -256,8 +256,8 @@ export function workbenchAssets(base = '/api'): AssetsAdapter {
 }
 
 /**
- * The shared asset store's files as a wire stock's vendor documents
- *: every stored file, listed without its bytes, and
+ * The shared asset store's files as a wire stock's vendor documents:
+ * every stored file, listed without its bytes, and
  * opened in-app from `GET /api/assets/:id`.
  */
 export function workbenchDocuments(base = '/api'): VendorDocumentsAdapter {

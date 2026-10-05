@@ -1,6 +1,6 @@
 /**
- * KiCad's standard 3D model library as a model source (;
- * owner 2026-09-29: "Yes to the kicad 3d library").
+ * KiCad's standard 3D model library as a model source (the Library shows these
+ * models alongside the shop's own).
  *
  * The library is gitlab.com/kicad/libraries/kicad-packages3D, CC-BY-SA 4.0
  * with an exception for use in designs (see /NOTICE). Only the files a link

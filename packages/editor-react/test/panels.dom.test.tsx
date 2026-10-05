@@ -68,7 +68,7 @@ describe('derived panels', () => {
     expect(screen.getByText('made up for the view')).toBeDefined();
   });
 
-  it('offers a design note as the fix for a floating end, naming the terminal (udy.5)', () => {
+  it('offers a design note as the fix for a floating end, naming the terminal', () => {
     const base = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const state: EditorState = {
       ...base,
@@ -90,7 +90,7 @@ describe('derived panels', () => {
     });
   });
 
-  it('edits design notes: add, change, remove (udy.5)', () => {
+  it('edits design notes: add, change, remove', () => {
     const state = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const notes = state.design.notes ?? [];
     const { dispatch, ui } = harness(state, <NotesPanel state={state} />);

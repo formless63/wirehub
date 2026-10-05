@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The Parts drawer: host chrome (apps/studio's Build
- * view) has no permanent palette (`3pn.3`), so dragging a part onto the
+ * view) has no permanent palette, so dragging a part onto the
  * canvas needs a toggleable stand-in. This proves the toggle, the drag
  * itself, and that it lands through the exact same `add-instance` dispatch
  * the node picker uses — one undo step, not a second code path.

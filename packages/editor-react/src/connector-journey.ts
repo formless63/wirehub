@@ -1,12 +1,12 @@
 /**
- * The connector journey's state, as pure functions (data model v2 §8 J1,
- *). `panels/ConnectorJourney.tsx` is the screen; this is
+ * The connector journey's state, as pure functions (data model v2 §8 J1).
+ * `panels/ConnectorJourney.tsx` is the screen; this is
  * everything it computes, so it can be tested without a DOM.
  *
  * A connector is three records: the **body** (shell, gender, positions — the
  * drawing belongs to it), a **pinout** on that body (a signal per position),
- * and the **connector** designs reference (the pair plus its part number,
- * owner Q2 (a): today's ids keep working). The journey edits all three on
+ * and the **connector** designs reference (the pair plus its part number;
+ * today's ids keep working). The journey edits all three on
  * one screen and saves them in order: body, pinout, connector.
  */
 
@@ -345,7 +345,7 @@ export function composeJourneyConnector(
   const construction = identity.construction.trim();
   const sourcing = identity.sourcing.trim();
   const label = identity.label.trim();
-  // a renamed connector keeps its earlier names, so a search for one still finds it (50a.60)
+  // a renamed connector keeps its earlier names, so a search for one still finds it
   const earlier = baseline?.aliases ?? [];
   const aliases = baseline !== undefined && baseline.label !== label && !earlier.includes(baseline.label) ? [...earlier, baseline.label] : earlier;
   return {

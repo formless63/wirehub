@@ -347,7 +347,7 @@ describe('click a pin, click the picture', () => {
     ).toBeUndefined();
   });
 
-  it('counts only the pins cables solder to, when the host says which (50a.25)', () => {
+  it('counts only the pins cables solder to, when the host says which', () => {
     const none = anchorProgress(TERMINALS, {});
     expect(unanchoredSentence(none, 'SCART male', {})).toBeUndefined();
     const one = unanchoredSentence(none, 'SCART male', { '2': ['a-cable'] });

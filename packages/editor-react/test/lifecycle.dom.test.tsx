@@ -206,7 +206,7 @@ describe('Delete', () => {
   });
 });
 
-describe('Save with warnings (50a.16)', () => {
+describe('Save with warnings', () => {
 
   it('saves straight through when there is nothing to look at', async () => {
     const clean = { ...structuredClone(REAL), label: 'edited' };
@@ -217,14 +217,13 @@ describe('Save with warnings (50a.16)', () => {
   });
 });
 
-describe('New (50a.7)', () => {
+describe('New', () => {
   it('opens the guided wizard when the host hands the library in', () => {
     setup({ withDb: true });
     fireEvent.click(screen.getByRole('button', { name: 'New…' }));
     const heading = screen.getByRole('heading', { name: 'New cable' });
     expect(heading).toBeTruthy();
-    // the wizard's intro sentence moved into the heading's tooltip (3pn.2 —
-    // no narrative copy on the page itself)
+    // the wizard's intro sentence moved into the heading's tooltip (// no narrative copy on the page itself)
     expect(heading.title).toContain('already wired');
   });
 

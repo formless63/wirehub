@@ -7,7 +7,7 @@
  * `@wirehub/layout`'s `endFaceLayout` (through render-svg's re-export),
  * which is the documents' cross-section with each end's chirality applied:
  * the destination end reads the ring clockwise, the source end
- * counter-clockwise (owner, 2026-09-23). This module only scales the two faces
+ * counter-clockwise. This module only scales the two faces
  * into the node and names the handles. `derive.ts` attaches the result to the
  * segment's node data, `nodes/WireNode.tsx` paints exactly it and
  * `layout-size.ts` reserves exactly its size.

@@ -180,7 +180,7 @@ describe('assembleDepictionSource', () => {
   });
 });
 
-describe('the lazy source (udy.9)', () => {
+describe('the lazy source', () => {
   const later = <T,>(value: T) => {
     let calls = 0;
     const load = async (): Promise<T> => {
@@ -299,7 +299,7 @@ describe('the definitions the browser bundles', () => {
 
 });
 
-describe('a saved revision draws its own artwork (pci.27)', () => {
+describe('a saved revision draws its own artwork', () => {
   const live = assembleDepictionSource({
     meta: { 'x/board/meta.json': meta('board'), 'x/added/meta.json': meta('added'), 'x/bare/meta.json': meta('bare') },
     vector: { 'x/board/board-top.svg': '<svg id="today"/>', 'x/added/board-top.svg': ART, 'x/bare/board-top.svg': ART },

@@ -303,7 +303,7 @@ export function trunkSegment(design: CableDesign, db: Db): SegmentInstance | und
     return wire === undefined ? 0 : walkStructure(wire.structure).cores.length;
   };
   // a leg out of a breakout mould is never the trunk, however long (a Y-audio's
-  // 300 mm legs on a 200 mm stem, owner 2026-09-25)
+  // 300 mm legs on a 200 mm stem)
   const legs = new Set((design.instances.breakouts ?? []).flatMap((b) => b.legs.map((l) => l.segment)));
   const trunks = new Set((design.instances.breakouts ?? []).map((b) => b.trunk.segment));
   let best: SegmentInstance | undefined;

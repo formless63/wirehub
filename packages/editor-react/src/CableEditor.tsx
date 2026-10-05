@@ -127,7 +127,7 @@ export interface CableEditorProps {
   db: Db;
   /** called with every accepted design; never called for a rejected edit */
   onDesignChange?: (design: CableDesign) => void;
-  /** the bench's strip steps (the host's wire library) — a segment's 3D view strips by them (50a.58) */
+  /** the bench's strip steps (the host's wire library) — a segment's 3D view strips by them */
   stripPractice?: () => Promise<Outcome<StripPractice[]>>;
   /** draw depictions in the preview from the catalog tree (needs a filesystem) */
   previewDepictions?: boolean;
@@ -334,7 +334,7 @@ export interface EditorHandle {
   openLifecycle: (action: LifecycleAction) => void;
   /** opens the node picker at the viewport centre, listing every part — what the app's "Add part…" command calls */
   openPicker: () => void;
-  /** opens the canvas's find-a-pin box (udy.6) — what `/` drives */
+  /** opens the canvas's find-a-pin box — what `/` drives */
   findPin: () => void;
 }
 
@@ -384,7 +384,7 @@ const VIEW_LABELS: Record<View, string> = {
   artwork: 'Artwork',
 };
 type DockTab = 'preview' | 'json';
-/** The right panel's tabs (spec: ui-redesign, Canvas v2 item 6 — e5c.5). */
+/** The right panel's tabs (spec: ui-redesign, Canvas v2 item 6). */
 type SideTab = 'connection' | 'part' | 'nets' | 'issues' | 'notes';
 const SIDE_TABS: readonly SideTab[] = ['connection', 'part', 'nets', 'issues', 'notes'];
 const SIDE_TAB_LABELS: Record<SideTab, string> = {
@@ -505,7 +505,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   /**
    * The Parts drawer: `chrome="full"` already has the
    * palette pinned open beside the canvas; `chrome="host"` (apps/studio's
-   * Build view) has no room for a permanent one (3pn.3 — two columns, not
+   * Build view) has no room for a permanent one (two columns, not
    * five), so it gets a toggleable one instead. Same `Palette` component,
    * same `PART_MIME` drag onto `.cs-canvas`'s existing `onDrop` below — one
    * `add-instance` dispatch either way, so dragging a part in is exactly as
@@ -922,7 +922,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   // the hovered ground pigtail: shared by its wire node and its edge
   const [hoverStore] = useState(createHoverStore);
 
-  // the strip practice, once, for the segment 3D view (50a.58)
+  // the strip practice, once, for the segment 3D view
   const [stripPractice, setStripPractice] = useState<StripPractice[] | undefined>(undefined);
   const loadPractice = props.stripPractice;
   useEffect(() => {
@@ -948,7 +948,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
     [state.selection, openPicker, partLabelsVisible, requestDelete, stripPractice],
   );
 
-  // the drawing form's Suggest (hdy.9): one scope per catalog, like the Library's
+  // the drawing form's Suggest: one scope per catalog, like the Library's
   const partNumbers = props.partNumbers;
   const pnScope = useMemo(() => (partNumbers === undefined ? undefined : partNumberScope(partNumbers, state.db)), [partNumbers, state.db]);
 
@@ -1034,7 +1034,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       setSide('connection');
     }
     // a selection with something to show is also what opens the mobile
-    // drawer (50a.35) — inert at desktop widths, see `.cs-side`'s own CSS
+    // drawer — inert at desktop widths, see `.cs-side`'s own CSS
     if (selectionKind !== undefined) setSideOpen(true);
   }, [selectionKind]);
 
@@ -1052,7 +1052,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
    * host's `ref` callback fires only on a real mount/unmount.
    */
   /**
-   * Find a pin (udy.6): select the terminal — its net lights — and centre the
+   * Find a pin: select the terminal — its net lights — and centre the
    * view on it. In Parts detail the pins are not drawn, so switch to Pins
    * first and look again on the next frame.
    */
@@ -1464,7 +1464,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                   </button>
                 </div>
 
-                {/* portrait phone widths only (50a.35) — reopens the
+                {/* portrait phone widths only — reopens the
                     inspector drawer after it has been closed; the CSS that
                     shows this button lives inside the same media query as
                     `.cs-side`'s drawer behaviour, so it is inert on desktop */}
@@ -1541,7 +1541,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                   <Controls />
                   {/* the minimap is drawn, not defaulted: React Flow's own
                       colours are a white card, which on this canvas read as a
-                      blank rectangle someone forgot to style (50a.21). Nodes
+                      blank rectangle someone forgot to style. Nodes
                       keep the palette's kind colours, so the map is a legend
                       of the cable as much as a viewport. */}
                   <MiniMap
@@ -1634,7 +1634,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                     ) : null}
                   </button>
                 ))}
-                {/* portrait phone widths only (50a.35) — `.cs-side-close` is
+                {/* portrait phone widths only — `.cs-side-close` is
                     `display: none` outside that media query */}
                 <button
                   type="button"

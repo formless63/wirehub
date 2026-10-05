@@ -6,8 +6,8 @@ import { depictionsFromRoot } from '@wirehub/layout';
 import { renderSchematic } from '../src/index.ts';
 
 /**
- * The goldens render the frozen fixture catalog (`packages/catalog/fixtures/v1`,
- *) — its designs, its definitions and its own artwork — so
+ * The goldens render the frozen fixture catalog (`packages/catalog/fixtures/v1`)
+ * — its designs, its definitions and its own artwork — so
  * an edit to a live design in the studio never fails this file. Every live
  * design is still rendered and checked, by invariant rather than by bytes, in
  * `audit.test.ts`, `structure.test.ts`, `determinism.test.ts` and the via check

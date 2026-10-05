@@ -452,8 +452,8 @@ export interface CarriedMount extends ConnectorMount {
  * least half of all its joints. `prefixes` are the carrier's terminal
  * prefixes the plug's pins solder into (`j1`, not the slot pads `jp` that
  * only T-join the board beyond; `j1` stays even though its J1-4 / J1-5 also
- * T-join, owner batch 10). A pin the carrier does not route lands on the
- * board beyond directly (none on the DIN-8 perfboard since batch 10).
+ * T-join). A pin the carrier does not route lands on the
+ * board beyond directly.
  *
  * Presentation only: both drawings dock the plug on the carrier and set the
  * carrier beside the board beyond; the design is unchanged. A plug every
@@ -488,8 +488,8 @@ export function carriedConnectors(design: CableDesign): Map<string, CarriedMount
     ];
     if (onCarrier.length * 2 < total || !onCarrier.every((terminal) => terminal.includes('.'))) continue;
     // the board beyond: the one the carrier's pads T-join (every pin may go
-    // through the carrier — the DIN-8 perfboard routes all eight, owner batch
-    // 10 — so it need not take any of the plug's own pins)
+    // through the carrier — the DIN-8 perfboard routes all eight —
+    // so it need not take any of the plug's own pins)
     const joinedTo = new Map<string, Set<string>>();
     for (const joint of design.joints) {
       for (const [mine, other] of [
@@ -517,7 +517,7 @@ export function carriedConnectors(design: CableDesign): Map<string, CarriedMount
   return out;
 }
 
-/** A board pad a docked plug's pin lands on through a carrier hole (e5c.37). */
+/** A board pad a docked plug's pin lands on through a carrier hole. */
 export interface ThroughLanding {
   /** the board pad beneath the hole (`u1:jp.4`) */
   pad: string;
@@ -531,7 +531,7 @@ export interface ThroughLanding {
  * The design as the schematic draws it: a joint made
  * `through` a carrier's hole by a plug docked on that carrier is drawn as the
  * pin going into the hole, like every other pin of the plug — the hole IS
- * the board pad's joint (owner 2026-09-29), so no run goes on to the board;
+ * the board pad's joint, so no run goes on to the board;
  * the board pad is listed in `landings` and drawn landed instead. Nets are
  * the real design's (the caller derives them from it). Presentation only.
  */

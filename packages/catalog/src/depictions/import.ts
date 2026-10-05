@@ -592,7 +592,7 @@ export function mergeDepictionMeta(
     asset: DepictionAsset;
     /** Every terminal id the definition exposes, or `undefined` when unknown. */
     expectedIds?: readonly string[];
-    /** other names an expected id answers to — anchored under any, it is not a to-do (50a.24) */
+    /** other names an expected id answers to — anchored under any, it is not a to-do */
     expectedAliases?: Readonly<Record<string, readonly string[]>>;
     src: string;
   },

@@ -11,7 +11,7 @@
  * A pad the board file gives no axis for (a round/square pad — a bodge pad,
  * or the SCART family's V+/GND squares, whose rotation alone names an angle)
  * has no outward direction of its own; it is held to the no-crossing half
- * only. Stub edges (a mounted connector's shell legs, e5c.23) are not wires
+ * only. Stub edges (a mounted connector's shell legs) are not wires
  * and come in from the connector's side; they are left out.
  */
 
@@ -87,7 +87,7 @@ export function landings(ids: readonly string[] = designs): Landing[] {
     const placed = new Map(nodes.map((node) => [node.id, placedNode(node.id, node.data, absolute(nodes, node))]));
     for (const edge of flow.edges) {
       // a stub is a mounted connector's own shell leg soldered through the
-      // board (e5c.23), not a wire: it comes in from the connector's side
+      // board, not a wire: it comes in from the connector's side
       if (edge.hidden === true || edge.data?.stub === true) continue;
       const sourceNode = placed.get(edge.source);
       const targetNode = placed.get(edge.target);
@@ -142,7 +142,7 @@ export function landings(ids: readonly string[] = designs): Landing[] {
             : rotateApproach(handle.side === 'top' ? pad.approach : reflect(pad.approach), view.rotation);
         // the run from the pad to where the bend starts: its leads, then the
         // entry column — everything drawn over (or just off) the board
-        // as drawn: every lead corner rounded (e5c.30), arcs sampled
+        // as drawn: every lead corner rounded, arcs sampled
         const run: XY[] = routeLeadRun(route, end);
         const first: [XY, XY] = [run[0]!, run[1]!];
         const dx = first[1].x - first[0].x;
@@ -188,7 +188,7 @@ export function landings(ids: readonly string[] = designs): Landing[] {
 const describeLanding = (l: Landing): string =>
   `${l.design} ${l.board} ${l.side} ${l.handle}${l.outward === undefined ? '' : ` (${Math.round(l.outward)}°)`}`;
 
-describe('every board cable-pad landing leaves the pad outward (e5c.29)', () => {
+describe('every board cable-pad landing leaves the pad outward', () => {
   const all = landings();
 
   it('heads off every oriented pad in its own outward direction', () => {
@@ -207,12 +207,12 @@ describe('every board cable-pad landing leaves the pad outward (e5c.29)', () => 
 
 /**
  * The face turn on every gerber board, whatever design (or no design yet)
- * uses it, wire on either side (e5c.30): each face whose cable row is a
+ * uses it, wire on either side: each face whose cable row is a
  * straight one is turned so that row points at the wire. Guards the boards no
  * committed design lands on yet — PCA-00112-30, PCA-00120/016/017 — and a
  * wire drawn on the left.
  */
-describe('every straight cable row faces the wire, on every board and both sides (e5c.30)', () => {
+describe('every straight cable row faces the wire, on every board and both sides', () => {
   const ids = existsSync(DEPICTIONS) ? readdirSync(DEPICTIONS).sort() : [];
   const wrong: string[] = [];
   let checked = 0;

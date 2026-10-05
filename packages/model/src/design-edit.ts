@@ -164,8 +164,7 @@ export interface JointEndMove {
  * wire's end from one pin to another means: a move, not
  * an unsolder and a fresh joint at the bottom of the list.
  *
- * The joint's note does not move with it (owner
- * 2026-09-28): a note says why *that* landing is what it is, and after a
+ * The joint's note does not move with it: a note says why *that* landing is what it is, and after a
  * re-pin it would describe a pin the wire no longer goes to. The old note
  * belongs in the change history (`describeJointMove`, the version diff), never
  * on the builder.

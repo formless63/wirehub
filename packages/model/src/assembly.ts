@@ -110,8 +110,8 @@ export function assemblySideOf(design: CableDesign, instanceId: string): Assembl
 /**
  * The terminals a design leaves unwired: no joint names them, and (for a
  * screen) no landed pigtail or landed bonded mass terminates them at that
- * end. Pigtail terminals and foil screens (trimmed back, never indicated —
- * owner 2026-09-25) are never listed. Instance order, then terminal order as
+ * end. Pigtail terminals and foil screens (trimmed back, never indicated)
+ * are never listed. Instance order, then terminal order as
  * `terminalsOf` gives it.
  */
 export function unwiredTerminals(design: CableDesign, db: Db): ResolvedTerminal[] {

@@ -202,7 +202,7 @@ const num = (node: XmlNode, name: string, fallback = 0): number => {
 
 /** Every number pair in a path `d`, control points included. */
 function pathPoints(d: string): { x: number; y: number }[] {
-  // a rounded landing corner (`A rx ry rot large sweep x y`, e5c.30): its end
+  // a rounded landing corner (`A rx ry rot large sweep x y`): its end
   // point only — the arc stays inside the corner it rounds
   const flat = d.replace(/A\s*(-?\d*\.?\d+)\s+(-?\d*\.?\d+)\s+\d+\s+\d\s+\d\s+/g, 'L');
   const numbers = (flat.match(/-?\d*\.?\d+/g) ?? []).map(Number);

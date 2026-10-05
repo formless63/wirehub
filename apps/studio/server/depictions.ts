@@ -103,8 +103,8 @@ export interface DepictionDeps {
 }
 
 /**
- * Terminal → the designs that solder to it on an instance of `defId`
- *. An alias a joint names is counted under its
+ * Terminal → the designs that solder to it on an instance of `defId`.
+ * An alias a joint names is counted under its
  * terminal's id, since that is the id the Artwork checklist lists.
  */
 export function usedTerminals(
@@ -219,7 +219,7 @@ export interface DepictionStore {
   dirFor(defId: string): string | undefined;
   /**
    * The reviewed `data/kicad-maps/<defId>.json` a gerber board is generated
-   * from — the hand-authored input its entry guides live in (e5c.28).
+   * from — the hand-authored input its entry guides live in.
    * Optional: a store without maps cannot save guides.
    */
   readBoardMap?(defId: string): Awaitable<Record<string, unknown> | undefined>;
@@ -857,9 +857,9 @@ async function uploadDepiction(
 
 /**
  * One anchor as the PUT body carries it. `side`/`pads` are the gerber-tier
- * fields (`specs/depictions.md`, y1u.2) — round-tripped here exactly as the
+ * fields (`specs/depictions.md`) — round-tripped here exactly as the
  * client sent them so a save of an untouched side-aware anchor keeps them,
- * rather than silently dropping to plain `{x, y}` (3pn.4). Full validation
+ * rather than silently dropping to plain `{x, y}`. Full validation
  * still happens once, downstream, in `parseDepictionMeta` + `validateDepiction`
  * — this function only has to not throw them away first.
  */
@@ -1061,7 +1061,7 @@ async function saveAnchors(
     }
   }
 
-  // one to-do per solder point: a pin anchored under any of its names is done (50a.24)
+  // one to-do per solder point: a pin anchored under any of its names is done
   const todo = (definitionTerminals(db, defId) ?? [])
     .filter((t) => [t.id, ...t.aliases].every((name) => pinAnchors[name] === undefined))
     .map((t) => t.id)

@@ -977,7 +977,7 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
         ),
       );
     }
-    // the hole a joint is made through sits on a third part (a carrier board, e5c.37)
+    // the hole a joint is made through sits on a third part (a carrier board)
     if (joint.through !== undefined && (joint.through.instance === joint.a.instance || joint.through.instance === joint.b.instance)) {
       issues.push(
         issue(
@@ -1030,8 +1030,8 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
       if (!inScope(segment, path)) continue;
       // a bonded set floats as one mass: report it once, on its
       // representative — the bare drain when it has one (the mini-coax foil is
-      // trimmed back and never landed, so the drain stands for the mass —
-      // owner 2026-09-25), else its first member
+      // trimmed back and never landed, so the drain stands for the mass),
+      // else its first member
       const set = bondedSetOf(wire, path);
       const drain = set?.members.find((member) => {
         const element = resolveElementPath(wire.structure, member);

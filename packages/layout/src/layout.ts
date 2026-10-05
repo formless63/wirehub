@@ -568,7 +568,7 @@ export function layoutSchematic(
   options: LayoutOptions = {},
 ): Diagram {
   const issues = validateDesign(original, db);
-  // a pin soldered through a carrier's hole onto the board beneath (e5c.37)
+  // a pin soldered through a carrier's hole onto the board beneath
   // is drawn into the hole like the plug's other pins; the pad reads landed
   const through = throughView(original);
   const design = through.design;
@@ -756,7 +756,7 @@ export function layoutSchematic(
   /* --- 3 · blocks ------------------------------------------------- */
 
   const blockPlans: BlockPlan[] = [];
-  // a plug soldered into a carrier board docks on the carrier (e5c.36)
+  // a plug soldered into a carrier board docks on the carrier
   const carried = carriedConnectors(design);
   const mounts = new Map<string, { board: string; prefixes: string[]; beyond?: string }>([
     ...mountedConnectors(design),
@@ -896,7 +896,7 @@ export function layoutSchematic(
         key,
         terminal: terminal.id,
         displayId: terminal.id,
-        // landed through the carrier hole above it: no run comes to it (e5c.37)
+        // landed through the carrier hole above it: no run comes to it
         label: `${terminal.label ?? terminal.id}${hole === undefined ? '' : ` · through ${hole.replace(':', ' ')}`}`,
         column: 'cable',
         used: topology.usedTerminals.has(key),
@@ -969,7 +969,7 @@ export function layoutSchematic(
         dockJoined.add(mine.terminal);
       }
     }
-    // a carrier's slot pads face the board beyond it (e5c.36)
+    // a carrier's slot pads face the board beyond it
     const cableFacing = new Set<string>();
     for (const mount of carried.values()) {
       if (mount.board !== instance.id) continue;
@@ -1772,7 +1772,7 @@ export function layoutSchematic(
     return out;
   };
 
-  /* --- 7a · a single-view depiction (the pre-e5c.24 depicted block) --- */
+  /* --- 7a · a single-view depiction (the earlier depicted block) --- */
 
   const materialiseSingleView = (
     plan: BlockPlan,
@@ -2050,12 +2050,12 @@ export function layoutSchematic(
 
     // every joint end on this board, on the pad it is soldered to — a docked
     // carrier's joints to the board it docks beside first, so a slot pad the
-    // plug also lands on (jp.R, e5c.36) is named on that side
+    // plug also lands on (jp.R) is named on that side
     const wired = new Set<string>();
     const beside = (joint: JointRecord): boolean =>
       plan.dockedTo !== undefined && (joint.a.instance === plan.dockedTo || joint.b.instance === plan.dockedTo);
     const ordered = [...topology.joints.filter(beside), ...topology.joints.filter((joint) => !beside(joint))];
-    // a pad landed through the carrier hole above it (e5c.37) is named on the
+    // a pad landed through the carrier hole above it is named on the
     // carrier's side, where its solder point is, before any wire lands on it
     for (const [key] of landedThrough) {
       const ref = parseTerminalKey(key);
@@ -2745,8 +2745,7 @@ export function layoutSchematic(
    * Rows a component's leads must not ride on: every block port and track
    * end facing the component's column, of a net neither lead is on. A lead
    * out along another net's row shares that row with its run to its lane —
-   * the resistor reads as wired to the pin it merely sits level with
-   *.
+   * the resistor reads as wired to the pin it merely sits level with.
    */
   const foreignRows = (plan: ComponentPlan): number[] => {
     const own = new Set(
@@ -3133,7 +3132,7 @@ export function layoutSchematic(
     dotAt.set(spot, dot);
     jointDots.push(dot);
   }
-  // a board pad landed through a carrier hole (e5c.37): no run comes to it,
+  // a board pad landed through a carrier hole: no run comes to it,
   // its dot says it is soldered
   for (const pad of [...landedThrough.keys()].sort((x, y) => x.localeCompare(y))) {
     const anchor = anchors[pad];
@@ -3322,7 +3321,7 @@ function approachOf(
 ): 'cable' | 'connector' {
   if (segments.has(other)) return 'cable';
   if (plan.docks.includes(other)) return 'connector';
-  // a carrier board docked beside the board beyond it (e5c.36): its slot
+  // a carrier board docked beside the board beyond it: its slot
   // pads face that board, across its cable edge
   if (plan.dockedTo === other) return 'cable';
   return isConnectorSideTerminal(terminal) ? 'connector' : 'cable';
@@ -3420,7 +3419,7 @@ interface BlockPlanInput {
   dockJoined?: ReadonlySet<string>;
   /**
    * Connector-side terminals whose wire comes in over the cable edge: a
-   * carrier board's slot pads, facing the board it docks beside (e5c.36).
+   * carrier board's slot pads, facing the board it docks beside.
    */
   cableFacing?: ReadonlySet<string>;
 }

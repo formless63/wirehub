@@ -184,8 +184,8 @@ export const DEPICTION_STYLESHEET = [
   `.face-caption{font-size:${M.fontFaceCaption}px;font-weight:600;fill:#5b6570;letter-spacing:0.12px}`,
   `.pad-label{font-size:${M.fontPadLabel}px;font-weight:600;fill:#14181d}`,
   '.link-ghost{fill:#ffffff;stroke:#5b6570;stroke-width:0.3}',
-  // a board's mounted parts (y1u.17): the fallback for a part y1u.18 does not
-  // yet draw as a real body (an unrecognised package, a connector already
+  // a board's mounted parts: the fallback for a part not
+  // yet drawn as a real body (an unrecognised package, a connector already
   // drawn by the gerber art, or an unset solder jumper) — a translucent
   // violet box, so the copper and the pads under it still print, never
   // nothing; the label carries the part in words.
@@ -193,7 +193,7 @@ export const DEPICTION_STYLESHEET = [
   '.board-part.is-unset .board-part-box{fill:none;stroke-dasharray:0.4 0.3}',
   '.board-part-pin1{fill:#e7e7ea;stroke:#8a8f96;stroke-width:0.05}',
   '.board-part-label{font-size:1.1px;text-anchor:middle;dominant-baseline:central;fill:#14181d;stroke:#ffffff;stroke-width:0.3px;paint-order:stroke}',
-  // package bodies (y1u.18): the real top-down colours of the part itself —
+  // package bodies: the real top-down colours of the part itself —
   // a black chip resistor prints the same whether or not the page is one a
   // dark canvas would wrap it in, so these never key off theme.
   '.pt-chip-body{fill:#1c1c1c;stroke:#050505;stroke-width:0.05}',

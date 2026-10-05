@@ -1,8 +1,7 @@
 /**
  * Editing a breakout, in the inspector.
  *
- * Owner, 2026-09-25: "we likely want the ability to add breakout points
- * visually". Every action is one undoable step (`apply-design`, recorded as a
+ * Breakout points are added visually. Every action is one undoable step (`apply-design`, recorded as a
  * hand edit on a recipe design) built from core's pure edits:
  *
  * - **split** a segment at a point into a breakout — everything passes through;
@@ -161,7 +160,7 @@ export function BreakoutPanel({ state, id }: { state: EditorState; id: string })
   const rows = rowsOf(design, db, breakout);
   const trunk = design.instances.segments.find((s) => s.id === breakout.trunk.segment);
   // a bonded screen's folded members (the mini-coax foil behind its drain) follow it:
-  // the foil is never shown on its own (owner 2026-09-25)
+  // the foil is never shown on its own
   const followers = (row: FateRow): string[] => {
     const seg = design.instances.segments.find((s) => s.id === row.segment);
     const wire = seg === undefined ? undefined : findWire(db, seg.def);

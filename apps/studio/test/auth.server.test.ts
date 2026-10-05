@@ -1,5 +1,5 @@
 /**
- * The studio's own login (`server/auth/`, / `50a.40`).
+ * The studio's own login (`server/auth/`).
  *
  * Auth off: `readAuthConfig` says so and `createStandaloneApp` without `auth`
  * mounts nothing new (the rest of the suite — `static.server.test.ts`,

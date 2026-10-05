@@ -1,6 +1,6 @@
 /**
- * The node picker's compatibility and ranking (
- *): which definitions can join a given handle, and in
+ * The node picker's compatibility and ranking:
+ * which definitions can join a given handle, and in
  * what order to offer them.
  *
  * **What may join is core's call.** `@wirehub/model`'s `compat.ts` owns

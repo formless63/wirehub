@@ -208,7 +208,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
     expect(container.querySelector('.cs-documents')).toBeNull();
   });
 
-  it('the JSON tab hosts the design export/import — the old bottom dock’s job, in host chrome without one (e5c.6/3pn.3)', () => {
+  it('the JSON tab hosts the design export/import — the old bottom dock’s job, in host chrome without one ()', () => {
     const { container } = render(<CableEditor design={design} db={db} chrome="host" />);
     fireEvent.click(screen.getByRole('button', { name: 'Documents' }));
 
@@ -223,7 +223,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
     expect((screen.getByRole('button', { name: /Print/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('copies the BOM and the continuity spec as markdown; the other sheets have no Copy (50a.10)', async () => {
+  it('copies the BOM and the continuity spec as markdown; the other sheets have no Copy', async () => {
     const writeText = vi.fn(async (_text: string) => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     try {
@@ -244,7 +244,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
     }
   });
 
-  it('sheet options shape the sheets and save into the drawing sidecar (50a.9)', async () => {
+  it('sheet options shape the sheets and save into the drawing sidecar', async () => {
     vi.useFakeTimers();
     const derive = spyRender();
     const save = vi.fn(async (_id: string, meta: DrawingMeta) => ({ ok: true as const, value: meta }));
@@ -386,7 +386,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
   });
 });
 
-describe('keeping the reader\'s place (50a.11)', () => {
+describe('keeping the reader\'s place', () => {
   it('scrolls a regenerated document back to where the reader was, per document', () => {
     const places = new Map<string, { x: number; y: number }>();
     const fake = () => {

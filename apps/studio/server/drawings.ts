@@ -6,8 +6,8 @@
  *   packages/catalog/data/drawings/<design-id>.photo-ref.json  { assetId }
  *   packages/catalog/data/drawings/<design-id>.photo.png/.jpg  legacy, read-only
  *
- * The photo itself lives in the shared asset store (`assets.ts`,
- *) — this file only keeps which asset a design's
+ * The photo itself lives in the shared asset store (`assets.ts`)
+ * — this file only keeps which asset a design's
  * drawing points at, in its own tiny file so saving the *text* fields
  * (`writeMeta`, a completely separate call from `writePhoto`) can never
  * clobber it by overwriting `<id>.json` without knowing about the photo.

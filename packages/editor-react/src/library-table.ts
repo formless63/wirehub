@@ -209,7 +209,7 @@ const PN_TEXT = String.raw`[A-Z0-9]{1,8}-\d{3,}(?:-[A-Z0-9]{1,3})?`;
 /**
  * The name a table row shows: the stored label without
  * the part number repeated in it — the PN is its own column — and, for a
- * wire stock, without the maker (owner 2026-09-25: never the manufacturer in
+ * wire stock, without the maker (never the manufacturer in
  * a list). Display only: the record, and everything printed from it, keep
  * the stored label, and a search for it still matches.
  */

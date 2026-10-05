@@ -516,7 +516,7 @@ export function anchorsDiffer(
 export function unanchoredSentence(
   progress: AnchorProgress,
   label: string,
-  /** terminal → designs soldering to it; given, only pins cables use count (50a.25) */
+  /** terminal → designs soldering to it; given, only pins cables use count */
   usedBy?: Record<string, readonly string[]>,
 ): string | undefined {
   if (progress.todo.length === 0) return undefined;

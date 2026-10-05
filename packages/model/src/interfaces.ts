@@ -1,6 +1,5 @@
 /**
- * Connector bodies and interfaces (data model v2 §1, §9 task 5,
- *).
+ * Connector bodies and interfaces (data model v2 §1, §9 task 5).
  *
  * What was one record is now three facts:
  *
@@ -10,7 +9,7 @@
  * - an **interface** is a named pinout: a signal (vocab `signals`) per body
  *   position. EuroSCART and JP21 are two interfaces on one 21-pin body.
  * - the **connector** a design references (`din8-270-aes`, `scart-male`) stays
- *   as it is (owner question Q2, recommendation (a)): a body + interface pair
+ *   as it is: a body + interface pair
  *   plus its orderable identity. Its `pins` are **composed at load**, so every
  *   design and renderer sees exactly the pins it saw before the split.
  *
@@ -204,8 +203,8 @@ export function composeConnector(record: ConnectorRecord, library: InterfaceLibr
 }
 
 /**
- * How a connector is terminated: its own `construction`, else its body's
- *. `undefined` when neither says.
+ * How a connector is terminated: its own `construction`, else its body's.
+ * `undefined` when neither says.
  */
 export function connectorConstruction(
   connector: Pick<ConnectorDefinition, 'construction' | 'body'>,

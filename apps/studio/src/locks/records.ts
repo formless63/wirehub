@@ -114,7 +114,7 @@ export function recordsOfWrite(method: string, path: string, body?: unknown): st
     case 'tags':
       return a === undefined || b === undefined ? [] : [definitionRecord(a, b)];
     case 'models':
-      // a record's 3D model (attach, upload, detach — 50a.55) is an edit of that record
+      // a record's 3D model (attach, upload, detach) is an edit of that record
       return a === undefined || b === undefined ? [] : [definitionRecord(a, b)];
     case 'wire-library':
       return a === 'stocks' && b !== undefined ? [definitionRecord('wires', b)] : [];

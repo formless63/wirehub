@@ -1,6 +1,5 @@
 /**
- * `Pick` — the one combobox every controlled field uses (data model v2 §5,
- *).
+ * `Pick` — the one combobox every controlled field uses (data model v2 §5).
  *
  * A button that shows the picked entry's label; focus it and type, or press
  * ↓ / Enter, and a filter opens under it. The filter matches labels, ids and

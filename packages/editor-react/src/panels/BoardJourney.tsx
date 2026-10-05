@@ -1,6 +1,6 @@
 /**
- * A board's page as the journey a new PCB takes (data model v2 §8 J3,
- *): **Import → Pads → Connector → Builds → Guides**, each
+ * A board's page as the journey a new PCB takes (data model v2 §8 J3):
+ * **Import → Pads → Connector → Builds → Guides**, each
  * a step with its completion state, beside the plain Definition.
  *
  * - **Import**: where the art, pads and definitions came from, which builds

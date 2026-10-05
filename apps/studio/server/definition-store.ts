@@ -22,8 +22,7 @@
  *
  * Hand-formatted files (one-line pin objects) stay hand-formatted: a real
  * change is written by `patchJsonText`, which keeps every untouched record's
- * bytes and rewrites only what changed, in its neighbours' style
- *.
+ * bytes and rewrites only what changed, in its neighbours' style.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -53,9 +52,9 @@ import type { Awaitable } from './storage/change-set.ts';
  * The editable definition files, named as they are on disk and in the `Db` —
  * the four parts a design instantiates (`connectors`, `components`, `wires`,
  * `pcbas`), the connector's physical body and its pinouts (`bodies`,
- * `interfaces`, data model v2 §1.2, edited by the connector journey —
- *), shells and hardware (`mechanicals`) and orderable kits
- * (`kits`, §7.1 —). One vocabulary for the URL, the file
+ * `interfaces`, data model v2 §1.2, edited by the connector journey),
+ * shells and hardware (`mechanicals`) and orderable kits
+ * (`kits`, §7.1). One vocabulary for the URL, the file
  * name and the db key means no translation table anywhere.
  */
 export const DEFINITION_KINDS = [
@@ -163,7 +162,7 @@ export function fileDefinitionStore(): DefinitionStore {
           // a file that will not parse is not worth preserving; what got here
           // has been validated, so overwriting it is an improvement
         }
-        // untouched records keep their bytes; only the edited one is rewritten (50a.26)
+        // untouched records keep their bytes; only the edited one is rewritten
         next = patchJsonText(current, local);
       }
       writeFileAtomic(path, next, 'utf8');

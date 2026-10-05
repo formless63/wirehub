@@ -1,10 +1,8 @@
 /**
  * Shared, content-addressed image assets.
  *
- * Owner: "Can we make things like photos reusable? I believe I currently
- * need to upload the image for connector if using one every time. Since
- * many drawings might use the same one it would be ideal to probably select
- * from existing assets."
+ * Photos and other images are reusable: many drawings share one picture, so
+ * it is picked from the existing assets rather than uploaded every time.
  *
  * `drawings.ts`'s product photo was the concrete case: each design kept its
  * own copy (`drawings/<id>.photo.png`), so ten drawings sharing one physical
@@ -37,7 +35,7 @@ import type { BlobStore } from './blobs.ts';
 import type { Awaitable } from './storage/change-set.ts';
 
 /**
- * What the store holds: images (drawing photos, 50a.36) and, since
+ * What the store holds: images (drawing photos) and, since
  * a manufacturer's PDF datasheets — a wire stock's
  * vendor documents, copied in so they open in-app. Since * 3D models too: a GLB (every STEP and STL is converted to one on the way in,
  * `models/convert.ts`) or, should one be stored as sent, an STL.
@@ -190,7 +188,7 @@ export function decodeImageDataUri(value: string): { mime: 'image/png' | 'image/
   return { mime: match[1] as 'image/png' | 'image/jpeg', bytes: Buffer.from(match[2] ?? '', 'base64') };
 }
 
-/** A 3D model (the Library's 3D view, 50a.55) — never a photo, never a vendor document. */
+/** A 3D model (the Library's 3D view) — never a photo, never a vendor document. */
 export function isModelAsset(summary: Pick<AssetSummary, 'mime'>): boolean {
   return summary.mime.startsWith('model/');
 }

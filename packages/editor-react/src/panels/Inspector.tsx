@@ -86,7 +86,7 @@ function definitionFacts(
     }
     case 'segment': {
       const d = findWire(db, def);
-      // never the manufacturer here (owner 2026-09-25/26) — it stays inside the Library's wire detail
+      // never the manufacturer here — it stays inside the Library's wire detail
       return d === undefined ? undefined : { label: wireDisplayName(db, def), ...(d.partNumber === undefined ? {} : { partNumber: d.partNumber }) };
     }
     case 'component': {

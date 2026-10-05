@@ -62,7 +62,7 @@ export interface CopperPathGroup {
 }
 
 /**
- * `internalLinks` grouped by the pad each one starts from (50a.38: the flat
+ * `internalLinks` grouped by the pad each one starts from (the flat
  * from/to table read as "the connector shows 14 pins all being joined"). A link
  * between two pads, or two connector pins, groups under its `from`. The data
  * is not touched — this is only how it is read.

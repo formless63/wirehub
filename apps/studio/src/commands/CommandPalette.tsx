@@ -10,7 +10,7 @@
  *
  * - **CABLES** — `cableListKey`'s rows (label + id, fuzzy over label, id,
  *   wire and board — the same fields the `/cables` text filter reads — and
- *   every part number the cable answers to, `pn-search.ts`, hdy.9).
+ *   every part number the cable answers to, `pn-search.ts`).
  * - **LIBRARY** — every definition in `studio.db` (connectors, components,
  *   wire stocks, boards), label + id, a kind-coloured icon.
  * - **ACTIONS** — every non-hidden `AppCommand` currently in the registry
@@ -206,7 +206,7 @@ export function CommandPalette(): JSX.Element {
       .filter(
         (entry) =>
           matches([entry.label, entry.id, ...entry.wireLabels, ...entry.boardLabels], commandQuery) ||
-          // a design by any part number it answers to — drawing, length, part (hdy.9)
+          // a design by any part number it answers to — drawing, length, part
           (entry.partNumbers ?? []).some((pn) => pnMatches(commandQuery, pn)),
       )
       .slice(0, MAX_ROWS_PER_GROUP);

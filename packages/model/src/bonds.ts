@@ -152,10 +152,9 @@ export function isFoilPath(wire: WireDefinition, path: string): boolean {
 }
 
 /**
- * A foil the bench trims back and never lands (owner, 2026-09-25,
- *: "the foil doesn't typically get any indication on our
- * drawings as, since it's electrically identical to the drain wire on coax
- * […] we trim it back when we are stripping the wire"). True for a foil or
+ * A foil the bench trims back and never lands (it gets no indication on the
+ * drawings: it is electrically identical to the drain wire on coax, and is
+ * trimmed back when the wire is stripped). True for a foil or
  * tape shield bonded to a bare drain on a stock that is **not** one shield
  * mass (mini-coax): the drain is what gets soldered, and only where it is
  * kept (the source end). On a fully bonded stock (bonded multi-core) the foil is

@@ -386,7 +386,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
                 say="The trunk. Its colour code is what the wizard reads the wiring from."
                 rows={state.db.wires.map((record) => ({
                   id: record.id,
-                  // never the manufacturer (owner 2026-09-25/26) — the maker stays in the Library's wire detail
+                  // never the manufacturer — the maker stays in the Library's wire detail
                   label: wireDisplayName(state.db, record.id),
                   detail: definitionDetail('wires', record),
                 }))}

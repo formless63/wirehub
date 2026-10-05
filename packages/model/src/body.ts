@@ -51,7 +51,7 @@ interface OverrideBase {
 export interface OverrideJoint {
   a: TerminalRef;
   b: TerminalRef;
-  /** the carrier hole the one solder point is made through (`Joint.through`, e5c.37) */
+  /** the carrier hole the one solder point is made through (`Joint.through`) */
   through?: TerminalRef;
 }
 
@@ -343,7 +343,7 @@ export function diffBodies(from: DesignBody, to: DesignBody): UnreasonedOverride
       out.push({ op: 'put-instance', list, instance: physicalInstance(list, b) });
     }
   }
-  // joints, as multisets of keys (a joint made through a carrier hole, e5c.37, is its own fact)
+  // joints, as multisets of keys (a joint made through a carrier hole is its own fact)
   const physicalKey = (j: Joint): string => (j.through === undefined ? jointKey(j) : `${jointKey(j)} through ${landingKey(j.through)}`);
   const count = (js: readonly Joint[]): Map<string, { n: number; joint: Joint }> => {
     const m = new Map<string, { n: number; joint: Joint }>();
@@ -486,7 +486,7 @@ export function materialiseBody(derived: DesignBody, previous?: DesignBody): Des
     }
     const same = landingKey(prev.a) === landingKey(d.a);
     const [a, b] = same ? [d.a, d.b] : [d.b, d.a];
-    // the hole a joint is made through (e5c.37) is physical: the derivation's
+    // the hole a joint is made through is physical: the derivation's
     const through = d.through === undefined ? {} : { through: prev.through === undefined ? { ...d.through } : refWithKeyOrder(prev.through, d.through) };
     const joint = withKeyOrder(prev as unknown as Record<string, unknown>, { a: refWithKeyOrder(prev.a, a), b: refWithKeyOrder(prev.b, b), ...through }, ['note']) as unknown as Joint;
     matched.push({ joint, rank: rankOf.get(prev)! });

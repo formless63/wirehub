@@ -61,8 +61,8 @@ const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
  * Runs one handler. With the backup on, a write runs inside its serial queue
- * and what it wrote is committed as the person who made it
- *; everything else runs as it always did.
+ * and what it wrote is committed as the person who made it;
+ * everything else runs as it always did.
  */
 async function perform<T extends { status: number; body?: unknown; changes?: string[] }>(
   backup: StudioBackup | undefined,
@@ -169,7 +169,7 @@ async function handleJson(
 ): Promise<Response> {
   let text: string;
   try {
-    // a model upload (50a.55) is a base64 file, bigger than any document
+    // a model upload is a base64 file, bigger than any document
     const limit = isModelPath(path) ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BODY_BYTES;
     const read = await readLimited(request, limit);
     if (!read.ok) {

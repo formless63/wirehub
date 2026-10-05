@@ -4,7 +4,7 @@
  *
  * Pure geometry — no React, no DOM. `derive.ts` calls `boardArt` for every
  * `pcba` instance whose definition has a **gerber** depiction (`sourceKind:
- * 'gerber'`, y1u.2); the node renders exactly what this returns and
+ * 'gerber'`); the node renders exactly what this returns and
  * `layout-size.ts` reserves exactly its size, so the drawn board, its handles
  * and the box auto-arrange keeps clear are one set of numbers.
  *
@@ -765,7 +765,7 @@ export function boardArt(input: BoardArtInput): BoardArt | undefined {
         : { x: direction.x, y: -direction.y };
   const override = ORIENTATION_OVERRIDES[input.defId] ?? {};
   // each face's cable row, pointed off the board, faces the wire when the
-  // row is a straight one (e5c.29); else the connector → cable centroid rule
+  // row is a straight one; else the connector → cable centroid rule
   const outward = (side: BoardSide): XY | undefined =>
     cableRowOutward(
       Object.entries(meta.pinAnchors).flatMap(([terminal, anchor]) => {
@@ -824,7 +824,7 @@ export function boardArt(input: BoardArtInput): BoardArt | undefined {
       parts: partsOnSide(meta, side, frame, rotation, scale),
     });
 
-    // the human-set entry guides' slots on this face, by pad ref (e5c.28)
+    // the human-set entry guides' slots on this face, by pad ref
     const slots = new Map<string, GuideSlot>();
     for (const guide of meta.entryGuides ?? []) {
       if (guide.side !== side) continue;
@@ -858,9 +858,9 @@ export function boardArt(input: BoardArtInput): BoardArt | undefined {
         const turnedApproach = pad.approach === undefined ? undefined : rotateApproach(pad.approach, rotation);
         const guided = cableSide && pad.ref !== undefined ? slots.get(pad.ref) : undefined;
         // an unguided cable pad that cannot run straight in leaves the board
-        // off its own end first — a guide's slot without the guide (e5c.29)
+        // off its own end first — a guide's slot without the guide
         // a connector-side pad the design faces toward a neighbour (a carrier's
-        // plug pins, e5c.35) leaves the same way when its straight run in
+        // plug pins) leaves the same way when its straight run in
         // would cross another pad
         const turnedToward = cableSide || input.facings?.has(terminal) === true;
         const exit =

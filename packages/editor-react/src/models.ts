@@ -5,9 +5,8 @@
  * is a separate, lazily loaded chunk, so a Library page without a model
  * never downloads it.
  *
- * Owner (2026-09-29): "It would be a lot easier to answer your questions if
- * studio loaded a render of the 3d models for the components right on their
- * library screen so i could easily get a visual."
+ * The Library shows a render of a part's 3D model right on its screen, so the
+ * part can be checked at a glance.
  */
 
 import type { Outcome } from './persistence.ts';

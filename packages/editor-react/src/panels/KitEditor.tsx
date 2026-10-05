@@ -3,7 +3,7 @@
  * parts it ships. Every part is picked from the library — connectors, boards,
  * shells, fasteners, components, wire — never typed, and a line can be
  * scoped to one stock (the `-00` coax vs `-30` bonded multi-core shell inside one
- * kit SKU, owner question Q11). Kits are informational: a cable BOM lists the
+ * kit SKU). Kits are informational: a cable BOM lists the
  * parts, never the kit.
  */
 
@@ -51,7 +51,7 @@ export function kitPartOptions(db: Db, kind: KitPartKind): PickOption[] {
             : db.wires;
   return records.map((record) => ({
     value: record.id,
-    // never the manufacturer here (owner 2026-09-25/26) — it stays inside the wire's own detail view
+    // never the manufacturer here — it stays inside the wire's own detail view
     label: kind === 'wire' ? wireDisplayName(db, record.id) : record.label,
     hint: [record.partNumber, record.id].filter((bit) => bit !== undefined && bit !== '').join(' · '),
   }));

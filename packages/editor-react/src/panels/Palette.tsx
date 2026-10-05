@@ -31,7 +31,7 @@ export function paletteEntries(db: Db): PaletteEntry[] {
     ...db.wires.map((definition) => ({
       kind: 'segment' as const,
       def: definition.id,
-      // never the manufacturer (owner 2026-09-25/26) — the maker stays in the Library's wire detail
+      // never the manufacturer — the maker stays in the Library's wire detail
       label: wireDisplayName(db, definition.id),
       detail: definition.partNumber ?? 'wire stock',
     })),

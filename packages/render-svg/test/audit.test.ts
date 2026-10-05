@@ -98,8 +98,8 @@ for (const mode of MODES) {
        * the part, which on a schematic says "this wire goes through the
        * capacitor". Unlike a block, a component cannot be moved out of the way
        * by lane discipline: it sits in the fan corridor at a y derived from
-       * the anchors it bridges. The router detours around it instead
-       *; this is the check that it still does.
+       * the anchors it bridges. The router detours around it instead;
+       * this is the check that it still does.
        */
       it('never routes a wire behind a component symbol', () => {
         expect(findings(audit(), 'edge-crosses-component')).toEqual([]);

@@ -92,7 +92,7 @@ export interface StudioApi {
   /** who is signed in (or the local user), for records that say who — `GET /api/me` */
   user: string;
   me: StudioUser | undefined;
-  /** the board artwork loaded so far — a new identity whenever more lands (udy.9) */
+  /** the board artwork loaded so far — a new identity whenever more lands */
   depictions: DepictionSource;
   /** fetch the artwork a design's parts need; resolves once it is in `depictions` */
   loadDepictionsFor: (design: CableDesign) => Promise<void>;

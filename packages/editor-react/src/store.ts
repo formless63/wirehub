@@ -179,8 +179,7 @@ export type EditorAction =
   | { type: 'add-joint'; a: TerminalRef; b: TerminalRef }
   | { type: 'delete-joint'; index: number }
   /**
-   * Re-pin: move one end of each of these joints to another terminal
-   *.
+   * Re-pin: move one end of each of these joints to another terminal.
    * The joints keep their place in the list and their other end; their note
    * is cleared from the builder and kept in the history instead — the edit's
    * description is "moved … from … to … (note was: …)".
@@ -201,7 +200,7 @@ export type EditorAction =
   | { type: 'update-instance'; id: string; patch: InstancePatch }
   /** edit a joint's own note — the Connection tab's inline note edit */
   | { type: 'update-joint'; index: number; patch: { note?: string | undefined } }
-  /** replace the design-level notes (udy.5); blank lines are dropped, none left = no `notes` */
+  /** replace the design-level notes; blank lines are dropped, none left = no `notes` */
   | { type: 'set-notes'; notes: string[] }
   /** the Connection tab's pigtail tools: new / split / merge / move / pad (shield bonding) */
   | { type: 'edit-pigtails'; edit: PigtailEdit }
@@ -502,8 +501,7 @@ export type { InstancePatch, ParseResult };
  * This is what makes "delete a docked board" one undo step instead of two:
  * React Flow's `onNodesDelete` hands the whole cascade (the board and the
  * child connector node it swept along) to one `delete-instances` dispatch,
- * and this decides which of those ids the design actually loses
- *.
+ * and this decides which of those ids the design actually loses.
  */
 export function keepDockedConnectors(design: CableDesign, ids: readonly string[]): string[] {
   const batch = new Set(ids);

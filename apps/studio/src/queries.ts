@@ -4,8 +4,8 @@
  *
  * The workbench API is the only source of truth for anything editable. When
  * it cannot be reached, these fall back to the last answer this browser
- * fetched (`offline-cache.browser.ts`; the bundle carries no catalog data,
- *), and say so (`offline` / `live: false` / `offlineCopy`),
+ * fetched (`offline-cache.browser.ts`; the bundle carries no catalog data),
+ * and say so (`offline` / `live: false` / `offlineCopy`),
  * so the screens can show that copy **read-only** under a banner — never as
  * the baseline of a save (review fix, 2026-09-26: a stale bundled design saved
  * over newer server data). Every function is a query function that never

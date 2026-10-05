@@ -177,7 +177,7 @@ export interface ResolvedDepiction {
   heightUnits: number;
   mmPerUnit: number;
   anchors: Record<string, PinAnchor>;
-  /** the build's mounted parts seen in this view, its frame (gerber boards; y1u.17) */
+  /** the build's mounted parts seen in this view, its frame (gerber boards) */
   parts: BoardPart[];
   /**
    * Present for a PCBA whose depiction is a gerber-tier board with both faces

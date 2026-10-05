@@ -10,7 +10,7 @@
  *    position, with "Copy from…" any pinout and "Mirror…" a pinout of the
  *    opposite gender (directions flipped).
  * 3. **Connector** — the pair plus its part number: what designs reference.
- *    Today's ids are exactly such pairs (owner Q2 (a)).
+ *    Today's ids are exactly such pairs.
  *
  * The drawing on the right is what the canvas draws: the **body's**, with
  * this pinout's labels. Every pinout on a body shares it, so a new pinout on
@@ -296,7 +296,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
               (c) =>
                 c.body === body.id &&
                 c.interface === iface.id &&
-                // another construction on the same pair is a variant, not a duplicate (50a.60)
+                // another construction on the same pair is a variant, not a duplicate
                 (c.construction ?? body.construction ?? '') === (shownIdentity.construction || body.construction || ''),
             )
             .map((c) => c.id),

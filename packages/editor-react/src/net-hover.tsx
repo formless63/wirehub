@@ -57,7 +57,7 @@ export function netHoverCss(index: NetHoverIndex, netId: string, scope = '.cs-ca
   ]);
   const rows = keys.map((key) => `${scope} .cs-row[data-terminal="${attr(key)}"]`);
   // an edge's own stretch over its parts — into the pin, from the jacket into
-  // the core, under the jacket to the port (e5c.30) — lights with the edge
+  // the core, under the jacket to the port — lights with the edge
   const leads = keys.map((key) => `${scope} [data-lead="${attr(key)}"]`);
   const joints = index.jointsOf.get(netId) ?? [];
   const edges = joints.map((i) => `${scope} .cs-edge[data-joints~="${i}"]`);

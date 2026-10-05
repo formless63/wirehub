@@ -1,6 +1,5 @@
 /**
- * The catalog loaders, bound to a `CatalogSource` (storage seams,
- *).
+ * The catalog loaders, bound to a `CatalogSource` (storage seams).
  *
  * `createCatalog(source)` returns every loader `@wirehub/catalog`
  * exports — `loadDb`, `loadDesign`, … — reading through `source` instead of

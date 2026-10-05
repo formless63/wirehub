@@ -53,7 +53,7 @@ export function guardWrite(req: IncomingMessage, upload: boolean, hasBody: boole
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
-  // a model upload (50a.55) is a base64 file, bigger than any document
+  // a model upload is a base64 file, bigger than any document
   const MAX_BODY_BYTES = isModelPath(req.url ?? '') ? MAX_MODEL_REQUEST_BYTES : MAX_JSON_BYTES;
   return new Promise((resolve, reject) => {
     let text = '';

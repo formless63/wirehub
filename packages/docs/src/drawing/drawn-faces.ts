@@ -160,8 +160,7 @@ const range = (from: number, to: number, step = 1): string[] => {
  * ------------------------------------------------------------------ */
 
 /**
- * The shells themselves are the canvas's own table, imported — not restated
- *.
+ * The shells themselves are the canvas's own table, imported — not restated.
  */
 export { DSUB_SHELLS };
 

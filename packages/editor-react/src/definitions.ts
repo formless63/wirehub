@@ -32,8 +32,7 @@ import type { Outcome } from './persistence.ts';
 /**
  * Every editable file of the library, named as the host names them: the parts
  * a design instantiates, a connector's body and pinouts (edited inside the
- * connector journey —), shells and hardware, and kits
- *.
+ * connector journey —), shells and hardware, and kits.
  */
 export const DEFINITION_KINDS = [
   'connectors',

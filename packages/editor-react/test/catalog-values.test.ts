@@ -1,5 +1,5 @@
 /**
- * The Library's suggestion lists are read off the catalog itself (50a.38) —
+ * The Library's suggestion lists are read off the catalog itself —
  * no vocabulary of their own.
  */
 

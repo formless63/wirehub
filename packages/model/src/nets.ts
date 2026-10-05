@@ -101,7 +101,7 @@ export function buildGraph(design: CableDesign, db: Db): DesignGraph {
       kind: 'joint',
       ...(joint.note === undefined ? {} : { note: joint.note }),
     });
-    // the carrier hole the one solder point is made through (e5c.37) is on the same copper
+    // the carrier hole the one solder point is made through is on the same copper
     const through = joint.through === undefined ? undefined : resolve(joint.through);
     if (through !== undefined) edges.push({ a, b: through, kind: 'joint', ...(joint.note === undefined ? {} : { note: joint.note }) });
   }
