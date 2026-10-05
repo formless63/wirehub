@@ -45,7 +45,7 @@ name: wirehub
 
 services:
   bootstrap:
-    image: &wirehub-image ${WIREHUB_IMAGE:-ghcr.io/formless63/wirehub:0.1.0} # x-release-please-version
+    image: &wirehub-image ${WIREHUB_IMAGE:-ghcr.io/formless63/wirehub:0.2.0} # x-release-please-version
     user: "0:0"
     command: ["node", "--experimental-strip-types", "--no-warnings", "stack/bootstrap.ts"]
     environment:
