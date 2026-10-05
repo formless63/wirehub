@@ -8,8 +8,9 @@ below no build tooling of your own. Format and trust model: `docs/catalog-store.
 
 ## The short way: a GitHub repository
 
-`templates/store/` in this repository is a **template repository**. Its README is the step-by-step
-guide, in short:
+Start from **[formless63/wirehub-store-template](https://github.com/formless63/wirehub-store-template)**
+(GitHub: **Use this template**). It is published from `templates/store/` in this repository. Its README
+is the step-by-step guide, in short:
 
 1. Create a repository from the template.
 2. Generate two ed25519 keys on your machine with `scripts/store-index.mjs`
