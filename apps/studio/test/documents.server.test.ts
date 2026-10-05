@@ -240,11 +240,14 @@ describe('GET /api/designs/:id/documents/formboard', () => {
     expect(pdf.pages).toBe(2);
     expect(pdf.images).toBe(0);
     const content = pdf.streams.join('\n');
-    // lines and the rounded mould outlines are path operators, the labels are Helvetica text
+    // lines and the rounded mould outlines are path operators, the labels are the embedded Liberation Sans, as glyph ids
     expect(content).toMatch(/ m [\d. -]+ l\n/);
-    expect(content).toMatch(/\bBT \/F[12] [\d.]+ Tf 1 0 0 -1 /);
+    expect(content).toMatch(/\bBT \/E[12] [\d.]+ Tf 1 0 0 -1 [\d. -]+ Tm <[0-9a-f]+> Tj ET/);
     expect(content).toContain(' re W n');
-    expect(content).toContain('(print check: this bar must measure 100 mm)');
+    const { liberation } = await import('../server/render/fonts.ts');
+    const regular = liberation('regular');
+    const glyphs = [...'print check: this bar must measure 100 mm'].map((c) => regular.glyphFor(c.codePointAt(0)!).toString(16).padStart(4, '0')).join('');
+    expect(content).toContain(`<${glyphs}> Tj`);
   });
 
   it('a straight run (no breakout) still has a board', async () => {

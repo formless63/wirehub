@@ -5,7 +5,7 @@
  */
 
 import { loadDb, loadDesign } from '@wirehub/catalog';
-import { profileTerminal, type Db, type TerminalRef } from '@wirehub/model';
+import { profileTerminal, withAssemblies, type Db, type TerminalRef } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { paletteEntries } from '../src/panels/Palette.tsx';
@@ -94,5 +94,17 @@ describe('fitsAnchor / compatibleTerminals agree with the ranking', () => {
   it('an anchor or definition core cannot resolve fits nothing', () => {
     expect(fitsAnchor(design, db, anchor, 'connector', 'no-such-def')).toBe(false);
     expect(rankDefinitions(design, db, { instance: 'nope', terminal: '1' }, entries).fits).toEqual([]);
+  });
+});
+
+describe('a design placed as a sub-assembly', () => {
+  const lead = loadDesign('dc-pigtail-lead');
+  const withLead: Db = withAssemblies(db, { working: [lead] });
+  it('profiles and ranks its ports like the terminals they are inside the design', () => {
+    expect(profileTerminal(withLead, 'subassembly', 'dc-pigtail-lead', 'w1@b:red')?.class).toBe('conductor');
+    expect(profileTerminal(db, 'subassembly', 'dc-pigtail-lead', 'w1@b:red')).toBeUndefined();
+    const ranked = rankTerminals(lead, withLead, { instance: 'w1', terminal: 'red', end: 'b' }, 'subassembly', 'dc-pigtail-lead');
+    expect(ranked[0]?.terminal).toBe('j1:1');
+    expect(autoWireTerminal(ranked)?.terminal).toBe('j1:1');
   });
 });

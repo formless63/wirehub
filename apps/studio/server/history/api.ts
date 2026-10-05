@@ -18,6 +18,8 @@
  * is written (409).
  */
 
+import { createHash } from 'node:crypto';
+
 import { composeConnector, type ConnectorRecord } from '@wirehub/model';
 
 import {
@@ -33,6 +35,7 @@ import {
   type Subject,
 } from '../../src/history/types.ts';
 import type { ApiRequest, ApiResponse, WorkbenchDeps } from '../api.ts';
+import { decodeImageDataUri } from '../assets.ts';
 import { contentETag, ifMatchSatisfied, staleWriteResponse } from '../etag.ts';
 import type { DefinitionKind } from '../definition-store.ts';
 import type { HistoryQuery, HistorySource } from './source.ts';
@@ -218,8 +221,15 @@ async function restore(subject: Subject, request: ApiRequest, deps: WorkbenchDep
       await deps.drawings.writeMeta(subject.id, drawing.value as Parameters<NonNullable<WorkbenchDeps['drawings']>['writeMeta']>[1]);
       restored.push('drawing');
     }
+    // the drawing photo, by the hash of its bytes
+    const photo = await restorePhoto(subject.id, entry, subject, deps, source);
+    if (photo.restored) restored.push('photo');
     const value = await deps.designs.read(subject.id);
-    const answer: RestoreAnswer = { restored: { subject: key, entry, parts: restored }, ...(value === undefined ? {} : { value, etag: contentETag(value) }) };
+    const answer: RestoreAnswer = {
+      restored: { subject: key, entry, parts: restored },
+      ...(photo.skipped === undefined ? {} : { skipped: [photo.skipped] }),
+      ...(value === undefined ? {} : { value, etag: contentETag(value) }),
+    };
     return ok(answer, value === undefined ? undefined : { ETag: contentETag(value) });
   }
 
@@ -243,6 +253,40 @@ async function restore(subject: Subject, request: ApiRequest, deps: WorkbenchDep
   const value = (await deps.definitions?.list(subject.kind as DefinitionKind))?.find((r) => r.id === subject.id);
   const answer: RestoreAnswer = { restored: { subject: key, entry, parts: restored }, ...(value === undefined ? {} : { value, etag: contentETag(value) }) };
   return ok(answer, value === undefined ? undefined : { ETag: contentETag(value) });
+}
+
+/** PNG or JPEG, told by its first bytes (a stored photo carries no trusted type of its own). */
+function imageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' | undefined {
+  if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  return undefined;
+}
+
+/**
+ * The drawing photo as it was right after `entry`: read the bytes by their
+ * hash, then write them as the drawing's photo (what `PUT
+ * /api/drawings/:id/photo` stores). A photo that cannot be brought back (its
+ * bytes are gone, a legacy file) is skipped and says so; it never blocks
+ * the rest of the restore.
+ */
+async function restorePhoto(id: string, entry: string, subject: Subject, deps: WorkbenchDeps, source: HistorySource): Promise<{ restored: boolean; skipped?: string }> {
+  if (deps.drawings === undefined || source.photoAt === undefined) return { restored: false };
+  const wanted = await source.photoAt(subject, entry);
+  if (wanted === undefined) return { restored: false };
+  const stored = await deps.drawings.read(id);
+  const decoded = stored.photo === undefined ? undefined : decodeImageDataUri(stored.photo);
+  const have = decoded === undefined ? 'none' : createHash('sha256').update(decoded.bytes).digest('hex');
+  if (wanted === 'none') {
+    if (have === 'none') return { restored: false };
+    await deps.drawings.writePhoto(id, undefined);
+    return { restored: true };
+  }
+  if (wanted.sha256 === have) return { restored: false };
+  const bytes = await deps.blobByHash?.(wanted.sha256);
+  const mime = bytes === undefined ? undefined : (wanted.mime ?? imageMime(bytes));
+  if (bytes === undefined || mime === undefined) return { restored: false, skipped: 'The drawing photo was not brought back: its file is no longer stored.' };
+  await deps.drawings.writePhoto(id, { mime, bytes: Buffer.from(bytes) });
+  return { restored: true };
 }
 
 interface ListRestore {

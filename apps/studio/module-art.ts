@@ -56,13 +56,14 @@ export interface BrandingSettings {
   /** the prefix of exported wire spec files */
   filePrefix?: string;
   notes?: [string, string, string];
+  tolerances?: [string, string][];
   logoDataUri?: string;
 }
 
 /** The drawing art a branding setting stands for; `undefined` when nothing is set (the generic text stays). */
 export function brandingArt(settings: BrandingSettings | undefined): DrawingArt | undefined {
   if (settings === undefined) return undefined;
-  const { organisation, standard, rights, designer, filePrefix, notes, logoDataUri } = settings;
+  const { organisation, standard, rights, designer, filePrefix, notes, tolerances, logoDataUri } = settings;
   const png = logoDataUri === undefined ? undefined : /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(logoDataUri)?.[1];
   const titleBlock = {
     ...(organisation === undefined ? {} : { organisation }),
@@ -71,6 +72,7 @@ export function brandingArt(settings: BrandingSettings | undefined): DrawingArt 
     ...(designer === undefined ? {} : { designer }),
     ...(filePrefix === undefined ? {} : { filePrefix }),
     ...(notes === undefined ? {} : { notes }),
+    ...(tolerances === undefined ? {} : { tolerances }),
   };
   if (png === undefined && Object.keys(titleBlock).length === 0) return undefined;
   return {

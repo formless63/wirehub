@@ -118,6 +118,8 @@ export interface HistoryEntryDetail {
 /** What `POST /api/history/records/:subject/restore` answers. */
 export interface RestoreAnswer {
   restored: { subject: string; entry: string; parts: string[] };
+  /** parts that could not be brought back, each said in a sentence (a photo whose file is gone) */
+  skipped?: string[];
   /** the restored design (a design subject) or record (a library subject), as stored now */
   value?: unknown;
   etag?: string;

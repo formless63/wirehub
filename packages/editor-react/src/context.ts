@@ -1,7 +1,7 @@
 /** The one channel from a node/panel back into the store. */
 
 import { createContext, useContext } from 'react';
-import type { StripPractice, TerminalRef } from '@wirehub/model';
+import type { Db, StripPractice, TerminalRef } from '@wirehub/model';
 
 import type { EditorAction, Selection } from './store.ts';
 
@@ -37,6 +37,8 @@ export interface EditorApi {
    * test harness): dispatch `add-instance` with kind `subassembly`.
    */
   placeSubassembly?: (def: string, position?: { x: number; y: number }) => void;
+  /** the library with design `def` loaded (its ports known) — resolves to the db to rank against */
+  ensureAssembly?: (def: string) => Promise<Db>;
   /** open a placed design in its own editor — the host navigates (`CableEditorProps.onOpenDesign`) */
   openDesign?: (id: string) => void;
 }

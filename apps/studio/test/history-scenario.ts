@@ -227,3 +227,69 @@ export async function renameAndListScenario(backend: HistoryBackend): Promise<vo
   const stored = (back.body as RestoreAnswer).value as { entries: { id: string; note?: string }[] };
   expect(stored.entries.find((e) => e.id === entry)?.note).toBe('first note');
 }
+
+
+/**
+ * cs-yia, after `historyScenario`: a drawing photo comes back from the history
+ * (its bytes read by hash, then written as the drawing's photo), a restore to
+ * before any photo removes it, and nothing else about the photo is touched
+ * by a restore that finds it already in that state.
+ */
+export async function photoScenario(backend: HistoryBackend): Promise<void> {
+  const { deps } = backend;
+  const call = async (request: ApiRequest): Promise<ApiResponse> => {
+    const answer = await handleWorkbenchRequest(request, deps);
+    if (answer.status < 400 && request.method !== 'GET' && request.user !== undefined) await backend.afterSave?.(request.user, answer, request);
+    return answer;
+  };
+  const get = async <T>(path: string): Promise<T> => {
+    const answer = await call({ method: 'GET', path });
+    expect(answer.status, `${path}: ${JSON.stringify(answer.body)}`).toBe(200);
+    return answer.body as T;
+  };
+  const subject = `design:${DESIGN}`;
+  const restorePath = `/api/history/records/${encodeURIComponent(subject)}/restore`;
+  const png = (text: string): string => `data:image/png;base64,${Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(text)]).toString('base64')}`;
+  const setPhoto = async (photo: string | null, user: StudioUser): Promise<void> => {
+    const sheet = await call({ method: 'GET', path: `/api/drawings/${DESIGN}` });
+    const put = await call({ method: 'PUT', path: `/api/drawings/${DESIGN}/photo`, body: { photo }, headers: { 'if-match': sheet.headers?.ETag as string }, user });
+    expect(put.status, JSON.stringify(put.body)).toBe(200);
+  };
+  const photoNow = async (): Promise<string | undefined> => ((await call({ method: 'GET', path: `/api/drawings/${DESIGN}` })).body as { photo?: string }).photo;
+  const entries = async (): Promise<HistoryPage['entries']> => (await get<HistoryPage>(`/api/history/records/${encodeURIComponent(subject)}?limit=100`)).entries;
+
+  // the entry before any photo, then two photos by two people
+  const before = (await entries())[0]!;
+  const first = png('first photo');
+  const second = png('second photo');
+  await setPhoto(first, alice);
+  const afterFirst = (await entries())[0]!;
+  expect(afterFirst.by.name).toBe(alice.name);
+  expect(afterFirst.touches.some((t) => t.part === 'photo')).toBe(true);
+  await setPhoto(second, bob);
+  expect(await photoNow()).toBe(second);
+
+  // the photo's own change is restorable, and brings the first photo back
+  const detail = await get<HistoryEntryDetail>(`/api/history/entries/${afterFirst.id}?subject=${encodeURIComponent(subject)}`);
+  expect(detail.records.find((r) => r.part === 'photo')?.restorable).toBe(true);
+  const restored = await call({ method: 'POST', path: restorePath, body: { entry: afterFirst.id, current: detail.current }, user: carol });
+  expect(restored.status, JSON.stringify(restored.body)).toBe(200);
+  expect((restored.body as RestoreAnswer).restored.parts).toContain('photo');
+  expect(await photoNow()).toBe(first);
+  expect((await entries())[0]?.by.name).toBe(carol.name);
+
+  // an entry from before any photo: the photo goes
+  const early = await get<HistoryEntryDetail>(`/api/history/entries/${before.id}?subject=${encodeURIComponent(subject)}`);
+  const none = await call({ method: 'POST', path: restorePath, body: { entry: before.id, current: early.current }, user: carol });
+  expect(none.status, JSON.stringify(none.body)).toBe(200);
+  expect((none.body as RestoreAnswer).restored.parts).toContain('photo');
+  expect(await photoNow()).toBeUndefined();
+
+  // and the restore is restorable: the second photo comes back from the history too
+  const latest = await entries();
+  const bobsPhoto = latest.find((e) => e.by.name === bob.name && e.touches.some((t) => t.part === 'photo'))!;
+  const again = await get<HistoryEntryDetail>(`/api/history/entries/${bobsPhoto.id}?subject=${encodeURIComponent(subject)}`);
+  const back = await call({ method: 'POST', path: restorePath, body: { entry: bobsPhoto.id, current: again.current }, user: carol });
+  expect(back.status, JSON.stringify(back.body)).toBe(200);
+  expect(await photoNow()).toBe(second);
+}

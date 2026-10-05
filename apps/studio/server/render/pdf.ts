@@ -1,17 +1,27 @@
 /**
  * A small PDF writer: pages of text and rules (`layout.ts`) set in the
- * standard Helvetica faces, and pages that are a raster image (an SVG
- * rendered by resvg). No dependency beyond Node's zlib; deterministic (no
- * creation date, no id).
+ * standard Helvetica faces, pages that are vector drawings whose text is
+ * Liberation Sans embedded as a subset TrueType font (`vector.ts`), and pages
+ * that are a raster image (an SVG rendered by resvg). No dependency beyond
+ * Node's zlib; deterministic (no creation date, no id).
  */
 
 import { deflateSync } from 'node:zlib';
 
+import { liberation, type Face } from './fonts.ts';
 import { winAnsiByte, type Op, type Page } from './layout.ts';
 
 export type PdfPage =
   | { kind: 'ops'; page: Page }
-  | { kind: 'vector'; width: number; height: number; content: string; alphas: { key: string; ca: number; CA: number }[] }
+  | {
+      kind: 'vector';
+      width: number;
+      height: number;
+      content: string;
+      alphas: { key: string; ca: number; CA: number }[];
+      /** the glyphs the page's text uses (`/E1` regular, `/E2` bold): embedded once for the document, subset to these */
+      glyphs: { face: Face; gid: number; cp: number }[];
+    }
   | { kind: 'image'; width: number; height: number; at: { x: number; y: number; w: number; h: number }; pixelWidth: number; pixelHeight: number; rgb: Uint8Array };
 
 const n = (v: number): string => String(Math.round(v * 100) / 100);
@@ -41,6 +51,47 @@ function content(page: Page): string {
   return out.join('\n');
 }
 
+const hex4 = (v: number): string => v.toString(16).toUpperCase().padStart(4, '0');
+
+/** Six capital letters from the glyph set: a subset font's name prefix, the same for the same glyphs. */
+function subsetTag(face: Face, gids: readonly number[]): string {
+  let h = face === 'bold' ? 0x811c9dc5 : 0x01000193;
+  for (const g of gids) h = Math.imul(h ^ g, 0x01000193) >>> 0;
+  let tag = '';
+  for (let i = 0; i < 6; i += 1) {
+    tag += String.fromCharCode(65 + (h % 26));
+    h = Math.floor(h / 26) + Math.imul(i + 1, 0x9e3779b1) >>> 0;
+  }
+  return tag;
+}
+
+/** The ToUnicode map that lets a viewer copy and search the embedded text. */
+function toUnicode(map: readonly { gid: number; cp: number }[]): string {
+  const entries = map.map(({ gid, cp }) => {
+    const units = cp > 0xffff ? [0xd800 + ((cp - 0x10000) >> 10), 0xdc00 + ((cp - 0x10000) & 0x3ff)] : [cp];
+    return `<${hex4(gid)}> <${units.map(hex4).join('')}>`;
+  });
+  const blocks: string[] = [];
+  for (let i = 0; i < entries.length; i += 100) {
+    const chunk = entries.slice(i, i + 100);
+    blocks.push(`${chunk.length} beginbfchar\n${chunk.join('\n')}\nendbfchar`);
+  }
+  return [
+    '/CIDInit /ProcSet findresource begin',
+    '12 dict begin',
+    'begincmap',
+    '/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def',
+    '/CMapName /Adobe-Identity-UCS def',
+    '/CMapType 2 def',
+    '1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange',
+    ...blocks,
+    'endcmap',
+    'CMapName currentdict /CMap defineresource pop',
+    'end',
+    'end',
+  ].join('\n');
+}
+
 export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array {
   const objects: (string | Uint8Array)[] = [];
   /** the dictionary that precedes each stream object */
@@ -56,6 +107,32 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
   add(`<< /Title ${pdfString(title)} /Producer (WireHub) >>`);
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  // the vector pages' text: one subset of each Liberation Sans face, shared by every page
+  const used: Record<Face, Map<number, number>> = { regular: new Map(), bold: new Map() };
+  for (const p of pages) if (p.kind === 'vector') for (const g of p.glyphs) if (!used[g.face].has(g.gid)) used[g.face].set(g.gid, g.cp);
+  const embedded: Partial<Record<Face, number>> = {};
+  for (const face of ['regular', 'bold'] as const) {
+    const gids = [...used[face].keys()].sort((a, b) => a - b);
+    if (gids.length === 0) continue;
+    const font = liberation(face);
+    const program = font.subset(gids);
+    const packed = deflateSync(program);
+    const name = `${subsetTag(face, gids)}+LiberationSans${face === 'bold' ? '-Bold' : ''}`;
+    const fileNo = add(packed);
+    contentDict.set(fileNo, `<< /Filter /FlateDecode /Length ${packed.length} /Length1 ${program.length} >>`);
+    const d = font.descriptor;
+    const descriptorNo = add(
+      `<< /Type /FontDescriptor /FontName /${name} /Flags 32 /FontBBox [${d.bbox.join(' ')}] /ItalicAngle ${n(d.italicAngle)} /Ascent ${d.ascent} /Descent ${d.descent} /CapHeight ${Math.round(d.capHeight)} /StemV ${face === 'bold' ? 140 : 80} /FontFile2 ${fileNo} 0 R >>`,
+    );
+    const widths = gids.map((g) => `${g} [${Math.round((font.advance(g) * 1000) / font.unitsPerEm)}]`).join(' ');
+    const cidNo = add(
+      `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /${name} /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ${descriptorNo} 0 R /CIDToGIDMap /Identity /DW 1000 /W [${widths}] >>`,
+    );
+    const unicode = deflateSync(Buffer.from(toUnicode(gids.map((gid) => ({ gid, cp: used[face].get(gid) as number }))), 'latin1'));
+    const unicodeNo = add(unicode);
+    contentDict.set(unicodeNo, `<< /Filter /FlateDecode /Length ${unicode.length} >>`);
+    embedded[face] = add(`<< /Type /Font /Subtype /Type0 /BaseFont /${name} /Encoding /Identity-H /DescendantFonts [${cidNo} 0 R] /ToUnicode ${unicodeNo} 0 R >>`);
+  }
   const kids: number[] = [];
   pages.forEach((p, i) => {
     const w = p.kind === 'ops' ? p.page.width : p.width;
@@ -69,6 +146,7 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
     if (p.kind === 'ops') {
       stream = deflateSync(Buffer.from(content(p.page), 'latin1'));
     } else if (p.kind === 'vector') {
+      resources = `/Font << /F1 4 0 R /F2 5 0 R${embedded.regular === undefined ? '' : ` /E1 ${embedded.regular} 0 R`}${embedded.bold === undefined ? '' : ` /E2 ${embedded.bold} 0 R`} >>`;
       if (p.alphas.length > 0) resources += ` /ExtGState << ${p.alphas.map((a) => `/${a.key} << /ca ${n(a.ca)} /CA ${n(a.CA)} >>`).join(' ')} >>`;
       stream = deflateSync(Buffer.from(p.content, 'latin1'));
     } else {

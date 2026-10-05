@@ -21,9 +21,24 @@ const FIELDS = [
   { key: 'filePrefix', label: 'Wire spec file prefix', hint: 'What exported wire spec files start with; empty keeps “WSS_”. Letters, digits, dot, dash, underscore; up to 16.' },
 ] as const;
 
-type Draft = Record<(typeof FIELDS)[number]['key'], string>;
+type Draft = Record<(typeof FIELDS)[number]['key'], string> & {
+  notes: [string, string, string];
+  tolerances: [string, string][];
+};
+
+/** what the sheet prints when nothing is set: shown as placeholders so a person edits from it */
+const DEFAULT_NOTES = ['ALL DIMENSIONS ARE', 'IN MM UNLESS', 'OTHERWISE SPECIFIED'] as const;
+const DEFAULT_TOLERANCES = [
+  ['x.xx', '± 0.1'],
+  ['x.xxx', '± 0.03'],
+  ['x.xxx', '± 0.005'],
+  ['FRACTIONAL', '± 1/16'],
+  ['ANGLE', '± 1°'],
+] as const;
 
 const draftOf = (view: BrandingView | undefined): Draft => ({
+  notes: [view?.notes?.[0] ?? '', view?.notes?.[1] ?? '', view?.notes?.[2] ?? ''],
+  tolerances: DEFAULT_TOLERANCES.map((_, i) => [view?.tolerances?.[i]?.[0] ?? '', view?.tolerances?.[i]?.[1] ?? ''] as [string, string]),
   organisation: view?.organisation ?? '',
   standard: view?.standard ?? '',
   rights: view?.rights ?? '',
@@ -104,6 +119,48 @@ export function SettingsRoute(): JSX.Element {
               <span className="text-faint">{f.hint}</span>
             </label>
           ))}
+          <fieldset className="flex flex-col gap-1 border-0 p-0">
+            <legend className="font-medium">Drawing general note</legend>
+            {DEFAULT_NOTES.map((placeholder, i) => (
+              <input
+                key={placeholder}
+                className="rounded border border-line bg-panel px-2 py-1"
+                aria-label={`General note line ${i + 1}`}
+                placeholder={placeholder}
+                value={draft.notes[i]}
+                disabled={readOnly}
+                maxLength={24}
+                onChange={(e) => setDraft({ ...draft, notes: draft.notes.map((line, j) => (j === i ? e.target.value : line)) as Draft['notes'] })}
+              />
+            ))}
+            <span className="text-faint">The three lines beside the tolerances in the title block; up to 24 characters each. Empty keeps the generic note.</span>
+          </fieldset>
+          <fieldset className="flex flex-col gap-1 border-0 p-0">
+            <legend className="font-medium">Drawing tolerances</legend>
+            {DEFAULT_TOLERANCES.map(([labelHint, valueHint], i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  className="w-32 rounded border border-line bg-panel px-2 py-1"
+                  aria-label={`Tolerance ${i + 1} label`}
+                  placeholder={labelHint}
+                  value={draft.tolerances[i]?.[0] ?? ''}
+                  disabled={readOnly}
+                  maxLength={12}
+                  onChange={(e) => setDraft({ ...draft, tolerances: draft.tolerances.map((row, j) => (j === i ? [e.target.value, row[1]] : row)) as Draft['tolerances'] })}
+                />
+                <input
+                  className="w-28 rounded border border-line bg-panel px-2 py-1"
+                  aria-label={`Tolerance ${i + 1} value`}
+                  placeholder={valueHint}
+                  value={draft.tolerances[i]?.[1] ?? ''}
+                  disabled={readOnly}
+                  maxLength={10}
+                  onChange={(e) => setDraft({ ...draft, tolerances: draft.tolerances.map((row, j) => (j === i ? [row[0], e.target.value] : row)) as Draft['tolerances'] })}
+                />
+              </div>
+            ))}
+            <span className="text-faint">Up to five rows, printed in the title block. Leave all empty to keep the generic table. A per-profile override comes with drawing standards (cs-ml3).</span>
+          </fieldset>
           <div className="flex flex-col gap-1">
             <span className="font-medium">Title-block logo</span>
             {shown === undefined ? <span className="text-faint">No logo.</span> : <img src={shown} alt="Logo preview" className="max-h-16 max-w-48 self-start border border-line bg-white p-1" />}
