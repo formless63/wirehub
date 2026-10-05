@@ -26,7 +26,16 @@
       }
     },
     "confidence": "documented",
-    "src": "AES14-1992 (r2004) / IEC 60268-12: pin 1 shield, pin 2 hot, pin 3 cold"
+    "src": "AES14-1992 (r2004) / IEC 60268-12: pin 1 shield, pin 2 hot, pin 3 cold",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "AES14-1992 (r2004) / IEC 60268-12: pin 1 shield, pin 2 hot, pin 3 cold"
+        }
+      ]
+    }
   },
   {
     "id": "rca-single",
@@ -45,7 +54,16 @@
         "label": "Ground / shield"
       }
     },
-    "src": "IEC 60603-12: centre pin signal, shell ground"
+    "src": "IEC 60603-12: centre pin signal, shell ground",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 60603-12: centre pin signal, shell ground"
+        }
+      ]
+    }
   },
   {
     "id": "stereo-trs",
@@ -68,6 +86,15 @@
         "label": "Ground"
       }
     },
-    "src": "IEC 60603-11 / common stereo convention: tip left, ring right, sleeve ground"
+    "src": "IEC 60603-11 / common stereo convention: tip left, ring right, sleeve ground",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 60603-11 / common stereo convention: tip left, ring right, sleeve ground"
+        }
+      ]
+    }
   }
 ]

@@ -10,7 +10,16 @@
         "8P8C",
         "RJ45"
       ],
-      "src": "IEC 60603-7"
+      "src": "IEC 60603-7",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60603-7"
+          }
+        ]
+      }
     }
   ]
 }

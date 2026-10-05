@@ -51,13 +51,15 @@ the `id` of the module's `catalogPacks` entry, and `version`/`license` should ma
 - Every record keeps `src`; inferred values say so in it.
 - Bundled packs say `synthetic example` in the `src` of example designs. A pack of real
   published cables cites the standard or datasheet.
-- **Licence and provenance per record.** Today the pack-level `license` is what the install
-  records (`packs.json`). The per-record `license`, `provenance` (`method`, `sources`, `reviewed`)
-  and `derivedFrom` fields in `docs/catalog-store.md` section 2 are **design only**: the model
-  does not define or validate them yet. Do not rely on them; put what the store will need
-  (document title, revision, retrieval date) into `src` text now. A record under a different
-  licence than the pack's does not belong in the pack until those fields exist; split it into a
-  separate pack with its own `license`.
+- **Licence and provenance per record.** Every record may carry `license` (an SPDX expression),
+  `provenance` (`{ method, sources: [{ title?, url?, retrieved? }], reviewed? }`) and `derivedFrom`
+  (set by a fork, never by a pack author); the model defines them (`packages/model/src/provenance.ts`)
+  and `validateDb` checks their shape. Bundled packs give every record `"license": "CC0-1.0"` and a
+  `provenance` whose `method` (`transcribed`, `derived` for an inferred value, `synthetic`,
+  `measured`, `generated`) and first source `title` come from the record's `src`; add a `url` and
+  `retrieved` date when you cite a web page. `src` stays mandatory. A record under a different
+  licence than the pack's may name its own `license`, but the install plan shows every licence, so
+  prefer a separate pack with its own `license` for a whole group of them.
 - Pack data you contribute to the repository is **CC0-1.0**, like the starter.
 
 ## Versioning (semver on the data)
@@ -131,9 +133,13 @@ rules:
 
 ## Publishing toward the catalog store
 
-The store (`docs/catalog-store.md`) is a **design** with the file-backend pieces of phases 1 and 2
-built: manifest, layered reading, install from a directory. Not built: signing, the store index,
-update with diff, `pack verify`, review status. What to do today:
+The store (`docs/catalog-store.md`) is a **design** with these pieces built: manifest, layered
+reading, install from a directory, per-record provenance fields and the pack lifecycle on both
+backends (update with a record-level diff, disable when nothing outside the pack uses its
+records, read-only marking with fork to edit; Library, Packs). Not built: signing, the store
+index, `pack verify`, review status. Installing a **newer version** of a bundled pack through the
+lifecycle shows what your edit changes, so keep ids stable and follow the semver rules above.
+What to do today:
 
 1. Keep the pack a standalone directory that passes `verify-pack.mjs` with the manifest fields
    above, so it can be archived as `<id>-<version>/` later.

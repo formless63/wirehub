@@ -10,7 +10,16 @@
       "aliases": [
         "EX TICK"
       ],
-      "src": "synthetic example"
+      "src": "synthetic example",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example"
+          }
+        ]
+      }
     }
   ]
 }

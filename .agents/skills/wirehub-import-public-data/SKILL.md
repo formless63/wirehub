@@ -30,11 +30,14 @@ its source.** Read that section before you start; the table below is its summary
    on interface pins (`documented`, `inferred`, `unknown`) is set to match.
 5. **No private data crosses over**: if a value came from a private catalogue, a customer drawing
    or a supplier's quote, it does not go in. Run `bash scripts/privacy-check.sh --tree`.
-6. **Records you cannot license CC0 stay out.** The pack-level licence is the only one the model
-   carries today (per-record `license` and `provenance` are design only, `docs/catalog-store.md`
-   sections 2 and 6); a record that needs another licence goes in a separate pack with its own
-   `license` in `wirehub-pack.json`, or it is not contributed. Records under a licence that
-   forbids redistribution never enter a pack.
+6. **Say where each record came from, in fields.** A record carries `license` (SPDX) and
+   `provenance` (`method`: `transcribed`, `derived`, `measured`, `generated` or `synthetic`;
+   `sources`: a `url` and/or a `title` citation, with the `retrieved` date; `reviewed` once someone
+   other than the transcriber checked it) beside the mandatory `src` (`docs/catalog-store.md`
+   sections 2 and 6; `validateDb` checks the shape). **Records you cannot license CC0 stay
+   out**: a record that needs another licence names it in its own `license`, or better goes in a
+   separate pack with its own `license` in `wirehub-pack.json`, or it is not contributed. Records
+   under a licence that forbids redistribution never enter a pack.
 
 ## Source table (summary of `docs/catalog-store.md` section 5)
 

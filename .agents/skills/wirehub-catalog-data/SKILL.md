@@ -64,6 +64,27 @@ A missing `src` is a `missing-src` warning from `validateDb` and a review blocke
 - Pin assignments and dimensions are facts: cite the standard, **never copy its text, tables or
   figures**. Where the source is licensed, see `wirehub-import-public-data`.
 
+## Licence and provenance fields
+
+Beside `src`, any record (and vocabulary entry) may carry three optional fields, defined in
+`packages/model/src/provenance.ts` and checked by `validateDb` (`record-license`,
+`record-provenance`, `record-derived-from` errors; the studio's definition routes refuse a bad one):
+
+```json
+"license": "CC0-1.0",
+"provenance": { "method": "transcribed", "sources": [{ "title": "TIA-574 clause 4", "url": "https://...", "retrieved": "2026-09-30" }], "reviewed": [{ "by": "someone", "on": "2026-10-01" }] },
+"derivedFrom": { "pack": "pc-serial", "id": "de9-rs232-dte", "version": "0.1.0" }
+```
+
+- `license`: an SPDX expression (`CC0-1.0`, `CC-BY-4.0`, `LicenseRef-...`); absent means the pack's
+  (or the catalog's, CC0-1.0).
+- `provenance.method`: `transcribed`, `derived`, `measured`, `generated` or `synthetic`;
+  `sources` is non-empty, each with a `title` (citation) and/or an `http(s)` `url`.
+- `derivedFrom` is written by the studio's **fork to edit** action on a record that came from a
+  pack; do not write it by hand into a pack.
+- Bundled pack records carry `license` and `provenance` drawn from their `src`; starter records
+  may omit them. Keep `src`: it stays the mandatory one-line citation.
+
 ## Licence of data
 
 Starter catalog and bundled pack data are **CC0-1.0**. Data you contribute to them is dedicated

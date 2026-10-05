@@ -23,6 +23,15 @@
       }
     ],
     "construction": "solder-cup",
-    "src": "USB 2.0 Specification §6.5.3 (USB-IF), Standard-A plug: contacts 1–4 and shell"
+    "src": "USB 2.0 Specification §6.5.3 (USB-IF), Standard-A plug: contacts 1–4 and shell",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "USB 2.0 Specification §6.5.3 (USB-IF), Standard-A plug: contacts 1–4 and shell"
+        }
+      ]
+    }
   }
 ]

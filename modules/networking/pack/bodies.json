@@ -35,6 +35,15 @@
       }
     ],
     "construction": "crimp",
-    "src": "IEC 60603-7 8-position modular plug; contact numbering 1–8 left to right, clip down, contacts facing the viewer"
+    "src": "IEC 60603-7 8-position modular plug; contact numbering 1–8 left to right, clip down, contacts facing the viewer",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 60603-7 8-position modular plug; contact numbering 1–8 left to right, clip down, contacts facing the viewer"
+        }
+      ]
+    }
   }
 ]

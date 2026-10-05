@@ -7,13 +7,31 @@
       "id": "audio-l",
       "label": "Audio L",
       "lane": "audio-l",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     },
     {
       "id": "audio-r",
       "label": "Audio R",
       "lane": "audio-r",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     }
   ]
 }

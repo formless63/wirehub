@@ -9,6 +9,8 @@
  */
 
 export * from './model.ts';
+export { PROVENANCE_METHODS, isSourceUrl, isSpdxLike, recordMetaIssues } from './provenance.ts';
+export type { DerivedFrom, ProvenanceMethod, ProvenanceReview, ProvenanceSource, RecordMeta, RecordProvenance } from './provenance.ts';
 export {
   isGroup,
   isElectricalElement,

@@ -7,7 +7,16 @@
     "construction": "solder-cup",
     "body": "de9-female",
     "interface": "rs232-dte",
-    "src": "TIA-574 pin assignment on a generic DE-9 female solder-cup connector"
+    "src": "TIA-574 pin assignment on a generic DE-9 female solder-cup connector",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TIA-574 pin assignment on a generic DE-9 female solder-cup connector"
+        }
+      ]
+    }
   },
   {
     "id": "de9-male-profibus",
@@ -17,7 +26,16 @@
     "construction": "solder-cup",
     "body": "de9-male",
     "interface": "profibus-dp",
-    "src": "IEC 61158 PROFIBUS DP pin assignment on a generic DE-9 male solder-cup connector"
+    "src": "IEC 61158 PROFIBUS DP pin assignment on a generic DE-9 male solder-cup connector",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 61158 PROFIBUS DP pin assignment on a generic DE-9 male solder-cup connector"
+        }
+      ]
+    }
   },
   {
     "id": "usb-a-plug",
@@ -27,6 +45,15 @@
     "construction": "solder-cup",
     "body": "usb-a-plug",
     "interface": "usb2-power-data",
-    "src": "USB 2.0 Standard-A plug, solder type (USB-IF specification)"
+    "src": "USB 2.0 Standard-A plug, solder type (USB-IF specification)",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "USB 2.0 Standard-A plug, solder type (USB-IF specification)"
+        }
+      ]
+    }
   }
 ]

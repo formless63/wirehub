@@ -58,7 +58,16 @@
       }
     },
     "confidence": "documented",
-    "src": "TIA-574 (EIA/TIA-574) 9-position non-synchronous DTE/DCE interface — public standard pin assignment as seen from the DTE"
+    "src": "TIA-574 (EIA/TIA-574) 9-position non-synchronous DTE/DCE interface — public standard pin assignment as seen from the DTE",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TIA-574 (EIA/TIA-574) 9-position non-synchronous DTE/DCE interface — public standard pin assignment as seen from the DTE"
+        }
+      ]
+    }
   },
   {
     "id": "profibus-dp",
@@ -114,7 +123,16 @@
       }
     },
     "confidence": "documented",
-    "src": "IEC 61158 / IEC 61784 PROFIBUS DP 9-pin D-sub assignment (pins 3 = B, 8 = A, 5 = DGND, 6 = VP) — public"
+    "src": "IEC 61158 / IEC 61784 PROFIBUS DP 9-pin D-sub assignment (pins 3 = B, 8 = A, 5 = DGND, 6 = VP) — public",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEC 61158 / IEC 61784 PROFIBUS DP 9-pin D-sub assignment (pins 3 = B, 8 = A, 5 = DGND, 6 = VP) — public"
+        }
+      ]
+    }
   },
   {
     "id": "usb2-power-data",
@@ -148,6 +166,15 @@
         "label": "Shield"
       }
     },
-    "src": "USB 2.0 Specification table 6-1 (USB-IF): 1 VBUS, 2 D−, 3 D+, 4 GND"
+    "src": "USB 2.0 Specification table 6-1 (USB-IF): 1 VBUS, 2 D−, 3 D+, 4 GND",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "USB 2.0 Specification table 6-1 (USB-IF): 1 VBUS, 2 D−, 3 D+, 4 GND"
+        }
+      ]
+    }
   }
 ]

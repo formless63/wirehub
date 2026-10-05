@@ -11,7 +11,16 @@
         "Left"
       ],
       "src": "IEC 60603-11 stereo plug convention",
-      "standIn": "audio-mono"
+      "standIn": "audio-mono",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60603-11 stereo plug convention"
+          }
+        ]
+      }
     },
     {
       "id": "audio-r",
@@ -21,13 +30,31 @@
         "Right"
       ],
       "src": "IEC 60603-11 stereo plug convention",
-      "standIn": "audio-mono"
+      "standIn": "audio-mono",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "IEC 60603-11 stereo plug convention"
+          }
+        ]
+      }
     },
     {
       "id": "audio-mono",
       "label": "Audio (mono)",
       "kind": "audio",
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     },
     {
       "id": "audio-hot",
@@ -36,7 +63,16 @@
       "aliases": [
         "Hot"
       ],
-      "src": "AES14 / IEC 61076-2-103 balanced audio"
+      "src": "AES14 / IEC 61076-2-103 balanced audio",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "AES14 / IEC 61076-2-103 balanced audio"
+          }
+        ]
+      }
     },
     {
       "id": "audio-cold",
@@ -45,7 +81,16 @@
       "aliases": [
         "Cold"
       ],
-      "src": "AES14 / IEC 61076-2-103 balanced audio"
+      "src": "AES14 / IEC 61076-2-103 balanced audio",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "AES14 / IEC 61076-2-103 balanced audio"
+          }
+        ]
+      }
     },
     {
       "id": "gnd-audio",
@@ -56,7 +101,16 @@
         "audio-r",
         "audio-mono"
       ],
-      "src": "synthetic example: base starter vocabulary"
+      "src": "synthetic example: base starter vocabulary",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "synthetic",
+        "sources": [
+          {
+            "title": "synthetic example: base starter vocabulary"
+          }
+        ]
+      }
     }
   ]
 }

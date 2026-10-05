@@ -39,6 +39,7 @@ import {
   definitionUsage,
   errors,
   kitsContaining,
+  recordMetaIssues,
   validateDb,
   validateDesign,
   type CableDesign,
@@ -203,6 +204,13 @@ function gateCommon(kind: DefinitionKind, value: unknown): Gate<Record<string, u
     return reject(
       `This ${KIND_NOUN[kind]} does not say where its information comes from.`,
       'Fill in "Where does this information come from?" — a spec sheet, a measurement, or a note that the values were inferred.',
+    );
+  }
+  const meta = recordMetaIssues(value, String(value['id']))[0];
+  if (meta !== undefined) {
+    return reject(
+      `This ${KIND_NOUN[kind]}'s ${meta.code === 'record-license' ? 'licence' : meta.code === 'record-derived-from' ? 'fork origin' : 'provenance'} is not in the right form.`,
+      meta.message,
     );
   }
   return { ok: true, record: value };
