@@ -66,8 +66,8 @@ export const EXTENSION_POINTS = [
 
 export type ExtensionPoint = (typeof EXTENSION_POINTS)[number];
 
-/** Points whose change needs a fresh process: job queues are bound to the queue service when it starts (Postgres). */
-export const RESTART_POINTS: readonly ExtensionPoint[] = ['queues'];
+/** Points whose change needs a fresh process; all supported runtime points currently apply live. */
+export const RESTART_POINTS: readonly ExtensionPoint[] = [];
 
 /** Points a runtime module may not use: its SQL could only run in the migrate one-shot, before the app. */
 export const RUNTIME_REFUSED_POINTS: readonly ExtensionPoint[] = ['migrations'];

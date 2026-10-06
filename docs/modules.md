@@ -556,9 +556,12 @@ The design is `specs/runtime-modules.md`; this is the summary.
   built-in wins —, a second scheme or commit hook, a duplicate importer, exporter or provider id).
   Rules, importers, exporters, the scheme, panels, compare views, UI routes, integration routes,
   the commit hook, documents, derived records, art, bench steps and auth providers (sign-in is
-  rebuilt in-process) apply live. Job queues on Postgres start at the next start: Settings → Code
-  modules → **Restart WireHub** drains the app and exits with code 75 for the container's restart
-  policy to bring it back, and tells the worker through the database. A module that throws at load
+  rebuilt in-process) apply live. On Postgres the worker follows the live registry, creates and
+  works new job queues, updates their schedules, and stops working removed queues. Running jobs
+  finish; queued jobs of a removed queue are cancelled. Updates use the current handler.
+  Settings → Code modules → **Restart WireHub** remains available: it drains the app and exits
+  with code 75 for the container's restart policy, and tells the worker through the database.
+  A module that throws at load
   is disabled automatically, with its error shown; the hub stays up.
 - **Settings → Code modules**: the installed modules and their state, on and off, the kill switch,
   pinned keys, Restart WireHub. `GET /api/code-modules`, `POST /api/code-modules/<id>/enable|disable`,

@@ -70,9 +70,9 @@ describe('extension points, permissions, apply mode', () => {
   it('derives the permissions, env names included', () => {
     expect(permissionsOf(rule, { browser: true })).toEqual(['server-code', 'browser-code', 'routes', 'writes', 'jobs', 'sign-in', 'env:ACME_SECRET', 'env:ACME_URL']);
   });
-  it('needs a restart only for job queues', () => {
+  it('applies supported runtime points including job queues live', () => {
     expect(applyModeOf(['validationRules', 'panels', 'authProviders', 'art', 'bench'])).toBe('live');
-    expect(applyModeOf(['exporters', 'queues'])).toBe('restart');
+    expect(applyModeOf(['exporters', 'queues'])).toBe('live');
   });
 });
 

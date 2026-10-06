@@ -65,7 +65,7 @@ export interface CodeModuleStatus {
   error?: string;
   /** live: every change applies at once; restart: the points in `restartPoints` apply on the next start (the rest at once) */
   apply: 'live' | 'restart';
-  /** its extension points that are bound when WireHub starts (job queues, art) */
+  /** its extension points that need a fresh process (currently none) */
   restartPoints: string[];
   /** it changed since this process started in a way only a restart completes (`restartPoints`) */
   restartPending: boolean;
@@ -256,7 +256,7 @@ export function createCodeModuleHost(options: CodeModuleHostOptions): CodeModule
         status.error = failed;
         continue;
       }
-      // a queue or art is bound at start: the rest applies now, those on the next start
+      // A future extension point may require a fresh process rather than live reconciliation.
       if (bootKeys !== undefined && status.restartPoints.length > 0 && bootKeys.get(m.id) !== key) status.restartPending = true;
       let module = instances.get(key);
       if (module === undefined) {
@@ -294,7 +294,7 @@ export function createCodeModuleHost(options: CodeModuleHostOptions): CodeModule
     // instances nothing wants any more are forgotten: enabling again imports afresh
     const keep = new Set(accepted.map((w) => w.key));
     for (const key of [...instances.keys()]) if (!keep.has(key)) instances.delete(key);
-    // a module with restart points that ran at start and runs no more: its queue stays bound until the next start
+    // Preserve restart status when a future extension point cannot be removed live.
     for (const status of next) if (bootKeys?.has(status.id) === true && status.restartPoints.length > 0 && status.state !== 'loaded') status.restartPending = true;
     const fingerprint = accepted.map((w) => w.key).join(',');
     if (fingerprint !== registered) {

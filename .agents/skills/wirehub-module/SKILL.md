@@ -140,8 +140,10 @@ module package stays as above (its `pack/` becomes the bundle's data); then:
 3. Publish it: put the package under `modules/` of a store made from `templates/store` (its workflow
    builds and signs it with the store's publisher key; `templates/store/README.md`), or hand the zip
    and your public key to an owner, who installs it under Library, Modules, Install pack… with the key.
-4. An owner consents (the install lists what it may do), it runs at once; job queues start after
-   Settings, Code modules, Restart WireHub. A module that throws at load is disabled automatically.
+4. An owner consents (the install lists what it may do), it runs at once. Job queues apply live
+   in the Postgres worker: additions are worked, updates use the current handler and schedule,
+   and removal cancels pending jobs while running jobs finish. A module that throws at load is
+   disabled automatically.
 
 Test the runtime path the way `apps/studio/test/code-modules.server.test.ts` does (build, install by
 upload and from a signed test store, the module's points answering without a restart).

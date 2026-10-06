@@ -152,7 +152,7 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   // the preview: what the module may do, and the consent it needs
   const preview = await call('preview', 'POST', '/api/packs/install', { zip: b64(fixture.zip), trustKey });
   expect(preview.status, JSON.stringify(preview.body)).toBe(200);
-  expect(preview.body.code).toMatchObject({ module: { id: 'example', version: '0.1.0', apiVersion: '1.2' }, apply: 'restart', consent: 'example@0.1.0', trust: { via: 'pinned', keys: [{ key: trustKey }] } });
+  expect(preview.body.code).toMatchObject({ module: { id: 'example', version: '0.1.0', apiVersion: '1.2' }, apply: 'live', consent: 'example@0.1.0', trust: { via: 'pinned', keys: [{ key: trustKey }] } });
   expect(preview.body.code.permissions).toEqual(['server-code', 'browser-code', 'routes', 'writes', 'jobs', 'sign-in']);
   expect(preview.body.code.warning).toMatch(/runs code in your hub/);
   const noConsent = await call('no consent', 'POST', '/api/packs/install', { zip: b64(fixture.zip), trustKey, apply: true });
@@ -181,7 +181,7 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   expect(live.module('example')?.version).toBe('0.1.0');
   const listed = (await call('listed', 'GET', '/api/code-modules')).body;
   expect(listed.keys.map((k: { key: string }) => k.key)).toEqual([trustKey]);
-  expect(listed.modules[0]).toMatchObject({ id: 'example', state: 'loaded', apply: 'restart', restartPoints: ['queues'], pack: { id: 'example', version: '0.1.0' } });
+  expect(listed.modules[0]).toMatchObject({ id: 'example', state: 'loaded', apply: 'live', restartPoints: [], pack: { id: 'example', version: '0.1.0' } });
 
   // its route, rule, exporter and panel, without a restart
   expect((await call('route', 'GET', '/api/modules/example/status')).body).toEqual({ module: 'example', ok: true });

@@ -140,11 +140,12 @@ not quarantined.
   documents, derived records, art and bench steps (unregistered and registered again on every
   swap, `installModuleArt`), and **auth providers** apply live (sign-in is rebuilt in-process by
   `liveStudioAuth`, the runtime-settings mechanism, now also on a provider change). **Restart
-  required:** integration job queues on Postgres (pg-boss queues are created and worked when the
-  worker starts; on files they run in the app and apply live). A module with a queue loads live
-  all the same — its routes, rules and panels work at once — and its status says
-  `restartPending` for the queue until Restart WireHub; the install and enable answers say
-  `apply: 'restart'` and the page offers the Restart button.
+  required:** none of the supported runtime extension points. Integration job queues on Postgres
+  apply live: the worker serializes registry reconciliation, creates and works added queues,
+  reschedules updated queues, and unschedules and stops working removed queues. Running jobs
+  finish; pending recorded jobs of a removed queue are cancelled, and no new job executes a
+  disabled module. A job resolves its handler from the current registry after its claim, so an
+  update uses the latest implementation. The worker heartbeat lists the queues currently worked.
 - **Isolation.** An import that throws, a default export that is not a module, a mismatch with
   the manifest, an undeclared point or permission, or a registry clash: the module is
   **quarantined** in that process (not registered, status `failed` with the error), the rest load,
