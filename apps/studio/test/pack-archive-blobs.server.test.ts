@@ -49,4 +49,25 @@ describe('what a pack may ship besides records and images', () => {
     // a name that merely starts with the same letters is not a script
     expect(pdfProblem(pdfBytes('x', '/JSONish 1 '))).toBeUndefined();
   });
+
+  it('uses PDF token boundaries, including delimiters, whitespace and EOF', () => {
+    const scan = (name: string, suffix: string): string | undefined => pdfProblem(Buffer.from(`%PDF-1.7\n/${name}${suffix}`, 'latin1'));
+    for (const name of ['JS', 'JavaScript', 'OpenAction', 'AA', 'Launch', 'EmbeddedFile', 'EmbeddedFiles', 'RichMedia', 'SubmitForm', 'ImportData', 'GoToR', 'GoToE']) {
+      for (const boundary of ['', '\x00', '\t', '\n', '\f', '\r', ' ', '(', ')', '<', '>', '[', ']', '{', '}', '/', '%']) {
+        expect(scan(name, boundary), `${name} at ${JSON.stringify(boundary)}`).toMatch(/active content/);
+      }
+      for (const continuation of ['\xc2', '\xff', '_', '-', '.', '#', '\x0b', 'ish', '9']) {
+        expect(scan(name, `${continuation} `), `${name} followed by ${JSON.stringify(continuation)}`).toBeUndefined();
+      }
+    }
+  });
+
+  it('checks escaped names without turning escaped delimiters into boundaries', () => {
+    for (const name of ['J#53', '#4aavaScript', 'Open#41ction', '#41#41', 'Laun#63h', 'Embedded#46ile']) {
+      expect(pdfProblem(pdfBytes('synthetic', `/${name} `))).toMatch(/active content/);
+    }
+    for (const name of ['JS#20more', 'JS#2f', 'JS#c2', 'JS#23', 'JS#5', 'JSONish']) {
+      expect(pdfProblem(pdfBytes('synthetic', `/${name} `))).toBeUndefined();
+    }
+  });
 });

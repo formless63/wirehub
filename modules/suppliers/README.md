@@ -7,10 +7,10 @@ approved API account and deployment-owned credentials.
 
 ## Install
 
-Build a signed runtime bundle from this checkout:
+Build a signed runtime bundle from the repository root:
 
 ```sh
-pnpm --filter studio wirehub-module build ../../modules/suppliers \
+pnpm --filter studio wirehub-module build modules/suppliers \
   --export suppliers --out /tmp/wirehub-modules --zip \
   --key /path/to/publisher-private-key.pem \
   --publisher-id your-publisher --publisher-name 'Your publisher'

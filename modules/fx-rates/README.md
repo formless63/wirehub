@@ -7,10 +7,10 @@ loading a design, opening a revision and exporting never fetches rates.
 
 ## Install and use
 
-Build a signed runtime bundle from this checkout with the standard module CLI:
+Build a signed runtime bundle from the repository root with the standard module CLI:
 
 ```sh
-pnpm --filter studio wirehub-module build ../../modules/fx-rates \
+pnpm --filter studio wirehub-module build modules/fx-rates \
   --export fxRates --out /tmp/wirehub-modules --zip \
   --key /path/to/publisher-private-key.pem \
   --publisher-id your-publisher --publisher-name 'Your publisher'

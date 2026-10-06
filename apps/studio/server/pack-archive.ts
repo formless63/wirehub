@@ -106,14 +106,19 @@ function imageMatchesExtension(path: string, b: Uint8Array): boolean {
 }
 
 /** What in a PDF would run or reach out: scripts, launch actions, embedded files, rich media, form submission. */
-const ACTIVE_PDF = /\/(?:JavaScript|JS|Launch|EmbeddedFile|EmbeddedFiles|RichMedia|SubmitForm|ImportData|GoToR|GoToE)(?![A-Za-z0-9])/;
+const ACTIVE_PDF_NAMES = new Set(['JavaScript', 'JS', 'OpenAction', 'AA', 'Launch', 'EmbeddedFile', 'EmbeddedFiles', 'RichMedia', 'SubmitForm', 'ImportData', 'GoToR', 'GoToE']);
 
 /** A vendor PDF, checked: a PDF header, and no script, launch action or embedded file (a best-effort scan: it is served as an attachment regardless). */
 export function pdfProblem(bytes: Uint8Array): string | undefined {
   if (!startsWith(bytes, [0x25, 0x50, 0x44, 0x46, 0x2d])) return 'is not a PDF (it does not start with %PDF-)';
   const text = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.length).toString('latin1');
-  const found = ACTIVE_PDF.exec(text);
-  if (found !== null) return `contains active content (${found[0]}): a vendor document is a plain PDF`;
+  // PDF names end only at PDF whitespace, a delimiter, or EOF. High bytes and
+  // punctuation are name bytes too; an ASCII word boundary misreads binary data.
+  // Decode #xx escapes after tokenizing: an escaped delimiter is part of a name.
+  for (const found of text.matchAll(/\/([^\x00\x09\x0a\x0c\x0d\x20()<>\[\]{}\/%]*)/g)) {
+    const name = found[1]!.replace(/#([0-9a-f]{2})/gi, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)));
+    if (ACTIVE_PDF_NAMES.has(name)) return `contains active content (/${name}): a vendor document is a plain PDF`;
+  }
   return undefined;
 }
 

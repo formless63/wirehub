@@ -59,10 +59,10 @@ panel and the CSV exporter. It has no catalog pack, integrations, commit hook or
 automatic write path. Pure helpers are exported from `src/logic.ts`; all adoption
 returns a detached design for the host's normal edit, save and read-only controls.
 
-Build a runtime bundle using the normal module command, for example:
+Build a runtime bundle from the repository root using the normal module command:
 
 ```bash
-pnpm --filter studio wirehub-module build ../../modules/standard-work \
+pnpm --filter studio wirehub-module build modules/standard-work \
   --export standardWork --out /tmp/wirehub-modules --zip \
   --key /path/to/publisher-private-key.pem \
   --publisher-id your-publisher --publisher-name 'Your publisher'
