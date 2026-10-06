@@ -207,6 +207,7 @@ function setTagLeaf(document: Record<string, Json>, key: string, value: Json, re
   let target = document;
   const ancestors: [Record<string, Json>, string][] = [];
   for (const name of path.slice(0, -1)) {
+    if (remove && (!Object.hasOwn(target, name) || !isPlainObject(target[name]))) return;
     if (!Object.hasOwn(target, name) || !isPlainObject(target[name])) Object.defineProperty(target, name, { value: {}, enumerable: true, writable: true, configurable: true });
     ancestors.push([target, name]);
     target = target[name] as Record<string, Json>;
@@ -232,6 +233,7 @@ function reconcileOtherAuxiliary(view: CatalogSource, before: PackAuxiliary | un
     const shape = next ?? current;
     const list = recordsIn(shape);
     if (list !== undefined && list.every((record) => idOf(record) !== undefined)) {
+      if (current !== undefined && next !== undefined && (recordsIn(current) === undefined || Array.isArray(current) !== Array.isArray(next))) continue;
       const currentRecords = new Map((recordsIn(current) ?? []).map((record) => [idOf(record)!, record]));
       const nextRecords = new Map((recordsIn(next) ?? []).map((record) => [idOf(record)!, record]));
       const ops = reconcileAssets(before?.entries?.[path], Object.fromEntries([...nextRecords].map(([key, value]) => [key, hash(value)])), (key) => currentRecords.has(key) ? hash(currentRecords.get(key)) : undefined);
@@ -249,7 +251,8 @@ function reconcileOtherAuxiliary(view: CatalogSource, before: PackAuxiliary | un
       const ops = reconcileAssets(before?.keys?.[path], Object.fromEntries([...nextLeaves].map(([key, value]) => [key, hash(value)])), (key) => currentLeaves.has(key) ? hash(currentLeaves.get(key)) : undefined);
       if (Object.keys(ops.owned).length > 0) (owned.keys ??= {})[path] = ops.owned;
       const document = structuredClone(current ?? {}) as Record<string, Json>;
-      // Never replace a scalar ancestor of a leaf: it is a local override of the subtree.
+      for (const key of ops.remove) setTagLeaf(document, key, undefined, true);
+      // Never replace a local scalar ancestor or a subtree that retains local leaves.
       for (const key of ops.write) {
         const ancestors = (JSON.parse(key) as string[]).slice(0, -1);
         let node: Json = document;
@@ -260,10 +263,16 @@ function reconcileOtherAuxiliary(view: CatalogSource, before: PackAuxiliary | un
           if (node === undefined) break;
           if (!isPlainObject(node)) { blocked = true; break; }
         }
+        if (!blocked) {
+          const writtenPath = JSON.parse(key) as string[];
+          blocked = [...tagLeaves(document).keys()].some((existing) => {
+            const existingPath = JSON.parse(existing) as string[];
+            return existingPath.length > writtenPath.length && writtenPath.every((segment, index) => segment === existingPath[index]);
+          });
+        }
         if (blocked) { delete owned.keys?.[path]?.[key]; continue; }
         setTagLeaf(document, key, nextLeaves.get(key));
       }
-      for (const key of ops.remove) setTagLeaf(document, key, undefined, true);
       const text = Object.keys(document).length === 0 ? null : canonical(document);
       if (text !== (currentText === undefined ? null : canonical(current))) writes.set(path, text);
     } else {

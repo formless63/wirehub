@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
-import { applyPackDisable, applyPackUpdate, fsCatalogSource, installPack, planPackDisable, planPackUpdate, readInstalledPacks, catalogWithPacksSource, installPackLayer, planNewPack } from '../src/index.ts';
+import { reconcilePackAuxiliary, assetSha } from '../src/packs.ts';
+import { applyPackDisable, applyPackUpdate, fsCatalogSource, installPack, planPackDisable, planPackUpdate, readInstalledPacks, catalogWithPacksSource, installPackLayer, planNewPack, memoryCatalogSource, packSourceProblems } from '../src/index.ts';
 
 const work = mkdtempSync(join(tmpdir(), 'wirehub-auxiliary-'));
 afterAll(() => rmSync(work, { force: true, recursive: true }));
@@ -127,4 +128,36 @@ it('additional lists, tag leaves and singleton settings follow their pack withou
   expect(JSON.parse(fsCatalogSource(data).read('wire-parts.json')!).map((r: { id: string }) => r.id)).toEqual(['local']);
   expect(JSON.parse(fsCatalogSource(data).read('tags/demo.json')!)).toEqual({ src, section: { local: 'Local' }, blocked: 'Local scalar' });
   expect(fsCatalogSource(data).read('settings/demo.json')).toBeUndefined();
+});
+
+it('preserves incompatible local list/document shapes and local tag subtrees across structural changes', () => {
+  const src = 'synthetic example';
+  const source = (files: Record<string, unknown>) => memoryCatalogSource(Object.fromEntries(Object.entries(files).map(([path, value]) => [path, json(value)])));
+  const path = 'settings/incompatible.json';
+  const original = { src, local: 'keep' };
+  const incoming = [{ id: 'pack-entry', src }];
+  const preview = planNewPack(source({ [path]: original }), [], (() => {
+    const pack = join(work, 'incompatible-pack');
+    put(pack, 'wirehub-pack.json', { format: 1, id: 'incompatible', name: 'Incompatible', version: '1.0.0', license: 'CC0-1.0' });
+    put(pack, path, incoming);
+    return pack;
+  })());
+  expect(preview.writes.has(path)).toBe(false);
+  const tag = 'tags/structural.json';
+  const before = { files: {}, models: {}, keys: { [tag]: { '["section","pack"]': assetSha('entry.json', json('old')) } } };
+  const changed = reconcilePackAuxiliary(source({ [tag]: { src, section: { local: 'keep', pack: 'old' } } }), before, source({ [tag]: { src, section: 'new scalar' } }));
+  expect(JSON.parse(changed.writes.get(tag)!)).toEqual({ src, section: { local: 'keep' } });
+  expect(changed.owned.keys?.[tag]?.['["section"]']).toBeUndefined();
+  const scalarBefore = { files: {}, models: {}, keys: { [tag]: { '["section"]': assetSha('entry.json', json('old scalar')) } } };
+  const expanded = reconcilePackAuxiliary(source({ [tag]: { src, section: 'old scalar' } }), scalarBefore, source({ [tag]: { src, section: { pack: 'new leaf' } } }));
+  expect(JSON.parse(expanded.writes.get(tag)!)).toEqual({ src, section: { pack: 'new leaf' } });
+  const blocked = reconcilePackAuxiliary(source({ [tag]: { src, section: 'local scalar' } }), scalarBefore, source({ [tag]: { src, section: { pack: 'new leaf' } } }));
+  expect(blocked.writes.has(tag)).toBe(false);
+});
+
+it('reports malformed model link lists before auxiliary planning', () => {
+  const pack = join(work, 'malformed-model-pack');
+  put(pack, 'wirehub-pack.json', { format: 1, id: 'malformed-model', name: 'Malformed model', version: '1.0.0', license: 'CC0-1.0' });
+  put(pack, 'models.json', { src: 'synthetic example', links: {} });
+  expect(packSourceProblems(pack)).toContain('models.json: expected an object with a links array of model records.');
 });

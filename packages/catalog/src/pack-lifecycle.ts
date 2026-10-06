@@ -732,6 +732,9 @@ export function packSourceProblems(packDir: string): string[] {
       problems.push(`${relative} is not valid JSON`);
       continue;
     }
+    if (relative === 'models.json' && (!isPlainObject(value) || !Array.isArray(value['links']) || !value['links'].every((link) => isPlainObject(link) && typeof link['record'] === 'string'))) {
+      problems.push('models.json: expected an object with a links array of model records.');
+    }
     problems.push(...packDocumentSrcProblems(relative, value));
   }
   return problems;
