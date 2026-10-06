@@ -15,6 +15,8 @@ const src = 'synthetic example: auxiliary pack';
 const link = (record: string, mark: string) => ({ record, asset: mark.repeat(64), sourceKind: 'vendor', src, status: 'wip' });
 const bundle = (version: string, mark: string) => ({ format: 1, manifest: { format: 1, id: 'auxiliary', name: 'Auxiliary', version, license: 'CC0-1.0' }, files: {
   'models.json': { src, links: [link('revisions/pack-board/one', mark)] },
+  'wire-parts.json': [{ id: 'pack-conductor', kind: 'conductor', label: `Pack ${version}`, src }],
+  'strip-practice.json': [{ id: 'pack-practice', label: `Pack ${version}`, appliesTo: 'any', jacketMm: 30, shield: 'trim', insulationMm: 6, drain: { source: 'landed', destination: 'cut' }, src }],
   'drawings/de9-crossover.json': { title: `Pack ${version}`, revision: mark },
   'builds/pack-board-rev1.json': { board: 'PCA-00003', revision: 'Rev1', label: `Pack ${version}`, end: 'source', builds: [{ key: 'bare', build: 'bare', src }] },
 } });
@@ -37,16 +39,19 @@ describePg('pack auxiliary ownership on Postgres', () => {
       const result = await call('POST', '/api/packs/install', { bundle: bundle(version, mark), apply: true });
       expect(result.status, JSON.stringify(result.body)).toBe(200);
       expect((await deps.modelLinks!.list()).find((l) => l.record === 'revisions/pack-board/one')!.asset).toBe(mark.repeat(64));
+      expect(JSON.parse((await cache.get()).files.get('data/wire-parts.json') as string).find((r: { id: string }) => r.id === 'pack-conductor').label).toBe(`Pack ${version}`);
+      expect(JSON.parse((await cache.get()).files.get('data/strip-practice.json') as string).find((r: { id: string }) => r.id === 'pack-practice').label).toBe(`Pack ${version}`);
       expect(JSON.parse((await cache.get()).files.get('data/drawings/de9-crossover.json') as string).title).toBe(`Pack ${version}`);
       expect((await call('GET', '/api/builds/pack-board-rev1')).body.file.label).toBe(`Pack ${version}`);
     }
     // A deployment's changed drawing survives disabling its supplying pack.
     const currentDrawing = await call('GET', '/api/drawings/de9-crossover');
-    const edited = await handleWorkbenchRequest({ method: 'PUT', path: '/api/drawings/de9-crossover', body: { title: 'Local title', revision: 'Z' }, headers: { 'if-match': currentDrawing.headers!.ETag } }, deps);
+    const edited = await handleWorkbenchRequest({ method: 'PUT', path: '/api/drawings/de9-crossover', body: { title: 'Local title', revision: 'Z' }, headers: { 'if-match': currentDrawing.headers!.ETag! } }, deps);
     expect(edited.status, JSON.stringify(edited.body)).toBe(200);
     cache.invalidate();
     const removed = await call('DELETE', '/api/packs/auxiliary');
     expect(removed.status, JSON.stringify(removed.body)).toBe(200);
+    expect(JSON.parse(((await cache.get()).files.get('data/wire-parts.json') as string | undefined) ?? '[]').some((r: { id: string }) => r.id === 'pack-conductor')).toBe(false);
     expect((await deps.modelLinks!.list()).map((l) => l.record)).toEqual(['revisions/local-board/one']);
     expect((await call('GET', '/api/builds/pack-board-rev1')).status).toBe(404);
     expect(JSON.parse((await cache.get()).files.get('data/drawings/de9-crossover.json') as string).title).toBe('Local title');

@@ -100,3 +100,31 @@ it('legacy merged installs and locally edited model links are never deleted by g
   expect(legacy.writes.has('drawings/old.json')).toBe(false);
   expect(legacy.writes.has('models.json')).toBe(false);
 });
+
+it('additional lists, tag leaves and singleton settings follow their pack without taking local keys', () => {
+  const data = join(work, 'other');
+  const one = join(work, 'other-one');
+  const two = join(work, 'other-two');
+  const src = 'synthetic example';
+  for (const file of ['connectors', 'wires', 'components']) put(data, `${file}.json`, []);
+  put(data, 'wire-parts.json', [{ id: 'local', label: 'Local', src }]);
+  put(data, 'tags/demo.json', { src, section: { local: 'Local' }, blocked: 'Local scalar' });
+  for (const [dir, version] of [[one, '1.0.0'], [two, '1.1.0']] as const) {
+    put(dir, 'wirehub-pack.json', { format: 1, id: 'other', name: 'Other', version, license: 'CC0-1.0' });
+    put(dir, 'wire-parts.json', [{ id: 'pack', kind: 'conductor', label: version, src }]);
+    put(dir, 'tags/demo.json', { src, section: { pack: version }, blocked: { leaf: 'Must not replace local scalar' } });
+    put(dir, 'settings/demo.json', { src, value: version });
+  }
+  installPack(data, one);
+  expect(JSON.parse(fsCatalogSource(data).read('tags/demo.json')!).blocked).toBe('Local scalar');
+  const packs = readInstalledPacks(data).packs;
+  applyPackUpdate(data, undefined, two, planPackUpdate(fsCatalogSource(data), packs, two), 'merged');
+  expect(JSON.parse(fsCatalogSource(data).read('wire-parts.json')!).map((r: { label: string }) => r.label)).toEqual(['Local', '1.1.0']);
+  expect(JSON.parse(fsCatalogSource(data).read('tags/demo.json')!).section).toEqual({ local: 'Local', pack: '1.1.0' });
+  expect(JSON.parse(fsCatalogSource(data).read('settings/demo.json')!).value).toBe('1.1.0');
+  const next = readInstalledPacks(data).packs;
+  applyPackDisable(data, undefined, 'other', planPackDisable(fsCatalogSource(data), next, 'other'), 'merged');
+  expect(JSON.parse(fsCatalogSource(data).read('wire-parts.json')!).map((r: { id: string }) => r.id)).toEqual(['local']);
+  expect(JSON.parse(fsCatalogSource(data).read('tags/demo.json')!)).toEqual({ src, section: { local: 'Local' }, blocked: 'Local scalar' });
+  expect(fsCatalogSource(data).read('settings/demo.json')).toBeUndefined();
+});

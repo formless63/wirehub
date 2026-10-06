@@ -32,7 +32,9 @@ the deployment remain. An untouched sidecar or link follows the pack; a locally 
 stays and becomes the deployment's own. Older merged installs without auxiliary hashes are
 left alone because their ownership cannot be established; layered installs can recover it
 from the layer. Photo pointers and asset index entries retain their shared-asset lifecycle.
-Other auxiliary JSON files continue to use the existing layer behavior.
+Additional auxiliary record lists are owned by id, tag objects by leaf key, and singleton
+configuration documents by file hash. Local keys and edits win. Anonymous list members are
+not assigned guessed ownership after a merged install.
 
 ## 1. Domain packs
 

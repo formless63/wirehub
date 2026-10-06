@@ -37,6 +37,7 @@ import {
   reconcilePackAuxiliary,
   auxiliaryRecord,
   isManagedPackSidecar,
+  isOtherPackAuxiliary,
   type PackAuxiliary,
   canonical,
   canonicalPackText,
@@ -327,7 +328,7 @@ function withPackAuxiliary(planned: CatalogSource, base: CatalogSource, packDir:
   return {
     name: `${planned.name} (with the pack's own data files)`,
     read(relative) {
-      if (!isAuxiliaryFile(relative) || isManagedPackSidecar(relative) || relative === 'models.json') return planned.read(relative);
+      if (!isAuxiliaryFile(relative) || isManagedPackSidecar(relative) || isOtherPackAuxiliary(relative) || relative === 'models.json') return planned.read(relative);
       const both = packFirst ? [pack.read(relative), base.read(relative)] : [base.read(relative), pack.read(relative)];
       const texts = both.filter((t): t is string => t !== undefined);
       return texts.length === 0 ? undefined : mergeCatalogFile(relative, texts);
