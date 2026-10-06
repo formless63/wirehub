@@ -213,6 +213,7 @@ export function StoreBrowser(): JSX.Element {
             <div>
               <b>{p.name}</b> <span className="text-faint">{p.id}</span> {p.latest?.version ?? ''} · {p.domain} · by {p.author.name}
               {p.latest === undefined ? null : <> · {kb(p.latest.size)}</>} · <span title="As the author states it; not checked by WireHub">licence: {p.license}</span>
+              {p.latest?.module === undefined ? null : <span className="ml-2 rounded border border-line px-1" title={`Runs code. Permissions stated by the author: ${p.latest.module.permissions.join(', ') || 'none'}. Installation preview confirms the downloaded module and asks for owner consent.`}>Code module</span>}
               {p.installed === undefined ? null : <> · installed {p.installed}</>}
             </div>
             {p.description === undefined ? null : <div className="text-faint">{p.description}</div>}

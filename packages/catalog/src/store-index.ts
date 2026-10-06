@@ -22,7 +22,7 @@
 
 import { createHash, createPrivateKey, createPublicKey, sign, verify, type KeyObject } from 'node:crypto';
 
-import type { PackManifest } from './packs.ts';
+import type { PackManifest, PackModule } from './packs.ts';
 
 // kept free of other runtime imports, so `scripts/store-index.mjs` runs it with plain Node (no install)
 const parts = (v: string): number[] => (v.split(/[-+]/)[0] ?? '').split('.').map((n) => Number.parseInt(n, 10) || 0);
@@ -84,6 +84,9 @@ export interface StoreRevokedKey {
   on?: string;
 }
 
+/** Author-supplied code information; the downloaded manifest determines install consent. */
+export type StoreIndexModule = Pick<PackModule, 'id' | 'version' | 'label' | 'apiVersion' | 'extensionPoints' | 'permissions'>;
+
 export interface StoreIndexVersion {
   version: string;
   /** the bundle: absolute https, or relative to the index URL */
@@ -95,6 +98,8 @@ export interface StoreIndexVersion {
   /** when it differs from the pack's */
   license?: string;
   requires?: PackManifest['requires'];
+  /** Code carried by this version, as its manifest states; absent on older indexes. */
+  module?: StoreIndexModule;
   /** the review status; absent = `unreviewed` */
   review?: StoreReview;
   /** withdrawn by the index publisher */
@@ -159,6 +164,22 @@ function reviewProblems(review: unknown, at: string): string[] {
   return [`${at}: review status must be unreviewed, reviewed or flagged`];
 }
 
+/** Optional code information is checked without treating it as install authority. */
+function moduleProblems(module: unknown, at: string): string[] {
+  if (module === undefined) return [];
+  if (typeof module !== 'object' || module === null || Array.isArray(module)) return [`${at}: module is not an object`];
+  const m = module as Partial<StoreIndexModule>;
+  const problems: string[] = [];
+  if (!KEBAB.test(m.id ?? '')) problems.push(`${at}: module id must be kebab-case`);
+  if (!SEMVER.test(m.version ?? '')) problems.push(`${at}: module version is not semver`);
+  if (!isText(m.label)) problems.push(`${at}: module has no label`);
+  if (!/^\d+\.\d+$/.test(m.apiVersion ?? '')) problems.push(`${at}: module apiVersion must be major.minor`);
+  for (const field of ['extensionPoints', 'permissions'] as const) {
+    if (!Array.isArray(m[field]) || !m[field].every(isText)) problems.push(`${at}: module ${field} is not a list of non-empty strings`);
+  }
+  return problems;
+}
+
 /** An index's shape checked: the index, or the sentences saying what is wrong with it. */
 export function parseStoreIndex(value: unknown): { index: StoreIndex; problems: [] } | { index?: undefined; problems: string[] } {
   const problems: string[] = [];
@@ -207,7 +228,7 @@ export function parseStoreIndex(value: unknown): { index: StoreIndex; problems: 
       if (!isText(ver?.url)) problems.push(`${vat}: no url`);
       if (!HEX64.test(ver?.sha256 ?? '')) problems.push(`${vat}: sha256 is not 64 lowercase hex digits`);
       if (!Number.isInteger(ver?.size) || (ver?.size ?? 0) <= 0) problems.push(`${vat}: size is not a positive whole number of bytes`);
-      problems.push(...reviewProblems(ver?.review, vat));
+      problems.push(...reviewProblems(ver?.review, vat), ...moduleProblems(ver?.module, vat));
       if (ver?.yanked !== undefined && (typeof ver.yanked !== 'object' || ver.yanked === null || !isText(ver.yanked.reason))) problems.push(`${vat}: a yanked version says why ({ reason })`);
       if (ver?.signedBy !== undefined && (!Array.isArray(ver.signedBy) || !ver.signedBy.every(isKey))) problems.push(`${vat}: signedBy is not a list of minisign public keys`);
     }
@@ -313,6 +334,14 @@ export function buildStoreIndex(store: StoreIndex['store'], bundles: readonly St
           size: b.size,
           ...(b.manifest.license === top.license ? {} : { license: b.manifest.license }),
           ...(b.manifest.requires === undefined ? {} : { requires: b.manifest.requires }),
+          ...(b.manifest.module === undefined ? {} : { module: {
+            id: b.manifest.module.id,
+            version: b.manifest.module.version,
+            label: b.manifest.module.label,
+            apiVersion: b.manifest.module.apiVersion,
+            extensionPoints: [...b.manifest.module.extensionPoints],
+            permissions: [...b.manifest.module.permissions],
+          } }),
           ...(said?.review === undefined || said.review.status === 'unreviewed' ? {} : { review: said.review }),
           ...(said?.yanked === undefined ? {} : { yanked: said.yanked }),
           ...(b.signedBy === undefined || b.signedBy.length === 0 ? {} : { signedBy: b.signedBy }),

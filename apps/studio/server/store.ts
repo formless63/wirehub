@@ -297,7 +297,7 @@ export async function handleStoreRequest(
           // who signs it: the index's publisher entry; absent = the pack is pinned by the index's sha256 only
           ...(publisher === undefined ? {} : { publisher: { id: publisher.id, name: publisher.name, ...(publisher.url === undefined ? {} : { url: publisher.url }) } }),
           ...(pack.homepage === undefined ? {} : { homepage: pack.homepage }),
-          latest: offered === undefined ? undefined : { version: offered.version, size: offered.size, review: reviewOf(offered), ...(offered.requires === undefined ? {} : { requires: offered.requires }) },
+          latest: offered === undefined ? undefined : { version: offered.version, size: offered.size, ...(offered.module === undefined ? {} : { module: offered.module }), review: reviewOf(offered), ...(offered.requires === undefined ? {} : { requires: offered.requires }) },
           versions: visible.map((v) => v.version),
           releases: visible.map((v) => {
             const gone = revokedSigners(v.signedBy, revoked);

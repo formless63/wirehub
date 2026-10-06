@@ -118,8 +118,12 @@ every other file, so the publisher's signature covers them; a code-only pack has
 - **Where the code lives**: in the pack's layer (files) or as catalog files in the blob store
   (Postgres), owned by the pack like its images: an update replaces them, removing the pack removes
   them and the module.
-- **Index and store**: nothing new in the index format; the store template builds module packages
-  under `modules/` into signed packs (`templates/store/README.md`).
+- **Index and store**: index format 1 optionally includes a per-version `module` summary
+  (id, version, label, API version, extension points and permissions) copied from the manifest.
+  Browse store marks the offered version as a **Code module** and shows its stated permissions.
+  Older indexes remain valid; a missing summary does not prove a pack contains only data.
+  The downloaded manifest and installation preview determine owner consent. The store template
+  builds module packages under `modules/` into signed packs (`templates/store/README.md`).
 
 ### Records in a pack
 

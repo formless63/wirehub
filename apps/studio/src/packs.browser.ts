@@ -162,7 +162,7 @@ export interface StorePackView {
   publisher?: { id: string; name: string; url?: string };
   homepage?: string;
   /** the version offered for install: the newest not yanked */
-  latest?: { version: string; size: number; review?: StoreReviewView };
+  latest?: { version: string; size: number; review?: StoreReviewView; module?: { id: string; version: string; label: string; apiVersion: string; extensionPoints: string[]; permissions: string[] } };
   versions: string[];
   releases?: StoreReleaseView[];
   /** the version installed here, if any */
