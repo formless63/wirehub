@@ -142,14 +142,20 @@ describePg('jobs on Postgres', () => {
     try {
       expect(worker).toBeDefined();
       expect([...worker!.kinds].sort()).toEqual(['backup', 'blob-gc', 'convert', 'derive', 'git-mirror', 'import', 'model-cache', 'webhook']);
-      // the boot sweep
-      const deadline = Date.now() + 60_000;
-      while (!(await deps.modelCache!.has(key)) && Date.now() < deadline) await new Promise((done) => setTimeout(done, 250));
-      expect(await deps.modelCache!.has(key), logs.join('\n')).toBe(true);
+      // The derived blob is published before executeJob records completion.
+      // Wait on the boot job itself, stopping promptly on failure/cancellation.
       const store = pgJobStore(handle.db, orgId);
-      const sweep = (await store.list({ kind: 'model-cache' }))[0]!;
+      const deadline = Date.now() + 60_000;
+      let boot = (await store.list({ kind: 'model-cache' })).find((job) => job.request['reason'] === 'boot');
+      while ((boot === undefined || (boot.status !== 'done' && boot.status !== 'failed' && boot.status !== 'cancelled')) && Date.now() < deadline) {
+        await new Promise((done) => setTimeout(done, 250));
+        boot = boot === undefined ? (await store.list({ kind: 'model-cache' })).find((job) => job.request['reason'] === 'boot') : await store.get(boot.id);
+      }
+      expect(boot, logs.join('\n')).toBeDefined();
+      const sweep = boot!;
       expect(sweep.request['reason']).toBe('boot');
-      expect(sweep.status).toBe('done');
+      expect(sweep.status, [logs.join('\n'), sweep.error ?? ''].join('\n')).toBe('done');
+      expect(await deps.modelCache!.has(key), logs.join('\n')).toBe(true);
       expect((sweep.result!['built'] as { key: string }[]).map((b) => b.key)).toEqual([key]);
       const { inOrg } = await import('../../server/pg/db.ts');
       const derived = await inOrg(handle.db, orgId, async (tx) => (await sql<{ triangles: number; inputs: unknown; job_id: string }>`SELECT triangles, inputs, job_id::text AS job_id FROM studio.derived_blob WHERE key = ${key}`.execute(tx)).rows[0]);
