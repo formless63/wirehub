@@ -94,6 +94,8 @@ describe('optional supplier UI', () => {
     fireEvent.change(screen.getByLabelText('Supplier'), { target: { value: 'mouser' } });
     fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '0' } });
     expect((screen.getByRole('button', { name: 'Refresh quote' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '1.5' } });
+    expect((screen.getByRole('button', { name: 'Refresh quote' }) as HTMLButtonElement).disabled).toBe(true);
     expect(api.mock.calls.some(([method]) => method === 'POST')).toBe(false);
     fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '1' } });
     api.mockImplementation(async (_method, path) => path === 'lookup' ? { status: 503, body: { error: 'Supplier unavailable' } } : { status: 200, body: { providers } });

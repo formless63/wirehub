@@ -1,5 +1,6 @@
 import { createCatalog, dataPath, fsCatalogSource } from '@wirehub/catalog';
 import type { CableDesign } from '@wirehub/model';
+import { recordMetaIssues } from '@wirehub/model';
 import { expect, it } from 'vitest';
 import { importQuote, offersCsv, priceAt, quoteImportFile, requirementsCsv } from '../src/logic.ts';
 import type { LookupRequest, SupplierOffer } from '../src/types.ts';
@@ -38,9 +39,25 @@ it('proposes an explicit update without mutating the record, retaining other sup
   expect(catalog.components.at(-1)).toEqual(before);
   expect(out.updates?.components?.[0]?.cost).toMatchObject({ unit: 2, currency: 'USD', per: 'each', moq: 5, breaks: [{ minQty: 5, unit: 2 }, { minQty: 10, unit: 1.5 }] });
   expect(out.updates?.components?.[0]?.suppliers).toEqual([{ supplier: 'other', number: 'OTHER' }, { supplier: 'mouser', number: 'TEST-SKU' }]);
+  const adopted = out.updates!.components![0]!;
+  expect(adopted.license).toBe('(CC0-1.0) AND LicenseRef-mouser-terms');
+  expect(adopted.provenance?.sources[0]?.retrieved).toBe('2026-01-01');
+  expect(recordMetaIssues(adopted, 'components/quote-target')).toEqual([]);
+  catalog.components[catalog.components.length - 1] = adopted;
+  for (let refresh = 0; refresh < 10; refresh += 1) {
+    const again = importQuote({ fileName: file.fileName, bytes: new TextEncoder().encode(file.body) }, catalog).updates!.components![0]!;
+    expect(again).toEqual(adopted);
+    catalog.components[catalog.components.length - 1] = again;
+  }
   expect(out.notes[0]).toContain('only if you apply');
   catalog.components.at(-1)!.mpn = 'DIFFERENT';
   expect(() => importQuote({ fileName: file.fileName, bytes: new TextEncoder().encode(file.body) }, catalog)).toThrow(/part number differs/);
+});
+
+it('accepts regional supplier links for reviewed quotes and rejects cross-provider links', () => {
+  const regional = { ...offer, provider: 'digikey' as const, url: 'https://www.digikey.co.uk/en/products/detail/synthetic' };
+  expect(quoteImportFile({ kind: 'components', id: 'test' }, regional, { ...request, provider: 'digikey' })).toBeDefined();
+  expect(quoteImportFile({ kind: 'components', id: 'test' }, { ...regional, provider: 'mouser' }, request)).toBeUndefined();
 });
 
 it('derives purchasing quantities from the BOM and treats a PCBA as one whole part', () => {

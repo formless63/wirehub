@@ -3,6 +3,7 @@ import { deriveBom } from '@wirehub/docs';
 import type { CableDesign, Db, PartCost } from '@wirehub/model';
 import type { ImportInput, ImportResult } from '@wirehub/modules';
 import type { LookupRequest, LookupResult, SupplierOffer } from './types.ts';
+import { supplierUrl } from './urls.ts';
 
 const providers = ['mouser', 'digikey', 'lcsc'];
 const recordKinds = ['connectors', 'wires', 'components', 'pcbas', 'mechanicals', 'kits'] as const;
@@ -14,17 +15,14 @@ export function offerProblems(value: unknown): string[] {
   const o = value as SupplierOffer;
   const errors: string[] = [];
   if (!providers.includes(o.provider) || !text(o.supplierNumber) || !text(o.mpn) || !text(o.manufacturer)) errors.push('The offer needs a known supplier and complete part identity.');
-  if (!text(o.observedAt) || !Number.isFinite(Date.parse(o.observedAt))) errors.push('The offer needs its retrieval date.');
+  if (!text(o.observedAt) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(o.observedAt) || !Number.isFinite(Date.parse(o.observedAt))) errors.push('The offer needs its UTC retrieval date.');
   if (!/^[A-Z]{3}$/.test(o.currency ?? '')) errors.push('The offer needs an explicit currency.');
   if (!['each', 'm', 'unknown'].includes(o.unit)) errors.push('The pricing unit is invalid.');
   for (const n of [o.stock, o.moq, o.orderMultiple]) if (n !== undefined && (!finite(n) || n < 0)) errors.push('Stock and order quantities must be finite and nonnegative.');
   if (o.moq === 0 || o.orderMultiple === 0) errors.push('Minimum order and order multiple must be positive.');
   if (!Array.isArray(o.breaks) || o.breaks.length > 100 || o.breaks.some(b => !b || !finite(b.minQty) || b.minQty <= 0 || !finite(b.unitPrice) || b.unitPrice < 0)) errors.push('Price breaks must have positive quantities and nonnegative prices.');
   else if (new Set(o.breaks.map(b => b.minQty)).size !== o.breaks.length) errors.push('Price break quantities are duplicated.');
-  if (o.url !== undefined) {
-    try { const u = new URL(o.url); if (u.protocol !== 'https:' || u.username || u.password || !['mouser.com', 'digikey.com', 'lcsc.com'].some(domain => u.hostname === domain || u.hostname.endsWith(`.${domain}`))) errors.push('The offer link must be a public supplier HTTPS URL.'); }
-    catch { errors.push('The offer link is invalid.'); }
-  }
+  if (o.url !== undefined && supplierUrl(o.url, o.provider) === undefined) errors.push('The offer link must be a public supplier HTTPS URL.');
   return errors;
 }
 
@@ -72,11 +70,15 @@ export function importQuote(input: ImportInput, db: Db): ImportResult {
   const cost: PartCost = { unit: breaks[0]!.unitPrice, currency: offer.currency, per: offer.unit, breaks: breaks.map(b => ({ minQty: b.minQty, unit: b.unitPrice })), moq: Math.max(offer.moq ?? 1, breaks[0]!.minQty), src: `${offer.provider} ${offer.supplierNumber}; retrieved ${offer.observedAt}${offer.url ? `; ${offer.url}` : ''}` };
   const suppliers = (identity.suppliers ?? []).filter(s => s.supplier.toLowerCase() !== offer.provider);
   const citation = `${offer.provider} ${offer.supplierNumber}; selected quote ${input.fileName}; retrieved ${offer.observedAt}`;
+  const restriction = `LicenseRef-${offer.provider}-terms`;
+  const existingLicense = record.license ?? 'CC0-1.0';
+  const source = { title: citation, ...(offer.url ? { url: offer.url } : {}), retrieved: new Date(offer.observedAt).toISOString().slice(0, 10) };
+  const sources = record.provenance?.sources ?? [];
   const updated = {
     ...record, cost, suppliers: [...suppliers, { supplier: offer.provider, number: offer.supplierNumber }],
-    src: `${record.src}; ${citation}`,
-    license: `(${record.license ?? 'CC0-1.0'}) AND LicenseRef-${offer.provider}-terms`,
-    provenance: { method: 'derived' as const, sources: [...(record.provenance?.sources ?? []), { title: citation, ...(offer.url ? { url: offer.url } : {}), retrieved: new Date(offer.observedAt).toISOString().slice(0, 10) }] },
+    src: record.src.includes(citation) ? record.src : `${record.src}; ${citation}`,
+    license: existingLicense.split(/[ ()]+/).includes(restriction) ? existingLicense : `(${existingLicense}) AND ${restriction}`,
+    provenance: { method: 'derived' as const, sources: sources.some(s => s.title === source.title && s.url === source.url && s.retrieved === source.retrieved) ? sources : [...sources, source] },
   };
   return { updates: { [kind]: [updated] }, notes: [`Review ${kind}/${record.id}: adopt ${offer.provider} ${offer.supplierNumber}, ${offer.currency} per ${offer.unit}, retrieved ${offer.observedAt}. Existing cost is replaced only if you apply this update. Confirm order multiples (${offer.orderMultiple ?? 'unspecified'}) and packaging (${offer.packaging ?? 'unspecified'}).`] };
 }

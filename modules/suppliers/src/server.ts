@@ -4,6 +4,7 @@ import { mouserAdapter } from './providers/mouser.ts';
 import { digiKeyAdapter } from './providers/digikey.ts';
 import { lcscAdapter } from './providers/lcsc.ts';
 import { SupplierHttpError } from './providers/http.ts';
+import { supplierUrl } from './urls.ts';
 
 const PROVIDERS = [
   { id: 'mouser', label: 'Mouser', credentials: ['WIREHUB_SUPPLIERS_MOUSER_KEY'] },
@@ -89,11 +90,8 @@ export function createSupplierIntegration(options: SupplierServerOptions = {}): 
       if (!sameCurrency) warnings.push('No usable price in the requested currency.');
       const description = cleanText(value.description, 1000, ctx.env);
       const packaging = cleanText(value.packaging, 200, ctx.env);
-      let url: string | undefined;
-      try {
-        const parsed = new URL(String(value.url));
-        if (parsed.protocol === 'https:' && parsed.username === '' && parsed.password === '' && (parsed.port === '' || parsed.port === '443') && ['mouser.com', 'digikey.com', 'lcsc.com'].some((domain) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`)) && parsed.href.length <= 1000 && cleanText(parsed.href, 1000, ctx.env) === parsed.href) url = parsed.href;
-      } catch { /* no usable public product URL */ }
+      const candidate = supplierUrl(value.url, request.provider);
+      const url = candidate !== undefined && cleanText(candidate, 1000, ctx.env) === candidate ? candidate : undefined;
       const stock = typeof value.stock === 'number' && Number.isSafeInteger(value.stock) && value.stock >= 0 ? value.stock : undefined;
       return [{ provider: request.provider, supplierNumber, mpn, manufacturer, observedAt: typeof value.observedAt === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value.observedAt) && Number.isFinite(Date.parse(value.observedAt)) ? value.observedAt : observedAt, currency: request.currency, unit, breaks,
         ...(description === undefined ? {} : { description }), ...(packaging === undefined ? {} : { packaging }), ...(url === undefined ? {} : { url }),

@@ -3,6 +3,7 @@ import { createElement as h, useEffect, useRef, useState, type ReactElement } fr
 import type { ModuleApi, PanelProps, RouteProps } from '@wirehub/modules';
 import type { LookupRequest, LookupResult, SupplierId, SupplierOffer } from './types.ts';
 import { offersCsv, quoteImportFile, requirementsCsv } from './logic.ts';
+import { supplierUrl } from './urls.ts';
 
 interface Provider { id: SupplierId; label: string; enabled: boolean; configured: boolean }
 interface Part { mpn?: string; manufacturer?: string; suppliers?: readonly { supplier: string; number?: string }[] }
@@ -17,12 +18,7 @@ function partOf(props: PanelProps): Part | undefined {
   return Array.isArray(entries) ? entries.find((r: { id: string }) => r.id === props.record?.id) as Part | undefined : undefined;
 }
 function safeOfferUrl(offer: SupplierOffer): string | undefined {
-  if (offer.url === undefined) return undefined;
-  try {
-    const u = new URL(offer.url);
-    const domains = { mouser: ['mouser.com', 'mouser.co.uk'], digikey: ['digikey.com', 'digikey.co.uk', 'digi-key.com'], lcsc: ['lcsc.com'] }[offer.provider];
-    return u.protocol === 'https:' && u.username === '' && u.password === '' && domains.some((d) => u.hostname === d || u.hostname.endsWith(`.${d}`)) ? u.href : undefined;
-  } catch { return undefined; }
+  return supplierUrl(offer.url, offer.provider);
 }
 function download(fileName: string, text: string, type: string): void {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -84,7 +80,7 @@ function LookupPanel(props: { api: ModuleApi; identity: string; part?: Part; rec
   const linkedNumbers = [...new Set((props.part?.suppliers ?? []).filter((s) => supplierId(s.supplier) === draft.provider).flatMap((s) => s.number === undefined ? [] : [s.number]))];
   const provider = providers.find((p) => p.id === draft.provider);
   const quantity = Number(draft.quantity);
-  const valid = provider?.enabled === true && provider.configured && draft.query.trim() !== '' && Number.isFinite(quantity) && quantity > 0 && /^[A-Z]{3}$/.test(draft.currency) && /^[A-Z]{2}$/.test(draft.country);
+  const valid = provider?.enabled === true && provider.configured && draft.query.trim() !== '' && Number.isSafeInteger(quantity) && quantity > 0 && quantity <= 1_000_000_000 && /^[A-Z]{3}$/.test(draft.currency) && /^[A-Z]{2}$/.test(draft.country);
   const refresh = async (): Promise<void> => {
     if (!valid || draft.provider === '') return;
     reset(); const token = generation.current; setBusy(true); setStatus('Requesting supplier quote…');
@@ -126,7 +122,7 @@ function LookupPanel(props: { api: ModuleApi; identity: string; part?: Part; rec
       h('label', null, 'Supplier', h('select', { value: draft.provider, onChange: (e: { target: { value: string } }) => change('provider', e.target.value) }, h('option', { value: '' }, 'Choose supplier'), ...providers.map((p) => h('option', { key: p.id, value: p.id, disabled: !p.enabled || !p.configured }, `${p.label}${!p.enabled ? ' (disabled)' : !p.configured ? ' (credentials needed)' : ''}`)))),
       h('label', null, 'Match by', h('select', { value: draft.match, onChange: (e: { target: { value: string } }) => change('match', e.target.value) }, h('option', { value: 'supplier' }, 'Supplier part number'), h('option', { value: 'mpn' }, 'Manufacturer part number'))),
       linkedNumbers.length === 0 ? null : h('label', null, 'Linked supplier number', h('select', { value: draft.match === 'supplier' && linkedNumbers.includes(draft.query) ? draft.query : '', onChange: (e: { target: { value: string } }) => { if (e.target.value !== '') { reset(); setDraft((old) => ({ ...old, query: e.target.value, match: 'supplier' })); } } }, h('option', { value: '' }, 'Custom search'), ...linkedNumbers.map((n) => h('option', { key: n, value: n }, n)))),
-      field('Part number', 'query'), field('Manufacturer', 'manufacturer'), field('Quantity', 'quantity', { type: 'number', min: 0.001, step: 'any' }), field('Currency', 'currency', { maxLength: 3 }), field('Country', 'country', { maxLength: 2 }),
+      field('Part number', 'query'), field('Manufacturer', 'manufacturer'), field('Quantity', 'quantity', { type: 'number', min: 1, step: 1, max: 1_000_000_000 }), field('Currency', 'currency', { maxLength: 3 }), field('Country', 'country', { maxLength: 2 }),
       h('button', { type: 'submit', disabled: !valid || busy }, busy ? 'Refreshing…' : 'Refresh quote'),
       busy ? h('button', { type: 'button', onClick: reset }, 'Stop waiting') : null),
     status === '' ? null : h('p', { role: 'status' }, status),
