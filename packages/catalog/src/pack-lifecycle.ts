@@ -543,7 +543,7 @@ export function planPackUpdate(view: CatalogSource, installed: readonly Installe
   const puts = new Map([...next].filter(([key, r]) => !owned.has(key) || !same(owned.get(key)!.record, r.record)));
   const writes = fileWrites(view, packDir, dropped, new Map([...puts, ...retiredMarked]));
   // For layers, the view without the old layer distinguishes pack content from local overrides, even on legacy installs.
-  const previousAuxiliary = options.without === undefined ? entry.auxiliary : reconcilePackAuxiliary(options.without, undefined, view).owned;
+  const previousAuxiliary = options.without === undefined ? entry.auxiliary : reconcilePackAuxiliary(options.without, undefined, view, Object.keys(entry.added)).owned;
   const auxiliary = reconcilePackAuxiliary(view, previousAuxiliary, fsCatalogSource(packDir));
   for (const [path, text] of auxiliary.writes) writes.set(path, text);
   const issues = conflicts.length === 0 ? newErrors(view, withPackAuxiliary(overlay(view, writes), options.without ?? view, packDir, options.without === undefined)) : [];

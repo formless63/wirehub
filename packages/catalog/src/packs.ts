@@ -154,7 +154,7 @@ export const isManagedPackSidecar = (relative: string): boolean =>
   /^(?:drawings|builds)\/[^/]+\.json$/.test(relative) && !relative.endsWith('.photo-ref.json');
 
 /** Reconcile auxiliary content against its recorded hashes, preserving local edits and older unowned content. */
-export function reconcilePackAuxiliary(view: CatalogSource, before: PackAuxiliary | undefined, pack?: CatalogSource): { writes: Map<string, string | null>; owned: PackAuxiliary } {
+export function reconcilePackAuxiliary(view: CatalogSource, before: PackAuxiliary | undefined, pack?: CatalogSource, additionalPaths: readonly string[] = []): { writes: Map<string, string | null>; owned: PackAuxiliary } {
   const writes = new Map<string, string | null>();
   const owned: PackAuxiliary = { files: {}, models: {} };
   const nextFiles = Object.fromEntries(['drawings', 'builds'].flatMap((dir) =>
@@ -178,7 +178,7 @@ export function reconcilePackAuxiliary(view: CatalogSource, before: PackAuxiliar
   if (models.remove.length > 0 || models.write.length > 0) {
     writes.set('models.json', canonicalPackText('models.json', canonical({ ...(modelText === undefined ? nextDocument ?? document : document), links: [...current.values()] })));
   }
-  reconcileOtherAuxiliary(view, before, pack, writes, owned);
+  reconcileOtherAuxiliary(view, before, pack, writes, owned, additionalPaths);
   return { writes, owned };
 }
 
@@ -221,8 +221,8 @@ function setTagLeaf(document: Record<string, Json>, key: string, value: Json, re
 }
 
 /** Reconcile list records and tag leaves per key, and singleton configuration documents as a whole. */
-function reconcileOtherAuxiliary(view: CatalogSource, before: PackAuxiliary | undefined, pack: CatalogSource | undefined, writes: Map<string, string | null>, owned: PackAuxiliary): void {
-  const paths = new Set([...auxiliaryPaths(pack), ...Object.keys(before?.files ?? {}).filter(isOtherPackAuxiliary), ...Object.keys(before?.entries ?? {}), ...Object.keys(before?.keys ?? {})]);
+function reconcileOtherAuxiliary(view: CatalogSource, before: PackAuxiliary | undefined, pack: CatalogSource | undefined, writes: Map<string, string | null>, owned: PackAuxiliary, additionalPaths: readonly string[]): void {
+  const paths = new Set([...additionalPaths.filter(isOtherPackAuxiliary), ...auxiliaryPaths(pack), ...Object.keys(before?.files ?? {}).filter(isOtherPackAuxiliary), ...Object.keys(before?.entries ?? {}), ...Object.keys(before?.keys ?? {})]);
   const hash = (value: Json): string => assetSha('entry.json', canonical(value));
   for (const path of [...paths].sort()) {
     const currentText = view.read(path);
