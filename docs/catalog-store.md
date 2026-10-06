@@ -26,6 +26,14 @@ and a pack may also **carry a code module** (§2, "A pack with code"): then it i
 install, it must be signed by a publisher the hub trusts, and the owner consents to what the code
 may do (`specs/runtime-modules.md`).
 
+Pack updates and disables also track drawing metadata, board build sidecars, and model links
+in `packs.json` (`auxiliary`). Model ownership is per record key, so links from another pack or
+the deployment remain. An untouched sidecar or link follows the pack; a locally edited one
+stays and becomes the deployment's own. Older merged installs without auxiliary hashes are
+left alone because their ownership cannot be established; layered installs can recover it
+from the layer. Photo pointers and asset index entries retain their shared-asset lifecycle.
+Other auxiliary JSON files continue to use the existing layer behavior.
+
 ## 1. Domain packs
 
 Packs are organised by domain, small enough to review, and may depend on one another

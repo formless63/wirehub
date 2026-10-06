@@ -122,6 +122,8 @@ export interface InstalledPack {
    * of the files and none is removed.
    */
   assets?: Record<string, string>;
+  /** Owned drawing/build sidecars and model links, hashed canonically; absent on older installs. */
+  auxiliary?: PackAuxiliary;
   /**
    * Where it was installed from, when that was a store index (phase 5): the index,
    * the publisher whose key signed it and the keys whose signature verified, so a
@@ -133,6 +135,47 @@ export interface InstalledPack {
   module?: InstalledModule;
   /** the numbering scheme the pack's manifest offers, as it was when installed (an owner may adopt it in Settings) */
   partNumberScheme?: unknown;
+}
+
+/** Auxiliary ownership is per document or model record, so unrelated local links survive. */
+export const auxiliaryRecord = (auxiliary: PackAuxiliary): Pick<InstalledPack, 'auxiliary'> =>
+  Object.keys(auxiliary.files).length + Object.keys(auxiliary.models).length === 0 ? {} : { auxiliary };
+
+export interface PackAuxiliary {
+  files: Record<string, string>;
+  models: Record<string, string>;
+}
+
+/** Sidecars whose lifecycle follows their pack; photos use the shared asset library. */
+export const isManagedPackSidecar = (relative: string): boolean =>
+  /^(?:drawings|builds)\/[^/]+\.json$/.test(relative) && !relative.endsWith('.photo-ref.json');
+
+/** Reconcile auxiliary content against its recorded hashes, preserving local edits and older unowned content. */
+export function reconcilePackAuxiliary(view: CatalogSource, before: PackAuxiliary | undefined, pack?: CatalogSource): { writes: Map<string, string | null>; owned: PackAuxiliary } {
+  const writes = new Map<string, string | null>();
+  const owned: PackAuxiliary = { files: {}, models: {} };
+  const nextFiles = Object.fromEntries(['drawings', 'builds'].flatMap((dir) =>
+    (pack?.list(dir) ?? []).map((name) => `${dir}/${name}`).filter(isManagedPackSidecar)
+      .flatMap((path) => { const text = pack?.read(path); return text === undefined ? [] : [[path, assetSha(path, text)]]; })));
+  const files = reconcileAssets(before?.files, nextFiles, (path) => { const text = view.read(path); return text === undefined ? undefined : assetSha(path, text); });
+  owned.files = files.owned;
+  for (const path of files.write) writes.set(path, canonicalPackText(path, pack!.read(path)!));
+  for (const path of files.remove) writes.set(path, null);
+  const modelText = view.read('models.json');
+  const nextText = pack?.read('models.json');
+  const document = modelText === undefined ? { src: 'model links supplied by catalog packs', links: [] } : JSON.parse(modelText) as { src: string; links: Record<string, Json>[] };
+  const nextDocument = nextText === undefined ? undefined : JSON.parse(nextText) as { src: string; links: Record<string, Json>[] };
+  const current = new Map(document.links.map((link) => [link['record'] as string, link]));
+  const next = new Map((nextDocument?.links ?? []).map((link) => [link['record'] as string, link]));
+  const models = reconcileAssets(before?.models, Object.fromEntries([...next].map(([key, link]) => [key, assetSha('models.json', canonical(link))])),
+    (key) => current.has(key) ? assetSha('models.json', canonical(current.get(key))) : undefined);
+  owned.models = models.owned;
+  for (const key of models.remove) current.delete(key);
+  for (const key of models.write) current.set(key, next.get(key)!);
+  if (models.remove.length > 0 || models.write.length > 0) {
+    writes.set('models.json', canonicalPackText('models.json', canonical({ ...(modelText === undefined ? nextDocument ?? document : document), links: [...current.values()] })));
+  }
+  return { writes, owned };
 }
 
 /** What an installed pack's record keeps of its manifest. */
@@ -637,6 +680,12 @@ function planAgainst(local: CatalogSource, installed: InstalledPacks, packDir: s
       }
       continue;
     }
+    if (relative === 'models.json' && isPlainObject(packValue) && isPlainObject(localValue) && Array.isArray(packValue['links']) && Array.isArray(localValue['links'])) {
+      const merged = mergeCatalogFile(relative, [localText, packText]);
+      if (merged !== canonicalPackText(relative, localText)) writes[relative] = merged;
+      continue;
+    }
+    if (isManagedPackSidecar(relative)) continue; // the catalog's own sidecar wins over a layer
     const packRecords = recordsIn(packValue);
     const localRecords = recordsIn(localValue);
     if (packRecords === undefined || localRecords === undefined) {
@@ -687,6 +736,7 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   if (plan.conflicts.length > 0) {
     throw new Error(`Pack '${plan.manifest.id}' cannot be installed: ${plan.conflicts.join('; ')}.`);
   }
+  const auxiliary = reconcilePackAuxiliary(fsCatalogSource(catalogDir), undefined, fsCatalogSource(packDir)).owned;
   for (const [relative, text] of Object.entries(plan.writes)) writeFileReplacing(join(catalogDir, relative), text);
   const installed = readInstalledPacks(catalogDir);
   // the merging installer keeps a pack's depictions as `data/depictions/…` documents (as before); it records the
@@ -698,7 +748,7 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   // vendor PDFs and fonts are files the catalog serves by content address: beside the catalog's data, owned by the pack
   const blobs = Object.fromEntries(Object.entries(assets).filter(([path]) => /^(?:docs|assets|fonts)\//.test(path) && !path.endsWith('.json')));
   if (Object.keys(blobs).length > 0) applyPackLibrary(catalogDir, packDir, undefined, applyPackAssets(catalogDir, packDir, undefined, blobs));
-  const record = installedRecordOf(plan.manifest, plan.added, assets, packDir);
+  const record = { ...installedRecordOf(plan.manifest, plan.added, assets, packDir), ...auxiliaryRecord(auxiliary) };
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));
   return plan;
@@ -813,7 +863,7 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
   rmSync(target, { recursive: true, force: true });
   renameSync(staging, target);
   const assets = packOwnedAssets(packDir);
-  const record = installedRecordOf(manifest, plan.added, assets, packDir);
+  const record = { ...installedRecordOf(manifest, plan.added, assets, packDir), ...auxiliaryRecord(reconcilePackAuxiliary(local, undefined, fsCatalogSource(packDir)).owned) };
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(packsDir, PACKS_FILE), canonical(installed));
   return { manifest, added: plan.added, alreadyInstalled: false };
