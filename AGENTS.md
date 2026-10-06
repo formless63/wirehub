@@ -35,7 +35,7 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
 ## Conventions
 
 - TypeScript strict, ESM, packages export TS source (`main: ./src/index.ts`; `build` =
-  `tsc --noEmit`). Dev deps pinned: typescript 7.0.2, vitest 4.1.10, @types/node 26.1.2.
+  `tsc --noEmit`). Dev deps pinned: typescript 7.0.2, vitest 4.1.11, @types/node 26.1.2.
   The server runs on Node's type stripping: no TS parameter properties, enums or
   namespaces in server code.
 - `@wirehub/model`, `@wirehub/catalog` and `@wirehub/modules` have

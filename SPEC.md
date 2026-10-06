@@ -43,7 +43,7 @@ the base never interprets it.
 - TypeScript strict everywhere; ESM (`"type": "module"`); packages export TS source
   (`main: ./src/index.ts`, `build` = `tsc --noEmit`). IDs are kebab-case strings.
 - Zero runtime dependencies in `model`, `catalog` and `modules`. Dev deps pinned:
-  typescript 7.0.2, vitest 4.1.10, @types/node 26.1.2. Node ≥ 24. pnpm workspaces.
+  typescript 7.0.2, vitest 4.1.11, @types/node 26.1.2. Node ≥ 24. pnpm workspaces.
 - Part numbers go through a `PartNumberScheme` (below); no code hard-codes a numbering
   pattern.
 
