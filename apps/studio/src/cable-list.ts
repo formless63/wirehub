@@ -18,12 +18,14 @@ import {
   findInterface,
   findPcba,
   findWire,
+  productsOfDesign,
   wireDisplayName,
   wireEndsOf,
   type CableDesign,
   type Db,
   type DesignStatus,
   type PartRoute,
+  type ProductFamily,
 } from '@wirehub/model';
 
 /** A design's own product PN as the list shows it, and why. */
@@ -38,9 +40,30 @@ export interface ResolvedPartNumber {
   family?: string;
 }
 
+/** Membership follows the product's variant design reference, never a guessed PN match. */
+export interface ProductMembership {
+  product: string;
+  productLabel: string;
+  variant: string;
+  variantLabel: string;
+}
+
+export function designProducts(products: readonly ProductFamily[] | undefined, designId: string): ProductMembership[] {
+  return productsOfDesign(products, designId).map(({ product, variant }) => ({
+    product: product.id,
+    productLabel: product.label,
+    variant: variant.id,
+    variantLabel: variant.label ?? variant.id,
+  }));
+}
+
 export interface CableListEntry {
   id: string;
   label: string;
+  /** Families and variants whose records name this design; optional for older cached rows. */
+  products?: ProductMembership[];
+  /** Product names, variant names and declared family aliases for text search. */
+  productSearch?: string[];
   /** production status — `active` when the design sets none (model `designStatus`) */
   status: DesignStatus;
   /** how the cable is sourced (make / contract / buy), when it says; the maker for the tooltip */
@@ -80,7 +103,8 @@ export interface CableListEntry {
   /**
    * Every part number the cable answers to, for the list's and Quick open's
    * search: the design's own, the drawing's PN as written (a family too),
-   * each length's variation PN, and the PN of every part it is built from.
+   * each length's variation PN, its product families' and variants' PNs and numeric aliases,
+   * and the PN of every part it is built from.
    */
   partNumbers: string[];
   /** the design's own product PN — `designPartNumber` */
@@ -160,6 +184,11 @@ export function designPartNumbers(design: CableDesign, db: Db, context: CableLis
     if (t !== undefined && t !== '') out.push(t.toUpperCase());
   };
   add(designPartNumber(design, context).pn);
+  for (const { product, variant } of productsOfDesign(db.products, design.id)) {
+    add(product.partNumber);
+    add(variant.partNumber);
+    for (const alias of product.aliases ?? []) if (/\d/.test(alias) && !/\s/.test(alias.trim())) add(alias);
+  }
   add(context.drawing?.partNumber);
   for (const pn of variationPartNumbers(context.drawing?.partNumber, context.drawing?.lengths)) add(pn);
   for (const text of Object.values(context.drawing?.materials ?? {})) if (/\d/.test(text) && !/\s/.test(text.trim())) add(text);
@@ -268,6 +297,10 @@ export function cableListEntry(design: CableDesign, db: Db, context: CableListCo
   return {
     id: design.id,
     label: design.label,
+    products: designProducts(db.products, design.id),
+    productSearch: dedupe(productsOfDesign(db.products, design.id).flatMap(({ product, variant }) => [
+      product.id, product.label, ...(product.aliases ?? []), variant.id, variant.label ?? '',
+    ]).filter((text) => text !== '')),
     status: designStatus(design),
     ...(design.route === undefined ? {} : { route: design.route }),
     ...(design.maker === undefined ? {} : { maker: design.maker }),

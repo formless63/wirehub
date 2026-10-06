@@ -45,6 +45,8 @@ import { cableRoute, libraryIndexRoute, libraryItemRoute, libraryKindRoute, type
 import { swappableStocks } from '@wirehub/editor-react';
 import { useStudio } from '../studio-context.tsx';
 import { useEditorChrome } from './editor-chrome.tsx';
+import { designProducts } from '../cable-list.ts';
+import { ProductChips } from './ProductChips.tsx';
 import { StatusChip } from './StatusChip.tsx';
 import { ReleaseChip } from '../versions/ReleaseChip.tsx';
 import { HistoryButton } from '../history/HistoryPanel.tsx';
@@ -154,6 +156,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
           >
             {label ?? cableId}
           </span>
+          <ProductChips products={designProducts(studio.db.products, cableId)} />
           <StatusChip status={cableId !== undefined && studio.cableId === cableId ? studio.design?.status : undefined} />
           {/* contract-manufactured (310/311): a generic badge, never a partner's name */}
           <ReleaseChip id={cableId} rev={search?.rev} />

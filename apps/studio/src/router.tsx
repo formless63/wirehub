@@ -59,9 +59,9 @@ function isCableView(value: unknown): value is CableView {
 }
 
 /** `/cables`' sortable columns — see `CablesRoute.tsx`. */
-export type CableListSort = 'partNumber' | 'source' | 'destination' | 'wire' | 'notes' | 'boards';
+export type CableListSort = 'partNumber' | 'product' | 'source' | 'destination' | 'wire' | 'notes' | 'boards';
 
-const CABLE_LIST_SORTS: readonly CableListSort[] = ['partNumber', 'source', 'destination', 'wire', 'notes', 'boards'];
+const CABLE_LIST_SORTS: readonly CableListSort[] = ['partNumber', 'product', 'source', 'destination', 'wire', 'notes', 'boards'];
 
 function isCableListSort(value: unknown): value is CableListSort {
   return typeof value === 'string' && (CABLE_LIST_SORTS as readonly string[]).includes(value);

@@ -9,11 +9,32 @@ import type { BoardBuilds } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { cableListEntry, designPartNumber, designPartNumbers, variationPartNumbers } from '../src/cable-list.ts';
+import { entryMatches } from '../src/pn-search.ts';
 import { handleBuildsRequest, readBuildsBody, type BuildsStore } from '../server/builds.ts';
 
 const db = loadDb();
 
 describe('cable list rows', () => {
+  it('derives every membership from variant references and searches family names and aliases', () => {
+    const design = loadDesign('dc-led-lead');
+    const products = [
+      { id: 'leads', label: 'Power leads', aliases: ['Indicator cord', 'CBL-00090'], partNumber: 'CBL-00091-XX', variants: [
+        { id: 'short', label: 'Compact indicator', design: design.id, partNumber: 'CBL-00091-01' },
+        { id: 'long', design: 'dc-pigtail-lead', partNumber: 'CBL-00091-02' },
+      ], src: 'synthetic example' },
+      { id: 'spares', label: 'Spares', variants: [{ id: 'replacement', design: design.id }], src: 'synthetic example' },
+    ];
+    const row = cableListEntry(design, { ...db, products });
+    expect(row.products).toEqual([
+      { product: 'leads', productLabel: 'Power leads', variant: 'short', variantLabel: 'Compact indicator' },
+      { product: 'spares', productLabel: 'Spares', variant: 'replacement', variantLabel: 'replacement' },
+    ]);
+    for (const query of ['power leads', 'Indicator cord', 'compact indicator', 'replacement', 'CBL-00090', 'CBL-00091-01']) expect(entryMatches(row, query), query).toBe(true);
+    expect(row.partNumbers).not.toContain('CBL-00091-02');
+    expect(entryMatches(row, 'long')).toBe(false);
+    expect(cableListEntry({ ...design, id: 'unlisted', productRef: 'CBL-00091-01' }, { ...db, products }).products).toEqual([]);
+  });
+
   it('splits the label at the arrow into source and destination', () => {
     const row = cableListEntry(loadDesign('de9-terminal-board'), db);
     expect(row.source).toBe('DE-9');

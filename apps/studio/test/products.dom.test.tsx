@@ -25,8 +25,9 @@ const LEADS: ProductFamily = {
   id: 'dc-leads',
   label: 'DC leads',
   partNumber: 'CBL-00090-XX',
+  aliases: ['Power leads', 'CBL-00012'],
   options: [{ id: 'colour', label: 'Colour', values: [{ id: 'black', label: 'Black' }, { id: 'red', label: 'Red' }] }],
-  variants: [{ id: 'led', design: 'dc-led-lead', partNumber: 'CBL-00090-01', options: { colour: 'black' } }],
+  variants: [{ id: 'led', label: 'Indicator lead', design: 'dc-led-lead', partNumber: 'CBL-00090-01', options: { colour: 'black' } }],
   src: 'synthetic example',
 };
 
@@ -68,6 +69,34 @@ describe('products', () => {
     expect(within(lineup).getByText('CBL-00090-01')).toBeTruthy();
   });
 
+  it('shows membership in the list and header and searches aliases in Quick open', async () => {
+    await serve();
+    mount('/cables');
+    await screen.findByText('DC leads · Indicator lead');
+    expect(screen.getByText('PRODUCT')).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Filter cables' }), { target: { value: 'Power leads' } });
+    await vi.waitFor(() => {
+      const cables = document.querySelectorAll('a[href^="/cables/"]');
+      expect([...cables].map((a) => a.getAttribute('href'))).toEqual(['/cables/dc-led-lead']);
+    });
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    const dialog = await screen.findByRole('dialog', { name: 'Quick open' });
+    const search = within(dialog).getByPlaceholderText('Search…');
+    for (const alias of ['Power leads', 'Indicator lead', 'CBL-00012', 'CBL-00090-01']) {
+      fireEvent.change(search, { target: { value: alias } });
+      await vi.waitFor(() => {
+        const results = dialog.querySelectorAll('[cmdk-item][data-value^="cable:"]');
+        expect([...results].map((r) => r.getAttribute('data-value'))).toEqual(['cable:dc-led-lead']);
+      });
+    }
+    fireEvent.click(dialog.querySelector('[data-value="cable:dc-led-lead"]')!);
+    const membership = await screen.findByLabelText('Product membership');
+    const family = within(membership).getByRole('link', { name: 'DC leads · Indicator lead' });
+    expect(family.getAttribute('href')).toBe('/products/dc-leads');
+    fireEvent.click(family);
+    expect((await screen.findByTestId('product-page')).textContent).toContain('CBL-00090-01');
+  });
+
   it('adds a variant on the family page', async () => {
     await serve();
     mount('/products/dc-leads');
@@ -85,6 +114,14 @@ describe('products', () => {
         ['led', 'CBL-00090-01', 'black'],
         ['dc-pigtail-lead', 'CBL-00090-02', 'red'],
       ]);
+    });
+    // The palette was mounted before this edit; it must see the updated memberships.
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    const dialog = await screen.findByRole('dialog', { name: 'Quick open' });
+    fireEvent.change(within(dialog).getByPlaceholderText('Search…'), { target: { value: 'Power leads' } });
+    await vi.waitFor(() => {
+      const results = dialog.querySelectorAll('[cmdk-item][data-value^="cable:"]');
+      expect([...results].map((r) => r.getAttribute('data-value')).sort()).toEqual(['cable:dc-led-lead', 'cable:dc-pigtail-lead']);
     });
   });
 });

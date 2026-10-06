@@ -15,6 +15,7 @@ import { useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 import type { LineupRow, ProductFamily } from '@wirehub/model';
 
+import { cableListKey, dbKey } from '../queries.ts';
 import { RouteChip } from '../shell/RouteChip.tsx';
 import { useStudio } from '../studio-context.tsx';
 import {
@@ -121,6 +122,8 @@ export function ProductsRoute(): JSX.Element {
       return;
     }
     client.setQueryData(productsKey, out.value);
+    void client.invalidateQueries({ queryKey: dbKey });
+    void client.invalidateQueries({ queryKey: cableListKey });
     setEditing(undefined);
     toast.success(`Saved ${record.label}.`);
     void navigate({ to: '/products/$id', params: { id: record.id } });
@@ -222,6 +225,8 @@ export function ProductRoute(): JSX.Element {
   const refresh = (view?: ProductsView): void => {
     if (view !== undefined) client.setQueryData(productsKey, view);
     void client.invalidateQueries({ queryKey: ['products'] });
+    void client.invalidateQueries({ queryKey: dbKey });
+    void client.invalidateQueries({ queryKey: cableListKey });
   };
   const saveFamily = async (next: ProductFamily, done: string): Promise<boolean> => {
     const view = list.data;
