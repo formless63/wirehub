@@ -16,7 +16,7 @@
  *                                   with it one change set
  *
  * Phase 5 (`docs/catalog-store.md` §4): the index carries each version's review status
- * (information; `WIREHUB_STORE_HIDE_UNREVIEWED` hides unreviewed versions here), yanked
+ * (information; source policies and `WIREHUB_STORE_HIDE_UNREVIEWED` can hide unreviewed versions here), yanked
  * versions (listed with a warning, never offered; installed only with `force` by an owner)
  * and revoked keys (a pack signed only by one is refused, and flagged where installed).
  * The list also carries `notices` for installed packs: a yanked version, a revoked
@@ -77,7 +77,12 @@ export const OFFICIAL_STORE_INDEX_URL = 'https://formless63.github.io/wirehub/st
  */
 export const OFFICIAL_STORE_PUBLIC_KEY: string = 'RWQXEHIbPbWbKH32jyM29IRDsITWmTwGdtDQzcVaY2peD2aQnCHCoVlj';
 
+export const MAX_STORE_INDEX_BYTES = 4 * 1024 * 1024;
+export const MAX_STORE_SIGNATURE_BYTES = 16 * 1024;
+
 export interface TrustedStoreIndex {
+  /** Optional policy for this source; the deployment-wide restriction still applies. */
+  hideUnreviewed?: boolean;
   url: string;
   /** minisign public key, `RW…` */
   publicKey: string;
@@ -169,16 +174,16 @@ export class StoreIndexError extends Error {
 
 /** Fetch an index and its `.minisig`, verify the signature with the trusted key, check its shape. */
 export async function fetchVerifiedIndex(trusted: TrustedStoreIndex, options: FetchPackOptions = {}): Promise<StoreIndex> {
-  const get = async (url: string, what: string): Promise<Uint8Array> => {
+  const get = async (url: string, what: string, maxBytes: number): Promise<Uint8Array> => {
     try {
-      return await fetchPack(url, options);
+      return await fetchPack(url, { ...options, maxBytes: Math.min(options.maxBytes ?? maxBytes, maxBytes) });
     } catch (error) {
       const why = error instanceof Error ? error.message : String(error);
-      throw new StoreIndexError(`Could not fetch the ${what} (${why})`);
+      throw new StoreIndexError(`Could not fetch the ${what} (${why})`, error instanceof PackArchiveError && error.status === 413 ? 413 : 502);
     }
   };
-  const bytes = await get(trusted.url, 'index');
-  const signature = await get(`${trusted.url}${STORE_SIGNATURE_SUFFIX}`, 'index signature; an unsigned index is refused');
+  const bytes = await get(trusted.url, 'index', MAX_STORE_INDEX_BYTES);
+  const signature = await get(`${trusted.url}${STORE_SIGNATURE_SUFFIX}`, 'index signature; an unsigned index is refused', MAX_STORE_SIGNATURE_BYTES);
   const check = verifyStoreSignature(bytes, new TextDecoder().decode(signature), trusted.publicKey);
   if (!check.ok) throw new StoreIndexError(`The index was refused: ${check.reason}.`, 422);
   let value: unknown;
@@ -245,10 +250,9 @@ export async function handleStoreRequest(
     if (method !== 'GET') return refuse(405, `${method} is not something this address accepts.`, 'It answers GET.');
     const installedList = await installedPacks(setup, modules);
     const installed = new Map(installedList.map((pack) => [pack.id, pack]));
-    const visibility = { hideUnreviewed: store.hideUnreviewed === true };
     const indexes: unknown[] = [];
     const packs: unknown[] = [];
-    const verified: { url: string; index: StoreIndex }[] = [];
+    const verified: { url: string; index: StoreIndex; hideUnreviewed: boolean }[] = [];
     let hidden = 0;
     // every store is fetched on its own: one that is down or does not verify is listed as refused, the others still show
     const fetched = await Promise.all(
@@ -268,9 +272,10 @@ export async function handleStoreRequest(
       }
       const index = got.index;
       const label = trusted.label ?? index.store.name;
-      verified.push({ url: trusted.url, index });
+      const visibility = { hideUnreviewed: store.hideUnreviewed === true || trusted.hideUnreviewed === true };
+      verified.push({ url: trusted.url, index, ...visibility });
       const revoked = revokedKeysOf(index);
-      indexes.push({ url: trusted.url, ok: true, source: trusted.origin ?? 'env', label, store: index.store, packs: index.packs.length, ...(index.generated === undefined ? {} : { generated: index.generated }) });
+      indexes.push({ url: trusted.url, ok: true, source: trusted.origin ?? 'env', label, store: index.store, ...(visibility.hideUnreviewed ? { hideUnreviewed: true } : {}), packs: index.packs.length, ...(index.generated === undefined ? {} : { generated: index.generated }) });
       for (const pack of index.packs) {
         const visible = pack.versions.filter((v) => versionVisible(v, visibility));
         if (visible.length === 0) {
@@ -314,8 +319,9 @@ export async function handleStoreRequest(
       indexes,
       packs,
       domains: [...new Set(packs.map((pack) => (pack as { domain: string }).domain))].sort(),
-      notices: installedNotices(installedList, verified, visibility),
-      ...(visibility.hideUnreviewed ? { hideUnreviewed: true, hidden } : {}),
+      notices: installedNotices(installedList, verified),
+      ...(store.hideUnreviewed === true ? { hideUnreviewed: true } : {}),
+      ...(verified.some((i) => i.hideUnreviewed) ? { hidden } : {}),
       ...([...(store.problems ?? []), ...trustedNow.problems].length === 0 ? {} : { problems: [...(store.problems ?? []), ...trustedNow.problems] }),
       ...(trustedNow.indexes.length === 0
         ? { hint: store.allowUserSources === false ? 'No store index is configured. Set WIREHUB_STORE_INDEXES to "<index url> <public key>" (docs/self-hosting.md).' : 'No store is configured. Add one under Settings > Store sources, or set WIREHUB_STORE_INDEXES (docs/self-hosting.md).' }
@@ -338,7 +344,7 @@ export async function handleStoreRequest(
     }
     const pack = index.packs.find((candidate) => candidate.id === body.id);
     if (pack === undefined) return refuse(404, `The index does not list a pack '${body.id}'.`);
-    const visibility = { hideUnreviewed: store.hideUnreviewed === true };
+    const visibility = { hideUnreviewed: store.hideUnreviewed === true || trusted.hideUnreviewed === true };
     const named = typeof body.version === 'string';
     const version = named ? pack.versions.find((v) => v.version === body.version) : offeredVersion(pack, visibility);
     if (version === undefined && !named && pack.versions.some((v) => versionVisible(v, visibility))) {
@@ -349,7 +355,7 @@ export async function handleStoreRequest(
       const which = named ? `version '${String(body.version)}'` : 'a version';
       return refuse(
         404,
-        hiddenHere ? `This hub does not offer ${which} of '${pack.id}': only reviewed versions are shown here (WIREHUB_STORE_HIDE_UNREVIEWED).` : `The index does not list ${which} of '${pack.id}'.`,
+        hiddenHere ? `This hub does not offer ${which} of '${pack.id}': only reviewed versions are shown here by this store's review policy.` : `The index does not list ${which} of '${pack.id}'.`,
         `It lists ${pack.versions.filter((v) => versionVisible(v, visibility)).map((v) => v.version).join(', ') || 'none this hub offers'}.`,
       );
     }
@@ -437,12 +443,12 @@ export async function handleStoreRequest(
  * lists it: its version yanked, its signature by keys all since revoked, or its
  * review flagged; with the version the index now offers (`suggest`).
  */
-function installedNotices(installed: readonly InstalledView[], verified: readonly { url: string; index: StoreIndex }[], visibility: { hideUnreviewed: boolean }): unknown[] {
+function installedNotices(installed: readonly InstalledView[], verified: readonly { url: string; index: StoreIndex; hideUnreviewed: boolean }[]): unknown[] {
   const revoked = new Map<string, StoreRevokedKey>();
   for (const { index } of verified) for (const [key, r] of revokedKeysOf(index)) revoked.set(key, r);
   const notices: unknown[] = [];
   for (const pack of installed) {
-    for (const { url, index } of verified) {
+    for (const { url, index, hideUnreviewed } of verified) {
       // an installed pack is checked against the store it came from (packs of unknown origin: any store listing them)
       if (pack.origin?.index !== undefined && pack.origin.index !== url) continue;
       const listed = index.packs.find((p) => p.id === pack.id);
@@ -453,7 +459,7 @@ function installedNotices(installed: readonly InstalledView[], verified: readonl
       const gone = revokedSigners(signers, revoked);
       const review = reviewOf(version);
       if (version.yanked === undefined && gone === undefined && review.status !== 'flagged') continue;
-      const offered = offeredVersion(listed, visibility);
+      const offered = offeredVersion(listed, { hideUnreviewed });
       notices.push({
         id: pack.id,
         version: pack.version,

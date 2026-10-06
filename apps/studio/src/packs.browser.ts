@@ -172,6 +172,7 @@ export interface StorePackView {
   action: 'install' | 'update' | 'current' | 'newer-installed' | 'unavailable' | 'other-store';
 }
 export interface StoreIndexView {
+  hideUnreviewed?: boolean;
   url: string;
   ok: boolean;
   store?: { id: string; name: string };

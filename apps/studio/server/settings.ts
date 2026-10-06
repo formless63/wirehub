@@ -442,7 +442,7 @@ function cleanArt(input: unknown): { art?: DrawingArtData; error?: string } {
 
 export async function handleSettingsRequest(method: string, parts: string[], body: unknown, deps: SettingsDeps, ifMatch: string | undefined, user?: StudioUser): Promise<ApiResponse | undefined> {
   if (parts[0] !== 'api' || parts[1] !== 'settings') return undefined;
-  if (isStoreSourcesPath(parts)) return await handleStoreSources(method, body, deps, ifMatch);
+  if (isStoreSourcesPath(parts)) return await handleStoreSources(method, body, deps, ifMatch, user);
   if (parts[2] === 'engineering' && parts.length === 3) return await handleEngineering(method, body, deps, ifMatch);
   if (parts[2] === 'branding' && parts[3] === 'fonts' && parts.length === 4) {
     if (method === 'GET') return { status: 200, body: { fonts: await listFonts(deps), limits: { bytes: MAX_FONT_BYTES, formats: ['ttf', 'otf', 'woff2'] }, licence: LICENCE_PROMPT } };

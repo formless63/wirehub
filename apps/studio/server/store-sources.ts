@@ -31,6 +31,8 @@ export interface StoreSource {
   publicKey: string;
   label?: string;
   enabled: boolean;
+  /** Hide versions without a review in this store (default: show all). */
+  hideUnreviewed?: boolean;
 }
 
 export interface StoresRecord {
@@ -75,7 +77,8 @@ export function checkSource(input: unknown, at: string): { source: StoreSource }
     if (t !== '') label = t;
   }
   if (o['enabled'] !== undefined && typeof o['enabled'] !== 'boolean') return { error: `${at}: enabled is true or false.` };
-  return { source: { url: parsed.href, publicKey, ...(label === undefined ? {} : { label }), enabled: o['enabled'] !== false } };
+  if (o['hideUnreviewed'] !== undefined && typeof o['hideUnreviewed'] !== 'boolean') return { error: `${at}: hideUnreviewed is true or false.` };
+  return { source: { ...(o['hideUnreviewed'] === undefined ? {} : { hideUnreviewed: o['hideUnreviewed'] as boolean }), url: parsed.href, publicKey, ...(label === undefined ? {} : { label }), enabled: o['enabled'] !== false } };
 }
 
 export const keyView = (publicKey: string): { keyId: string; fingerprint: string } => storeKeyFingerprint(publicKey);
@@ -106,7 +109,7 @@ export async function effectiveIndexes(store: StoreDeps): Promise<{ indexes: Tru
     const s = got.source;
     if (!s.enabled || seen.has(s.url)) continue;
     seen.add(s.url);
-    indexes.push({ url: s.url, publicKey: s.publicKey, origin: 'user', ...(s.label === undefined ? {} : { label: s.label }) });
+    indexes.push({ url: s.url, publicKey: s.publicKey, origin: 'user', ...(s.hideUnreviewed === undefined ? {} : { hideUnreviewed: s.hideUnreviewed }), ...(s.label === undefined ? {} : { label: s.label }) });
   }
   return { indexes, problems };
 }

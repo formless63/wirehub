@@ -418,7 +418,7 @@ phase 5 adds the publisher's own signature over each pack (below).
 **What a hub does** (`apps/studio/server/store.ts`). `WIREHUB_STORE_INDEXES` lists the indexes it
 trusts, each `<https url> <public key>` (comma separated; `docs/self-hosting.md`).
 `GET /api/packs/store` fetches each index and its `.minisig` (https only, public addresses, the
-same limits as a pack URL), **refuses an index whose signature does not match the configured key**
+4 MiB index / 16 KiB signature limits and the pack URL timeout), **refuses an index whose signature does not match the configured key**
 (or that has none), and lists the packs of the others with the version installed here and what
 can be done (`install`, `update`, `current`). `POST /api/packs/store/install`
 `{ index, id, version?, apply?, sha256?, acceptMajor? }` re-fetches and re-verifies the index,
@@ -481,7 +481,7 @@ down or fails verification is named and left out without hiding the others.
 - **Where stores come from.** The deployment's (`WIREHUB_STORE_INDEXES`, and the official index
   by default) are shown read-only, marked "set by the server", the official one with
   its state (trusted, or not enabled on this server). The ones added in the app are
-  the org settings document `data/settings/stores.json` (`{ sources: [{ url, publicKey, label?, enabled }] }`),
+  the org settings document `data/settings/stores.json` (`{ sources: [{ url, publicKey, label?, enabled, hideUnreviewed? }] }`),
   written with `If-Match` like the other settings, on files and Postgres. The two merge; on the same
   URL the deployment's entry wins. Turning off "owners and editors may add stores" (Settings > Integrations, or
   `WIREHUB_STORE_ALLOW_USER_SOURCES=false` on the server) ignores the document
@@ -492,8 +492,14 @@ down or fails verification is named and left out without hiding the others.
   fingerprint (the key id and a sha256 fingerprint of the key) with the store's owner another way.
   Before saving, the server fetches the index and its signature, verifies them and shows the
   store's name, publishers, pack count and the fingerprint; saving re-verifies a new or re-keyed
-  store. Fetches are the pack URL install's: https only, 8 MB, 15 s, redirects re-checked, private
+  store. Fetches are the pack URL install's: https only, 4 MiB per index, 16 KiB per signature, 15 s, redirects re-checked, private
   addresses refused.
+- **Review policy.** Each added store has a "Hide unreviewed versions" switch (default off).
+  Owners and editors can change it in Store sources. When on, browsing and install offers
+  include reviewed or flagged versions only; review claims remain the index publisher's statements.
+  The deployment-wide `WIREHUB_STORE_HIDE_UNREVIEWED` restriction still applies to every store.
+  Index limits count streamed bytes even when Content-Length is missing or misleading,
+  and tighter download limits still apply.
 - **Managing.** Enable or disable (a disabled store is not browsed or installed from), rename the
   label, re-check now, remove. Removing a store does not uninstall anything.
 - **Origin and updates.** An install records the index URL it came from (`origin.index`); Browse

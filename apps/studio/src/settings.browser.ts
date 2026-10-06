@@ -147,6 +147,7 @@ export const engineeringQuery = {
 export const storeSourcesKey = ['settings', 'stores'] as const;
 
 export interface StoreSourceView {
+  hideUnreviewed?: boolean;
   url: string;
   publicKey: string;
   keyId: string;
@@ -192,6 +193,7 @@ export interface FetchedStoreKey {
 }
 
 export interface StoreSourceInput {
+  hideUnreviewed?: boolean;
   url: string;
   publicKey: string;
   label?: string;
@@ -235,7 +237,7 @@ export const storeSourcesQuery = {
 
 /** The stores added here, as the PUT takes them. */
 export const userSourceInputs = (view: StoreSourcesView): StoreSourceInput[] =>
-  view.sources.filter((s) => s.origin === 'user').map((s) => ({ url: s.url, publicKey: s.publicKey, ...(s.label === undefined ? {} : { label: s.label }), enabled: s.enabled }));
+  view.sources.filter((s) => s.origin === 'user').map((s) => ({ url: s.url, publicKey: s.publicKey, ...(s.label === undefined ? {} : { label: s.label }), enabled: s.enabled, ...(s.hideUnreviewed === undefined ? {} : { hideUnreviewed: s.hideUnreviewed }) }));
 
 /* ------------------------------------------------------------------ *
  * Runtime settings: notifications, sign-in, integrations, jobs (`server/runtime-settings-api.ts`)

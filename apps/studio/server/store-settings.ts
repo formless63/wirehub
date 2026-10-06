@@ -70,12 +70,12 @@ async function view(deps: StoreSourceDeps): Promise<{ body: Record<string, unkno
   const lock = !allowed(deps);
   const entry = (url: string, publicKey: string): Record<string, unknown> => ({ url, publicKey, ...keyView(publicKey) });
   const sources: Record<string, unknown>[] = [
-    ...env.map((i) => ({ ...entry(i.url, i.publicKey), ...(i.label === undefined ? {} : { label: i.label }), enabled: true, origin: i.origin ?? 'env', readOnly: true })),
+    ...env.map((i) => ({ ...entry(i.url, i.publicKey), ...(i.label === undefined ? {} : { label: i.label }), enabled: true, hideUnreviewed: storeOf(deps).hideUnreviewed === true || i.hideUnreviewed === true, origin: i.origin ?? 'env', readOnly: true })),
     ...(Array.isArray(record?.sources) ? record.sources : []).flatMap((raw, n) => {
       const got = checkSource(raw, `Store ${n + 1}`);
       if ('error' in got) return [];
       const s = got.source;
-      return [{ ...entry(s.url, s.publicKey), ...(s.label === undefined ? {} : { label: s.label }), enabled: s.enabled, origin: 'user', readOnly: false, ...(envUrls.has(s.url) ? { shadowed: true } : {}), ...(lock ? { ignored: true } : {}) }];
+      return [{ ...entry(s.url, s.publicKey), ...(s.label === undefined ? {} : { label: s.label }), enabled: s.enabled, ...(s.hideUnreviewed === undefined ? {} : { hideUnreviewed: s.hideUnreviewed }), origin: 'user', readOnly: false, ...(envUrls.has(s.url) ? { shadowed: true } : {}), ...(lock ? { ignored: true } : {}) }];
     }),
   ];
   const official = {
@@ -169,16 +169,17 @@ export async function handleStoreSourcesQuery(request: { method: string; path: s
 }
 
 /** `GET`/`PUT /api/settings/stores` */
-export async function handleStoreSources(method: string, body: unknown, deps: StoreSourceDeps, ifMatch: string | undefined): Promise<ApiResponse> {
+export async function handleStoreSources(method: string, body: unknown, deps: StoreSourceDeps, ifMatch: string | undefined, user?: { role?: string }): Promise<ApiResponse> {
   if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = await view(deps);
   if (method === 'GET') return { status: 200, body: current.body, headers: { ETag: current.etag } };
   if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
+  if (user?.role === 'viewer') return fail(403, 'Changing store sources is for owners and editors.', 'Ask an owner for the editor role.');
   if (!allowed(deps)) return fail(403, 'This deployment does not allow adding stores in the app.', 'An administrator sets WIREHUB_STORE_INDEXES on the server, or WIREHUB_STORE_ALLOW_USER_SOURCES=true.');
   const guard = checkIfMatch(ifMatch, current.etag, 'settings', 'stores');
   if (guard !== undefined) return guard;
   const list = typeof body === 'object' && body !== null ? (body as { sources?: unknown }).sources : undefined;
-  if (!Array.isArray(list)) return fail(400, 'Send { "sources": [ { "url", "publicKey", "label"?, "enabled"? } ] }.');
+  if (!Array.isArray(list)) return fail(400, 'Send { "sources": [ { "url", "publicKey", "label"?, "enabled"?, "hideUnreviewed"? } ] }.');
   if (list.length > MAX_USER_SOURCES) return fail(400, `A hub keeps at most ${MAX_USER_SOURCES} added stores.`);
   const envUrls = new Set(envIndexes(deps).map((i) => i.url));
   const before = new Map(((await readStores(deps.docs))?.sources ?? []).map((s) => [s.url, s]));

@@ -73,6 +73,7 @@ export function StoreBrowser(): JSX.Element {
     setNotes([
       ...((answer.body['problems'] as string[] | undefined) ?? []),
       ...(typeof answer.body['hint'] === 'string' ? [answer.body['hint']] : []),
+      ...((answer.body['indexes'] as StoreIndexView[] | undefined) ?? []).filter((i) => i.hideUnreviewed === true).map((i) => `${i.label ?? i.url}: unreviewed versions are hidden.`),
       ...(answer.body['hideUnreviewed'] === true ? [`This hub shows only versions the store has reviewed${hidden > 0 ? ` (${hidden} pack${hidden === 1 ? '' : 's'} with none hidden)` : ''}.`] : []),
     ]);
   }, []);
