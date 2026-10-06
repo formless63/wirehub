@@ -70,7 +70,7 @@ describe('installing a code module from a file', () => {
     const file = new File([tinyBundle(keys.pem) as BlobPart], 'tiny-1.0.0.zip', { type: 'application/zip' });
     fireEvent.change(screen.getByLabelText('Pack file'), { target: { files: [file] } });
     const consent = await screen.findByTestId('code-consent');
-    expect(consent.textContent).toContain('Tiny rule (tiny 1.0.0, module API 1.3)');
+    expect(consent.textContent).toContain('Tiny rule (tiny 1.0.0, module API 1.4)');
     expect(consent.textContent).toContain('runs code in your hub');
     expect(consent.textContent).toContain('May: server-code');
     const install = screen.getByRole('button', { name: 'Install' }) as HTMLButtonElement;
