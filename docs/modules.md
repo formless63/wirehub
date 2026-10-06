@@ -348,9 +348,14 @@ include any a data pack ships under `fonts/` (`docs/catalog-store.md`). The draw
 test spec, wire spec, formboard) and the browser engine's PDFs carry the font inline, first in their font stacks, so a
 glyph it lacks falls through to the standard sans; layout measures the font's own advance widths. The PDFs the server
 draws itself use it where they can: the drawing's raster PDF reads a TrueType or OpenType file, and the formboard's vector
-PDF embeds a subset of a font with TrueType outlines (`.ttf`, or an `.otf` that has them); a CFF `.otf` or a WOFF2 keeps the
-standard sans there, and the page says which. The plain-text fallback PDFs (no browser engine configured) stay in the standard
-Helvetica. **Drawing art**: faces, plugs and cutaways by definition id, in the shape a module's `art.drawing` has, as JSON
+PDF embeds TrueType subsets or a full CFF OpenType program with an identity CID charset. Compressed WOFF2 outlines
+are decoded before embedding. Plain-text fallback PDFs (no browser engine configured) also use the registered brand
+font and its widths. Without a usable brand face they keep their standard fonts; missing brand Bold uses bundled bold.
+Font embedding respects OS/2 restricted/bitmap-only flags and keeps every glyph when subsetting is prohibited.
+WOFF2 decoding uses Google's WASM decoder in a local Node subprocess (the studio's own executable, stdin/stdout,
+5-second timeout, at most 8 MiB decoded). The first inspection incurs that startup cost; successful decodes are cached
+by font SHA-256, up to four entries. No temporary font files are written. The raster path still needs TrueType/OpenType;
+WOFF2 is supported in vector and text PDFs and browser printing. **Drawing art**: faces, plugs and cutaways by definition id, in the shape a module's `art.drawing` has, as JSON
 in Settings (this hub's own file, `data/drawing-art.json`); a data pack may ship a `drawing-art.json` too, the two layer
 key by key with this hub's winning, and a cutaway's SVG is cleaned of scripts and external references on the way in.
 A module's own `art.drawing` (its font too) still wins, as with the logo. The API: `GET`/`POST

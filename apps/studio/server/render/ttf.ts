@@ -5,12 +5,13 @@
  * font program that keeps only the glyphs a document uses. No dependency;
  * deterministic (the same glyphs give the same bytes).
  *
- * It reads what Liberation Sans is: a TrueType outline font (`glyf`/`loca`)
- * with a Unicode `cmap` (format 4, or 12). It refuses anything else rather
- * than embedding something it did not understand.
+ * Reads TrueType outlines and the CID OpenType programs produced by the brand
+ * font converter, with Unicode cmap format 4 or 12. CFF programs retain all
+ * glyphs; TrueType programs retain only used glyphs unless fsType forbids it.
  */
 
 export interface TrueTypeFont {
+  outline: 'truetype' | 'cff';
   unitsPerEm: number;
   numGlyphs: number;
   /** the glyph for a code point; 0 (`.notdef`) when the face has none */
@@ -98,7 +99,7 @@ export function cmapLookup(view: DataView, cmapOffset: number): (codePoint: numb
 export function loadTrueType(bytes: Uint8Array): TrueTypeFont {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = u32(view, 0);
-  if (version !== 0x00010000 && tagAt(bytes, 0) !== 'true') throw new Error('ttf: not a TrueType font');
+  if (version !== 0x00010000 && tagAt(bytes, 0) !== 'true' && tagAt(bytes, 0) !== 'OTTO') throw new Error('ttf: not a TrueType font');
   const tables = new Map<string, Table>();
   for (let i = 0; i < u16(view, 4); i += 1) {
     const at = 12 + i * 16;
@@ -113,8 +114,9 @@ export function loadTrueType(bytes: Uint8Array): TrueTypeFont {
   const hhea = need('hhea');
   const maxp = need('maxp');
   const hmtx = need('hmtx');
-  const loca = need('loca');
-  const glyf = need('glyf');
+  const cff = tables.has('CFF ');
+  const loca = cff ? { offset: 0, length: 0 } : need('loca');
+  const glyf = cff ? { offset: 0, length: 0 } : need('glyf');
   const cmap = need('cmap');
   const unitsPerEm = u16(view, head.offset + 18);
   const locaLong = i16(view, head.offset + 50) === 1;
@@ -142,6 +144,18 @@ export function loadTrueType(bytes: Uint8Array): TrueTypeFont {
     italicAngle: post === undefined ? 0 : view.getInt32(post.offset + 4) / 65536,
   };
 
+  const noSubset = os2 !== undefined && (u16(view, os2.offset + 8) & 0x0100) !== 0;
+  if (cff) return {
+    outline: 'cff', unitsPerEm, numGlyphs, glyphFor: lookup, advance, descriptor,
+    width(text, size) {
+      let units = 0;
+      for (const ch of text) units += advance(lookup(ch.codePointAt(0)!));
+      return units / unitsPerEm * size;
+    },
+    // The converter retained every glyph with an Adobe/Identity CID charset.
+    subset: () => bytes,
+  };
+
   /** the glyphs a composite glyph is built from */
   const components = (glyph: number): number[] => {
     const [from, to] = glyphRange(glyph);
@@ -163,6 +177,7 @@ export function loadTrueType(bytes: Uint8Array): TrueTypeFont {
   };
 
   return {
+    outline: 'truetype',
     unitsPerEm,
     numGlyphs,
     glyphFor: (cp) => lookup(cp),
@@ -174,6 +189,7 @@ export function loadTrueType(bytes: Uint8Array): TrueTypeFont {
     },
     descriptor,
     subset(glyphs) {
+      if (noSubset) return bytes;
       const used = new Set<number>([0]);
       const queue = [...glyphs];
       while (queue.length > 0) {

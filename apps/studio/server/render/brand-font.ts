@@ -4,21 +4,23 @@
  * character, for layout) and to know what each renderer can do with it:
  *
  * - an HTML sheet, a drawing's SVG and a browser-engine PDF carry the font inline as uploaded;
- * - the vector PDF embeds a TrueType-outline font (`.ttf`, an `.otf` with TrueType outlines, or a WOFF2 whose
- *   outlines are stored plain) as a subset; a CFF-outline `.otf` or a WOFF2 with compressed outlines keeps the
- *   bundled sans there (`embeddable: false`), and the settings page says so;
+ * - the PDF embeds TrueType outlines as a subset and CFF outlines as CID OpenType;
+ *   Google's WOFF2 decoder reconstructs compressed outlines before embedding;
  * - the raster PDF (the drawing without a browser engine) needs a font file the rasteriser can read: TrueType or OpenType.
  *
- * Nothing is executed: a font is parsed as bytes within the bounds below, and every failure is a sentence.
+ * Uploaded fonts remain data: parsing and decoding stay within the bounds below.
  * Deterministic.
  */
 
 import { createHash } from 'node:crypto';
 import { brotliDecompressSync } from 'node:zlib';
 
+import { create as decodeFont } from 'fontkit';
+
 import type { BrandFace, BrandFont } from '@wirehub/docs';
 
 import { cmapLookup } from './ttf.ts';
+import { decompressWoff2 } from './woff2.ts';
 
 /** the largest font file the settings accept, and the most a WOFF2 may unpack to */
 export const MAX_FONT_BYTES = 1536 * 1024;
@@ -40,9 +42,9 @@ export interface FontInfo {
   unitsPerEm: number;
   /** advance widths by character, 1/1000 em, for the characters the sheets use */
   widths: Record<string, number>;
-  /** the vector PDF can embed it (as the TrueType font program in `program`) */
+  /** The PDF can embed the outline program under the font's declared embedding permissions. */
   embeddable: boolean;
-  /** the TrueType font program the vector PDF embeds, when `embeddable` */
+  /** The sfnt font program the PDF embeds, with glyph IDs retained. */
   program?: Uint8Array;
   /** the rasteriser can read the font as uploaded (TrueType or OpenType, not WOFF2) */
   rasterizable: boolean;
@@ -83,6 +85,7 @@ interface Woff2 {
   tables: Tables;
   /** tags whose data is stored in the WOFF2 transform (not the plain table) */
   transformed: Set<string>;
+  decoderBytes: Uint8Array;
 }
 
 function readBase128(bytes: Uint8Array, at: { p: number }): number {
@@ -106,8 +109,9 @@ function readWoff2(bytes: Uint8Array): Woff2 {
   const compressed = view.getUint32(20);
   if (count === 0 || count > 80) throw new Error('The WOFF2 table directory is damaged.');
   const at = { p: 48 };
-  const entries: { tag: string; length: number; transformed: boolean }[] = [];
+  const entries: { tag: string; length: number; transformed: boolean; from: number; to: number }[] = [];
   for (let i = 0; i < count; i += 1) {
+    const from = at.p;
     const flags = bytes[at.p++];
     if (flags === undefined) throw new Error('The WOFF2 table directory is damaged.');
     const index = flags & 0x3f;
@@ -120,7 +124,7 @@ function readWoff2(bytes: Uint8Array): Woff2 {
     const original = readBase128(bytes, at);
     const transformed = tag === 'glyf' || tag === 'loca' ? version !== 3 : version !== 0;
     const length = transformed ? readBase128(bytes, at) : original;
-    entries.push({ tag, length, transformed });
+    entries.push({ tag, length, transformed, from, to: at.p });
   }
   if (at.p + compressed > bytes.length) throw new Error('The WOFF2 font\'s data runs past the end of the file.');
   let data: Uint8Array;
@@ -138,16 +142,31 @@ function readWoff2(bytes: Uint8Array): Woff2 {
     if (e.transformed) transformed.add(e.tag);
     offset += e.length;
   }
-  return { flavor, tables, transformed };
+  let decoderBytes = bytes;
+  const glyfIndex = entries.findIndex((e) => e.tag === 'glyf');
+  const locaIndex = entries.findIndex((e) => e.tag === 'loca');
+  // Older FontTools exports (including the bundled sans subset) put zero-length
+  // transformed loca in tag order. Google's decoder requires glyf/loca adjacent.
+  // Move only its directory entry: loca has no payload, so the Brotli data and
+  // every other table byte remain exactly the same.
+  if (glyfIndex >= 0 && locaIndex >= 0 && locaIndex !== glyfIndex + 1 && entries[locaIndex]!.transformed && entries[locaIndex]!.length === 0) {
+    const ordered = entries.filter((e) => e.tag !== 'loca');
+    ordered.splice(ordered.findIndex((e) => e.tag === 'glyf') + 1, 0, entries[locaIndex]!);
+    decoderBytes = bytes.slice();
+    let offset = 48;
+    for (const e of ordered) { decoderBytes.set(bytes.subarray(e.from, e.to), offset); offset += e.to - e.from; }
+  }
+  return { flavor, tables, transformed, decoderBytes };
 }
 
-/** A TrueType font file built from plain tables (a WOFF2 whose outlines are not transformed). */
+/** An sfnt font file assembled from decoded OpenType or TrueType tables. */
 function assembleSfnt(flavor: number, tables: Tables): Uint8Array {
   const tags = [...tables.keys()].sort();
   const header = 12 + tags.length * 16;
   let size = header;
   const placed = tags.map((tag) => {
-    const body = tables.get(tag) as Uint8Array;
+    const body = (tables.get(tag) as Uint8Array).slice();
+    if (tag === 'head' && body.length >= 12) new DataView(body.buffer).setUint32(8, 0);
     const entry = { tag, body, offset: size };
     size += Math.ceil(body.length / 4) * 4;
     return entry;
@@ -163,11 +182,39 @@ function assembleSfnt(flavor: number, tables: Tables): Uint8Array {
   placed.forEach((t, i) => {
     const at = 12 + i * 16;
     for (let c = 0; c < 4; c += 1) out[at + c] = t.tag.charCodeAt(c);
-    // the checksum is not read back by anything here; the PDF readers recompute it
+    let sum = 0;
+    for (let j = 0; j < t.body.length; j += 4) sum = (sum + (((t.body[j] ?? 0) * 0x1000000 + ((t.body[j + 1] ?? 0) << 16) + ((t.body[j + 2] ?? 0) << 8) + (t.body[j + 3] ?? 0)) >>> 0)) >>> 0;
+    view.setUint32(at + 4, sum);
     view.setUint32(at + 8, t.offset);
     view.setUint32(at + 12, t.body.length);
     out.set(t.body, t.offset);
   });
+  const head = placed.find((t) => t.tag === 'head');
+  if (head !== undefined) {
+    let sum = 0;
+    for (let i = 0; i < out.length; i += 4) sum = (sum + view.getUint32(i)) >>> 0;
+    view.setUint32(head.offset + 8, (0xb1b0afba - sum) >>> 0);
+  }
+  return out;
+}
+
+/**
+ * Use fontkit's established CFF converter, retaining the original glyph IDs.
+ * All glyphs are included in ascending order before encoding, so composite glyph
+ * references, cmap and metrics still name the same glyph. CFF is converted to an
+ * Adobe/Identity CID charset: embedding a name-keyed CFF with Identity-H would
+ * otherwise interpret glyph IDs as unrelated CIDs.
+ */
+function decodedProgram(bytes: Uint8Array, flavor: number, tables: Tables): Uint8Array {
+  const font = decodeFont(bytes);
+  const subset = font.createSubset();
+  for (let g = 0; g < font.numGlyphs; g += 1) {
+    if (subset.includeGlyph(g) !== g) throw new Error('The font decoder changed its glyph IDs.');
+  }
+  const encoded = subset.encode();
+  tables.set('CFF ', encoded);
+  const out = assembleSfnt(flavor, tables);
+  if (out.length > MAX_UNPACKED_BYTES) throw new Error('The decoded font is too large.');
   return out;
 }
 
@@ -230,12 +277,14 @@ export function inspectFont(bytes: Uint8Array): FontInfo {
   let tables: Tables;
   let flavorTag: number;
   let transformed = new Set<string>();
+  let decoderBytes = bytes;
   if (magic === 'wOF2') {
     const woff = readWoff2(bytes);
     format = 'woff2';
     tables = woff.tables;
     flavorTag = woff.flavor;
     transformed = woff.transformed;
+    decoderBytes = woff.decoderBytes;
   } else if (magic === 'ttcf') {
     throw new Error('A font collection (.ttc) cannot be used: upload one of its fonts on its own.');
   } else if (magic === 'OTTO' || magic === 'true' || (bytes[0] === 0 && bytes[1] === 1 && bytes[2] === 0 && bytes[3] === 0)) {
@@ -253,7 +302,12 @@ export function inspectFont(bytes: Uint8Array): FontInfo {
     return t;
   };
   for (const tag of ['head', 'hhea', 'hmtx', 'maxp', 'cmap']) need(tag);
-  if (transformed.has('hmtx')) throw new Error('This WOFF2 font stores its metrics in a form that cannot be read: upload it as TrueType or OpenType.');
+  let decoded: Uint8Array | undefined;
+  if (format === 'woff2' && transformed.size > 0) {
+    decoded = decompressWoff2(decoderBytes, MAX_UNPACKED_BYTES);
+    tables = sfntTables(decoded);
+    transformed = new Set();
+  }
   const head = need('head');
   const hhea = need('hhea');
   const hmtx = need('hmtx');
@@ -284,7 +338,11 @@ export function inspectFont(bytes: Uint8Array): FontInfo {
   const trueType = tables.has('glyf') && tables.has('loca');
   const plainOutlines = trueType && !transformed.has('glyf') && !transformed.has('loca');
   let program: Uint8Array | undefined;
-  if (plainOutlines) program = format === 'woff2' ? assembleSfnt(flavorTag, tables) : bytes;
+  if (plainOutlines) program = decoded ?? (format === 'woff2' ? assembleSfnt(flavorTag, tables) : bytes);
+  else if (tables.has('CFF ')) program = decodedProgram(decoded ?? bytes, flavorTag, tables);
+  const os2 = tables.get('OS/2');
+  // OS/2 fsType: restricted licence embedding and bitmap-only embedding prohibit outline embedding.
+  if (os2 !== undefined && os2.length >= 10 && (new DataView(os2.buffer, os2.byteOffset, os2.byteLength).getUint16(8) & 0x0202) !== 0) program = undefined;
   return {
     format,
     mime: FONT_MIME[format],
@@ -313,7 +371,7 @@ export function brandFace(bytes: Uint8Array, info: FontInfo = inspectFont(bytes)
     base64: Buffer.from(bytes).toString('base64'),
     widths: info.widths,
     embeddable: info.embeddable,
-    ...(info.embeddable && info.format === 'woff2' && info.program !== undefined ? { pdfBase64: Buffer.from(info.program).toString('base64') } : {}),
+    ...(info.embeddable && info.program !== undefined && info.program !== bytes ? { pdfBase64: Buffer.from(info.program).toString('base64') } : {}),
     rasterizable: info.rasterizable,
   };
 }

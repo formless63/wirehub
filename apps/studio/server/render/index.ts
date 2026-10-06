@@ -300,8 +300,10 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
               ? renderBomMarkdown(design, db, options)
               : testSpecToMarkdown(deriveTestSpec(design, db, { continuityOhmsMax: parameters.continuityOhmsMax }), parameters),
         );
-        const pages = layoutMarkdown(markdown, { paper: PAPER[paper], footer: `${design.id} ${kind}${request.revisionNumber === undefined ? '' : ` rev ${request.revisionNumber}`}` });
-        return format === 'svg' ? out(pagesToSvg(pages)) : out(pagesToPdf(pages.map((page): PdfPage => ({ kind: 'ops', page })), titleOf(request)), 'pdf', 'text-layout');
+        return withBranding(request.branding, () => {
+          const pages = layoutMarkdown(markdown, { paper: PAPER[paper], footer: `${design.id} ${kind}${request.revisionNumber === undefined ? '' : ` rev ${request.revisionNumber}`}` });
+          return format === 'svg' ? out(pagesToSvg(pages)) : out(pagesToPdf(pages.map((page): PdfPage => ({ kind: 'ops', page })), titleOf(request)), 'pdf', 'text-layout');
+        });
       }
     }
   } catch (error) {

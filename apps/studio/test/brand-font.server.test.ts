@@ -20,15 +20,15 @@ describe('inspectFont', () => {
     expect(Object.keys(info.widths).length).toBeGreaterThan(500);
   });
 
-  it('reads an OpenType font with CFF outlines: usable on the sheets and the raster PDF, not embedded in the vector PDF', () => {
+  it('reads an OpenType font with CFF outlines: embedded as CID OpenType in the PDF', () => {
     const info = inspectFont(fonts('texgyreadventor-regular.otf'));
-    expect(info).toMatchObject({ format: 'otf', flavor: 'cff', family: 'TeX Gyre Adventor', embeddable: false, rasterizable: true });
+    expect(info).toMatchObject({ format: 'otf', flavor: 'cff', family: 'TeX Gyre Adventor', embeddable: true, rasterizable: true });
     expect(info.widths['a']).toBeGreaterThan(300);
   });
 
-  it('reads a WOFF2 font: carried inline and measured; its compressed outlines keep the vector PDF on the bundled sans', () => {
+  it('reads a WOFF2 font: compressed outlines are reconstructed for PDF embedding', () => {
     const info = inspectFont(new Uint8Array(Buffer.from(sans.woff2, 'base64')));
-    expect(info).toMatchObject({ format: 'woff2', mime: 'font/woff2', flavor: 'truetype', embeddable: false, rasterizable: false });
+    expect(info).toMatchObject({ format: 'woff2', mime: 'font/woff2', flavor: 'truetype', embeddable: true, rasterizable: false });
     expect(info.widths['A']).toBe(667);
   });
 
