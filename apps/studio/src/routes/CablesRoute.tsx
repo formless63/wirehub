@@ -154,6 +154,9 @@ function MobileRow({ entry, dirty }: { entry: CableListEntry; dirty: boolean }):
             </span>
           );
         })()}
+        <span className="min-w-0 truncate" title={(entry.products ?? []).map((p) => `${p.productLabel} · ${p.variantLabel}`).join('; ')}>
+          {(entry.products ?? []).map((p) => `${p.productLabel} · ${p.variantLabel}`).join('; ')}
+        </span>
         {(entry.features ?? []).map((f) => (
           <span key={f.text} title={f.title} className="shrink-0 whitespace-nowrap text-dim">
             {f.text}
@@ -232,7 +235,7 @@ function PlaceInMenu({ entry, targets }: { entry: CableListEntry; targets: reado
 }
 
 /**
- * dot · part number · source · destination · wire · notes · boards. Each
+ * dot · part number · product · source · destination · wire · notes · boards. Each
  * flexible column carries a floor — a real minimum, not `minmax(0, …)`,
  * which let a column shrink to illegibility without ever triggering the
  * horizontal scrollbar. `TABLE_MIN_PX` is these floors' sum plus the row's
@@ -242,10 +245,10 @@ function PlaceInMenu({ entry, targets }: { entry: CableListEntry; targets: reado
 // column 1, Part Number: a fixed 92px slot ahead of Source — a PN is a
 // known, near-constant shape, so it never needs to flex.
 const GRID_COLS =
-  '22px 92px minmax(210px, 1.6fr) minmax(90px, 0.6fr) minmax(108px, 0.55fr) minmax(150px, 0.9fr) minmax(118px, 0.85fr)';
+  '22px 92px minmax(130px, 0.7fr) minmax(210px, 1.6fr) minmax(90px, 0.6fr) minmax(108px, 0.55fr) minmax(150px, 0.9fr) minmax(118px, 0.85fr)';
 const ROW_GAP_PX = 8; // gap-2
 const ROW_PAD_PX = 12; // px-3, each side
-const TABLE_MIN_PX = 22 + 92 + 210 + 90 + 108 + 150 + 118 + ROW_GAP_PX * 6 + ROW_PAD_PX * 2;
+const TABLE_MIN_PX = 22 + 92 + 130 + 210 + 90 + 108 + 150 + 118 + ROW_GAP_PX * 7 + ROW_PAD_PX * 2;
 const RIGHT_ALIGNED = new Set<string>();
 const features = tableFeatures({ rowSortingFeature, sortedRowModel: createSortedRowModel() });
 const columnHelper = createColumnHelper<typeof features, CableListEntry>();
@@ -285,6 +288,11 @@ const columns = columnHelper.columns([
         </span>
       );
     },
+  }),
+  columnHelper.accessor((row) => (row.products ?? []).map((p) => `${p.productLabel} · ${p.variantLabel}`).join('; '), {
+    id: 'product',
+    header: 'PRODUCT',
+    cell: (ctx) => truncated('text-[11.5px] text-dim', ctx.getValue()),
   }),
   columnHelper.accessor('source', {
     id: 'source',

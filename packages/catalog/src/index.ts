@@ -42,6 +42,8 @@ export { fsCatalogSource, memoryCatalogSource } from './source.ts';
 export type { CatalogSource } from './source.ts';
 export {
   PACK_MANIFEST,
+  PACK_HOST_CONTROL_FILES,
+  isPackHostControlPath,
   applyPackAssets,
   applyPackLibrary,
   assetPath,
@@ -116,7 +118,7 @@ export {
   storePublicKeyOf,
   verifyStoreSignature,
 } from './store-index.ts';
-export type { StoreBundle, StoreIndex, StoreIndexPack, StoreIndexVersion, StoreMeta, StorePublisher, StoreReview, StoreRevokedKey, StoreSignatureCheck, StoreYank } from './store-index.ts';
+export type { StoreBundle, StoreIndex, StoreIndexModule, StoreIndexPack, StoreIndexVersion, StoreMeta, StorePublisher, StoreReview, StoreRevokedKey, StoreSignatureCheck, StoreYank } from './store-index.ts';
 export { PACK_SIGNATURE, packDigests, packFileDigest, packFileProblems, packManifestMessage, signPackManifest, splitPackSignatures, verifyPackSignature } from './pack-signature.ts';
 export type { PackSignatureCheck } from './pack-signature.ts';
 export type { AssetOps, InstalledModule, InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest, PackModule } from './packs.ts';

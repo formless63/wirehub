@@ -6,10 +6,11 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { previewPnScheme, pnSettingsKey, pnSettingsQuery, savePnSettings, type PnPreview, type PnSchemeOffer } from '../settings.browser.ts';
+import { draftObject, SchemeEditor } from './DeclarativeEditors.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 /** the generic example (docs/part-numbers.md): <Level><Type>-NNNNNN-VV */
@@ -38,6 +39,7 @@ function shapeOf(scheme: unknown): string {
 }
 
 export function PartNumberSettings(): JSX.Element {
+  const editor = useRef<HTMLElement>(null);
   const client = useQueryClient();
   const { me } = useStudio();
   const readOnly = me?.role === 'viewer';
@@ -54,6 +56,10 @@ export function PartNumberSettings(): JSX.Element {
   }, [view]);
 
   const parse = (): unknown => {
+    if (editor.current?.querySelector('[data-invalid-json="true"]')) {
+      toast.error('Correct the invalid JSON field before checking or saving.');
+      return undefined;
+    }
     try {
       return JSON.parse(text) as unknown;
     } catch (error) {
@@ -116,10 +122,10 @@ export function PartNumberSettings(): JSX.Element {
   };
 
   return (
-    <section className="mt-6 max-w-xl border-t border-line pt-3" data-testid="pn-settings">
+    <section ref={editor} className="mt-6 max-w-xl border-t border-line pt-3" data-testid="pn-settings">
       <h2 className="mb-1 text-[13px] font-semibold">Part numbers</h2>
       <p className="mb-2 text-faint">
-        How this hub numbers parts and cables. A definition in plain JSON: fields with allowed values per record kind, zero-padded counters with ranges (several spans, numbers never issued, a range per set of combinations), a variant suffix, separators, a validation regex.
+        How this hub numbers parts and cables. Edit declarative segments in the form, or use advanced JSON: fields with allowed values per record kind, zero-padded counters with ranges (several spans, numbers never issued, a range per set of combinations), a variant suffix, separators, a validation regex.
         Saving never rewrites an existing number. Exotic cases stay a code scheme in a module.
       </p>
       {view === undefined ? (
@@ -132,10 +138,13 @@ export function PartNumberSettings(): JSX.Element {
             {view.effective.immutable ? ', existing numbers never change' : ''}).
             {view.overriddenByModule === true ? ' A module sets the scheme in code; this definition is ignored while it does.' : ''}
           </div>
-          <label className="flex flex-col gap-0.5">
-            <span className="font-medium">Definition</span>
-            <textarea className="h-64 rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Scheme definition" value={text} disabled={readOnly} spellCheck={false} onChange={(e) => setText(e.target.value)} />
-          </label>
+          {draftObject(text) === undefined ? <p className="text-faint">Correct the advanced JSON to use the form.</p> : <SchemeEditor value={draftObject(text)!} onChange={(next) => { setText(pretty(next)); setResult(undefined); }} disabled={readOnly} />}
+          <details className="mt-2"><summary>Advanced scheme JSON</summary>
+            <label className="flex flex-col gap-0.5">
+              <span className="font-medium">Definition</span>
+              <textarea className="h-64 rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Scheme definition" value={text} disabled={readOnly} spellCheck={false} onChange={(e) => setText(e.target.value)} />
+            </label>
+          </details>
           <label className="mt-2 flex flex-col gap-0.5">
             <span className="font-medium">Sample numbers to check</span>
             <input className="rounded border border-line bg-panel px-2 py-1" aria-label="Sample numbers" placeholder="1C-000001-00  CON-00001" value={samples} onChange={(e) => setSamples(e.target.value)} />

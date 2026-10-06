@@ -9,6 +9,7 @@
  * blobs), edit locks in memory (B6), depictions in the file tree (B7).
  */
 
+import { pendingPinnedMigrations } from './module-migrations.ts';
 import { sql } from 'kysely';
 import type { InstalledPacks } from '@wirehub/catalog';
 import { CURRENT_SCHEMA_VERSION } from '@wirehub/model';
@@ -105,6 +106,7 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     wireLibrary: pgWireLibraryStore(context),
     builds: pgBuildsStore(context),
     versions: pgVersionStore(context, options.depictionsDir),
+    ...(options.db === undefined ? {} : { moduleMigrationStatus: (id: string, files: readonly { path: string; sha256: string }[]) => pendingPinnedMigrations(options.db!, id, files.map((f) => ({ name: f.path.split('/').at(-1)!.slice(0, -4), sha256: f.sha256 }))) }),
     loadDb: async () => (await cache.get()).catalog.loadDb(),
     catalogVersion: () => cache.version(),
     // which records came from a pack: the install record (packs.json) the database holds beside the catalog

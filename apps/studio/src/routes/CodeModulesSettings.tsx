@@ -17,6 +17,7 @@ import { useStudio } from '../studio-context.tsx';
 
 const STATE_TEXT: Record<CodeModuleStatusView['state'], string> = {
   loaded: 'running',
+  pending: 'waiting for database changes',
   disabled: 'off',
   off: 'not running: code modules are turned off',
   failed: 'disabled automatically: it failed to load',

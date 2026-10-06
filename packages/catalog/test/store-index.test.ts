@@ -47,6 +47,19 @@ describe('buildStoreIndex', () => {
     expect(() => buildStoreIndex({ id: 't', name: 'T' }, [bundle('a', '1.0.0'), bundle('a', '1.0.0')])).toThrow(/twice/);
   });
 
+  it('copies code summaries per version without code paths, while older data indexes remain valid', () => {
+    const module = { id: 'sample', version: '1.1.0', label: 'Sample module', apiVersion: '1.2', server: 'code/sample/server.mjs', extensionPoints: ['integrations'], permissions: ['network'] };
+    const index = buildStoreIndex({ id: 'test', name: 'Test store' }, [bundle('sample', '1.0.0'), bundle('sample', '1.1.0', { module })]);
+    expect(index.packs[0]?.versions[0]?.module).toEqual({ id: 'sample', version: '1.1.0', label: 'Sample module', apiVersion: '1.2', extensionPoints: ['integrations'], permissions: ['network'] });
+    expect(index.packs[0]?.versions[1]?.module).toBeUndefined();
+    expect(parseStoreIndex(index).problems).toEqual([]);
+    for (const bad of [null, [], 'code', { ...module, id: 'Bad id' }, { ...module, version: 'x' }, { ...module, label: '' }, { ...module, apiVersion: 'x' }, { ...module, permissions: [''] }, { ...module, extensionPoints: 'routes' }]) {
+      const malformed = structuredClone(index);
+      Object.assign(malformed.packs[0]!.versions[0]!, { module: bad });
+      expect(parseStoreIndex(malformed).problems.join(' ')).toMatch(/module/);
+    }
+  });
+
   it('reports what is wrong with an index', () => {
     expect(parseStoreIndex([]).problems).toEqual(['the index is not a JSON object']);
     const bad = parseStoreIndex({ format: 2, store: {}, packs: [{ id: 'Bad Id', versions: [{ version: 'x', url: '', sha256: 'abc', size: 0 }] }] });

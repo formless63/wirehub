@@ -23,7 +23,7 @@ import { createWebhookEmitter } from './webhooks/emitter.ts';
 import { moduleJobKinds, moduleSchedules } from './jobs/module-queues.ts';
 import type { JobKind, JobService } from './jobs/types.ts';
 import { pgAppConfigFromEnv, redactUrl } from './pg/config.ts';
-import { openPg, resolveOrgId, type PgHandle } from './pg/db.ts';
+import { inOrg, openPg, resolveOrgId, type PgHandle } from './pg/db.ts';
 import { checkDatabase, pgWorkbenchDeps } from './pg/deps.ts';
 import { beat, bossJobRunner, bossQueueName, BOSS_SCHEMA, lastBeat, pgJobHandlers, pgJobStore, startBoss, type BossPayload } from './pg/jobs.ts';
 import { SnapshotCache } from './pg/snapshot.ts';
@@ -100,9 +100,13 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
   let beatTimer: ReturnType<typeof setInterval> | undefined;
   let cache: SnapshotCache | undefined;
   let unfollow: (() => void) | undefined;
+  let applying: Promise<void> = Promise.resolve();
+  let closing = false;
   const stop = async (): Promise<void> => {
+    closing = true;
     if (beatTimer !== undefined) clearInterval(beatTimer);
     unfollow?.();
+    await applying;
     await boss?.stop({ graceful: true, timeout: 30_000 }).catch(() => undefined);
     await cache?.close().catch(() => undefined);
     await handle.close().catch(() => undefined);
@@ -178,8 +182,9 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     // the worker delivers the webhooks and announces its jobs finishing: it reads the subscriptions and the secrets itself
     deps.runtimeSettings = settings;
     deps.webhooks = createWebhookEmitter({ docs: () => deps.docs, jobs: () => deps.jobs, env: () => settings.env() });
-    const handlers = pgJobHandlers({ deps, db: handle.db, orgId: org, cache, ...(blobs === undefined ? {} : { blobs }), env, liveEnv, notify });
-    const kinds = Object.keys(handlers) as JobKind[];
+    const handlerOptions = { deps, db: handle.db, orgId: org, cache, ...(blobs === undefined ? {} : { blobs }), env, liveEnv, notify };
+    const handlersNow = () => pgJobHandlers(handlerOptions);
+    const kinds = Object.keys(handlersNow()) as JobKind[];
 
     // pg_dump runs as studio_ro: it must read the queue tables this role creates (0016)
     await sql.raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${BOSS_SCHEMA} GRANT SELECT ON TABLES TO studio_ro`).execute(handle.db);
@@ -188,12 +193,12 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     await sql.raw(`GRANT SELECT ON ALL TABLES IN SCHEMA ${BOSS_SCHEMA} TO studio_ro`).execute(handle.db);
     await sql.raw(`GRANT SELECT ON ALL SEQUENCES IN SCHEMA ${BOSS_SCHEMA} TO studio_ro`).execute(handle.db);
     const boundBoss = boss;
-    const jobs = createJobService({ store, runner: bossJobRunner(async () => boundBoss, () => org), kinds, worker: () => lastBeat(handle.db, org) });
+    const jobs = createJobService({ store, runner: bossJobRunner(async () => boundBoss, () => org), kinds: () => Object.keys(handlersNow()) as JobKind[], worker: () => lastBeat(handle.db, org) });
     deps.jobs = jobs;
 
     const afterJob = (line: string): void => log(`${line} (worker rss ${Math.round(process.memoryUsage().rss / 1048576)} MiB)`);
-    for (const kind of kinds) {
-      await boss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' || kind === 'webhook' ? 1 : 5 }, async ([job]) => {
+    const workKind = async (kind: JobKind): Promise<void> => {
+      await boundBoss.work<BossPayload>(bossQueueName(kind), { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: kind === 'convert' || kind === 'import' || kind === 'webhook' ? 1 : 5 }, async ([job]) => {
         if (job === undefined) return;
         const payload = job.data;
         if (payload.org !== org) {
@@ -202,9 +207,10 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
         }
         // a scheduled run has no row yet
         const id = payload.id ?? (await store.create(kind, { reason: 'schedule' })).id;
-        await executeJob(store, handlers, id, afterJob, (finished) => deps.webhooks?.jobFinished(finished));
+        await executeJob(store, handlersNow(), id, afterJob, (finished) => deps.webhooks?.jobFinished(finished));
       });
-    }
+    };
+    for (const kind of kinds) await workKind(kind);
 
     // schedules (container time; TZ sets it). The build window and the git mirror come from the
     // live settings: set, changed or turned off in Settings, they are rescheduled here, no restart
@@ -213,8 +219,6 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
       { kind: 'backup', cron: env.WIREHUB_BACKUP_WATCH_CRON ?? '15 * * * *' },
       { kind: 'derive', cron: env.WIREHUB_DERIVE_CRON ?? '0 4 * * *' },
       { kind: 'blob-gc', cron: env.WIREHUB_GC_CRON ?? '30 4 * * *' },
-      // a module queue's own schedule
-      ...moduleSchedules(deps.modules),
     ];
     const mirrorOf = (current: Readonly<Record<string, string | undefined>>): ReturnType<typeof gitMirrorConfigFromEnv> => {
       try {
@@ -259,16 +263,65 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
       if (described !== lastMirror && described !== '') log(`git mirror to ${described}`);
       lastMirror = described;
     };
-    let applying: Promise<void> = Promise.resolve();
     const reschedule = (current: Readonly<Record<string, string | undefined>>): void => {
+      if (closing) return;
       applying = applying.then(() => applySchedules(current)).catch((error: unknown) => log(`rescheduling failed: ${error instanceof Error ? error.message : String(error)}`));
     };
     const started = boss;
     await applySchedules(settings.env());
-    settings.onChange(reschedule);
+    const stopSettings = settings.onChange(reschedule);
+    const reconcileQueues = async (): Promise<void> => {
+      const wanted = Object.keys(handlersNow()) as JobKind[];
+      for (const kind of kinds.filter((kind) => !wanted.includes(kind))) {
+        await started.unschedule(bossQueueName(kind));
+        delete inForce[kind];
+        // Preserve a running job; cancel queued records in this organisation before
+        // draining the local consumer. Retained boss messages cannot run them on re-enable.
+        await inOrg(handle.db, org, async (tx) => {
+          await sql`UPDATE studio.job_run SET status = 'cancelled', finished_at = now(),
+            error = 'Module queue is no longer enabled.' WHERE kind = ${kind} AND status = 'queued'`.execute(tx);
+        });
+        await started.offWork(bossQueueName(kind), { wait: true });
+        kinds.splice(kinds.indexOf(kind), 1);
+        log(`${kind}: no longer worked`);
+      }
+      for (const kind of wanted.filter((kind) => !kinds.includes(kind))) {
+        await started.createQueue(bossQueueName(kind), { retryLimit: 0, expireInSeconds: 1800, deleteAfterSeconds: 7 * 24 * 3600 });
+        await workKind(kind);
+        kinds.push(kind);
+        log(`${kind}: now worked`);
+      }
+      const schedules = new Map(moduleSchedules(deps.modules).map((s) => [s.kind, s.cron]));
+      for (const kind of kinds.filter((kind) => kind.includes(':'))) {
+        const cron = schedules.get(kind);
+        if (inForce[kind] === cron) continue;
+        if (cron === undefined) {
+          await started.unschedule(bossQueueName(kind));
+          delete inForce[kind];
+        } else {
+          await started.schedule(bossQueueName(kind), cron, payload as unknown as object, { tz });
+          inForce[kind] = cron;
+        }
+      }
+      await beat(handle.db, org, { worker: hostname(), version: env.WIREHUB_VERSION ?? 'dev', startedAt, queues: [...kinds] });
+    };
+    const reconcile = (): void => {
+      if (closing) return;
+      applying = applying.then(reconcileQueues).catch((error: unknown) => log(`module queue reconciliation failed: ${error instanceof Error ? error.message : String(error)}`));
+    };
+    const startedAt = new Date().toISOString();
+    const unsubscribeQueues = live?.subscribe(reconcile);
+    const previousFollowing = unfollow;
+    unfollow = () => {
+      previousFollowing?.();
+      stopSettings();
+      unsubscribeQueues?.();
+    };
+    reconcile();
+    await applying;
 
     // the heartbeat
-    const me = { worker: hostname(), version: env.WIREHUB_VERSION ?? 'dev', startedAt: new Date().toISOString(), queues: kinds };
+    const me = { worker: hostname(), version: env.WIREHUB_VERSION ?? 'dev', startedAt, queues: kinds };
     const doBeat = async (): Promise<void> => {
       touchBeat();
       await beat(handle.db, org, me).catch((error: unknown) => log(`heartbeat failed: ${error instanceof Error ? error.message : String(error)}`));
@@ -294,7 +347,6 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
       schedules: () => ({ ...inForce }),
       ...(codeModules === undefined ? {} : { codeModules }),
       stop: async () => {
-        await applying;
         await stop();
       },
     };

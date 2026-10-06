@@ -34,6 +34,11 @@ import { benchRuleProblems, declarativeSchemeProblems, errors, ruleListProblems,
 import { createCatalog } from './catalog.ts';
 import {
   PACKS_FILE,
+  reconcilePackAuxiliary,
+  auxiliaryRecord,
+  isManagedPackSidecar,
+  isOtherPackAuxiliary,
+  type PackAuxiliary,
   canonical,
   canonicalPackText,
   idOf,
@@ -323,7 +328,7 @@ function withPackAuxiliary(planned: CatalogSource, base: CatalogSource, packDir:
   return {
     name: `${planned.name} (with the pack's own data files)`,
     read(relative) {
-      if (!isAuxiliaryFile(relative)) return planned.read(relative);
+      if (!isAuxiliaryFile(relative) || isManagedPackSidecar(relative) || isOtherPackAuxiliary(relative) || relative === 'models.json') return planned.read(relative);
       const both = packFirst ? [pack.read(relative), base.read(relative)] : [base.read(relative), pack.read(relative)];
       const texts = both.filter((t): t is string => t !== undefined);
       return texts.length === 0 ? undefined : mergeCatalogFile(relative, texts);
@@ -493,6 +498,7 @@ export interface PackUpdatePlan {
   assets: Record<string, string>;
   /** the retired records as they are kept (marked), for a layered pack's catalog files (not part of the answer shown to people) */
   retiredRecords: LocatedRecord[];
+  auxiliary: PackAuxiliary;
 }
 
 /** A retired record as the deployment keeps it: its licence stays what it was, and it says where it began. */
@@ -536,6 +542,10 @@ export function planPackUpdate(view: CatalogSource, installed: readonly Installe
   const retiredMarked = new Map([...retiring].map(([key, r]) => [key, retiredAs(r, { id: entry.id, version: entry.version, license: entry.license })] as const));
   const puts = new Map([...next].filter(([key, r]) => !owned.has(key) || !same(owned.get(key)!.record, r.record)));
   const writes = fileWrites(view, packDir, dropped, new Map([...puts, ...retiredMarked]));
+  // For layers, the view without the old layer distinguishes pack content from local overrides, even on legacy installs.
+  const previousAuxiliary = options.without === undefined ? entry.auxiliary : reconcilePackAuxiliary(options.without, undefined, view, Object.keys(entry.added)).owned;
+  const auxiliary = reconcilePackAuxiliary(view, previousAuxiliary, fsCatalogSource(packDir));
+  for (const [path, text] of auxiliary.writes) writes.set(path, text);
   const issues = conflicts.length === 0 ? newErrors(view, withPackAuxiliary(overlay(view, writes), options.without ?? view, packDir, options.without === undefined)) : [];
   const cmp = compareVersions(manifest.version, entry.version);
   return {
@@ -553,6 +563,7 @@ export function planPackUpdate(view: CatalogSource, installed: readonly Installe
     added: addedOf(next.values()),
     assets: packOwnedAssets(packDir),
     retiredRecords: [...retiredMarked.values()],
+    auxiliary: auxiliary.owned,
   };
 }
 
@@ -575,12 +586,14 @@ export function planPackDisable(view: CatalogSource, installed: readonly Install
   const owned = ownedRecords(view, entry);
   const others = [...catalogRecords(view)].filter(([key]) => !owned.has(key)).map(([, r]) => r);
   const references = referencesTo(others, new Set([...owned.values()].filter((r) => !r.file.startsWith('designs/') && !(r.file in KEYED_FILES)).map((r) => r.id)));
+  const writes = fileWrites(view, undefined, owned, new Map());
+  for (const [path, text] of reconcilePackAuxiliary(view, entry.auxiliary).writes) writes.set(path, text);
   return {
     pack: { id, version: entry.version },
     records: [...owned.values()].map(refOf),
     references,
     ok: references.length === 0,
-    writes: fileWrites(view, undefined, owned, new Map()),
+    writes,
     assets: entry.assets ?? {},
   };
 }
@@ -620,13 +633,13 @@ function keepRetired(dataDir: string, layerDir: string, retired: readonly Locate
  * rewritten in place, and `packs.json` updated last. Call only with `plan.ok`.
  */
 export function applyPackUpdate(dataDir: string, packsDir: string | undefined, packDir: string, plan: PackUpdatePlan, where: 'layer' | 'merged'): void {
+  const manifest = readPackManifest(packDir);
   if (where === 'layer' && packsDir !== undefined) {
     // records the new version dropped but something still uses leave with the old layer: keep them in the catalog's own files first
     keepRetired(dataDir, installedPackDir(packsDir, plan.pack.id), plan.retiredRecords);
     installPackLayer(dataDir, packsDir, packDir);
     return;
   }
-  const manifest = readPackManifest(packDir);
   applyWrites(dataDir, plan.writes);
   // the pack's depictions and art: replaced where it still owns them, removed where the new version drops them
   const before = readInstalledPacks(dataDir).packs.find((p) => p.id === manifest.id)?.assets;
@@ -634,7 +647,7 @@ export function applyPackUpdate(dataDir: string, packsDir: string | undefined, p
   applyPackLibrary(dataDir, packDir, before, assets);
   saveInstalled(dataDir, (packs) =>
     packs.map((p) =>
-      p.id === manifest.id ? installedRecordOf(manifest, plan.added, assets, packDir) : p,
+      p.id === manifest.id ? { ...installedRecordOf(manifest, plan.added, assets, packDir), ...auxiliaryRecord(plan.auxiliary) } : p,
     ),
   );
 }
@@ -719,6 +732,9 @@ export function packSourceProblems(packDir: string): string[] {
       problems.push(`${relative} is not valid JSON`);
       continue;
     }
+    if (relative === 'models.json' && (!isPlainObject(value) || !Array.isArray(value['links']) || !value['links'].every((link) => isPlainObject(link) && typeof link['record'] === 'string'))) {
+      problems.push('models.json: expected an object with a links array of model records.');
+    }
     problems.push(...packDocumentSrcProblems(relative, value));
   }
   return problems;
@@ -749,6 +765,7 @@ export function planNewPack(view: CatalogSource, installed: readonly InstalledPa
     else if (!same(other.record, record.record)) conflicts.push(`${record.file}: '${record.id}' already exists with different content`);
   }
   const writes = fileWrites(view, packDir, new Map(), next);
+  for (const [path, text] of reconcilePackAuxiliary(view, undefined, fsCatalogSource(packDir)).writes) writes.set(path, text);
   const unmetRequires = Object.keys(manifest.requires?.packs ?? {}).filter((id) => !installed.some((p) => p.id === id));
   const issues = conflicts.length === 0 ? newErrors(view, withPackAuxiliary(overlay(view, writes), view, packDir)) : [];
   return {

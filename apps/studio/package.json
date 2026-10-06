@@ -53,6 +53,7 @@
     "@xyflow/react": "12.11.3",
     "better-auth": "1.7.5",
     "cmdk": "1.1.1",
+    "fontkit": "2.0.4",
     "hono": "4.13.8",
     "kysely": "0.29.6",
     "nodemailer": "10.0.10",
@@ -63,7 +64,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-resizable-panels": "4.13.2",
-    "sonner": "2.0.8"
+    "sonner": "2.0.8",
+    "wawoff2": "2.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

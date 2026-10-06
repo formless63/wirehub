@@ -162,9 +162,15 @@ export function partNumberScope(data: PartNumberData, db: Db): PartNumberScope {
       const known = knownPartNumbers(placed.db, designs, [...drawingPns, ...(data.extra ?? [])]).filter(
         (k) => !(k.source.endsWith(` ${placed.id}`) || k.source === `designs/${placed.id}.json`),
       );
-      const own = target.kind === 'design' ? target.partNumber : ((target.def as { partNumber?: string }).partNumber ?? (target.def as { sku?: string }).sku);
+      const own = target.kind === 'design' ? (target.partNumber?.trim() || target.def.productRef) : ((target.def as { partNumber?: string }).partNumber ?? (target.def as { sku?: string }).sku);
       const hasOwn = own !== undefined && data.scheme.parse(own) !== undefined;
-      const s: PnSuggestion | undefined = data.scheme.suggest({ kind: kindOfTarget(target), label: target.def.label, id: placed.id }, known);
+      const subject = { kind: kindOfTarget(target), label: target.def.label, id: placed.id };
+      // The current cable number remains taken when suggesting its next variant. A scheme may
+      // compare it with earlier variants, so excluding it could offer the current number again.
+      const variantOf = target.kind === 'design' && hasOwn ? own : undefined;
+      const variantKnown = variantOf === undefined ? known : [...known, { pn: variantOf, kind: 'design' as const, source: `designs/${placed.id}.json` }];
+      const s: PnSuggestion | undefined = (variantOf === undefined ? undefined : data.scheme.suggest({ ...subject, variantOf }, variantKnown))
+        ?? data.scheme.suggest(subject, variantKnown);
       const items: LabeledSuggestion[] =
         s === undefined ? [] : [{ label: hasOwn ? 'Suggested (this part already has a number)' : 'Suggested', forField: true, suggestion: s, candidates: [] }];
       return { items, candidates: [] };

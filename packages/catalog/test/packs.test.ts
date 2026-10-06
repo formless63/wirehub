@@ -4,7 +4,7 @@
  * starter catalog plus a small synthetic pack.
  */
 
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,6 +12,12 @@ import { validateDb, validateDesign } from '@wirehub/model';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  PACK_HOST_CONTROL_FILES,
+  applyPackUpdate,
+  packSourceProblems,
+  packFiles,
+  planNewPack,
+  planPackUpdate,
   catalogWithPacksSource,
   createCatalog,
   dataPath,
@@ -216,5 +222,54 @@ describe('reconcileAssets (cs-093)', () => {
   it('removes what the pack owned and the new version drops, unless it was changed', () => {
     expect(reconcileAssets({ a: '1', b: '1' }, {}, held({ a: '1', b: '2' })).remove).toEqual(['a']);
     expect(reconcileAssets(undefined, {}, held({ a: '1' })).remove).toEqual([]);
+  });
+});
+
+
+describe('host control documents never come from packs', () => {
+  it.each(PACK_HOST_CONTROL_FILES)('rejects %s in every directory plan/install before writes', (path) => {
+    const target = join(packDir, path);
+    mkdirSync(join(target, '..'), { recursive: true });
+    writeFileSync(target, json({ src: 'synthetic example', packs: [{ id: 'forged' }] }));
+    const before = readFileSync(join(catalogDir, 'connectors.json'), 'utf8');
+    const layers = join(work, 'layers');
+    const view = fsCatalogSource(catalogDir);
+    for (const run of [
+      () => planPackInstall(catalogDir, packDir),
+      () => planNewPack(view, [], packDir),
+      () => planPackUpdate(view, [], packDir),
+      () => installPack(catalogDir, packDir),
+      () => installPackLayer(catalogDir, layers, packDir),
+    ]) expect(run).toThrow(/reserved host control state/);
+    expect(packSourceProblems(packDir)).toEqual([expect.stringContaining('reserved host control state')]);
+    expect(readFileSync(join(catalogDir, 'connectors.json'), 'utf8')).toBe(before);
+    expect(existsSync(layers)).toBe(false);
+    expect(readInstalledPacks(catalogDir).packs).toEqual([]);
+  });
+
+  it('rejects a reserved file added after an update preview before applying writes', () => {
+    installPack(catalogDir, packDir);
+    const manifest = JSON.parse(readFileSync(join(packDir, 'wirehub-pack.json'), 'utf8'));
+    writeFileSync(join(packDir, 'wirehub-pack.json'), json({ ...manifest, version: '1.1.0' }));
+    const plan = planPackUpdate(fsCatalogSource(catalogDir), readInstalledPacks(catalogDir).packs, packDir);
+    const before = readFileSync(join(catalogDir, 'packs.json'), 'utf8');
+    expect(packFiles(catalogDir)).toContain('packs.json');
+    writeFileSync(join(packDir, 'packs.json'), json({ packs: [{ id: 'forged' }] }));
+    for (const where of ['merged', 'layer'] as const) {
+      expect(() => applyPackUpdate(catalogDir, join(work, 'layers'), packDir, plan, where)).toThrow(/reserved host control state/);
+    }
+    expect(readFileSync(join(catalogDir, 'packs.json'), 'utf8')).toBe(before);
+    expect(existsSync(join(work, 'layers'))).toBe(false);
+  });
+
+  it('retains ordinary branding, engineering and custom settings support', () => {
+    mkdirSync(join(packDir, 'settings'));
+    for (const file of ['branding', 'engineering', 'custom']) {
+      writeFileSync(join(packDir, 'settings', `${file}.json`), json({ src: 'synthetic example', value: file }));
+    }
+    installPack(catalogDir, packDir);
+    for (const file of ['branding', 'engineering', 'custom']) {
+      expect(JSON.parse(readFileSync(join(catalogDir, 'settings', `${file}.json`), 'utf8')).value).toBe(file);
+    }
   });
 });

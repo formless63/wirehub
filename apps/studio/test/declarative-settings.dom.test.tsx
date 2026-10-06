@@ -62,6 +62,35 @@ const mount = () =>
   render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: ['/settings'] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={registry} />);
 
 describe('Settings: part numbers', () => {
+  it('edits segments as a form, checks and saves without dropping advanced fields', async () => {
+    mount();
+    const box = await screen.findByLabelText('Scheme definition');
+    const scheme = {
+      type: 'declarative', id: 'form-example', template: '{family}-{seq}-{variant}', note: 'retained metadata',
+      segments: [
+        { id: 'family', type: 'choice', values: [{ value: 'A', kinds: ['connector'], note: 'retained choice' }, { value: 'B', kinds: ['wire'] }] },
+        { id: 'seq', type: 'counter', width: 2, exclude: [15], ranges: [{ from: 10, to: 99, match: { family: ['B'] }, exclude: [13], note: 'retained range' }] },
+        { id: 'variant', type: 'variant', width: 2, style: 'numeric', first: '00', max: '09', kinds: ['connector'] },
+      ], src: 'synthetic example',
+    };
+    fireEvent.change(box, { target: { value: JSON.stringify(scheme) } });
+    fireEvent.change(screen.getByLabelText('Segment 1 value 1'), { target: { value: 'C' } });
+    fireEvent.change(screen.getByLabelText('Segment 2 range 1 from'), { target: { value: '20' } });
+    fireEvent.change(screen.getByLabelText('Segment 3 maximum'), { target: { value: '19' } });
+    fireEvent.change(screen.getByLabelText('Sample numbers'), { target: { value: 'C-20-00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Check' }));
+    expect((await screen.findByTestId('pn-check')).textContent).toContain('C-20-00: ok');
+    fireEvent.click(screen.getByRole('button', { name: 'Save scheme' }));
+    await waitFor(async () => {
+      const saved = (await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/part-numbers' }, deps)).body as { config: typeof scheme };
+      expect(saved.config).toEqual({ ...scheme, segments: [
+        { ...scheme.segments[0], values: [{ value: 'C', kinds: ['connector'], note: 'retained choice' }, { value: 'B', kinds: ['wire'] }] },
+        { ...scheme.segments[1], ranges: [{ ...scheme.segments[1]!.ranges![0], from: 20 }] },
+        { ...scheme.segments[2], max: '19' },
+      ] });
+    });
+  });
+
   it('checks a declarative scheme, saves it, and the proposals follow it', async () => {
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Insert the generic example' }));
@@ -102,6 +131,32 @@ describe('Settings: part numbers', () => {
 });
 
 describe('Settings: validation rules', () => {
+  it('edits nested condition and count selectors, tests and saves the rule losslessly', async () => {
+    mount();
+    const section = await screen.findByTestId('rules-settings');
+    fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '4' } });
+    const editor = await screen.findByTestId('rule-editor');
+    const rule = {
+      id: 'form-rule', each: 'cable-end', severity: 'warning', message: 'original', src: 'synthetic example', note: 'retained metadata',
+      where: { any: [{ exists: { path: 'id' } }, { not: { eq: [{ path: 'end' }, 'a'] } }] },
+      require: { gte: [{ count: { in: 'connectors', where: { eq: [{ path: 'family' }, 'd-sub'] } } }, 1] },
+    };
+    fireEvent.change(within(editor).getByLabelText('Rule definition'), { target: { value: JSON.stringify(rule) } });
+    fireEvent.change(within(editor).getByLabelText('Rule message'), { target: { value: '{id} needs a board' } });
+    fireEvent.change(within(editor).getByLabelText('Require left list field'), { target: { value: 'boards' } });
+    fireEvent.change(within(editor).getByLabelText('Require left item filter left field'), { target: { value: 'id' } });
+    fireEvent.change(within(editor).getByLabelText('Applies when condition 2 negated right value'), { target: { value: 'b' } });
+    const draft = JSON.parse((within(editor).getByLabelText('Rule definition') as HTMLTextAreaElement).value) as typeof rule;
+    expect(draft.note).toBe(rule.note);
+    expect(draft.require.gte[0]).toEqual({ count: { in: 'boards', where: { eq: [{ path: 'id' }, 'd-sub'] } } });
+    fireEvent.click(within(editor).getByRole('button', { name: 'Test on my designs' }));
+    expect((await screen.findByTestId('rule-test')).textContent).toContain('warning(s)');
+    fireEvent.click(within(editor).getByRole('button', { name: 'Save rule' }));
+    await waitFor(() => expect(section.querySelector('[data-rule="form-rule"]')).not.toBeNull());
+    const saved = (await handleWorkbenchRequest({ method: 'GET', path: '/api/rules' }, deps)).body as { local: unknown[] };
+    expect(saved.local).toEqual([draft]);
+  });
+
   it('starts from an example, tests it on the designs, saves it and turns it off', async () => {
     mount();
     const section = await screen.findByTestId('rules-settings');
@@ -122,6 +177,21 @@ describe('Settings: validation rules', () => {
     const row = section.querySelector('[data-rule="example-power-area"]') as HTMLElement;
     fireEvent.click(within(row).getByRole('button', { name: 'Turn off' }));
     await waitFor(() => expect(within(section.querySelector('[data-rule="example-power-area"]') as HTMLElement).getByRole('button', { name: 'Turn on' })).toBeTruthy());
+  });
+
+  it('refuses to save while a nested JSON operand is incomplete', async () => {
+    mount();
+    const section = await screen.findByTestId('rules-settings');
+    fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '0' } });
+    const editor = await screen.findByTestId('rule-editor');
+    fireEvent.change(within(editor).getByLabelText('Require right type'), { target: { value: 'list' } });
+    fireEvent.change(within(editor).getByLabelText('Require right list'), { target: { value: '[' } });
+    fireEvent.click(within(editor).getByRole('button', { name: 'Save rule' }));
+    expect(await screen.findByText('Correct the invalid JSON field before testing or saving.')).toBeTruthy();
+    expect(section.querySelector('[data-rule="example-pin-joined"]')).toBeNull();
+    fireEvent.change(within(editor).getByLabelText('Require right list'), { target: { value: '["9"]' } });
+    fireEvent.click(within(editor).getByRole('button', { name: 'Save rule' }));
+    await waitFor(() => expect(section.querySelector('[data-rule="example-pin-joined"]')).not.toBeNull());
   });
 
   it('shows what is wrong with a rule in words', async () => {

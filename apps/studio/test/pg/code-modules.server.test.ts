@@ -21,7 +21,7 @@ import { pgWorkbenchDeps } from '../../server/pg/deps.ts';
 import { importCatalog } from '../../server/pg/import.ts';
 import { pgSetupDeps } from '../../server/pg/setup.ts';
 import { SnapshotCache } from '../../server/pg/snapshot.ts';
-import { OWNER, buildExampleBundle, codeModuleScenario, unlistedPublisherRefused, type CodeBackend, type CodeModuleFixture } from '../code-modules-scenario.ts';
+import { OWNER, buildExampleBundle, bump, codeModuleScenario, unlistedPublisherRefused, type CodeBackend, type CodeModuleFixture } from '../code-modules-scenario.ts';
 import { STORE_URL, createTestStore, type TestStore } from '../store-fixture.ts';
 import { describePg, freshDatabase, testBlobs, type TestDatabase } from './harness.ts';
 
@@ -106,6 +106,32 @@ describePg('runtime code modules on Postgres', () => {
     const history = await backend.send({ method: 'GET', path: '/api/history?limit=50', user: OWNER });
     expect(history.status).toBe(200);
   }, 240_000);
+
+  it('a running worker follows signed runtime installs, updates and disable without restarting', async () => {
+    const backend = await pgBackend('code-live-worker', store, fixture);
+    const { startWorker } = await import('../../server/worker-run.ts');
+    const workerLive = createLiveRegistry(createRegistry([]));
+    const worker = await startWorker({ env: { DATABASE_URL: database.appUrl, WIREHUB_ORG: 'code-live-worker' }, modules: workerLive, builtins: [], blobs: testBlobs(), log: () => {}, attempts: 2 });
+    try {
+      const install = await backend.send({ method: 'POST', path: '/api/packs/install', body: { zip: Buffer.from(fixture.zip).toString('base64'), trustKey: store.publisherPublicKey, apply: true, consent: { code: 'example@0.1.0' } }, user: OWNER });
+      expect(install.status, JSON.stringify(install.body)).toBe(200);
+      await expect.poll(() => worker!.kinds.includes('example:recount'), { timeout: 20_000 }).toBe(true);
+      expect(worker!.codeModules?.status().find((m) => m.id === 'example')).toMatchObject({ state: 'loaded', apply: 'live', restartPending: false });
+      const first = await worker!.jobs.enqueue('example:recount', { only: 'connectors' });
+      expect(await worker!.jobs.wait(first.id, 30_000)).toMatchObject({ status: 'done', result: { counts: { connectors: 4 } } });
+      const zip = fixture.variant((files, manifest) => bump(files, manifest, '0.1.1', (code) => code.replace('return { counts };', 'return { counts, updated: true };')));
+      const update = await backend.send({ method: 'POST', path: '/api/packs/install', body: { zip: Buffer.from(zip).toString('base64'), apply: true, consent: { code: 'example@0.1.1' } }, user: OWNER });
+      expect(update.status, JSON.stringify(update.body)).toBe(200);
+      await expect.poll(() => workerLive.module('example')?.version, { timeout: 20_000 }).toBe('0.1.1');
+      const updated = await worker!.jobs.enqueue('example:recount', { only: 'connectors' });
+      expect(await worker!.jobs.wait(updated.id, 30_000)).toMatchObject({ status: 'done', result: { updated: true } });
+      expect((await backend.send({ method: 'POST', path: '/api/code-modules/example/disable', user: OWNER })).status).toBe(200);
+      await expect.poll(() => worker!.kinds.includes('example:recount'), { timeout: 20_000 }).toBe(false);
+      await expect(worker!.jobs.enqueue('example:recount', {})).rejects.toThrow(/does not run/);
+    } finally {
+      await worker?.stop();
+    }
+  }, 120_000);
 
   it('tells the worker to restart through the database', async () => {
     const blobs = testBlobs();

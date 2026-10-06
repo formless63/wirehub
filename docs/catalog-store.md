@@ -26,6 +26,16 @@ and a pack may also **carry a code module** (§2, "A pack with code"): then it i
 install, it must be signed by a publisher the hub trusts, and the owner consents to what the code
 may do (`specs/runtime-modules.md`).
 
+Pack updates and disables also track drawing metadata, board build sidecars, and model links
+in `packs.json` (`auxiliary`). Model ownership is per record key, so links from another pack or
+the deployment remain. An untouched sidecar or link follows the pack; a locally edited one
+stays and becomes the deployment's own. Older merged installs without auxiliary hashes are
+left alone because their ownership cannot be established; layered installs can recover it
+from the layer. Photo pointers and asset index entries retain their shared-asset lifecycle.
+Additional auxiliary record lists are owned by id, tag objects by leaf key, and singleton
+configuration documents by file hash. Local keys and edits win. Anonymous list members are
+not assigned guessed ownership after a merged install.
+
 ## 1. Domain packs
 
 Packs are organised by domain, small enough to review, and may depend on one another
@@ -110,8 +120,12 @@ every other file, so the publisher's signature covers them; a code-only pack has
 - **Where the code lives**: in the pack's layer (files) or as catalog files in the blob store
   (Postgres), owned by the pack like its images: an update replaces them, removing the pack removes
   them and the module.
-- **Index and store**: nothing new in the index format; the store template builds module packages
-  under `modules/` into signed packs (`templates/store/README.md`).
+- **Index and store**: index format 1 optionally includes a per-version `module` summary
+  (id, version, label, API version, extension points and permissions) copied from the manifest.
+  Browse store marks the offered version as a **Code module** and shows its stated permissions.
+  Older indexes remain valid; a missing summary does not prove a pack contains only data.
+  The downloaded manifest and installation preview determine owner consent. The store template
+  builds module packages under `modules/` into signed packs (`templates/store/README.md`).
 
 ### Records in a pack
 
@@ -404,7 +418,7 @@ phase 5 adds the publisher's own signature over each pack (below).
 **What a hub does** (`apps/studio/server/store.ts`). `WIREHUB_STORE_INDEXES` lists the indexes it
 trusts, each `<https url> <public key>` (comma separated; `docs/self-hosting.md`).
 `GET /api/packs/store` fetches each index and its `.minisig` (https only, public addresses, the
-same limits as a pack URL), **refuses an index whose signature does not match the configured key**
+4 MiB index / 16 KiB signature limits and the pack URL timeout), **refuses an index whose signature does not match the configured key**
 (or that has none), and lists the packs of the others with the version installed here and what
 can be done (`install`, `update`, `current`). `POST /api/packs/store/install`
 `{ index, id, version?, apply?, sha256?, acceptMajor? }` re-fetches and re-verifies the index,
@@ -467,7 +481,7 @@ down or fails verification is named and left out without hiding the others.
 - **Where stores come from.** The deployment's (`WIREHUB_STORE_INDEXES`, and the official index
   by default) are shown read-only, marked "set by the server", the official one with
   its state (trusted, or not enabled on this server). The ones added in the app are
-  the org settings document `data/settings/stores.json` (`{ sources: [{ url, publicKey, label?, enabled }] }`),
+  the org settings document `data/settings/stores.json` (`{ sources: [{ url, publicKey, label?, enabled, hideUnreviewed? }] }`),
   written with `If-Match` like the other settings, on files and Postgres. The two merge; on the same
   URL the deployment's entry wins. Turning off "owners and editors may add stores" (Settings > Integrations, or
   `WIREHUB_STORE_ALLOW_USER_SOURCES=false` on the server) ignores the document
@@ -478,8 +492,14 @@ down or fails verification is named and left out without hiding the others.
   fingerprint (the key id and a sha256 fingerprint of the key) with the store's owner another way.
   Before saving, the server fetches the index and its signature, verifies them and shows the
   store's name, publishers, pack count and the fingerprint; saving re-verifies a new or re-keyed
-  store. Fetches are the pack URL install's: https only, 8 MB, 15 s, redirects re-checked, private
+  store. Fetches are the pack URL install's: https only, 4 MiB per index, 16 KiB per signature, 15 s, redirects re-checked, private
   addresses refused.
+- **Review policy.** Each added store has a "Hide unreviewed versions" switch (default off).
+  Owners and editors can change it in Store sources. When on, browsing and install offers
+  include reviewed or flagged versions only; review claims remain the index publisher's statements.
+  The deployment-wide `WIREHUB_STORE_HIDE_UNREVIEWED` restriction still applies to every store.
+  Index limits count streamed bytes even when Content-Length is missing or misleading,
+  and tighter download limits still apply.
 - **Managing.** Enable or disable (a disabled store is not browsed or installed from), rename the
   label, re-check now, remove. Removing a store does not uninstall anything.
 - **Origin and updates.** An install records the index URL it came from (`origin.index`); Browse
@@ -636,3 +656,12 @@ Trademarks (USB, HDMI, product names) appear as plain nominative names.
 5. Signed pack manifests, publisher keys, review status, yanking and revocation (**done**, both
    backends; review status is information set by the index publisher, with an optional
    deployment setting to hide unreviewed versions).
+
+Packs cannot supply host control documents: `packs.json` (the installation ledger),
+`setup.json` (first-run completion), `proposals.json` (review decisions), or
+`settings/code-modules.json`, `settings/stores.json`, `settings/sign-in.json`,
+`settings/notifications.json`, `settings/integrations.json`, `settings/jobs.json`
+and `settings/webhooks.json` (runtime trust, authentication and operational controls).
+Archive validation and directory planners/installers reject these paths before writes.
+This is an explicit path list: ordinary auxiliary documents, including
+`settings/branding.json`, `settings/engineering.json` and custom settings, remain supported.

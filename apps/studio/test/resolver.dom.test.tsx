@@ -86,6 +86,30 @@ describe('which cable do I need', () => {
     });
   }, 30_000);
 
+  it('shares field edits with advanced JSON and saves unshown facts through the API', async () => {
+    serve();
+    mount('/resolver');
+    fireEvent.click(await screen.findByRole('tab', { name: 'Devices and recipes' }));
+    const section = await screen.findByTestId('resolver-devices');
+    const row = section.querySelector('[data-record="bench-supply"]') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: 'Edit…' }));
+    await screen.findByTestId('device-fields');
+    const json = screen.getByLabelText('Devices record') as HTMLTextAreaElement;
+    const draft = JSON.parse(json.value);
+    draft.note = 'Unshown device note';
+    draft.ports[0].note = 'Unshown port note';
+    draft.ports[0].pins['1'].note = 'Unshown pin note';
+    fireEvent.change(json, { target: { value: JSON.stringify(draft) } });
+    fireEvent.change(screen.getByLabelText('Device label'), { target: { value: 'Edited supply' } });
+    fireEvent.change(screen.getByLabelText('Port 1 pin 1 direction'), { target: { value: 'passive' } });
+    expect(JSON.parse(json.value)).toMatchObject({ label: 'Edited supply', note: draft.note, ports: [{ note: draft.ports[0].note, pins: { '1': { dir: 'passive', note: draft.ports[0].pins['1'].note, src: 'synthetic example' } } }] });
+    fireEvent.click(within(section).getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => expect(screen.queryByTestId('device-fields')).toBeNull());
+    const request = vi.mocked(globalThis.fetch).mock.calls.find(([path, init]) => path === '/api/resolver/devices' && init?.method === 'PUT');
+    const saved = JSON.parse(request![1]!.body as string).devices[0];
+    expect(saved).toMatchObject({ label: 'Edited supply', note: draft.note, ports: [{ note: draft.ports[0].note, pins: { '1': { dir: 'passive', note: draft.ports[0].pins['1'].note } } }] });
+  }, 30_000);
+
   it('says so when the library has no devices', async () => {
     serve();
     deps.loadDb = async () => ({ ...(await memoryWriteBackend(undefined, join(DATA, '..')).deps.loadDb()) }) as Db;

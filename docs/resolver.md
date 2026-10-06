@@ -61,7 +61,11 @@ interface, body, board, component or vocabulary id is an error, a missing `src` 
 Two optional fields on a `signals` entry tell the resolver how lines meet:
 
 - `pairsWith`: the signals this one lands on at the far device — a transmit onto a receive
-  (`rs232-txd` → `rs232-rxd`). Read both ways.
+  (`rs232-txd` → `rs232-rxd`). Read both ways. A unique pin explicitly declared `out`
+  can feed multiple pins declared `in` when each connection is named by `pairsWith`.
+  This applies in either query direction; same-signal matches, ambiguous drivers,
+  bidirectional pins and differential signals retain one-to-one pairing. Every branch still
+  undergoes the usual direction, level, conditioning and hazard checks.
 - `diffPair`: the other line of a differential pair (`rs485-a` ↔ `rs485-b`); a derived cable gives
   the two one twisted pair when its stock has one.
 
@@ -208,8 +212,13 @@ a footprint no interface fits, a module, a script.
   ones, pick a stock (the fitting ones first), a length, an id, and **Create design**. When nothing
   is complete, **Proposals** drafts boards and adapters to decline or start.
 - **Proposals** (the second tab): every filed, declined and accepted proposal, **Offer again**.
-- **Devices and recipes** (the second tab): the devices, recipes and hazards in force with where each
-  came from, JSON editing with examples to start from, the built-in hazards, and the ranking policy.
+- **Devices and recipes**: the devices, recipes and hazards in force with where each came from.
+  Device forms edit ports and per-position pin tables using the library's signal, direction,
+  level and conditioning choices; Reset removes a pin override and restores interface inheritance.
+  Recipe forms edit input/output predicates, conditioning, components, placement and location.
+  Both patch the same draft as **Advanced JSON**, preserving unshown fields such as provenance,
+  pin confidence, accepted levels, port requirements and notes. JSON editing and examples remain
+  available for hazards and the ranking policy.
 - The editor's **Recipe** tab (shown when the design has a recipe or the library has devices): the two
   ends, the option and stock, the option's hazards and missing pieces, the drift (badged on the tab),
   the overrides; **Record as overrides**, **Re-derive**, **Detach** — each one undo step. A hand

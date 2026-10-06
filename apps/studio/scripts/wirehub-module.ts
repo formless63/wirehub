@@ -10,6 +10,7 @@
  * Options:
  *   --export <name>        the module's export (default: the one export that is a module)
  *   --pack <dir>           the data to ship with it (default: the package's pack/ when it has one)
+ *   --migrations-dir <dir> raw UTF-8 SQL directory, required for a migrations module
  *   --out <dir>            where `<id>-<version>/` is written (default: ./dist-module)
  *   --key <file>           a publisher private key (PEM): pins the files and writes wirehub-pack.sig
  *                          (or WIREHUB_PACK_SIGNING_KEY); repeat for a rotation
@@ -34,6 +35,7 @@ import { packDigests, signPackManifest, PACK_SIGNATURE, type PackManifest } from
 import * as React from 'react';
 import * as JsxRuntime from 'react/jsx-runtime';
 
+import { moduleMigrationFiles } from '../server/pg/module-migrations.ts';
 import { isPackFilePath } from '../server/pack-archive.ts';
 import { MODULE_API_VERSION, codeFilePath, extensionPointsOf, permissionsOf, RUNTIME_IGNORED_POINTS, RUNTIME_REFUSED_POINTS, type CodeModuleManifest, type WireHubModule } from '@wirehub/modules';
 
@@ -51,6 +53,7 @@ export interface BuildOptions {
   out: string;
   exportName?: string;
   packDir?: string;
+  migrationsDir?: string;
   keys?: string[];
   publisher?: { id: string; name: string };
   browser?: boolean;
@@ -210,6 +213,10 @@ export async function buildModule(options: BuildOptions): Promise<BuildResult> {
   const ignored = extensionPointsOf(module).filter((p) => (RUNTIME_IGNORED_POINTS as readonly string[]).includes(p));
   if (ignored.length > 0) log(`note: ${ignored.join(' and ')} are not used at runtime: the bundle's own data (--pack) is installed with it`);
 
+  const sqlFiles = module.migrations === undefined ? [] : moduleMigrationFiles(module.id, options.migrationsDir === undefined ? (() => { throw new ModuleBuildError('A runtime module with migrations needs --migrations-dir <SQL directory>.'); })() : resolve(options.migrationsDir));
+  if (sqlFiles.length > 100) throw new ModuleBuildError('A runtime module carries at most 100 SQL migrations.');
+  if (module.migrations !== undefined && sqlFiles.length === 0) throw new ModuleBuildError('A migrations module needs at least one SQL file.');
+  const migrationPins = sqlFiles.map((f) => ({ path: `code/${module.id}/migrations/${f.name}.sql`, sha256: f.sha256 }));
   const browser = options.browser ?? wantsBrowser(module);
   log(`building ${module.id} ${module.version}: server${browser ? ' and browser' : ''} entries`);
   const server = await bundle(entry, exportName, 'server', moduleDir);
@@ -224,6 +231,7 @@ export async function buildModule(options: BuildOptions): Promise<BuildResult> {
     server: codeFilePath(module.id, 'server.mjs'),
     ...(client === undefined ? {} : { browser: codeFilePath(module.id, 'browser.mjs') }),
     ...(client?.css === undefined ? {} : { css: codeFilePath(module.id, 'browser.css') }),
+    ...(migrationPins.length === 0 ? {} : { migrations: migrationPins }),
     extensionPoints: points,
     permissions: permissionsOf(module, { browser: client !== undefined }),
   };
@@ -256,6 +264,10 @@ export async function buildModule(options: BuildOptions): Promise<BuildResult> {
   }
   mkdirSync(join(dir, 'code', module.id), { recursive: true });
   writeFileSync(join(dir, block.server), server.js);
+  for (const file of sqlFiles) {
+    mkdirSync(join(dir, 'code', module.id, 'migrations'), { recursive: true });
+    writeFileSync(join(dir, 'code', module.id, 'migrations', `${file.name}.sql`), file.sql);
+  }
   if (client !== undefined) writeFileSync(join(dir, block.browser!), client.js);
   if (client?.css !== undefined) writeFileSync(join(dir, block.css!), client.css);
 
@@ -303,7 +315,7 @@ function parseArgs(argv: string[]): { command?: string; positional: string[]; fl
 async function main(argv: string[]): Promise<number> {
   const args = parseArgs(argv);
   if (args.command !== 'build' || args.positional.length !== 1) {
-    console.error('usage: wirehub-module build <module-package-dir> [--out dir] [--key publisher.key] [--publisher-id id --publisher-name name] [--pack dir] [--export name] [--no-browser] [--zip]');
+    console.error('usage: wirehub-module build <module-package-dir> [--out dir] [--key publisher.key] [--publisher-id id --publisher-name name] [--pack dir] [--migrations-dir dir] [--export name] [--no-browser] [--zip]');
     return 2;
   }
   const cwd = process.env['INIT_CWD'] ?? process.cwd();
@@ -316,6 +328,7 @@ async function main(argv: string[]): Promise<number> {
     out: resolve(cwd, one('out') ?? 'dist-module'),
     ...(one('export') === undefined ? {} : { exportName: one('export') as string }),
     ...(one('pack') === undefined ? {} : { packDir: resolve(cwd, one('pack') as string) }),
+    ...(one('migrations-dir') === undefined ? {} : { migrationsDir: resolve(cwd, one('migrations-dir') as string) }),
     keys,
     ...(publisherId === undefined ? {} : { publisher: { id: publisherId, name: one('publisher-name') ?? publisherId } }),
     ...(args.bools.has('no-browser') ? { browser: false } : {}),

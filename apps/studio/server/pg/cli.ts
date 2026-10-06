@@ -19,7 +19,7 @@
  * blob store WIREHUB_BLOBS (`fs:<dir>` or `s3`).
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -43,6 +43,8 @@ import { notifierFromEnv } from '../notify.ts';
 import { migrateModules } from './module-migrations.ts';
 import { registry } from '../modules.ts';
 import { SnapshotCache } from './snapshot.ts';
+import { migrateInstalledModules } from './runtime-migrations.ts';
+import { normalStoreKey } from '@wirehub/catalog';
 
 const env = process.env;
 const from = (path: string): string => resolve(env.INIT_CWD ?? process.cwd(), path);
@@ -64,11 +66,18 @@ async function bootstrap(): Promise<void> {
   await bootstrapDatabase(adminUrl, { database, passwords, log: (line) => log(`  ${line}`) });
 }
 
-async function migrate(): Promise<void> {
+async function migrate(args: string[]): Promise<void> {
+  const { values } = parseArgs({ args, options: { org: { type: 'string' }, 'migration-key': { type: 'string', multiple: true } } });
+  const keys = (values['migration-key'] ?? []).map((key) => normalStoreKey(key.startsWith('RW') ? key : readFileSync(from(key), 'utf8')));
   const url = requireEnv(env, 'DATABASE_OWNER_URL', 'db:migrate');
   const handle = openPg(url, { max: 1, applicationName: 'wirehub-migrate' });
   try {
     const applied = [...(await migrateToLatest(handle.db)), ...(await migrateModules(handle.db, registry.modules))];
+    if (keys.length > 0) {
+      const orgId = await resolveOrgId(handle.db, values.org ?? env.WIREHUB_ORG);
+      if (orgId === undefined) throw new PgConfigError('Runtime migrations need an existing organisation; specify --org <slug> on a multi-org hub.');
+      applied.push(...await migrateInstalledModules(handle.db, orgId, keys, blobs(), env));
+    } else log('Runtime module SQL requires a separate db:migrate --migration-key <publisher public key or file> [--org <slug>] invocation.');
     log(applied.length === 0 ? 'the database is up to date' : `applied ${applied.join(', ')}`);
   } finally {
     await handle.close();
@@ -244,7 +253,7 @@ try {
       await bootstrap();
       break;
     case 'migrate':
-      await migrate();
+      await migrate(rest);
       break;
     case 'import':
       await importCommand(rest);

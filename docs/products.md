@@ -9,6 +9,12 @@ families as data, checks them against the designs and the numbering scheme, and 
 The engine is in the base (`@wirehub/model` `products.ts`); the products themselves are data
 (`products.json`, edited in the app, or shipped by a pack).
 
+The cable list shows each design's family and variant in the Product column. An open cable's
+header links those memberships to the family pages. Both the cable list and Quick open search
+family names, declared aliases, variant names and ids, and family and variant part numbers.
+Membership comes from the variant's design reference; matching a part number alone does not
+make a design part of a family.
+
 ## Product families
 
 ```json

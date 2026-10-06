@@ -8,7 +8,8 @@
  * and opens it.
  *
  * The second tab edits the library the resolver reads: devices, conditioning recipes, hazards
- * and the ranking policy, as JSON with examples to start from, like the validation rules. A pack's
+ * and the ranking policy. Device and recipe fields share a draft with advanced JSON editing;
+ * hazards and policy use JSON with examples. A pack's
  * records are read-only here; saving one under its id keeps this hub's own version.
  */
 
@@ -16,10 +17,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
-import { deriveCable, resolve, resolveDevice, suggestStocks, validateDesign, type CableOption, type DeviceProfile, type ResolveQuery } from '@wirehub/model';
+import { deriveCable, resolve, resolveDevice, suggestStocks, validateDesign, type CableOption, type ConditioningRecipe, type DeviceProfile, type ResolveQuery } from '@wirehub/model';
 
 import { dbKey } from '../queries.ts';
 import { decideProposal, fetchPairProposals, fetchProposalDecisions, resolverKey, resolverQuery, saveResolverList, saveResolverPolicy, type ProposalRow, type ResolverList, type ResolverView } from '../resolver.browser.ts';
+import { canEditFields, DeviceForm, RecipeForm } from './ResolverRecordForms.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
@@ -446,6 +448,11 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
   const studio = useStudio();
   const [editing, setEditing] = useState<{ text: string; replaces?: string } | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  let fields: Record<string, unknown> | undefined;
+  try {
+    const parsed: unknown = editing === undefined ? undefined : JSON.parse(editing.text);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) && canEditFields(list, parsed as Record<string, unknown>)) fields = parsed as Record<string, unknown>;
+  } catch { /* Advanced JSON can be temporarily incomplete. */ }
   const own = view.local[list];
   const strip = (r: Record<string, unknown>): Record<string, unknown> => {
     const { origin: _o, pack: _p, held: _h, ...rest } = r;
@@ -509,7 +516,10 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
       )}
       {editing === undefined ? null : (
         <div className="mt-2">
-          <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label={`${title} record`} value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
+          {fields === undefined ? null : list === 'devices' ? <DeviceForm record={fields as unknown as DeviceProfile} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : list === 'recipes' ? <RecipeForm record={fields as unknown as ConditioningRecipe} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : null}
+          <details open={list === 'hazards' || fields === undefined} className="mt-2"><summary>Advanced JSON</summary>
+            <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label={`${title} record`} value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
+          </details>
           <div className="mt-1 flex gap-2">
             <button type="button" className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50" disabled={busy} onClick={() => void save()}>
               Save

@@ -96,7 +96,7 @@ describe('Settings: store sources', () => {
     expect(shown.textContent).toContain(storeKeyFingerprint(b.publicKey).fingerprint);
     expect(shown.textContent).toMatch(/trusting it on first use/);
     expect((within(section).getByRole('button', { name: 'Add store' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(within(section).getByRole('checkbox'));
+    fireEvent.click(within(shown).getByRole('checkbox'));
     fireEvent.change(within(section).getByLabelText('Label'), { target: { value: 'Friends' } });
     await act(async () => {
       fireEvent.click(within(section).getByRole('button', { name: 'Add store' }));
@@ -104,6 +104,12 @@ describe('Settings: store sources', () => {
     const added = await waitFor(() => section.querySelector(`[data-store-source="${OTHER_URL}"]`) as HTMLElement);
     expect(added.textContent).toContain('Friends');
     expect(added.textContent).toContain('added here');
+
+    const policy = within(added).getByRole('checkbox', { name: 'Hide unreviewed versions from Friends' });
+    expect((policy as HTMLInputElement).checked).toBe(false);
+    await act(async () => { fireEvent.click(policy); });
+    await waitFor(() => expect((within(section.querySelector(`[data-store-source="${OTHER_URL}"]`) as HTMLElement).getByRole('checkbox', { name: 'Hide unreviewed versions from Friends' }) as HTMLInputElement).checked).toBe(true));
+    expect(await deps.docs!.read('data/settings/stores.json')).toMatchObject({ sources: [{ hideUnreviewed: true }] });
 
     // disable, re-check, remove
     await act(async () => {

@@ -442,18 +442,31 @@ function pairBySignal(lib: ResolverLibrary, hazards: readonly HazardRule[], S: E
     out.missing.push({ code: 'supply-missing', message: `${pinText(S.end, s)} needs ${s.signal}, and the ${D.end} end does not supply it`, at: [`${S.end}:${s.position}`] });
   }
 
-  // signals: each destination pin fed by the best source pin still free
+  // Only an explicitly paired, single driver may fan out to declared inputs.
+  // Same-signal matches, buses and differential lines keep one-to-one allocation.
+  const fanOut = (driver: BoundPin, input: BoundPin): boolean => driver.dir === 'out' && input.dir === 'in'
+    && driver.signal !== undefined && input.signal !== undefined && signalsPair(lib, driver.signal, input.signal)
+    && signalEntry(lib, driver.signal)?.diffPair === undefined && signalEntry(lib, input.signal)?.diffPair === undefined;
   const sources = S.pins.filter((p) => p.class === 'signal');
-  for (const d of D.pins.filter((p) => p.class === 'signal')) {
+  const destinations = D.pins.filter((p) => p.class === 'signal');
+  const uniqueDriver = (driver: BoundPin, input: BoundPin, side: BoundPin[]): boolean => fanOut(driver, input)
+    && side.filter((p) => pinRelation(lib, p, input) !== undefined).length === 1;
+  // Each destination gets a free source first; reuse only an unambiguous explicit driver.
+  for (const d of destinations) {
     const candidates = sources
-      .filter((s) => !usedS.has(s.position))
+      .filter((s) => !usedS.has(s.position) || uniqueDriver(s, d, sources))
       .map((s) => ({ s, how: pinRelation(lib, s, d) }))
       .filter((c): c is { s: BoundPin; how: 'same' | 'pair' } => c.how !== undefined)
-      .sort((x, y) => dirFit(x.s, d) - dirFit(y.s, d));
+      .sort((x, y) => Number(usedS.has(x.s.position)) - Number(usedS.has(y.s.position)) || dirFit(x.s, d) - dirFit(y.s, d));
     const best = candidates[0];
     if (best !== undefined) {
       addLink(best.s, d, best.how);
     }
+  }
+  // A query's source/destination labels do not change the electrical direction.
+  for (const s of sources.filter((p) => !usedS.has(p.position))) {
+    const driver = destinations.find((d) => usedD.has(d.position) && uniqueDriver(d, s, destinations));
+    if (driver !== undefined) addLink(s, driver, pinRelation(lib, s, driver)!);
   }
   unmatched(S, D, usedS, usedD, out);
   pairGrounds(S, D, out);

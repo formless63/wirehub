@@ -22,9 +22,13 @@ export function moduleJobHandlers(modules: ModuleRegistry | undefined, deps: Pic
   const handlers: JobHandlers = {};
   for (const queue of modules?.queues() ?? []) {
     handlers[queue.kind as JobKind] = async (context) => {
-      const result = await queue.run({
-        module: queue.module,
-        queue: queue.id,
+      // Resolve after the job's asynchronous claim: an update uses its new handler, and a
+      // disable during the claim must never call the module instance we captured earlier.
+      const current = modules?.queues().find((q) => q.kind === queue.kind);
+      if (current === undefined) throw new Error(`Module queue '${queue.kind}' is no longer enabled.`);
+      const result = await current.run({
+        module: current.module,
+        queue: current.id,
         request: context.job.request,
         step: context.step,
         db: async () => deps.loadDb(),

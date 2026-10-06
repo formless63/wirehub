@@ -162,6 +162,10 @@ export function StoreSourcesSettings(): JSX.Element {
                       <button type="button" className="underline" disabled={busy} onClick={() => void change(s, { enabled: !s.enabled }, s.enabled ? 'Disabled.' : 'Enabled.')}>
                         {s.enabled ? 'Disable' : 'Enable'}
                       </button>
+                      <label className="flex items-center gap-1">
+                        <input type="checkbox" aria-label={`Hide unreviewed versions from ${s.label ?? s.url}`} checked={s.hideUnreviewed === true} disabled={busy} onChange={(e) => void change(s, { hideUnreviewed: e.target.checked }, 'Review policy saved.')} />
+                        Hide unreviewed versions
+                      </label>
                       <button type="button" className="underline" disabled={busy} onClick={() => setRenaming({ url: s.url, label: s.label ?? '' })}>
                         Rename
                       </button>

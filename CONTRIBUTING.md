@@ -26,6 +26,21 @@ pnpm test             # vitest, each workspace in turn
 On a shared or small machine, run one workspace at a time with
 `pnpm --filter <package> exec vitest run --maxWorkers=2`.
 
+The Postgres gate logs snapshot rebuild p50/p95 on the synthetic catalog in every
+run. To enforce the S4 limit of 150 ms p95, run the gate alone on an idle machine
+with a disposable database (see `.agents/skills/wirehub-contribute/SKILL.md` for
+starting one), using its assigned port in `port`:
+
+```bash
+WIREHUB_TEST_PG_URL=postgres://postgres:test-only@127.0.0.1:$port/postgres \
+  WIREHUB_TEST_S4=1 pnpm --filter studio exec vitest run \
+  --maxWorkers=1 test/pg/gate.server.test.ts
+```
+
+The normal suite checks snapshot contents and parity and reports timing without
+failing on scheduling delays from competing suites. The isolated command fails
+when the measured p95 exceeds the S4 limit.
+
 ## Privacy hooks
 
 `pnpm install` sets `core.hooksPath=.githooks`, which runs

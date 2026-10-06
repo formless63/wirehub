@@ -22,7 +22,6 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { sql } from 'kysely';
-import type { WireHubModule } from '@wirehub/modules';
 
 import type { Db } from './db.ts';
 import { MIGRATION_SCHEMA } from './migrate.ts';
@@ -48,7 +47,8 @@ export function moduleMigrationFiles(moduleId: string, dir: string | URL): Modul
     if (match === null || !(match[2] as string).startsWith(`${prefix}_`)) {
       throw new Error(`Module '${moduleId}': migration '${file}' must be named NNNN_${prefix}_<name>.sql.`);
     }
-    const text = readFileSync(`${path}/${file}`, 'utf8');
+    const raw = readFileSync(`${path}/${file}`);
+    const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(raw);
     return { name: file.slice(0, -'.sql'.length), sql: text, sha256: createHash('sha256').update(text).digest('hex') };
   });
   files.forEach((f, i) => {
@@ -67,15 +67,36 @@ async function appliedFor(db: Db, moduleId: string): Promise<Applied[]> {
   return result.rows;
 }
 
-function migrating(modules: readonly Pick<WireHubModule, 'id' | 'migrations'>[]): { id: string; dir: string | URL }[] {
-  return modules.flatMap((m) => (m.migrations === undefined ? [] : [{ id: m.id, dir: m.migrations.dir }]));
+export interface MigrationModule { id: string; migrations?: { dir: string | URL } | { files: ModuleMigrationFile[] } }
+function migrating(modules: readonly MigrationModule[]): { id: string; files: ModuleMigrationFile[] }[] {
+  return modules.flatMap((m) => {
+    if (m.migrations === undefined) return [];
+    if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(m.id)) throw new Error('Invalid migration module id.');
+    const files = 'files' in m.migrations ? m.migrations.files : moduleMigrationFiles(m.id, m.migrations.dir);
+    files.forEach((f, i) => {
+      const prefix = `${String(i + 1).padStart(4, '0')}_${m.id.replace(/-/g, '_')}_`;
+      if (!f.name.startsWith(prefix) || !/^[a-z0-9_]+$/.test(f.name) || createHash('sha256').update(f.sql).digest('hex') !== f.sha256) throw new Error(`Module '${m.id}': invalid migration name, order or checksum.`);
+    });
+    return [{ id: m.id, files }];
+  });
+}
+
+/** Readiness checks historical names and hashes too, before a runtime entry is imported. */
+export async function pendingPinnedMigrations(db: Db, id: string, files: readonly { name: string; sha256: string }[]): Promise<string[]> {
+  const exists = await sql<{ t: string | null }>`SELECT to_regclass(${`${MIGRATION_SCHEMA}.module_migration`})::text AS t`.execute(db);
+  const done = exists.rows[0]?.t == null ? [] : await appliedFor(db, id);
+  for (const applied of done) {
+    const file = files.find((f) => f.name === applied.name);
+    if (file === undefined) throw new Error(`Module '${id}': applied migration ${applied.name} is missing.`);
+    if (file.sha256 !== applied.sha256) throw new Error(`Module '${id}': applied migration ${applied.name} changed; add a new migration.`);
+  }
+  return files.filter((f) => !done.some((a) => a.name === f.name)).map((f) => `${id}: ${f.name}`);
 }
 
 /** Apply every module's pending migrations. Returns the names applied (`<module>: <file>`). The base must be migrated first. */
-export async function migrateModules(db: Db, modules: readonly Pick<WireHubModule, 'id' | 'migrations'>[]): Promise<string[]> {
+export async function migrateModules(db: Db, modules: readonly MigrationModule[]): Promise<string[]> {
   const out: string[] = [];
-  for (const { id, dir } of migrating(modules)) {
-    const files = moduleMigrationFiles(id, dir);
+  for (const { id, files } of migrating(modules)) {
     const schema = moduleSchema(id);
     await db.transaction().execute(async (tx) => {
       await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`wirehub-module-migrations:${id}`}, 0))`.execute(tx);
@@ -112,14 +133,14 @@ export async function migrateModules(db: Db, modules: readonly Pick<WireHubModul
 
 /** Every org-scoped table of the schema: RLS enabled and forced, with an `org_isolation` policy. */
 async function requireIsolation(tx: Db, moduleId: string, schema: string): Promise<void> {
-  const rows = await sql<{ relname: string; forced: boolean; policy: boolean }>`
-    SELECT c.relname, c.relforcerowsecurity AS forced,
+  const rows = await sql<{ relname: string; enabled: boolean; forced: boolean; policy: boolean }>`
+    SELECT c.relname, c.relrowsecurity AS enabled, c.relforcerowsecurity AS forced,
            EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = 'org_isolation') AS policy
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
      WHERE n.nspname = ${schema} AND c.relkind IN ('r', 'p')
        AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'org_id' AND NOT a.attisdropped)`.execute(tx);
-  const bad = rows.rows.filter((r) => !r.forced || !r.policy).map((r) => r.relname);
+  const bad = rows.rows.filter((r) => !r.enabled || !r.forced || !r.policy).map((r) => r.relname);
   if (bad.length > 0) {
     throw new Error(`Module '${moduleId}': org-scoped table(s) ${bad.map((t) => `${schema}.${t}`).join(', ')} need FORCE ROW LEVEL SECURITY and an org_isolation policy (plan §3.13).`);
   }
@@ -137,14 +158,14 @@ async function grantModuleSchema(tx: Db, schema: string): Promise<void> {
 }
 
 /** `<module>: <file>` for every module migration not yet applied (all of them when the bookkeeping table is missing). */
-export async function pendingModuleMigrations(db: Db, modules: readonly Pick<WireHubModule, 'id' | 'migrations'>[]): Promise<string[]> {
+export async function pendingModuleMigrations(db: Db, modules: readonly MigrationModule[]): Promise<string[]> {
   const todo = migrating(modules);
   if (todo.length === 0) return [];
   const exists = await sql<{ t: string | null }>`SELECT to_regclass(${`${MIGRATION_SCHEMA}.module_migration`})::text AS t`.execute(db);
   const out: string[] = [];
-  for (const { id, dir } of todo) {
+  for (const { id, files } of todo) {
     const done = exists.rows[0]?.t == null ? new Set<string>() : new Set((await appliedFor(db, id)).map((a) => a.name));
-    for (const file of moduleMigrationFiles(id, dir)) if (!done.has(file.name)) out.push(`${id}: ${file.name}`);
+    for (const file of files) if (!done.has(file.name)) out.push(`${id}: ${file.name}`);
   }
   return out;
 }

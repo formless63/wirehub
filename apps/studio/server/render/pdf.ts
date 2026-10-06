@@ -1,14 +1,15 @@
 /**
  * A small PDF writer: pages of text and rules (`layout.ts`) set in the
- * standard Helvetica faces, pages that are vector drawings whose text is
- * Liberation Sans embedded as a subset TrueType font (`vector.ts`), and pages
- * that are a raster image (an SVG rendered by resvg). No dependency beyond
- * Node's zlib; deterministic (no creation date, no id).
+ * standard Helvetica faces or the registered brand font, vector drawings with
+ * embedded TrueType/CID OpenType text, and raster images (SVG rendered by resvg).
+ * Deterministic: no creation date or id.
  */
 
 import { deflateSync } from 'node:zlib';
 
-import { liberation, type Face, type PdfFont } from './fonts.ts';
+import { registeredBrandFont } from '@wirehub/docs';
+
+import { pdfFont, liberation, type Face, type PdfFont } from './fonts.ts';
 import { winAnsiByte, type Op, type Page } from './layout.ts';
 
 export type PdfPage =
@@ -39,18 +40,32 @@ export function pdfString(text: string): string {
   return `${out})`;
 }
 
-function content(page: Page): string {
+function content(page: Page, fonts?: Partial<Record<Face, PdfFont>>): { content: string; glyphs: { face: Face; gid: number; cp: number }[] } {
+  const glyphs: { face: Face; gid: number; cp: number }[] = [];
   const out: string[] = [];
   for (const op of page.ops as Op[]) {
     if (op.t === 'text') {
-      out.push(`BT ${op.grey === true ? '0.45 g' : '0 g'} /${op.bold ? 'F2' : 'F1'} ${n(op.size)} Tf ${n(op.x)} ${n(page.height - op.y)} Td ${pdfString(op.text)} Tj ET`);
+      const face = op.bold ? 'bold' : 'regular';
+      const font = fonts?.[face]?.font;
+      let text = pdfString(op.text);
+      if (font !== undefined) {
+        text = '<';
+        for (const ch of op.text) {
+          const cp = ch.codePointAt(0)!;
+          const gid = font.glyphFor(cp);
+          glyphs.push({ face, gid, cp });
+          text += hex4(gid);
+        }
+        text += '>';
+      }
+      out.push(`BT ${op.grey === true ? '0.45 g' : '0 g'} /${font === undefined ? op.bold ? 'F2' : 'F1' : op.bold ? 'E2' : 'E1'} ${n(op.size)} Tf ${n(op.x)} ${n(page.height - op.y)} Td ${text} Tj ET`);
     } else if (op.t === 'line') {
       out.push(`0.55 G ${n(op.w)} w ${n(op.x1)} ${n(page.height - op.y1)} m ${n(op.x2)} ${n(page.height - op.y2)} l S`);
     } else {
       out.push(`${n(op.fill)} g ${n(op.x)} ${n(page.height - op.y - op.h)} ${n(op.w)} ${n(op.h)} re f`);
     }
   }
-  return out.join('\n');
+  return { content: out.join('\n'), glyphs };
 }
 
 const hex4 = (v: number): string => v.toString(16).toUpperCase().padStart(4, '0');
@@ -95,6 +110,10 @@ function toUnicode(map: readonly { gid: number; cp: number }[]): string {
 }
 
 export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array {
+  if (registeredBrandFont() !== undefined) {
+    const fonts = { regular: pdfFont('regular'), bold: pdfFont('bold') };
+    pages = pages.map((p): PdfPage => p.kind !== 'ops' ? p : { kind: 'vector', width: p.page.width, height: p.page.height, ...content(p.page, fonts), fonts, alphas: [] });
+  }
   const objects: (string | Uint8Array)[] = [];
   /** the dictionary that precedes each stream object */
   const contentDict = new Map<number, string>();
@@ -122,14 +141,14 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
     const packed = deflateSync(program);
     const name = `${subsetTag(face, gids)}+${chosen?.name ?? 'LiberationSans'}${face === 'bold' ? '-Bold' : ''}`;
     const fileNo = add(packed);
-    contentDict.set(fileNo, `<< /Filter /FlateDecode /Length ${packed.length} /Length1 ${program.length} >>`);
+    contentDict.set(fileNo, `<< /Filter /FlateDecode /Length ${packed.length} /Length1 ${program.length}${font.outline === 'cff' ? ' /Subtype /OpenType' : ''} >>`);
     const d = font.descriptor;
     const descriptorNo = add(
-      `<< /Type /FontDescriptor /FontName /${name} /Flags 32 /FontBBox [${d.bbox.join(' ')}] /ItalicAngle ${n(d.italicAngle)} /Ascent ${d.ascent} /Descent ${d.descent} /CapHeight ${Math.round(d.capHeight)} /StemV ${face === 'bold' ? 140 : 80} /FontFile2 ${fileNo} 0 R >>`,
+      `<< /Type /FontDescriptor /FontName /${name} /Flags 32 /FontBBox [${d.bbox.join(' ')}] /ItalicAngle ${n(d.italicAngle)} /Ascent ${d.ascent} /Descent ${d.descent} /CapHeight ${Math.round(d.capHeight)} /StemV ${face === 'bold' ? 140 : 80} /${font.outline === 'cff' ? 'FontFile3' : 'FontFile2'} ${fileNo} 0 R >>`,
     );
     const widths = gids.map((g) => `${g} [${Math.round((font.advance(g) * 1000) / font.unitsPerEm)}]`).join(' ');
     const cidNo = add(
-      `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /${name} /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ${descriptorNo} 0 R /CIDToGIDMap /Identity /DW 1000 /W [${widths}] >>`,
+      `<< /Type /Font /Subtype /${font.outline === 'cff' ? 'CIDFontType0' : 'CIDFontType2'} /BaseFont /${name} /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ${descriptorNo} 0 R ${font.outline === 'cff' ? '' : '/CIDToGIDMap /Identity '} /DW 1000 /W [${widths}] >>`,
     );
     const unicode = deflateSync(Buffer.from(toUnicode(gids.map((gid) => ({ gid, cp: used[face].get(gid) as number }))), 'latin1'));
     const unicodeNo = add(unicode);
@@ -147,7 +166,7 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
     let stream: Uint8Array;
     let imageNo: number | undefined;
     if (p.kind === 'ops') {
-      stream = deflateSync(Buffer.from(content(p.page), 'latin1'));
+      stream = deflateSync(Buffer.from(content(p.page).content, 'latin1'));
     } else if (p.kind === 'vector') {
       resources = `/Font << /F1 4 0 R /F2 5 0 R${embedded.regular === undefined ? '' : ` /E1 ${embedded.regular} 0 R`}${embedded.bold === undefined ? '' : ` /E2 ${embedded.bold} 0 R`} >>`;
       if (p.alphas.length > 0) resources += ` /ExtGState << ${p.alphas.map((a) => `/${a.key} << /ca ${n(a.ca)} /CA ${n(a.CA)} >>`).join(' ')} >>`;
@@ -171,7 +190,7 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
   objects[1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`;
   // `Info` is object 3; the trailer points at it
 
-  const chunks: Buffer[] = [Buffer.from('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n', 'latin1')];
+  const chunks: Buffer[] = [Buffer.from(`%PDF-${pages.some((p) => p.kind === 'vector' && Object.values(p.fonts ?? {}).some((f) => f?.font.outline === 'cff')) ? '1.6' : '1.4'}\n%\xe2\xe3\xcf\xd3\n`, 'latin1')];
   const offsets: number[] = [];
   let length = chunks[0]!.length;
   objects.forEach((body, i) => {

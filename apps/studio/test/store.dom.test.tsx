@@ -69,6 +69,27 @@ describe('Browse store', () => {
     expect(screen.queryByRole('button', { name: 'Install…' })).toBeNull();
   });
 
+  it('labels code in the offered version and exposes the index permissions as information', async () => {
+    const path = join(store.site, 'index.json');
+    const index = JSON.parse(readFileSync(path, 'utf8'));
+    index.packs.find((p: { id: string }) => p.id === 'alpha').versions[0].module = {
+      id: 'alpha', version: '1.0.0', label: 'Alpha module', apiVersion: '1.2', extensionPoints: ['integrations'], permissions: ['network'],
+    };
+    writeFileSync(path, `${JSON.stringify(index, null, 2)}\n`);
+    store.cli('sign', path, '--key', store.keyFile);
+    render(<StoreBrowser />);
+    const badge = await screen.findByText('Code module');
+    expect(row('alpha')?.contains(badge)).toBe(true);
+    expect(badge.title).toMatch(/Permissions stated by the author: network/);
+    expect(row('beta')?.textContent).not.toContain('Code module');
+    // This index claim does not make the downloaded data-only pack require code consent.
+    fireEvent.change(screen.getByLabelText('Search packs'), { target: { value: 'alpha' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Install…' }));
+    expect((await screen.findByTestId('store-pending')).textContent).not.toContain('Alpha module');
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    await screen.findByText('Installed alpha 1.0.0.');
+  });
+
   it('searches, filters by domain, installs with the diff and then offers the update', async () => {
     render(<StoreBrowser />);
     await waitFor(() => expect(row('beta')).not.toBeNull());

@@ -24,7 +24,7 @@ import { createRegistry, manifestProblems, type ModuleRegistry, type WireHubModu
  * `1.0` was the build-time-only contract; `1.1` adds runtime loading (nothing a
  * 1.0 module relies on changed); `1.2` adds `revisionSources`. A minor bump adds; a major bump breaks.
  */
-export const MODULE_API_VERSION = '1.2';
+export const MODULE_API_VERSION = '1.3';
 
 const API_VERSION = /^(\d+)\.(\d+)$/;
 
@@ -66,11 +66,11 @@ export const EXTENSION_POINTS = [
 
 export type ExtensionPoint = (typeof EXTENSION_POINTS)[number];
 
-/** Points whose change needs a fresh process: job queues are bound to the queue service when it starts (Postgres). */
-export const RESTART_POINTS: readonly ExtensionPoint[] = ['queues'];
+/** Points whose change needs a fresh process; all supported runtime points currently apply live. */
+export const RESTART_POINTS: readonly ExtensionPoint[] = [];
 
-/** Points a runtime module may not use: its SQL could only run in the migrate one-shot, before the app. */
-export const RUNTIME_REFUSED_POINTS: readonly ExtensionPoint[] = ['migrations'];
+/** Reserved for extension points unavailable to runtime modules. SQL is handled by the separate owner migration command. */
+export const RUNTIME_REFUSED_POINTS: readonly ExtensionPoint[] = [];
 
 /** Points the host ignores in a runtime module: the pack that carries the module is its data. */
 export const RUNTIME_IGNORED_POINTS: readonly ExtensionPoint[] = ['setup', 'catalogPacks'];
@@ -121,7 +121,7 @@ export function applyModeOf(points: readonly string[]): 'live' | 'restart' {
  * - `sign-in` — adds a sign-in method
  * - `env:<NAME>` — reads the server environment variable NAME
  */
-export const PERMISSIONS = ['server-code', 'browser-code', 'routes', 'writes', 'jobs', 'sign-in'] as const;
+export const PERMISSIONS = ['server-code', 'browser-code', 'routes', 'writes', 'jobs', 'sign-in', 'database-schema'] as const;
 
 export type ModulePermission = (typeof PERMISSIONS)[number] | `env:${string}`;
 
@@ -130,6 +130,7 @@ const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
 /** The permissions a module object needs (`browser`: it ships a browser entry). */
 export function permissionsOf(m: WireHubModule, options: { browser?: boolean } = {}): ModulePermission[] {
   const out = new Set<ModulePermission>(['server-code']);
+  if (m.migrations !== undefined) out.add('database-schema');
   if (options.browser === true) out.add('browser-code');
   for (const integration of m.integrations ?? []) {
     if (some(integration.routes)) out.add('routes');
@@ -169,6 +170,8 @@ export interface CodeModuleManifest {
   browser?: string;
   /** `code/<id>/browser.css` */
   css?: string;
+  /** Signed SQL paths and checksums; applied by the owner migration CLI before code loads. */
+  migrations?: { path: string; sha256: string }[];
   extensionPoints: string[];
   permissions: string[];
   description?: string;
@@ -184,7 +187,7 @@ export function codeFilePath(id: string, file: 'server.mjs' | 'browser.mjs' | 'b
 
 /** Is `path` a code file a pack may carry (`code/<kebab>/(server|browser).mjs | browser.css`)? */
 export function isCodeFilePath(path: string): boolean {
-  return /^code\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:server\.mjs|browser\.mjs|browser\.css)$/.test(path);
+  return /^code\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:server\.mjs|browser\.mjs|browser\.css|migrations\/\d{4}_[a-z0-9_]+\.sql)$/.test(path);
 }
 
 /** What is wrong with a `module` block, one sentence each; empty when it is usable. */
@@ -207,6 +210,17 @@ export function codeModuleManifestProblems(value: unknown): string[] {
     for (const p of points) if (!(EXTENSION_POINTS as readonly string[]).includes(p)) problems.push(`'${p}' is not an extension point`);
     for (const p of RUNTIME_REFUSED_POINTS) if (points.includes(p)) problems.push(`a module installed at runtime cannot use '${p}'`);
   }
+  const migrations = m['migrations'];
+  if (Array.isArray(points) && points.includes('migrations')) {
+    if (typeof m['apiVersion'] !== 'string' || !/^1\.(?:[3-9]|[1-9]\d+)$/.test(m['apiVersion'])) problems.push('SQL migrations require module API 1.3 or newer');
+    if (!Array.isArray(migrations) || migrations.length === 0 || migrations.length > 100) problems.push('the module names 1–100 signed SQL migrations');
+    else migrations.forEach((raw: unknown, index: number) => {
+      const file = raw as { path?: unknown; sha256?: unknown } | null;
+      const prefix = `code/${id}/migrations/${String(index + 1).padStart(4, '0')}_${id.replace(/-/g, '_')}_`;
+      if (file === null || typeof file !== 'object' || typeof file.path !== 'string' || !file.path.startsWith(prefix) || !isCodeFilePath(file.path) || !file.path.endsWith('.sql') || typeof file.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(file.sha256)) problems.push(`migration ${index + 1} needs a sequential module SQL path and sha256`);
+    });
+    if (!Array.isArray(m['permissions']) || !m['permissions'].includes('database-schema')) problems.push("SQL migrations declare the permission 'database-schema'");
+  } else if (migrations !== undefined) problems.push('SQL files need the migrations extension point');
   const perms = m['permissions'];
   if (!Array.isArray(perms) || !perms.every((p) => typeof p === 'string')) problems.push('the module lists its permissions');
   else {
@@ -231,7 +245,7 @@ export function pickModuleExport(namespace: Readonly<Record<string, unknown>>, i
 
 /** A module as a host registers it at runtime: without `setup` and `catalogPacks` (its pack is installed already). */
 export function forRuntime(m: WireHubModule): WireHubModule {
-  const { setup: _setup, catalogPacks: _packs, ...rest } = m;
+  const { setup: _setup, catalogPacks: _packs, migrations: _migrations, ...rest } = m;
   return rest;
 }
 

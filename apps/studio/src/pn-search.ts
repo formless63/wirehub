@@ -58,6 +58,7 @@ export function entryMatches(entry: CableListEntry, query: string): boolean {
   const haystack = [
     entry.label,
     entry.id,
+    ...(entry.productSearch ?? []),
     entry.destinationShort ?? '',
     ...entry.wireLabels,
     ...(entry.wires ?? []).map((w) => `${w.name} ${w.vendor ?? ''}`),

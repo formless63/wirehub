@@ -16,8 +16,8 @@ import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { fileDocStore } from '../server/storage/doc-store.ts';
 import { storeIndexesFromEnv } from '../server/store.ts';
 import { checkSource } from '../server/store-sources.ts';
-import { createTestStore, type TestStore } from './store-fixture.ts';
-import { storeSourcesScenario } from './store-sources-scenario.ts';
+import { STORE_URL, createTestStore, type TestStore } from './store-fixture.ts';
+import { OTHER_URL, routedFetch, storeSourcesScenario } from './store-sources-scenario.ts';
 
 describe('store sources (files)', { timeout: 180_000 }, () => {
   let root = '';
@@ -55,6 +55,37 @@ describe('store sources (files)', { timeout: 180_000 }, () => {
       a,
       b,
     );
+  });
+
+  it('persists per-store review policy, preserves defaults and isolates stores', async () => {
+    a.publish('alpha', '1.0.0', '10');
+    b.publish('beta', '1.0.0', '20');
+    deps.store = { indexes: [{ url: STORE_URL, publicKey: a.publicKey }], fetch: routedFetch(a, b) };
+    const get = () => handleWorkbenchRequest({ method: 'GET', path: '/api/settings/stores' }, deps);
+    const initial = await get();
+    const source = { url: OTHER_URL, publicKey: b.publicKey, enabled: true };
+    const save = (body: unknown, etag: string, role: 'editor' | 'viewer' = 'editor') => handleWorkbenchRequest({ method: 'PUT', path: '/api/settings/stores', body, headers: { 'if-match': etag }, user: { name: 'Example', source: 'local', role } }, deps);
+    const added = await save({ sources: [source] }, initial.headers!.ETag!);
+    expect(added.status).toBe(200);
+    const browse = () => handleWorkbenchRequest({ method: 'GET', path: '/api/packs/store' }, deps);
+    expect((await browse()).body).toMatchObject({ packs: [{ id: 'alpha' }, { id: 'beta' }] });
+    const rejected = await save({ sources: [{ ...source, hideUnreviewed: 'yes' }] }, added.headers!.ETag!);
+    expect(rejected.status).toBe(400);
+    expect((await save({ sources: [{ ...source, hideUnreviewed: true }] }, added.headers!.ETag!, 'viewer')).status).toBe(403);
+    const changed = await save({ sources: [{ ...source, hideUnreviewed: true }] }, added.headers!.ETag!);
+    expect(changed.status).toBe(200);
+    expect((await get()).body).toMatchObject({ sources: [{ origin: 'env' }, { hideUnreviewed: true }] });
+    expect((await browse()).body).toMatchObject({ packs: [{ id: 'alpha' }], hidden: 1 });
+    const install = await handleWorkbenchRequest({ method: 'POST', path: '/api/packs/store/install', body: { index: OTHER_URL, id: 'beta', version: '1.0.0' } }, deps);
+    expect(install.status).toBe(404);
+    b.meta('review', 'beta@1.0.0', '--status', 'reviewed', '--by', 'Example', '--on', '2026-10-06');
+    expect((await browse()).body).toMatchObject({ packs: [{ id: 'alpha' }, { id: 'beta' }] });
+    const current = await get();
+    expect((await save({ sources: [source] }, current.headers!.ETag!)).status).toBe(200);
+    expect((await get()).body).toMatchObject({ sources: [{ origin: 'env' }, { enabled: true }] });
+    expect((await browse()).body).toMatchObject({ packs: [{ id: 'alpha' }, { id: 'beta' }] });
+    deps.store.hideUnreviewed = true;
+    expect((await browse()).body).toMatchObject({ packs: [{ id: 'beta' }], hidden: 1 });
   });
 
   it('shows the official store as trusted when the hub lists it, with the recorded key', async () => {

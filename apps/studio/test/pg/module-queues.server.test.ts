@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
-import { createRegistry, defineModule } from '@wirehub/modules';
+import { createLiveRegistry, createRegistry, defineModule } from '@wirehub/modules';
 import { afterAll, expect, it } from 'vitest';
 
 import { describePg, freshDatabase, testBlobs } from './harness.ts';
@@ -45,6 +45,88 @@ const tally = defineModule({
 });
 
 describePg('a module queue on Postgres', () => {
+  it('enqueues newly enabled module kinds through an already-started sender while the worker is offline', async () => {
+    const own = await freshDatabase();
+    const { openPg } = await import('../../server/pg/db.ts');
+    const { importCatalog } = await import('../../server/pg/import.ts');
+    const { startBoss, bossJobRunner, pgJobStore, bossQueueName } = await import('../../server/pg/jobs.ts');
+    const handle = openPg(own.appUrl, { max: 2 });
+    const sender = await startBoss(own.appUrl, 'studio', quiet, []);
+    try {
+      const { orgId } = await importCatalog(handle.db, { org: { slug: 'late-queue', create: true }, files: readCatalogTree(catalogPackage), blobs: testBlobs() });
+      expect(await sender.getQueue(bossQueueName('tally:count'))).toBeNull();
+      const store = pgJobStore(handle.db, orgId);
+      const runner = bossJobRunner(async () => sender, () => orgId);
+      const first = await store.create('tally:count', {});
+      const second = await store.create('tally:count', {});
+      await Promise.all([runner.submit(first), runner.submit(second)]);
+      expect(await sender.getQueue(bossQueueName('tally:count'))).not.toBeNull();
+      expect((await store.get(first.id))?.status).toBe('queued');
+      expect((await store.get(second.id))?.status).toBe('queued');
+    } finally {
+      await sender.stop({ graceful: true });
+      await handle.close();
+      await own.drop();
+    }
+  }, 60_000);
+
+  it('adds, updates and drains removed module queues live while preserving core jobs', async () => {
+    const own = await freshDatabase();
+    const registry = createLiveRegistry(createRegistry([]));
+    const { openPg } = await import('../../server/pg/db.ts');
+    const { importCatalog } = await import('../../server/pg/import.ts');
+    const { fsBlobStore } = await import('../../server/blobs.ts');
+    const { lastBeat } = await import('../../server/pg/jobs.ts');
+    const { startWorker } = await import('../../server/worker-run.ts');
+    const handle = openPg(own.appUrl, { max: 4 });
+    const blobs = fsBlobStore(join(work, 'live-blobs'));
+    const { orgId } = await importCatalog(handle.db, { org: { slug: 'live-queues', create: true }, files: readCatalogTree(catalogPackage), blobs });
+    const worker = await startWorker({ env: { DATABASE_URL: own.appUrl, WIREHUB_WORKER_BEAT_FILE: join(work, 'live-beat'), TZ: 'UTC' }, modules: registry, builtins: [], blobs, log: quiet, attempts: 2 });
+    let release: (() => void) | undefined;
+    try {
+      const core = [...worker!.kinds];
+      registry.replace(createRegistry([tally]));
+      await expect.poll(() => worker!.schedules()['tally:count'], { timeout: 20_000 }).toBe('0 5 * * *');
+      expect(worker!.kinds).toContain('tally:count');
+      await expect.poll(async () => (await lastBeat(handle.db, orgId))?.queues, { timeout: 10_000 }).toContain('tally:count');
+      const first = await worker!.jobs.enqueue('tally:count', { n: 7 });
+      expect(await worker!.jobs.wait(first.id, 30_000)).toMatchObject({ status: 'done', result: { asked: 7 } });
+
+      registry.replace(createRegistry([defineModule({ ...tally, version: '1.1.0', integrations: [{ id: 't', label: 'T', queues: [{ id: 'count', label: 'Count', schedule: '0 6 * * *', run: async () => ({ updated: true }) }] }] })]));
+      await expect.poll(() => worker!.schedules()['tally:count'], { timeout: 20_000 }).toBe('0 6 * * *');
+      const updated = await worker!.jobs.enqueue('tally:count', {});
+      expect(await worker!.jobs.wait(updated.id, 30_000)).toMatchObject({ status: 'done', result: { updated: true } });
+
+      // A running job finishes on disable; the delayed queued job must never call old code.
+      const blocked = new Promise<void>((done) => { release = done; });
+      let executions = 0;
+      registry.replace(createRegistry([defineModule({ ...tally, version: '1.2.0', integrations: [{ id: 't', label: 'T', queues: [{ id: 'count', label: 'Count', run: async () => { executions += 1; await blocked; return { drained: true }; } }] }] })]));
+      await expect.poll(() => worker!.schedules()['tally:count'], { timeout: 20_000 }).toBeUndefined();
+      const active = await worker!.jobs.enqueue('tally:count', {});
+      await expect.poll(() => executions, { timeout: 20_000 }).toBe(1);
+      const pending = await worker!.jobs.enqueue('tally:count', {}, undefined, { delayMs: 60_000 });
+      registry.replace(createRegistry([]));
+      await expect(worker!.jobs.enqueue('tally:count', {})).rejects.toThrow(/does not run/);
+      await expect.poll(async () => (await worker!.jobs.get(pending.id))?.status, { timeout: 20_000 }).toBe('cancelled');
+      release!();
+      expect(await worker!.jobs.wait(active.id, 30_000)).toMatchObject({ status: 'done', result: { drained: true } });
+      await expect.poll(() => [...worker!.kinds], { timeout: 20_000 }).toEqual(core);
+      await expect.poll(async () => (await lastBeat(handle.db, orgId))?.queues, { timeout: 10_000 }).toEqual(core);
+      expect(executions).toBe(1);
+      // Re-enable works without reviving the cancelled pending record.
+      registry.replace(createRegistry([tally]));
+      await expect.poll(() => worker!.schedules()['tally:count'], { timeout: 20_000 }).toBe('0 5 * * *');
+      const restored = await worker!.jobs.enqueue('tally:count', { n: 8 });
+      expect(await worker!.jobs.wait(restored.id, 30_000)).toMatchObject({ status: 'done', result: { asked: 8 } });
+      expect((await worker!.jobs.get(pending.id))?.status).toBe('cancelled');
+    } finally {
+      release?.();
+      await worker?.stop();
+      await handle.close();
+      await own.drop();
+    }
+  }, 180_000);
+
   it('is worked by the worker, enqueued from the studio side, and recorded as <module>:<queue>', async () => {
     const own = await freshDatabase();
     const registry = createRegistry([tally]);

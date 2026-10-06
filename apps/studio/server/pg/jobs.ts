@@ -202,12 +202,24 @@ export async function startBoss(url: string, role: 'studio' | 'worker', log: (li
 
 /** The studio's runner on Postgres: the job's row is written; pg-boss tells the worker its id. */
 export function bossJobRunner(boss: () => Promise<PgBoss>, orgId: () => string): JobRunner {
+  const moduleQueues = new Map<string, Promise<void>>();
   return {
     describe: 'the worker (pg-boss)',
     async submit(job, options) {
       const payload: BossPayload = { id: job.id, org: orgId() };
+      const sender = await boss();
+      // A live install can enqueue before the worker receives its registry notification, or while it is offline.
+      if (job.kind.includes(':')) {
+        let ready = moduleQueues.get(job.kind);
+        if (ready === undefined) {
+          ready = sender.createQueue(bossQueueName(job.kind), { retryLimit: 0, expireInSeconds: 1800, deleteAfterSeconds: 7 * 24 * 3600 })
+            .then(() => undefined).catch((error: unknown) => { moduleQueues.delete(job.kind); throw error; });
+          moduleQueues.set(job.kind, ready);
+        }
+        await ready;
+      }
       // a delayed job (a webhook's retry backoff) is held by the queue until its time
-      await (await boss()).send(bossQueueName(job.kind), payload as unknown as object, options?.delayMs === undefined || options.delayMs <= 0 ? {} : { startAfter: Math.ceil(options.delayMs / 1000) });
+      await sender.send(bossQueueName(job.kind), payload as unknown as object, options?.delayMs === undefined || options.delayMs <= 0 ? {} : { startAfter: Math.ceil(options.delayMs / 1000) });
     },
   };
 }

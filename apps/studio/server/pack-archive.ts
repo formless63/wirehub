@@ -30,7 +30,7 @@ import { dirname, join } from 'node:path';
 import { isIP } from 'node:net';
 import { inflateRawSync } from 'node:zlib';
 
-import { canonicalPackText } from '@wirehub/catalog';
+import { canonicalPackText, isPackHostControlPath } from '@wirehub/catalog';
 import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
 import { isCodeFilePath } from '@wirehub/modules';
 
@@ -69,7 +69,7 @@ const IMAGE_EXTENSION = /\.(?:svg|png|jpe?g|webp)$/;
 const DOC_PATH = /^(?:docs|assets)(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.pdf$/;
 const FONT_PATH = /^fonts(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.(?:ttf|otf|woff2)$/;
 const DOC_OR_FONT_EXTENSION = /\.(?:pdf|ttf|otf|woff2)$/;
-const CODE_EXTENSION = /\.(?:mjs|css)$/;
+const CODE_EXTENSION = /\.(?:mjs|css|sql)$/;
 
 /** An image a pack may ship: under `depictions/` or `art/`, an allowlisted type, a safe path; or `assets/<sha256>.png|jpg`, an image of the shared asset library. */
 export function isPackAssetPath(path: string): boolean {
@@ -91,6 +91,7 @@ export const isPackBlobPath = (path: string): boolean => isPackDocPath(path) || 
 
 /** A relative path a pack file may have: `.json`, an image under `depictions/`/`art/`, a vendor PDF under `docs/`/`assets/`, a font under `fonts/`, or a code module's entry under `code/`; no `..`, no dot-segments, not absolute. */
 export function isPackFilePath(path: string): boolean {
+  if (isPackHostControlPath(path)) return false;
   return (DATA_PATH.test(path) && path.length <= 200 && !path.split('/').includes('..')) || isPackAssetPath(path) || isPackBlobPath(path) || isCodeFilePath(path);
 }
 
@@ -283,6 +284,7 @@ function readZipRaw(bytes: Uint8Array): PackFiles {
   let total = 0;
   for (const { name, flags, method, compressed, size, local } of entries) {
     const path = name.slice(strip);
+    if (isPackHostControlPath(path)) throw new PackArchiveError(`'${path}' is reserved host control state; a pack may not supply it.`);
     if (!path.endsWith('.json') && !isPackAssetPath(path) && !isPackBlobPath(path) && !isCodeFilePath(path) && path !== PACK_SIGNATURE_FILE) continue;
     if (path === PACK_SIGNATURE_FILE && size > MAX_SIGNATURE_BYTES) throw new PackArchiveError(`The pack's ${PACK_SIGNATURE_FILE} is larger than a signature may be.`, 413);
     if ((flags & 1) !== 0) throw new PackArchiveError('Encrypted zips are not supported.');
@@ -393,8 +395,10 @@ export function readPackBytes(bytes: Uint8Array): ReadPack {
  * The manifest is kept as shipped: a signature covers its bytes.
  */
 export function writePackFiles(dir: string, files: PackFiles): void {
-  for (const [path, bytes] of files) {
+  for (const path of files.keys()) {
     if (!isPackFilePath(path)) throw new PackArchiveError(`'${path}' is not a path a pack file may have.`);
+  }
+  for (const [path, bytes] of files) {
     mkdirSync(dirname(join(dir, path)), { recursive: true });
     const document = path.endsWith('.json') && path !== 'wirehub-pack.json';
     writeFileSync(join(dir, path), document ? canonicalPackText(path, new TextDecoder().decode(bytes)) : bytes);

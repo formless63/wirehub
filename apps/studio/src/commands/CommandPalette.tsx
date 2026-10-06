@@ -205,7 +205,7 @@ export function CommandPalette(): JSX.Element {
     return cableEntries
       .filter(
         (entry) =>
-          matches([entry.label, entry.id, ...entry.wireLabels, ...entry.boardLabels], commandQuery) ||
+          matches([entry.label, entry.id, ...entry.wireLabels, ...entry.boardLabels, ...(entry.productSearch ?? [])], commandQuery) ||
           // a design by any part number it answers to — drawing, length, part
           (entry.partNumbers ?? []).some((pn) => pnMatches(commandQuery, pn)),
       )

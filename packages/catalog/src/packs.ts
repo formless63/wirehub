@@ -86,6 +86,7 @@ export interface PackModule {
   browser?: string;
   /** `code/<id>/browser.css` */
   css?: string;
+  migrations?: { path: string; sha256: string }[];
   extensionPoints: string[];
   permissions: string[];
   description?: string;
@@ -98,11 +99,13 @@ export interface InstalledModule {
   label: string;
   apiVersion: string;
   /** sha256 of each entry as installed */
-  files: { server: string; browser?: string; css?: string };
+  files: { server: string; browser?: string; css?: string; migrations?: { path: string; sha256: string }[] };
   extensionPoints: string[];
   permissions: string[];
   /** how its signature was trusted: a store's publisher key, or a key an owner pinned; the keys that verified */
   trust?: { via: 'store' | 'pinned'; keys: string[] };
+  /** Public install proof; the owner re-verifies against separately supplied key roots before SQL. */
+  migrationProof?: { manifest: PackManifest; signature: string };
 }
 
 export const PACK_MANIFEST = 'wirehub-pack.json';
@@ -122,6 +125,8 @@ export interface InstalledPack {
    * of the files and none is removed.
    */
   assets?: Record<string, string>;
+  /** Owned drawing/build sidecars and model links, hashed canonically; absent on older installs. */
+  auxiliary?: PackAuxiliary;
   /**
    * Where it was installed from, when that was a store index (phase 5): the index,
    * the publisher whose key signed it and the keys whose signature verified, so a
@@ -135,6 +140,160 @@ export interface InstalledPack {
   partNumberScheme?: unknown;
 }
 
+/** Auxiliary ownership is per document or model record, so unrelated local links survive. */
+export const auxiliaryRecord = (auxiliary: PackAuxiliary): Pick<InstalledPack, 'auxiliary'> =>
+  Object.keys(auxiliary.files).length + Object.keys(auxiliary.models).length + Object.keys(auxiliary.entries ?? {}).length + Object.keys(auxiliary.keys ?? {}).length === 0 ? {} : { auxiliary };
+
+export interface PackAuxiliary {
+  files: Record<string, string>;
+  models: Record<string, string>;
+  /** Additional record lists by id and tag objects by JSON-encoded leaf path. */
+  entries?: Record<string, Record<string, string>>;
+  keys?: Record<string, Record<string, string>>;
+}
+
+/** Sidecars whose lifecycle follows their pack; photos use the shared asset library. */
+export const isManagedPackSidecar = (relative: string): boolean =>
+  /^(?:drawings|builds)\/[^/]+\.json$/.test(relative) && !relative.endsWith('.photo-ref.json');
+
+/** Reconcile auxiliary content against its recorded hashes, preserving local edits and older unowned content. */
+export function reconcilePackAuxiliary(view: CatalogSource, before: PackAuxiliary | undefined, pack?: CatalogSource, additionalPaths: readonly string[] = []): { writes: Map<string, string | null>; owned: PackAuxiliary } {
+  const writes = new Map<string, string | null>();
+  const owned: PackAuxiliary = { files: {}, models: {} };
+  const nextFiles = Object.fromEntries(['drawings', 'builds'].flatMap((dir) =>
+    (pack?.list(dir) ?? []).map((name) => `${dir}/${name}`).filter(isManagedPackSidecar)
+      .flatMap((path) => { const text = pack?.read(path); return text === undefined ? [] : [[path, assetSha(path, text)]]; })));
+  const files = reconcileAssets(before === undefined ? undefined : Object.fromEntries(Object.entries(before.files).filter(([path]) => isManagedPackSidecar(path))), nextFiles, (path) => { const text = view.read(path); return text === undefined ? undefined : assetSha(path, text); });
+  owned.files = files.owned;
+  for (const path of files.write) writes.set(path, canonicalPackText(path, pack!.read(path)!));
+  for (const path of files.remove) writes.set(path, null);
+  const modelText = view.read('models.json');
+  const nextText = pack?.read('models.json');
+  const document = modelText === undefined ? { src: 'model links supplied by catalog packs', links: [] } : JSON.parse(modelText) as { src: string; links: Record<string, Json>[] };
+  const nextDocument = nextText === undefined ? undefined : JSON.parse(nextText) as { src: string; links: Record<string, Json>[] };
+  const current = new Map(document.links.map((link) => [link['record'] as string, link]));
+  const next = new Map((nextDocument?.links ?? []).map((link) => [link['record'] as string, link]));
+  const models = reconcileAssets(before?.models, Object.fromEntries([...next].map(([key, link]) => [key, assetSha('models.json', canonical(link))])),
+    (key) => current.has(key) ? assetSha('models.json', canonical(current.get(key))) : undefined);
+  owned.models = models.owned;
+  for (const key of models.remove) current.delete(key);
+  for (const key of models.write) current.set(key, next.get(key)!);
+  if (models.remove.length > 0 || models.write.length > 0) {
+    writes.set('models.json', canonicalPackText('models.json', canonical({ ...(modelText === undefined ? nextDocument ?? document : document), links: [...current.values()] })));
+  }
+  reconcileOtherAuxiliary(view, before, pack, writes, owned, additionalPaths);
+  return { writes, owned };
+}
+
+
+/** Auxiliary paths handled here rather than by records, models, sidecars, or the shared image library. */
+export const isOtherPackAuxiliary = (path: string): boolean =>
+  isAuxiliaryFile(path) && !isManagedPackSidecar(path) && path !== 'models.json' && path !== 'assets/index.json' && !path.endsWith('.photo-ref.json');
+
+function auxiliaryPaths(source: CatalogSource | undefined): string[] {
+  if (source === undefined) return [];
+  const disk = source.root !== undefined && existsSync(source.root) ? packFiles(source.root) : [];
+  return [...new Set([...disk, ...['', 'tags', 'settings', 'fonts'].flatMap((dir) => source.list(dir).map((name) => dir === '' ? name : `${dir}/${name}`))])].filter(isOtherPackAuxiliary).sort();
+}
+
+/** Leaf paths are encoded as JSON arrays, so dots and slashes in keys are unambiguous. */
+function tagLeaves(value: Json, path: string[] = [], result = new Map<string, Json>()): Map<string, Json> {
+  if (isPlainObject(value) && Object.keys(value).length > 0) {
+    for (const [key, child] of Object.entries(value)) tagLeaves(child, [...path, key], result);
+  } else result.set(JSON.stringify(path), value);
+  return result;
+}
+
+function setTagLeaf(document: Record<string, Json>, key: string, value: Json, remove = false): void {
+  const path = JSON.parse(key) as string[];
+  if (path.length === 0) return;
+  let target = document;
+  const ancestors: [Record<string, Json>, string][] = [];
+  for (const name of path.slice(0, -1)) {
+    if (remove && (!Object.hasOwn(target, name) || !isPlainObject(target[name]))) return;
+    if (!Object.hasOwn(target, name) || !isPlainObject(target[name])) Object.defineProperty(target, name, { value: {}, enumerable: true, writable: true, configurable: true });
+    ancestors.push([target, name]);
+    target = target[name] as Record<string, Json>;
+  }
+  const last = path.at(-1)!;
+  if (remove) {
+    delete target[last];
+    for (const [parent, name] of ancestors.reverse()) {
+      if (isPlainObject(parent[name]) && Object.keys(parent[name]).length === 0) delete parent[name];
+    }
+  } else Object.defineProperty(target, last, { value, enumerable: true, writable: true, configurable: true });
+}
+
+/** Reconcile list records and tag leaves per key, and singleton configuration documents as a whole. */
+function reconcileOtherAuxiliary(view: CatalogSource, before: PackAuxiliary | undefined, pack: CatalogSource | undefined, writes: Map<string, string | null>, owned: PackAuxiliary, additionalPaths: readonly string[]): void {
+  const paths = new Set([...additionalPaths.filter(isOtherPackAuxiliary), ...auxiliaryPaths(pack), ...Object.keys(before?.files ?? {}).filter(isOtherPackAuxiliary), ...Object.keys(before?.entries ?? {}), ...Object.keys(before?.keys ?? {})]);
+  const hash = (value: Json): string => assetSha('entry.json', canonical(value));
+  for (const path of [...paths].sort()) {
+    const currentText = view.read(path);
+    const nextText = pack?.read(path);
+    const current = currentText === undefined ? undefined : JSON.parse(currentText) as Json;
+    const next = nextText === undefined ? undefined : JSON.parse(nextText) as Json;
+    const shape = next ?? current;
+    const list = recordsIn(shape);
+    if (list !== undefined && list.every((record) => idOf(record) !== undefined)) {
+      if (current !== undefined && next !== undefined && (recordsIn(current) === undefined || Array.isArray(current) !== Array.isArray(next))) continue;
+      const currentRecords = new Map((recordsIn(current) ?? []).map((record) => [idOf(record)!, record]));
+      const nextRecords = new Map((recordsIn(next) ?? []).map((record) => [idOf(record)!, record]));
+      const ops = reconcileAssets(before?.entries?.[path], Object.fromEntries([...nextRecords].map(([key, value]) => [key, hash(value)])), (key) => currentRecords.has(key) ? hash(currentRecords.get(key)) : undefined);
+      if (Object.keys(ops.owned).length > 0) (owned.entries ??= {})[path] = ops.owned;
+      for (const key of ops.remove) currentRecords.delete(key);
+      for (const key of ops.write) currentRecords.set(key, nextRecords.get(key));
+      if (ops.remove.length > 0 || ops.write.length > 0) {
+        const records = [...currentRecords.values()];
+        writes.set(path, records.length === 0 ? null : canonical(Array.isArray(shape) ? records : { ...(current ?? next) as Record<string, Json>, entries: records }));
+      }
+    } else if (path.startsWith('tags/') && isPlainObject(shape)) {
+      if (current !== undefined && !isPlainObject(current)) continue; // a local scalar overrides the entire tag tree
+      const currentLeaves = current === undefined ? new Map<string, Json>() : tagLeaves(current);
+      const nextLeaves = next === undefined ? new Map<string, Json>() : tagLeaves(next);
+      const ops = reconcileAssets(before?.keys?.[path], Object.fromEntries([...nextLeaves].map(([key, value]) => [key, hash(value)])), (key) => currentLeaves.has(key) ? hash(currentLeaves.get(key)) : undefined);
+      if (Object.keys(ops.owned).length > 0) (owned.keys ??= {})[path] = ops.owned;
+      const document = structuredClone(current ?? {}) as Record<string, Json>;
+      for (const key of ops.remove) setTagLeaf(document, key, undefined, true);
+      // Never replace a local scalar ancestor or a subtree that retains local leaves.
+      for (const key of ops.write) {
+        const ancestors = (JSON.parse(key) as string[]).slice(0, -1);
+        let node: Json = document;
+        let blocked = false;
+        for (const ancestor of ancestors) {
+          if (!isPlainObject(node)) { blocked = true; break; }
+          node = Object.hasOwn(node, ancestor) ? node[ancestor] : undefined;
+          if (node === undefined) break;
+          if (!isPlainObject(node)) { blocked = true; break; }
+        }
+        if (!blocked) {
+          const writtenPath = JSON.parse(key) as string[];
+          blocked = [...tagLeaves(document).keys()].some((existing) => {
+            const existingPath = JSON.parse(existing) as string[];
+            return existingPath.length > writtenPath.length && writtenPath.every((segment, index) => segment === existingPath[index]);
+          });
+        }
+        if (blocked) { delete owned.keys?.[path]?.[key]; continue; }
+        setTagLeaf(document, key, nextLeaves.get(key));
+      }
+      const text = Object.keys(document).length === 0 ? null : canonical(document);
+      if (text !== (currentText === undefined ? null : canonical(current))) writes.set(path, text);
+    } else {
+      // Anonymous lists merge by appending; do not guess ownership of their individual members.
+      const currentHash = currentText === undefined ? undefined : assetSha(path, currentText);
+      const shipped = nextText === undefined ? {} : { [path]: assetSha(path, nextText) };
+      const ops = reconcileAssets(before?.files, shipped, () => currentHash);
+      if (ops.owned[path] !== undefined) owned.files[path] = ops.owned[path];
+      if (ops.write.includes(path)) writes.set(path, canonicalPackText(path, nextText!));
+      else if (list !== undefined && currentText !== undefined && nextText !== undefined && before?.files[path] === undefined) {
+        const merged = mergeCatalogFile(path, [currentText, nextText]);
+        if (merged !== currentText) writes.set(path, merged);
+      }
+      if (ops.remove.includes(path)) writes.set(path, null);
+    }
+  }
+}
+
 /** What an installed pack's record keeps of its manifest. */
 export const manifestOffers = (manifest: PackManifest): Pick<InstalledPack, 'partNumberScheme'> => (manifest.partNumberScheme === undefined ? {} : { partNumberScheme: manifest.partNumberScheme });
 
@@ -145,6 +304,18 @@ export interface InstalledPacks {
 }
 
 export const PACKS_FILE = 'packs.json';
+
+/** Deployment state and operational controls cannot be supplied by a catalog pack. */
+export const PACK_HOST_CONTROL_FILES: readonly string[] = [
+  'packs.json', 'setup.json', 'proposals.json',
+  'settings/code-modules.json', 'settings/stores.json', 'settings/sign-in.json',
+  'settings/notifications.json', 'settings/integrations.json', 'settings/jobs.json',
+  'settings/webhooks.json',
+];
+
+export function isPackHostControlPath(relative: string): boolean {
+  return PACK_HOST_CONTROL_FILES.includes(relative);
+}
 
 export const canonical = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 
@@ -240,9 +411,9 @@ function mergeObjects(layers: Record<string, Json>[]): Record<string, Json> {
   const out: Record<string, Json> = {};
   for (const layer of layers) {
     for (const [key, value] of Object.entries(layer)) {
-      const existing = out[key];
-      if (existing === undefined) out[key] = value;
-      else if (isPlainObject(existing) && isPlainObject(value)) out[key] = mergeObjects([existing, value]);
+      const existing = Object.hasOwn(out, key) ? out[key] : undefined;
+      if (existing === undefined) Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
+      else if (isPlainObject(existing) && isPlainObject(value)) Object.defineProperty(out, key, { value: mergeObjects([existing, value]), enumerable: true, writable: true, configurable: true });
     }
   }
   return out;
@@ -351,6 +522,10 @@ export function layeredCatalogSource(layers: readonly CatalogSource[], name?: st
 
 /** A pack directory's manifest, or a sentence saying why it is not a pack. */
 export function readPackManifest(dir: string): PackManifest {
+  // Validate before any installer/planner can accept a manifest or write state.
+  for (const path of packFiles(dir)) {
+    if (isPackHostControlPath(path)) throw new Error(`'${path}' is reserved host control state; a pack may not supply it.`);
+  }
   const path = join(dir, PACK_MANIFEST);
   if (!existsSync(path)) throw new Error(`${dir} is not a catalog pack: it has no ${PACK_MANIFEST}.`);
   const manifest = JSON.parse(readFileSync(path, 'utf8')) as PackManifest;
@@ -408,7 +583,7 @@ export function packAssetFiles(dir: string): string[] {
   // an image of the shared asset library, named by its hash, with its `assets/index.json` entry (cs-8re)
   if (existsSync(join(dir, 'assets'))) for (const entry of readdirSync(join(dir, 'assets'), { withFileTypes: true })) if (entry.isFile() && PACK_ASSET_IMAGE.test(`assets/${entry.name}`)) out.push(`assets/${entry.name}`);
   walk('fonts', /\.(ttf|otf|woff2)$/);
-  walk('code', /\.(mjs|css)$/);
+  walk('code', /\.(mjs|css|sql)$/);
   return out.sort();
 }
 
@@ -425,9 +600,10 @@ export function installedRecordOf(manifest: PackManifest, added: Record<string, 
   record.module = {
     id: m.id,
     version: m.version,
+    ...(m.migrations === undefined ? {} : { migrationProof: { manifest, signature: readFileSync(join(packDir, 'wirehub-pack.sig'), 'utf8') } }),
     label: m.label,
     apiVersion: m.apiVersion,
-    files: { server: sha(m.server), ...(m.browser === undefined ? {} : { browser: sha(m.browser) }), ...(m.css === undefined ? {} : { css: sha(m.css) }) },
+    files: { server: sha(m.server), ...(m.browser === undefined ? {} : { browser: sha(m.browser) }), ...(m.css === undefined ? {} : { css: sha(m.css) }), ...(m.migrations === undefined ? {} : { migrations: m.migrations.map((f) => ({ path: f.path, sha256: sha(f.path) })) }) },
     extensionPoints: [...m.extensionPoints],
     permissions: [...m.permissions],
   };
@@ -637,6 +813,17 @@ function planAgainst(local: CatalogSource, installed: InstalledPacks, packDir: s
       }
       continue;
     }
+    if (relative === 'models.json' && isPlainObject(packValue) && isPlainObject(localValue) && Array.isArray(packValue['links']) && Array.isArray(localValue['links'])) {
+      const merged = mergeCatalogFile(relative, [localText, packText]);
+      if (merged !== canonicalPackText(relative, localText)) writes[relative] = merged;
+      continue;
+    }
+    if (isOtherPackAuxiliary(relative)) {
+      const merged = mergeCatalogFile(relative, [localText, packText]);
+      if (merged !== localText) writes[relative] = merged;
+      continue;
+    }
+    if (isManagedPackSidecar(relative)) continue; // the catalog's own sidecar wins over a layer
     const packRecords = recordsIn(packValue);
     const localRecords = recordsIn(localValue);
     if (packRecords === undefined || localRecords === undefined) {
@@ -687,6 +874,9 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   if (plan.conflicts.length > 0) {
     throw new Error(`Pack '${plan.manifest.id}' cannot be installed: ${plan.conflicts.join('; ')}.`);
   }
+  const reconciled = reconcilePackAuxiliary(fsCatalogSource(catalogDir), undefined, fsCatalogSource(packDir));
+  const auxiliary = reconciled.owned;
+  for (const [path, text] of reconciled.writes) if (text !== null) plan.writes[path] = text;
   for (const [relative, text] of Object.entries(plan.writes)) writeFileReplacing(join(catalogDir, relative), text);
   const installed = readInstalledPacks(catalogDir);
   // the merging installer keeps a pack's depictions as `data/depictions/…` documents (as before); it records the
@@ -698,7 +888,7 @@ export function installPack(catalogDir: string, packDir: string): PackInstallPla
   // vendor PDFs and fonts are files the catalog serves by content address: beside the catalog's data, owned by the pack
   const blobs = Object.fromEntries(Object.entries(assets).filter(([path]) => /^(?:docs|assets|fonts)\//.test(path) && !path.endsWith('.json')));
   if (Object.keys(blobs).length > 0) applyPackLibrary(catalogDir, packDir, undefined, applyPackAssets(catalogDir, packDir, undefined, blobs));
-  const record = installedRecordOf(plan.manifest, plan.added, assets, packDir);
+  const record = { ...installedRecordOf(plan.manifest, plan.added, assets, packDir), ...auxiliaryRecord(auxiliary) };
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(catalogDir, PACKS_FILE), canonical(installed));
   return plan;
@@ -813,7 +1003,7 @@ export function installPackLayer(catalogDir: string, packsDir: string, packDir: 
   rmSync(target, { recursive: true, force: true });
   renameSync(staging, target);
   const assets = packOwnedAssets(packDir);
-  const record = installedRecordOf(manifest, plan.added, assets, packDir);
+  const record = { ...installedRecordOf(manifest, plan.added, assets, packDir), ...auxiliaryRecord(reconcilePackAuxiliary(local, undefined, fsCatalogSource(packDir)).owned) };
   installed.packs = [...installed.packs.filter((p) => p.id !== record.id), record];
   writeFileReplacing(join(packsDir, PACKS_FILE), canonical(installed));
   return { manifest, added: plan.added, alreadyInstalled: false };

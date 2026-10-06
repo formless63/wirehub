@@ -70,9 +70,9 @@ describe('extension points, permissions, apply mode', () => {
   it('derives the permissions, env names included', () => {
     expect(permissionsOf(rule, { browser: true })).toEqual(['server-code', 'browser-code', 'routes', 'writes', 'jobs', 'sign-in', 'env:ACME_SECRET', 'env:ACME_URL']);
   });
-  it('needs a restart only for job queues', () => {
+  it('applies supported runtime points including job queues live', () => {
     expect(applyModeOf(['validationRules', 'panels', 'authProviders', 'art', 'bench'])).toBe('live');
-    expect(applyModeOf(['exporters', 'queues'])).toBe('restart');
+    expect(applyModeOf(['exporters', 'queues'])).toBe('live');
   });
 });
 
@@ -81,14 +81,17 @@ describe('the bundle manifest', () => {
     expect(codeModuleManifestProblems(manifest())).toEqual([]);
     expect(codeModuleManifestProblems(manifest({ browser: 'code/acme/browser.mjs', permissions: ['server-code'] }))).toEqual(["a module with a browser entry declares 'browser-code'"]);
     expect(codeModuleManifestProblems(manifest({ server: 'server.mjs' }))).toEqual(["the module's server entry must be code/acme/server.mjs"]);
-    expect(codeModuleManifestProblems(manifest({ extensionPoints: ['migrations'] }))).toEqual(["a module installed at runtime cannot use 'migrations'"]);
+    expect(codeModuleManifestProblems(manifest({ extensionPoints: ['migrations'] }))).toContain("SQL migrations declare the permission 'database-schema'");
     expect(codeModuleManifestProblems(manifest({ permissions: ['server-code', 'root'] }))).toEqual(["'root' is not a permission"]);
     expect(codeModuleManifestProblems('x')).toEqual(['the manifest\'s "module" is not an object']);
   });
-  it('allows only the three code paths', () => {
+  it('allows only explicit entries and SQL paths', () => {
     expect(isCodeFilePath('code/acme/server.mjs')).toBe(true);
     expect(isCodeFilePath('code/acme/browser.css')).toBe(true);
     expect(isCodeFilePath('code/acme/other.mjs')).toBe(false);
+    expect(isCodeFilePath('code/acme/migrations/0001_acme_table.sql')).toBe(true);
+    expect(isCodeFilePath('code/acme/migrations/extra.sql')).toBe(false);
+    expect(codeModuleManifestProblems(manifest({ apiVersion: '1.2', extensionPoints: ['migrations'], permissions: ['server-code', 'database-schema'], migrations: [{ path: 'code/acme/migrations/0001_acme_table.sql', sha256: 'a'.repeat(64) }] }))).toContain('SQL migrations require module API 1.3 or newer');
     expect(isCodeFilePath('code/../server.mjs')).toBe(false);
     expect(isCodeFilePath('code/Acme/server.mjs')).toBe(false);
   });
@@ -98,7 +101,7 @@ describe('the bundle manifest', () => {
     expect(runtimeModuleProblems(rule, manifest({ extensionPoints: ['validationRules', 'integrations', 'authProviders'] }))).toEqual(["it uses 'queues', which its manifest does not declare"]);
     expect(runtimeModuleProblems(rule, manifest({ permissions: ['server-code', 'routes', 'writes', 'jobs', 'sign-in', 'env:ACME_URL'] }))).toEqual(["it needs the permission 'env:ACME_SECRET', which its manifest does not declare"]);
     const migrating = defineModule({ ...rule, migrations: { dir: '/x' } });
-    expect(runtimeModuleProblems(migrating, manifest())).toEqual(["a module installed at runtime cannot use 'migrations'"]);
+    expect(runtimeModuleProblems(migrating, manifest())).toEqual(["it uses 'migrations', which its manifest does not declare", "it needs the permission 'database-schema', which its manifest does not declare"]);
   });
   it('ignores setup and catalog packs at runtime', () => {
     const domain = defineModule({ ...rule, setup: { kind: 'domain', description: 'd' }, catalogPacks: [{ id: 'p', label: 'p', version: '1.0.0' }] });
