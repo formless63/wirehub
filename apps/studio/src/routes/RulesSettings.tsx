@@ -6,10 +6,11 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { previewRule, rulesKey, rulesQuery, saveRules, type RulePreview, type RuleView } from '../settings.browser.ts';
+import { draftObject, RuleEditor } from './DeclarativeEditors.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 /** examples: the four rule shapes the docs describe (docs/validation-rules.md); generic data only */
@@ -79,6 +80,7 @@ export const RULE_EXAMPLES: { label: string; rule: Record<string, unknown> }[] =
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
 
 export function RulesSettings(): JSX.Element {
+  const editor = useRef<HTMLElement>(null);
   const client = useQueryClient();
   const { me } = useStudio();
   const readOnly = me?.role === 'viewer';
@@ -111,6 +113,10 @@ export function RulesSettings(): JSX.Element {
 
   const parse = (): Record<string, unknown> | undefined => {
     if (editing === undefined) return undefined;
+    if (editor.current?.querySelector('[data-invalid-json="true"]')) {
+      toast.error('Correct the invalid JSON field before testing or saving.');
+      return undefined;
+    }
     try {
       return JSON.parse(editing.text) as Record<string, unknown>;
     } catch (error) {
@@ -155,7 +161,7 @@ export function RulesSettings(): JSX.Element {
   };
 
   return (
-    <section className="mt-6 max-w-2xl border-t border-line pt-3" data-testid="rules-settings">
+    <section ref={editor} className="mt-6 max-w-2xl border-t border-line pt-3" data-testid="rules-settings">
       <h2 className="mb-1 text-[13px] font-semibold">Validation rules</h2>
       <p className="mb-2 max-w-xl text-faint">
         Checks written as data: what each rule is about, which of those it applies to, what must hold, a severity and a message. They run with the built-in checks, so they show in each cable’s issues panel, and an error blocks a save. No code runs; complex cases stay code rules in a module.
@@ -213,7 +219,10 @@ export function RulesSettings(): JSX.Element {
           )}
           {editing === undefined ? null : (
             <div className="mt-2" data-testid="rule-editor">
-              <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Rule definition" value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
+              {draftObject(editing.text) === undefined ? <p className="text-faint">Correct the advanced JSON to use the form.</p> : <RuleEditor value={draftObject(editing.text)!} onChange={(next) => { setEditing({ ...editing, text: pretty(next) }); setResult(undefined); }} />}
+              <details className="mt-2"><summary>Advanced rule JSON</summary>
+                <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Rule definition" value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
+              </details>
               <div className="mt-1 flex gap-2">
                 <button type="button" className="rounded border border-line px-3 py-1" disabled={busy} onClick={() => void test()}>
                   Test on my designs

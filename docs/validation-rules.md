@@ -10,6 +10,13 @@ Complex checks stay code (a module's `validationRules`, `docs/modules.md`). A ru
 code, read the network or the clock: evaluation is bounded (conditions at most 8 deep and 100 nodes,
 at most 200 rules, a step budget per validation that stops with a `rule-budget` warning).
 
+Settings provides a form for the subject, severity, message and source, plus condition and
+operand selectors: combinations, comparisons, list quantifiers, count and numeric aggregates.
+Add subject filters or nested item filters and test the draft on the hub's designs before saving.
+The visual tree is bounded to six levels and 100 container nodes; deeper, larger or unfamiliar
+expressions use JSON fields. Advanced JSON remains available for the whole rule, and form edits
+preserve attributes they do not expose. Invalid JSON fields must be corrected before Test or Save.
+
 ## A rule
 
 ```json
