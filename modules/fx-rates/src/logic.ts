@@ -34,7 +34,7 @@ export function snapshotProblems(value: unknown): string[] {
 
 export function settingsOf(design: Pick<CableDesign, 'extensions'>): FxSettings | undefined {
   const value = object(design.extensions?.['fx-rates']);
-  if (value === undefined || value.schema !== 1 || !currency(value.target) || snapshotProblems(value.snapshot).length > 0) return undefined;
+  if (value === undefined || value.schema !== 1 || !currency(value.target) || snapshotProblems(value.snapshot).length > 0 || (value.builds !== undefined && (!Number.isSafeInteger(value.builds) || (value.builds as number) <= 0 || (value.builds as number) > 1_000_000))) return undefined;
   return value as unknown as FxSettings;
 }
 
@@ -57,7 +57,7 @@ function cell(value: unknown): string {
 }
 
 /** A derived report: source prices and saved designs are never rewritten. */
-export function costReportCsv(design: CableDesign, db: Db, settings: FxSettings, builds = 1): string {
+export function costReportCsv(design: CableDesign, db: Db, settings: FxSettings, builds = settings.builds ?? 1): string {
   if (settings.schema !== 1 || !currency(settings.target) || snapshotProblems(settings.snapshot).length > 0) throw new Error('A valid saved FX snapshot and target currency are required.');
   if (!Number.isSafeInteger(builds) || builds <= 0 || builds > 1_000_000) throw new Error('Build quantity must be a positive whole number up to 1000000.');
   const rows: unknown[][] = [[

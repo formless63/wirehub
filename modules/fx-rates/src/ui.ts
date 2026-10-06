@@ -13,7 +13,7 @@ export function FxPanel(props: PanelProps) {
   const stored = props.design === undefined ? undefined : settingsOf(props.design);
   const [snapshot, setSnapshot] = useState<FxSnapshot | undefined>(stored?.snapshot);
   const [target, setTarget] = useState(stored?.target ?? props.db.rules?.costing?.currency ?? 'USD');
-  const [builds, setBuilds] = useState('1');
+  const [builds, setBuilds] = useState(String(stored?.builds ?? 1));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
@@ -22,13 +22,13 @@ export function FxPanel(props: PanelProps) {
   useEffect(() => {
     generation.current += 1; setBusy(false); setError('');
     const current = props.design === undefined ? undefined : settingsOf(props.design);
-    setSnapshot(current?.snapshot); setTarget(current?.target ?? props.db.rules?.costing?.currency ?? 'USD');
+    setSnapshot(current?.snapshot); setTarget(current?.target ?? props.db.rules?.costing?.currency ?? 'USD'); setBuilds(String(current?.builds ?? 1));
     return () => { generation.current += 1; };
   }, [identity, saved, props.readOnly]);
   const editable = props.design !== undefined && !props.readOnly && props.onChange !== undefined;
   const count = Number(builds);
   const valid = snapshot !== undefined && snapshotProblems(snapshot).length === 0 && /^[A-Z]{3}$/.test(target) && Number.isSafeInteger(count) && count > 0 && count <= 1_000_000 && convertAmount(1, snapshot.base, target, snapshot) !== undefined;
-  const settings = (): FxSettings => ({ schema: 1, snapshot: snapshot!, target });
+  const settings = (): FxSettings => ({ schema: 1, snapshot: snapshot!, target, builds: count });
   const refresh = async () => {
     const ticket = ++generation.current; setBusy(true); setError('');
     try {

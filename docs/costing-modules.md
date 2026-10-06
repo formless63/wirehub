@@ -8,7 +8,7 @@ and timings selected for them. Builds from this checkout target module API 1.4.
 ## FX reference rates
 
 In the cable inspector, retrieve the current ECB reference-rate snapshot, select
-the report currency, and save the snapshot. Retrieval is manual; opening a design
+the report currency and build quantity, and save the snapshot. Retrieval is manual; opening a design
 or generating a document never fetches rates. The selected snapshot shows its
 observation date, retrieval time and source. A failed retrieval keeps the previous
 snapshot available.

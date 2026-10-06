@@ -56,6 +56,15 @@ describe('FX cost report', () => {
     expect(JSON.stringify({ design, db, settings })).toBe(before);
   });
 
+  it('reproduces saved build quantity and rejects malformed saved quantities', () => {
+    const saved = { ...settings, builds: 10 };
+    expect(costReportCsv(design, priced(), saved)).toBe(costReportCsv(design, priced(), settings, 10));
+    expect(settingsOf({ extensions: { 'fx-rates': saved } })).toBe(saved);
+    for (const builds of [0, -1, 1.5, 1000001, '10', Number.POSITIVE_INFINITY]) {
+      expect(settingsOf({ extensions: { 'fx-rates': { ...settings, builds } } })).toBeUndefined();
+    }
+  });
+
   it('labels missing source currency and missing rates as excluded, never free', () => {
     const unknownDb = { ...priced(), connectors: base.connectors.map((c) => c.id === connector.id ? { ...c, cost: { unit: 2 } } : c) };
     const unknown = rows(costReportCsv(design, unknownDb, settings));

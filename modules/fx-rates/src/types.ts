@@ -6,4 +6,4 @@ export interface FxSnapshot {
   source: string;
   retrievedAt: string;
 }
-export interface FxSettings { schema: 1; snapshot: FxSnapshot; target: string }
+export interface FxSettings { schema: 1; snapshot: FxSnapshot; target: string; builds?: number }

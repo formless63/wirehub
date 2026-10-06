@@ -19,7 +19,7 @@ pnpm --filter studio wirehub-module build ../../modules/suppliers \
 An owner pins the publisher's public key in Settings, then uploads the signed ZIP
 and reviews its code permissions. Runtime code must be enabled on the host. The
 builder targets this checkout's module API; a bundle built here currently needs
-API 1.3, so use a matching host rather than the released v0.4.0 image.
+API 1.4, so use a matching host rather than the released v0.4.0 image.
 
 ## Deployment configuration
 

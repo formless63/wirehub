@@ -62,10 +62,13 @@ returns a detached design for the host's normal edit, save and read-only control
 Build a runtime bundle using the normal module command, for example:
 
 ```bash
-pnpm --filter studio wirehub-module build modules/standard-work \
-  --out dist-module --key publisher.key --zip
+pnpm --filter studio wirehub-module build ../../modules/standard-work \
+  --export standardWork --out /tmp/wirehub-modules --zip \
+  --key /path/to/publisher-private-key.pem \
+  --publisher-id your-publisher --publisher-name 'Your publisher'
 ```
 
+This checkout targets module API 1.4 and requires a matching host.
 The signing key belongs outside the repository. See `templates/store/README.md`
 for store publishing. Test with
 `pnpm --filter @wirehub/module-standard-work exec vitest run --maxWorkers=2`,

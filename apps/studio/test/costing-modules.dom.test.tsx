@@ -1,4 +1,5 @@
-import { createCatalog, dataPath, fsCatalogSource } from '@wirehub/catalog';
+import { join } from 'node:path';
+import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
 import type { CableDesign } from '@wirehub/model';
 import type { PanelProps } from '@wirehub/modules';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -7,7 +8,7 @@ import { FxPanel } from '../../../modules/fx-rates/src/ui.ts';
 import { StandardWorkPanel } from '../../../modules/standard-work/src/ui.ts';
 
 const design = (): CableDesign => ({ schemaVersion: 4, id: 'costing-test', label: 'Synthetic costing', src: 'synthetic example', instances: { connectors: [], segments: [], components: [], pcbas: [] }, joints: [] });
-const db = () => createCatalog(fsCatalogSource(dataPath(''))).loadDb();
+const db = () => createCatalog(fsCatalogSource(join(process.cwd(), '../../packages/catalog/data'))).loadDb();
 const snapshot = { base: 'EUR', date: '2026-01-02', rates: { USD: 2, GBP: 0.5 }, source: 'synthetic example', retrievedAt: '2026-01-02T16:00:00Z' };
 const props = (d: CableDesign): PanelProps => ({ slot: 'cable-inspector', module: 'fx-rates', design: d, db: db(), readOnly: false, api: vi.fn(async () => ({ status: 200, body: { snapshot } })), onChange: vi.fn() });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -21,8 +22,9 @@ it('retrieves FX rates only on request and saves a snapshot without modifying ca
   fireEvent.click(screen.getByRole('button', { name: 'Retrieve reference rates' }));
   await screen.findByText(/Rate date 2026-01-02/);
   fireEvent.change(screen.getByLabelText('Report currency'), { target: { value: 'GBP' } });
+  fireEvent.change(screen.getByLabelText('FX build quantity'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save FX snapshot' }));
-  expect(context.onChange).toHaveBeenCalledWith(expect.objectContaining({ extensions: { 'fx-rates': { schema: 1, snapshot, target: 'GBP' } } }), 'Save FX rate snapshot');
+  expect(context.onChange).toHaveBeenCalledWith(expect.objectContaining({ extensions: { 'fx-rates': { schema: 1, snapshot, target: 'GBP', builds: 10 } } }), 'Save FX rate snapshot');
   expect(context.design?.extensions).toBeUndefined();
   expect(context.db).toEqual(before);
 });
@@ -30,7 +32,7 @@ it('retrieves FX rates only on request and saves a snapshot without modifying ca
 it('ignores late FX responses after switching designs and preserves the saved snapshot on failure', async () => {
   let resolve!: (value: { status: number; body: unknown }) => void;
   const context = props(design());
-  context.api = vi.fn(() => new Promise(done => { resolve = done; }));
+  context.api = vi.fn(() => new Promise<{ status: number; body: unknown }>(done => { resolve = done; }));
   const view = render(<FxPanel {...context} />);
   fireEvent.click(screen.getByRole('button', { name: 'Retrieve reference rates' }));
   view.rerender(<FxPanel {...context} design={{ ...design(), id: 'next-design' }} />);

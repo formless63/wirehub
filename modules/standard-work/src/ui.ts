@@ -10,10 +10,11 @@ function read(props: PanelProps): { settings: WorkSettings; error: string } {
 export function StandardWorkPanel(props: PanelProps) {
   const initial = read(props);
   const [settings, setSettings] = useState<WorkSettings>(initial.settings);
-  const [builds, setBuilds] = useState('1');
+  const [builds, setBuilds] = useState(String(initial.settings.adoption?.builds ?? 1));
   const [error, setError] = useState(initial.error);
   const saved = JSON.stringify(props.design?.extensions?.['standard-work']);
   useEffect(() => { const value = read(props); setSettings(value.settings); setError(value.error); }, [props.design?.id, saved, props.readOnly]);
+  useEffect(() => { setBuilds(String(read(props).settings.adoption?.builds ?? 1)); }, [props.design?.id, initial.settings.adoption?.builds]);
   const editable = props.design !== undefined && !props.readOnly && props.onChange !== undefined;
   const count = Number(builds);
   const problems = workProblems(settings);
