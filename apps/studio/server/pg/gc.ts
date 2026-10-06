@@ -21,7 +21,9 @@
  * - a derived blob no live model key names at the current converter version
  *   is expired after 7 days; its object goes with its last row;
  * - an object no row names, older than 24 hours, is deleted (an upload whose
- *   commit rolled back, a job's scratch file).
+ *   commit rolled back, a job's scratch file);
+ * - completed webhook delivery attempts are kept for 30 days; all attempts
+ *   of a delivery with a queued or running retry stay until it finishes.
  */
 
 import { existsSync, lstatSync, readFileSync, readlinkSync, statSync } from 'node:fs';
@@ -187,6 +189,22 @@ const LIVE_RECORD_BLOBS = sql`
   UNION SELECT sha256 FROM studio.catalog_file
   UNION SELECT f.sha256 FROM studio.job_file f JOIN studio.job_run j ON j.id = f.job_id WHERE f.sha256 IS NOT NULL AND j.created_at > now() - interval '7 days'`;
 
+/** Finished webhook history is diagnostic data; active deliveries keep their full history. */
+export const WEBHOOK_HISTORY_DAYS = 30;
+
+export async function pruneWebhookHistory(db: Db, orgId: string, now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - WEBHOOK_HISTORY_DAYS * 24 * 3600_000).toISOString();
+  return inOrg(db, orgId, async (tx) => Number((await sql`
+    DELETE FROM studio.job_run j
+     WHERE j.org_id = ${orgId}::uuid AND j.kind = 'webhook'
+       AND j.status IN ('done', 'failed', 'cancelled') AND j.finished_at < ${cutoff}::timestamptz
+       AND NOT EXISTS (
+         SELECT 1 FROM studio.job_run active
+          WHERE active.org_id = j.org_id AND active.kind = 'webhook' AND active.status IN ('queued', 'running')
+            AND active.request->>'deliveryId' = j.request->>'deliveryId'
+       )`.execute(tx)).numAffectedRows ?? 0));
+}
+
 export async function runBlobGcJob(context: JobContext, options: GcOptions): Promise<JobOutcome> {
   const { db, orgId } = options;
   const days = (n: number): ReturnType<typeof sql> => sql`(${n}::double precision * interval '1 day')`;
@@ -264,8 +282,10 @@ export async function runBlobGcJob(context: JobContext, options: GcOptions): Pro
       deletedObjects += 1;
     }
   }
-  const result = { ...marking, completedBackup: completedAt, deletedRecord, expiredDerived: expired, deletedDerived, listed, deletedObjects };
-  await context.step(`orphaned ${marking.orphaned}, revived ${marking.revived}, deleted ${deletedRecord} record + ${deletedDerived} derived blob(s) and ${deletedObjects} stray object(s)`);
+  // 6. delivery logs, independently of blob/backup retention; RLS scopes both attempts and retries.
+  const prunedWebhooks = await pruneWebhookHistory(db, orgId);
+  const result = { ...marking, prunedWebhooks, completedBackup: completedAt, deletedRecord, expiredDerived: expired, deletedDerived, listed, deletedObjects };
+  await context.step(`orphaned ${marking.orphaned}, revived ${marking.revived}, deleted ${deletedRecord} record + ${deletedDerived} derived blob(s) and ${deletedObjects} stray object(s); pruned ${prunedWebhooks} old webhook attempt(s)`);
   return { result };
 }
 

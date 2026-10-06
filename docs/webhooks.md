@@ -129,7 +129,9 @@ restarts, so use Postgres where delivery must be certain.
 Settings, Webhooks shows the **delivery log**: each attempt with its state (`queued`, `running`,
 `delivered`, `retrying`, `failed`), the HTTP status and the error. **Redeliver** sends the same
 event again as a fresh delivery (same event id, new delivery id). The log keeps the newest 200
-attempts on files and what the job history keeps on Postgres.
+attempts on files. On Postgres the daily `blob-gc` job removes completed attempts more than
+30 days after they finished. Queued or running deliveries and the earlier attempts of any
+delivery with an active retry stay until that delivery finishes. Other job history is unchanged.
 
 ## The ERP pattern
 

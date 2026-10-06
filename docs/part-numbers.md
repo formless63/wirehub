@@ -127,7 +127,12 @@ number, turn `immutable` off for the correction.
 
 - **Proposals**: Suggest in the part, cable and drawing forms; the unmapped lines of the BOM and
   build sheet; the **Part numbers** page's "would be numbered" column. All read the scheme's
-  `suggest`, with every number already in use (catalog, designs, drawings).
+  `suggest`, with every number already in use (catalog, designs, drawings). For a cable whose
+  current drawing number (or `productRef` when the drawing has none) the scheme recognises,
+  Suggest passes that number as `variantOf`, allowing the scheme to propose its next variant.
+  If the scheme offers no variant, Suggest falls back to a new number. An unnumbered cable
+  or one whose number is unrecognised also asks for a new number. Use changes
+  only the draft; save guards still apply.
 - **Health report and duplicate checks**: the canonical spelling (`parse`) is what two numbers are
   compared by (`1c-000001-00` and `1C-000001-00` are one number); numbers the scheme objects to
   (`pn-malformed`, `pn-wrong-kind`, `pn-out-of-range`) are listed, as warnings. Numbers from before
