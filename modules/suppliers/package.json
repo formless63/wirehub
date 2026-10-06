@@ -17,7 +17,8 @@
   "peerDependencies": {
     "@wirehub/model": "workspace:*",
     "@wirehub/modules": "workspace:*",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "@wirehub/docs": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.1.2",
