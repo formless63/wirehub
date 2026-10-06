@@ -432,13 +432,22 @@ package, so it needs no React); the app renders it as a React component.
 **Panels.** `registry.panels(slot)` are rendered in manifest order, each in a labelled
 `<section data-module data-panel>` and its own error boundary (a panel that throws shows one
 error line, the page stays up). The component receives `PanelProps`:
-`{ slot, module, db, design?, record?, readOnly, api }`. `cable-inspector` is appended to the
+`{ slot, module, db, design?, record?, readOnly, onChange?, api }`. `cable-inspector` is appended to the
 inspector column with the **live** design; `cable-documents` sits under the Documents tabs with
 the design being printed (a saved revision when one is chosen, with `readOnly: true`);
 `library-detail` sits under the open Library record with `record: { kind, id }`; `settings`
 panels are listed per module on `/modules`, which the rail links to only when some module has
 one. `api(method, path, body?)` calls the module's own routes
 (`/api/modules/<module>/<path>`) and resolves `{ status, body }`.
+
+Module API 1.4 adds optional `onChange(proposedDesign, description?)` for editable cable
+inspector panels. It replaces the live draft through the normal model validator, commit hook
+and undo history; the person still uses the editor's Save to persist it. Clone the design rather
+than mutating props. Feature-detect the callback and disable Save/Adopt when it is absent;
+Library/settings panels and printed document revisions receive no edit callback. A retained
+callback cannot edit after a lock, a different cable, unmounting, or another change to the draft.
+For asynchronous results, show a proposal for explicit adoption against the current draft.
+
 
 **Compare views.** The Library's **Compare** actions (a record's head, the list's pick-two
 mode, and a revision's **Compare with now**) open a compare view. The base ships a generic one —
@@ -553,7 +562,7 @@ The design is `specs/runtime-modules.md`; this is the summary.
   index lists, or by a key an owner pins (`trustKey` on the upload, or Settings → Code modules).
   The preview lists what it may do and the apply needs `consent: { code: "<id>@<version>" }`. A
   module built for another major of the module API, or a newer minor, is refused (`MODULE_API_VERSION`,
-  now `1.3`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
+  now `1.4`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
   pack is the data).
 - **Loading.** The server, the worker and the page load the enabled modules into a **live
   registry** (`createLiveRegistry`, `composeRegistry`): the built-ins first, then runtime modules in
@@ -629,7 +638,7 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 - The registry API (`@wirehub/modules`) and the model types are the module contract.
   Breaking changes to them bump the base's major version and are listed in the changelog.
-- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.3`) is what a runtime bundle records as its
+- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.4`) is what a runtime bundle records as its
   `apiVersion`: a hub runs a bundle of the same major and a minor no newer than its own.
 - A module declares the base range it supports in `peerDependencies`; pnpm warns on a
   mismatch at install.

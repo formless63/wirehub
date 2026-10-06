@@ -29,8 +29,8 @@ describe('revision sources', () => {
   });
 
   it('came with module API 1.2, which still runs 1.0 and 1.1 modules', () => {
-    expect(MODULE_API_VERSION).toBe('1.3');
+    expect(MODULE_API_VERSION).toBe('1.4');
     expect(apiCompatibility('1.1')).toEqual({ ok: true });
-    expect(apiCompatibility('1.4').ok).toBe(false);
+    expect(apiCompatibility('1.5').ok).toBe(false);
   });
 });

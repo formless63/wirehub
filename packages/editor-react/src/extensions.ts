@@ -16,6 +16,8 @@ export interface EditorSlotContext {
   db: Db;
   /** a read-only view: no writes from the panel */
   readOnly: boolean;
+  /** Replace the editable draft through the editor history. Absent on immutable document views. */
+  onChange?: (design: CableDesign, description?: string) => void;
 }
 
 /** A file a document exporter produced. */

@@ -38,6 +38,7 @@ export interface SlotContext {
   design?: CableDesign;
   record?: { kind: string; id: string };
   readOnly: boolean;
+  onChange?: (design: CableDesign, description?: string) => void;
 }
 
 /** Every panel the registry has for `slot`, in manifest order. Renders nothing when there are none. */
@@ -63,6 +64,7 @@ function ModulePanel(props: { module: string; id: string; label: string; slot: P
     db: context.db,
     readOnly: context.readOnly,
     api,
+    ...(context.readOnly || context.design === undefined || context.onChange === undefined ? {} : { onChange: context.onChange }),
     ...(context.design === undefined ? {} : { design: context.design }),
     ...(context.record === undefined ? {} : { record: context.record }),
   };

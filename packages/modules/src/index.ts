@@ -279,9 +279,9 @@ export type ModuleApi = (method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string
 /**
  * The props every panel component receives. `design` is the cable on screen
  * (the live, possibly unsaved one) in the cable slots; `record` names the
- * Library definition in `library-detail`. Panels are read-mostly: write through
- * `api` to the module's own routes, or through the module's data under
- * `design.extensions[module]` by the commit hook.
+ * Library definition in `library-detail`. Panels may replace an editable draft through `onChange` (API 1.4), or call
+ * `api` for the module's own routes. Neither route writes nor local draft edits
+ * bypass the host's normal validation and persistence rules.
  */
 export interface PanelProps {
   slot: PanelSlot;
@@ -292,6 +292,8 @@ export interface PanelProps {
   record?: { kind: string; id: string };
   /** a read-only view (a saved revision, someone else's edit lock): no writes */
   readOnly: boolean;
+  /** API 1.4: replace the live draft through undo, validation and the normal Save flow. Absent on immutable views; feature-detect before offering edits. */
+  onChange?: (design: CableDesign, description?: string) => void;
   api: ModuleApi;
 }
 

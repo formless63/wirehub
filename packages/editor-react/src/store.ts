@@ -223,7 +223,7 @@ export type EditorAction =
    * host's commit hook like any other edit). Parts it adds are placed; parts
    * it keeps stay put.
    */
-  | { type: 'apply-design'; design: CableDesign; description: string; record?: boolean }
+  | { type: 'apply-design'; design: CableDesign; description: string; record?: boolean; expectedDesign?: CableDesign }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'dismiss-rejection' }
@@ -915,6 +915,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
 
     case 'apply-design': {
+      // A panel's async replacement must not overwrite a draft that moved meanwhile.
+      if (action.expectedDesign !== undefined && state.design !== action.expectedDesign) return state;
       // breakout moulds are drawn nodes too
       const moulds = (action.design.instances.breakouts ?? []).map((b) => b.id);
       const ids = [...designInstances(action.design).map((i) => i.id), ...moulds];

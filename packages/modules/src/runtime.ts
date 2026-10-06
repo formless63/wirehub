@@ -24,7 +24,7 @@ import { createRegistry, manifestProblems, type ModuleRegistry, type WireHubModu
  * `1.0` was the build-time-only contract; `1.1` adds runtime loading (nothing a
  * 1.0 module relies on changed); `1.2` adds `revisionSources`. A minor bump adds; a major bump breaks.
  */
-export const MODULE_API_VERSION = '1.3';
+export const MODULE_API_VERSION = '1.4';
 
 const API_VERSION = /^(\d+)\.(\d+)$/;
 

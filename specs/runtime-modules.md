@@ -55,7 +55,7 @@ acme-erp-1.2.0/
 - **File paths** are `code/<module id>/(server|browser).mjs` and `code/<module id>/browser.css`,
   and explicit `code/<id>/migrations/NNNN_<module_id>_<name>.sql` pins; each at most 4 MiB, all of a pack's code 8 MiB. A `code/` file the
   `module` block does not name is refused.
-- **apiVersion** is `<major>.<minor>` of `MODULE_API_VERSION` (`@wirehub/modules`, now `1.3`;
+- **apiVersion** is `<major>.<minor>` of `MODULE_API_VERSION` (`@wirehub/modules`, now `1.4`;
   `1.0` was the build-time-only contract). A breaking change to the module contract bumps the
   major; anything added bumps the minor. A module is compatible when the major is equal and
   its minor is not newer than the hub's. Anything else is refused before a byte runs.
@@ -244,3 +244,12 @@ modules from `modules/<dir>` beside `packs/`.
 - `scripts/restart-smoke.sh <image>` (port 5560 by default): the compose stack, a runtime install by
   upload, Restart WireHub through the API, the app and the worker exiting 75 and restarted by their
   policy, the page's reconnect, the module loaded again.
+
+
+Module API 1.4 adds optional `PanelProps.onChange` to editable cable inspector panels. It
+replaces the current draft through the editor's validated undo/save path. Immutable views
+receive no callback; old hosts and modules remain compatible through feature detection.
+Retained callbacks are invalidated by draft changes, edit locks, cable changes and unmounting.
+The editor reducer also checks the expected draft before applying a panel replacement, so two
+queued edits cannot overwrite one another with an old snapshot. No domain-specific costing
+logic is part of this host seam (`docs/modules.md`, “Mounting details”).

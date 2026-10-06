@@ -515,10 +515,12 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   const canEdit = !readOnly && !editLocked;
   const lockedRef = useRef(editLocked);
   lockedRef.current = editLocked;
+  const editableRef = useRef(canEdit);
+  editableRef.current = canEdit;
   const reducer = useCallback((current: EditorState, action: EditorAction): EditorState => {
     const next = editorReducer(current, action);
-    if (!lockedRef.current || next.design === current.design || action.type === 'load-design') return next;
-    return { ...current, rejection: 'Read only — someone else is editing this cable' };
+    if (editableRef.current || next.design === current.design || action.type === 'load-design') return next;
+    return { ...current, rejection: lockedRef.current ? 'Read only — someone else is editing this cable' : 'Read only — this cable cannot be edited' };
   }, []);
   const [tool, setTool] = useState<CanvasTool>('select');
   /**
@@ -552,6 +554,29 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       props.depictionSource,
     ),
   );
+  const loaded = useRef(props.design);
+  // A callback may outlive its panel (for example, an asynchronous quote). Bind it to
+  // this exact draft and edit session so it cannot overwrite later edits or another cable.
+  const panelEditRef = useRef({ design: state.design, selected: props.design.id, source: props.design, editable: canEdit, generation: 0, mounted: true });
+  const previousPanelEdit = panelEditRef.current;
+  if (previousPanelEdit.design !== state.design || previousPanelEdit.selected !== props.design.id || previousPanelEdit.source !== props.design || previousPanelEdit.editable !== canEdit) {
+    panelEditRef.current = { ...previousPanelEdit, design: state.design, selected: props.design.id, source: props.design, editable: canEdit, generation: previousPanelEdit.generation + 1 };
+  }
+  useEffect(() => {
+    panelEditRef.current.mounted = true;
+    return () => { panelEditRef.current.mounted = false; };
+  }, []);
+  const panelSnapshot = panelEditRef.current;
+  const panelOnChange = (design: CableDesign, description = 'edit the design from a module panel'): void => {
+    const current = panelEditRef.current;
+    if (
+      !current.mounted || !current.editable || current.generation !== panelSnapshot.generation ||
+      current.design !== panelSnapshot.design || current.selected !== panelSnapshot.selected ||
+      loaded.current !== current.source || current.design.id !== current.selected || design.id !== current.selected
+    ) return;
+    dispatch({ type: 'apply-design', design, description, record: true, expectedDesign: panelSnapshot.design });
+  };
+  const panelEditable = canEdit && state.design.id === props.design.id && loaded.current === props.design;
   const [uncontrolledView, setUncontrolledView] = useState<View>('canvas');
   // controlled when the host hands in `view`; otherwise the editor's own tabs
   // (hidden in the controlled case — see the `cs-viewtabs` nav below) drive it
@@ -590,7 +615,6 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   const flow = useReactFlow();
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const minimap = useMinimapColors(canvasRef);
-  const loaded = useRef(props.design);
   const loadedDb = useRef(props.db);
   const emitted = useRef(state.design);
 
@@ -1754,7 +1778,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
               </fieldset>
               {props.extensions?.inspector === undefined ? null : (
                 <div className="cs-extension-slot" data-slot="cable-inspector">
-                  {props.extensions.inspector({ design: state.design, db: state.db, readOnly: readOnly || editLocked })}
+                  {props.extensions.inspector({ design: state.design, db: state.db, readOnly: !panelEditable, ...(panelEditable ? { onChange: panelOnChange } : {}) })}
                 </div>
               )}
             </div>
