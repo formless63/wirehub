@@ -10,7 +10,7 @@ const product = () => ({ lcscProductNumber: 'C123456', manufacturerProductNumber
   productPrice: { currency: 'USD', standardPricing: [{ breakQuantity: 5, unitPrice: 0.4 }, { breakQuantity: 100, unitPrice: 0.3 }], lcscReelFee: 2 },
 });
 function setup(result: unknown = product(), overrides: Record<string, unknown> = {}) {
-  const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json({ success: true, code: 200, result, ...overrides }));
+  const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(async () => Response.json({ success: true, code: 200, result, ...overrides }));
   const context: ProviderContext = { env, fetch, now: () => new Date('2026-01-01T00:00:00Z'), nonce: () => 'abcdefghijklmnop' };
   return { fetch, context };
 }
@@ -55,6 +55,54 @@ describe('LCSC approved partner API v3.4 adapter', () => {
   it('uses actual returned currency because All may ignore requested currency', async () => {
     const [offer] = await lcscAdapter({ ...request, currency: 'EUR' }, setup().context);
     expect(offer!.currency).toBe('USD'); expect(offer!.warnings).toContain('Supplier returned a different currency; no conversion was applied.');
+  });
+  it('uses one separately signed pricing-only call for missing/requested currency and joins exact identity', async () => {
+    for (const initialCurrency of ['USD', '']) {
+      const p = product(); p.productPrice.currency = initialCurrency;
+      const s = setup(p);
+      s.fetch.mockReset().mockResolvedValueOnce(Response.json({ success: true, code: 200, result: p })).mockResolvedValueOnce(Response.json({ success: true, code: 200, result: {
+        productPrice: { lcscProductNumber: p.lcscProductNumber, manufacturerProductNumber: p.manufacturerProductNumber, manufacturer: p.manufacturer, currency: 'EUR', quantityAvailable: '123', standardPricing: [{ breakQuantity: 5, unitPrice: 0.35 }] },
+      } }));
+      const nonce = vi.fn().mockReturnValueOnce('abcdefghijklmnop').mockReturnValueOnce('qrstuvwxyzabcdef');
+      const [offer] = await lcscAdapter({ ...request, currency: 'EUR' }, { ...s.context, nonce });
+      expect(s.fetch).toHaveBeenCalledTimes(2); expect(nonce).toHaveBeenCalledTimes(2);
+      const url = new URL(String(s.fetch.mock.calls[1]![0]));
+      expect(url.searchParams.get('returnInformation')).toBe('ProductPricing'); expect(url.searchParams.get('currency')).toBe('EUR');
+      const h = new Headers(s.fetch.mock.calls[1]![1]!.headers);
+      expect(h.get('nonce')).toBe('qrstuvwxyzabcdef');
+      expect(h.get('signature')).toBe(createHash('sha256').update(`key=synthetic-key&nonce=qrstuvwxyzabcdef&secret=synthetic-secret&timestamp=1767225600&${url.search.slice(1)}`).digest('hex'));
+      expect(offer).toMatchObject({ currency: 'EUR', stock: 123, moq: 5, orderMultiple: 5, packaging: 'Tape & Reel (TR)', unit: 'unknown', breaks: [{ minQty: 5, unitPrice: 0.35 }] });
+      expect(offer!.warnings).not.toContain('Supplier returned a different currency; no conversion was applied.');
+      expect(offer!.warnings).not.toContain('Pricing currency was not supplied; prices were omitted.');
+    }
+  });
+  it('joins pricing-only keyword results by full identity rather than row position or fuzzy MPN', async () => {
+    const p = product();
+    const price = { lcscProductNumber: p.lcscProductNumber, manufacturerProductNumber: p.manufacturerProductNumber, manufacturer: p.manufacturer, currency: 'EUR', standardPricing: [{ breakQuantity: 5, unitPrice: 0.35 }] };
+    const s = setup();
+    s.fetch.mockReset().mockResolvedValueOnce(Response.json({ success: true, code: 200, result: { products: [p] } })).mockResolvedValueOnce(Response.json({ success: true, code: 200, result: { products: [
+      { productPrice: { ...price, lcscProductNumber: 'C999999' } }, { productPrice: price },
+    ] } }));
+    const [offer] = await lcscAdapter({ ...request, query: p.manufacturerProductNumber, match: 'mpn', currency: 'EUR' }, s.context);
+    expect(offer!.breaks).toEqual([{ minQty: 5, unitPrice: 0.35 }]); expect(s.fetch).toHaveBeenCalledTimes(2);
+    for (const patch of [{ lcscProductNumber: 'C999999' }, { manufacturerProductNumber: 'SYN-42' }, { manufacturer: { name: 'Another manufacturer' } }, { currency: 'USD' }, { manufacturer: undefined }]) {
+      const bad = setup(); bad.fetch.mockReset().mockResolvedValueOnce(Response.json({ success: true, code: 200, result: p })).mockResolvedValueOnce(Response.json({ success: true, code: 200, result: { productPrice: { ...price, ...patch } } }));
+      const [unjoined] = await lcscAdapter({ ...request, currency: 'EUR' }, bad.context);
+      expect(unjoined!.currency).toBe('USD'); expect(unjoined!.breaks).toEqual(p.productPrice.standardPricing.map(b => ({ minQty: b.breakQuantity, unitPrice: b.unitPrice })));
+      expect(bad.fetch).toHaveBeenCalledTimes(2);
+    }
+  });
+  it('does not fan out or retry ambiguous/malformed pricing-only results', async () => {
+    const p = product(); const price = { lcscProductNumber: p.lcscProductNumber, manufacturerProductNumber: p.manufacturerProductNumber, manufacturer: p.manufacturer, currency: 'EUR', standardPricing: [{ breakQuantity: 5, unitPrice: 0.35 }] };
+    const s = setup(); s.fetch.mockReset().mockResolvedValueOnce(Response.json({ success: true, code: 200, result: p })).mockResolvedValueOnce(Response.json({ success: true, code: 200, result: { productPrice: [price, price] } }));
+    expect((await lcscAdapter({ ...request, currency: 'EUR' }, s.context))[0]!.currency).toBe('USD'); expect(s.fetch).toHaveBeenCalledTimes(2);
+    const unchanged = setup(); await lcscAdapter(request, unchanged.context); expect(unchanged.fetch).toHaveBeenCalledTimes(1);
+    const noMatch = setup({ products: [] }); await lcscAdapter({ ...request, match: 'mpn' }, noMatch.context); expect(noMatch.fetch).toHaveBeenCalledTimes(1);
+  });
+  it('sanitizes pricing-only failures and makes no further requests', async () => {
+    const s = setup(); s.fetch.mockReset().mockResolvedValueOnce(Response.json({ success: true, code: 200, result: product() })).mockResolvedValueOnce(Response.json({ message: 'synthetic-secret' }, { status: 401 }));
+    await expect(lcscAdapter({ ...request, currency: 'EUR' }, s.context)).rejects.toThrow('Supplier request failed.');
+    expect(s.fetch).toHaveBeenCalledTimes(2);
   });
   it('fails absent credentials/invalid nonce without fetching and never reflects provider error payloads', async () => {
     const s = setup();

@@ -39,24 +39,27 @@ export const lcscAdapter: SupplierAdapter = async (request, context) => {
   if (!key?.trim() || !secret?.trim()) throw new Error('LCSC credentials are not configured.');
   try {
     if (!['USD', 'CNY', 'EUR', 'HKD'].includes(request.currency)) throw new Error('Unsupported currency.');
-    const nonce = context.nonce();
-    if (!/^[a-zA-Z0-9]{16}$/.test(nonce)) throw new Error('Invalid nonce.');
     const now = context.now();
-    const timestamp = String(Math.floor(now.getTime() / 1000));
     const payload: Record<string, string> = { currency: request.currency, returnInformation: 'All' };
     const endpoint = request.match === 'supplier' ? 'productdetails' : 'keywordsearch';
     if (request.match === 'supplier') payload.lcscProductNumber = request.query;
     else Object.assign(payload, { keyword: request.query, language: 'EN', limit: '30', offset: '0' });
-    const query = Object.keys(payload).sort().map((k) => `${quotePlus(k)}=${quotePlus(payload[k]!)}`).join('&');
-    const signatureBytes = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`key=${key}&nonce=${nonce}&secret=${secret}&timestamp=${timestamp}&${query}`));
-    const signature = Array.from(new Uint8Array(signatureBytes), (b) => b.toString(16).padStart(2, '0')).join('');
-    const response = object(await jsonRequest(`https://api.lcsc.com/rest/api/agent/product/v1/${endpoint}?${query}`, {
-      method: 'GET', headers: { Accept: 'application/json', 'Content-Type': 'application/json', key, nonce, timestamp, signature },
-    }, context));
-    if (response.success !== true || response.code !== 200) throw new Error('Unsuccessful provider result.');
-    const result = object(response.result);
-    const products = request.match === 'supplier' ? [result] : Array.isArray(result.products) ? result.products.slice(0, 30) : [];
-    return products.flatMap((raw): SupplierOffer[] => {
+    const fetchProducts = async (params: Record<string, string>): Promise<ObjectValue[]> => {
+      const nonce = context.nonce();
+      if (!/^[a-zA-Z0-9]{16}$/.test(nonce)) throw new Error('Invalid nonce.');
+      const timestamp = String(Math.floor(context.now().getTime() / 1000));
+      const query = Object.keys(params).sort().map((k) => `${quotePlus(k)}=${quotePlus(params[k]!)}`).join('&');
+      const signatureBytes = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`key=${key}&nonce=${nonce}&secret=${secret}&timestamp=${timestamp}&${query}`));
+      const signature = Array.from(new Uint8Array(signatureBytes), (b) => b.toString(16).padStart(2, '0')).join('');
+      const response = object(await jsonRequest(`https://api.lcsc.com/rest/api/agent/product/v1/${endpoint}?${query}`, {
+        method: 'GET', headers: { Accept: 'application/json', 'Content-Type': 'application/json', key, nonce, timestamp, signature },
+      }, context));
+      if (response.success !== true || response.code !== 200) throw new Error('Unsuccessful provider result.');
+      const result = object(response.result);
+      return (request.match === 'supplier' ? [result] : Array.isArray(result.products) ? result.products.slice(0, 30) : []).map(object);
+    };
+    const products = await fetchProducts(payload);
+    const offers = products.flatMap((raw): SupplierOffer[] => {
       const product = object(raw);
       const supplierNumber = text(product.lcscProductNumber);
       // Guide field table says ProductCode; its actual examples say ProductNumber.
@@ -88,6 +91,30 @@ export const lcscAdapter: SupplierAdapter = async (request, context) => {
         ...(stock === undefined ? {} : { stock }), ...(moq === undefined ? {} : { moq }), ...(orderMultiple === undefined ? {} : { orderMultiple }),
       }];
     });
+    // Guide 4.1.1/4.1.6 says currency is effective only in ProductPricing mode.
+    // At most one additional call, with the same lookup/pagination: no per-result fanout.
+    if (offers.some((offer) => offer.currency !== request.currency || offer.warnings?.includes('Pricing currency was not supplied; prices were omitted.'))) {
+      const priceProducts = await fetchProducts({ ...payload, returnInformation: 'ProductPricing' });
+      // The documented productPrice fields carry all three identity fields. Never
+      // join by row order or a fuzzy MPN; incomplete/ambiguous pricing stays unavailable.
+      const candidates = priceProducts.flatMap((p) => Array.isArray(p.productPrice) ? p.productPrice.slice(0, 30).map(object) : [object(p.productPrice)]);
+      return offers.map((offer) => {
+        const matches = candidates.filter((price) => {
+          const maker = Array.isArray(price.manufacturer) ? price.manufacturer[0] : price.manufacturer;
+          return text(price.lcscProductNumber).toLowerCase() === offer.supplierNumber.toLowerCase()
+            && text(price.manufacturerProductNumber).toLowerCase() === offer.mpn.toLowerCase()
+            && text(object(maker).name).toLowerCase() === offer.manufacturer.toLowerCase()
+            && text(price.currency).toUpperCase() === request.currency;
+        });
+        if (matches.length !== 1) return offer;
+        const price = matches[0]!;
+        const stock = quantity(price.quantityAvailable, 0);
+        const warnings = (offer.warnings ?? []).filter((w) => w !== 'Pricing currency was not supplied; prices were omitted.' && w !== 'Supplier returned a different currency; no conversion was applied.');
+        if (typeof price.lcscReelFee === 'number' && price.lcscReelFee > 0 && !warnings.includes('Additional reel fee is not included in unit prices.')) warnings.push('Additional reel fee is not included in unit prices.');
+        return { ...offer, currency: request.currency, breaks: prices(price.standardPricing), warnings, observedAt: context.now().toISOString(), ...(stock === undefined ? {} : { stock }) };
+      });
+    }
+    return offers;
   } catch (error) {
     if (error instanceof SupplierHttpError) throw error;
     throw new Error('LCSC lookup failed.');
