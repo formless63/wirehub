@@ -69,7 +69,7 @@ const IMAGE_EXTENSION = /\.(?:svg|png|jpe?g|webp)$/;
 const DOC_PATH = /^(?:docs|assets)(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.pdf$/;
 const FONT_PATH = /^fonts(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)+\.(?:ttf|otf|woff2)$/;
 const DOC_OR_FONT_EXTENSION = /\.(?:pdf|ttf|otf|woff2)$/;
-const CODE_EXTENSION = /\.(?:mjs|css)$/;
+const CODE_EXTENSION = /\.(?:mjs|css|sql)$/;
 
 /** An image a pack may ship: under `depictions/` or `art/`, an allowlisted type, a safe path; or `assets/<sha256>.png|jpg`, an image of the shared asset library. */
 export function isPackAssetPath(path: string): boolean {

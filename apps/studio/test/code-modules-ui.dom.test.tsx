@@ -70,7 +70,7 @@ describe('installing a code module from a file', () => {
     const file = new File([tinyBundle(keys.pem) as BlobPart], 'tiny-1.0.0.zip', { type: 'application/zip' });
     fireEvent.change(screen.getByLabelText('Pack file'), { target: { files: [file] } });
     const consent = await screen.findByTestId('code-consent');
-    expect(consent.textContent).toContain('Tiny rule (tiny 1.0.0, module API 1.2)');
+    expect(consent.textContent).toContain('Tiny rule (tiny 1.0.0, module API 1.3)');
     expect(consent.textContent).toContain('runs code in your hub');
     expect(consent.textContent).toContain('May: server-code');
     const install = screen.getByRole('button', { name: 'Install' }) as HTMLButtonElement;
@@ -85,6 +85,24 @@ describe('installing a code module from a file', () => {
 
 describe('Settings → Code modules', () => {
   const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><CodeModulesSettings /></QueryClientProvider>);
+
+  it('explains pending database changes with an administrator action', async () => {
+    const installed = await handleWorkbenchRequest({ method: 'POST', path: '/api/packs/install', body: { zip: Buffer.from(tinyBundle(keys.pem)).toString('base64'), trustKey: keys.publicKey, apply: true, consent: { code: 'tiny@1.0.0' } } }, deps);
+    expect(installed.status).toBe(200);
+    vi.stubGlobal('fetch', async (input: string) => {
+      const response = await handleWorkbenchRequest({ method: 'GET', path: input }, deps);
+      if (input === '/api/code-modules') {
+        const body = response.body as { modules: { state: string; error?: string }[] };
+        body.modules[0]!.state = 'pending';
+        body.modules[0]!.error = 'Database changes are waiting. An administrator must run the migration command with the publisher public key before this module can run.';
+      }
+      return new Response(JSON.stringify(response.body), { status: response.status, headers: { 'content-type': 'application/json' } });
+    });
+    mount();
+    const row = (await screen.findByText('Tiny rule')).closest('li');
+    expect(row?.textContent).toContain('waiting for database changes');
+    expect(row?.textContent).toContain('An administrator must run the migration command');
+  });
 
   it('lists the module, turns it off, and restarts WireHub, reloading the page when it is back', async () => {
     const installed = await handleWorkbenchRequest({ method: 'POST', path: '/api/packs/install', body: { zip: Buffer.from(tinyBundle(keys.pem)).toString('base64'), trustKey: keys.publicKey, apply: true, consent: { code: 'tiny@1.0.0' } } }, deps);

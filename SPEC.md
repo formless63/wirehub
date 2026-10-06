@@ -483,7 +483,12 @@ commit hook, and — for an optional **domain module** — a setup entry that fi
 (`/setup`) offers. The image's built-in modules are listed in `apps/studio/modules.config.ts`;
 on top of them an owner installs **runtime code modules** from a store or a signed upload in the
 UI (owner decision 2026-10-05: one public image for everyone), loaded into a live registry without
-a rebuild, and Settings can restart WireHub when a change needs a fresh process
+a rebuild. Module API 1.3 also allows signed SQL migrations: a Postgres runtime module
+waits before any code import until an administrator applies its pinned SQL with the owner-run
+`db:migrate --migration-key <publisher public key or file> [--org <slug>]` command. The command
+re-verifies the original signed manifest against these separately supplied public roots; it never
+imports runtime code. The app and worker retain `studio_app` privileges. Runtime SQL modules
+are refused on the file backend. Settings can restart WireHub when a change needs a fresh process
 (`specs/runtime-modules.md`). `@wirehub/modules` is
 MIT; modules that use only the module API may take any licence (`MODULE-EXCEPTION.md`).
 Full design: `docs/modules.md`.

@@ -146,6 +146,8 @@ export interface WorkbenchDeps {
   designs: DesignStore;
   /** the definition library every candidate is validated against */
   loadDb: () => Awaitable<Db>;
+  /** Database-only ledger readiness; never executes SQL or imports runtime entries. */
+  moduleMigrationStatus?: (id: string, files: readonly { path: string; sha256: string }[]) => Promise<string[]>;
   /**
    * A token that changes whenever the stored catalog does (storage seams).
    * Given one, the unit of work loads `loadDb()` once

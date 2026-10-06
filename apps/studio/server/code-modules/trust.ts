@@ -74,7 +74,7 @@ export function codeGate(input: CodeGateInput): CodeGateResult {
   const m = manifest.module as unknown as CodeModuleManifest;
   const shape = codeModuleManifestProblems(m);
   if (shape.length > 0) return refused(422, `That is not a usable code module: ${shape[0]}${shape.length > 1 ? ` (and ${shape.length - 1} more)` : ''}.`, 'Nothing was installed.', { problems: shape });
-  const named = [m.server, m.browser, m.css].filter((p): p is string => p !== undefined);
+  const named = [m.server, m.browser, m.css, ...(m.migrations ?? []).map((f) => f.path)].filter((p): p is string => p !== undefined);
   for (const path of named) if (!input.shipped.has(path)) return refused(422, `The module names ${path}, which the pack does not carry.`, 'Nothing was installed.');
   for (const path of codeFiles) if (!isCodeFilePath(path) || !named.includes(path)) return refused(422, `The pack carries ${path}, which its module does not name.`, 'Nothing was installed. Only the module\'s own entries may sit under code/.');
   const api = apiCompatibility(m.apiVersion);
@@ -88,6 +88,8 @@ export function codeGate(input: CodeGateInput): CodeGateResult {
   if (manifest.files === undefined) return refused(422, `${m.id} ${m.version} is not signed with its files pinned.`, 'Nothing was installed. A code module must be signed (store-index.mjs sign-pack, or wirehub-module build --key).');
   const pins = packFileProblems(manifest, input.shipped);
   if (pins.length > 0) return refused(422, `${m.id} ${m.version}'s files do not match its signed manifest (${pins[0]}).`, 'Nothing was installed.', { problems: pins });
+
+  for (const file of m.migrations ?? []) if (manifest.files[file.path] !== file.sha256) return refused(422, 'A migration checksum does not match the signed file pins.', 'Nothing was installed.');
 
   let trust: { via: 'store' | 'pinned'; keys: string[] };
   let pin: string | undefined;
@@ -127,7 +129,7 @@ export function codeGate(input: CodeGateInput): CodeGateResult {
     permissions: [...m.permissions],
     apply: applyModeOf(m.extensionPoints),
     trust: { via: trust.via, keys: trust.keys.map(keyFacts) },
-    warning: WARNING,
+    warning: m.migrations === undefined ? WARNING : `${WARNING} Its SQL migrations change database schemas with the schema owner's privileges and require a separate owner-run migration command before it can run.`,
     consent: `${m.id}@${m.version}`,
   };
   if (input.apply) {

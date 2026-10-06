@@ -165,7 +165,7 @@ export interface CodeModuleStatusView {
   enabled: boolean;
   enabledBy?: string;
   enabledOn?: string;
-  state: 'loaded' | 'disabled' | 'off' | 'failed' | 'refused';
+  state: 'loaded' | 'disabled' | 'off' | 'failed' | 'refused' | 'pending';
   error?: string;
   apply: 'live' | 'restart';
   restartPoints: string[];

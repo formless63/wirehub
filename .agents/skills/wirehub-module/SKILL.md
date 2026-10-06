@@ -134,7 +134,7 @@ module package stays as above (its `pack/` becomes the bundle's data); then:
    `node scripts/store-index.mjs publisher-keygen`, kept outside every repository). It bundles the server
    and browser entries with the app's own Vite (React stays the host's), writes the manifest's `module`
    block (the `apiVersion`, the extension points and permissions it derived from your module object),
-   pins every file and signs. Not allowed at runtime: `migrations`; `setup` and `catalogPacks` are ignored
+   pins every file and signs. For SQL add `--migrations-dir <SQL dir>` (API 1.3); `setup` and `catalogPacks` are ignored
    (the bundle carries the data).
 2. Check it: `node .agents/skills/wirehub-catalog-pack/scripts/verify-pack.mjs <dir>/<id>-<version>`.
 3. Publish it: put the package under `modules/` of a store made from `templates/store` (its workflow
@@ -197,5 +197,5 @@ write their mapping from the format's public documentation (WireViz is GPL-3.0: 
 - [ ] only the extension points you need; pure where the base is pure; no `.tsx`
 - [ ] namespaced: rule codes, `/api/modules/<id>/`, `/m/<id>/`, `extensions.<id>`
 - [ ] `manifestProblems` empty, tests and `build` green
-- [ ] runtime: `wirehub-module build` signs it, `verify-pack.mjs` passes, no `migrations`
+- [ ] runtime: `wirehub-module build` signs it, `verify-pack.mjs` passes; SQL uses `--migrations-dir`, waits before code loads, and an administrator runs `db:migrate --migration-key <publisher public key or file> [--org <slug>]` with independent trusted roots (docs/modules.md, "Runtime module SQL"). Never give the app/worker schema-owner credentials.
 - [ ] no shop-specific names, hosts or paths in anything public (`wirehub-contribute`)

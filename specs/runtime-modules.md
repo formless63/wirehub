@@ -53,21 +53,29 @@ acme-erp-1.2.0/
   `WireHubModule`, with the manifest's id and version. The browser entry exports the same
   module (its components are real there; on the server they are opaque values).
 - **File paths** are `code/<module id>/(server|browser).mjs` and `code/<module id>/browser.css`,
-  nothing else under `code/`; each at most 4 MiB, all of a pack's code 8 MiB. A `code/` file the
+  and explicit `code/<id>/migrations/NNNN_<module_id>_<name>.sql` pins; each at most 4 MiB, all of a pack's code 8 MiB. A `code/` file the
   `module` block does not name is refused.
-- **apiVersion** is `<major>.<minor>` of `MODULE_API_VERSION` (`@wirehub/modules`, now `1.1`;
+- **apiVersion** is `<major>.<minor>` of `MODULE_API_VERSION` (`@wirehub/modules`, now `1.3`;
   `1.0` was the build-time-only contract). A breaking change to the module contract bumps the
   major; anything added bumps the minor. A module is compatible when the major is equal and
   its minor is not newer than the hub's. Anything else is refused before a byte runs.
 - **Extension points** declared must cover what the module object contributes
   (`extensionPointsOf`); **permissions** must cover what it does (`permissionsOf`: `server-code`,
   `browser-code`, `routes`, `writes` (a route that takes the write lock, or an importer),
-  `jobs`, `sign-in`, `env:<NAME>` for every variable it names). A module that does more than it
+  `jobs`, `sign-in`, `database-schema` for SQL, `env:<NAME>` for every variable it names). A module that does more than it
   declared is refused at load. Permissions are not a sandbox (a module is trusted code, §2):
   they make the consent step honest.
-- **Not allowed in a runtime module:** `migrations` (the hub's migrate one-shot runs as the
-  schema owner before the app; a runtime module cannot reach it — bead filed) and `setup` /
-  `catalogPacks` (the carrying pack *is* the data; the host ignores both, and the build tool
+- **SQL migrations (API 1.3):** build with explicit `--migrations-dir`, include sequential paths
+  and raw SHA-256 pins in `module.migrations`, and retain the original signed manifest and
+  signature in the install record. No entry imports until every SQL file is applied and the
+  historical ledger and raw bytes match. Missing/edited applied files refuse loading.
+  The owner-only `db:migrate --migration-key <publisher public key or file> [--org <slug>]`
+  re-verifies that proof against independent public roots, checks identity/pins/bytes, and
+  executes data-only SQL without importing code. File deployments refuse SQL modules.
+  Code consent explains the elevated schema phase; migration execution needs a separate
+  owner command. The app/worker retain their existing least privileges. Multi-org schema
+  rollout and kill switches follow `docs/modules.md`, “Runtime module SQL”.
+- **Ignored at runtime:** `setup` / `catalogPacks` (the carrying pack *is* the data; the host ignores both, and the build tool
   copies the module's pack directory into the bundle instead).
 
 ### Installing is installing a pack

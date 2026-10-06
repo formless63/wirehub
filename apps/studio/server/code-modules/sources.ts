@@ -34,6 +34,11 @@ export function depsCodeModuleSource(deps: () => WorkbenchDeps | undefined, opti
       const settings = dataDir !== undefined && dataDir !== '' ? readSettingsFile(dataDir) : settingsOf(await current.docs?.read(CODE_MODULES_DOC));
       return { packs, settings };
     },
+    async migrations(id, files) {
+      const check = deps()?.moduleMigrationStatus;
+      if (check === undefined) throw new Error('This module needs SQL migrations and requires the Postgres backend.');
+      return check(id, files);
+    },
     async bytes(pack, relative, sha) {
       if (options.files !== undefined) {
         const { dataDir, packsDir } = options.files;

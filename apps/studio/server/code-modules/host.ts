@@ -43,10 +43,11 @@ import { codeModulesAllowedByEnv, type CodeModuleSettings } from './state.ts';
 export interface CodeModuleSource {
   state(): Promise<{ packs: readonly InstalledPack[]; settings: CodeModuleSettings }>;
   /** the bytes of `relative` (`code/<id>/server.mjs`) of an installed pack, whose sha256 should be `sha` */
+  migrations?: (id: string, files: readonly { path: string; sha256: string }[]) => Promise<string[]>;
   bytes(pack: InstalledPack, relative: string, sha: string): Promise<Uint8Array | undefined>;
 }
 
-export type CodeModuleState = 'loaded' | 'disabled' | 'off' | 'failed' | 'refused';
+export type CodeModuleState = 'loaded' | 'disabled' | 'off' | 'failed' | 'refused' | 'pending';
 
 export interface CodeModuleStatus {
   id: string;
@@ -142,6 +143,7 @@ export function manifestOfInstalled(m: InstalledModule): CodeModuleManifest {
     server: codeFilePath(m.id, 'server.mjs'),
     ...(m.files.browser === undefined ? {} : { browser: codeFilePath(m.id, 'browser.mjs') }),
     ...(m.files.css === undefined ? {} : { css: codeFilePath(m.id, 'browser.css') }),
+    ...(m.files.migrations === undefined ? {} : { migrations: m.files.migrations }),
     extensionPoints: [...m.extensionPoints],
     permissions: [...m.permissions],
   };
@@ -250,6 +252,21 @@ export function createCodeModuleHost(options: CodeModuleHostOptions): CodeModule
         status.error = api.reason;
         continue;
       }
+      if (m.extensionPoints.includes('migrations')) {
+        try {
+          if (options.source.migrations === undefined || m.files.migrations === undefined) throw new Error('This module needs database migrations and requires the Postgres backend.');
+          const pending = await options.source.migrations(m.id, m.files.migrations);
+          for (const file of m.files.migrations) {
+            const bytes = await options.source.bytes(pack, file.path, file.sha256);
+            if (bytes === undefined || sha256(bytes) !== file.sha256) throw new Error(`SQL file ${file.path} is missing or changed.`);
+          }
+          if (pending.length > 0) {
+            status.state = 'pending';
+            status.error = 'Database changes are waiting. An administrator must run the migration command with the publisher public key before this module can run.';
+            continue;
+          }
+        } catch (error) { status.state = 'refused'; status.error = message(error); continue; }
+      }
       const failed = quarantine.get(key);
       if (failed !== undefined) {
         status.state = 'failed';
@@ -329,6 +346,11 @@ export function createCodeModuleHost(options: CodeModuleHostOptions): CodeModule
       return { env: codeModulesAllowedByEnv(env()), settings: state.settings.allow !== false };
     },
     async trial(manifest, serverBytes, serverSha) {
+      if (manifest.extensionPoints.includes('migrations')) {
+        if (options.source.migrations === undefined || manifest.migrations === undefined) return ['This module needs SQL migrations and requires the Postgres backend.'];
+        try { if ((await options.source.migrations(manifest.id, manifest.migrations)).length > 0) return []; }
+        catch (error) { return [message(error)]; }
+      }
       const key = `${manifest.id}@${serverSha}`;
       quarantine.delete(key);
       let module: WireHubModule;

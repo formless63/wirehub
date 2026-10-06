@@ -86,6 +86,7 @@ export interface PackModule {
   browser?: string;
   /** `code/<id>/browser.css` */
   css?: string;
+  migrations?: { path: string; sha256: string }[];
   extensionPoints: string[];
   permissions: string[];
   description?: string;
@@ -98,11 +99,13 @@ export interface InstalledModule {
   label: string;
   apiVersion: string;
   /** sha256 of each entry as installed */
-  files: { server: string; browser?: string; css?: string };
+  files: { server: string; browser?: string; css?: string; migrations?: { path: string; sha256: string }[] };
   extensionPoints: string[];
   permissions: string[];
   /** how its signature was trusted: a store's publisher key, or a key an owner pinned; the keys that verified */
   trust?: { via: 'store' | 'pinned'; keys: string[] };
+  /** Public install proof; the owner re-verifies against separately supplied key roots before SQL. */
+  migrationProof?: { manifest: PackManifest; signature: string };
 }
 
 export const PACK_MANIFEST = 'wirehub-pack.json';
@@ -580,7 +583,7 @@ export function packAssetFiles(dir: string): string[] {
   // an image of the shared asset library, named by its hash, with its `assets/index.json` entry (cs-8re)
   if (existsSync(join(dir, 'assets'))) for (const entry of readdirSync(join(dir, 'assets'), { withFileTypes: true })) if (entry.isFile() && PACK_ASSET_IMAGE.test(`assets/${entry.name}`)) out.push(`assets/${entry.name}`);
   walk('fonts', /\.(ttf|otf|woff2)$/);
-  walk('code', /\.(mjs|css)$/);
+  walk('code', /\.(mjs|css|sql)$/);
   return out.sort();
 }
 
@@ -597,9 +600,10 @@ export function installedRecordOf(manifest: PackManifest, added: Record<string, 
   record.module = {
     id: m.id,
     version: m.version,
+    ...(m.migrations === undefined ? {} : { migrationProof: { manifest, signature: readFileSync(join(packDir, 'wirehub-pack.sig'), 'utf8') } }),
     label: m.label,
     apiVersion: m.apiVersion,
-    files: { server: sha(m.server), ...(m.browser === undefined ? {} : { browser: sha(m.browser) }), ...(m.css === undefined ? {} : { css: sha(m.css) }) },
+    files: { server: sha(m.server), ...(m.browser === undefined ? {} : { browser: sha(m.browser) }), ...(m.css === undefined ? {} : { css: sha(m.css) }), ...(m.migrations === undefined ? {} : { migrations: m.migrations.map((f) => ({ path: f.path, sha256: sha(f.path) })) }) },
     extensionPoints: [...m.extensionPoints],
     permissions: [...m.permissions],
   };

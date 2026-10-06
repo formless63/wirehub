@@ -422,7 +422,7 @@ base's migrations, as the schema owner, into the schema `mod_<module_id>` (`pc-s
   select (the base's grants, §3.12).
 - Catalog truth still goes through change sets; module tables hold evidence and indexes.
   Removing a module from the manifest leaves its schema; dropping it is an explicit admin act.
-- The file backend ignores `migrations`.
+- The file backend ignores built-in `migrations`; it refuses runtime SQL modules before code loads.
 
 UI contributions carry their component as an opaque value (`unknown` in the registry
 package, so it needs no React); the app renders it as a React component.
@@ -553,7 +553,7 @@ The design is `specs/runtime-modules.md`; this is the summary.
   index lists, or by a key an owner pins (`trustKey` on the upload, or Settings → Code modules).
   The preview lists what it may do and the apply needs `consent: { code: "<id>@<version>" }`. A
   module built for another major of the module API, or a newer minor, is refused (`MODULE_API_VERSION`,
-  now `1.2`). `migrations` cannot be used at runtime; `setup` and `catalogPacks` are ignored (the
+  now `1.3`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
   pack is the data).
 - **Loading.** The server, the worker and the page load the enabled modules into a **live
   registry** (`createLiveRegistry`, `composeRegistry`): the built-ins first, then runtime modules in
@@ -629,7 +629,7 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 - The registry API (`@wirehub/modules`) and the model types are the module contract.
   Breaking changes to them bump the base's major version and are listed in the changelog.
-- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.2`) is what a runtime bundle records as its
+- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.3`) is what a runtime bundle records as its
   `apiVersion`: a hub runs a bundle of the same major and a minor no newer than its own.
 - A module declares the base range it supports in `peerDependencies`; pnpm warns on a
   mismatch at install.
@@ -643,9 +643,50 @@ fork keeps a private fork of this repository whose only difference is those two 
 - Sandboxing. A module is trusted code, reviewed like the base; a runtime module's declared
   permissions are checked against what it registers, so the consent is honest, but they are not a
   sandbox.
-- Runtime module migrations (bead filed): a module with its own tables is built in for now.
+- Runtime SQL migrations use the separately authenticated owner command described above.
 
 ## Next steps
 
 Tracked in beads: bench work instructions as a module point; copying an installed pack's SVG art; an upload route for importers
 larger than a JSON body; panels in the saved-revision view.
+
+
+### Runtime module SQL (module API 1.3)
+
+A runtime module declares `migrations: { dir }` as a built-in does, then builds with
+`wirehub-module build <module dir> --migrations-dir <SQL dir> --key <publisher.key>`.
+The explicit directory is required because the bundle relocates the module's `import.meta.url`.
+The builder copies raw UTF-8 SQL to `code/<id>/migrations/NNNN_<module_id>_<name>.sql`,
+numbered from 0001 without gaps, and signs its paths and SHA-256 checksums in the manifest.
+SQL uses the code file limits (4 MiB each, 8 MiB total including entries), at most 100 migrations.
+The install preview names `database-schema` permission and explains the separate elevated phase.
+
+Installing or enabling a SQL module leaves it **waiting for database changes** before any entry
+is imported. On the database host, an administrator supplies a publisher public key compared
+with the publisher independently, outside the app's writable catalog:
+
+```sh
+pnpm --filter studio db:migrate --migration-key /trusted/publisher.pub --org main
+```
+
+`--migration-key` is repeatable and accepts public key text or a file. `DATABASE_OWNER_URL`
+provides the existing schema owner connection; the command uses `WIREHUB_BLOBS` to read
+installed SQL. No owner credential belongs in the app or worker. A normal migrate invocation
+continues to apply base and built-in migrations; runtime SQL requires the explicit key option.
+The owner runner re-verifies the preserved original manifest/signature against these roots,
+checks installed identity and pins and raw bytes, then passes only SQL data to the migration
+runner. App settings' pinned keys and recorded trust flags are never owner authority. Legacy
+code-only packs remain supported; an SQL record lacking signed proof must be reinstalled.
+
+Module schemas and migration ledgers are shared across organisations. Use `--org` to select
+the installed signed bundle when more than one organisation exists. Roll out a new schema
+consistently across all organisations: an older installation missing applied files is refused
+until updated. A same-id bundle with different historical SQL is refused, even in another org;
+SQL history is immutable and a change adds a new file. App readiness checks all applied names
+and hashes, and all SQL bytes on every sync, including re-enable and already-applied bundles.
+Enabled/forced RLS and an `org_isolation` policy remain required for org-scoped tables.
+Disable or kill-switch settings stop both runtime loading and owner runtime migration selection.
+After applying SQL the next host and worker sync loads live contributions.
+SQL publishers are trusted with schema-owner authority. The RLS checks enforce enabled/forced
+security and the named policy; administrators must review the policy meaning and the signed SQL.
+The file backend refuses runtime SQL modules with a Postgres requirement.
