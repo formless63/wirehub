@@ -45,11 +45,15 @@ editor. Ordinary WireHub use works with all suppliers disabled.
 
 Lookups require an exact supplier number or manufacturer part number. An optional
 manufacturer narrows matches. Quantity, currency and country are explicit.
+Mouser's V2 schema does not accept country or currency parameters; the account's
+locale controls its response, and only matching-currency prices are retained.
 Results include observation time, available price breaks, stock, MOQ, order
 multiples and packaging when the API supplies them. Unsupported or mismatched
 currency leaves prices unavailable; there is no currency conversion. There is
 no automatic refresh or cache: each lookup consumes provider quota. Requests
-have bounded response sizes and deadlines; retry hints remain visible for manual
+to LCSC may include one pricing follow-up when its full response ignores the
+requested currency; metadata and pricing join only on exact part identity.
+Requests have bounded response sizes and deadlines; retry hints remain visible for manual
 retry. Stopping polling does not cancel an already queued job.
 
 Pricing units often remain unconfirmed because a packaging description does not
