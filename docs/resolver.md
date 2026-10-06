@@ -61,7 +61,11 @@ interface, body, board, component or vocabulary id is an error, a missing `src` 
 Two optional fields on a `signals` entry tell the resolver how lines meet:
 
 - `pairsWith`: the signals this one lands on at the far device — a transmit onto a receive
-  (`rs232-txd` → `rs232-rxd`). Read both ways.
+  (`rs232-txd` → `rs232-rxd`). Read both ways. A unique pin explicitly declared `out`
+  can feed multiple pins declared `in` when each connection is named by `pairsWith`.
+  This applies in either query direction; same-signal matches, ambiguous drivers,
+  bidirectional pins and differential signals retain one-to-one pairing. Every branch still
+  undergoes the usual direction, level, conditioning and hazard checks.
 - `diffPair`: the other line of a differential pair (`rs485-a` ↔ `rs485-b`); a derived cable gives
   the two one twisted pair when its stock has one.
 

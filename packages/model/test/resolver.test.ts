@@ -169,6 +169,42 @@ describe('resolve', () => {
     expect(straight?.why.map((w) => w.code)).toContain('hazard:output-contention');
   });
 
+  it('fans a unique declared driver out to paired inputs and derives a buildable design in either query direction', () => {
+    const db = library();
+    db.vocab!.signals!.entries.push(signal('test-rx-extra', 'data', { pairsWith: ['test-tx'] }));
+    const port = (pins: DeviceProfile['ports'][number]['pins']) => ({ id: 'p1', interface: 'test-port', body: 'de9-male', pins: { '1': 'nc' as const, '2': 'nc' as const, '3': 'nc' as const, '4': 'nc' as const, ...pins } });
+    db.devices = [
+      { id: 'driver', label: 'Driver', ports: [port({ '1': { signal: 'test-tx', dir: 'out' } })], src: SRC },
+      { id: 'inputs', label: 'Inputs', ports: [port({ '1': { signal: 'test-rx', dir: 'in' }, '2': { signal: 'test-rx-extra', dir: 'in' } })], src: SRC },
+    ];
+    for (const query of [{ source: { device: 'driver' }, destination: { device: 'inputs' } }, { source: { device: 'inputs' }, destination: { device: 'driver' } }]) {
+      const option = resolve(db, query).options.find((o) => o.kind === 'direct')!;
+      expect(option.links).toHaveLength(2);
+      expect(option.missing).toEqual([]);
+      const derived = deriveCable(db, query, option.id);
+      expect(derived.ok).toBe(true);
+      if (derived.ok) expect(validateDesign(derived.design, db).filter((i) => i.severity === 'error')).toEqual([]);
+    }
+    // Every branch still passes through the normal hazard evaluation.
+    db.hazards = [{ id: 'reject-branch', label: 'Reject branch', severity: 'reject', a: { signals: ['test-tx'] }, b: { signals: ['test-rx-extra'] }, text: 'Branch is forbidden', src: SRC }];
+    expect(resolve(db, { source: { device: 'driver' }, destination: { device: 'inputs' } }).rejected.find((r) => r.option.kind === 'direct')?.why.map((w) => w.code)).toContain('hazard:reject-branch');
+  });
+
+  it('keeps ambiguous drivers, undeclared same-signal fan-out and differential lines one-to-one', () => {
+    const db = library();
+    const port = (pins: DeviceProfile['ports'][number]['pins']) => ({ id: 'p1', interface: 'test-port', body: 'de9-male', pins: { '1': 'nc' as const, '2': 'nc' as const, '3': 'nc' as const, '4': 'nc' as const, ...pins } });
+    const run = (s: DeviceProfile['ports'][number]['pins'], d: DeviceProfile['ports'][number]['pins']) => {
+      db.devices = [{ id: 'driver', label: 'Driver', ports: [port(s)], src: SRC }, { id: 'inputs', label: 'Inputs', ports: [port(d)], src: SRC }];
+      return resolve(db, { source: { device: 'driver' }, destination: { device: 'inputs' } }).options.find((o) => o.kind === 'direct')!;
+    };
+    const input = { signal: 'test-rx', dir: 'in' as const };
+    const output = { signal: 'test-tx', dir: 'out' as const };
+    expect(run({ '1': output, '2': output }, { '1': input, '2': input, '3': input }).links).toHaveLength(2);
+    expect(run({ '1': output }, { '1': { ...input, signal: 'test-tx' }, '2': { ...input, signal: 'test-tx' } }).links).toHaveLength(1);
+    db.vocab!.signals!.entries.push(signal('test-a-input', 'data', { pairsWith: ['test-a'] }));
+    expect(run({ '1': { signal: 'test-a', dir: 'out' } }, { '1': { signal: 'test-a-input', dir: 'in' }, '2': { signal: 'test-a-input', dir: 'in' } }).links).toHaveLength(1);
+  });
+
   it('converts a level with a recipe, and calls it missing without one', () => {
     const low = { ...AB, destination: { device: 'unit-b-low' } };
     const r = resolve(library(), low);
