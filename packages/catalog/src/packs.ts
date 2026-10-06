@@ -396,9 +396,9 @@ function mergeObjects(layers: Record<string, Json>[]): Record<string, Json> {
   const out: Record<string, Json> = {};
   for (const layer of layers) {
     for (const [key, value] of Object.entries(layer)) {
-      const existing = out[key];
-      if (existing === undefined) out[key] = value;
-      else if (isPlainObject(existing) && isPlainObject(value)) out[key] = mergeObjects([existing, value]);
+      const existing = Object.hasOwn(out, key) ? out[key] : undefined;
+      if (existing === undefined) Object.defineProperty(out, key, { value, enumerable: true, writable: true, configurable: true });
+      else if (isPlainObject(existing) && isPlainObject(value)) Object.defineProperty(out, key, { value: mergeObjects([existing, value]), enumerable: true, writable: true, configurable: true });
     }
   }
   return out;

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, expect, it } from 'vitest';
 import { reconcilePackAuxiliary, assetSha } from '../src/packs.ts';
+import { mergeCatalogFile } from '../src/index.ts';
 import { applyPackDisable, applyPackUpdate, fsCatalogSource, installPack, planPackDisable, planPackUpdate, readInstalledPacks, catalogWithPacksSource, installPackLayer, planNewPack, memoryCatalogSource, packSourceProblems } from '../src/index.ts';
 
 const work = mkdtempSync(join(tmpdir(), 'wirehub-auxiliary-'));
@@ -11,6 +12,17 @@ afterAll(() => rmSync(work, { force: true, recursive: true }));
 const json = (v: unknown) => `${JSON.stringify(v, null, 2)}\n`;
 const put = (dir: string, path: string, value: unknown) => { mkdirSync(dirname(join(dir, path)), { recursive: true }); writeFileSync(join(dir, path), json(value)); };
 const link = (record: string, asset: string) => ({ record, asset: asset.repeat(64), sourceKind: 'vendor', src: 'synthetic example' });
+
+it('merges tag keys as own data even when they name object prototype properties', () => {
+  const merged = JSON.parse(mergeCatalogFile('tags/demo.json', [
+    '{"src":"synthetic example","__proto__":{"local":"Local"},"constructor":{"local":"Local"}}',
+    '{"src":"synthetic example","__proto__":{"pack":"Pack"},"constructor":{"pack":"Pack"}}',
+  ]));
+  expect(Object.hasOwn(merged, '__proto__')).toBe(true);
+  expect(merged.__proto__).toEqual({ local: 'Local', pack: 'Pack' });
+  expect(merged.constructor).toEqual({ local: 'Local', pack: 'Pack' });
+  expect(Object.hasOwn(Object.prototype, 'pack')).toBe(false);
+});
 
 it('replaces/removes untouched sidecars and model links, preserving local edits and unrelated links', () => {
   const data = join(work, 'data');
