@@ -63,7 +63,7 @@ export function importQuote(input: ImportInput, db: Db): ImportResult {
   if (errors.length > 0) throw new Error(errors.join(' '));
   if (offer.unit === 'unknown' || priceAt(offer, document.quantity) === undefined) throw new Error('Confirm the purchasing unit and a price for the requested quantity before adopting a cost.');
   const kind = document.record.kind as typeof recordKinds[number];
-  const record = db[kind].find(r => r.id === document.record.id);
+  const record = db[kind]?.find(r => r.id === document.record.id);
   if (record === undefined) throw new Error('The selected library record no longer exists.');
   const identity = record as typeof record & { mpn?: string; manufacturer?: string; suppliers?: { supplier: string; number?: string }[] };
   if (identity.mpn && identity.mpn.trim().toLowerCase() !== offer.mpn.trim().toLowerCase()) throw new Error('The offer manufacturer part number differs from the library record.');
@@ -71,7 +71,13 @@ export function importQuote(input: ImportInput, db: Db): ImportResult {
   const breaks = [...offer.breaks].sort((a, b) => a.minQty - b.minQty);
   const cost: PartCost = { unit: breaks[0]!.unitPrice, currency: offer.currency, per: offer.unit, breaks: breaks.map(b => ({ minQty: b.minQty, unit: b.unitPrice })), moq: Math.max(offer.moq ?? 1, breaks[0]!.minQty), src: `${offer.provider} ${offer.supplierNumber}; retrieved ${offer.observedAt}${offer.url ? `; ${offer.url}` : ''}` };
   const suppliers = (identity.suppliers ?? []).filter(s => s.supplier.toLowerCase() !== offer.provider);
-  const updated = { ...record, cost, suppliers: [...suppliers, { supplier: offer.provider, number: offer.supplierNumber }] };
+  const citation = `${offer.provider} ${offer.supplierNumber}; selected quote ${input.fileName}; retrieved ${offer.observedAt}`;
+  const updated = {
+    ...record, cost, suppliers: [...suppliers, { supplier: offer.provider, number: offer.supplierNumber }],
+    src: `${record.src}; ${citation}`,
+    license: `(${record.license ?? 'CC0-1.0'}) AND LicenseRef-${offer.provider}-terms`,
+    provenance: { method: 'derived' as const, sources: [...(record.provenance?.sources ?? []), { title: citation, ...(offer.url ? { url: offer.url } : {}), retrieved: new Date(offer.observedAt).toISOString().slice(0, 10) }] },
+  };
   return { updates: { [kind]: [updated] }, notes: [`Review ${kind}/${record.id}: adopt ${offer.provider} ${offer.supplierNumber}, ${offer.currency} per ${offer.unit}, retrieved ${offer.observedAt}. Existing cost is replaced only if you apply this update. Confirm order multiples (${offer.orderMultiple ?? 'unspecified'}) and packaging (${offer.packaging ?? 'unspecified'}).`] };
 }
 
