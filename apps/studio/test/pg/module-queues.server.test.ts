@@ -45,6 +45,31 @@ const tally = defineModule({
 });
 
 describePg('a module queue on Postgres', () => {
+  it('enqueues newly enabled module kinds through an already-started sender while the worker is offline', async () => {
+    const own = await freshDatabase();
+    const { openPg } = await import('../../server/pg/db.ts');
+    const { importCatalog } = await import('../../server/pg/import.ts');
+    const { startBoss, bossJobRunner, pgJobStore, bossQueueName } = await import('../../server/pg/jobs.ts');
+    const handle = openPg(own.appUrl, { max: 2 });
+    const sender = await startBoss(own.appUrl, 'studio', quiet, []);
+    try {
+      const { orgId } = await importCatalog(handle.db, { org: { slug: 'late-queue', create: true }, files: readCatalogTree(catalogPackage), blobs: testBlobs() });
+      expect(await sender.getQueue(bossQueueName('tally:count'))).toBeNull();
+      const store = pgJobStore(handle.db, orgId);
+      const runner = bossJobRunner(async () => sender, () => orgId);
+      const first = await store.create('tally:count', {});
+      const second = await store.create('tally:count', {});
+      await Promise.all([runner.submit(first), runner.submit(second)]);
+      expect(await sender.getQueue(bossQueueName('tally:count'))).not.toBeNull();
+      expect((await store.get(first.id))?.status).toBe('queued');
+      expect((await store.get(second.id))?.status).toBe('queued');
+    } finally {
+      await sender.stop({ graceful: true });
+      await handle.close();
+      await own.drop();
+    }
+  }, 60_000);
+
   it('adds, updates and drains removed module queues live while preserving core jobs', async () => {
     const own = await freshDatabase();
     const registry = createLiveRegistry(createRegistry([]));
