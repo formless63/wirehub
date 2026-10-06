@@ -656,3 +656,12 @@ Trademarks (USB, HDMI, product names) appear as plain nominative names.
 5. Signed pack manifests, publisher keys, review status, yanking and revocation (**done**, both
    backends; review status is information set by the index publisher, with an optional
    deployment setting to hide unreviewed versions).
+
+Packs cannot supply host control documents: `packs.json` (the installation ledger),
+`setup.json` (first-run completion), `proposals.json` (review decisions), or
+`settings/code-modules.json`, `settings/stores.json`, `settings/sign-in.json`,
+`settings/notifications.json`, `settings/integrations.json`, `settings/jobs.json`
+and `settings/webhooks.json` (runtime trust, authentication and operational controls).
+Archive validation and directory planners/installers reject these paths before writes.
+This is an explicit path list: ordinary auxiliary documents, including
+`settings/branding.json`, `settings/engineering.json` and custom settings, remain supported.

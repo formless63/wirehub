@@ -302,6 +302,18 @@ export interface InstalledPacks {
 
 export const PACKS_FILE = 'packs.json';
 
+/** Deployment state and operational controls cannot be supplied by a catalog pack. */
+export const PACK_HOST_CONTROL_FILES: readonly string[] = [
+  'packs.json', 'setup.json', 'proposals.json',
+  'settings/code-modules.json', 'settings/stores.json', 'settings/sign-in.json',
+  'settings/notifications.json', 'settings/integrations.json', 'settings/jobs.json',
+  'settings/webhooks.json',
+];
+
+export function isPackHostControlPath(relative: string): boolean {
+  return PACK_HOST_CONTROL_FILES.includes(relative);
+}
+
 export const canonical = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 
 export type Json = unknown;
@@ -507,6 +519,10 @@ export function layeredCatalogSource(layers: readonly CatalogSource[], name?: st
 
 /** A pack directory's manifest, or a sentence saying why it is not a pack. */
 export function readPackManifest(dir: string): PackManifest {
+  // Validate before any installer/planner can accept a manifest or write state.
+  for (const path of packFiles(dir)) {
+    if (isPackHostControlPath(path)) throw new Error(`'${path}' is reserved host control state; a pack may not supply it.`);
+  }
   const path = join(dir, PACK_MANIFEST);
   if (!existsSync(path)) throw new Error(`${dir} is not a catalog pack: it has no ${PACK_MANIFEST}.`);
   const manifest = JSON.parse(readFileSync(path, 'utf8')) as PackManifest;

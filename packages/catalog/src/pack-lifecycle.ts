@@ -633,13 +633,13 @@ function keepRetired(dataDir: string, layerDir: string, retired: readonly Locate
  * rewritten in place, and `packs.json` updated last. Call only with `plan.ok`.
  */
 export function applyPackUpdate(dataDir: string, packsDir: string | undefined, packDir: string, plan: PackUpdatePlan, where: 'layer' | 'merged'): void {
+  const manifest = readPackManifest(packDir);
   if (where === 'layer' && packsDir !== undefined) {
     // records the new version dropped but something still uses leave with the old layer: keep them in the catalog's own files first
     keepRetired(dataDir, installedPackDir(packsDir, plan.pack.id), plan.retiredRecords);
     installPackLayer(dataDir, packsDir, packDir);
     return;
   }
-  const manifest = readPackManifest(packDir);
   applyWrites(dataDir, plan.writes);
   // the pack's depictions and art: replaced where it still owns them, removed where the new version drops them
   const before = readInstalledPacks(dataDir).packs.find((p) => p.id === manifest.id)?.assets;

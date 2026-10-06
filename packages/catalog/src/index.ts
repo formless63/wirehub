@@ -42,6 +42,8 @@ export { fsCatalogSource, memoryCatalogSource } from './source.ts';
 export type { CatalogSource } from './source.ts';
 export {
   PACK_MANIFEST,
+  PACK_HOST_CONTROL_FILES,
+  isPackHostControlPath,
   applyPackAssets,
   applyPackLibrary,
   assetPath,
