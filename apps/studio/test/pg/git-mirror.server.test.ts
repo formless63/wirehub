@@ -20,7 +20,7 @@ import { join } from 'node:path';
 
 import { dataPath } from '@wirehub/catalog';
 import { readCatalogTree } from '@wirehub/catalog/src/codec/tree.ts';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../../server/api.ts';
 import { fsBlobStore, type BlobStore } from '../../server/blobs.ts';
@@ -75,10 +75,11 @@ describe('the in-process schedule', () => {
     const { createJobService, executeJob, inlineJobRunner, memoryJobStore } = await import('../../server/jobs/service.ts');
     const store = memoryJobStore();
     const handlers = { 'git-mirror': async () => ({ result: { committed: 0 }, quiet: true }) };
-    const jobs = createJobService({ store, runner: inlineJobRunner(store, () => handlers, () => {}), kinds: ['git-mirror'] });
+    const runner = inlineJobRunner(store, () => handlers, () => {});
+    const jobs = createJobService({ store, runner, kinds: ['git-mirror'] });
     const quiet = await jobs.enqueue('git-mirror', { reason: 'schedule' });
     const boot = await jobs.enqueue('git-mirror', { reason: 'boot' });
-    await new Promise((done) => setTimeout(done, 50));
+    await runner.idle();
     expect((await jobs.list()).map((j) => j.id)).toEqual([boot.id]);
     expect(await store.get(quiet.id)).toBeUndefined();
     expect(await executeJob(store, { 'git-mirror': async () => ({ result: { committed: 1 } }) }, (await store.create('git-mirror', { reason: 'schedule' })).id, () => {})).toMatchObject({ status: 'done' });
@@ -249,8 +250,14 @@ describePg('the git mirror on Postgres', () => {
       { blobs, listen: false, mirrorEveryMs: 300 },
     );
     try {
-      const rows = (): Promise<number> =>
-        inOrg(pgh.db, orgId, async (tx) => Number((await sql<{ n: string }>`SELECT count(*)::text AS n FROM studio.job_run WHERE kind = 'git-mirror'`.execute(tx)).rows[0]?.n));
+      const jobs = backend.deps.jobs!;
+      const scheduled: string[] = [];
+      const enqueue = jobs.enqueue.bind(jobs);
+      const spy = vi.spyOn(jobs, 'enqueue').mockImplementation(async (...args) => {
+        const job = await enqueue(...args);
+        if (args[0] === 'git-mirror' && args[1]['reason'] === 'schedule') scheduled.push(job.id);
+        return job;
+      });
       const commits = (): number => {
         try {
           return Number(git(dir, 'rev-list', '--count', 'HEAD').trim());
@@ -259,18 +266,32 @@ describePg('the git mirror on Postgres', () => {
         }
       };
       const until = async (check: () => Promise<boolean> | boolean): Promise<void> => {
-        for (let i = 0; i < 100 && !(await check()); i += 1) await new Promise((done) => setTimeout(done, 100));
-        expect(await check()).toBe(true);
+        await vi.waitFor(async () => expect(await check()).toBe(true), { timeout: 20_000, interval: 100 });
       };
       await until(() => commits() > 0);
-      await new Promise((done) => setTimeout(done, 1500));
-      // the first run (it started the mirror) is kept; the quiet ones after it are not
-      expect(await rows()).toBeLessThanOrEqual(1);
+      // A commit can already be visible while its job is still running. Wait for
+      // completion, and observe a later scheduled job actually being discarded;
+      // a sleep followed by COUNT(*) races with the next timer's active job row.
+      await until(async () => (await jobs.list({ kind: 'git-mirror' })).some((j) => j.status === 'done' && j.result?.['resynced'] === 'first run'));
+      const quietAfter = scheduled.length;
+      await until(() => scheduled.length > quietAfter);
+      const quiet = scheduled[quietAfter]!;
+      await until(async () => (await jobs.get(quiet)) === undefined);
       const before = commits();
       await relabel(alice, '(scheduled)');
       await until(() => commits() > before);
-      await new Promise((done) => setTimeout(done, 1000));
-      expect(await rows()).toBeLessThanOrEqual(2);
+      await until(async () => (await jobs.list({ kind: 'git-mirror' })).some((j) => j.status === 'done' && Number(j.result?.['committed']) > 0));
+      const quietAfterChange = scheduled.length;
+      await until(() => scheduled.length > quietAfterChange);
+      const laterQuiet = scheduled[quietAfterChange]!;
+      await until(async () => (await jobs.get(laterQuiet)) === undefined);
+      // Retained jobs are exactly the initial sync and the real update. Other
+      // rows may be queued/running for the next tick and are not yet quiet runs.
+      const retained = await inOrg(pgh.db, orgId, async (tx) =>
+        (await sql<{ n: string }>`SELECT count(*)::text AS n FROM studio.job_run WHERE kind = 'git-mirror' AND status = 'done' AND (result->>'resynced' IS NOT NULL OR (result->>'committed')::int > 0)`.execute(tx)).rows[0]?.n);
+      expect(retained).toBe('2');
+      expect(readFileSync(join(dir, 'data/designs/dc-led-lead.json'), 'utf8')).toContain('(scheduled)');
+      spy.mockRestore();
     } finally {
       await backend.close();
     }
