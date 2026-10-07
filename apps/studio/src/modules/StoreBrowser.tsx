@@ -166,14 +166,14 @@ export function StoreBrowser(): JSX.Element {
   return (
     <section className="min-w-0 p-3 [overflow-wrap:anywhere]" data-testid="store-browser">
       <h1 className="text-base font-semibold">Modules & catalog packs</h1>
-      <p className="mt-1 text-faint">Add tools with code modules or extend your Library with catalog packs. Every install starts with a preview; modules that run code require owner consent.</p>
+      <p className="mt-1 text-dim">Add tools with code modules or extend your Library with catalog packs. Every install starts with a preview; modules that run code require owner consent.</p>
       <nav aria-label="Store management" className="my-3 flex flex-wrap gap-2">
         <AppLink to="/settings" section="stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</AppLink>
         <AppLink to="/settings" section="modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage installed modules</AppLink>
         <AppLink to="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Installed packs & uploads</AppLink>
       </nav>
       {disclaimer === undefined ? null : (
-        <p className="my-2 border border-line p-2 text-faint" data-testid="store-disclaimer">
+        <p className="my-2 border border-line p-2 text-dim" data-testid="store-disclaimer">
           {disclaimer}
         </p>
       )}
@@ -185,7 +185,7 @@ export function StoreBrowser(): JSX.Element {
           </div>
         ))}
       {notes.map((n) => (
-        <div key={n} className="text-faint">{n}</div>
+        <div key={n} className="text-dim">{n}</div>
       ))}
       <div className="my-2 flex flex-wrap gap-2">
         <input type="search" aria-label="Search modules and packs" placeholder="Search modules & packs" value={query} onChange={(e) => setQuery(e.target.value)} className="w-64 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1.5" />
@@ -215,28 +215,28 @@ export function StoreBrowser(): JSX.Element {
           ))}
         </select>
       </div>
-      {packs === undefined ? <div className="text-faint">Loading…</div> : shown.length === 0 ? <div className="rounded border border-line p-3" role="status">
+      {packs === undefined ? <div className="text-dim">Loading…</div> : shown.length === 0 ? <div className="rounded border border-line p-3" role="status">
         {packs.length === 0 ? indexes.length === 0 ? 'No stores are configured. Configure a store to browse its modules and catalog packs.' : 'No modules or catalog packs are available from these stores. Check the store connection and review policy in Configure stores.' : kind === 'code' ? 'No code modules match. Only modules published to a configured store appear here; built-in modules are listed in Manage installed modules.' : 'No matching modules or catalog packs. Try another search or filter.'}
       </div> : null}
       {groups.map((g) => (
         <div key={g.index.url} data-store-group={g.index.url}>
           {groups.length < 2 && indexes.filter((i) => i.ok).length < 2 ? null : (
             <h3 className="mt-3 text-[12.5px] font-medium">
-              {nameOf(g.index)} <span className="text-faint">{g.index.source === 'user' ? 'added here' : 'set by the server'} · {g.packs.length} item{g.packs.length === 1 ? '' : 's'}</span>
+              {nameOf(g.index)} <span className="text-dim">{g.index.source === 'user' ? 'added here' : 'set by the server'} · {g.packs.length} item{g.packs.length === 1 ? '' : 's'}</span>
             </h3>
           )}
       <ul>
         {g.packs.map((p) => (
           <li key={`${p.index} ${p.id}`} className="my-3 rounded border border-line bg-panel p-3" data-store-pack={p.id}>
             <div>
-              <b>{p.name}</b> <span className="text-faint">{p.id}</span> {p.latest?.version ?? ''} · {p.domain} · by {p.author.name}
+              <b>{p.name}</b> <span className="text-dim">{p.id}</span> {p.latest?.version ?? ''} · {p.domain} · by {p.author.name}
               {p.latest === undefined ? null : <> · {kb(p.latest.size)}</>} · <span title="As the author states it; not checked by WireHub">licence: {p.license}</span>
               {p.latest?.module === undefined ? null : <span className="ml-2 rounded border border-line px-1" title={`Runs code. Permissions stated by the author: ${p.latest.module.permissions.join(', ') || 'none'}. Installation preview confirms the downloaded module and asks for owner consent.`}>Code module</span>}
               {p.installed === undefined ? null : <> · installed {p.installed}</>}
             </div>
-            {p.description === undefined ? null : <div className="text-faint">{p.description}</div>}
+            {p.description === undefined ? null : <div className="text-dim">{p.description}</div>}
             <div data-testid="store-trust">
-              {p.publisher === undefined ? <span className="text-faint">not signed by a publisher (pinned by the index)</span> : <>signed by {p.publisher.name}</>}
+              {p.publisher === undefined ? <span className="text-dim">not signed by a publisher (pinned by the index)</span> : <>signed by {p.publisher.name}</>}
               {p.latest === undefined ? null : (
                 <>
                   {' · '}
@@ -267,12 +267,12 @@ export function StoreBrowser(): JSX.Element {
                 </div>
               ))}
             {p.action === 'other-store' ? (
-              <div className="text-faint" data-store-note="other-store">
+              <div className="text-dim" data-store-note="other-store">
                 Installed ({p.installed}) from another store; updates come from that store.
               </div>
             ) : null}
-            {p.action === 'unavailable' ? <div className="text-faint">Every version is yanked; nothing is offered.</div> : null}
-            <div className="text-faint">
+            {p.action === 'unavailable' ? <div className="text-dim">Every version is yanked; nothing is offered.</div> : null}
+            <div className="text-dim">
               from {p.storeLabel ?? p.store.name}
               {p.homepage === undefined ? null : (
                 <>
@@ -299,8 +299,8 @@ export function StoreBrowser(): JSX.Element {
           <b>
             {pending.kind === 'update' ? 'Update' : 'Install'} {pending.pack.id} {pending.version}
           </b>
-          <div className="text-faint">Licence (as stated by the author): {pending.plan.pack.license}</div>
-          <div className="text-faint">
+          <div className="text-dim">Licence (as stated by the author): {pending.plan.pack.license}</div>
+          <div className="text-dim">
             {pending.publisher === undefined ? 'Not signed by a publisher; pinned by the index.' : `Signature of publisher ${pending.publisher} verified.`} Review: {reviewText(pending.review)}.
           </div>
           {pending.yanked === undefined ? null : (

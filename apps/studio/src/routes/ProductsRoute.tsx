@@ -137,7 +137,7 @@ export function ProductsRoute(): JSX.Element {
         <h1 className="text-[14px] font-semibold">Products</h1>
         {readOnly ? null : <button type="button" className="cs-route-action cs-route-action-primary" disabled={view === undefined || editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty(EXAMPLE)); }}>New product…</button>}
       </div>
-      <p className="mb-2 max-w-2xl text-faint">
+      <p className="mb-2 max-w-2xl text-dim">
         The designs this hub sells, grouped: each family has its number, the names it is also known by, the options its builds differ on, and its variants — each documented by one design.
       </p>
       <RouteTabs id="products" label="products" items={[{ id: 'families', label: 'Families' }, { id: 'lineup', label: 'Lineup' }]} value={tab} onChange={setTab} />
