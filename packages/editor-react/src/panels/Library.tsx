@@ -34,6 +34,7 @@ import {
   type KitDefinition,
   type KitPartKind,
   type PcbaDefinition,
+  type WireDefinition,
   type SignalTags,
   type Vocab,
   type VocabList,
@@ -116,7 +117,7 @@ import { MechanicalEditor } from './MechanicalEditor.tsx';
 import { Pick } from './Pick.tsx';
 import { PcbaEditor } from './PcbaEditor.tsx';
 import { Splitter } from './Splitter.tsx';
-import { WireStockEditor, type CrossSectionRenderer } from './WireStockEditor.tsx';
+import { Cutaway, WireStockEditor, type CrossSectionRenderer } from './WireStockEditor.tsx';
 import { WireStockDetail, type WireDetailTab } from './WireStockDetail.tsx';
 import { blankRecipe, duplicateRecipe, type VendorDocumentsAdapter, type WireLibraryAdapter } from '../wire-builder.ts';
 import type { HousingSpec, WireLibrary, WireRecipe } from '@wirehub/model';
@@ -1353,13 +1354,13 @@ export function Library(props: LibraryProps): JSX.Element {
 
         {wireDetail === null && mode.kind !== 'browse' && draft === undefined ? (
           <div className="cs-panel">
-            <h2>{mode.kind === 'edit' ? mode.id : `New ${DEFINITION_NOUNS[kind]}`}</h2>
+            <h2>{mode.kind === 'edit' ? baseline?.label ?? mode.id : `New ${DEFINITION_NOUNS[kind]}`}</h2>
             <p className="cs-doc-warning">
-              <strong>This stock is built in a way the form cannot show.</strong> Its structure is
-              nested more deeply than cores, an overall shield, a drain and a jacket, and a form that
-              tried to draw it would have to flatten it on save. Nothing has been changed. Edit this
-              one as JSON — the advanced view below is its exact contents.
+              <strong>The structured form cannot edit this stock.</strong> Its nested groups are
+              preserved in the original definition. The cross-section and JSON below are read-only;
+              nothing has been changed or flattened.
             </p>
+            {kind === 'wires' && mode.kind === 'edit' && baseline !== undefined ? <Cutaway wire={baseline as WireDefinition} {...(props.renderCutaway === undefined ? {} : { render: props.renderCutaway })} /> : null}
             <details className="cs-advanced" open>
               <summary>Advanced: the record as JSON</summary>
               <pre className="cs-json-view">

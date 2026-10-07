@@ -17,6 +17,12 @@ them stuck. Where a rule is a mechanism, the file that holds it is named.
 | **Versions** | per cable, `specs/design-versions.md` |
 | **History, Jobs, Settings, Part numbers, Modules, Setup** | the hub's own sections |
 
+The primary **Cable** column and phone-card title show the working assembly's
+full label, including its descriptive suffix. Product family/variant descriptions
+remain separately labelled; the Source filter and Destination column retain their
+endpoint meanings. Pigtails, board adapters and designs built from subassemblies
+are cable designs too, and their existing model-derived feature chips describe them.
+
 Selection is in the URL (`/cables/:id`, `/library/:kind/:id`), so every screen is linkable and
 the browser's back button is the app's. Light and dark themes follow the system until a person
 picks one; the choice is theirs alone.
