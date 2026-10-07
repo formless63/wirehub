@@ -40,6 +40,58 @@ function spyRender(): ReturnType<typeof vi.fn<Derive>> {
 }
 
 describe('<DocumentsPane>', () => {
+  it.each([
+    ['A4', 'build-sheet', '210mm'],
+    ['letter', 'build-sheet', '215.9mm'],
+    ['A4', 'formboard', '297mm'],
+    ['letter', 'formboard', '279.4mm'],
+    ['A4', 'drawing', '792pt'],
+    ['letter', 'drawing', '792pt'],
+  ] as const)('preserves the %s %s paper viewport without changing the printable HTML', (paper, kind, width) => {
+    vi.useFakeTimers();
+    const derive = spyRender();
+    const { container } = render(<DocumentsPane design={design} db={db} paper={paper} debounceMs={10} render={derive} />);
+    if (kind !== 'build-sheet') fireEvent.click(screen.getByRole('button', { name: kind === 'formboard' ? 'Formboard' : 'Drawing sheet' }));
+    act(() => void vi.advanceTimersByTime(10));
+    const frame = container.querySelector('iframe')!;
+    expect(frame.style.minWidth).toBe(width);
+    expect(frame.getAttribute('srcdoc')).toBe(`<!doctype html><p>${kind}</p>`);
+    expect(derive.mock.calls.at(-1)?.[3]).toMatchObject({ paper });
+    const viewport = screen.getByRole('region', { name: 'Document preview' });
+    expect(viewport.contains(frame)).toBe(true);
+    viewport.focus();
+    expect(document.activeElement).toBe(viewport);
+  });
+
+  it('opens a different document at its left edge while retaining pan during regeneration', () => {
+    vi.useFakeTimers();
+    const derive = spyRender();
+    const view = render(<DocumentsPane design={design} db={db} debounceMs={10} render={derive} />);
+    act(() => void vi.advanceTimersByTime(10));
+    const first = screen.getByRole('region', { name: 'Document preview' });
+    first.scrollLeft = 200;
+    view.rerender(<DocumentsPane design={{ ...design, label: 'Changed title' }} db={db} debounceMs={10} render={derive} />);
+    act(() => void vi.advanceTimersByTime(10));
+    expect(screen.getByRole('region', { name: 'Document preview' })).toBe(first);
+    expect(first.scrollLeft).toBe(200);
+    fireEvent.click(screen.getByRole('button', { name: 'BOM' }));
+    act(() => void vi.advanceTimersByTime(10));
+    const next = screen.getByRole('region', { name: 'Document preview' });
+    expect(next).not.toBe(first);
+    expect(next.scrollLeft).toBe(0);
+  });
+
+  it('follows the selected sheet paper when its sidecar overrides the host default', () => {
+    vi.useFakeTimers();
+    const derive = spyRender();
+    const { container } = render(<DocumentsPane design={design} db={db} paper="A4" debounceMs={10} render={derive} />);
+    act(() => void vi.advanceTimersByTime(10));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paper' }), { target: { value: 'letter' } });
+    act(() => void vi.advanceTimersByTime(10));
+    expect(container.querySelector('iframe')?.style.minWidth).toBe('215.9mm');
+    expect(derive.mock.calls.at(-1)?.[3]).toMatchObject({ paper: 'letter' });
+  });
+
   it('derives nothing until the edits stop, then derives once', () => {
     vi.useFakeTimers();
     const derive = spyRender();
