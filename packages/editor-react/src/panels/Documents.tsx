@@ -866,7 +866,7 @@ export function DocumentsPane({
         </p>
       ) : null}
 
-      <div className="cs-doc-body" role="region" aria-label="Document preview" tabIndex={html === undefined ? undefined : 0}>
+      <div key={`${design.id}|${kind}`} className="cs-doc-body" role="region" aria-label="Document preview" tabIndex={html === undefined ? undefined : 0}>
         {kind === 'json' ? (
           <JsonPane design={docDesign} />
         ) : pending ? (

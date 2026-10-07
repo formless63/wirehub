@@ -63,6 +63,24 @@ describe('<DocumentsPane>', () => {
     expect(document.activeElement).toBe(viewport);
   });
 
+  it('opens a different document at its left edge while retaining pan during regeneration', () => {
+    vi.useFakeTimers();
+    const derive = spyRender();
+    const view = render(<DocumentsPane design={design} db={db} debounceMs={10} render={derive} />);
+    act(() => void vi.advanceTimersByTime(10));
+    const first = screen.getByRole('region', { name: 'Document preview' });
+    first.scrollLeft = 200;
+    view.rerender(<DocumentsPane design={{ ...design, label: 'Changed title' }} db={db} debounceMs={10} render={derive} />);
+    act(() => void vi.advanceTimersByTime(10));
+    expect(screen.getByRole('region', { name: 'Document preview' })).toBe(first);
+    expect(first.scrollLeft).toBe(200);
+    fireEvent.click(screen.getByRole('button', { name: 'BOM' }));
+    act(() => void vi.advanceTimersByTime(10));
+    const next = screen.getByRole('region', { name: 'Document preview' });
+    expect(next).not.toBe(first);
+    expect(next.scrollLeft).toBe(0);
+  });
+
   it('follows the selected sheet paper when its sidecar overrides the host default', () => {
     vi.useFakeTimers();
     const derive = spyRender();
