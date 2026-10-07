@@ -339,6 +339,8 @@ cap or another container.
 | `WIREHUB_MODULE_CACHE_DIR` | where the app and the worker write the code modules they import (default the system temp directory; a cache, rebuilt from the catalog at every start) |
 | `WIREHUB_STEP_RSS_LIMIT_MB` | sized to the worker's `mem_limit` |
 | `WIREHUB_MODEL_SOURCES`, `WIREHUB_MODEL_CACHE_DIR`, `WIREHUB_PACKS_DIR`, `WIREHUB_KICAD_LIBRARY_DIR` | paths of mounts and volumes |
+| `WIREHUB_MODEL_PROFILE` | explicit profile for new Library model uploads and board-file imports: `exporter` (default), `occurrence` (source RGB), or `appearance` (source RGB and opacity); existing links retain their keyed profile |
+| `WIREHUB_OCCT_STYLES_DIR`, `WIREHUB_OCCT_APPEARANCE_DIR` | separately mounted, verified optional reader artifacts on app and worker; build and licensing instructions in [occurrence reader](../apps/studio/occt/README.md) and [appearance reader](../apps/studio/occt-appearance/README.md); missing or invalid artifacts refuse the affected new CAD imports |
 | `WIREHUB_KICAD_LIBRARY_FETCH` | whether the worker may reach the internet at all: an air-gap decision of the install |
 | `WIREHUB_GIT_MIRROR_PATH`, `WIREHUB_GIT_MIRROR_DIR` | a repository mounted into the worker, its working clone's path |
 | `WIREHUB_BACKUP_MARKER`, `WIREHUB_BACKUP_DIR` | paths of the backup volumes |
