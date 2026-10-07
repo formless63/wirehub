@@ -1,6 +1,6 @@
 /**
  * The 3D view — a three.js canvas with orbit
- * controls, fit/reset and top/front/side presets. The default export is what
+ * controls, fit/reset and top/bottom/front/side presets. The default export is what
  * `ModelPanel` lazy-loads, so three.js is its own chunk and a Library page
  * without a model never downloads it.
  *
@@ -152,6 +152,7 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
 
   const presets: { id: ViewPreset; label: string; title: string }[] = [
     { id: 'top', label: 'Top', title: 'Look straight down' },
+    { id: 'bottom', label: 'Bottom', title: 'Look straight up at the underside' },
     { id: 'front', label: 'Front', title: 'Look at the front' },
     { id: 'side', label: 'Side', title: 'Look from the right side' },
   ];

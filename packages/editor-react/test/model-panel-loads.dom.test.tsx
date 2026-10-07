@@ -76,3 +76,29 @@ it('ignores a late rejected request after switching records', async () => {
   await act(async () => { reject(new Error('late synthetic rejection')); });
   expect(screen.queryByRole('alert')).toBeNull();
 });
+
+it('shows supplied bottom artwork with mirrored anchors and switches without editing', async () => {
+  const artwork = artworkOf();
+  artwork.detail = async () => ({ ok: true, value: { ...detail, views: [
+    { ...detail.views[0]!, view: 'board-bottom', file: 'board-bottom.svg', derived: true, mirrorOf: 'board-top' },
+    detail.views[0]!,
+  ] } });
+  artwork.artwork = vi.fn(async (_id, view) => ({ ok: true as const, value: { kind: 'vector' as const, source: `<svg xmlns="http://www.w3.org/2000/svg"><title>${view}</title></svg>` } }));
+  render(<ModelPanel kind="pcbas" id="synthetic-board" label="Synthetic board" models={modelsOf()} artwork={artwork} readOnly />);
+  const image = await screen.findByRole('img', { name: '2D art of Synthetic board' });
+  expect(decodeURIComponent(image.getAttribute('src')!)).toContain('board-top');
+  fireEvent.change(screen.getByRole('combobox', { name: '2D artwork view' }), { target: { value: 'board-bottom' } });
+  await screen.findByText('board bottom', { selector: 'p' });
+  expect(decodeURIComponent(screen.getByRole('img', { name: '2D art of Synthetic board' }).getAttribute('src')!)).toContain('board-bottom');
+  expect(artwork.artwork).toHaveBeenCalledWith('synthetic-board', 'board-bottom');
+});
+
+it('shows bottom-only artwork without inventing a top view', async () => {
+  const artwork = artworkOf();
+  artwork.detail = async () => ({ ok: true, value: { ...detail, views: [{ ...detail.views[0]!, view: 'board-bottom', file: 'board-bottom.svg', derived: true, mirrorOf: 'board-top' }] } });
+  artwork.artwork = vi.fn(artwork.artwork);
+  render(<ModelPanel kind="pcbas" id="synthetic-board" label="Synthetic board" models={modelsOf()} artwork={artwork} />);
+  await screen.findByRole('img', { name: '2D art of Synthetic board' });
+  expect(artwork.artwork).toHaveBeenCalledWith('synthetic-board', 'board-bottom');
+  expect(screen.queryByRole('combobox', { name: '2D artwork view' })).toBeNull();
+});
