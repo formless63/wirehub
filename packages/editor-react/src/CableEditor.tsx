@@ -1406,6 +1406,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
             {...(props.documentFacts === undefined ? {} : { facts: props.documentFacts })}
             {...(props.extensions === undefined ? {} : { extensions: props.extensions })}
             readOnly={readOnly}
+            {...(panelEditable ? { onChange: panelOnChange } : {})}
           />
           </Suspense>
           </PartNumberContext.Provider>

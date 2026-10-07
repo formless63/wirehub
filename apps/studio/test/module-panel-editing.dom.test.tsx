@@ -32,6 +32,20 @@ const tree = (locked = false, selected = design, readOnly = false) => <EditSessi
 afterEach(() => { cleanup(); observed = undefined; });
 
 describe('editable module panel host seam', () => {
+  it('edits the working draft from Documents and rejects callbacks after leaving that view', async () => {
+    const mounted = render(<CableEditor design={design} db={db} extensions={extensions} view="documents" />);
+    await screen.findByRole('button', { name: 'Apply panel minutes' });
+    expect(observed!.onChange).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply panel minutes' }));
+    expect(screen.getByTestId('panel-minutes').textContent).toBe('15');
+    const retained = observed!.onChange!;
+    const base = observed!.design!;
+    mounted.rerender(<CableEditor design={design} db={db} extensions={extensions} view="canvas" />);
+    act(() => retained({ ...base, label: 'Stale document edit' }));
+    expect(screen.getByTestId('panel-label').textContent).toBe(design.label);
+    expect(screen.getByTestId('panel-minutes').textContent).toBe('15');
+  });
+
   it('applies a panel draft through history, undo/redo and the normal validated Save', async () => {
     const persistence = memoryPersistence(db, [design]);
     render(<StrictMode><CableEditor design={design} savedDesign={design} db={db} extensions={extensions} persistence={persistence} /></StrictMode>);

@@ -151,10 +151,15 @@ export function RevisionsSection(props: {
               <ul>
                 {source.revisions.map((r) => (
                   <li key={r.rev}>
-                    {r.rev}
-                    {r.label === undefined ? '' : ` (${r.label})`}
-                    {r.note === undefined ? '' : ` — ${r.note}`}
-                    {r.partNumber === undefined ? '' : ` · ${r.partNumber}`} <span className="cs-small">({r.src})</span>
+                    <b>{r.label ?? r.rev}</b>
+                    {r.label === undefined || r.label === r.rev ? '' : ` · ${r.rev}`}
+                    {r.partNumber === undefined ? '' : ` · ${r.partNumber}`}
+                    {r.savedAt === undefined ? null : <span className="cs-small"> · {day(r.savedAt)}</span>}
+                    {r.note === undefined || r.note === '' ? null : <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.note}</p>}
+                    <details>
+                      <summary>Source</summary>
+                      <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.src}</p>
+                    </details>
                   </li>
                 ))}
               </ul>
