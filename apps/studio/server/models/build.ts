@@ -47,7 +47,7 @@ export const KNOWN_BUDGETS: readonly number[] = [MAX_MODEL_TRIANGLES, 150_000, 1
 /** Infer the budget and painting profile from the exact key; signed legacy links are not rewritten. */
 export function buildProfileOf(link: Pick<ModelLink, 'asset' | 'files' | 'build'>, budgets: readonly number[] = KNOWN_BUDGETS): { budget: number; boardTextureProfile: BoardTextureProfile } | undefined {
   if (link.files === undefined) return undefined;
-  for (const boardTextureProfile of ['exporter', 'legacy'] as const) for (const budget of budgets) {
+  for (const boardTextureProfile of ['exporter', 'legacy', 'occurrence'] as const) for (const budget of budgets) {
     if (sourceKey(link.files, budget, link.build, boardTextureProfile) === link.asset) return { budget, boardTextureProfile };
   }
   return undefined;
@@ -184,7 +184,8 @@ async function convertWith(
     if (geometry.length === 1) return convert.model(of(geometry[0]!), baseName(geometry[0]!.path), options);
     return convert.files(
       geometry.map((f) => ({ bytes: of(f), name: baseName(f.path) })),
-      { maxTriangles: options.maxTriangles },
+      // Historical multi-STL keys discarded artwork; preserve their bytes.
+      options.boardTextureProfile === 'occurrence' ? options : { maxTriangles: options.maxTriangles },
     );
   }
   const library = geometry.filter((f) => f.path.startsWith(`${KICAD_ROOT}/`));

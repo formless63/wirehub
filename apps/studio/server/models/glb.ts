@@ -150,7 +150,13 @@ export function writeGlb(parts: readonly MeshPart[], extras: GlbExtras = {}): Ui
       primitive['material'] = materials.length - 1;
     }
     meshes.push({ name: part.name, primitives: [primitive] });
-    nodes.push({ name: part.name, mesh: meshes.length - 1, translation: center, scale: [half, half, half] });
+    nodes.push({ name: part.name, mesh: meshes.length - 1, translation: center, scale: [half, half, half],
+      ...(part.sourceProductName === undefined && part.sourceOccurrenceName === undefined && part.sourceAssemblyPath === undefined ? {} : { extras: {
+        ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }),
+        ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }),
+        ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }),
+      } }),
+    });
   }
 
   const json: Record<string, unknown> = {

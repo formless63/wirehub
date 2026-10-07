@@ -98,14 +98,20 @@ function serial<T>(job: () => Promise<T>): Promise<T> {
 /** Several files of one part (a housing's top and bottom) → one GLB, side by side if they overlap. */
 export async function convertModelFiles(
   files: readonly { bytes: Uint8Array; name: string; partName?: string }[],
-  options: { maxTriangles?: number; extras?: Record<string, string | number | boolean> } = {},
+  options: { maxTriangles?: number; extras?: Record<string, string | number | boolean>; boardArt?: BoardArt; boardTextureProfile?: BoardTextureProfile } = {},
 ): Promise<ConvertedModel> {
   const maxTriangles = options.maxTriangles ?? MAX_MODEL_TRIANGLES;
   if (files.length === 1) return convertModel(files[0]!.bytes, files[0]!.name, options);
+  if (options.boardTextureProfile === 'occurrence' && files.reduce((n, f) => n + f.bytes.byteLength, 0) > MAX_MODEL_BYTES * 2) throw new ModelRefusal('Combined models exceed the conversion size limit.', 'Leave the heaviest model files out.');
   const parts: MeshPart[] = [];
   for (const file of files) {
     if (sniffModel(file.bytes) !== 'stl') throw new ModelRefusal(`${file.name} is not an STL.`, 'Only STL files are combined into one model.');
     parts.push(parseStl(file.bytes, file.partName ?? file.name));
+  }
+  if (options.boardTextureProfile === 'occurrence') {
+    // Even source-only STL profiles verify the pinned artifact inside the capped
+    // child. The Studio process never acquires the optional WASM heap.
+    return serial(() => convertStepInChild(new Uint8Array(), 'combined.stl', maxTriangles, undefined, options.boardArt, 'occurrence', files));
   }
   const started = performance.now();
   const finished = finishParts(parts, maxTriangles, { source: 'stl', ...(options.extras ?? {}) }, true);
@@ -180,7 +186,7 @@ function residentMb(pid: number): number | undefined {
   }
 }
 
-function convertStepInChild(bytes: Uint8Array, name: string, maxTriangles: number, assembly?: AssemblyPlan, boardArt?: BoardArt, boardTextureProfile?: BoardTextureProfile): Promise<ConvertedModel> {
+function convertStepInChild(bytes: Uint8Array, name: string, maxTriangles: number, assembly?: AssemblyPlan, boardArt?: BoardArt, boardTextureProfile?: BoardTextureProfile, stlFiles?: readonly { bytes: Uint8Array; name: string; partName?: string }[]): Promise<ConvertedModel> {
   return new Promise((resolve, reject) => {
     const worker = fileURLToPath(new URL('./convert-worker.ts', import.meta.url));
     const child = fork(worker, [], {
@@ -223,7 +229,7 @@ function convertStepInChild(bytes: Uint8Array, name: string, maxTriangles: numbe
     child.on('message', (answer: ChildAnswer) => {
       if (answer.ok && answer.glb !== undefined && answer.stats !== undefined) {
         const stats = { ...answer.stats, peakRssMb: Math.max(answer.stats.peakRssMb ?? 0, Math.round(peak)) };
-        finish(() => resolve({ glb: new Uint8Array(answer.glb!), format: 'step', stats }));
+        finish(() => resolve({ glb: new Uint8Array(answer.glb!), format: stlFiles === undefined ? 'step' : 'stl', stats }));
       } else {
         finish(() => reject(new ModelRefusal(`${name} could not be converted: ${answer.error ?? 'unknown error'}.`, 'Check the file opens in a CAD tool, or export STL/GLB instead.')));
       }
@@ -238,6 +244,6 @@ function convertStepInChild(bytes: Uint8Array, name: string, maxTriangles: numbe
         ),
       );
     });
-    child.send({ bytes, name, maxTriangles, ...(assembly === undefined ? {} : { assembly }), ...(boardArt === undefined ? {} : { boardArt }), ...(boardTextureProfile === undefined ? {} : { boardTextureProfile }) });
+    child.send({ bytes, name, maxTriangles, ...(assembly === undefined ? {} : { assembly }), ...(boardArt === undefined ? {} : { boardArt }), ...(boardTextureProfile === undefined ? {} : { boardTextureProfile }), ...(stlFiles === undefined ? {} : { stlFiles }) });
   });
 }

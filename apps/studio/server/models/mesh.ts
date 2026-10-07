@@ -11,6 +11,12 @@
 /** One named, single-coloured triangle mesh — a housing half, a board, a part. */
 export interface MeshPart {
   name: string;
+  /** Exact source labels from the opted-in occurrence-aware reader, never guessed mesh names. */
+  sourceProductName?: string;
+  sourceOccurrenceName?: string;
+  sourceAssemblyPath?: string;
+  /** Internal identity of one original reader mesh before color splitting; scoped per placed model. */
+  readerMeshId?: string;
   /** xyz per vertex */
   positions: Float32Array;
   /** three vertex indices per triangle */

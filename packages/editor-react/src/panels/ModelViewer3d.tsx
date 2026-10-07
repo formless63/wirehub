@@ -9,12 +9,13 @@
  * jsdom) the canvas stays and a sentence says why nothing is drawn.
  */
 
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 import { applyMaterials, countTriangles, disposeObject, frameBox, makeLights, modelSize, parseModel } from '../model-scene.ts';
 import type { ViewPreset } from '../models.ts';
+import { modelPreviewNote } from '../model-preview.ts';
 import { NO_WEBGL, readPalette, webglContext } from './viewer-dom.ts';
 
 export interface ModelViewer3dProps {
@@ -44,6 +45,7 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [info, setInfo] = useState<string>('');
   const [preset, setPreset] = useState<ViewPreset>('iso');
+  const sourceNote = useMemo(() => modelPreviewNote(props.bytes, props.mime), [props.bytes, props.mime]);
 
   /** a preset, or `'fit'`: the whole part in frame from where the camera looks now */
   const frame = useCallback((next: ViewPreset | 'fit'): void => {
@@ -159,6 +161,7 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
 
   return (
     <div className="cs-model-view" ref={hostRef}>
+      {sourceNote === undefined ? null : <p className="cs-model-info" role="note">{sourceNote}</p>}
       <canvas
         ref={canvasRef}
         className="cs-model-canvas"
