@@ -133,7 +133,7 @@ export function LibraryRoute(): JSX.Element {
   // Import… button importers modules contribute
   const listActions = useMemo(() => {
     const store = (
-      <Link to="/library/store" className="cs-small" data-testid="browse-store" title="Catalog packs from the store indexes this hub trusts">
+      <Link to="/library/store" className="cs-small cs-action-link" data-testid="browse-store" title="Catalog packs from the store indexes this hub trusts">
         Browse store
       </Link>
     );

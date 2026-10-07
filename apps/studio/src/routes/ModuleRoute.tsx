@@ -26,7 +26,7 @@ export function ModuleRoute(): JSX.Element {
   if (found === undefined) return <NotFoundView message="No module page lives at that address." backTo="/cables" backLabel="Back to Cables" />;
   const Page = found.component as ComponentType<RouteProps>;
   return (
-    <div className="h-full min-h-0 overflow-auto p-4" data-module={module} data-route={path}>
+    <div className="cs-module-route h-full min-h-0 overflow-auto p-4" data-module={module} data-route={path}>
       <Page module={module} path={path} db={studio.db} api={api} />
     </div>
   );
