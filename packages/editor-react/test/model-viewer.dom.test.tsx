@@ -17,6 +17,7 @@ import type { ModelLinkView, ModelsAdapter } from '../src/models.ts';
 import { EditSessionContext } from '../src/panels/edit-session.ts';
 import { ModelPanel } from '../src/panels/ModelPanel.tsx';
 import ModelViewer3d from '../src/panels/ModelViewer3d.tsx';
+import { modelPreviewNote } from '../src/model-preview.ts';
 
 afterEach(cleanup);
 
@@ -66,6 +67,58 @@ describe('ModelViewer3d', () => {
     expect(await screen.findByText(/WebGL is unavailable/)).toBeTruthy();
     quiet.mockRestore();
   });
+});
+
+function annotatedGlb(extras: Record<string, unknown>): ArrayBuffer {
+  const json = new TextEncoder().encode(JSON.stringify({ asset: { version: '2.0', extras } }));
+  const padded = Math.ceil(json.length / 4) * 4;
+  const bytes = new ArrayBuffer(20 + padded);
+  const view = new DataView(bytes);
+  [0x46546c67, 2, bytes.byteLength, padded, 0x4e4f534a].forEach((value, i) => view.setUint32(i * 4, value, true));
+  new Uint8Array(bytes, 20).fill(32);
+  new Uint8Array(bytes, 20, json.length).set(json);
+  return bytes;
+}
+
+it('ignores malformed GLB metadata without turning source hints into a loading error', () => {
+  const bytes = annotatedGlb({ source: 'kicad-assembly', instances: 0 });
+  expect(modelPreviewNote(bytes.slice(0, 16), 'model/gltf-binary')).toBeUndefined();
+  expect(modelPreviewNote(bytes, 'model/stl')).toBeUndefined();
+  const oversizedChunk = bytes.slice(0);
+  new DataView(oversizedChunk).setUint32(12, bytes.byteLength, true);
+  expect(modelPreviewNote(oversizedChunk, 'model/gltf-binary')).toBeUndefined();
+  const brokenJson = bytes.slice(0);
+  new Uint8Array(brokenJson)[20] = 0;
+  expect(modelPreviewNote(brokenJson, 'model/gltf-binary')).toBeUndefined();
+});
+
+it('explains an explicitly board-only assembly and clears that context when the model changes', () => {
+  const quiet = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  const { rerender } = render(<ModelViewer3d bytes={annotatedGlb({ source: 'kicad-assembly', instances: 0 })} mime="model/gltf-binary" label="Synthetic board" />);
+  expect(screen.getByRole('note').textContent).toBe('This preview contains board geometry only; no footprint models were included.');
+  rerender(<ModelViewer3d bytes={GLB} mime="model/gltf-binary" label="Synthetic solid" />);
+  expect(screen.queryByRole('note')).toBeNull();
+  quiet.mockRestore();
+});
+
+it.each([
+  { source: 'step', instances: 0 },
+  { source: 'kicad-assembly', instances: 1 },
+  { source: 'kicad-assembly', instances: '0' },
+  { instances: 0 },
+])('does not infer assembly coverage from unrelated or ambiguous metadata %j', (extras) => {
+  const quiet = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  render(<ModelViewer3d bytes={annotatedGlb(extras)} mime="model/gltf-binary" label="Synthetic model" />);
+  expect(screen.queryByRole('note')).toBeNull();
+  quiet.mockRestore();
+});
+
+it.each([0, 3])('reports unread footprint models without claiming coverage at %s instances', (instances) => {
+  const quiet = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  render(<ModelViewer3d bytes={annotatedGlb({ source: 'kicad-assembly', instances, unreadModels: 'synthetic.step' })} mime="model/gltf-binary" label="Synthetic incomplete board" />);
+  expect(screen.getByRole('note').textContent).toBe('Some footprint models could not be read; this preview is incomplete.');
+  expect(screen.queryByText(/no footprint models were included/)).toBeNull();
+  quiet.mockRestore();
 });
 
 describe('ModelPanel', () => {
