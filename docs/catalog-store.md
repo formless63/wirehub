@@ -39,8 +39,11 @@ sets `WIREHUB_STORE_INDEXES` to an empty value, `none`, or another list. The mod
 the image are already available; domain catalog data is installed only when selected at
 setup. Optional runtime modules appear in the Store only after a publisher ships a signed
 bundle in a configured index. Having a module package in the source repository does not
-publish it or install it. The official Pages generator currently publishes the bundled
-domain catalog packs; it does not automatically build optional runtime code bundles.
+publish it or install it. Official Pages publication includes the bundled domain catalog
+packs and an explicit allowlist of optional runtime modules: **suppliers**, **FX reference
+rates**, and **standard work**. Runtime bundles are built only when the publisher signing
+key is configured, and signed using the same public publisher root recorded in the index.
+Publishing does not register these modules as built-ins or install them on any deployment.
 If a module is absent, check store availability and review filters, or obtain its signed
 bundle from the publisher. The code badge describes the index's advertised version;
 the downloaded install preview remains authoritative and asks for owner consent to run code.
