@@ -804,11 +804,16 @@ organisation membership and the existing allowed-email rules still apply.
 
 **Adding a provider to an existing password account:** sign in with the
 password first, click your avatar to open the sign-in/account page, then
-choose **Connect GitHub** or **Connect Google**. Use the same verified email
+choose **Connect GitHub**, **Connect Google**, or **Connect** followed by your
+configured OIDC provider's name. Use the same verified email
 as the existing WireHub account. A successful provider login does not
 silently link an unverified local email; connecting while authenticated
 proves control of both accounts. Test provider sign-in before disabling
 password accounts.
+
+For OIDC, **Email claim** in the sign-in settings selects which claim contains
+the hub account's email (default: `email`; server override:
+`AUTH_OIDC_EMAIL_CLAIM`). The provider must supply it in the ID token or userinfo.
 
 | Provider | Register | Exact callback URL (example public address) |
 | --- | --- | --- |
