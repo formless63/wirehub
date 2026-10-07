@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.5.0](https://github.com/formless63/wirehub/compare/v0.4.0...v0.5.0) (2026-10-07)
+
+
+### Features
+
+* add optional Mouser, DigiKey and LCSC supplier module ([b51e971](https://github.com/formless63/wirehub/commit/b51e971faf475f8aec075cea8bebaca2e3b4c293))
+* complete runtime module and catalog maintenance follow-ups ([878d43c](https://github.com/formless63/wirehub/commit/878d43c64cb03faf8ef646da3b8031046a6951f5))
+* configure store review policies and bound index downloads ([1e0c9bb](https://github.com/formless63/wirehub/commit/1e0c9bbcd853b391a35cb549f9df7a553ad4b728))
+* **costing:** add explicit FX snapshot and operation-time panels ([e162f16](https://github.com/formless63/wirehub/commit/e162f16fefc91b821d1bb781745d5096eea8c7c7))
+* embed brand fonts in vector and fallback PDFs ([dcd50c1](https://github.com/formless63/wirehub/commit/dcd50c13496940f6f0011e804a1a0d5861234312))
+* **fx-rates:** save reference snapshots and derive cost reports ([6d9cd4f](https://github.com/formless63/wirehub/commit/6d9cd4f583a80095c2b39518bc090d48ab57231a))
+* **modules:** apply signed runtime SQL with owner migration roots ([5e09347](https://github.com/formless63/wirehub/commit/5e093478279bac3365d4e6cab292fc609f136038))
+* **modules:** edit cable drafts through guarded panel callbacks ([d905e25](https://github.com/formless63/wirehub/commit/d905e250c94d31626cb5a529d26cede03f709d94))
+* **modules:** reconcile runtime job queues live in worker ([d3dd72c](https://github.com/formless63/wirehub/commit/d3dd72cc9e295d910cd10e545c4c5cd2d322660e))
+* optional FX snapshots and operation-time labour estimates ([399c56f](https://github.com/formless63/wirehub/commit/399c56f1c65415e517d928cd0b1d63bd94b30741))
+* **resolver:** add device pin and recipe field editors ([09f9839](https://github.com/formless63/wirehub/commit/09f98390c5c20640fce19f01c289c92295cfa341))
+* **resolver:** fan out explicit signal pairings to inputs ([86c82c4](https://github.com/formless63/wirehub/commit/86c82c4760920374347def280b10bd4575ad5148))
+* **settings:** edit numbering segments and rule conditions with forms ([a556126](https://github.com/formless63/wirehub/commit/a55612606758fac6d53ec5bb3c1aad86ffe6d4e2))
+* **standard-work:** estimate operation times and adopt labour explicitly ([9b7f9b7](https://github.com/formless63/wirehub/commit/9b7f9b77a2633c080758c6900a73aa13fe3adabd))
+* **store:** identify code modules before install preview ([97ae366](https://github.com/formless63/wirehub/commit/97ae366e3928f39dcbfef6a5c47b7f86688f27e8))
+* **studio:** show and search cable product memberships ([790251f](https://github.com/formless63/wirehub/commit/790251f7d4035361872574826fb2d2801a0bd033))
+* **suppliers:** add DigiKey and LCSC API adapters ([ecaa41e](https://github.com/formless63/wirehub/commit/ecaa41e73ade6c6084a6302fc5cd9c52548c0d97))
+* **suppliers:** add explicit quote lookup and procurement panels ([ab25ea6](https://github.com/formless63/wirehub/commit/ab25ea61c65f6868ab2a5f27b18ec50867c4531d))
+* **suppliers:** derive procurement reports and reviewed quote updates ([4309741](https://github.com/formless63/wirehub/commit/4309741f2b90eb99fe9c77fae373c0c9581d6ecc))
+* **suppliers:** queue bounded exact supplier lookups ([3022b62](https://github.com/formless63/wirehub/commit/3022b6259cc9b9be6d86ff3b840480f008aeaa4a))
+* **suppliers:** scaffold optional module and offer contracts ([e7c3cf8](https://github.com/formless63/wirehub/commit/e7c3cf8830018c3e6e31efe0627e52830a177850))
+* **suppliers:** ship signed optional procurement module ([c00622d](https://github.com/formless63/wirehub/commit/c00622db216eaff5f159f1aa47d172d3ec02145f))
+* **suppliers:** validate reviewed cost updates and provenance ([3638667](https://github.com/formless63/wirehub/commit/3638667318ff69c4a9199d1df5f0fb6de0055f16))
+
+
+### Bug Fixes
+
+* **catalog:** merge prototype-named tag keys as own data ([e2ddefd](https://github.com/formless63/wirehub/commit/e2ddefdca61bdbd2f69cd12cde7e0090739d56dc))
+* **catalog:** preserve local auxiliary shape changes ([fac7336](https://github.com/formless63/wirehub/commit/fac73368207a4b51d67787c1411ee2bbfc7a8726))
+* **catalog:** reconcile owned pack sidecars and model links ([2f251cc](https://github.com/formless63/wirehub/commit/2f251cc11350804b13ed7e0d39da3e088670034f))
+* **catalog:** recover legacy nested auxiliary ownership ([b187045](https://github.com/formless63/wirehub/commit/b187045f2e47d6f8bbb92f28e06527dc3686936d))
+* **catalog:** track auxiliary lists and configuration ownership ([e4b2a09](https://github.com/formless63/wirehub/commit/e4b2a090566fde7c2819b7e8851f4e364d8b2057))
+* **costing:** preserve report quantities and complete module validation ([18b3ac0](https://github.com/formless63/wirehub/commit/18b3ac06056f18e94d3288f06d72bc21625a86aa))
+* **fx-rates:** show snapshots with cable documents ([#11](https://github.com/formless63/wirehub/issues/11)) ([b56a813](https://github.com/formless63/wirehub/commit/b56a81318891beff5c998a9f873841d611e5c475))
+* **jobs:** create live module queues before sending ([d17aee8](https://github.com/formless63/wirehub/commit/d17aee89ea63b9f5a155e6221965a8dab8048083))
+* **packs:** respect PDF name token boundaries ([d9804c5](https://github.com/formless63/wirehub/commit/d9804c5c4d896cb0f37f1f2bfdb7f84b5cb0e370))
+* reject host control documents in catalog packs ([c09e892](https://github.com/formless63/wirehub/commit/c09e892295a1e1114eca82c4945fd0288d0dc211))
+* render installed pack artwork and load runtime browser modules ([#10](https://github.com/formless63/wirehub/issues/10)) ([4e74f19](https://github.com/formless63/wirehub/commit/4e74f1918dc71585c4d3cf82f5e212ca4b2a993b))
+* respect PDF name boundaries during pack validation ([e6fe74d](https://github.com/formless63/wirehub/commit/e6fe74d9da95805a9cef4dfdabdde893045850a5))
+* retain bounded webhook history and suggest cable variants ([1974396](https://github.com/formless63/wirehub/commit/19743969b70c77bd61b5064a31344ef28f3fc06a))
+* **suppliers:** fetch LCSC prices in the requested currency ([3ae6ba6](https://github.com/formless63/wirehub/commit/3ae6ba6d7366ecb2196912010b12a40b21c17f37))
+
 ## [0.4.0](https://github.com/formless63/wirehub/compare/v0.3.0...v0.4.0) (2026-10-05)
 
 
