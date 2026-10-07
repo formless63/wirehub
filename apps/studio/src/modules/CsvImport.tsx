@@ -138,7 +138,7 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
       )}
       {jobId === undefined ? null : <ImportJob id={jobId} onClose={() => setJobId(undefined)} onPublished={onImported} />}
       {!open ? null : (
-        <div role="dialog" aria-label="Bulk CSV import" className="fixed inset-x-0 top-12 z-50 mx-auto flex max-h-[85vh] max-w-3xl flex-col gap-2 overflow-auto rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
+        <div role="dialog" aria-label="Bulk CSV import" className="cs-import-dialog fixed inset-x-3 top-12 z-50 mx-auto flex max-h-[85vh] max-w-3xl flex-col gap-2 overflow-auto rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
           <strong>Bulk import from {fileName}</strong>
           <div className="flex flex-wrap items-center gap-2">
             <label>
@@ -165,81 +165,85 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
               </button>
             ))}
           </div>
-          <table className="w-full border-collapse" aria-label="Column mapping">
-            <thead>
-              <tr className="text-left text-faint">
-                <th>Field</th>
-                <th>Column in your file</th>
-                <th>Or the same value for every row</th>
-              </tr>
-            </thead>
-            <tbody>
-              {FIELDS[kind].map((f) => (
-                <tr key={f.key} title={f.hint}>
-                  <td>
-                    {f.label}
-                    {f.required ? ' *' : ''}
-                  </td>
-                  <td>
-                    <select
-                      aria-label={`Column for ${f.label}`}
-                      value={mapping[f.key] ?? ''}
-                      onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value === '' ? undefined : Number(e.target.value) })}
-                    >
-                      <option value="">not in the file</option>
-                      {headers.map((h, i) => (
-                        <option key={i} value={i}>
-                          {h || `(column ${i + 1})`}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      aria-label={`Fixed ${f.label}`}
-                      className="w-40 rounded border border-line bg-panel px-1"
-                      value={fixed[f.key] ?? ''}
-                      onChange={(e) => setFixed({ ...fixed, [f.key]: e.target.value })}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div role="status" data-testid="csv-dry-run">
-            Dry run: {counts.new} new, {update ? `${counts.update} to update, ${counts.exists} unchanged` : `${counts.exists} already in the library (left as they are)`}, {counts.invalid} invalid.
-          </div>
-          {analysis === undefined || analysis.rows.length === 0 ? null : (
-            <table className="w-full border-collapse" aria-label="Dry run">
+          <div className="cs-import-table">
+            <table className="w-full border-collapse" aria-label="Column mapping">
               <thead>
                 <tr className="text-left text-faint">
-                  <th>Line</th>
-                  <th>Id</th>
-                  <th>Result</th>
-                  <th>Detail</th>
+                  <th>Field</th>
+                  <th>Column in your file</th>
+                  <th>Or the same value for every row</th>
                 </tr>
               </thead>
               <tbody>
-                {analysis.rows.slice(0, 200).map((r) => (
-                  <tr key={r.row} data-status={r.status}>
-                    <td>{r.row}</td>
-                    <td className="font-mono">{r.id}</td>
-                    <td>{r.status === 'new' ? 'new' : r.status === 'update' ? 'update' : r.status === 'exists' ? (update ? 'unchanged' : 'exists, skipped') : 'invalid'}</td>
+                {FIELDS[kind].map((f) => (
+                  <tr key={f.key} title={f.hint}>
                     <td>
-                      {r.problems.length > 0
-                        ? r.problems.join('; ')
-                        : r.status === 'update'
-                          ? (r.changes ?? []).map((c) => `${c.field}: ${show(c.before)} → ${show(c.after)}`).join('; ')
-                          : r.status === 'exists'
-                            ? r.differs.length === 0
-                              ? 'identical'
-                              : `file differs in ${r.differs.join(', ')}`
-                            : ''}
+                      {f.label}
+                      {f.required ? ' *' : ''}
+                    </td>
+                    <td>
+                      <select
+                        aria-label={`Column for ${f.label}`}
+                        value={mapping[f.key] ?? ''}
+                        onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value === '' ? undefined : Number(e.target.value) })}
+                      >
+                        <option value="">not in the file</option>
+                        {headers.map((h, i) => (
+                          <option key={i} value={i}>
+                            {h || `(column ${i + 1})`}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        aria-label={`Fixed ${f.label}`}
+                        className="w-40 rounded border border-line bg-panel px-1"
+                        value={fixed[f.key] ?? ''}
+                        onChange={(e) => setFixed({ ...fixed, [f.key]: e.target.value })}
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+          <div role="status" data-testid="csv-dry-run">
+            Dry run: {counts.new} new, {update ? `${counts.update} to update, ${counts.exists} unchanged` : `${counts.exists} already in the library (left as they are)`}, {counts.invalid} invalid.
+          </div>
+          {analysis === undefined || analysis.rows.length === 0 ? null : (
+            <div className="cs-import-table">
+              <table className="w-full border-collapse" aria-label="Dry run">
+                <thead>
+                  <tr className="text-left text-faint">
+                    <th>Line</th>
+                    <th>Id</th>
+                    <th>Result</th>
+                    <th>Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analysis.rows.slice(0, 200).map((r) => (
+                    <tr key={r.row} data-status={r.status}>
+                      <td>{r.row}</td>
+                      <td className="font-mono">{r.id}</td>
+                      <td>{r.status === 'new' ? 'new' : r.status === 'update' ? 'update' : r.status === 'exists' ? (update ? 'unchanged' : 'exists, skipped') : 'invalid'}</td>
+                      <td>
+                        {r.problems.length > 0
+                          ? r.problems.join('; ')
+                          : r.status === 'update'
+                            ? (r.changes ?? []).map((c) => `${c.field}: ${show(c.before)} → ${show(c.after)}`).join('; ')
+                            : r.status === 'exists'
+                              ? r.differs.length === 0
+                                ? 'identical'
+                                : `file differs in ${r.differs.join(', ')}`
+                              : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           {analysis !== undefined && analysis.rows.length > 200 ? <div className="text-faint">Showing the first 200 of {analysis.rows.length} rows.</div> : null}
           {analysis?.notes.map((n) => (
@@ -248,7 +252,7 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
             </div>
           ))}
           {message === undefined ? null : <div role="alert">{message}</div>}
-          <div>
+          <div className="cs-import-actions">
             <button type="button" className="cs-primary" disabled={busy || counts.new + counts.update === 0} onClick={() => void review()}>
               {counts.new + counts.update === 0
                 ? 'Nothing to import'

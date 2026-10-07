@@ -69,3 +69,108 @@ body,
   box-sizing: border-box;
 }
 
+
+/* Runtime panels use native HTML controls. Give them a host baseline even
+   outside the editor, without overriding a module's explicit styling. */
+.cs-module-panel {
+  min-width: 0;
+  padding: 12px;
+  margin-block: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+}
+:is(.cs-module-panel, .cs-module-route) :where(p) { margin-block: 0 10px; line-height: 1.5; }
+:is(.cs-module-panel, .cs-module-route) :where(label:has(> input:not([type='checkbox']):not([type='radio']), > select, > textarea)) {
+  display: grid;
+  gap: 4px;
+  max-width: 28rem;
+  margin-block: 10px;
+  color: var(--dim);
+}
+:is(.cs-module-panel, .cs-module-route) :where(input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line2);
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--bg);
+  font: inherit;
+}
+:is(.cs-module-panel, .cs-module-route) :where(button) {
+  margin: 4px 6px 4px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line2);
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--raised);
+  font: inherit;
+  cursor: pointer;
+}
+:is(.cs-module-panel, .cs-module-route) :where(button):hover:not(:disabled) { background: var(--hover); border-color: var(--accent); }
+:is(.cs-module-panel, .cs-module-route) :where(button, input, select, textarea):disabled { opacity: .55; cursor: default; }
+:is(.cs-module-panel, .cs-module-route) :where(fieldset) {
+  min-width: 0;
+  margin-block: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line2);
+  border-radius: 4px;
+}
+:is(.cs-module-panel, .cs-module-route) :where(legend) { padding-inline: 4px; font-weight: 600; }
+:is(.cs-module-panel, .cs-module-route) :where(th, td) { padding: 4px 12px 4px 0; text-align: left; border-bottom: 1px solid var(--line); }
+:is(.cs-module-panel, .cs-module-route, [data-testid='settings'], .cs-import-dialog) :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cs-import-dialog { overflow-wrap: anywhere; min-width: 0; max-height: calc(100dvh - 5rem); overflow-y: auto; }
+.cs-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+/* Jobs can reopen an import outside .cs-editor. */
+.cs-import-dialog button {
+  font: inherit;
+  padding: 5px 9px;
+  border: 1px solid var(--line2);
+  border-radius: 4px;
+  background: var(--raised);
+  color: var(--ink);
+  cursor: pointer;
+}
+.cs-import-dialog button.cs-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.cs-import-dialog button:disabled { opacity: .55; cursor: default; }
+
+.cs-import-dialog :where(input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line2);
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--bg);
+  font: inherit;
+}
+.cs-import-table { min-width: 0; max-width: 100%; overflow-x: auto; }
+.cs-import-table table { min-width: 32rem; }
+
+.cs-module-route { --cs-border: var(--line2); min-width: 0; overflow-wrap: anywhere; }
+.cs-module-route :where([data-testid='board-import-page'], section, label, input, select) { min-width: 0; }
+.cs-module-route :where(input:not([type='checkbox']):not([type='radio']), select) { width: 100%; }
+.cs-module-route :where(button) { justify-self: start; }
+.cs-module-route :where(input[type='file']) { font: inherit; max-width: 100%; }
+:is(.cs-module-route, .cs-module-panel, [data-testid='settings']) :where(input[type='file'])::file-selector-button {
+  margin-right: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--line2);
+  border-radius: 4px;
+  color: var(--ink);
+  background: var(--raised);
+  cursor: pointer;
+}

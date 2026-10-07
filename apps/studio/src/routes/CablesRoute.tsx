@@ -69,7 +69,7 @@ import { designRecord } from '../locks/records.ts';
 /** portrait phone widths: the fixed 30px grid row
  * becomes a stacked card — title line, destination line, a small facts
  * line — so nothing overlaps at ~360-430px. Desktop is untouched. */
-const MOBILE_ROW_HEIGHT = 72;
+const MOBILE_ROW_HEIGHT = 92;
 const DESKTOP_ROW_HEIGHT = 30;
 
 /** The chip/filter value of one trunk stock; a construction tag disambiguates, never the manufacturer. */
@@ -123,13 +123,13 @@ function MobileRow({ entry, dirty }: { entry: CableListEntry; dirty: boolean }):
   const retired = entry.status === 'retired';
   return (
     <div className={`flex h-full min-w-0 flex-col justify-center gap-1 border-b border-line px-3 py-2 ${retired ? 'opacity-60' : ''}`}>
-      <span className="flex min-w-0 items-baseline gap-1.5">
+      <span className="flex min-w-0 items-start gap-1.5">
         <LockMarker record={designRecord(entry.id)} />
         {dirty ? (
           <span title="Unsaved changes" aria-label="Unsaved changes" className="h-[6px] w-[6px] shrink-0 rounded-full bg-accent" />
         ) : null}
-        <span className="truncate text-[13px] font-medium text-ink" title={`${entry.label}\n${entry.id}`}>
-          {entry.source}
+        <span className="line-clamp-2 min-w-0 text-[13px] font-medium text-ink" title={`${entry.label}\n${entry.id}`}>
+          {entry.label}
         </span>
         <span className="ml-auto shrink-0">
           <NotesCell entry={{ ...entry, features: [] }} />
@@ -154,7 +154,7 @@ function MobileRow({ entry, dirty }: { entry: CableListEntry; dirty: boolean }):
             </span>
           );
         })()}
-        <span className="min-w-0 truncate" title={(entry.products ?? []).map((p) => `${p.productLabel} · ${p.variantLabel}`).join('; ')}>
+        <span className="min-w-0 truncate" title={(entry.products ?? []).map((p) => `${p.productLabel} · ${p.variantLabel}`).join('; ')} aria-label={(entry.products ?? []).length === 0 ? undefined : `Product: ${(entry.products ?? []).map((p) => `${p.productLabel} · ${p.variantLabel}`).join('; ')}`}>
           {(entry.products ?? []).map((p) => `${p.productLabel} · ${p.variantLabel}`).join('; ')}
         </span>
         {(entry.features ?? []).map((f) => (
@@ -292,16 +292,16 @@ const columns = columnHelper.columns([
     header: 'PRODUCT',
     cell: (ctx) => truncated('text-[11.5px] text-dim', ctx.getValue()),
   }),
-  columnHelper.accessor('source', {
+  columnHelper.accessor('label', {
     id: 'source',
-    header: 'SOURCE',
+    header: 'CABLE',
     cell: (ctx) => (
       <span className="flex min-w-0 items-start gap-1.5">
         {/* full label on hover: no aggressive one-line
-            ellipsis — the source title gets the space it needs, up to two
+            ellipsis — the assembly label gets the space it needs, up to two
             lines, before it ever truncates */}
         <span className="line-clamp-2 min-w-0 flex-1 leading-[13px] text-[12.5px] font-medium text-ink" title={ctx.row.original.label}>
-          {ctx.getValue()}
+          {ctx.row.original.label}
         </span>
       </span>
     ),

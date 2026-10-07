@@ -63,11 +63,17 @@ export function artSrc(art: { kind: 'vector' | 'raster'; source?: string; dataUr
   return art.source === undefined ? undefined : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(art.source)}`;
 }
 
-/** The 2D view to show: board top / mating face / illustration, never a mirrored or photo one. */
+/** Drawn views, including bottom artwork whose anchors are derived by reflection. */
+export function drawnViews(views: readonly ArtworkView[]): ArtworkView[] {
+  const order = ['board-top', 'board-bottom', 'mating-face', 'solder-side', 'illustration'];
+  const rank = (view: string): number => { const n = order.indexOf(view); return n < 0 ? order.length : n; };
+  return views.filter((v) => v.sourceKind !== 'photo' && v.view !== 'schematic-symbol')
+    .sort((a, b) => rank(a.view) - rank(b.view) || a.view.localeCompare(b.view));
+}
+
+/** The default 2D view, preferring the board's top when supplied. */
 export function pick2d(views: readonly ArtworkView[]): ArtworkView | undefined {
-  const drawn = views.filter((v) => !v.derived && v.sourceKind !== 'photo' && v.view !== 'schematic-symbol');
-  const order = ['board-top', 'mating-face', 'illustration'];
-  return [...drawn].sort((a, b) => order.indexOf(a.view) - order.indexOf(b.view))[0];
+  return drawnViews(views)[0];
 }
 
 function kb(bytes: number): string {
@@ -90,6 +96,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
   const [artRetry, setArtRetry] = useState(0);
   const [views, setViews] = useState<ArtworkView[]>([]);
   const [art, setArt] = useState<{ view: string; src: string } | undefined>(undefined);
+  const [drawnView, setDrawnView] = useState<string | undefined>();
   const [view, setView] = useState<ViewId | undefined>(undefined);
   const [attaching, setAttaching] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -107,6 +114,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     setViews([]);
     setArt(undefined);
     setView(undefined);
+    setDrawnView(undefined);
     setAttaching(false);
     setMessage(undefined);
     void models.get(kind, id).then((outcome) => {
@@ -142,7 +150,8 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     };
   }, [link, models, open, modelRetry]);
 
-  const twoD = useMemo(() => pick2d(views), [views]);
+  const drawings = useMemo(() => drawnViews(views), [views]);
+  const twoD = drawings.find((v) => v.view === drawnView) ?? drawings[0];
   const photo = useMemo(() => views.find((v) => v.sourceKind === 'photo' && !v.derived), [views]);
   const available: ViewId[] = [
     ...(twoD !== undefined || props.builtIn2d !== undefined ? (['2d'] as const) : []),
@@ -267,6 +276,13 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
           {message.text}
         </p>
       )}
+      {open && shown === '2d' && drawings.length > 1 ? (
+        <div className="cs-model-actions" role="group" aria-label="2D artwork view">
+          <label>Artwork view <select aria-label="2D artwork view" value={twoD?.view ?? ''} onChange={(event) => setDrawnView(event.target.value)}>
+            {drawings.map((v) => <option key={v.view} value={v.view}>{v.view.replaceAll('-', ' ')}</option>)}
+          </select></label>
+        </div>
+      ) : null}
       {attaching ? <AttachForm {...props} disabled={disabled} onBusy={setBusy} onDone={done} onError={(text) => setMessage({ tone: 'err', text })} /> : null}
       {!open ? null : shown === '3d' ? (
         modelError !== undefined ? (
@@ -294,6 +310,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
         ) : (
           <div className="cs-model-art">
             <img src={art.src} alt={`${shown === 'photo' ? 'Photo' : '2D art'} of ${props.label}`} />
+            {shown === '2d' ? <p className="cs-model-hint">{wantArt?.view.replaceAll('-', ' ')}</p> : null}
           </div>
         )
       ) : null}

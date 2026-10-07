@@ -1,7 +1,7 @@
 /**
  * The three.js half of the Library's 3D view:
  * bytes → a scene object, materials that read in both themes, and the
- * camera framing for fit / reset / top / front / side. DOM-free so the
+ * camera framing for fit / reset / top / bottom / front / side. DOM-free so the
  * loaders are unit-tested in Node; only `panels/ModelViewer3d.tsx` (the lazy
  * chunk) and tests import it.
  */
@@ -20,10 +20,20 @@ export interface ScenePalette {
   dark: boolean;
 }
 
+const sourceMaterials = new WeakMap<THREE.Mesh, readonly THREE.Material[]>();
+const explicitMaterials = new WeakMap<THREE.Material, boolean>();
+
 /** Parse a stored model (GLB or STL) into an object ready to add to a scene. */
 export async function parseModel(bytes: ArrayBuffer, mime = ''): Promise<THREE.Object3D> {
   if (mime === 'model/gltf-binary' || looksLikeGlb(bytes)) {
     const gltf = await new GLTFLoader().parseAsync(bytes, '');
+    // Material names are optional in glTF. Distinguish an explicit source
+    // material from GLTFLoader's neutral default using its source association.
+    for (const mesh of meshes(gltf.scene)) {
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        explicitMaterials.set(material, gltf.parser.associations.get(material)?.materials !== undefined);
+      }
+    }
     return gltf.scene;
   }
   if (mime === 'model/stl' || mime === '' || mime === 'application/octet-stream') {
@@ -63,32 +73,26 @@ export function applyMaterials(root: THREE.Object3D, palette: ScenePalette): voi
     const geometry = mesh.geometry as THREE.BufferGeometry;
     const hasNormals = geometry.getAttribute('normal') !== undefined;
     const vertexColors = geometry.getAttribute('color') !== undefined;
-    const previous = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as THREE.MeshStandardMaterial | undefined;
-    // the source's own colour (a named glTF material — GLTFLoader's default
-    // is unnamed), remembered the first time so a theme change re-applies it
-    if (!('ownColor' in mesh.userData)) {
-      mesh.userData['ownColor'] =
-        previous !== undefined && previous.name !== '' && previous.color !== undefined ? `#${previous.color.getHexString()}` : null;
-    }
-    if (!('ownMap' in mesh.userData)) {
-      mesh.userData['ownMap'] = previous !== undefined && previous.name !== '' && previous.map !== null ? (previous.map ?? null) : null;
-    }
-    const sourceColor = (mesh.userData['ownColor'] as string | null) ?? undefined;
-    const sourceMap = mesh.userData['ownMap'] as THREE.Texture | null;
-    if (sourceMap !== null) sourceMap.colorSpace = THREE.SRGBColorSpace;
-    const material = new THREE.MeshStandardMaterial({
-      name: sourceMap !== null ? 'source-art' : sourceColor === undefined && !vertexColors ? 'neutral' : 'source',
-      // a textured face is painted white so the map shows unshifted; its own colour otherwise
-      color: sourceMap !== null ? 0xffffff : vertexColors ? 0xffffff : (sourceColor ?? palette.body),
-      map: sourceMap,
-      vertexColors,
-      metalness: 0.05,
-      roughness: 0.62,
-      flatShading: !hasNormals,
-      side: THREE.DoubleSide,
+    const previous = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    if (!sourceMaterials.has(mesh)) sourceMaterials.set(mesh, previous);
+    const sources = sourceMaterials.get(mesh)!;
+    const materials = sources.map((source) => {
+      const standard = source as THREE.MeshStandardMaterial;
+      const explicit = explicitMaterials.get(source);
+      const hasSource = explicit ?? (source.name !== '' || standard.map != null || (standard.color !== undefined && standard.color.getHex() !== 0xffffff));
+      // Keep the full source material: base color multiplies its texture, and
+      // alpha/normal/emissive maps and per-group materials must survive too.
+      const material = hasSource ? source.clone() : new THREE.MeshStandardMaterial({ color: vertexColors ? 0xffffff : palette.body, metalness: 0.05, roughness: 0.62 });
+      material.name = hasSource ? standard.map != null ? 'source-art' : 'source' : 'neutral';
+      material.side = THREE.DoubleSide;
+      if (material instanceof THREE.MeshStandardMaterial) {
+        material.vertexColors = vertexColors;
+        material.flatShading = !hasNormals;
+      }
+      return material;
     });
-    if (previous !== undefined && previous !== material) previous.dispose();
-    mesh.material = material;
+    for (const material of previous) material.dispose();
+    mesh.material = Array.isArray(mesh.material) ? materials : materials[0]!;
   }
 }
 
@@ -168,6 +172,7 @@ export function countTriangles(root: THREE.Object3D): number {
 
 export function disposeObject(root: THREE.Object3D): void {
   for (const mesh of meshes(root)) {
+    sourceMaterials.delete(mesh);
     mesh.geometry.dispose();
     const material = mesh.material;
     for (const m of Array.isArray(material) ? material : [material]) m.dispose();

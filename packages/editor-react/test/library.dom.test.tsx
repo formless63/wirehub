@@ -44,6 +44,17 @@ function host(): ReturnType<typeof memoryDefinitions> {
 const wireDraft = (id: string): WireDraft =>
   wireFormOf(db.wires.find((wire) => wire.id === id) as WireDefinition) as WireDraft;
 
+it.each(['cat5e-utp', 'shielded-2pair-24awg'])('draws nested stock %s while keeping its unsupported form read-only', async (id) => {
+  const stock = db.wires.find((wire) => wire.id === id)!;
+  expect(wireFormOf(stock)).toBeUndefined();
+  const { container } = render(<Library db={db} kind="wires" selectedId={stock.id} definitions={host()} />);
+  await screen.findByText('The structured form cannot edit this stock.');
+  await waitFor(() => expect(container.querySelector('.cs-cutaway-draw svg')).not.toBeNull());
+  expect(screen.getByRole('list', { name: 'cross-section key' }).textContent).toMatch(/pair/i);
+  expect(screen.getByText('Advanced: the record as JSON')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+});
+
 /* ------------------------------------------------------------------ *
  * The view itself
  * ------------------------------------------------------------------ */

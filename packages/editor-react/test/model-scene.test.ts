@@ -95,7 +95,7 @@ describe('applyMaterials', () => {
 describe('frameBox', () => {
   const box = new THREE.Box3(new THREE.Vector3(-40, -5, -15), new THREE.Vector3(40, 5, 15));
 
-  it.each(['iso', 'top', 'front', 'side'] as const)('keeps every corner of the part in view from %s', (preset) => {
+  it.each(['iso', 'top', 'bottom', 'front', 'side'] as const)('keeps every corner of the part in view from %s', (preset) => {
     const f = frameBox(box, preset, 35, 3);
     const camera = new THREE.PerspectiveCamera(35, 3, f.near, f.far);
     camera.position.copy(f.position);
@@ -110,6 +110,55 @@ describe('frameBox', () => {
           expect(Math.abs(p.y)).toBeLessThanOrEqual(1);
         }
       }
+    }
+  });
+});
+
+
+describe('source material fidelity', () => {
+  it('keeps an explicitly supplied unnamed glTF material across both themes', async () => {
+    const original = new Uint8Array(bytes('tetra.glb'));
+    const input = new DataView(original.buffer);
+    const jsonLength = input.getUint32(12, true);
+    const json = JSON.parse(new TextDecoder().decode(original.subarray(20, 20 + jsonLength)));
+    json.materials = [{ pbrMetallicRoughness: { baseColorFactor: [0.1, 0.5, 0.2, 0.4], metallicFactor: 0.7, roughnessFactor: 0.3 }, alphaMode: 'BLEND' }];
+    json.meshes[0].primitives[0].material = 0;
+    const encoded = new TextEncoder().encode(JSON.stringify(json));
+    const padded = new Uint8Array((encoded.length + 3) & ~3).fill(32); padded.set(encoded);
+    const binary = original.subarray(20 + jsonLength);
+    const glb = new Uint8Array(20 + padded.length + binary.length); const out = new DataView(glb.buffer);
+    out.setUint32(0, 0x46546c67, true); out.setUint32(4, 2, true); out.setUint32(8, glb.length, true);
+    out.setUint32(12, padded.length, true); out.setUint32(16, 0x4e4f534a, true); glb.set(padded, 20); glb.set(binary, 20 + padded.length);
+    const root = await parseModel(glb.buffer, 'model/gltf-binary');
+    const mesh = root.getObjectByProperty('isMesh', true) as THREE.Mesh;
+    for (const body of ['#ff00ff', '#ffffff']) {
+      applyMaterials(root, { ...PALETTE, body });
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      expect(material.color.toArray()).toEqual([0.1, 0.5, 0.2]);
+      expect(material.opacity).toBe(0.4); expect(material.transparent).toBe(true);
+      expect(material.metalness).toBe(0.7); expect(material.roughness).toBe(0.3);
+      expect(material.side).toBe(THREE.DoubleSide);
+    }
+  });
+
+  it('preserves multiple source materials, texture tint and geometry groups', () => {
+    const texture = new THREE.Texture();
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const top = new THREE.MeshStandardMaterial({ color: 0x88cc88, map: texture, alphaTest: 0.4 });
+    const bottom = new THREE.MeshStandardMaterial({ color: 0x2244cc, roughness: 0.2 });
+    const mesh = new THREE.Mesh(geometry, [top, bottom]);
+    const groups = structuredClone(geometry.groups);
+    const root = new THREE.Group().add(mesh);
+    for (const body of ['#ff00ff', '#ffffff']) {
+      applyMaterials(root, { ...PALETTE, body });
+      const materials = mesh.material as THREE.MeshStandardMaterial[];
+      expect(materials).toHaveLength(2);
+      expect(materials[0]!.map).toBe(texture);
+      expect(materials[0]!.color.getHexString()).toBe('88cc88');
+      expect(materials[0]!.alphaTest).toBe(0.4);
+      expect(materials[1]!.color.getHexString()).toBe('2244cc');
+      expect(materials[1]!.roughness).toBe(0.2);
+      expect(geometry.groups).toEqual(groups);
     }
   });
 });

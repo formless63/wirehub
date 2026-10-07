@@ -110,7 +110,7 @@ export function ImportJob({ id, onClose, onPublished }: { id: string; onClose: (
   };
 
   return (
-    <div role="dialog" aria-label="Import job" className="fixed inset-x-0 top-16 z-50 mx-auto flex max-h-[80vh] max-w-lg flex-col gap-1.5 overflow-auto rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
+    <div role="dialog" aria-label="Import job" className="cs-import-dialog fixed inset-x-3 top-16 z-50 mx-auto flex max-h-[80vh] max-w-lg flex-col gap-1.5 overflow-auto rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
       {query.isError ? (
         <div role="alert">{query.error instanceof Error ? query.error.message : 'That job could not be read.'}</div>
       ) : job === undefined ? (
@@ -152,7 +152,7 @@ export function ImportJob({ id, onClose, onPublished }: { id: string; onClose: (
             </>
           ) : null}
           {message === undefined ? null : <div role="status" data-testid="job-message">{message}</div>}
-          <div>
+          <div className="cs-import-actions">
             {job.status === 'done' && job.publishedVersion === undefined ? (
               <button type="button" className="cs-primary" disabled={busy || added === 0} onClick={() => void publish()}>
                 {added === 0 ? 'Nothing new' : `Publish ${added} record${added === 1 ? '' : 's'}`}

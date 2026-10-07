@@ -25,6 +25,7 @@ describe('cable list rows', () => {
       { id: 'spares', label: 'Spares', variants: [{ id: 'replacement', design: design.id }], src: 'synthetic example' },
     ];
     const row = cableListEntry(design, { ...db, products });
+    expect(row.label).toBe(design.label);
     expect(row.products).toEqual([
       { product: 'leads', productLabel: 'Power leads', variant: 'short', variantLabel: 'Compact indicator' },
       { product: 'spares', productLabel: 'Spares', variant: 'replacement', variantLabel: 'replacement' },

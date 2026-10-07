@@ -143,7 +143,7 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
       )}
       {jobId === undefined ? null : <ImportJob id={jobId} onClose={() => setJobId(undefined)} onPublished={onImported} />}
       {pending === undefined || proposal === undefined ? null : (
-        <div role="dialog" aria-label="Review import" className="fixed inset-x-0 top-16 z-50 mx-auto flex max-w-md flex-col gap-1.5 rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
+        <div role="dialog" aria-label="Review import" className="cs-import-dialog fixed inset-x-3 top-16 z-50 mx-auto flex max-w-md flex-col gap-1.5 rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
           <strong>
             {pending.importerLabel}: {pending.fileName}
           </strong>
@@ -166,7 +166,7 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
           {proposal.notes.map((note) => (
             <div key={note}>Check: {note}</div>
           ))}
-          <div>
+          <div className="cs-import-actions">
             <button type="button" className="cs-primary" disabled={busy || added === 0} onClick={() => void accept()}>
               {added === 0 ? 'Nothing new' : `Add ${added} record${added === 1 ? '' : 's'}`}
             </button>

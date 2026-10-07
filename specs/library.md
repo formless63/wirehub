@@ -85,7 +85,10 @@ usable state.
 - **The wire form has a deliberate limit.** The structure of a stock is an arbitrary tree; the
   form edits the shape the catalog uses and the cutaway draws (cores: coax, shielded or plain;
   an overall shield, a drain, a jacket). A stock outside that shape is left alone: the form
-  says so and points at the JSON view. The editor is constrained, never the model.
+  says so and points at the JSON view. Its read-only cross-section still renders
+  from the original stock, including nested twisted-pair groups; rendering does
+  not require flattening the stock into an editable form. The editor is
+  constrained, never the model.
 - **`src` is required.** The editors have a Source field; provenance is an input.
 - **Part numbers** are chosen through the `PartNumberScheme` (`PartNumberField`), which
   proposes the next free number; validation warns of a duplicate (`pn-duplicate`) and a design

@@ -214,6 +214,28 @@ async function readyOnCable(id: string): Promise<ReturnType<typeof createStudioR
 }
 
 describe('the cables list', () => {
+  it('shows the full working assembly labels instead of only their connector source names', async () => {
+    await readyOnList();
+    for (const id of IDS) {
+      const row = cableLinks().find((link) => link.getAttribute('href') === `/cables/${id}`)!;
+      expect(row.textContent).toContain(loadDesign(id).label);
+    }
+    expect(screen.getByText('CABLE')).toBeTruthy();
+  });
+
+  it('keeps assembly labels visible in the phone cards too', async () => {
+    const original = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: (media: string) => ({ matches: true, media, addEventListener() {}, removeEventListener() {} }) });
+    try {
+      await readyOnList();
+      for (const id of IDS) {
+        const row = cableLinks().find((link) => link.getAttribute('href') === `/cables/${id}`)!;
+        expect(row.textContent).toContain(loadDesign(id).label);
+      }
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: original });
+    }
+  });
 
   it('opens a cable when its row is clicked', async () => {
     await readyOnList();

@@ -85,11 +85,12 @@ export function looksLikeGlb(bytes: ArrayBuffer): boolean {
 export const MODEL_KINDS = new Set(['connectors', 'components', 'wires', 'pcbas', 'mechanicals', 'bodies']);
 
 /** The camera presets: where the eye sits, relative to the model's centre. */
-export type ViewPreset = 'iso' | 'top' | 'front' | 'side';
+export type ViewPreset = 'iso' | 'top' | 'bottom' | 'front' | 'side';
 
 export const VIEW_DIRECTIONS: Record<ViewPreset, readonly [number, number, number]> = {
   iso: [1, 0.8, 1.2],
   top: [0, 1, 0.0001],
+  bottom: [0, -1, 0.0001],
   front: [0, 0, 1],
   side: [1, 0, 0],
 };

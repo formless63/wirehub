@@ -473,7 +473,7 @@
 }
 
 .cs-lt-bar > .cs-library-actions {
-  flex: none;
+  flex: 0 1 auto;
 }
 
 .cs-used-list .cs-link {
