@@ -23,6 +23,7 @@
  * app reaching into editor-react's internals.
  */
 
+import { LibraryNavigationGuard } from './LibraryNavigationGuard.tsx';
 import type { JSX } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useMatches, useNavigate } from '@tanstack/react-router';
@@ -155,6 +156,7 @@ export function LibraryRoute(): JSX.Element {
   return (
     <div className="cs-editor">
       <EditLockScope record={selectedId === undefined ? undefined : definitionRecord(kind, selectedId)}>
+      <LibraryNavigationGuard>
       <Library
         rowMarker={(rowKind, id) => <LockMarker record={definitionRecord(rowKind, id)} />}
         db={studio.db}
@@ -204,6 +206,7 @@ export function LibraryRoute(): JSX.Element {
         art={art}
         onOpenDesign={(id) => void navigate({ to: '/cables/$id', params: { id } })}
       />
+      </LibraryNavigationGuard>
       </EditLockScope>
       {compare === undefined ? null : <CompareHost registry={modules} db={studio.db} a={compare.a} {...(compare.b === undefined ? {} : { b: compare.b })} revisions={revisions} artwork={studio.artwork} models={models} onClose={() => setCompare(undefined)} />}
     </div>

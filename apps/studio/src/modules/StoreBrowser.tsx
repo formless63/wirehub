@@ -1,3 +1,4 @@
+import { AppLink } from '../shell/AppLink.tsx';
 /**
  * Library → Browse store: the packs listed by the store indexes this hub trusts
  * (`WIREHUB_STORE_INDEXES`), each index's signature verified by the server. Search
@@ -167,9 +168,9 @@ export function StoreBrowser(): JSX.Element {
       <h1 className="text-base font-semibold">Modules & catalog packs</h1>
       <p className="mt-1 text-faint">Add tools with code modules or extend your Library with catalog packs. Every install starts with a preview; modules that run code require owner consent.</p>
       <nav aria-label="Store management" className="my-3 flex flex-wrap gap-2">
-        <a href="/settings?section=stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</a>
-        <a href="/settings?section=modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage installed modules</a>
-        <a href="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Installed packs & uploads</a>
+        <AppLink to="/settings" section="stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</AppLink>
+        <AppLink to="/settings" section="modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage installed modules</AppLink>
+        <AppLink to="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Installed packs & uploads</AppLink>
       </nav>
       {disclaimer === undefined ? null : (
         <p className="my-2 border border-line p-2 text-faint" data-testid="store-disclaimer">

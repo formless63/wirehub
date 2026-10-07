@@ -1,3 +1,4 @@
+import { AppLink } from '../shell/AppLink.tsx';
 /**
  * The store half of `/settings` (`server/store-settings.ts`): the stores this hub
  * trusts. The deployment's are shown read-only ("set by the server"), with the
@@ -125,7 +126,7 @@ export function StoreSourcesSettings(): JSX.Element {
         </a>
         .
       </p>
-      <a href="/library/store" className="mb-3 inline-block rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</a>
+      <AppLink to="/library/store" className="mb-3 inline-block rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</AppLink>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The stores could not be read.'}</div> : null}
       {view === undefined ? (
         query.isError ? null : <div className="text-faint">Loading…</div>

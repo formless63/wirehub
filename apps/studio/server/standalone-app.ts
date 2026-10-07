@@ -73,7 +73,7 @@ export function createStandaloneApp(options: StandaloneAppOptions): Hono {
   });
   // the login gate first, when there is one: its sign-in routes, then the
   // session check every other route (API and SPA alike) passes through
-  if (options.auth !== undefined) mountAuth(app, options.auth);
+  if (options.auth !== undefined) mountAuth(app, options.auth, { spaAccountPages: true });
   // the API first: nothing under `/api/` should ever fall through to the
   // static/SPA route below it
   const deps = options.deps ?? defaultWorkbenchDeps();

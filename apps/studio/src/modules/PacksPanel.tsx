@@ -1,3 +1,4 @@
+import { AppLink } from '../shell/AppLink.tsx';
 /**
  * Catalog packs on the modules page: what is installed, update with a diff,
  * disable, and "Install pack…" from a file or an https URL. Every change is
@@ -182,9 +183,9 @@ export function PacksPanel(): JSX.Element {
       <h2 className="text-[13px] font-medium">Catalog packs</h2>
       <p className="mb-2 text-faint">Installed catalog data and uploads. A pack may also carry a signed code module; its preview asks for owner consent before code can run.</p>
       <div className="mb-3 flex flex-wrap gap-2">
-        <a href="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse store</a>
-        <a href="/settings?section=modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage code modules</a>
-        <a href="/settings?section=stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</a>
+        <AppLink to="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse store</AppLink>
+        <AppLink to="/settings" section="modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage code modules</AppLink>
+        <AppLink to="/settings" section="stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</AppLink>
       </div>
       {packs === undefined ? <div className="text-faint">Loading…</div> : packs.length === 0 ? <div className="text-faint">No packs are installed.</div> : null}
       <ul>
@@ -197,9 +198,9 @@ export function PacksPanel(): JSX.Element {
                 <span key={n.index} role="alert" className="ml-2 border border-warn px-1 text-warn" data-pack-warning={p.id} title={noticeText(n)}>
                   {n.yanked !== undefined ? 'Yanked' : n.revoked !== undefined ? 'Revoked key' : 'Flagged'}: {noticeText(n)}{' '}
                   {n.suggest === undefined ? null : (
-                    <a href="/library/store" className="underline">
+                    <AppLink to="/library/store" className="underline">
                       Update…
-                    </a>
+                    </AppLink>
                   )}
                 </span>
               ))}

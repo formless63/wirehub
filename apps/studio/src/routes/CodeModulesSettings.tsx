@@ -1,3 +1,4 @@
+import { AppLink } from '../shell/AppLink.tsx';
 /**
  * The code-module half of `/settings` (`specs/runtime-modules.md`): the code
  * modules installed here and what became of each (loaded, off, failed with its
@@ -84,8 +85,8 @@ export function CodeModulesSettings(): JSX.Element {
         Control installed code modules here. Built-in modules ship with this image and always run; optional runtime modules are installed separately. Only owners install, turn on or off, or restart.
       </p>
       <div className="mb-3 flex flex-wrap gap-2">
-        <a href="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</a>
-        <a href="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Install from a file or URL</a>
+        <AppLink to="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</AppLink>
+        <AppLink to="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Install from a file or URL</AppLink>
       </div>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The code modules could not be read.'}</div> : null}
       {query.data === null ? <div className="text-faint">This server does not run code modules.</div> : null}

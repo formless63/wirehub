@@ -18,7 +18,7 @@ import { composeConnectors } from '@wirehub/model';
 import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition } from '@wirehub/model';
 import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -45,11 +45,13 @@ vi.mock('@wirehub/editor-react', async (importOriginal) => {
       );
     },
     Library(props: Record<string, unknown>) {
+      const session = actual.useEditSession();
       seen.libraryProps = props;
       return react.createElement(
         'div',
         { 'data-testid': 'library' },
         'library',
+        react.createElement('button', { onClick: () => session.onDirtyChange?.(true) }, 'Edit library draft'),
         react.createElement('span', { 'data-testid': 'library-kind' }, String(props['kind'])),
         react.createElement('span', { 'data-testid': 'library-id' }, String(props['selectedId'])),
       );
@@ -256,4 +258,32 @@ describe('search params that look like numbers', () => {
     await again.load();
     expect(again.state.location.search).toMatchObject({ pn: 'PCA-00106' });
   });
+});
+
+it('Home is a client navigation and asks before discarding a Library draft', async () => {
+  const router = createStudioRouter(createMemoryHistory({ initialEntries: ['/library/connectors/de9-male'] }));
+  render(<App router={router} />);
+  await waitFor(() => expect(screen.getByTestId('library')).toBeTruthy());
+  fireEvent.click(screen.getByRole('button', { name: 'Edit library draft' }));
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  fireEvent.click(screen.getByRole('link', { name: 'WireHub home' }));
+  await waitFor(() => expect(confirm).toHaveBeenCalled());
+  expect(router.state.location.pathname).toBe('/library/connectors/de9-male');
+  confirm.mockReturnValue(true);
+  fireEvent.click(screen.getByRole('link', { name: 'WireHub home' }));
+  await waitFor(() => expect(router.state.location.pathname).toBe('/cables'));
+});
+
+it.each([['/resolver', 'Which cable do I need?'], ['/products', 'Products'], ['/history', 'History'], ['/part-numbers', 'Part numbers'], ['/settings', 'Hub settings'], ['/library/store', 'Store'], ['/sign-in', 'My account']])('shows the page title for %s', async (path, title) => {
+  render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [path] }))} />);
+  await waitFor(() => expect(screen.getByTestId('section-title').textContent).toBe(title));
+});
+
+it('Store configuration links navigate directly to the Settings section within the app', async () => {
+ const router = createStudioRouter(createMemoryHistory({ initialEntries: ['/library/store'] }));
+ render(<App router={router} />);
+ const configure = await screen.findByRole('link', { name: 'Configure stores' });fireEvent.click(configure);
+ await waitFor(() => expect(router.state.location.pathname).toBe('/settings'));
+ expect(router.state.location.search).toEqual({ section: 'stores' });
+ expect(screen.getByTestId('section-title').textContent).toBe('Hub settings');
 });

@@ -23,7 +23,7 @@ import { sessionStudioUser, type StudioUser } from '../me.ts';
 import { clientAddress } from '../env.ts';
 import { crossSiteRefusal } from '../request-guard.ts';
 import type { Notifier } from '../notify.ts';
-import { renderInvitePage, renderPeoplePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
+import { renderEmbeddedAccountPage, renderInvitePage, renderPeoplePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
 import { ROLES, type PeopleStore, type Person, type Role } from './people.ts';
 import { parseToken, READ_LIMITS, scopeFor, TOKEN_DAYS, TOKEN_SCOPES, WRITE_LIMITS, type TokenEnv, type TokenStore } from './tokens.ts';
 import { AUTH_BASE_PATH, EMAIL_NOT_ALLOWED, SIGN_IN_PATH, type StudioAuth } from './studio-auth.ts';
@@ -58,10 +58,17 @@ function json(status: number, body: unknown): Response {
   });
 }
 
-function html(body: string): Response {
+function html(body: string, embedded = false, status = 200): Response {
   return new Response(body, {
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+    status,
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...(embedded ? { 'content-security-policy': "frame-ancestors 'self'" } : {}) },
   });
+}
+
+/** A session-expired frame never turns into an iframe-hosted OAuth login. */
+function accountFrameRefusal(status: 401 | 403): Response {
+  const page = renderSignInPage({ magicLink: false, next: '/' }).replace('<p class="msg" id="status"', '<p class="who">Your session has expired or no longer has access to this hub.</p><a class="btn primary" href="/sign-in">Sign in again</a><p class="msg" id="status"');
+  return html(renderEmbeddedAccountPage(page), true, status);
 }
 
 function signInRedirect(c: Context, extra?: Record<string, string>): Response {
@@ -232,7 +239,7 @@ async function tokensRoute(c: Context, tokens: TokenStore, person: Person | unde
   return json(405, { error: `${c.req.method} is not something this address accepts.`, hint: 'It answers DELETE.' });
 }
 
-export function mountAuth(app: Hono, auth: StudioAuth): void {
+export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPages?: boolean } = {}): void {
   // read at each request: the sign-in methods may change in Settings (`liveStudioAuth`)
   const config = (): StudioAuth['config'] => auth.config;
 
@@ -248,14 +255,17 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
     return auth.handler(c.req.raw);
   });
 
-  app.get(SIGN_IN_PATH, async (c) => {
+  app.get(SIGN_IN_PATH, async (c, next) => {
     const user = await auth.sessionUser(c.req.raw.headers);
+    const embedded = c.req.query('embed') === '1';
+    const allowed = user !== null && await auth.isAllowed(user.email);
+    if (embedded && !allowed) return accountFrameRefusal(user === null ? 401 : 403);
+    if (options.spaAccountPages && allowed && !embedded) return next();
     const error = c.req.query('error');
     // email + password is all there is, and nobody has a password: say so instead of a form that cannot work
     const noMethod =
       config().oidc === undefined && config().smtp === undefined && (auth.providers ?? []).length === 0 && config().localAccounts && auth.setupMode?.() !== true && auth.people !== undefined && !(await auth.people.hasPasswordLogin().catch(() => true));
-    return html(
-      renderSignInPage({
+    const page = renderSignInPage({
         ...(config().oidc === undefined
           ? {}
           : { oidc: { providerId: config().oidc!.providerId, name: config().oidc!.name, emailClaim: config().oidc!.emailClaim } }),
@@ -266,9 +276,9 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
         ...(noMethod ? { noMethod: true } : {}),
         next: safeNext(c.req.query('next')),
         ...(error === undefined || error === '' ? {} : { error }),
-        ...(user === null ? {} : { signedInAs: { email: user.email, allowed: await auth.isAllowed(user.email) } }),
-      }),
-    );
+        ...(user === null ? {} : { signedInAs: { email: user.email, allowed } }),
+      });
+    return html(embedded ? renderEmbeddedAccountPage(page) : page, embedded);
   });
 
   // invitations (database backend, B8): an owner invites by email with a role; the link's page makes the account
@@ -292,6 +302,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
     if (path === SIGN_IN_PATH || path === AUTH_BASE_PATH || path.startsWith(`${AUTH_BASE_PATH}/`)) return next();
     if (people !== undefined && (path === INVITE_PATH || path === `${INVITATIONS_PATH}/accept`)) return next();
     const api = isApiPath(path);
+    const accountFrame = c.req.query('embed') === '1' && (path === PEOPLE_PAGE || path === TOKENS_PAGE);
     // a personal API token (B12): `/api/*` only, and instead of a session
     const authorization = c.req.header('authorization');
     if (api && authorization !== undefined && /^bearer\s/i.test(authorization)) {
@@ -302,6 +313,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
     const user = await auth.sessionUser(c.req.raw.headers);
 
     if (user === null) {
+      if (accountFrame) return accountFrameRefusal(401);
       if (api) {
         return json(401, {
           error: 'You are signed out, so the studio did not do that.',
@@ -314,6 +326,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
     }
 
     if (!(await auth.isAllowed(user.email))) {
+      if (accountFrame) return accountFrameRefusal(403);
       if (api) {
         return json(403, {
           error: `${user.email} is not allowed to use the studio.`,
@@ -347,9 +360,9 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
       if (path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`)) return invitationsRoute(c, people, person, config().baseURL);
       if (auth.tokens !== undefined && (path === TOKENS_PATH || path.startsWith(`${TOKENS_PATH}/`))) return tokensRoute(c, auth.tokens, person, auth.tokenEnv ?? 'dev', auth.notifier);
     }
-    if (people !== undefined && path === PEOPLE_PAGE && c.req.method === 'GET') return html(renderPeoplePage());
-    if (people !== undefined && auth.tokens !== undefined && path === TOKENS_PAGE && c.req.method === 'GET') {
-      return html(renderTokensPage());
+    if (people !== undefined && path === PEOPLE_PAGE && c.req.method === 'GET' && (!options.spaAccountPages || c.req.query('embed') === '1')) return html(renderEmbeddedAccountPage(renderPeoplePage()), true);
+    if (people !== undefined && auth.tokens !== undefined && path === TOKENS_PAGE && c.req.method === 'GET' && (!options.spaAccountPages || c.req.query('embed') === '1')) {
+      return html(renderEmbeddedAccountPage(renderTokensPage()), true);
     }
     await next();
 

@@ -5,6 +5,7 @@
  * With the login on, the avatar opens the person's sign-in methods.
  */
 
+import { Link } from '@tanstack/react-router';
 import { useState, type JSX } from 'react';
 
 import { initialsOf } from '../me.browser.ts';
@@ -21,9 +22,9 @@ export function LockNameAvatar({ user, who, signedIn }: { user: string; who: str
 
   if (signedIn) {
     return (
-      <a href="/sign-in" title={`${who} — sign-in methods and sign out`} aria-label="My sign-in methods" className={`${AVATAR} hover:bg-hover focus-visible:outline focus-visible:outline-accent`}>
+      <Link to="/sign-in" title={`${who} — sign-in methods and sign out`} aria-label="My sign-in methods" className={`${AVATAR} hover:bg-hover focus-visible:outline focus-visible:outline-accent`}>
         {initialsOf(user)}
-      </a>
+      </Link>
     );
   }
   if (client === undefined || snapshot === undefined) {
