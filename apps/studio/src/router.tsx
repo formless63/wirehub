@@ -31,6 +31,7 @@ import { CableRoute } from './routes/CableRoute.tsx';
 import { SetupRoute } from './routes/SetupRoute.tsx';
 import { ModuleRoute, ModulesRoute } from './routes/ModuleRoute.tsx';
 import { JobsRoute } from './routes/JobsRoute.tsx';
+import { settingsSection, type SettingsSection } from './settings-sections.ts';
 import { SettingsRoute } from './routes/SettingsRoute.tsx';
 import { PartNumbersRoute } from './routes/PartNumbersRoute.tsx';
 import { HistoryRoute } from './routes/HistoryRoute.tsx';
@@ -199,6 +200,10 @@ export const jobsRoute = createRoute({
 export const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
+  validateSearch: (search: Record<string, unknown>): { section?: SettingsSection } => {
+    const section = settingsSection(search['section']);
+    return section === undefined ? {} : { section };
+  },
   component: SettingsRoute,
 });
 
