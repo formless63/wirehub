@@ -119,6 +119,7 @@ export function splitBoardFaces(part: MeshPart): { top: MeshPart; bottom: MeshPa
     indices: Uint32Array.from(indices),
     ...(part.normals === undefined ? {} : { normals: part.normals }),
     ...(part.color === undefined ? {} : { color: part.color }),
+    ...(part.alpha === undefined ? {} : { alpha: part.alpha }),
     ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }),
     ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }),
     ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }),
@@ -201,6 +202,7 @@ function occurrenceBoard(parts: readonly MeshPart[]): { board: MeshPart; members
   if (group.some((part) => part.sourceProductName !== first.sourceProductName
     || part.sourceOccurrenceName !== first.sourceOccurrenceName
     || part.sourceAssemblyPath !== first.sourceAssemblyPath
+    || part.alpha !== first.alpha
     || (part.normals === undefined) !== (first.normals === undefined))) return undefined;
   const count = group.reduce((n, p) => n + p.positions.length, 0);
   const positions = new Float32Array(count);
@@ -222,14 +224,14 @@ function occurrenceBoard(parts: readonly MeshPart[]): { board: MeshPart; members
 /** Paint one source board's faces and its explicitly associated coating shells. */
 export async function applyBoardTexture(parts: readonly MeshPart[], art: BoardArt | undefined, profile: BoardTextureProfile = 'exporter'): Promise<MeshPart[]> {
   if (art === undefined) return [...parts];
-  const grouped = profile === 'occurrence' ? occurrenceBoard(parts) : undefined;
-  if (profile === 'occurrence' && grouped === undefined) return [...parts];
+  const grouped = (profile === 'occurrence' || profile === 'appearance') ? occurrenceBoard(parts) : undefined;
+  if ((profile === 'occurrence' || profile === 'appearance') && grouped === undefined) return [...parts];
   const at = findBoardPart(parts, profile);
   if (at === undefined) return [...parts];
   const board = grouped?.board ?? parts[at]!;
   const split = splitBoardFaces(board);
   if (split === undefined) return [...parts];
-  const withoutSoldermask = profile === 'occurrence' ? [...parts] : parts.filter((_, i) => i === at || !/soldermask/i.test(parts[i]!.name));
+  const withoutSoldermask = (profile === 'occurrence' || profile === 'appearance') ? [...parts] : parts.filter((_, i) => i === at || !/soldermask/i.test(parts[i]!.name));
   const bounds = boundsOfXY(board);
   // Render serially: simultaneous large renders would double resident memory.
   const rasters: Uint8Array[] = [];

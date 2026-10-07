@@ -26,6 +26,8 @@ import { finishParts, MAX_MODEL_TRIANGLES, type ConversionStats } from './finish
 import { readGlbJson } from './glb.ts';
 import { isAsciiStl, isBinaryStl, parseStl, type MeshPart } from './mesh.ts';
 
+export type ConvertOptions = { maxTriangles?: number; extras?: Record<string, string | number | boolean>; boardArt?: BoardArt; boardTextureProfile?: BoardTextureProfile };
+
 export type ModelFormat = 'glb' | 'stl' | 'step';
 
 /** The largest model file the studio takes (the artwork upload limit). */
@@ -98,20 +100,20 @@ function serial<T>(job: () => Promise<T>): Promise<T> {
 /** Several files of one part (a housing's top and bottom) → one GLB, side by side if they overlap. */
 export async function convertModelFiles(
   files: readonly { bytes: Uint8Array; name: string; partName?: string }[],
-  options: { maxTriangles?: number; extras?: Record<string, string | number | boolean>; boardArt?: BoardArt; boardTextureProfile?: BoardTextureProfile } = {},
+  options: ConvertOptions = {},
 ): Promise<ConvertedModel> {
   const maxTriangles = options.maxTriangles ?? MAX_MODEL_TRIANGLES;
   if (files.length === 1) return convertModel(files[0]!.bytes, files[0]!.name, options);
-  if (options.boardTextureProfile === 'occurrence' && files.reduce((n, f) => n + f.bytes.byteLength, 0) > MAX_MODEL_BYTES * 2) throw new ModelRefusal('Combined models exceed the conversion size limit.', 'Leave the heaviest model files out.');
+  if ((options.boardTextureProfile === 'occurrence' || options.boardTextureProfile === 'appearance') && files.reduce((n, f) => n + f.bytes.byteLength, 0) > MAX_MODEL_BYTES * 2) throw new ModelRefusal('Combined models exceed the conversion size limit.', 'Leave the heaviest model files out.');
   const parts: MeshPart[] = [];
   for (const file of files) {
     if (sniffModel(file.bytes) !== 'stl') throw new ModelRefusal(`${file.name} is not an STL.`, 'Only STL files are combined into one model.');
     parts.push(parseStl(file.bytes, file.partName ?? file.name));
   }
-  if (options.boardTextureProfile === 'occurrence') {
+  if ((options.boardTextureProfile === 'occurrence' || options.boardTextureProfile === 'appearance')) {
     // Even source-only STL profiles verify the pinned artifact inside the capped
     // child. The Studio process never acquires the optional WASM heap.
-    return serial(() => convertStepInChild(new Uint8Array(), 'combined.stl', maxTriangles, undefined, options.boardArt, 'occurrence', files));
+    return serial(() => convertStepInChild(new Uint8Array(), 'combined.stl', maxTriangles, undefined, options.boardArt, options.boardTextureProfile, files));
   }
   const started = performance.now();
   const finished = finishParts(parts, maxTriangles, { source: 'stl', ...(options.extras ?? {}) }, true);
@@ -122,7 +124,7 @@ export async function convertModelFiles(
 export async function convertModel(
   bytes: Uint8Array,
   name: string,
-  options: { maxTriangles?: number; extras?: Record<string, string | number | boolean>; boardArt?: BoardArt; boardTextureProfile?: BoardTextureProfile } = {},
+  options: ConvertOptions = {},
 ): Promise<ConvertedModel> {
   const maxTriangles = options.maxTriangles ?? MAX_MODEL_TRIANGLES;
   if (bytes.byteLength === 0) throw new ModelRefusal('That file is empty.', 'Pick the model file again.');

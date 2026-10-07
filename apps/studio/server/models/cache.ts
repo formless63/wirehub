@@ -23,6 +23,7 @@ import { dataPath } from '@wirehub/catalog';
 import { writeFileAtomic } from '../atomic-write.ts';
 import { envVar } from '../env.ts';
 import { OCCURRENCE_VERSION } from './occurrence-reader.ts';
+import { APPEARANCE_VERSION } from './appearance-reader.ts';
 import type { Awaitable } from '../storage/change-set.ts';
 
 /**
@@ -34,7 +35,8 @@ import type { Awaitable } from '../storage/change-set.ts';
 export const CONVERTER_VERSION = 'glb-q16-zup-4';
 
 /** Texture output is versioned separately so geometry and existing pack keys stay usable. */
-export type BoardTextureProfile = 'legacy' | 'exporter' | 'occurrence';
+export type BoardTextureProfile = 'legacy' | 'exporter' | 'occurrence' | 'appearance';
+
 export const BOARD_TEXTURE_VERSION = 'board-texture-2';
 
 /** The same two source views that build.ts passes to the painter. */
@@ -84,11 +86,12 @@ export const ASSEMBLY_VERSION = 'kicad-assembly-1';
  * painting revision; legacy reproduces the original key and detector.
  */
 export function sourceKey(files: readonly SourceFile[], maxTriangles: number, build?: ModelBuild, boardTextureProfile: BoardTextureProfile = 'exporter'): string {
-  if (!['legacy', 'exporter', 'occurrence'].includes(boardTextureProfile)) throw new Error('Unsupported model conversion profile.');
+  if (!['legacy', 'exporter', 'occurrence', 'appearance'].includes(boardTextureProfile)) throw new Error('Unsupported model conversion profile.');
   const recipe = build === undefined ? '' : `\n${build.kind === 'assembly' ? `${ASSEMBLY_VERSION}${build.library === undefined ? '' : `\nkicad-packages3D@${build.library}`}` : JSON.stringify(build)}`;
   const texture = boardTextureProfile !== 'legacy' && hasBoardArtFiles(files) ? `\n${BOARD_TEXTURE_VERSION}` : '';
   const occurrence = boardTextureProfile === 'occurrence' ? `\n${OCCURRENCE_VERSION}` : '';
-  return sha256Hex(`${CONVERTER_VERSION}\n${maxTriangles}\n${files.map((f) => `${f.path}\n${f.sha256}`).join('\n')}${recipe}${texture}${occurrence}`);
+  const appearance = boardTextureProfile === 'appearance' ? `\n${APPEARANCE_VERSION}` : '';
+  return sha256Hex(`${CONVERTER_VERSION}\n${maxTriangles}\n${files.map((f) => `${f.path}\n${f.sha256}`).join('\n')}${recipe}${texture}${occurrence}${appearance}`);
 }
 
 /** A depiction's board-top/board-bottom art: paint on an existing shape, not part of what makes a model its own. */

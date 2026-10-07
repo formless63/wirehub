@@ -43,3 +43,13 @@ test('placed copies of the same reader board retain separate internal identities
   expect(new Set(parts.map(p=>p.readerMeshId)).size).toBe(2);
   expect(await applyBoardTexture(parts,art,'occurrence')).toEqual(parts);
 });
+test('appearance keeps differing source opacity groups without flattening their geometry or alpha',async()=>{
+  const source=groups().map((p,i)=>({...p,alpha:i===0?.4:1}));
+  const result=await applyBoardTexture(source,art,'appearance');
+  expect(result).toEqual(source);expect(triangles(result)).toEqual(triangles(source));
+  const uniform=groups().map(p=>({...p,alpha:.4}));
+  const painted=await applyBoardTexture(uniform,art,'appearance');
+  expect(triangles(painted)).toEqual(triangles(uniform));
+  expect(painted.filter(p=>p.image!==undefined)).toHaveLength(2);
+  expect(painted.every(p=>p.alpha===.4)).toBe(true);
+});

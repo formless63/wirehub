@@ -77,6 +77,7 @@ export function writeGlb(parts: readonly MeshPart[], extras: GlbExtras = {}): Ui
   };
 
   for (const part of parts) {
+    if (part.alpha !== undefined && (!Number.isFinite(part.alpha) || part.alpha < 0 || part.alpha > 1)) throw new Error('Source opacity must be finite and between zero and one.');
     const vertexCount = part.positions.length / 3;
     if (vertexCount === 0 || part.indices.length === 0) continue;
     const { min, max } = boundsOf([part]);
@@ -139,13 +140,15 @@ export function writeGlb(parts: readonly MeshPart[], extras: GlbExtras = {}): Ui
     if (part.image !== undefined && attributes['TEXCOORD_0'] !== undefined) {
       materials.push({
         name: 'board-art',
-        pbrMetallicRoughness: { baseColorTexture: { index: textureFor(part.image) }, baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.85 },
+        ...(part.alpha !== undefined && part.alpha < 1 ? { alphaMode: 'BLEND' } : {}),
+        pbrMetallicRoughness: { baseColorTexture: { index: textureFor(part.image) }, baseColorFactor: [1, 1, 1, part.alpha ?? 1], metallicFactor: 0, roughnessFactor: 0.85 },
       });
       primitive['material'] = materials.length - 1;
-    } else if (part.color !== undefined) {
+    } else if (part.color !== undefined || part.alpha !== undefined) {
       materials.push({
-        name: 'source-colour',
-        pbrMetallicRoughness: { baseColorFactor: [...part.color.map((c) => Math.round(c * 1000) / 1000), 1], metallicFactor: 0, roughnessFactor: 0.7 },
+        name: part.color === undefined ? 'source-opacity' : 'source-colour',
+        ...(part.alpha !== undefined && part.alpha < 1 ? { alphaMode: 'BLEND' } : {}),
+        pbrMetallicRoughness: { baseColorFactor: [...(part.color ?? [1, 1, 1]).map((c) => Math.round(c * 1000) / 1000), part.alpha ?? 1], metallicFactor: 0, roughnessFactor: 0.7 },
       });
       primitive['material'] = materials.length - 1;
     }

@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 
 import { looksLikeGlb, VIEW_DIRECTIONS, type ViewPreset } from './models.ts';
@@ -22,6 +23,8 @@ export interface ScenePalette {
 
 const sourceMaterials = new WeakMap<THREE.Mesh, readonly THREE.Material[]>();
 const explicitMaterials = new WeakMap<THREE.Material, boolean>();
+const suppliedAppearance = new WeakMap<THREE.Object3D, boolean>();
+const activeStudioBakes = new WeakSet<THREE.WebGLRenderer>();
 
 /** Parse a stored model (GLB or STL) into an object ready to add to a scene. */
 export async function parseModel(bytes: ArrayBuffer, mime = ''): Promise<THREE.Object3D> {
@@ -34,6 +37,7 @@ export async function parseModel(bytes: ArrayBuffer, mime = ''): Promise<THREE.O
         explicitMaterials.set(material, gltf.parser.associations.get(material)?.materials !== undefined);
       }
     }
+    rememberAppearance(gltf.scene);
     return gltf.scene;
   }
   if (mime === 'model/stl' || mime === '' || mime === 'application/octet-stream') {
@@ -42,8 +46,11 @@ export async function parseModel(bytes: ArrayBuffer, mime = ''): Promise<THREE.O
     geometry.rotateX(-Math.PI / 2);
     const mesh = new THREE.Mesh(geometry);
     mesh.name = 'stl';
+    // STL has no material or sidedness declaration; keep open CAD surfaces visible.
+    (mesh.material as THREE.Material).side = THREE.DoubleSide;
     const group = new THREE.Group();
     group.add(mesh);
+    rememberAppearance(group);
     return group;
   }
   throw new Error(`The 3D view cannot show a ${mime} file.`);
@@ -56,6 +63,18 @@ function meshes(root: THREE.Object3D): THREE.Mesh[] {
     if ((node as THREE.Mesh).isMesh) out.push(node as THREE.Mesh);
   });
   return out;
+}
+
+function rememberAppearance(root: THREE.Object3D): void {
+  const parts = meshes(root);
+  if (parts.length === 0) return;
+  suppliedAppearance.set(root, parts.some((mesh) => mesh.geometry.getAttribute('color') !== undefined ||
+    (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).some((material) => explicitMaterials.get(material) === true)));
+}
+
+/** Only parsed source declarations support a blanket appearance statement. */
+export function modelAppearanceNote(root: THREE.Object3D): string | undefined {
+  return suppliedAppearance.get(root) === false ? 'This model contains geometry only; its source does not specify colors or finishes.' : undefined;
 }
 
 /**
@@ -82,9 +101,8 @@ export function applyMaterials(root: THREE.Object3D, palette: ScenePalette): voi
       const hasSource = explicit ?? (source.name !== '' || standard.map != null || (standard.color !== undefined && standard.color.getHex() !== 0xffffff));
       // Keep the full source material: base color multiplies its texture, and
       // alpha/normal/emissive maps and per-group materials must survive too.
-      const material = hasSource ? source.clone() : new THREE.MeshStandardMaterial({ color: vertexColors ? 0xffffff : palette.body, metalness: 0.05, roughness: 0.62 });
+      const material = hasSource ? source.clone() : new THREE.MeshStandardMaterial({ color: vertexColors ? 0xffffff : palette.body, metalness: 0.05, roughness: 0.62, side: source.side });
       material.name = hasSource ? standard.map != null ? 'source-art' : 'source' : 'neutral';
-      material.side = THREE.DoubleSide;
       if (material instanceof THREE.MeshStandardMaterial) {
         material.vertexColors = vertexColors;
         material.flatShading = !hasNormals;
@@ -93,6 +111,81 @@ export function applyMaterials(root: THREE.Object3D, palette: ScenePalette): voi
     });
     for (const material of previous) material.dispose();
     mesh.material = Array.isArray(mesh.material) ? materials : materials[0]!;
+  }
+}
+
+export interface StudioEnvironment {
+  texture: THREE.Texture;
+  dispose(): void;
+}
+
+/** Local neutral studio reflections for supplied PBR materials, independent of theme.
+ * No downloaded image or inferred finish: metalness/roughness remain the source's.
+ * The temporary room and PMREM generator are released after baking; the caller
+ * retains only the render target and releases it when the viewer closes.
+ */
+export function makeStudioEnvironment(renderer: THREE.WebGLRenderer): StudioEnvironment {
+  if (activeStudioBakes.has(renderer)) throw new Error('Studio reflections are already being prepared.');
+  const original = {
+    setRenderTarget: renderer.setRenderTarget,
+    target: renderer.getRenderTarget(),
+    cubeFace: renderer.getActiveCubeFace(),
+    mipmap: renderer.getActiveMipmapLevel(),
+    xr: renderer.xr.enabled,
+    autoClear: renderer.autoClear,
+    toneMapping: renderer.toneMapping,
+  };
+  const generator = new THREE.PMREMGenerator(renderer);
+  activeStudioBakes.add(renderer);
+  type BoundTarget = NonNullable<Parameters<THREE.WebGLRenderer['setRenderTarget']>[0]>;
+  const bound = new Set<BoundTarget>();
+  const released = new Set<BoundTarget>();
+  const observeRelease = (event: { target: BoundTarget }): void => { released.add(event.target); };
+  let room: RoomEnvironment | undefined;
+  let completed = false;
+  // fromScene does not expose its output until it succeeds. Track only public
+  // bindings during this synchronous bake: unbound targets have no GPU storage.
+  // No source model or asynchronous rendering runs through this temporary wrapper.
+  renderer.setRenderTarget = function (...args: Parameters<THREE.WebGLRenderer['setRenderTarget']>): void {
+    const target = args[0];
+    if (target !== null && target !== original.target && !bound.has(target)) {
+      bound.add(target);
+      target.addEventListener('dispose', observeRelease);
+    }
+    original.setRenderTarget.apply(renderer, args);
+  };
+  try {
+    room = new RoomEnvironment();
+    const target = generator.fromScene(room, 0.04);
+    completed = true;
+    let disposed = false;
+    return {
+      texture: target.texture,
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        target.dispose();
+      },
+    };
+  } finally {
+    renderer.setRenderTarget = original.setRenderTarget;
+    // Three restores these on success, but not if allocation/shader/rendering
+    // throws. Binding the original target also restores its viewport/scissor.
+    try {
+      original.setRenderTarget.call(renderer, original.target, original.cubeFace, original.mipmap);
+    } finally {
+      renderer.xr.enabled = original.xr;
+      renderer.autoClear = original.autoClear;
+      renderer.toneMapping = original.toneMapping;
+      try {
+        room?.dispose();
+        generator.dispose();
+        if (!completed) for (const target of bound) if (!released.has(target)) target.dispose();
+      } finally {
+        for (const target of bound) target.removeEventListener('dispose', observeRelease);
+        activeStudioBakes.delete(renderer);
+      }
+    }
   }
 }
 

@@ -48,7 +48,8 @@ export function relinkWithArt(link: ModelLink, art: readonly SourceFile[]): Mode
   if (same) return undefined;
   const budget = budgetOf(link) ?? MAX_MODEL_TRIANGLES;
   const files = [...link.files.filter((f) => !isArtFile(f.path)), ...art];
-  return { ...link, files, asset: sourceKey(files, budget, link.build, buildProfileOf(link)?.boardTextureProfile === 'occurrence' ? 'occurrence' : 'exporter') };
+  const profile = buildProfileOf(link)?.boardTextureProfile;
+  return { ...link, files, asset: sourceKey(files, budget, link.build, profile === 'occurrence' || profile === 'appearance' ? profile : 'exporter') };
 }
 
 /**

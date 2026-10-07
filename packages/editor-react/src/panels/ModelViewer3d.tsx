@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-import { applyMaterials, countTriangles, disposeObject, frameBox, makeLights, modelSize, parseModel } from '../model-scene.ts';
+import { applyMaterials, countTriangles, disposeObject, frameBox, makeLights, makeStudioEnvironment, type StudioEnvironment, modelAppearanceNote, modelSize, parseModel } from '../model-scene.ts';
 import type { ViewPreset } from '../models.ts';
 import { modelPreviewNote } from '../model-preview.ts';
 import { NO_WEBGL, readPalette, webglContext } from './viewer-dom.ts';
@@ -43,6 +43,8 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const live = useRef<Live | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  const [appearanceNote, setAppearanceNote] = useState<string | undefined>(undefined);
+  const [lightingNote, setLightingNote] = useState<string | undefined>(undefined);
   const [info, setInfo] = useState<string>('');
   const [preset, setPreset] = useState<ViewPreset>('iso');
   const sourceNote = useMemo(() => modelPreviewNote(props.bytes, props.mime), [props.bytes, props.mime]);
@@ -68,6 +70,10 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
     const canvas = canvasRef.current;
     const host = hostRef.current;
     if (canvas === null || host === null) return;
+    setProblem(undefined);
+    setLightingNote(undefined);
+    setAppearanceNote(undefined);
+    setInfo('');
     let cancelled = false;
     let cleanup = (): void => undefined;
     const gl = webglContext(canvas);
@@ -87,10 +93,18 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
         disposeObject(model);
         return;
       }
+      setAppearanceNote(modelAppearanceNote(model));
       const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       const scene = new THREE.Scene();
+      let environment: StudioEnvironment | undefined;
+      try {
+        environment = makeStudioEnvironment(renderer);
+        scene.environment = environment.texture;
+      } catch {
+        setLightingNote('Studio reflections are unavailable; the model is shown with direct lighting.');
+      }
       const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 1000);
       const palette = readPalette(host);
       scene.background = new THREE.Color(palette.background);
@@ -142,6 +156,8 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
         controls.removeEventListener('change', render);
         controls.dispose();
         disposeObject(model);
+        scene.environment = null;
+        environment?.dispose();
         renderer.dispose();
         live.current = undefined;
       };
@@ -162,6 +178,8 @@ export default function ModelViewer3d(props: ModelViewer3dProps): JSX.Element {
   return (
     <div className="cs-model-view" ref={hostRef}>
       {sourceNote === undefined ? null : <p className="cs-model-info" role="note">{sourceNote}</p>}
+      {appearanceNote === undefined ? null : <p className="cs-model-info" role="note">{appearanceNote}</p>}
+      {lightingNote === undefined ? null : <p className="cs-model-info" role="note">{lightingNote}</p>}
       <canvas
         ref={canvasRef}
         className="cs-model-canvas"

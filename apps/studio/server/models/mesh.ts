@@ -25,6 +25,8 @@ export interface MeshPart {
   normals?: Float32Array;
   /** linear rgb 0..1, when the source coloured it */
   color?: [number, number, number];
+  /** Supplied surface opacity, 0..1; absent means no source opacity was recovered. */
+  alpha?: number;
   /** uv per vertex ( board face art); `color` is then a neutral tint, not the surface's paint */
   uv?: Float32Array;
   /** a baseColorTexture image (PNG) sampled by `uv`, when the part is textured rather than flat-coloured */
