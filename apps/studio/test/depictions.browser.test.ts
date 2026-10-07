@@ -120,6 +120,28 @@ describe('live installed-pack depictions', () => {
     await live.load(['board']);
     expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'raster', dataUri: raster });
   });
+
+  it('retries a failed view after a successful manifest without a render retry loop', async () => {
+    let available = false;
+    const artwork = vi.fn<ArtworkAdapter['artwork']>(async () => available
+      ? { ok: true, value: { kind: 'vector', source: ART } }
+      : { ok: false, message: 'Temporary artwork failure' });
+    const live = liveDepictions(fallback(), {
+      detail: async (id) => ({ ok: true, value: detail(id) }),
+      artwork,
+    }, async () => ['board']);
+    await live.load(['board']);
+    expect(live.current().meta('board')?.defId).toBe('board');
+    expect(live.current().artwork('board', 'board-top')).toBeUndefined();
+    await Promise.resolve();
+    expect(artwork).toHaveBeenCalledTimes(1);
+    available = true;
+    await Promise.all([live.load(['board']), live.load(['board'])]);
+    expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'vector', source: ART });
+    expect(artwork).toHaveBeenCalledTimes(2);
+    await live.load(['board']);
+    expect(artwork).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('assembleDepictionSource', () => {
