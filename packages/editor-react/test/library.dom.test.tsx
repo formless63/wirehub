@@ -13,6 +13,7 @@
 import './reactflow-jsdom.ts';
 
 import type { CableDesign, Db, WireDefinition } from '@wirehub/model';
+import { crossSectionLayout } from '@wirehub/render-svg';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -78,6 +79,22 @@ describe('the live cutaway', () => {
     await waitFor(() => expect(draw).toHaveBeenCalled());
     expect(draw.mock.calls[0]?.[0]).toEqual(wire);
     await waitFor(() => expect(document.querySelector('[data-test="cutaway"]')).not.toBeNull());
+  });
+
+  it.each(['dc-2core-24awg', 'cat5e-utp', 'shielded-2pair-24awg'])('keeps the full diameter annotation inside the cropped %s preview', async (id) => {
+    const wire = db.wires.find((candidate) => candidate.id === id)!;
+    const cs = crossSectionLayout(wire)!;
+    const { container } = render(<Cutaway wire={wire} debounceMs={0} />);
+    await waitFor(() => expect(container.querySelector('.cs-cutaway-draw svg')).not.toBeNull());
+    const svg = container.querySelector('.cs-cutaway-draw svg')!;
+    const [x, , width] = svg.getAttribute('viewBox')!.split(' ').map(Number);
+    expect(svg.querySelector('.xs-dim-text')!.textContent).toBe(cs.dimension.label);
+    expect(cs.dimension.label).toMatch(/^Ø /);
+    // At the drawing's 2.9 mm font this label spans at least 35 mm;
+    // its centered prefix extended beyond the old jacket-only crop.
+    expect(x!).toBeLessThan(cs.dimension.labelX - 17.5);
+    expect(x! + width!).toBeGreaterThan(cs.dimension.labelX + 17.5);
+    expect(svg.querySelector('.xs-rule-text')!.textContent).toMatch(/ mm$/);
   });
 
   it('says so rather than throwing when the renderer cannot draw yet', async () => {

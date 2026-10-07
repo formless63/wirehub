@@ -20,6 +20,7 @@ import { LAY_ARRANGEMENT_RING_COUNT, type WireDefinition, type WireLayOrder } fr
 import {
   INK,
   conductorPaint,
+  crossSectionAnnotationBounds,
   crossSectionLayout,
   renderCrossSection,
   type CrossSection,
@@ -107,9 +108,10 @@ export function cutawayCrop(cs: CrossSection): Crop {
     xs.push(core.tagX - 3, core.tagX + 3);
     ys.push(core.tagY - 3, core.tagY + 1.5);
   }
-  xs.push(cs.dimension.x1, cs.dimension.x2);
+  const annotation = crossSectionAnnotationBounds(cs);
+  xs.push(cs.dimension.x1, cs.dimension.x2, annotation.minX, annotation.maxX);
   ys.push(cs.dimension.labelY + 1.2);
-  xs.push(cs.ruler.x, cs.ruler.x + cs.ruler.length, cs.ruler.labelX + 10);
+  xs.push(cs.ruler.x, cs.ruler.x + cs.ruler.length, cs.ruler.labelX);
   ys.push(cs.ruler.labelY + 1.2);
   const pad = 2;
   const x = Math.min(...xs) - pad;

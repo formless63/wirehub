@@ -87,6 +87,7 @@ export type { BoardPart } from '@wirehub/catalog';
 export { drawnPinPoints, partBodyShapes, partPadMismatches, resistorMarking } from './part-body.ts';
 export type { DrawnPinPoint, PartDetailShape, PartPadMismatch, PartTone } from './part-body.ts';
 export {
+  crossSectionAnnotationBounds,
   renderCrossSection,
   renderCrossSectionPanel,
   ringPaint,
