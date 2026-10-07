@@ -20,7 +20,9 @@ it('signs both optional costing modules and loads their server/browser entries w
       expect(built.module.apiVersion).toBe(MODULE_API_VERSION);
       expect(verifyPackSignature(built.manifest, readFileSync(join(built.dir, 'wirehub-pack.sig'), 'utf8'), [storePublicKeyOf(pem)]).ok).toBe(true);
       for (const entry of [built.module.server, built.module.browser!]) {
-        const namespace = await import(pathToFileURL(join(built.dir, entry)).href) as { default: WireHubModule };
+        // Verified browser bytes load from opaque blob URLs in production.
+        const url = entry === built.module.browser ? `data:text/javascript;base64,${readFileSync(join(built.dir, entry)).toString('base64')}` : pathToFileURL(join(built.dir, entry)).href;
+        const namespace = await import(url) as { default: WireHubModule };
         expect(namespace.default.id).toBe(id);
         expect(namespace.default.commitHook).toBeUndefined();
         if (entry === built.module.server) loaded.push(namespace.default);

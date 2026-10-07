@@ -19,7 +19,10 @@ it('signs and loads both supplier entries with disabled providers and no network
     expect(verifyPackSignature(built.manifest, readFileSync(join(built.dir, 'wirehub-pack.sig'), 'utf8'), [storePublicKeyOf(pem)]).ok).toBe(true);
     expect(built.module.browser).toBeTruthy();
     for (const entry of [built.module.server, built.module.browser!]) {
-      const namespace = await import(pathToFileURL(join(built.dir, entry)).href) as { default: WireHubModule };
+      // Runtime browsers import verified bytes from an opaque blob URL, not a
+      // filesystem path; a data URL exercises the same relative-URL boundary.
+      const url = entry === built.module.browser ? `data:text/javascript;base64,${readFileSync(join(built.dir, entry)).toString('base64')}` : pathToFileURL(join(built.dir, entry)).href;
+      const namespace = await import(url) as { default: WireHubModule };
       const module = namespace.default;
       expect(createRegistry([module]).module('suppliers')?.id).toBe('suppliers');
       expect(module.importers?.[0]?.id).toBe('selected-quote');

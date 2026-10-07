@@ -5,7 +5,7 @@ import { fxIntegration } from './server.ts';
 import { FxPanel } from './ui.ts';
 
 export const fxRates = defineModule({
-  id: 'fx-rates', label: 'FX reference rates', version: '0.1.0', license: 'MIT',
+  id: 'fx-rates', label: 'FX reference rates', version: '0.1.1', license: 'MIT',
   integrations: [fxIntegration],
   panels: [{ id: 'snapshot', label: 'FX cost snapshot', slot: 'cable-inspector', component: FxPanel }],
   exporters: [{ id: 'cost-csv', label: 'FX cost report (saved snapshot)', render: (design, db, options?: Readonly<Record<string, unknown>>) => {
