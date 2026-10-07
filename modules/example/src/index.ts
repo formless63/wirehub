@@ -39,7 +39,9 @@ export type { ExampleData } from './logic.ts';
 
 /** the pack directory, as a `file:` URL (a variable so bundlers leave it alone) */
 const PACK_DIR = '../pack/';
-export const EXAMPLE_PACK = new URL(PACK_DIR, import.meta.url).href;
+// Runtime browser entries use opaque blob URLs. Their data pack is installed
+// separately, so no local pack root is contributed in that context.
+export const EXAMPLE_PACK = /^(?:file|https?):/.test(import.meta.url) ? new URL(PACK_DIR, import.meta.url).href : '';
 
 export const example = defineModule({
   id: MODULE_ID,
@@ -50,7 +52,7 @@ export const example = defineModule({
     kind: 'domain',
     description: 'EXAMPLE ONLY: a reference module that exercises every extension point, with one synthetic signal. Do not enable it on a real hub.',
   },
-  catalogPacks: [{ id: 'example', label: 'Example pack', version: '0.1.0', root: EXAMPLE_PACK, license: 'CC0-1.0' }],
+  catalogPacks: EXAMPLE_PACK === '' ? [] : [{ id: 'example', label: 'Example pack', version: '0.1.0', root: EXAMPLE_PACK, license: 'CC0-1.0' }],
   partNumberScheme: prefixPartNumberScheme({
     id: 'example',
     label: 'Example scheme (EXC-00001)',

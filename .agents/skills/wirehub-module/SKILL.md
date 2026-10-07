@@ -136,6 +136,12 @@ module package stays as above (its `pack/` becomes the bundle's data); then:
    block (the `apiVersion`, the extension points and permissions it derived from your module object),
    pins every file and signs. For SQL add `--migrations-dir <SQL dir>` (API 1.3); `setup` and `catalogPacks` are ignored
    (the bundle carries the data).
+   Browser code is evaluated from an opaque `blob:` URL before ignored fields are
+   removed. Follow `modules/example/src/index.ts`: resolve a local pack root only
+   for `file:`/HTTP(S) module URLs, and omit `catalogPacks` when there is no root.
+   Do not eagerly resolve filesystem URLs during a browser module import. Test
+   the built browser bytes from an opaque URL, as in
+   `apps/studio/test/example-opaque-build.server.test.ts`.
 2. Check it: `node .agents/skills/wirehub-catalog-pack/scripts/verify-pack.mjs <dir>/<id>-<version>`.
 3. Publish it: put the package under `modules/` of a store made from `templates/store` (its workflow
    builds and signs it with the store's publisher key; `templates/store/README.md`), or hand the zip
