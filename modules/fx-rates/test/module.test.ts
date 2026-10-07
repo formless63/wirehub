@@ -8,7 +8,8 @@ import type { CableDesign } from '@wirehub/model';
 it('declares optional integration/panel/export and exports only the saved design snapshot', async () => {
   expect(manifestProblems([fxRates])).toEqual([]);
   expect(createRegistry([fxRates]).module('fx-rates')?.id).toBe('fx-rates');
-  expect(fxRates.panels?.[0]?.slot).toBe('cable-inspector');
+  expect(fxRates.panels?.[0]?.slot).toBe('cable-documents');
+  expect(createRegistry([fxRates]).panels('cable-inspector')).toEqual([]);
   const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Unexpected network access'));
   try {
     const catalog = createCatalog(fsCatalogSource(dataPath('')));

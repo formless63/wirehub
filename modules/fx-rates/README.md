@@ -20,7 +20,7 @@ An owner reviews the permissions and installs the signed ZIP with a pinned
 publisher public key on a compatible host. This checkout's editable panel API
 requires module API 1.4; the released v0.4.0 image does not provide it.
 
-The cable inspector fetches only when the user requests it. Preview the rates,
+The cable's Documents panel fetches only when the user requests it. Preview the rates,
 choose a target currency and explicitly save to the working design. The snapshot
 is stored under `design.extensions['fx-rates']`:
 
