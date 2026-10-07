@@ -86,7 +86,7 @@ function SecretField({ field, group, available, onSaved }: { field: RuntimeField
           ) : null}
         </div>
       ) : null}
-      <span className="text-faint">{field.help}</span>
+      <span className="text-dim">{field.help}</span>
     </div>
   );
 }
@@ -97,7 +97,7 @@ function Field({ field, value, disabled, set }: { field: RuntimeFieldView; value
   const placeholder = field.placeholder ?? (field.defaultText === undefined ? undefined : `default: ${field.defaultText}`);
   const control =
     field.kind === 'bool' ? (
-      <select className="w-48 rounded border border-line bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={shown === true ? 'on' : shown === false ? 'off' : ''} onChange={(e) => set(e.target.value === 'on' ? true : e.target.value === 'off' ? false : '')}>
+      <select className="w-fit max-w-full rounded border border-line bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={shown === true ? 'on' : shown === false ? 'off' : ''} onChange={(e) => set(e.target.value === 'on' ? true : e.target.value === 'off' ? false : '')}>
         <option value="">{`Default${field.defaultText === undefined ? '' : ` (${field.defaultText})`}`}</option>
         <option value="on">On</option>
         <option value="off">Off</option>
@@ -130,7 +130,7 @@ function Field({ field, value, disabled, set }: { field: RuntimeFieldView; value
         {field.label} {locked ? <ServerBadge field={field} /> : null}
       </span>
       {control}
-      <span className="text-faint">{field.help}</span>
+      <span className="text-dim">{field.help}</span>
     </label>
   );
 }
@@ -159,11 +159,11 @@ function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: R
       }}
     >
       <h2 className="text-[13px] font-semibold">{group.title}</h2>
-      <p className="text-faint">
+      <p className="text-dim">
         {group.intro} {group.applies}
       </p>
       {group.restricted === true ? (
-        <div className="text-faint">Shown to owners: only an owner sees and changes these settings.</div>
+        <div className="text-dim">Shown to owners: only an owner sees and changes these settings.</div>
       ) : (
         <>
           {group.fields.map((field) =>
@@ -174,7 +174,7 @@ function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: R
             ),
           )}
           {!group.editable ? (
-            <div className="text-faint">{group.role === 'owner' ? 'An owner changes these settings.' : 'Your role can view these settings but not change them.'}</div>
+            <div className="text-dim">{group.role === 'owner' ? 'An owner changes these settings.' : 'Your role can view these settings but not change them.'}</div>
           ) : plain.some((f) => f.source !== 'server') ? (
             <div>
               <button type="submit" disabled={busy} className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50">
@@ -206,7 +206,7 @@ function AdoptServerValues({ items, onDone }: { items: { key: string; env: strin
     <div className="flex flex-col gap-2 rounded border border-line p-3" data-testid="adopt-server-values">
       <span className="font-medium">The server still sets {items.length} of these</span>
       <span className="text-faint">{items.map((i) => i.label).join(', ')}.</span>
-      <span className="text-faint">
+      <span className="text-dim">
         Adopting copies them into Settings (secrets into the encrypted store), so you can then delete the variables from your deployment and nothing changes. While a variable is set it still wins.
       </span>
       <div>
@@ -235,7 +235,7 @@ function RotateKey({ keyRing, onDone }: { keyRing: { previousKeys: number; stale
   return (
     <div className="flex flex-col gap-2 rounded border border-line p-3" data-testid="rotate-key">
       <span className="font-medium">Settings key rotation</span>
-      <span className="text-faint">
+      <span className="text-dim">
         {keyRing.stale > 0
           ? `${keyRing.stale} stored secret${keyRing.stale === 1 ? ' is' : 's are'} still under a previous key.`
           : keyRing.previousKeys > 0
@@ -270,7 +270,7 @@ export function RuntimeSettings(): JSX.Element {
   const data = query.data;
   return (
     <div className="mt-8 flex max-w-xl flex-col gap-8 border-t border-line pt-4" data-testid="runtime-settings">
-      <p className="text-faint">
+      <p className="text-dim">
         The settings below used to be environment variables. They apply at once, with no restart; a value the server&rsquo;s environment sets wins and is shown read-only. Where the
         database, the files, the ports and the install&rsquo;s secrets are stays on the server (docs/self-hosting.md, &ldquo;What lives where&rdquo;).
       </p>
@@ -281,7 +281,7 @@ export function RuntimeSettings(): JSX.Element {
           ))}
         </div>
       ) : null}
-      {data.secrets.available ? null : <div className="text-faint">{data.secrets.note}</div>}
+      {data.secrets.available ? null : <div className="text-dim">{data.secrets.note}</div>}
       {data.secrets.keyRing !== undefined ? <RotateKey keyRing={data.secrets.keyRing} onDone={refetch} /> : null}
       {data.adoptable !== undefined && data.adoptable.length > 0 ? <AdoptServerValues items={data.adoptable} onDone={refetch} /> : null}
       {data.groups.map((group) => (
