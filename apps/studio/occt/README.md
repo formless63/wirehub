@@ -77,7 +77,8 @@ its reader preserves RGB styles and exact source labels.
 The build/regression inputs in `test/fixtures/step-styles/` are synthetic boxes,
 repeated/nested instances, face overrides and named coating shells. Regenerate
 with its `generate.py`; the build-only authoring dependency is
-`cadquery-ocp==8.0.1.1.0` (OCCT LGPL-2.1 with its exception), not an application
+`cadquery-ocp==8.0.1.1.0` (Python wrapper Apache-2.0; underlying OCCT LGPL-2.1
+with its exception), not an application
 runtime dependency. Fixture headers remove author, workstation and time values.
 
 ```sh

@@ -69,8 +69,9 @@ into one painted body. Unknown/unrelated masks keep their source appearance.
 Transparency uses ordinary glTF blending; overlapping transparent surfaces can
 still have the renderer's usual ordering limitations.
 
-Synthetic fixtures are generated with build-only `cadquery-ocp==8.0.1.1.0` (MIT),
-using the OCCT STEP writer; no native writer is a runtime dependency. Run:
+Synthetic fixtures are generated with build-only `cadquery-ocp==8.0.1.1.0`
+(Python wrapper Apache-2.0; underlying OCCT LGPL-2.1 with the Open CASCADE
+exception), using the OCCT STEP writer; no native writer is a runtime dependency. Run:
 
 ```sh
 WIREHUB_OCCT_APPEARANCE_DIR=/tmp/occt-appearance \
