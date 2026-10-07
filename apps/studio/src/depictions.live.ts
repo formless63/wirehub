@@ -19,6 +19,7 @@ export function liveDepictions(
   let generation = 0;
   let snapshot: DepictionSource;
   let refreshing: Promise<void> | undefined;
+  let refreshAgain = false;
   const publish = (): void => {
     snapshot = {
       meta(id) {
@@ -66,17 +67,29 @@ export function liveDepictions(
     return task;
   };
   const refresh = (): Promise<void> => {
-    if (refreshing !== undefined) return refreshing;
+    if (refreshing !== undefined) {
+      // Another catalog event invalidated the in-flight index. Coalesce those
+      // events into one follow-up read, rather than applying its stale result.
+      refreshAgain = true;
+      return refreshing;
+    }
     const task = (async () => {
+      await Promise.resolve();
       try {
-        const ids = await list();
-        generation += 1;
-        known = new Set(ids);
-        loaded.clear();
-        pending.clear();
-        publish();
-      } catch {
-        // Keep the previous source on a temporary connection failure.
+        do {
+          refreshAgain = false;
+          try {
+            const ids = await list();
+            if (refreshAgain) continue;
+            generation += 1;
+            known = new Set(ids);
+            loaded.clear();
+            pending.clear();
+            publish();
+          } catch {
+            // Keep the previous source on a temporary connection failure.
+          }
+        } while (refreshAgain);
       } finally {
         refreshing = undefined;
       }
@@ -93,5 +106,5 @@ export function liveDepictions(
     load: async (ids) => { await refreshIfUnknown(); await Promise.all([...new Set(ids)].map(loadOne)); },
     refresh,
   };
-  async function refreshIfUnknown(): Promise<void> { if (known === undefined) await refresh(); }
+  async function refreshIfUnknown(): Promise<void> { if (known === undefined) await (refreshing ?? refresh()); }
 }

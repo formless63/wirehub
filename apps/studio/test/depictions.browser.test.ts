@@ -142,6 +142,29 @@ describe('live installed-pack depictions', () => {
     await live.load(['board']);
     expect(artwork).toHaveBeenCalledTimes(2);
   });
+
+  it('replays catalog invalidations during a pending index fetch without publishing stale IDs', async () => {
+    let finish!: (ids: string[]) => void;
+    const list = vi.fn<() => Promise<string[]>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }))
+      .mockResolvedValue(['newly-installed-board']);
+    const live = liveDepictions(fallback(), {
+      detail: async (id) => ({ ok: true, value: detail(id) }),
+      artwork: async () => ({ ok: true, value: { kind: 'vector', source: ART } }),
+    }, list);
+    const published: string[][] = [];
+    live.subscribe(() => published.push(live.known()));
+    const initial = live.refresh();
+    await Promise.resolve();
+    const event = live.refresh();
+    const anotherEvent = live.refresh();
+    finish(['outdated-board']);
+    await Promise.all([initial, event, anotherEvent]);
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(published).toEqual([['newly-installed-board']]);
+    await live.load(['newly-installed-board']);
+    expect(live.current().artwork('newly-installed-board', 'board-top')).toEqual({ kind: 'vector', source: ART });
+  });
 });
 
 describe('assembleDepictionSource', () => {
