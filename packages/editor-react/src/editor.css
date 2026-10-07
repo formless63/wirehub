@@ -937,6 +937,8 @@
 .cs-doc-body {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow: auto;
   display: flex;
   padding: 0 10px 10px;
 }
@@ -6473,4 +6475,9 @@ fieldset.cs-lock-fence {
   max-height: min(24rem, 45dvh);
   overflow: auto;
   margin: 0 10px 10px;
+}
+
+.cs-doc-body:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }

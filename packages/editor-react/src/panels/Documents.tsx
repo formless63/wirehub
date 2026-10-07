@@ -21,7 +21,7 @@
  */
 
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
-import { BASE_EXPORTS, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, FORMBOARD_PAPER, SHEET_WIDTH, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 import { IconDownload, IconMarkdown, IconPrinter } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
@@ -463,6 +463,13 @@ export function DocumentsPane({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the sheet fields' content, not the draft's identity
     [sheetKey, docDesign.productRef],
   );
+  // Match the renderer's physical page rather than asking its print tables
+  // to reflow into the host's phone-width iframe. FORMBOARD_PAPER is landscape;
+  // the other sheets use its short side in portrait, and the drawing is ANSI A.
+  const previewPaper = sheetInput.paper ?? paper ?? 'A4';
+  const previewWidth = kind === 'drawing'
+    ? `${SHEET_WIDTH}pt`
+    : `${FORMBOARD_PAPER[previewPaper][kind === 'formboard' ? 'width' : 'height']}mm`;
   // tagged with the document it *is*, so switching sub-views never shows the
   // previous document under the new one's heading while the new one builds
   const [rendered, setRendered] = useState<{ kind: DocumentKind; result: DocumentResult }>();
@@ -859,7 +866,7 @@ export function DocumentsPane({
         </p>
       ) : null}
 
-      <div className="cs-doc-body">
+      <div className="cs-doc-body" role="region" aria-label="Document preview" tabIndex={html === undefined ? undefined : 0}>
         {kind === 'json' ? (
           <JsonPane design={docDesign} />
         ) : pending ? (
@@ -888,6 +895,7 @@ export function DocumentsPane({
           <iframe
             ref={frame}
             className="cs-doc-frame"
+            style={{ minWidth: previewWidth }}
             title={`${tabLabel} — ${docDesign.label}`}
             sandbox="allow-same-origin allow-modals"
             srcDoc={html}
