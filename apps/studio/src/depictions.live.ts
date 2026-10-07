@@ -106,5 +106,10 @@ export function liveDepictions(
     load: async (ids) => { await refreshIfUnknown(); await Promise.all([...new Set(ids)].map(loadOne)); },
     refresh,
   };
-  async function refreshIfUnknown(): Promise<void> { if (known === undefined) await (refreshing ?? refresh()); }
+  async function refreshIfUnknown(): Promise<void> {
+    // Explicit loads promise the current catalog's art, even when the previous
+    // index already populated the cache. Wait for invalidation/replay first.
+    if (refreshing !== undefined) await refreshing;
+    if (known === undefined) await refresh();
+  }
 }

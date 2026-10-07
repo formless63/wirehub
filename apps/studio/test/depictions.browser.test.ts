@@ -165,6 +165,35 @@ describe('live installed-pack depictions', () => {
     await live.load(['newly-installed-board']);
     expect(live.current().artwork('newly-installed-board', 'board-top')).toEqual({ kind: 'vector', source: ART });
   });
+
+  it('waits for an in-flight refresh before resolving an explicit load from a populated cache', async () => {
+    let finish!: (ids: string[]) => void;
+    let source = ART;
+    let citation = 'synthetic example: original catalog';
+    const list = vi.fn<() => Promise<string[]>>()
+      .mockResolvedValueOnce(['board'])
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const live = liveDepictions(fallback(), {
+      detail: async (id) => ({ ok: true, value: { ...detail(id), meta: { ...detail(id).meta!, src: citation } } }),
+      artwork: async () => ({ ok: true, value: { kind: 'vector', source } }),
+    }, list);
+    await live.load(['board']);
+    expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'vector', source: ART });
+    source = '<svg>refreshed synthetic artwork</svg>';
+    citation = 'synthetic example: refreshed catalog';
+    const refresh = live.refresh();
+    await Promise.resolve();
+    let ready = false;
+    const loading = live.load(['board']).then(() => { ready = true; });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ready).toBe(false);
+    finish(['board']);
+    await Promise.all([refresh, loading]);
+    expect(ready).toBe(true);
+    expect(live.current().meta('board')?.src).toBe(citation);
+    expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'vector', source });
+  });
 });
 
 describe('assembleDepictionSource', () => {
