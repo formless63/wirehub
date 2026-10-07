@@ -160,7 +160,7 @@ body,
 .cs-import-table { min-width: 0; max-width: 100%; overflow-x: auto; }
 .cs-import-table table { min-width: 32rem; }
 
-.cs-module-route { min-width: 0; overflow-wrap: anywhere; }
+.cs-module-route { --cs-border: var(--line2); min-width: 0; overflow-wrap: anywhere; }
 .cs-module-route :where([data-testid='board-import-page'], section, label, input, select) { min-width: 0; }
 .cs-module-route :where(input:not([type='checkbox']):not([type='radio']), select) { width: 100%; }
 .cs-module-route :where(button) { justify-self: start; }
