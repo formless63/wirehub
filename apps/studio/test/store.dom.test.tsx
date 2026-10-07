@@ -59,6 +59,18 @@ afterEach(() => {
 const row = (id: string): HTMLElement | null => document.querySelector(`[data-store-pack="${id}"]`);
 
 describe('Browse store', () => {
+  it('offers store configuration and installed-module controls without registering or installing anything', async () => {
+    deps.store = { indexes: [] };
+    render(<StoreBrowser />);
+    expect((await screen.findByRole('status')).textContent).toContain('No stores are configured');
+    expect(screen.getByRole('heading', { name: 'Modules & catalog packs' })).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Configure stores' }).getAttribute('href')).toBe('/settings?section=stores');
+    expect(screen.getByRole('link', { name: 'Manage installed modules' }).getAttribute('href')).toBe('/settings?section=modules');
+    expect(screen.getByRole('link', { name: 'Installed packs & uploads' }).getAttribute('href')).toBe('/modules');
+    expect(installedAcross(dir, packs).packs).toEqual([]);
+    expect(screen.queryByRole('button', { name: 'Install…' })).toBeNull();
+  });
+
   it('a viewer sees the packs, the disclaimer and the licence, but no Install', async () => {
     deps = { ...deps, localUser: { name: 'Vera', source: 'session', role: 'viewer' } };
     render(<StoreBrowser />);
@@ -82,25 +94,40 @@ describe('Browse store', () => {
     expect(row('alpha')?.contains(badge)).toBe(true);
     expect(badge.title).toMatch(/Permissions stated by the author: network/);
     expect(row('beta')?.textContent).not.toContain('Code module');
+    fireEvent.change(screen.getByLabelText('Content type'), { target: { value: 'code' } });
+    expect(row('alpha')).not.toBeNull();
+    expect(row('beta')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Content type'), { target: { value: 'catalog' } });
+    expect(row('alpha')).toBeNull();
+    expect(row('beta')).not.toBeNull();
+    fireEvent.change(screen.getByLabelText('Content type'), { target: { value: '' } });
     // This index claim does not make the downloaded data-only pack require code consent.
-    fireEvent.change(screen.getByLabelText('Search packs'), { target: { value: 'alpha' } });
+    fireEvent.change(screen.getByLabelText('Search modules and packs'), { target: { value: 'alpha' } });
     fireEvent.click(await screen.findByRole('button', { name: 'Install…' }));
     expect((await screen.findByTestId('store-pending')).textContent).not.toContain('Alpha module');
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
     await screen.findByText('Installed alpha 1.0.0.');
   });
 
+  it('explains why a configured data-only store has no optional code modules', async () => {
+    render(<StoreBrowser />);
+    await waitFor(() => expect(row('alpha')).not.toBeNull());
+    fireEvent.change(screen.getByLabelText('Content type'), { target: { value: 'code' } });
+    expect(screen.getByRole('status').textContent).toContain('Only modules published to a configured store appear here');
+    expect(screen.getByRole('status').textContent).toContain('built-in modules');
+  });
+
   it('searches, filters by domain, installs with the diff and then offers the update', async () => {
     render(<StoreBrowser />);
     await waitFor(() => expect(row('beta')).not.toBeNull());
-    fireEvent.change(screen.getByLabelText('Search packs'), { target: { value: 'alpha' } });
+    fireEvent.change(screen.getByLabelText('Search modules and packs'), { target: { value: 'alpha' } });
     await waitFor(() => expect(row('beta')).toBeNull());
     expect(row('alpha')).not.toBeNull();
-    fireEvent.change(screen.getByLabelText('Search packs'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('Search modules and packs'), { target: { value: '' } });
     fireEvent.change(screen.getByLabelText('Domain'), { target: { value: 'test-domain' } });
     await waitFor(() => expect(row('beta')).not.toBeNull());
 
-    fireEvent.change(screen.getByLabelText('Search packs'), { target: { value: 'alpha' } });
+    fireEvent.change(screen.getByLabelText('Search modules and packs'), { target: { value: 'alpha' } });
     await waitFor(() => expect(row('beta')).toBeNull());
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Install…' })).not.toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'Install…' }));
@@ -128,7 +155,7 @@ describe('Browse store', () => {
     store.override.set('index.json.minisig', null);
     render(<StoreBrowser />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/unsigned index is refused/);
-    expect(screen.getByText('No packs to show.')).not.toBeNull();
+    expect(screen.getByRole('status').textContent).toContain('No modules or catalog packs are available');
   });
 
   it('shows who signs a pack and its review, warns about a yanked version, and lets an owner install it anyway', { timeout: 60_000 }, async () => {

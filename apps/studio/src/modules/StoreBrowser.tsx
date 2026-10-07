@@ -45,6 +45,7 @@ export function StoreBrowser(): JSX.Element {
   const [notes, setNotes] = useState<string[]>([]);
   const [query, setQuery] = useState('');
   const [domain, setDomain] = useState('');
+  const [kind, setKind] = useState('');
   // '' = every store
   const [storeUrl, setStoreUrl] = useState('');
   const [message, setMessage] = useState<string | undefined>(undefined);
@@ -89,11 +90,13 @@ export function StoreBrowser(): JSX.Element {
     const words = query.trim().toLowerCase().split(/\s+/).filter((w) => w !== '');
     return (packs ?? []).filter((p) => {
       if (domain !== '' && p.domain !== domain) return false;
+      if (kind === 'code' && p.latest?.module === undefined) return false;
+      if (kind === 'catalog' && p.latest?.module !== undefined) return false;
       if (storeUrl !== '' && p.index !== storeUrl) return false;
       const text = `${p.id} ${p.name} ${p.description ?? ''} ${p.domain} ${p.author.name} ${p.license}`.toLowerCase();
       return words.every((w) => text.includes(w));
     });
-  }, [packs, query, domain, storeUrl]);
+  }, [packs, query, domain, storeUrl, kind]);
   // the packs grouped by store, in the order the stores are listed (the server's first)
   const groups = useMemo(
     () =>
@@ -160,8 +163,14 @@ export function StoreBrowser(): JSX.Element {
     });
 
   return (
-    <section className="p-3" data-testid="store-browser">
-      <h2 className="text-[13px] font-medium">Browse store</h2>
+    <section className="min-w-0 p-3 [overflow-wrap:anywhere]" data-testid="store-browser">
+      <h1 className="text-base font-semibold">Modules & catalog packs</h1>
+      <p className="mt-1 text-faint">Add tools with code modules or extend your Library with catalog packs. Every install starts with a preview; modules that run code require owner consent.</p>
+      <nav aria-label="Store management" className="my-3 flex flex-wrap gap-2">
+        <a href="/settings?section=stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</a>
+        <a href="/settings?section=modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage installed modules</a>
+        <a href="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Installed packs & uploads</a>
+      </nav>
       {disclaimer === undefined ? null : (
         <p className="my-2 border border-line p-2 text-faint" data-testid="store-disclaimer">
           {disclaimer}
@@ -178,9 +187,14 @@ export function StoreBrowser(): JSX.Element {
         <div key={n} className="text-faint">{n}</div>
       ))}
       <div className="my-2 flex flex-wrap gap-2">
-        <input type="search" aria-label="Search packs" placeholder="Search packs" value={query} onChange={(e) => setQuery(e.target.value)} className="w-64 border border-line px-1" />
- {indexes.filter((i) => i.ok).length < 2 ? null : (
-          <select aria-label="Store" value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} className="border border-line px-1">
+        <input type="search" aria-label="Search modules and packs" placeholder="Search modules & packs" value={query} onChange={(e) => setQuery(e.target.value)} className="w-64 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1.5" />
+        <select aria-label="Content type" value={kind} onChange={(e) => setKind(e.target.value)} className="max-w-full rounded border border-line bg-panel px-2 py-1.5">
+          <option value="">Modules & catalog packs</option>
+          <option value="code">Code modules</option>
+          <option value="catalog">Catalog packs</option>
+        </select>
+        {indexes.filter((i) => i.ok).length < 2 ? null : (
+          <select aria-label="Store" value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} className="min-w-0 max-w-full rounded border border-line bg-panel px-2 py-1.5">
             <option value="">All stores</option>
             {indexes
               .filter((i) => i.ok)
@@ -191,7 +205,7 @@ export function StoreBrowser(): JSX.Element {
               ))}
           </select>
         )}
-        <select aria-label="Domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="border border-line px-1">
+        <select aria-label="Domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="min-w-0 max-w-full rounded border border-line bg-panel px-2 py-1.5">
           <option value="">All domains</option>
           {domains.map((d) => (
             <option key={d} value={d}>
@@ -200,17 +214,19 @@ export function StoreBrowser(): JSX.Element {
           ))}
         </select>
       </div>
-      {packs === undefined ? <div className="text-faint">Loading…</div> : shown.length === 0 ? <div className="text-faint">{packs.length === 0 ? 'No packs to show.' : 'No pack matches.'}</div> : null}
+      {packs === undefined ? <div className="text-faint">Loading…</div> : shown.length === 0 ? <div className="rounded border border-line p-3" role="status">
+        {packs.length === 0 ? indexes.length === 0 ? 'No stores are configured. Configure a store to browse its modules and catalog packs.' : 'No modules or catalog packs are available from these stores. Check the store connection and review policy in Configure stores.' : kind === 'code' ? 'No code modules match. Only modules published to a configured store appear here; built-in modules are listed in Manage installed modules.' : 'No matching modules or catalog packs. Try another search or filter.'}
+      </div> : null}
       {groups.map((g) => (
         <div key={g.index.url} data-store-group={g.index.url}>
           {groups.length < 2 && indexes.filter((i) => i.ok).length < 2 ? null : (
             <h3 className="mt-3 text-[12.5px] font-medium">
-              {nameOf(g.index)} <span className="text-faint">{g.index.source === 'user' ? 'added here' : 'set by the server'} · {g.packs.length} pack{g.packs.length === 1 ? '' : 's'}</span>
+              {nameOf(g.index)} <span className="text-faint">{g.index.source === 'user' ? 'added here' : 'set by the server'} · {g.packs.length} item{g.packs.length === 1 ? '' : 's'}</span>
             </h3>
           )}
       <ul>
         {g.packs.map((p) => (
-          <li key={`${p.index} ${p.id}`} className="my-2" data-store-pack={p.id}>
+          <li key={`${p.index} ${p.id}`} className="my-3 rounded border border-line bg-panel p-3" data-store-pack={p.id}>
             <div>
               <b>{p.name}</b> <span className="text-faint">{p.id}</span> {p.latest?.version ?? ''} · {p.domain} · by {p.author.name}
               {p.latest === undefined ? null : <> · {kb(p.latest.size)}</>} · <span title="As the author states it; not checked by WireHub">licence: {p.license}</span>
@@ -236,7 +252,7 @@ export function StoreBrowser(): JSX.Element {
                   {r.yanked === undefined ? null : <>Version {r.version} was yanked: {r.yanked.reason}. It is not offered for install.</>}
                   {r.revoked === true ? <> Version {r.version} is signed only by a revoked key and cannot be installed.</> : null}
                   {canWrite && isOwner && r.yanked !== undefined && r.revoked !== true ? (
-                    <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void preview(p, r.version)}>
+                    <button type="button" className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void preview(p, r.version)}>
                       Install {r.version} anyway…
                     </button>
                   ) : null}
@@ -267,7 +283,7 @@ export function StoreBrowser(): JSX.Element {
               )}
             </div>
             {!canWrite || (p.action !== 'install' && p.action !== 'update') ? null : (
-              <button type="button" className="underline" disabled={busy} onClick={() => void preview(p)}>
+              <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void preview(p)}>
                 {p.action === 'install' ? 'Install…' : `Update to ${p.latest?.version ?? ''}…`}
               </button>
             )}
@@ -293,10 +309,10 @@ export function StoreBrowser(): JSX.Element {
           )}
           <PlanView plan={pending.plan} />
           {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
-          <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="mr-2 underline">
+          <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="mr-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:opacity-50">
             {pending.kind === 'update' ? 'Update' : 'Install'}
           </button>
-          <button type="button" onClick={() => setPending(undefined)} className="underline">
+          <button type="button" onClick={() => setPending(undefined)} className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">
             Cancel
           </button>
         </div>

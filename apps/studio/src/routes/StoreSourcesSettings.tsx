@@ -113,18 +113,19 @@ export function StoreSourcesSettings(): JSX.Element {
   };
 
   const canAdd = !readOnly && view?.allowUserSources === true;
-  const input = 'rounded border border-line bg-panel px-2 py-1';
+  const input = 'min-w-0 max-w-full rounded border border-line bg-panel px-2 py-1.5';
 
   return (
-    <section className="mt-6 max-w-xl text-[12.5px]" data-testid="store-sources">
+    <section className="mt-6 min-w-0 max-w-xl text-[12.5px] [overflow-wrap:anywhere]" data-testid="store-sources">
       <h2 className="mb-1 text-[13px] font-semibold">Store sources</h2>
       <p className="mb-2 text-faint">
-        Stores whose packs show up under Browse store, next to the official one. Anyone can host a store; WireHub does not check what a store lists. Each store&apos;s index must be signed with the key you give here. To run a store of your own, start from the{' '}
+        Choose which stores supply modules and catalog packs to the Store page. Adding a store does not install anything. Anyone can host a store; WireHub does not check what a store lists. Each store&apos;s index must be signed with the key you give here. To run a store of your own, start from the{' '}
         <a className="underline" href="https://github.com/formless63/wirehub/blob/main/docs/store-hosting.md" target="_blank" rel="noreferrer">
           run your own store
         </a>
         .
       </p>
+      <a href="/library/store" className="mb-3 inline-block rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</a>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The stores could not be read.'}</div> : null}
       {view === undefined ? (
         query.isError ? null : <div className="text-faint">Loading…</div>
@@ -154,22 +155,22 @@ export function StoreSourcesSettings(): JSX.Element {
                 <div className="text-faint">Key {s.keyId} · fingerprint {s.fingerprint}</div>
                 {checks[s.url] === undefined ? null : <div role="status">{checks[s.url]}</div>}
                 <div className="mt-1 flex flex-wrap gap-3">
-                  <button type="button" className="underline" disabled={busy} onClick={() => void recheck(s)}>
+                  <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void recheck(s)}>
                     Re-check now
                   </button>
                   {s.readOnly || readOnly || !view.allowUserSources ? null : (
                     <>
-                      <button type="button" className="underline" disabled={busy} onClick={() => void change(s, { enabled: !s.enabled }, s.enabled ? 'Disabled.' : 'Enabled.')}>
+                      <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void change(s, { enabled: !s.enabled }, s.enabled ? 'Disabled.' : 'Enabled.')}>
                         {s.enabled ? 'Disable' : 'Enable'}
                       </button>
                       <label className="flex items-center gap-1">
                         <input type="checkbox" aria-label={`Hide unreviewed versions from ${s.label ?? s.url}`} checked={s.hideUnreviewed === true} disabled={busy} onChange={(e) => void change(s, { hideUnreviewed: e.target.checked }, 'Review policy saved.')} />
                         Hide unreviewed versions
                       </label>
-                      <button type="button" className="underline" disabled={busy} onClick={() => setRenaming({ url: s.url, label: s.label ?? '' })}>
+                      <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => setRenaming({ url: s.url, label: s.label ?? '' })}>
                         Rename
                       </button>
-                      <button type="button" className="underline" disabled={busy} onClick={() => void change(s, null, 'Removed. Packs installed from it stay installed.')}>
+                      <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void change(s, null, 'Removed. Packs installed from it stay installed.')}>
                         Remove
                       </button>
                     </>
@@ -177,17 +178,17 @@ export function StoreSourcesSettings(): JSX.Element {
                 </div>
                 {renaming?.url !== s.url ? null : (
                   <form
-                    className="mt-1 flex gap-2"
+                    className="mt-1 flex flex-wrap gap-2"
                     onSubmit={(e) => {
                       e.preventDefault();
                       void change(s, renaming.label.trim() === '' ? { label: undefined as never } : { label: renaming.label.trim() }, 'Renamed.').then(() => setRenaming(undefined));
                     }}
                   >
                     <input className={input} aria-label="Store label" maxLength={80} value={renaming.label} onChange={(e) => setRenaming({ url: s.url, label: e.target.value })} />
-                    <button type="submit" className="underline" disabled={busy}>
+                    <button type="submit" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy}>
                       Save label
                     </button>
-                    <button type="button" className="underline" onClick={() => setRenaming(undefined)}>
+                    <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" onClick={() => setRenaming(undefined)}>
                       Cancel
                     </button>
                   </form>
@@ -214,7 +215,7 @@ export function StoreSourcesSettings(): JSX.Element {
                 <input className={input} aria-label="Store public key" placeholder="RW…" value={key} onChange={edited(setKey)} />
               </label>
               <div>
-                <button type="button" className="underline" disabled={busy || url.trim() === ''} onClick={() => void fetchKey()}>
+                <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy || url.trim() === ''} onClick={() => void fetchKey()}>
                   Fetch key from the store&apos;s wirehub-store.pub
                 </button>
               </div>
@@ -224,7 +225,7 @@ export function StoreSourcesSettings(): JSX.Element {
                 </div>
               )}
               <div>
-                <button type="button" className="underline" disabled={busy || url.trim() === '' || key.trim() === ''} onClick={() => void check()}>
+                <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy || url.trim() === '' || key.trim() === ''} onClick={() => void check()}>
                   Check store
                 </button>
               </div>

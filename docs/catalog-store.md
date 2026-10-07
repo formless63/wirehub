@@ -26,6 +26,25 @@ and a pack may also **carry a code module** (§2, "A pack with code"): then it i
 install, it must be signed by a publisher the hub trusts, and the owner consents to what the code
 may do (`specs/runtime-modules.md`).
 
+Open **Store** (`/library/store`) to browse modules and catalog packs from the stores this
+hub trusts. Search by name or filter **Content type** to code modules or catalog packs.
+**Configure stores** opens Settings → Stores (`/settings?section=stores`): check the index
+URL and public-key fingerprint before trusting a new store. Adding a store does not install
+anything. **Manage installed modules** opens Settings → Modules
+(`/settings?section=modules`) for runtime module status, enable/disable and publisher keys.
+Installed data packs and file/URL uploads remain on `/modules`.
+
+A fresh deployment trusts the official signed index by default, unless its administrator
+sets `WIREHUB_STORE_INDEXES` to an empty value, `none`, or another list. The modules built into
+the image are already available; domain catalog data is installed only when selected at
+setup. Optional runtime modules appear in the Store only after a publisher ships a signed
+bundle in a configured index. Having a module package in the source repository does not
+publish it or install it. The official Pages generator currently publishes the bundled
+domain catalog packs; it does not automatically build optional runtime code bundles.
+If a module is absent, check store availability and review filters, or obtain its signed
+bundle from the publisher. The code badge describes the index's advertised version;
+the downloaded install preview remains authoritative and asks for owner consent to run code.
+
 Pack updates and disables also track drawing metadata, board build sidecars, and model links
 in `packs.json` (`auxiliary`). Model ownership is per record key, so links from another pack or
 the deployment remain. An untouched sidecar or link follows the pack; a locally edited one
