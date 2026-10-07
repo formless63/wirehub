@@ -304,6 +304,16 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
   };
 }
 
+/** The paper width is content width; native scrollbars and borders sit outside it. */
+function frameAllowance(frame: HTMLIFrameElement): number {
+  const page = frame.contentDocument?.documentElement;
+  const view = frame.contentWindow;
+  // Hidden/unmeasured frames (including jsdom) have no meaningful gutter.
+  if (page === undefined || view === null || frame.clientWidth <= 0 || page.clientWidth <= 0) return 0;
+  return Math.ceil(Math.max(0, frame.offsetWidth - frame.clientWidth))
+    + Math.ceil(Math.max(0, view.innerWidth - page.clientWidth));
+}
+
 /**
  * Hand the print job to the frame's own window, so the browser prints the
  * document's print CSS — the whole reason these render in an iframe. Returns
@@ -478,6 +488,32 @@ export function DocumentsPane({
   const [copyNote, setCopyNote] = useState<string>();
   const frame = useRef<HTMLIFrameElement | null>(null);
   const places = useRef<FramePlaces>(new Map());
+  const [paperAllowance, setPaperAllowance] = useState(0);
+  const frameObserver = useRef<ResizeObserver | null>(null);
+  useEffect(() => () => {
+    frameObserver.current?.disconnect();
+    frameObserver.current = null;
+  }, [design.id, kind]);
+  const loadedFrame = (element: HTMLIFrameElement): void => {
+    if (frame.current !== element) return;
+    frameObserver.current?.disconnect();
+    const measure = (): void => {
+      if (frame.current !== element) return;
+      const measured = frameAllowance(element);
+      // Retaining the largest observed allowance avoids a width change making
+      // a scrollbar disappear, removing its allowance and making it reappear.
+      setPaperAllowance(previous => Math.max(previous, measured));
+    };
+    measure();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(measure);
+      frameObserver.current = observer;
+      observer.observe(element);
+      const page = element.contentDocument?.documentElement;
+      if (page !== undefined) observer.observe(page);
+    }
+    keepFramePlace(element.contentWindow, places.current, `${design.id}|${kind}`);
+  };
 
   const empty = isEmptyDesign(docDesign);
   const status = useMemo(
@@ -895,11 +931,11 @@ export function DocumentsPane({
           <iframe
             ref={frame}
             className="cs-doc-frame"
-            style={{ minWidth: previewWidth }}
+            style={{ minWidth: paperAllowance === 0 ? previewWidth : `calc(${previewWidth} + ${paperAllowance}px)` }}
             title={`${tabLabel} — ${docDesign.label}`}
             sandbox="allow-same-origin allow-modals"
             srcDoc={html}
-            onLoad={(event) => keepFramePlace(event.currentTarget.contentWindow, places.current, `${design.id}|${kind}`)}
+            onLoad={(event) => loadedFrame(event.currentTarget)}
           />
         )}
       </div>
