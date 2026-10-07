@@ -6,7 +6,7 @@
  * address of its 3D model with the revision, so it can be compared later.
  */
 
-import { useCallback, useEffect, useState, type JSX } from 'react';
+import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 
 import type { ArtworkAdapter } from '../artwork.ts';
 import type { ModelsAdapter } from '../models.ts';
@@ -32,6 +32,8 @@ export function RevisionsSection(props: {
   const [error, setError] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState<{ note: string; label: string; renumber: boolean; next?: string } | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const [numberPending, setNumberPending] = useState(false);
+  const suggestionRequest = useRef(0);
 
   const reload = useCallback(async (): Promise<void> => {
     const out = await props.revisions.list(kind, id);
@@ -44,11 +46,14 @@ export function RevisionsSection(props: {
   useEffect(() => {
     setView(undefined);
     setSaving(undefined);
+    setNumberPending(false);
+    suggestionRequest.current += 1;
     void reload();
+    return () => { suggestionRequest.current += 1; };
   }, [reload]);
 
   const save = async (): Promise<void> => {
-    if (saving === undefined) return;
+    if (saving === undefined || busy || numberPending) return;
     setBusy(true);
     const input: SaveRevisionInput = { note: saving.note, ...(saving.label.trim() === '' ? {} : { label: saving.label }), ...(saving.renumber ? { renumber: true } : {}) };
     // keep the drawn art and the model as they are now
@@ -76,16 +81,40 @@ export function RevisionsSection(props: {
     if (saving.renumber) props.onChanged?.();
   };
 
-  const startSave = (): void => setSaving({ note: '', label: '', renumber: false });
+  const cancelSave = (): void => {
+    suggestionRequest.current += 1;
+    setNumberPending(false);
+    setSaving(undefined);
+  };
+  const startSave = (): void => {
+    suggestionRequest.current += 1;
+    setNumberPending(false);
+    setError(undefined);
+    setSaving({ note: '', label: '', renumber: false });
+  };
   const toggleRenumber = async (on: boolean): Promise<void> => {
     if (saving === undefined) return;
-    if (!on) return setSaving({ ...saving, renumber: false });
-    const out = await props.revisions.nextNumber(kind, id);
-    if (!out.ok) {
-      setError(out.message);
-      return;
+    const request = ++suggestionRequest.current;
+    setNumberPending(on);
+    setError(undefined);
+    setSaving((current) => current === undefined ? undefined : { ...current, renumber: on, next: undefined });
+    if (!on) return;
+    try {
+      const out = await props.revisions.nextNumber(kind, id);
+      if (suggestionRequest.current !== request) return;
+      setNumberPending(false);
+      if (!out.ok) {
+        setError(out.message);
+        setSaving((current) => current === undefined ? undefined : { ...current, renumber: false });
+        return;
+      }
+      setSaving((current) => current === undefined ? undefined : { ...current, renumber: true, next: out.value.suggestion.pn });
+    } catch {
+      if (suggestionRequest.current !== request) return;
+      setNumberPending(false);
+      setError('The next variant number could not be checked. Try again.');
+      setSaving((current) => current === undefined ? undefined : { ...current, renumber: false });
     }
-    setSaving({ ...saving, renumber: true, next: out.value.suggestion.pn });
   };
 
   const usesOf = (rev: number) => view?.whereUsed.byRev[rev] ?? [];
@@ -173,22 +202,23 @@ export function RevisionsSection(props: {
             <div className="cs-revision-save">
               <label className="cs-field is-wide">
                 <span>Note</span>
-                <textarea className="cs-textarea" rows={2} aria-label="Revision note" value={saving.note} onChange={(e) => setSaving({ ...saving, note: e.target.value })} />
+                <textarea className="cs-textarea" rows={2} aria-label="Revision note" disabled={busy} value={saving.note} onChange={(e) => setSaving({ ...saving, note: e.target.value })} />
               </label>
               <label className="cs-field">
                 <span>Name (optional)</span>
-                <input className="cs-input" aria-label="Revision name" value={saving.label} placeholder="Rev B" onChange={(e) => setSaving({ ...saving, label: e.target.value })} />
+                <input className="cs-input" aria-label="Revision name" disabled={busy} value={saving.label} placeholder="Rev B" onChange={(e) => setSaving({ ...saving, label: e.target.value })} />
               </label>
               <label className="cs-small">
-                <input type="checkbox" checked={saving.renumber} onChange={(e) => void toggleRenumber(e.target.checked)} /> give it the next variant number
+                <input type="checkbox" disabled={busy} checked={saving.renumber} onChange={(e) => void toggleRenumber(e.target.checked)} /> give it the next variant number
                 {saving.renumber && saving.next !== undefined ? ` (${saving.next})` : ''}
               </label>
+              {numberPending ? <p role="status">Checking the next variant number…</p> : null}
               <div className="cs-modal-actions">
-                <button type="button" className="cs-quiet" onClick={() => setSaving(undefined)}>
+                <button type="button" className="cs-quiet" disabled={busy} onClick={cancelSave}>
                   Cancel
                 </button>
-                <button type="button" className="cs-primary" disabled={busy} onClick={() => void save()}>
-                  Save revision
+                <button type="button" className="cs-primary" disabled={busy || numberPending} onClick={() => void save()}>
+                  {busy ? 'Saving revision…' : 'Save revision'}
                 </button>
               </div>
             </div>

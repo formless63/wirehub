@@ -211,14 +211,12 @@ function PlaceInMenu({ entry, targets }: { entry: CableListEntry; targets: reado
               onChange={(event) => setNeedle(event.target.value)}
               className="m-1 rounded-sm border border-line2 bg-raised px-2 py-1 text-[12px] text-ink"
             />
-            <div role="listbox" aria-label="cables to place it in" className="min-h-0 overflow-auto p-1">
+            <div role="group" aria-label="cables to place it in" className="min-h-0 overflow-auto p-1">
               {shown.length === 0 ? <p className="px-2 py-1 text-faint">No cables match.</p> : null}
               {shown.map((target) => (
                 <button
                   key={target.id}
                   type="button"
-                  role="option"
-                  aria-selected={false}
                   onClick={() => void navigate({ to: '/cables/$id', params: { id: target.id }, search: { view: 'build', place: entry.id } })}
                   className="flex w-full flex-col items-start rounded-sm border-0 bg-transparent px-2 py-1 text-left text-ink hover:bg-hover"
                 >
@@ -720,7 +718,8 @@ export function CablesRoute(): JSX.Element {
       >
         <div style={narrow ? undefined : { minWidth: TABLE_MIN_PX }}>
           <div
-            role="row"
+            role="group"
+            aria-label="Sort cables"
             style={{ gridTemplateColumns: GRID_COLS }}
             className="sticky top-0 z-10 grid h-7 shrink-0 items-center gap-2 border-b border-line bg-raised px-3 font-mono text-[10px] tracking-wide text-faint uppercase max-sm:hidden"
           >
@@ -733,12 +732,13 @@ export function CablesRoute(): JSX.Element {
                   type="button"
                   onClick={header.column.getToggleSortingHandler()}
                   title={`Sort by ${String(header.column.columnDef.header)}`}
+                  aria-label={`Sort by ${String(header.column.columnDef.header)}. ${sorted === 'asc' ? 'Currently sorted ascending.' : sorted === 'desc' ? 'Currently sorted descending.' : 'Not sorted by this column.'}`}
                   className={`flex items-center gap-1 border-0 bg-transparent p-0 font-mono text-[10px] tracking-wide uppercase hover:text-ink ${
                     sorted ? 'text-ink' : 'text-faint'
                   } ${RIGHT_ALIGNED.has(header.column.id) ? 'justify-end' : 'justify-start'}`}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}
-                  {sorted === 'asc' ? <IconArrowUp size={11} /> : sorted === 'desc' ? <IconArrowDown size={11} /> : null}
+                  {sorted === 'asc' ? <IconArrowUp size={11} aria-hidden="true" /> : sorted === 'desc' ? <IconArrowDown size={11} aria-hidden="true" /> : null}
                 </button>
               );
             })}

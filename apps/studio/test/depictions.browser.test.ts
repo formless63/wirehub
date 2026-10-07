@@ -120,6 +120,80 @@ describe('live installed-pack depictions', () => {
     await live.load(['board']);
     expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'raster', dataUri: raster });
   });
+
+  it('retries a failed view after a successful manifest without a render retry loop', async () => {
+    let available = false;
+    const artwork = vi.fn<ArtworkAdapter['artwork']>(async () => available
+      ? { ok: true, value: { kind: 'vector', source: ART } }
+      : { ok: false, message: 'Temporary artwork failure' });
+    const live = liveDepictions(fallback(), {
+      detail: async (id) => ({ ok: true, value: detail(id) }),
+      artwork,
+    }, async () => ['board']);
+    await live.load(['board']);
+    expect(live.current().meta('board')?.defId).toBe('board');
+    expect(live.current().artwork('board', 'board-top')).toBeUndefined();
+    await Promise.resolve();
+    expect(artwork).toHaveBeenCalledTimes(1);
+    available = true;
+    await Promise.all([live.load(['board']), live.load(['board'])]);
+    expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'vector', source: ART });
+    expect(artwork).toHaveBeenCalledTimes(2);
+    await live.load(['board']);
+    expect(artwork).toHaveBeenCalledTimes(2);
+  });
+
+  it('replays catalog invalidations during a pending index fetch without publishing stale IDs', async () => {
+    let finish!: (ids: string[]) => void;
+    const list = vi.fn<() => Promise<string[]>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }))
+      .mockResolvedValue(['newly-installed-board']);
+    const live = liveDepictions(fallback(), {
+      detail: async (id) => ({ ok: true, value: detail(id) }),
+      artwork: async () => ({ ok: true, value: { kind: 'vector', source: ART } }),
+    }, list);
+    const published: string[][] = [];
+    live.subscribe(() => published.push(live.known()));
+    const initial = live.refresh();
+    await Promise.resolve();
+    const event = live.refresh();
+    const anotherEvent = live.refresh();
+    finish(['outdated-board']);
+    await Promise.all([initial, event, anotherEvent]);
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(published).toEqual([['newly-installed-board']]);
+    await live.load(['newly-installed-board']);
+    expect(live.current().artwork('newly-installed-board', 'board-top')).toEqual({ kind: 'vector', source: ART });
+  });
+
+  it('waits for an in-flight refresh before resolving an explicit load from a populated cache', async () => {
+    let finish!: (ids: string[]) => void;
+    let source = ART;
+    let citation = 'synthetic example: original catalog';
+    const list = vi.fn<() => Promise<string[]>>()
+      .mockResolvedValueOnce(['board'])
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const live = liveDepictions(fallback(), {
+      detail: async (id) => ({ ok: true, value: { ...detail(id), meta: { ...detail(id).meta!, src: citation } } }),
+      artwork: async () => ({ ok: true, value: { kind: 'vector', source } }),
+    }, list);
+    await live.load(['board']);
+    expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'vector', source: ART });
+    source = '<svg>refreshed synthetic artwork</svg>';
+    citation = 'synthetic example: refreshed catalog';
+    const refresh = live.refresh();
+    await Promise.resolve();
+    let ready = false;
+    const loading = live.load(['board']).then(() => { ready = true; });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ready).toBe(false);
+    finish(['board']);
+    await Promise.all([refresh, loading]);
+    expect(ready).toBe(true);
+    expect(live.current().meta('board')?.src).toBe(citation);
+    expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'vector', source });
+  });
 });
 
 describe('assembleDepictionSource', () => {

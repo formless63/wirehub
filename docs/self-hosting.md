@@ -503,6 +503,23 @@ its vendor has scaled back the open-source edition.
   candidates as of 2026 — and a hub's uploads are not where to try a new
   storage engine.
 
+### Board textures and existing imported model keys
+
+New conversions recognize a board body named `Board~<exporter-id>` (1–64 alphanumeric
+characters, optionally a numbered `#` suffix), as well as `board` and the `_PCB`
+convention. The painter still needs suitable top/bottom geometry and both recorded
+Gerber SVG views; a name alone does not fabricate a board or artwork.
+
+Paired-art source keys include a separate board-texture revision. Geometry-only
+keys and the global converter revision remain unchanged. Existing signed pack
+links and cached GLBs keep their original keys: a missing legacy entry rebuilds
+with the legacy detector, so newer paint is never stored under its old identity.
+An importer must explicitly reimport/relink a model using the current `sourceKey`
+to opt into the new painting profile. That new key builds from the hash-verified
+geometry and current stored SVG bytes; importing art may sanitize those bytes, so
+verify the active link's key rather than an earlier source-pack key. Neither a
+startup nor a metadata-only anchor edit silently upgrades a legacy painting key.
+
 ## History and the git mirror
 
 **History.** Every save is a change set in the database: who made it, when,

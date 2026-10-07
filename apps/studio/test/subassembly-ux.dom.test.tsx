@@ -12,7 +12,7 @@ import { composeConnectors } from '@wirehub/model';
 import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition } from '@wirehub/model';
 import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -135,7 +135,8 @@ describe('Place in… on the cable list', () => {
     const button = await screen.findByLabelText('Place dc-pigtail-lead in…');
     fireEvent.click(button);
     // not itself; the other cables are offered
-    const options = await screen.findAllByRole('option');
+    const choices = await screen.findByRole('group', { name: 'cables to place it in' });
+    const options = within(choices).getAllByRole('button');
     expect(options.map((o) => o.textContent)).not.toContain('dc-pigtail-lead');
     fireEvent.click(options.find((o) => o.textContent?.includes('dc-y-from-leads'))!);
     await waitFor(() => expect(screen.getByTestId('open-id').textContent).toBe('dc-y-from-leads'));

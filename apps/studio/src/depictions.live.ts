@@ -13,12 +13,13 @@ export function liveDepictions(
   list: () => Promise<string[]>,
 ): LiveDepictions {
   let known: Set<string> | undefined;
-  const loaded = new Map<string, { meta: DepictionMeta; art: Map<string, DepictionArtwork> }>();
+  const loaded = new Map<string, { meta: DepictionMeta; art: Map<string, DepictionArtwork>; complete: boolean }>();
   const pending = new Map<string, Promise<void>>();
   const listeners = new Set<() => void>();
   let generation = 0;
   let snapshot: DepictionSource;
   let refreshing: Promise<void> | undefined;
+  let refreshAgain = false;
   const publish = (): void => {
     snapshot = {
       meta(id) {
@@ -36,7 +37,7 @@ export function liveDepictions(
   };
   const loadOne = (id: string): Promise<void> => {
     if (known === undefined) return fallback.load([id]);
-    if (!known.has(id) || loaded.has(id)) return Promise.resolve();
+    if (!known.has(id) || loaded.get(id)?.complete === true) return Promise.resolve();
     const existing = pending.get(id);
     if (existing !== undefined) return existing;
     const epoch = generation;
@@ -51,7 +52,10 @@ export function liveDepictions(
           if (result.ok && result.value.kind === meta.views[view]?.kind) art.set(view, result.value);
         }));
         if (epoch !== generation) return;
-        loaded.set(id, { meta, art });
+        // Keep readable faces available, but allow an explicit load to retry
+        // a temporarily missing view. Rendering itself only requests entries
+        // with no metadata, so a failed view cannot create a render/retry loop.
+        loaded.set(id, { meta, art, complete: art.size === Object.keys(meta.views).length });
         publish();
       } catch {
         // Missing/unreachable artwork keeps the abstract rendering fallback.
@@ -63,17 +67,29 @@ export function liveDepictions(
     return task;
   };
   const refresh = (): Promise<void> => {
-    if (refreshing !== undefined) return refreshing;
+    if (refreshing !== undefined) {
+      // Another catalog event invalidated the in-flight index. Coalesce those
+      // events into one follow-up read, rather than applying its stale result.
+      refreshAgain = true;
+      return refreshing;
+    }
     const task = (async () => {
+      await Promise.resolve();
       try {
-        const ids = await list();
-        generation += 1;
-        known = new Set(ids);
-        loaded.clear();
-        pending.clear();
-        publish();
-      } catch {
-        // Keep the previous source on a temporary connection failure.
+        do {
+          refreshAgain = false;
+          try {
+            const ids = await list();
+            if (refreshAgain) continue;
+            generation += 1;
+            known = new Set(ids);
+            loaded.clear();
+            pending.clear();
+            publish();
+          } catch {
+            // Keep the previous source on a temporary connection failure.
+          }
+        } while (refreshAgain);
       } finally {
         refreshing = undefined;
       }
@@ -90,5 +106,10 @@ export function liveDepictions(
     load: async (ids) => { await refreshIfUnknown(); await Promise.all([...new Set(ids)].map(loadOne)); },
     refresh,
   };
-  async function refreshIfUnknown(): Promise<void> { if (known === undefined) await refresh(); }
+  async function refreshIfUnknown(): Promise<void> {
+    // Explicit loads promise the current catalog's art, even when the previous
+    // index already populated the cache. Wait for invalidation/replay first.
+    if (refreshing !== undefined) await refreshing;
+    if (known === undefined) await refresh();
+  }
 }

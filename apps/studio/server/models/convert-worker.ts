@@ -5,6 +5,7 @@
  * heap OpenCascade grew is handed back to the OS with the process.
  */
 
+import type { BoardTextureProfile } from './cache.ts';
 import { assemble, type AssemblyPlan } from './assembly.ts';
 import { applyBoardTexture, type BoardArt } from './board-texture.ts';
 import { readStep } from './step.ts';
@@ -19,6 +20,7 @@ interface Job {
   assembly?: AssemblyPlan;
   /** the board's own gerber-tier art, painted onto its top/bottom faces */
   boardArt?: BoardArt;
+  boardTextureProfile?: BoardTextureProfile;
 }
 
 const isIges = (name: string): boolean => /\.(igs|iges)$/i.test(name);
@@ -67,7 +69,7 @@ process.once('message', (message: Job) => {
       // (the board keeps its flat STEP/assembly colour instead —)
       let textured = parts;
       try {
-        textured = await applyBoardTexture(parts, message.boardArt);
+        textured = await applyBoardTexture(parts, message.boardArt, message.boardTextureProfile);
       } catch (error) {
         extras['boardArtError'] = (error as Error).message;
       }

@@ -25,11 +25,21 @@ import { envVar } from '../env.ts';
 import type { Awaitable } from '../storage/change-set.ts';
 
 /**
- * Bumped whenever the conversion would give different bytes for the same
- * sources (mesh.ts, glb.ts, step.ts, the budget) — every cached model is
+ * Geometry/output format revision (mesh.ts, glb.ts, step.ts, the budget).
+ * Board painting has its own explicitly inferred profile below. Bumping
+ * this revision changes every key: every cached model is
  * then rebuilt, and every link re-keyed by the next dev-tree import.
  */
 export const CONVERTER_VERSION = 'glb-q16-zup-4';
+
+/** Texture output is versioned separately so geometry and existing pack keys stay usable. */
+export type BoardTextureProfile = 'legacy' | 'exporter';
+export const BOARD_TEXTURE_VERSION = 'board-texture-2';
+
+/** The same two source views that build.ts passes to the painter. */
+export function hasBoardArtFiles(files: readonly SourceFile[]): boolean {
+  return ['board-top.svg', 'board-bottom.svg'].every((suffix) => files.some((f) => isArtFile(f.path) && f.path.endsWith(suffix)));
+}
 
 export interface SourceFile {
   /**
@@ -69,11 +79,13 @@ export const ASSEMBLY_VERSION = 'kicad-assembly-1';
 /**
  * The cache key for a model built from `files` with `maxTriangles` — and,
  * for a model that is more than one file converted, how (`build`). A model
- * without a `build` keeps the key it always had.
+ * without a `build` keeps its geometry key. Paired board artwork adds the
+ * painting revision; legacy reproduces the original key and detector.
  */
-export function sourceKey(files: readonly SourceFile[], maxTriangles: number, build?: ModelBuild): string {
+export function sourceKey(files: readonly SourceFile[], maxTriangles: number, build?: ModelBuild, boardTextureProfile: BoardTextureProfile = 'exporter'): string {
   const recipe = build === undefined ? '' : `\n${build.kind === 'assembly' ? `${ASSEMBLY_VERSION}${build.library === undefined ? '' : `\nkicad-packages3D@${build.library}`}` : JSON.stringify(build)}`;
-  return sha256Hex(`${CONVERTER_VERSION}\n${maxTriangles}\n${files.map((f) => `${f.path}\n${f.sha256}`).join('\n')}${recipe}`);
+  const texture = boardTextureProfile === 'exporter' && hasBoardArtFiles(files) ? `\n${BOARD_TEXTURE_VERSION}` : '';
+  return sha256Hex(`${CONVERTER_VERSION}\n${maxTriangles}\n${files.map((f) => `${f.path}\n${f.sha256}`).join('\n')}${recipe}${texture}`);
 }
 
 /** A depiction's board-top/board-bottom art: paint on an existing shape, not part of what makes a model its own. */

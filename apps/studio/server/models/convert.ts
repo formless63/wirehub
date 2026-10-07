@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import type { AssemblyPlan } from './assembly.ts';
+import type { BoardTextureProfile } from './cache.ts';
 import type { BoardArt } from './board-texture.ts';
 import { finishParts, MAX_MODEL_TRIANGLES, type ConversionStats } from './finish.ts';
 import { readGlbJson } from './glb.ts';
@@ -115,7 +116,7 @@ export async function convertModelFiles(
 export async function convertModel(
   bytes: Uint8Array,
   name: string,
-  options: { maxTriangles?: number; extras?: Record<string, string | number | boolean>; boardArt?: BoardArt } = {},
+  options: { maxTriangles?: number; extras?: Record<string, string | number | boolean>; boardArt?: BoardArt; boardTextureProfile?: BoardTextureProfile } = {},
 ): Promise<ConvertedModel> {
   const maxTriangles = options.maxTriangles ?? MAX_MODEL_TRIANGLES;
   if (bytes.byteLength === 0) throw new ModelRefusal('That file is empty.', 'Pick the model file again.');
@@ -145,7 +146,7 @@ export async function convertModel(
     const finished = finishParts([part], maxTriangles, { source: 'stl', ...(options.extras ?? {}) });
     return { glb: finished.glb, format, stats: { ...finished.stats, ms: Math.round(performance.now() - started) } };
   }
-  return serial(() => convertStepInChild(bytes, name, maxTriangles, undefined, options.boardArt));
+  return serial(() => convertStepInChild(bytes, name, maxTriangles, undefined, options.boardArt, options.boardTextureProfile));
 }
 
 /**
@@ -153,12 +154,12 @@ export async function convertModel(
  * offset: every model file read and placed in the
  * same memory-capped child, in the same one-at-a-time queue.
  */
-export async function convertAssembly(plan: AssemblyPlan, name: string, options: { maxTriangles?: number; boardArt?: BoardArt } = {}): Promise<ConvertedModel> {
+export async function convertAssembly(plan: AssemblyPlan, name: string, options: { maxTriangles?: number; boardArt?: BoardArt; boardTextureProfile?: BoardTextureProfile } = {}): Promise<ConvertedModel> {
   const bytes = plan.models.reduce((n, m) => n + m.bytes.byteLength, 0);
   if (bytes > MAX_MODEL_BYTES * 2) {
     throw new ModelRefusal(`${name}'s models add up to ${(bytes / 1048576).toFixed(1)} MB, more than the studio converts at once.`, 'Leave the heaviest part models out.');
   }
-  return serial(() => convertStepInChild(new Uint8Array(0), name, options.maxTriangles ?? MAX_MODEL_TRIANGLES, plan, options.boardArt));
+  return serial(() => convertStepInChild(new Uint8Array(0), name, options.maxTriangles ?? MAX_MODEL_TRIANGLES, plan, options.boardArt, options.boardTextureProfile));
 }
 
 interface ChildAnswer {
@@ -179,7 +180,7 @@ function residentMb(pid: number): number | undefined {
   }
 }
 
-function convertStepInChild(bytes: Uint8Array, name: string, maxTriangles: number, assembly?: AssemblyPlan, boardArt?: BoardArt): Promise<ConvertedModel> {
+function convertStepInChild(bytes: Uint8Array, name: string, maxTriangles: number, assembly?: AssemblyPlan, boardArt?: BoardArt, boardTextureProfile?: BoardTextureProfile): Promise<ConvertedModel> {
   return new Promise((resolve, reject) => {
     const worker = fileURLToPath(new URL('./convert-worker.ts', import.meta.url));
     const child = fork(worker, [], {
@@ -237,6 +238,6 @@ function convertStepInChild(bytes: Uint8Array, name: string, maxTriangles: numbe
         ),
       );
     });
-    child.send({ bytes, name, maxTriangles, ...(assembly === undefined ? {} : { assembly }), ...(boardArt === undefined ? {} : { boardArt }) });
+    child.send({ bytes, name, maxTriangles, ...(assembly === undefined ? {} : { assembly }), ...(boardArt === undefined ? {} : { boardArt }), ...(boardTextureProfile === undefined ? {} : { boardTextureProfile }) });
   });
 }

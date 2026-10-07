@@ -21,7 +21,7 @@ import { join, resolve, sep } from 'node:path';
 
 import { boardAssemblyPlan, boardLibraryRefs, modelMatrix, type AssemblyPlan } from './assembly.ts';
 import type { BoardArt } from './board-texture.ts';
-import { isArtFile, sha256Hex, sourceKey, type ModelBuild, type SourceFile } from './cache.ts';
+import { isArtFile, sha256Hex, sourceKey, type BoardTextureProfile, type ModelBuild, type SourceFile } from './cache.ts';
 import { convertAssembly, convertModel, convertModelFiles, ModelRefusal, type ConvertedModel } from './convert.ts';
 
 /**
@@ -44,10 +44,17 @@ import type { ModelLink } from './links.ts';
 /** The triangle budgets an importer keys models with, most likely first. */
 export const KNOWN_BUDGETS: readonly number[] = [MAX_MODEL_TRIANGLES, 150_000, 100_000, 80_000, 50_000, 30_000];
 
-/** The budget `link.asset` was keyed with at this converter version, or undefined (stale or unknown). */
-export function budgetOf(link: Pick<ModelLink, 'asset' | 'files' | 'build'>, budgets: readonly number[] = KNOWN_BUDGETS): number | undefined {
+/** Infer the budget and painting profile from the exact key; signed legacy links are not rewritten. */
+export function buildProfileOf(link: Pick<ModelLink, 'asset' | 'files' | 'build'>, budgets: readonly number[] = KNOWN_BUDGETS): { budget: number; boardTextureProfile: BoardTextureProfile } | undefined {
   if (link.files === undefined) return undefined;
-  return budgets.find((n) => sourceKey(link.files!, n, link.build) === link.asset);
+  for (const boardTextureProfile of ['exporter', 'legacy'] as const) for (const budget of budgets) {
+    if (sourceKey(link.files, budget, link.build, boardTextureProfile) === link.asset) return { budget, boardTextureProfile };
+  }
+  return undefined;
+}
+
+export function budgetOf(link: Pick<ModelLink, 'asset' | 'files' | 'build'>, budgets: readonly number[] = KNOWN_BUDGETS): number | undefined {
+  return buildProfileOf(link, budgets)?.budget;
 }
 
 /** Reads a source file's bytes by its link path; undefined when this studio cannot. */
@@ -107,10 +114,11 @@ export async function buildLinkedModel(
 ): Promise<BuildOutcome> {
   const files = link.files;
   if (files === undefined) throw new ModelRefusal(`${link.record}'s model is an upload, not built from sources.`, 'Uploads are stored as they were converted.');
-  const budget = budgetOf(link);
-  if (budget === undefined) {
+  const profile = buildProfileOf(link);
+  if (profile === undefined) {
     throw new ModelRefusal(`${link.record}'s model key was made by another converter version or budget.`, 'Run the importer that made it again: it re-keys the link for this studio.');
   }
+  const { budget, boardTextureProfile } = profile;
   const bytes = new Map<string, Uint8Array>();
   for (const file of files) {
     const got = await read(file.path);
@@ -121,7 +129,7 @@ export async function buildLinkedModel(
   const art = boardArt(files, bytes);
   const geometry = files.filter((f) => !isArtFile(f.path));
   const name = link.name ?? baseName(geometry[0]?.path ?? link.record);
-  const options = { maxTriangles: budget, ...(art === undefined ? {} : { boardArt: art }) };
+  const options = { maxTriangles: budget, boardTextureProfile, ...(art === undefined ? {} : { boardArt: art }) };
   // a board whose library models are fetched at a pinned commit: read the ones it names
   const fetched: { kind: 'source'; ref: string; sha256: string }[] = [];
   if (link.build?.kind === 'assembly' && link.build.library !== undefined) {
@@ -168,7 +176,7 @@ async function convertWith(
   geometry: readonly SourceFile[],
   bytes: ReadonlyMap<string, Uint8Array>,
   name: string,
-  options: { maxTriangles: number; boardArt?: BoardArt },
+  options: { maxTriangles: number; boardArt?: BoardArt; boardTextureProfile: BoardTextureProfile },
 ): Promise<ConvertedModel> {
   const of = (f: SourceFile): Uint8Array => bytes.get(f.path)!;
   if (build === undefined) {
