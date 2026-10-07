@@ -14,7 +14,7 @@
 import type { DepictionStore } from '../depictions.ts';
 import { isArtFile, sha256Hex, sourceKey, type SourceFile } from './cache.ts';
 import { MAX_MODEL_TRIANGLES } from './finish.ts';
-import { budgetOf } from './build.ts';
+import { buildProfileOf, budgetOf } from './build.ts';
 import type { ModelLink, ModelLinkStore } from './links.ts';
 
 const TOP = 'board-top.svg';
@@ -48,7 +48,7 @@ export function relinkWithArt(link: ModelLink, art: readonly SourceFile[]): Mode
   if (same) return undefined;
   const budget = budgetOf(link) ?? MAX_MODEL_TRIANGLES;
   const files = [...link.files.filter((f) => !isArtFile(f.path)), ...art];
-  return { ...link, files, asset: sourceKey(files, budget, link.build) };
+  return { ...link, files, asset: sourceKey(files, budget, link.build, buildProfileOf(link)?.boardTextureProfile === 'occurrence' ? 'occurrence' : 'exporter') };
 }
 
 /**

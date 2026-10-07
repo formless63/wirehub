@@ -3,16 +3,11 @@
  * — the fix for solid models of PCBs/PCBAs that
  * have no styles, colours or details applied.
  *
- * The root cause (checked on real STEP exports): the board designer's STEP export gives the whole PCB body **one**
- * flat STYLED_ITEM colour — the same `(0.420, 0.450, 0.290)` on every board
- * regardless of its real soldermask colour — and none of its faces carry a
- * different one (`brep_faces[i].color` is `null` for every face of the `_PCB`
- * solid on all four). `step.ts` already keeps whatever colour a STEP does
- * carry (per-face when present, the shape's own colour as a fallback
- * otherwise) — that part was not broken. There is simply no richer colour to
- * recover from the file: the fix is to paint the board's own faces with the
- * same board-top/board-bottom art the 2D Library views already render from
- * the gerbers, not to mine the STEP harder.
+ * Supplied board-top/board-bottom artwork is the source for surface detail;
+ * it does not infer component colors or replace styles on other products.
+ * The legacy/exporter profiles retain their historical behavior. The opt-in
+ * occurrence profile also paints source-identified coating shells belonging
+ * to that board, preserving their geometry and all other recovered styles.
  *
  * Pure except `rasterizeSvg`, which is Node-only (`@resvg/resvg-js`) and
  * dynamically imported so nothing outside the conversion child ever loads
@@ -21,6 +16,7 @@
  */
 
 import type { BoardTextureProfile } from './cache.ts';
+import { textureBoardCoatings } from './board-coating.ts';
 import type { MeshPart } from './mesh.ts';
 
 /** A board's two sides of gerber-tier art, SVG text — `board-top`/`board-bottom` (or a revision's). */
@@ -64,7 +60,7 @@ export function boundsOfXY(part: Pick<MeshPart, 'positions'>): Bounds2D {
 
 /** The name convention a board body's mesh part gets, from either source. */
 export function looksLikeBoardPart(name: string, profile: BoardTextureProfile = 'exporter'): boolean {
-  return name === 'board' || /_pcb(#\d+)?$/i.test(name) || (profile === 'exporter' && /^board~[a-z0-9]{1,64}(?:#\d{1,6})?$/i.test(name));
+  return name === 'board' || /_pcb(#\d+)?$/i.test(name) || (profile !== 'legacy' && /^board~[a-z0-9]{1,64}(?:#\d{1,6})?$/i.test(name));
 }
 
 /** The index of the part that is the board body, or `undefined`. */
@@ -123,6 +119,9 @@ export function splitBoardFaces(part: MeshPart): { top: MeshPart; bottom: MeshPa
     indices: Uint32Array.from(indices),
     ...(part.normals === undefined ? {} : { normals: part.normals }),
     ...(part.color === undefined ? {} : { color: part.color }),
+    ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }),
+    ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }),
+    ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }),
   });
   return { top: pick(top, 'top'), bottom: pick(bottom, 'bottom'), edge: pick(edge, 'edge') };
 }
@@ -193,6 +192,10 @@ export async function rasterizeSvg(svg: string, size: { width: number; height: n
  */
 export async function applyBoardTexture(parts: readonly MeshPart[], art: BoardArt | undefined, profile: BoardTextureProfile = 'exporter'): Promise<MeshPart[]> {
   if (art === undefined) return [...parts];
+  // Occurrence identities can reveal more than one board; never borrow one
+  // board's artwork or bounds for another. A split-color/ambiguous body keeps
+  // its supplied source styles until a single board can be identified.
+  if (profile === 'occurrence' && parts.filter((p) => looksLikeBoardPart(p.name, profile)).length !== 1) return [...parts];
   const at = findBoardPart(parts, profile);
   if (at === undefined) return [...parts];
   const board = parts[at]!;
@@ -203,7 +206,7 @@ export async function applyBoardTexture(parts: readonly MeshPart[], art: BoardAr
   // covering — occt-import-js reads it as its own body's
   // real-board check on PCA-00109). Z-fighting against the painted top/bottom
   // faces would otherwise hide the art behind its flat default grey.
-  const withoutSoldermask = parts.filter((_, i) => i === at || !/soldermask/i.test(parts[i]!.name));
+  const withoutSoldermask = profile === 'occurrence' ? [...parts] : parts.filter((_, i) => i === at || !/soldermask/i.test(parts[i]!.name));
   const bounds = boundsOfXY(board);
   // one raster at a time: two 4096 px renders at once would double the child's resident peak (the conversion's memory cap)
   const rasters: Uint8Array[] = [];
@@ -220,5 +223,5 @@ export async function applyBoardTexture(parts: readonly MeshPart[], art: BoardAr
   const edge: MeshPart = { ...split.edge, color: BOARD_EDGE_COLOUR };
   const out = [...withoutSoldermask];
   out.splice(out.indexOf(board), 1, top, bottom, edge);
-  return out;
+  return profile === 'occurrence' ? textureBoardCoatings(out, bounds, { top: topPng, bottom: bottomPng }, board) : out;
 }

@@ -118,7 +118,7 @@ export function transformPart(part: MeshPart, m: Mat4, name = part.name): MeshPa
       indices[t + 2] = part.indices[t + 1]!;
     }
   }
-  return { name, positions, indices, ...(normals === undefined ? {} : { normals }), ...(part.color === undefined ? {} : { color: part.color }) };
+  return { name, positions, indices, ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }), ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }), ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }), ...(normals === undefined ? {} : { normals }), ...(part.color === undefined ? {} : { color: part.color }) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -213,6 +213,10 @@ export function mergeByColour(parts: readonly MeshPart[]): MeshPart[] {
   }
   const out: MeshPart[] = [];
   for (const [key, group] of [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    if (group.some((part) => part.sourceProductName !== undefined || part.sourceOccurrenceName !== undefined || part.sourceAssemblyPath !== undefined)) {
+      out.push(...group);
+      continue;
+    }
     if (group.length === 1) {
       out.push(group[0]!);
       continue;
@@ -258,8 +262,13 @@ export interface AssemblyPlan {
 export function assemble(plan: Pick<AssemblyPlan, 'board' | 'instances'>, meshes: readonly (readonly MeshPart[])[]): MeshPart[] {
   const parts: MeshPart[] = [];
   if (plan.board !== undefined) parts.push(boardSlab(plan.board.outline, plan.board.thickness, { x: 0, y: 0 }));
-  for (const instance of plan.instances) {
-    for (const part of meshes[instance.model] ?? []) parts.push(transformPart(part, instance.matrix));
+  for (const [at, instance] of plan.instances.entries()) {
+    for (const part of meshes[instance.model] ?? []) {
+      const placed = transformPart(part, instance.matrix);
+      // Reader-local ancestry is meaningful only within this model occurrence.
+      if (placed.sourceAssemblyPath !== undefined) placed.sourceAssemblyPath = `model:${instance.model}/instance:${at}${placed.sourceAssemblyPath}`;
+      parts.push(placed);
+    }
   }
   return mergeByColour(parts);
 }

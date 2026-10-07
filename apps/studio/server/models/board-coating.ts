@@ -5,6 +5,7 @@ import type { MeshPart } from './mesh.ts';
 export interface SourceIdentifiedPart extends MeshPart {
   sourceProductName?: string;
   sourceOccurrenceName?: string;
+  sourceAssemblyPath?: string;
 }
 
 interface CoatingBounds {
@@ -19,6 +20,14 @@ export function isSourceSolderMask(part: SourceIdentifiedPart): boolean {
   return [part.sourceProductName, part.sourceOccurrenceName].some((name) => name !== undefined && /_soldermask$/i.test(name));
 }
 
+/** The role suffix and exact source assembly context bind mask paint to its board. */
+export function isCoatingOfBoard(part: SourceIdentifiedPart, board: SourceIdentifiedPart): boolean {
+  const boardStem = board.sourceProductName?.match(/^(.+)_pcb$/i)?.[1];
+  const maskStem = part.sourceProductName?.match(/^(.+)_soldermask$/i)?.[1];
+  return boardStem !== undefined && maskStem === boardStem && board.sourceAssemblyPath !== undefined
+    && board.sourceAssemblyPath.length > 0 && part.sourceAssemblyPath === board.sourceAssemblyPath;
+}
+
 /**
  * Paint identified mask shell faces, retaining their actual source geometry.
  * Call only for an opted-in occurrence profile with a uniquely identified board
@@ -29,10 +38,11 @@ export function textureBoardCoatings(
   parts: readonly SourceIdentifiedPart[],
   bounds: CoatingBounds,
   images: { top: Uint8Array; bottom: Uint8Array },
+  board: SourceIdentifiedPart,
 ): SourceIdentifiedPart[] {
   const out: SourceIdentifiedPart[] = [];
   for (const part of parts) {
-    if (!isSourceSolderMask(part)) {
+    if (!isCoatingOfBoard(part, board)) {
       out.push(part);
       continue;
     }

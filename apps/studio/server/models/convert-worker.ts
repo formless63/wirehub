@@ -8,9 +8,9 @@
 import type { BoardTextureProfile } from './cache.ts';
 import { assemble, type AssemblyPlan } from './assembly.ts';
 import { applyBoardTexture, type BoardArt } from './board-texture.ts';
-import { readStep } from './step.ts';
+import { prepareStepReader, readStep } from './step.ts';
 import { finishParts } from './finish.ts';
-import type { MeshPart } from './mesh.ts';
+import { parseStl, type MeshPart } from './mesh.ts';
 
 interface Job {
   bytes: Uint8Array;
@@ -21,17 +21,18 @@ interface Job {
   /** the board's own gerber-tier art, painted onto its top/bottom faces */
   boardArt?: BoardArt;
   boardTextureProfile?: BoardTextureProfile;
+  stlFiles?: { bytes: Uint8Array; name: string; partName?: string }[];
 }
 
 const isIges = (name: string): boolean => /\.(igs|iges)$/i.test(name);
 
 /** A finer tessellation first; a coarser one when it comes out too heavy. */
-async function tessellate(bytes: Uint8Array, name: string, budget: number): Promise<{ parts: MeshPart[]; deflection: number }> {
+async function tessellate(bytes: Uint8Array, name: string, budget: number, profile: BoardTextureProfile = 'exporter'): Promise<{ parts: MeshPart[]; deflection: number }> {
   let deflection = 0.001;
-  let parts = await readStep(bytes, deflection, isIges(name));
+  let parts = await readStep(bytes, deflection, isIges(name), profile);
   if (parts.reduce((n, p) => n + p.indices.length / 3, 0) > budget * 2) {
     deflection = 0.004;
-    parts = await readStep(bytes, deflection, isIges(name));
+    parts = await readStep(bytes, deflection, isIges(name), profile);
   }
   return { parts, deflection };
 }
@@ -40,17 +41,22 @@ process.once('message', (message: Job) => {
   void (async () => {
     const started = performance.now();
     try {
+      await prepareStepReader(message.boardTextureProfile);
       let parts: MeshPart[];
       let deflection: number;
       const extras: Record<string, string | number> = { source: 'step' };
       const missing: string[] = [];
-      if (message.assembly !== undefined) {
+      if (message.stlFiles !== undefined) {
+        parts = message.stlFiles.map((file) => parseStl(new Uint8Array(file.bytes), file.partName ?? file.name));
+        deflection = 0;
+        extras['source'] = 'stl';
+      } else if (message.assembly !== undefined) {
         const plan = message.assembly;
         const meshes: MeshPart[][] = [];
         // each model file read once; a file OpenCascade cannot read is left out, and said so
         for (const model of plan.models) {
           try {
-            meshes.push((await tessellate(new Uint8Array(model.bytes), model.name, message.maxTriangles)).parts);
+            meshes.push((await tessellate(new Uint8Array(model.bytes), model.name, message.maxTriangles, message.boardTextureProfile)).parts);
           } catch {
             meshes.push([]);
             missing.push(model.name);
@@ -62,7 +68,7 @@ process.once('message', (message: Job) => {
         extras['instances'] = plan.instances.length;
         if (missing.length > 0) extras['unreadModels'] = missing.join('; ');
       } else {
-        ({ parts, deflection } = await tessellate(message.bytes, message.name, message.maxTriangles));
+        ({ parts, deflection } = await tessellate(message.bytes, message.name, message.maxTriangles, message.boardTextureProfile));
       }
       const tessellated = parts.reduce((n, p) => n + p.indices.length / 3, 0);
       // a bad SVG or a rasteriser hiccup paints nothing rather than refusing the whole model
@@ -73,7 +79,7 @@ process.once('message', (message: Job) => {
       } catch (error) {
         extras['boardArtError'] = (error as Error).message;
       }
-      const finished = finishParts(textured, message.maxTriangles, { ...extras, deflection });
+      const finished = finishParts(textured, message.maxTriangles, { ...extras, deflection }, message.stlFiles !== undefined);
       const usage = process.resourceUsage();
       process.send!(
         {

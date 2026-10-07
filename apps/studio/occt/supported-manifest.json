@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "profile": "occt-occurrence-1",
+  "importer": "c2148e54b456b571238d35cac037d304053d64b2",
+  "occt": "d2abb6d844231cb8f29be6894440874a4700e4a5",
+  "emscripten": "3.1.69",
+  "patch": "127c65628df013ebae2a5716a6dd5f6953fa1d10c287daa39be0d53b4f3ae8d5",
+  "files": {
+    "occt-import-js.cjs": "8b090be386bc8ffba32222aa19f38742ae8ed35707819beb7f8ab4938a28c97a",
+    "occt-import-js.wasm": "172c19d9258735b987b62c92f4a23cb5f1a4a15351feb6c174640ac462c59ea5"
+  }
+}

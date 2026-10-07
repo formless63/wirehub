@@ -1,16 +1,23 @@
 /**
  * STEP → meshes, through OpenCascade compiled to WASM (`occt-import-js`,
- * LGPL-2.1, used unmodified as a library). Only ever run inside the
+ * LGPL-2.1: the default library is unmodified; an explicit occurrence profile
+ * uses the pinned patch and corresponding-source recipe in apps/studio/occt).
+ * Only ever run inside the
  * conversion child process (`convert-worker.ts`): a WASM heap grows and never
  * shrinks, so the studio process must not be the one that holds it.
  */
 
 import { createRequire } from 'node:module';
 
+import { occurrenceFactory } from './occurrence-reader.ts';
+import type { BoardTextureProfile } from './cache.ts';
 import type { MeshPart } from './mesh.ts';
 
 interface OcctMesh {
   name?: string;
+  sourceProductName?: string;
+  sourceOccurrenceName?: string;
+  sourceAssemblyPath?: string;
   color?: [number, number, number];
   attributes: { position: { array: number[] }; normal?: { array: number[] } };
   index: { array: number[] };
@@ -28,11 +35,23 @@ interface Occt {
 }
 
 let occt: Promise<Occt> | undefined;
+let occurrenceOcct: Promise<Occt> | undefined;
 
-function loadOcct(): Promise<Occt> {
+function loadOcct(profile: BoardTextureProfile): Promise<Occt> {
+  if (profile === 'occurrence') {
+    const dir = process.env['WIREHUB_OCCT_STYLES_DIR'];
+    if (dir === undefined || dir === '') throw new Error('The optional occurrence-style importer must be built and mounted first.');
+    return (occurrenceOcct ??= occurrenceFactory(dir)() as Promise<Occt>);
+  }
+  if (profile !== 'legacy' && profile !== 'exporter') throw new Error('Unsupported STEP conversion profile.');
   const require = createRequire(import.meta.url);
   const factory = require('occt-import-js') as () => Promise<Occt>;
   return (occt ??= factory());
+}
+
+/** Preflight the optional artifact before assembly's per-file best-effort reads. */
+export async function prepareStepReader(profile: BoardTextureProfile | undefined): Promise<void> {
+  if (profile === 'occurrence') await loadOcct(profile);
 }
 
 /**
@@ -40,8 +59,8 @@ function loadOcct(): Promise<Occt> {
  * `iges`: the file is IGES rather than STEP (a model KiCad embedded as .igs)
  * — the same reader, the same meshes out.
  */
-export async function readStep(bytes: Uint8Array, linearDeflection = 0.001, iges = false): Promise<MeshPart[]> {
-  const lib = await loadOcct();
+export async function readStep(bytes: Uint8Array, linearDeflection = 0.001, iges = false, profile: BoardTextureProfile = 'exporter'): Promise<MeshPart[]> {
+  const lib = await loadOcct(profile);
   const read = iges ? lib.ReadIgesFile.bind(lib) : lib.ReadStepFile.bind(lib);
   const result = read(bytes, {
     linearUnit: 'millimeter',
@@ -76,6 +95,9 @@ export async function readStep(bytes: Uint8Array, linearDeflection = 0.001, iges
       const compact = compactPart(positions, normals, indices);
       parts.push({
         name: colours.size === 1 ? name : `${name}#${++n}`,
+        ...(profile !== 'occurrence' || mesh.sourceProductName === undefined ? {} : { sourceProductName: mesh.sourceProductName }),
+        ...(profile !== 'occurrence' || mesh.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: mesh.sourceOccurrenceName }),
+        ...(profile !== 'occurrence' || mesh.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: mesh.sourceAssemblyPath }),
         ...compact,
         ...(key === '' ? {} : { color: key.split(',').map(Number) as [number, number, number] }),
       });
