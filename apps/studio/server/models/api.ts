@@ -31,13 +31,15 @@ import { withWriteLock } from '../storage/write-lock.ts';
 import type { DepictionStore } from '../depictions.ts';
 import { boardLibraryRefs } from './assembly.ts';
 import { boardArtFiles } from './board-art.ts';
-import { sha256Hex, sourceKey, type ModelBuild, type ModelCache, type SourceFile } from './cache.ts';
+import { sha256Hex, sourceKey, type ModelBuild, type ModelCache, type SourceFile, type BoardTextureProfile } from './cache.ts';
 import { MAX_MODEL_TRIANGLES } from './finish.ts';
 import { parseKicadPcb } from './kicad-pcb.ts';
 import { KICAD_LIBRARY } from './kicad-library.ts';
 import type { DocStore } from '../storage/doc-store.ts';
-import { convertModel, ModelRefusal, type ConvertedModel } from './convert.ts';
+import { convertModel, ModelRefusal, type ConvertedModel, type ConvertOptions, sniffModel } from './convert.ts';
 import { isModelSourceKind, MODEL_SOURCES_DIR, type ModelLink, type ModelLinkStore, type ModelSourceKind } from './links.ts';
+
+import { configuredModelProfile, assertModelProfileAvailable } from './profile.ts';
 
 export const MODEL_ROUTES = [
   'GET    /api/models',
@@ -62,7 +64,9 @@ export interface ModelDeps {
   depictions?: DepictionStore;
   loadDb: () => Awaitable<Db>;
   /** injectable for tests; the real one forks the STEP child */
-  convert?: (bytes: Uint8Array, name: string) => Promise<ConvertedModel>;
+  convert?: (bytes: Uint8Array, name: string, options?: ConvertOptions) => Promise<ConvertedModel>;
+  /** Explicit new-import profile; old source links retain their exact keyed profile. */
+  profile?: BoardTextureProfile;
   /** who is uploading, for the link's `src` */
   who?: string;
   /** today, YYYY-MM-DD */
@@ -297,14 +301,23 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
     const kindOf = sourceKind('uploaded');
     if (typeof kindOf !== 'string') return kindOf;
     const bytes = new Uint8Array(Buffer.from(data, 'base64'));
-    if (name.trim().toLowerCase().endsWith('.kicad_pcb')) return uploadBoardFile(request, deps, { kind, id, record, name: name.trim(), bytes, today, guarded });
-    // the If-Match check first — a stale page must not cost a 20 s conversion
+    // Refuse a stale write before native artifact verification or conversion.
     const current = await links.get(record);
     const early = checkIfMatch(request.ifMatch, linkETag(current), '3D model link', record);
     if (early !== undefined) return early;
+    let profile: BoardTextureProfile;
+    const boardUpload = name.trim().toLowerCase().endsWith('.kicad_pcb');
+    try {
+      profile = deps.profile ?? configuredModelProfile();
+      if (boardUpload || sniffModel(bytes) === 'step') assertModelProfileAvailable(profile);
+    } catch (error) {
+      if (error instanceof ModelRefusal) return fail(422, error.message, error.hint);
+      throw error;
+    }
+    if (boardUpload) return uploadBoardFile(request, { ...deps, profile }, { kind, id, record, name: name.trim(), bytes, today, guarded });
     let converted: ConvertedModel;
     try {
-      converted = await (deps.convert ?? convertModel)(bytes, name.trim());
+      converted = await (deps.convert ?? convertModel)(bytes, name.trim(), { boardTextureProfile: profile });
     } catch (error) {
       if (error instanceof ModelRefusal) return fail(422, error.message, `Nothing was saved. ${error.hint}`);
       throw error;
@@ -376,7 +389,7 @@ async function uploadBoardFile(
     const who = deps.who ?? 'the Library';
     const link: ModelLink = {
       record: upload.record,
-      asset: sourceKey(files, MAX_MODEL_TRIANGLES, build),
+      asset: sourceKey(files, MAX_MODEL_TRIANGLES, build, deps.profile ?? 'exporter'),
       files,
       build,
       name: upload.name.replace(/\.kicad_pcb$/i, ''),

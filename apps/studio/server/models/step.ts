@@ -9,6 +9,7 @@
 
 import { createRequire } from 'node:module';
 
+import { appearanceFactory } from './appearance-reader.ts';
 import { occurrenceFactory } from './occurrence-reader.ts';
 import type { BoardTextureProfile } from './cache.ts';
 import type { MeshPart } from './mesh.ts';
@@ -19,9 +20,10 @@ interface OcctMesh {
   sourceOccurrenceName?: string;
   sourceAssemblyPath?: string;
   color?: [number, number, number];
+  alpha?: number;
   attributes: { position: { array: number[] }; normal?: { array: number[] } };
   index: { array: number[] };
-  brep_faces?: { first: number; last: number; color: [number, number, number] | null }[];
+  brep_faces?: { first: number; last: number; color: [number, number, number] | null; alpha?: number }[];
 }
 
 interface OcctResult {
@@ -36,8 +38,14 @@ interface Occt {
 
 let occt: Promise<Occt> | undefined;
 let occurrenceOcct: Promise<Occt> | undefined;
+let appearanceOcct: Promise<Occt> | undefined;
 
 function loadOcct(profile: BoardTextureProfile): Promise<Occt> {
+  if (profile === 'appearance') {
+    const dir = process.env['WIREHUB_OCCT_APPEARANCE_DIR'];
+    if (dir === undefined || dir === '') throw new Error('The optional appearance-style importer must be built and mounted first.');
+    return (appearanceOcct ??= appearanceFactory(dir)() as Promise<Occt>);
+  }
   if (profile === 'occurrence') {
     const dir = process.env['WIREHUB_OCCT_STYLES_DIR'];
     if (dir === undefined || dir === '') throw new Error('The optional occurrence-style importer must be built and mounted first.');
@@ -51,7 +59,7 @@ function loadOcct(profile: BoardTextureProfile): Promise<Occt> {
 
 /** Preflight the optional artifact before assembly's per-file best-effort reads. */
 export async function prepareStepReader(profile: BoardTextureProfile | undefined): Promise<void> {
-  if (profile === 'occurrence') await loadOcct(profile);
+  if (profile === 'occurrence' || profile === 'appearance') await loadOcct(profile);
 }
 
 /**
@@ -69,6 +77,8 @@ export async function readStep(bytes: Uint8Array, linearDeflection = 0.001, iges
     angularDeflection: 0.5,
   });
   if (!result.success) throw new Error(`OpenCascade could not read that ${iges ? 'IGES' : 'STEP'} file.`);
+  const sourceStyles = profile === 'occurrence' || profile === 'appearance';
+  const alphaKey = (value: number | undefined): string => profile === 'appearance' && value !== undefined && Number.isFinite(value) && value >= 0 && value <= 1 ? `|${value}` : '';
   const parts: MeshPart[] = [];
   result.meshes.forEach((mesh, m) => {
     const name = mesh.name !== undefined && mesh.name !== '' ? mesh.name : `part-${m + 1}`;
@@ -79,28 +89,30 @@ export async function readStep(bytes: Uint8Array, linearDeflection = 0.001, iges
     const faces = mesh.brep_faces ?? [];
     const colours = new Map<string, number[]>();
     const fallback = mesh.color;
-    if (faces.length > 0 && faces.some((f) => f.color !== null)) {
+    if (faces.length > 0 && faces.some((f) => f.color !== null || (profile === 'appearance' && f.alpha !== undefined))) {
       for (const face of faces) {
         const colour = face.color ?? fallback;
-        const key = colour === undefined ? '' : colour.map((c) => c.toFixed(3)).join(',');
+        const key = (colour === undefined ? '' : colour.map((c) => c.toFixed(3)).join(',')) + alphaKey(face.alpha ?? mesh.alpha);
         const list = colours.get(key) ?? [];
         for (let t = face.first; t <= face.last; t++) list.push(all[t * 3]!, all[t * 3 + 1]!, all[t * 3 + 2]!);
         colours.set(key, list);
       }
     } else {
-      colours.set(fallback === undefined ? '' : fallback.map((c) => c.toFixed(3)).join(','), Array.from(all));
+      colours.set((fallback === undefined ? '' : fallback.map((c) => c.toFixed(3)).join(',')) + alphaKey(mesh.alpha), Array.from(all));
     }
     let n = 0;
     for (const [key, indices] of [...colours.entries()].sort(([a], [b]) => a.localeCompare(b))) {
       const compact = compactPart(positions, normals, indices);
+      const [rgbKey, alpha] = key.split('|');
       parts.push({
         name: colours.size === 1 ? name : `${name}#${++n}`,
-        ...(profile === 'occurrence' ? { readerMeshId: `occt-mesh:${m}` } : {}),
-        ...(profile !== 'occurrence' || mesh.sourceProductName === undefined ? {} : { sourceProductName: mesh.sourceProductName }),
-        ...(profile !== 'occurrence' || mesh.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: mesh.sourceOccurrenceName }),
-        ...(profile !== 'occurrence' || mesh.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: mesh.sourceAssemblyPath }),
+        ...(sourceStyles ? { readerMeshId: `occt-mesh:${m}` } : {}),
+        ...(!sourceStyles || mesh.sourceProductName === undefined ? {} : { sourceProductName: mesh.sourceProductName }),
+        ...(!sourceStyles || mesh.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: mesh.sourceOccurrenceName }),
+        ...(!sourceStyles || mesh.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: mesh.sourceAssemblyPath }),
         ...compact,
-        ...(key === '' ? {} : { color: key.split(',').map(Number) as [number, number, number] }),
+        ...(rgbKey === '' ? {} : { color: rgbKey!.split(',').map(Number) as [number, number, number] }),
+        ...(alpha === undefined ? {} : { alpha: Number(alpha) }),
       });
     }
   });

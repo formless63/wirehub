@@ -118,7 +118,7 @@ export function transformPart(part: MeshPart, m: Mat4, name = part.name): MeshPa
       indices[t + 2] = part.indices[t + 1]!;
     }
   }
-  return { name, positions, indices, ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }), ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }), ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }), ...(part.readerMeshId === undefined ? {} : { readerMeshId: part.readerMeshId }), ...(normals === undefined ? {} : { normals }), ...(part.color === undefined ? {} : { color: part.color }) };
+  return { name, positions, indices, ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }), ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }), ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }), ...(part.readerMeshId === undefined ? {} : { readerMeshId: part.readerMeshId }), ...(normals === undefined ? {} : { normals }), ...(part.color === undefined ? {} : { color: part.color }), ...(part.alpha === undefined ? {} : { alpha: part.alpha }) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -208,7 +208,7 @@ export function outlineCentre(outline: readonly OutlinePoint[]): OutlinePoint {
 export function mergeByColour(parts: readonly MeshPart[]): MeshPart[] {
   const groups = new Map<string, MeshPart[]>();
   for (const part of parts) {
-    const key = `${part.color === undefined ? '' : part.color.map((c) => c.toFixed(3)).join(',')}|${part.normals === undefined ? 'flat' : 'smooth'}`;
+    const key = `${part.color === undefined ? '' : part.color.map((c) => c.toFixed(3)).join(',')}${part.alpha === undefined ? '' : `|alpha:${part.alpha}`}|${part.normals === undefined ? 'flat' : 'smooth'}`;
     groups.set(key, [...(groups.get(key) ?? []), part]);
   }
   const out: MeshPart[] = [];
@@ -240,6 +240,7 @@ export function mergeByColour(parts: readonly MeshPart[]): MeshPart[] {
       indices,
       ...(normals === undefined ? {} : { normals }),
       ...(group[0]!.color === undefined ? {} : { color: group[0]!.color }),
+      ...(group[0]!.alpha === undefined ? {} : { alpha: group[0]!.alpha }),
     });
   }
   return out;
