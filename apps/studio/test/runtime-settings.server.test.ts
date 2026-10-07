@@ -58,7 +58,7 @@ describe('the settings model', () => {
     const fields = SETTING_GROUPS.flatMap((g) => g.fields);
     expect(new Set(fields.map((f) => f.env)).size).toBe(fields.length);
     expect(new Set(fields.map((f) => f.key)).size).toBe(fields.length);
-    expect(fields.filter((f) => f.secret === true).map((f) => f.key).sort()).toEqual(['mirror.sshKey', 'mirror.token', 'notify.token', 'notify.url', 'oidc.clientSecret', 'smtp.pass']);
+    expect(fields.filter((f) => f.secret === true).map((f) => f.key).sort()).toEqual(['github.clientSecret', 'google.clientSecret', 'mirror.sshKey', 'mirror.token', 'notify.token', 'notify.url', 'oidc.clientSecret', 'smtp.pass']);
     expect(SETTING_GROUPS.map((g) => [g.id, g.role])).toEqual([['notifications', 'owner'], ['sign-in', 'owner'], ['integrations', 'owner'], ['jobs', 'editor']]);
   });
 
@@ -150,6 +150,58 @@ describe('runtime settings in the API', () => {
     expect(settings.env().WIREHUB_NOTIFY_URL).toBeUndefined();
     expect(await (secrets as ReturnType<typeof memorySecretStore>).all()).toEqual({});
     expect(await deps.docs!.read('data/settings/notifications.json')).toBeUndefined();
+  });
+
+  it('still validates explicit invalid auth flags before saving sign-in settings', async () => {
+    const { save, deps } = hub({ AUTH_ENABLED: 'invalid' });
+    const refused = await save('sign-in', { 'github.clientId': 'synthetic-client' });
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toMatch(/AUTH_ENABLED must be true or false/);
+    expect(await deps.docs!.read('data/settings/sign-in.json')).toBeUndefined();
+  });
+
+  it.each(['github', 'google'] as const)('allows %s as the only configured sign-in method', async (provider) => {
+    const { save, settings } = hub({ AUTH_ENABLED: 'true', AUTH_ALLOWED_EMAILS: 'olive@example.com', [`AUTH_${provider.toUpperCase()}_CLIENT_SECRET`]: 'synthetic-server-secret' });
+    const saved = await save('sign-in', { [`${provider}.enabled`]: true, [`${provider}.clientId`]: 'synthetic-client' });
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect(settings.env()[`AUTH_${provider.toUpperCase()}_ENABLED`]).toBe('true');
+  });
+
+  it.each(['github', 'google'] as const)('keeps %s credentials encrypted and refuses incomplete enablement without changing settings', async (provider) => {
+    const { call, save, settings, secrets, deps, field } = hub({ AUTH_ENABLED: 'true', AUTH_ALLOWED_EMAILS: 'olive@example.com', AUTH_SMTP_HOST: 'smtp.example.com', AUTH_SMTP_FROM: 'hub@example.com' });
+    const envPrefix = `AUTH_${provider.toUpperCase()}`;
+    const id = `${provider}.clientId`;
+    const secret = `${provider}.clientSecret`;
+    const enabled = `${provider}.enabled`;
+    expect((await save('sign-in', { [id]: 'synthetic-client' })).status).toBe(200);
+    expect(settings.env()[`${envPrefix}_ENABLED`]).toBeUndefined();
+    const before = await deps.docs!.read('data/settings/sign-in.json');
+    const refused = await save('sign-in', { [id]: 'synthetic-client', [enabled]: true });
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toMatch(/client secret/);
+    expect(await deps.docs!.read('data/settings/sign-in.json')).toEqual(before);
+    expect(settings.env()[`${envPrefix}_ENABLED`]).toBeUndefined();
+
+    const value = `synthetic-${provider}-secret`;
+    expect((await call('PUT', `/api/settings/secrets/${secret}`, { value })).status).toBe(200);
+    const ciphertext = (await secrets.all())[secret]!;
+    expect(ciphertext).toMatch(/^v1\./);
+    expect(settingsCipher(KEY).decrypt('files', secret, ciphertext)).toBe(value);
+    expect(JSON.stringify((await call('GET', '/api/settings/runtime')).body)).not.toContain(value);
+    expect(JSON.stringify(await deps.exportCatalog!())).not.toContain(value);
+    expect(await field(secret)).toMatchObject({ secret: true, set: true, source: 'settings' });
+    const missingId = await save('sign-in', { [enabled]: true });
+    expect(missingId.status).toBe(400);
+    expect(missingId.body.error).toMatch(/client id/);
+    expect(settings.env()[`${envPrefix}_CLIENT_ID`]).toBe('synthetic-client');
+    expect((await save('sign-in', { [id]: 'synthetic-client', [enabled]: true })).status).toBe(200);
+    expect(settings.env()[`${envPrefix}_ENABLED`]).toBe('true');
+    // Clearing required credentials must leave the enabled provider intact.
+    expect((await call('DELETE', `/api/settings/secrets/${secret}`)).status).toBe(400);
+    expect((await secrets.all())[secret]).toBe(ciphertext);
+    expect(settings.env()[`${envPrefix}_CLIENT_SECRET`]).toBe(value);
+    expect((await save('sign-in', { [enabled]: false })).status).toBe(200);
+    expect((await call('DELETE', `/api/settings/secrets/${secret}`)).status).toBe(200);
   });
 
   it('refuses a secret the server sets, a bad one, and any secret without an install key', async () => {
@@ -247,6 +299,33 @@ describe('live apply', () => {
     await a.save('jobs', { 'jobs.backupMaxAgeHours': 48 });
     await vi_waitFor(() => b.env().WIREHUB_BACKUP_MAX_AGE_HOURS === '48');
     expect(changes).toBe(1);
+  });
+
+  it.each(['github', 'google'] as const)('reloads %s after enablement, credential rotation and re-enable', async (provider) => {
+    const env = { AUTH_ENABLED: 'true', BETTER_AUTH_SECRET: 's'.repeat(40), BETTER_AUTH_URL: 'https://hub.example.com', WIREHUB_BACKEND: 'files', AUTH_ALLOWED_EMAILS: 'olive@example.com', AUTH_SMTP_HOST: 'smtp.example.com', AUTH_SMTP_FROM: 'hub@example.com' };
+    const { save, call, settings } = hub(env);
+    const auth = (await liveStudioAuth(settings, { database: new DatabaseSync(':memory:') }, () => {}))!;
+    try {
+      const values = { [`${provider}.clientId`]: 'synthetic-client', [`${provider}.enabled`]: true };
+      await call('PUT', `/api/settings/secrets/${provider}.clientSecret`, { value: 'synthetic-first-secret' });
+      expect((await save('sign-in', values)).status).toBe(200);
+      await auth.settled();
+      expect(auth.config[provider]).toEqual({ clientId: 'synthetic-client', clientSecret: 'synthetic-first-secret' });
+      expect((await call('PUT', `/api/settings/secrets/${provider}.clientSecret`, { value: 'synthetic-rotated-secret' })).status).toBe(200);
+      await auth.settled();
+      expect(auth.config[provider]?.clientSecret).toBe('synthetic-rotated-secret');
+      await save('sign-in', { ...values, [`${provider}.enabled`]: false });
+      await auth.settled();
+      expect(auth.config[provider]).toBeUndefined();
+      await save('sign-in', values);
+      await auth.settled();
+      expect(auth.config[provider]?.clientSecret).toBe('synthetic-rotated-secret');
+      expect(auth.config.baseURL).toBe(env.BETTER_AUTH_URL);
+      expect(auth.config.secret).toBe(env.BETTER_AUTH_SECRET);
+      expect(auth.problem()).toBeUndefined();
+    } finally {
+      await auth.close?.();
+    }
   });
 
   it('the sign-in rebuilds in-process when its methods change, and keeps the server’s secret and address', async () => {
