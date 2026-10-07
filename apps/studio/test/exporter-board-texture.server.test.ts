@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { applyBoardTexture, looksLikeBoardPart } from '../server/models/board-texture.ts';
+import { relinkWithArt } from '../server/models/board-art.ts';
 import { buildLinkedModel, buildProfileOf, budgetOf } from '../server/models/build.ts';
 import { CONVERTER_VERSION, identityKey, memoryModelCache, sha256Hex, sourceKey, type SourceFile } from '../server/models/cache.ts';
 import { readGlbJson } from '../server/models/glb.ts';
@@ -44,6 +45,9 @@ it('changes only paired-art source keys; preserves geometry identity, old keys a
   expect(buildProfileOf(link(legacy))).toEqual({ budget: 150_000, boardTextureProfile: 'legacy' });
   expect(buildProfileOf(link(current))).toEqual({ budget: 150_000, boardTextureProfile: 'exporter' });
   expect(budgetOf(link(legacy))).toBe(150_000);
+  // Unrelated pack installs reconcile artwork too: same bytes must not opt in silently.
+  expect(relinkWithArt(link(legacy), [bottom, top])).toBeUndefined();
+  expect(relinkWithArt(link(legacy), [{ ...top, sha256: 'b'.repeat(64) }, bottom])?.asset).toBe(sourceKey([geometry, { ...top, sha256: 'b'.repeat(64) }, bottom], 150_000));
   expect(budgetOf(link(current))).toBe(150_000);
   expect(identityKey(files, 150_000)).toBe(sourceKey([geometry], 150_000));
   for (const unpainted of [[geometry], [geometry, top], [geometry, bottom], [geometry, { path: 'depictions/synthetic/mating-face.svg', sha256: top.sha256 }]]) {
