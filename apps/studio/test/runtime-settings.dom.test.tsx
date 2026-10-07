@@ -48,8 +48,8 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const mount = () =>
-  render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: ['/settings'] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={registry} />);
+const mount = (section = 'runtime') =>
+  render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [`/settings?section=${section}`] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={registry} />);
 
 describe('Runtime settings', () => {
   it('saves a group live, shows the server’s values read-only, and sets a secret write-only', async () => {
@@ -77,7 +77,7 @@ describe('Runtime settings', () => {
   }, 30_000);
 
   it.each([['github', 'GitHub'], ['google', 'Google']] as const)('requires an explicit %s switch and keeps its saved secret out of the form', async (provider, label) => {
-    mount();
+    mount('authentication');
     const signIn = await screen.findByTestId('runtime-sign-in');
     const enabled = within(signIn).getByLabelText(`${label} sign-in`) as HTMLSelectElement;
     expect(enabled.value).toBe('');
@@ -100,6 +100,29 @@ describe('Runtime settings', () => {
     await waitFor(() => expect(settings.env()[`AUTH_${provider.toUpperCase()}_ENABLED`]).toBe('true'));
   }, 30_000);
 
+  it('retains unsaved sign-in, secret and runtime drafts when switching sections', async () => {
+    mount('authentication');
+    const auth = await screen.findByTestId('runtime-sign-in');
+    const clientId = within(auth).getByLabelText('GitHub client id') as HTMLInputElement;
+    const secret = within(auth).getByLabelText('GitHub client secret') as HTMLInputElement;
+    fireEvent.change(clientId, { target: { value: 'unsaved-synthetic-client' } });
+    fireEvent.change(secret, { target: { value: 'unsaved-synthetic-secret' } });
+    fireEvent.click(screen.getByRole('link', { name: 'Runtime' }));
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Runtime' }).getAttribute('aria-current')).toBe('page'));
+    const window = within(screen.getByTestId('runtime-jobs')).getByLabelText('Model build window') as HTMLInputElement;
+    fireEvent.change(window, { target: { value: '03:00-04:00' } });
+    fireEvent.click(screen.getByRole('link', { name: 'Sign-in & accounts' }));
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Sign-in & accounts' }).getAttribute('aria-current')).toBe('page'));
+    expect(clientId.value).toBe('unsaved-synthetic-client');
+    expect(secret.value).toBe('unsaved-synthetic-secret');
+    fireEvent.click(screen.getByRole('link', { name: 'Runtime' }));
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Runtime' }).getAttribute('aria-current')).toBe('page'));
+    expect(window.value).toBe('03:00-04:00');
+    expect(settings.env().AUTH_GITHUB_CLIENT_ID).toBeUndefined();
+    expect(settings.env().AUTH_GITHUB_CLIENT_SECRET).toBeUndefined();
+    expect(settings.env().WIREHUB_CONVERT_WINDOW).toBeUndefined();
+  });
+
   it('offers to adopt the server’s values, and copies them into Settings with one click', async () => {
     mount();
     const banner = await screen.findByTestId('adopt-server-values');
@@ -113,7 +136,7 @@ describe('Runtime settings', () => {
 
   it('shows a test parameter the server sets as set by the server, read-only', async () => {
     deps.testDefaults = { isolationVolts: 100 };
-    mount();
+    mount('engineering');
     const form = await screen.findByTestId('engineering-settings');
     expect(within(form).getAllByText('set by the server (WIREHUB_TEST_DEFAULTS)')).toHaveLength(1);
     const locked = within(form).getAllByRole('textbox').filter((el) => (el as HTMLInputElement).disabled);

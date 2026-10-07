@@ -58,8 +58,8 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const mount = () =>
-  render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: ['/settings'] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={registry} />);
+const mount = (section = 'numbering') =>
+  render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [`/settings?section=${section}`] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={registry} />);
 
 describe('Settings: part numbers', () => {
   it('edits segments as a form, checks and saves without dropping advanced fields', async () => {
@@ -132,7 +132,7 @@ describe('Settings: part numbers', () => {
 
 describe('Settings: validation rules', () => {
   it('edits nested condition and count selectors, tests and saves the rule losslessly', async () => {
-    mount();
+    mount('rules');
     const section = await screen.findByTestId('rules-settings');
     fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '4' } });
     const editor = await screen.findByTestId('rule-editor');
@@ -158,7 +158,7 @@ describe('Settings: validation rules', () => {
   });
 
   it('starts from an example, tests it on the designs, saves it and turns it off', async () => {
-    mount();
+    mount('rules');
     const section = await screen.findByTestId('rules-settings');
     fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '1' } });
     const editor = await screen.findByTestId('rule-editor');
@@ -180,7 +180,7 @@ describe('Settings: validation rules', () => {
   });
 
   it('refuses to save while a nested JSON operand is incomplete', async () => {
-    mount();
+    mount('rules');
     const section = await screen.findByTestId('rules-settings');
     fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '0' } });
     const editor = await screen.findByTestId('rule-editor');
@@ -195,7 +195,7 @@ describe('Settings: validation rules', () => {
   });
 
   it('shows what is wrong with a rule in words', async () => {
-    mount();
+    mount('rules');
     const section = await screen.findByTestId('rules-settings');
     fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '0' } });
     const editor = await screen.findByTestId('rule-editor');
@@ -207,7 +207,7 @@ describe('Settings: validation rules', () => {
 
 describe('Settings: webhooks', () => {
   it('adds a webhook, makes its secret (shown once), sends a test and lists the delivery', async () => {
-    mount();
+    mount('webhooks');
     const section = await screen.findByTestId('webhook-settings');
     fireEvent.click(await within(section).findByRole('button', { name: 'Add a webhook…' }));
     fireEvent.change(within(section).getByLabelText('Webhook URL'), { target: { value: 'https://erp.example.test/wirehub' } });
@@ -238,7 +238,7 @@ describe('Settings: webhooks', () => {
 
   it('is for owners only', async () => {
     deps.localUser = { name: 'Ed', source: 'local', role: 'editor' };
-    mount();
+    mount('webhooks');
     await screen.findByTestId('rules-settings');
     expect(screen.queryByTestId('webhook-settings')).toBeNull();
   });

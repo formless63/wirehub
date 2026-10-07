@@ -43,8 +43,8 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const mount = () =>
-  render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: ['/settings'] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={registry} />);
+const mount = (section = 'documents', history = createMemoryHistory({ initialEntries: [`/settings?section=${section}`] })) =>
+  render(<App router={createStudioRouter(history)} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })} modules={registry} />);
 
 describe('Hub settings', () => {
   it('saves the organisation, rights line and logo, and the documents pick them up', async () => {
@@ -115,7 +115,7 @@ describe('Hub settings', () => {
 
 describe('Engineering settings', () => {
   it('saves test defaults, electrical thresholds and approvals through the API', async () => {
-    mount();
+    mount('engineering');
     const volts = (await screen.findByLabelText('Isolation test voltage (V DC)')) as HTMLInputElement;
     fireEvent.change(volts, { target: { value: '250' } });
     fireEvent.change(screen.getByLabelText('Largest voltage drop (V)'), { target: { value: '0.3' } });
@@ -169,5 +169,48 @@ describe('Engineering settings', () => {
     await waitFor(() => expect(screen.getByText(/In force now:/).textContent).toContain('1 cutaways'));
     const { registeredCutaway } = await import('@wirehub/docs/src/drawing/assets.ts');
     expect(registeredCutaway('shielded-2pair-24awg')?.svg).toContain('dom-art');
+  });
+});
+
+describe('Settings sections', () => {
+  it.each(['stores', 'modules'])('opens %s directly and shows only the selected section', async (section) => {
+    const { container } = mount(section);
+    await screen.findByRole('navigation', { name: 'Settings sections' });
+    await waitFor(() => {
+      const visible = [...container.querySelectorAll<HTMLElement>('[data-settings-section]')].filter((panel) => !panel.hidden);
+      expect(visible.map((panel) => panel.dataset.settingsSection)).toEqual([section]);
+    });
+    const name = section === 'stores' ? 'Catalog stores' : 'Code modules';
+    expect(screen.getByRole('link', { name }).getAttribute('aria-current')).toBe('page');
+  });
+
+  it('keeps unsaved document and numbering drafts while switching sections and browser history', async () => {
+    const history = createMemoryHistory({ initialEntries: ['/settings?section=documents'] });
+    const { container } = mount('documents', history);
+    const organisation = await screen.findByLabelText('Organisation name') as HTMLInputElement;
+    fireEvent.change(organisation, { target: { value: 'Unsaved synthetic organisation' } });
+    fireEvent.click(screen.getByRole('link', { name: 'Part numbering' }));
+    await waitFor(() => expect(history.location.href).toContain('section=numbering'));
+    const definition = await screen.findByLabelText('Scheme definition') as HTMLTextAreaElement;
+    fireEvent.change(definition, { target: { value: '{ "type": "declarative", "draft": true }' } });
+    fireEvent.change(screen.getByLabelText('Settings section'), { target: { value: 'documents' } });
+    await waitFor(() => expect(container.querySelector<HTMLElement>('[data-settings-section="documents"]')!.hidden).toBe(false));
+    expect(organisation.value).toBe('Unsaved synthetic organisation');
+    history.back();
+    await waitFor(() => expect(container.querySelector<HTMLElement>('[data-settings-section="numbering"]')!.hidden).toBe(false));
+    expect(definition.value).toContain('"draft": true');
+    expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/branding' }, deps)).body).not.toMatchObject({ organisation: 'Unsaved synthetic organisation' });
+  });
+
+  it('defaults an unknown section to documents and keeps viewer controls read-only after navigation', async () => {
+    deps.localUser = { name: 'Synthetic viewer', source: 'local', role: 'viewer' };
+    const { container } = mount('unknown');
+    const organisation = await screen.findByLabelText('Organisation name') as HTMLInputElement;
+    await waitFor(() => expect(organisation.disabled).toBe(true));
+    expect(container.querySelector<HTMLElement>('[data-settings-section="documents"]')!.hidden).toBe(false);
+    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('link', { name: 'Engineering' }));
+    await waitFor(() => expect(container.querySelector<HTMLElement>('[data-settings-section="engineering"]')!.hidden).toBe(false));
+    expect((screen.getByLabelText('Isolation test voltage (V DC)') as HTMLInputElement).disabled).toBe(true);
   });
 });

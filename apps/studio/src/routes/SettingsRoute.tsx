@@ -6,8 +6,13 @@
  * module's own art still wins.
  */
 
+import { Link, useNavigate } from '@tanstack/react-router';
+import { settingsRoute } from '../router.tsx';
+import { SETTINGS_SECTIONS, settingsSection } from '../settings-sections.ts';
+import './settings-sections.css';
+
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
@@ -72,6 +77,12 @@ const readAsDataUri = (file: File): Promise<string> =>
 
 export function SettingsRoute(): JSX.Element {
   const client = useQueryClient();
+  const search = settingsRoute.useSearch();
+  const selected = settingsSection(search.section) ?? 'documents';
+  const currentSection = SETTINGS_SECTIONS.find((section) => section.id === selected)!;
+  const navigate = useNavigate({ from: '/settings' });
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (content.current !== null) content.current.scrollTop = 0; }, [selected]);
   const { me } = useStudio();
   const readOnly = me?.role === 'viewer';
   const query = useQuery(brandingQuery);
@@ -151,8 +162,28 @@ export function SettingsRoute(): JSX.Element {
   };
 
   return (
-    <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="settings">
-      <h1 className="mb-1 text-[14px] font-semibold">Hub settings</h1>
+    <div className="settings-layout text-[12.5px]" data-testid="settings">
+      <nav className="settings-navigation" aria-label="Settings sections">
+        <h1 className="text-[14px] font-semibold">Hub settings</h1>
+        <label className="settings-mobile-navigation">
+          <span>Section</span>
+          <select aria-label="Settings section" value={selected} onChange={(event) => {
+            const section = settingsSection(event.target.value);
+            if (section !== undefined) void navigate({ search: { section } });
+          }}>
+            {SETTINGS_SECTIONS.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
+          </select>
+        </label>
+        <div className="settings-section-links">
+          {SETTINGS_SECTIONS.map((section) => <Link key={section.id} to="/settings" search={{ section: section.id }} aria-current={selected === section.id ? 'page' : undefined}>{section.label}</Link>)}
+        </div>
+      </nav>
+      <div className="settings-content" ref={content}>
+        <header className="settings-section-heading">
+          <h2 className="text-[14px] font-semibold">{currentSection.label}</h2>
+          <p className="text-dim">{currentSection.description}</p>
+        </header>
+        <section hidden={selected !== 'documents'} aria-label="Document settings" data-settings-section="documents">
       <p className="mb-3 max-w-xl text-faint">Who the documents are issued by. Leave a field empty to keep the generic text. A module that supplies its own title-block art takes precedence.</p>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div> : null}
       {query.data === undefined ? (
@@ -312,13 +343,16 @@ export function SettingsRoute(): JSX.Element {
           </div>
         </form>
       )}
-      <EngineeringSettings />
-      <PartNumberSettings />
-      <RulesSettings />
-      <WebhookSettings />
-      <StoreSourcesSettings />
-      <CodeModulesSettings />
-      <RuntimeSettings />
+        </section>
+        <section hidden={selected !== 'engineering'} aria-label="Engineering settings" data-settings-section="engineering"><EngineeringSettings /></section>
+        <section hidden={selected !== 'numbering'} aria-label="Part numbering settings" data-settings-section="numbering"><PartNumberSettings /></section>
+        <section hidden={selected !== 'rules'} aria-label="Validation rule settings" data-settings-section="rules"><RulesSettings /></section>
+        <section hidden={selected !== 'authentication'} aria-label="Authentication settings" data-settings-section="authentication"><RuntimeSettings section="authentication" /></section>
+        <section hidden={selected !== 'runtime'} aria-label="Runtime settings" data-settings-section="runtime"><RuntimeSettings section="runtime" /></section>
+        <section hidden={selected !== 'webhooks'} aria-label="Webhook settings" data-settings-section="webhooks"><WebhookSettings /></section>
+        <section hidden={selected !== 'stores'} aria-label="Catalog store settings" data-settings-section="stores"><StoreSourcesSettings /></section>
+        <section hidden={selected !== 'modules'} aria-label="Code module settings" data-settings-section="modules"><CodeModulesSettings /></section>
+      </div>
     </div>
   );
 }
