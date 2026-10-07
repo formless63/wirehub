@@ -24,6 +24,7 @@ export interface ScenePalette {
 const sourceMaterials = new WeakMap<THREE.Mesh, readonly THREE.Material[]>();
 const explicitMaterials = new WeakMap<THREE.Material, boolean>();
 const suppliedAppearance = new WeakMap<THREE.Object3D, boolean>();
+const activeStudioBakes = new WeakSet<THREE.WebGLRenderer>();
 
 /** Parse a stored model (GLB or STL) into an object ready to add to a scene. */
 export async function parseModel(bytes: ArrayBuffer, mime = ''): Promise<THREE.Object3D> {
@@ -124,11 +125,39 @@ export interface StudioEnvironment {
  * retains only the render target and releases it when the viewer closes.
  */
 export function makeStudioEnvironment(renderer: THREE.WebGLRenderer): StudioEnvironment {
+  if (activeStudioBakes.has(renderer)) throw new Error('Studio reflections are already being prepared.');
+  const original = {
+    setRenderTarget: renderer.setRenderTarget,
+    target: renderer.getRenderTarget(),
+    cubeFace: renderer.getActiveCubeFace(),
+    mipmap: renderer.getActiveMipmapLevel(),
+    xr: renderer.xr.enabled,
+    autoClear: renderer.autoClear,
+    toneMapping: renderer.toneMapping,
+  };
   const generator = new THREE.PMREMGenerator(renderer);
+  activeStudioBakes.add(renderer);
+  type BoundTarget = NonNullable<Parameters<THREE.WebGLRenderer['setRenderTarget']>[0]>;
+  const bound = new Set<BoundTarget>();
+  const released = new Set<BoundTarget>();
+  const observeRelease = (event: { target: BoundTarget }): void => { released.add(event.target); };
   let room: RoomEnvironment | undefined;
+  let completed = false;
+  // fromScene does not expose its output until it succeeds. Track only public
+  // bindings during this synchronous bake: unbound targets have no GPU storage.
+  // No source model or asynchronous rendering runs through this temporary wrapper.
+  renderer.setRenderTarget = function (...args: Parameters<THREE.WebGLRenderer['setRenderTarget']>): void {
+    const target = args[0];
+    if (target !== null && target !== original.target && !bound.has(target)) {
+      bound.add(target);
+      target.addEventListener('dispose', observeRelease);
+    }
+    original.setRenderTarget.apply(renderer, args);
+  };
   try {
     room = new RoomEnvironment();
     const target = generator.fromScene(room, 0.04);
+    completed = true;
     let disposed = false;
     return {
       texture: target.texture,
@@ -139,8 +168,24 @@ export function makeStudioEnvironment(renderer: THREE.WebGLRenderer): StudioEnvi
       },
     };
   } finally {
-    room?.dispose();
-    generator.dispose();
+    renderer.setRenderTarget = original.setRenderTarget;
+    // Three restores these on success, but not if allocation/shader/rendering
+    // throws. Binding the original target also restores its viewport/scissor.
+    try {
+      original.setRenderTarget.call(renderer, original.target, original.cubeFace, original.mipmap);
+    } finally {
+      renderer.xr.enabled = original.xr;
+      renderer.autoClear = original.autoClear;
+      renderer.toneMapping = original.toneMapping;
+      try {
+        room?.dispose();
+        generator.dispose();
+        if (!completed) for (const target of bound) if (!released.has(target)) target.dispose();
+      } finally {
+        for (const target of bound) target.removeEventListener('dispose', observeRelease);
+        activeStudioBakes.delete(renderer);
+      }
+    }
   }
 }
 
