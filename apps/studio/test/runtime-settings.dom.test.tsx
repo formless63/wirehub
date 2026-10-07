@@ -76,6 +76,30 @@ describe('Runtime settings', () => {
     expect((within(screen.getByTestId('secret-notify.url')).getByLabelText('Webhook URL') as HTMLInputElement).value).toBe('');
   }, 30_000);
 
+  it.each([['github', 'GitHub'], ['google', 'Google']] as const)('requires an explicit %s switch and keeps its saved secret out of the form', async (provider, label) => {
+    mount();
+    const signIn = await screen.findByTestId('runtime-sign-in');
+    const enabled = within(signIn).getByLabelText(`${label} sign-in`) as HTMLSelectElement;
+    expect(enabled.value).toBe('');
+    expect(enabled.options[0]?.textContent).toBe('Default (off)');
+    expect(within(signIn).getByText(new RegExp(`PUBLIC_URL followed by /api/auth/callback/${provider}`))).toBeTruthy();
+    fireEvent.change(within(signIn).getByLabelText(`${label} client id`), { target: { value: 'synthetic-client' } });
+    fireEvent.click(within(signIn).getByRole('button', { name: 'Save sign-in & accounts' }));
+    await waitFor(() => expect(settings.env()[`AUTH_${provider.toUpperCase()}_CLIENT_ID`]).toBe('synthetic-client'));
+    expect(settings.env()[`AUTH_${provider.toUpperCase()}_ENABLED`]).toBeUndefined();
+    const secret = screen.getByTestId(`secret-${provider}.clientSecret`);
+    const input = within(secret).getByLabelText(`${label} client secret`) as HTMLInputElement;
+    expect(input.type).toBe('password');
+    fireEvent.change(input, { target: { value: 'synthetic-browser-secret' } });
+    fireEvent.click(within(secret).getByRole('button', { name: 'Set' }));
+    await waitFor(() => expect(input.value).toBe(''));
+    expect(document.body.textContent).not.toContain('synthetic-browser-secret');
+    await waitFor(() => expect(within(screen.getByTestId(`secret-${provider}.clientSecret`)).getByText(/^Set \(\d{4}-/)).toBeTruthy());
+    fireEvent.change(within(screen.getByTestId('runtime-sign-in')).getByLabelText(`${label} sign-in`), { target: { value: 'on' } });
+    fireEvent.click(within(screen.getByTestId('runtime-sign-in')).getByRole('button', { name: 'Save sign-in & accounts' }));
+    await waitFor(() => expect(settings.env()[`AUTH_${provider.toUpperCase()}_ENABLED`]).toBe('true'));
+  }, 30_000);
+
   it('offers to adopt the server’s values, and copies them into Settings with one click', async () => {
     mount();
     const banner = await screen.findByTestId('adopt-server-values');

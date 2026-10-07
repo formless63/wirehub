@@ -16,6 +16,8 @@ import { sql } from 'kysely';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 
 import { handleWorkbenchRequest } from '../../server/api.ts';
+import { pgPeople } from '../../server/auth/people.ts';
+import { liveStudioAuth } from '../../server/auth/studio-auth.ts';
 import { workbenchDepsFromEnv } from '../../server/default-deps.ts';
 import type { StudioUser } from '../../server/me.ts';
 import { inOrg, openPg, type PgHandle } from '../../server/pg/db.ts';
@@ -58,7 +60,11 @@ describePg('runtime settings on Postgres', () => {
     const opened = await workbenchDepsFromEnv({ WIREHUB_BACKEND: 'pg', DATABASE_URL: database.appUrl, WIREHUB_ORG: 'starter', WIREHUB_SETTINGS_KEY: KEY, ...extra }, { blobs: testBlobs() });
     const call = async (method: string, path: string, body?: unknown, user: StudioUser = OWNER, headers: Record<string, string> = {}) =>
       (await handleWorkbenchRequest({ method, path, user, headers, ...(body === undefined ? {} : { body }) }, opened.deps)) as { status: number; body: any };
-    const etag = async (group: string): Promise<string> => ((await call('GET', '/api/settings/runtime')).body.groups as { id: string; etag: string }[]).find((g) => g.id === group)!.etag;
+    const etag = async (group: string): Promise<string> => {
+      const response = await call('GET', '/api/settings/runtime');
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      return (response.body.groups as { id: string; etag: string }[]).find((g) => g.id === group)!.etag;
+    };
     const save = async (group: string, values: Record<string, unknown>, user: StudioUser = OWNER) => call('PUT', `/api/settings/runtime/${group}`, { values }, user, { 'if-match': await etag(group) });
     return { ...opened, call, save };
   };
@@ -149,6 +155,67 @@ describePg('runtime settings on Postgres', () => {
     } finally {
       await worker?.stop();
       await a.close();
+    }
+  }, 120_000);
+
+  it('reloads social providers across processes with encrypted credentials and preserves existing sessions', async () => {
+    // This imported catalog has no first-run owner yet; seed the claimed person
+    // before enabling auth, as completed setup does on a real deployment.
+    await pgPeople(pgh.db, orgId).ensurePerson(OWNER.email!, OWNER.name, 'owner');
+    await inOrg(pgh.db, orgId, async (tx) => {
+      const promoted = await sql`UPDATE studio.person SET role = 'owner', disabled_at = NULL WHERE email = ${OWNER.email!}`.execute(tx);
+      expect(Number(promoted.numAffectedRows)).toBe(1);
+    });
+    const owners = await inOrg(pgh.db, orgId, async (tx) => (await sql<{ n: number }>`SELECT count(*)::int n FROM studio.person WHERE role = 'owner' AND disabled_at IS NULL`.execute(tx)).rows[0]!.n);
+    expect(owners).toBe(1);
+    const authEnv = { AUTH_ENABLED: 'true', BETTER_AUTH_URL: 'https://studio.example.test', BETTER_AUTH_SECRET: 'social-test-only-session-secret-0123456789', AUTH_ALLOWED_EMAILS: OWNER.email! };
+    const a = await studio(authEnv);
+    const b = await studio(authEnv);
+    const auth = (await liveStudioAuth(b.settings, { pg: { url: database.appUrl, people: pgPeople(pgh.db, orgId) } }, () => {}))!;
+    const secretValues = ['social-test-only-github-secret', 'social-test-only-google-secret'];
+    try {
+      await auth.createAccount!(OWNER.email!, OWNER.name, 'social-test-only-password');
+      const login = await auth.handler(new Request(`${authEnv.BETTER_AUTH_URL}/api/auth/sign-in/email`, {
+        method: 'POST', headers: { origin: authEnv.BETTER_AUTH_URL, 'content-type': 'application/json' },
+        body: JSON.stringify({ email: OWNER.email, password: 'social-test-only-password' }),
+      }));
+      expect(login.status).toBe(200);
+      const sessionHeaders = new Headers({ cookie: login.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ') });
+      const originalUser = await auth.sessionUser(sessionHeaders);
+      expect(originalUser?.email).toBe(OWNER.email);
+
+      for (const [i, provider] of ['github', 'google'].entries()) {
+        expect((await a.call('PUT', `/api/settings/secrets/${provider}.clientSecret`, { value: secretValues[i] })).status).toBe(200);
+      }
+      expect((await a.save('sign-in', { 'github.enabled': true, 'github.clientId': 'test-github-client', 'google.enabled': true, 'google.clientId': 'test-google-client' })).status).toBe(200);
+      await until(() => b.settings.env().AUTH_GOOGLE_ENABLED === 'true' && b.settings.env().AUTH_GITHUB_CLIENT_SECRET === secretValues[0]);
+      await auth.settled();
+      expect(auth.providers).toEqual(expect.arrayContaining([{ providerId: 'github', name: 'GitHub' }, { providerId: 'google', name: 'Google' }]));
+      expect(await auth.sessionUser(sessionHeaders)).toEqual(originalUser);
+
+      const rows = await inOrg(pgh.db, orgId, async (tx) => (await sql<{ name: string; ciphertext: string }>`SELECT name, ciphertext FROM studio.settings_secret WHERE name IN ('github.clientSecret', 'google.clientSecret')`.execute(tx)).rows);
+      expect(rows).toHaveLength(2);
+      for (const row of rows) {
+        expect(secretValues).toContain(settingsCipher(KEY).decrypt(orgId, row.name, row.ciphertext));
+        expect(settingsCipher(KEY).decrypt(otherOrg, row.name, row.ciphertext)).toBeUndefined();
+      }
+      const publicViews = JSON.stringify([(await a.call('GET', '/api/settings/runtime')).body, (await a.call('GET', '/api/export')).body, (await a.call('GET', '/api/history?limit=10')).body]);
+      for (const secret of secretValues) expect(publicViews).not.toContain(secret);
+
+      expect((await a.save('sign-in', {})).status).toBe(200);
+      await until(() => b.settings.env().AUTH_GOOGLE_ENABLED === undefined);
+      await auth.settled();
+      expect(auth.providers).toEqual([]);
+      expect(await auth.sessionUser(sessionHeaders)).toEqual(originalUser);
+    } finally {
+      try {
+        await a.save('sign-in', {});
+        for (const provider of ['github', 'google']) await a.call('DELETE', `/api/settings/secrets/${provider}.clientSecret`);
+      } finally {
+        await auth.close?.();
+        await a.close();
+        await b.close();
+      }
     }
   }, 120_000);
 

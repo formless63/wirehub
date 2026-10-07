@@ -228,18 +228,17 @@ async function authedApp(extra: Record<string, string> = {}) {
     if (init.method !== undefined && init.method !== 'GET') headers.set('origin', BASE);
     return app.request(`${BASE}${path}`, { ...init, headers });
   };
-  return { app, call };
+  return { app, call, auth };
 }
 
 type Call = Awaited<ReturnType<typeof authedApp>>['call'];
 
-async function oidcSignIn(call: Call, email: string | undefined): Promise<{ jar: Jar; landing: Response }> {
-  const jar = new Jar();
-  const start = await call('/api/auth/sign-in/social', {
+async function oidcSignIn(call: Call, email: string | undefined, jar = new Jar(), connecting = false): Promise<{ jar: Jar; landing: Response }> {
+  const start = await call(connecting ? '/api/auth/link-social' : '/api/auth/sign-in/social', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ provider: 'oidc', callbackURL: '/', errorCallbackURL: '/sign-in' }),
-  });
+  }, jar);
   expect(start.status).toBe(200);
   jar.take(start);
   const { url } = (await start.json()) as { url: string };
@@ -408,4 +407,35 @@ describe('auth on', () => {
     expect(res.status).toBe(502);
     expect(await res.json()).toMatchObject({ code: 'MAIL_NOT_SENT' });
   });
+});
+
+
+it('explicitly connects configured OIDC to an unverified local account using its custom email claim', async () => {
+  const { call, auth } = await authedApp({ WIREHUB_BACKEND: 'pg', AUTH_LOCAL_ACCOUNTS: 'true', AUTH_OIDC_NAME: 'Example identity' });
+  await auth.createAccount!(OWNER, 'Synthetic owner', 'synthetic-password-123');
+  const local = new Jar();
+  const login = await call('/api/auth/sign-in/email', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: OWNER, password: 'synthetic-password-123' }) });
+  expect(login.status).toBe(200); local.take(login);
+  expect(database.prepare('SELECT emailVerified FROM "user"').get()).toMatchObject({ emailVerified: 0 });
+  const implicit = await oidcSignIn(call, OWNER);
+  expect(implicit.landing.headers.get('location')).toContain('account_not_linked');
+  expect(database.prepare('SELECT count(*) AS n FROM account').get()).toMatchObject({ n: 1 });
+  const page = await (await call('/sign-in', {}, local)).text();
+  expect(page).toContain('Connect Example identity');
+  const mismatch = await oidcSignIn(call, 'alex@example.test', local, true);
+  expect(mismatch.landing.headers.get('location')).toContain('email_does_not_match');
+  expect(database.prepare('SELECT count(*) AS n FROM account').get()).toMatchObject({ n: 1 });
+  const connected = await oidcSignIn(call, OWNER.toUpperCase(), local, true);
+  expect(connected.landing.headers.get('location')).toBe('/');
+  expect(database.prepare('SELECT count(*) AS n FROM account').get()).toMatchObject({ n: 2 });
+  // Provider linkage does not fabricate verification of the local account.
+  expect(database.prepare('SELECT emailVerified FROM "user"').get()).toMatchObject({ emailVerified: 0 });
+  // The pinned direct-token link route has an already-linked early return.
+  // Even that route must reject a fresh different custom email for this subject.
+  idp.next = { sub: `sub-${OWNER.toUpperCase()}`, studio_email: 'alex@example.test', nonce: 'synthetic-direct-nonce' };
+  const token = await (await fetch(`${idp.issuer}/token`, { method: 'POST' })).json() as { id_token: string };
+  const directMismatch = await call('/api/auth/link-social', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ provider: 'oidc', idToken: { token: token.id_token, nonce: 'synthetic-direct-nonce' } }) }, local);
+  expect(directMismatch.status).toBe(401);
+  const signedIn = await oidcSignIn(call, OWNER.toUpperCase());
+  expect((await call('/api/designs', {}, signedIn.jar)).status).toBe(200);
 });

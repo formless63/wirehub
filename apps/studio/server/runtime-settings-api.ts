@@ -131,8 +131,10 @@ function readValue(field: SettingDef, raw: unknown): { value?: SettingValue; err
 async function groupProblem(group: SettingGroup, env: Env, deps: WorkbenchDeps): Promise<string | undefined> {
   try {
     if (group.id === 'notifications') notifierFromEnv(env);
-    // the sign-in's and the mirror's parsers are loaded when needed: they resolve the server's own paths
-    const { authRequested, readAuthConfig } = group.id === 'sign-in' ? await import('./auth/config.ts') : { authRequested: () => false, readAuthConfig: () => undefined };
+    // Auth defaults off when AUTH_ENABLED is unset; avoid initializing its filesystem
+    // defaults then. Explicit flags still go through the parser, including invalid flags.
+    // The sign-in's and the mirror's parsers resolve the server's own paths.
+    const { authRequested, readAuthConfig } = group.id === 'sign-in' && envIsSet(env, 'AUTH_ENABLED') ? await import('./auth/config.ts') : { authRequested: () => false, readAuthConfig: () => undefined };
     if (group.id === 'sign-in' && authRequested(env)) {
       readAuthConfig(
         {

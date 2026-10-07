@@ -39,6 +39,11 @@ export interface SmtpConfig {
   from: string;
 }
 
+export interface SocialConfig {
+  clientId: string;
+  clientSecret: string;
+}
+
 export interface AuthConfigEnabled {
   enabled: true;
   /** `BETTER_AUTH_SECRET` — signs cookies and tokens; at least 32 characters */
@@ -50,6 +55,8 @@ export interface AuthConfigEnabled {
   /** where the SQLite session store and the save audit log live */
   dataDir: string;
   oidc?: OidcConfig;
+  github?: SocialConfig;
+  google?: SocialConfig;
   smtp?: SmtpConfig;
   /**
    * Email + password accounts (`AUTH_LOCAL_ACCOUNTS`; on by default with the
@@ -144,6 +151,16 @@ export function readAuthConfig(env: Env, options: { /** sign-in methods modules 
     throw new AuthConfigError('AUTH_ALLOWED_EMAILS is empty — nobody could sign in. List the allowed emails, comma-separated.');
   }
 
+  const social = (provider: 'GITHUB' | 'GOOGLE'): SocialConfig | undefined => {
+    if (!flag(env, `AUTH_${provider}_ENABLED`, false)) return undefined;
+    return {
+      clientId: required(env, `AUTH_${provider}_CLIENT_ID`, `copy it from your ${provider} OAuth application`),
+      clientSecret: required(env, `AUTH_${provider}_CLIENT_SECRET`, `copy it from your ${provider} OAuth application`),
+    };
+  };
+  const github = social('GITHUB');
+  const google = social('GOOGLE');
+
   let oidc: OidcConfig | undefined;
   if (text(env, 'AUTH_OIDC_ISSUER') !== undefined) {
     const clientSecret = text(env, 'AUTH_OIDC_CLIENT_SECRET');
@@ -160,6 +177,10 @@ export function readAuthConfig(env: Env, options: { /** sign-in methods modules 
     if (!/^[a-z0-9-]+$/.test(oidc.providerId)) {
       throw new AuthConfigError(`AUTH_OIDC_PROVIDER_ID must be lowercase letters, digits and hyphens; got '${oidc.providerId}'.`);
     }
+  }
+
+  if (oidc !== undefined && ((oidc.providerId === 'github' && github !== undefined) || (oidc.providerId === 'google' && google !== undefined))) {
+    throw new AuthConfigError(`AUTH_OIDC_PROVIDER_ID '${oidc.providerId}' is already used by the enabled built-in provider.`);
   }
 
   let smtp: SmtpConfig | undefined;
@@ -182,8 +203,8 @@ export function readAuthConfig(env: Env, options: { /** sign-in methods modules 
     };
   }
 
-  if (oidc === undefined && smtp === undefined && !localAccounts && (options.moduleProviders ?? 0) === 0) {
-    throw new AuthConfigError('no sign-in method is configured — set AUTH_OIDC_ISSUER (+ client id/secret), AUTH_SMTP_HOST (+ credentials), or both.');
+  if (github === undefined && google === undefined && oidc === undefined && smtp === undefined && !localAccounts && (options.moduleProviders ?? 0) === 0) {
+    throw new AuthConfigError('no sign-in method is configured — set AUTH_OIDC_ISSUER (+ client id/secret), AUTH_SMTP_HOST (+ credentials), or enable GitHub/Google with their client credentials.');
   }
 
   return {
@@ -194,6 +215,8 @@ export function readAuthConfig(env: Env, options: { /** sign-in methods modules 
     dataDir: text(env, 'AUTH_DATA_DIR') ?? DEFAULT_AUTH_DATA_DIR,
     ...(oidc === undefined ? {} : { oidc }),
     ...(smtp === undefined ? {} : { smtp }),
+    ...(github === undefined ? {} : { github }),
+    ...(google === undefined ? {} : { google }),
     localAccounts,
     database,
   };
