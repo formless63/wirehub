@@ -82,6 +82,12 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
   const [link, setLink] = useState<ModelLinkView | null | undefined>(undefined);
   const [model, setModel] = useState<{ bytes: ArrayBuffer; mime: string } | undefined>(undefined);
   const [modelError, setModelError] = useState<string | undefined>(undefined);
+  const [linkError, setLinkError] = useState<string | undefined>();
+  const [viewsError, setViewsError] = useState<string | undefined>();
+  const [artError, setArtError] = useState<{ view: string; text: string } | undefined>();
+  const [reload, setReload] = useState(0);
+  const [modelRetry, setModelRetry] = useState(0);
+  const [artRetry, setArtRetry] = useState(0);
   const [views, setViews] = useState<ArtworkView[]>([]);
   const [art, setArt] = useState<{ view: string; src: string } | undefined>(undefined);
   const [view, setView] = useState<ViewId | undefined>(undefined);
@@ -95,6 +101,9 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     setLink(undefined);
     setModel(undefined);
     setModelError(undefined);
+    setLinkError(undefined);
+    setViewsError(undefined);
+    setArtError(undefined);
     setViews([]);
     setArt(undefined);
     setView(undefined);
@@ -103,17 +112,19 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     void models.get(kind, id).then((outcome) => {
       if (!live) return;
       if (outcome.ok) setLink(outcome.value);
-      else setLink(null);
-    });
+      else setLinkError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
+    }, () => { if (live) setLinkError('The model information could not be loaded.'); });
     if (artwork !== undefined) {
       void artwork.detail(id).then((outcome) => {
-        if (live && outcome.ok) setViews(outcome.value.views);
-      });
+        if (!live) return;
+        if (outcome.ok) setViews(outcome.value.views);
+        else setViewsError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
+      }, () => { if (live) setViewsError('The picture information could not be loaded.'); });
     }
     return () => {
       live = false;
     };
-  }, [kind, id, models, artwork]);
+  }, [kind, id, models, artwork, reload]);
 
   // the model's bytes, once there is a link and the 3D view is wanted
   useEffect(() => {
@@ -125,11 +136,11 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
       if (!live) return;
       if (outcome.ok) setModel(outcome.value);
       else setModelError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
-    });
+    }, () => { if (live) setModelError('The 3D model could not be loaded.'); });
     return () => {
       live = false;
     };
-  }, [link, models, open]);
+  }, [link, models, open, modelRetry]);
 
   const twoD = useMemo(() => pick2d(views), [views]);
   const photo = useMemo(() => views.find((v) => v.sourceKind === 'photo' && !v.derived), [views]);
@@ -147,15 +158,21 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     if (artwork === undefined || wantArt === undefined || !open) return;
     if (art?.view === wantArt.view) return;
     let live = true;
+    setArtError(undefined);
     void artwork.artwork(id, wantArt.view).then((outcome) => {
-      if (!live || !outcome.ok) return;
+      if (!live) return;
+      if (!outcome.ok) {
+        setArtError({ view: wantArt.view, text: `${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}` });
+        return;
+      }
       const src = artSrc(outcome.value);
       if (src !== undefined) setArt({ view: wantArt.view, src });
-    });
+      else setArtError({ view: wantArt.view, text: 'The picture data could not be read.' });
+    }, () => { if (live) setArtError({ view: wantArt.view, text: 'The picture could not be loaded.' }); });
     return () => {
       live = false;
     };
-  }, [artwork, id, wantArt, open, art]);
+  }, [artwork, id, wantArt, open, art, artRetry]);
 
   const startAttach = useCallback((): void => {
     setAttaching(true);
@@ -220,7 +237,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
           <span className="cs-chip cs-model-source" title={link.src}>
             {MODEL_SOURCE_LABEL[link.sourceKind]}
             {link.revision === undefined ? '' : ` · ${link.revision}`}
-            {link.built === false ? ' · not built yet' : ''}
+            {link.built === false && model === undefined ? ' · not built yet' : ''}
           </span>
         ) : link === null ? (
           <span className="cs-model-none">No 3D model</span>
@@ -238,6 +255,13 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
           ) : null}
         </span>
       </header>
+      {linkError === undefined && viewsError === undefined ? null : (
+        <div className="cs-model-problem" role="alert">
+          {linkError === undefined ? null : <p>{linkError}</p>}
+          {viewsError === undefined ? null : <p>{viewsError}</p>}
+          <button type="button" onClick={() => setReload((n) => n + 1)}>Retry pictures</button>
+        </div>
+      )}
       {message === undefined ? null : (
         <p className={classes('cs-model-message', message.tone === 'err' && 'is-error')} role="status">
           {message.text}
@@ -246,7 +270,10 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
       {attaching ? <AttachForm {...props} disabled={disabled} onBusy={setBusy} onDone={done} onError={(text) => setMessage({ tone: 'err', text })} /> : null}
       {!open ? null : shown === '3d' ? (
         modelError !== undefined ? (
-          <p className="cs-model-problem">{modelError}</p>
+          <div className="cs-model-problem" role="alert">
+            <p>{modelError}</p>
+            <button type="button" onClick={() => setModelRetry((n) => n + 1)}>Retry 3D model</button>
+          </div>
         ) : model === undefined ? (
           <p className="cs-model-loading">Loading the model…</p>
         ) : (
@@ -257,7 +284,12 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
       ) : shown === '2d' && twoD === undefined ? (
         <div className="cs-model-art">{props.builtIn2d}</div>
       ) : shown === '2d' || shown === 'photo' ? (
-        art === undefined || art.view !== wantArt?.view ? (
+        artError !== undefined && artError.view === wantArt?.view ? (
+          <div className="cs-model-problem" role="alert">
+            <p>{artError?.text}</p>
+            <button type="button" onClick={() => setArtRetry((n) => n + 1)}>Retry picture</button>
+          </div>
+        ) : art === undefined || art.view !== wantArt?.view ? (
           <p className="cs-model-loading">Loading…</p>
         ) : (
           <div className="cs-model-art">
