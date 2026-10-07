@@ -49,6 +49,20 @@ afterEach(() => {
 });
 
 describe('which cable do I need', () => {
+  it('offers working device-profile and Store entry points on a fresh library', async () => {
+    serve();const load=deps.loadDb;deps.loadDb=async()=>({...await load(),devices:[]});
+    mount('/resolver');
+    const empty=await screen.findByTestId('resolver-empty');
+    const store=within(empty).getByRole('link',{name:'Browse store'});expect(store.getAttribute('href')).toBe('/library/store');
+    fireEvent.click(within(empty).getByRole('button',{name:'Device profiles'}));
+    const devices=screen.getByRole('tab',{name:'Devices and recipes'});
+    expect(devices.getAttribute('aria-selected')).toBe('true');
+    expect(await screen.findByTestId('resolver-devices')).toBeTruthy();
+    devices.focus();fireEvent.keyDown(devices,{key:'Home'});
+    expect(screen.getByRole('tab',{name:'Find a cable'}).getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(screen.getByRole('tab',{name:'Find a cable'}));
+  });
+
   it('ranks the options for two devices and creates the chosen one as a design with its recipe', async () => {
     serve();
     mount('/resolver');

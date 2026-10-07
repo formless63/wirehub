@@ -33,6 +33,8 @@ import {
   type ProductsView,
 } from '../products.browser.ts';
 
+import { RouteTabs } from './RouteTabs.tsx';
+
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
 const EXAMPLE: ProductFamily = {
   id: 'example-product',
@@ -131,18 +133,15 @@ export function ProductsRoute(): JSX.Element {
 
   return (
     <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="products">
-      <h1 className="mb-1 text-[14px] font-semibold">Products</h1>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-[14px] font-semibold">Products</h1>
+        {readOnly ? null : <button type="button" className="cs-route-action cs-route-action-primary" disabled={view === undefined || editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty(EXAMPLE)); }}>New product…</button>}
+      </div>
       <p className="mb-2 max-w-2xl text-faint">
         The designs this hub sells, grouped: each family has its number, the names it is also known by, the options its builds differ on, and its variants — each documented by one design.
       </p>
-      <nav className="mb-3 flex gap-3" role="tablist" aria-label="products">
-        <button type="button" role="tab" aria-selected={tab === 'families'} className={tab === 'families' ? 'font-semibold underline' : 'text-dim'} onClick={() => setTab('families')}>
-          Families
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'lineup'} className={tab === 'lineup' ? 'font-semibold underline' : 'text-dim'} onClick={() => setTab('lineup')}>
-          Lineup
-        </button>
-      </nav>
+      <RouteTabs id="products" label="products" items={[{ id: 'families', label: 'Families' }, { id: 'lineup', label: 'Lineup' }]} value={tab} onChange={setTab} />
+      <div role="tabpanel" id={`products-panel-${tab}`} aria-labelledby={`products-tab-${tab}`}>
       {tab === 'lineup' ? (
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -183,18 +182,14 @@ export function ProductsRoute(): JSX.Element {
               );
             })}
           </ul>
-          {readOnly ? null : editing === undefined ? (
-            <button type="button" className="underline" onClick={() => setEditing(pretty(EXAMPLE))}>
-              New product…
-            </button>
-          ) : (
+          {readOnly || editing === undefined ? null : (
             <div className="mt-2 max-w-3xl">
               <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Product record" value={editing} spellCheck={false} onChange={(e) => setEditing(e.target.value)} />
               <div className="mt-1 flex gap-2">
-                <button type="button" className="rounded border border-line bg-accent px-3 py-1 text-accent-ink" onClick={() => void create()}>
+                <button type="button" className="cs-route-action cs-route-action-primary" onClick={() => void create()}>
                   Save
                 </button>
-                <button type="button" className="underline" onClick={() => setEditing(undefined)}>
+                <button type="button" className="cs-route-action" onClick={() => setEditing(undefined)}>
                   Cancel
                 </button>
               </div>
@@ -202,6 +197,7 @@ export function ProductsRoute(): JSX.Element {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
@@ -277,7 +273,7 @@ export function ProductRoute(): JSX.Element {
       {readOnly ? null : (
         <div className="mt-3 flex max-w-4xl flex-col gap-3">
           {adding === undefined ? (
-            <button type="button" className="self-start underline" onClick={() => setAdding({ design: '', id: '', partNumber: '', lengthMm: '', options: {} })}>
+            <button type="button" className="cs-route-action cs-route-action-primary self-start" onClick={() => setAdding({ design: '', id: '', partNumber: '', lengthMm: '', options: {} })}>
               Add a variant…
             </button>
           ) : (
@@ -302,7 +298,7 @@ export function ProductRoute(): JSX.Element {
                 <span className="text-faint">Number</span>
                 <input aria-label="Variant number" className="rounded border border-line bg-panel px-1 py-1 font-mono" value={adding.partNumber} onChange={(e) => setAdding({ ...adding, partNumber: e.target.value })} />
               </label>
-              <button type="button" className="underline" onClick={() => void suggest()}>
+              <button type="button" className="cs-route-action" onClick={() => void suggest()}>
                 Suggest
               </button>
               <label className="flex flex-col">
@@ -324,7 +320,7 @@ export function ProductRoute(): JSX.Element {
               ))}
               <button
                 type="button"
-                className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50"
+                className="cs-route-action cs-route-action-primary"
                 disabled={adding.design === '' || adding.id === ''}
                 onClick={() => {
                   const length = Number(adding.lengthMm);
@@ -341,7 +337,7 @@ export function ProductRoute(): JSX.Element {
               >
                 Add
               </button>
-              <button type="button" className="underline" onClick={() => setAdding(undefined)}>
+              <button type="button" className="cs-route-action" onClick={() => setAdding(undefined)}>
                 Cancel
               </button>
             </fieldset>
@@ -356,7 +352,7 @@ export function ProductRoute(): JSX.Element {
               ))}
               <button
                 type="button"
-                className="underline disabled:opacity-50"
+                className="cs-route-action"
                 disabled={mergeFrom.length === 0}
                 onClick={async () => {
                   const out = await mergeProducts(id, mergeFrom);
@@ -382,7 +378,7 @@ export function ProductRoute(): JSX.Element {
               <input aria-label="New product name" placeholder="name" className="rounded border border-line bg-panel px-1 py-1" value={splitTo.label} onChange={(e) => setSplitTo({ ...splitTo, label: e.target.value })} />
               <button
                 type="button"
-                className="underline disabled:opacity-50"
+                className="cs-route-action"
                 disabled={splitPick.length === 0 || splitTo.id === ''}
                 onClick={async () => {
                   const out = await splitProduct(id, splitPick, splitTo);
@@ -398,7 +394,7 @@ export function ProductRoute(): JSX.Element {
             </fieldset>
           )}
           {json === undefined ? (
-            <button type="button" className="self-start underline" onClick={() => setJson(pretty(product))}>
+            <button type="button" className="cs-route-action self-start" onClick={() => setJson(pretty(product))}>
               Edit as JSON…
             </button>
           ) : (
@@ -407,7 +403,7 @@ export function ProductRoute(): JSX.Element {
               <div className="mt-1 flex gap-2">
                 <button
                   type="button"
-                  className="rounded border border-line bg-accent px-3 py-1 text-accent-ink"
+                  className="cs-route-action cs-route-action-primary"
                   onClick={() => {
                     try {
                       const next = JSON.parse(json) as ProductFamily;
@@ -419,7 +415,7 @@ export function ProductRoute(): JSX.Element {
                 >
                   Save
                 </button>
-                <button type="button" className="underline" onClick={() => setJson(undefined)}>
+                <button type="button" className="cs-route-action" onClick={() => setJson(undefined)}>
                   Cancel
                 </button>
               </div>

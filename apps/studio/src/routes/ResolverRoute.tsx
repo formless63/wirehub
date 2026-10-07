@@ -14,7 +14,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 import { deriveCable, resolve, resolveDevice, suggestStocks, validateDesign, type CableOption, type ConditioningRecipe, type DeviceProfile, type ResolveQuery } from '@wirehub/model';
@@ -23,6 +23,8 @@ import { dbKey } from '../queries.ts';
 import { decideProposal, fetchPairProposals, fetchProposalDecisions, resolverKey, resolverQuery, saveResolverList, saveResolverPolicy, type ProposalRow, type ResolverList, type ResolverView } from '../resolver.browser.ts';
 import { canEditFields, DeviceForm, RecipeForm } from './ResolverRecordForms.tsx';
 import { useStudio } from '../studio-context.tsx';
+
+import { RouteTabs } from './RouteTabs.tsx';
 
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
 const SRC = 'synthetic example';
@@ -34,14 +36,10 @@ export function ResolverRoute(): JSX.Element {
   return (
     <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="resolver">
       <h1 className="mb-1 text-[14px] font-semibold">Which cable do I need?</h1>
-      <nav className="mb-3 flex gap-3" role="tablist" aria-label="resolver">
-        {(['which', 'proposals', 'library'] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'font-semibold underline' : 'text-dim'} onClick={() => setTab(t)}>
-            {t === 'which' ? 'Find a cable' : t === 'proposals' ? 'Proposals' : 'Devices and recipes'}
-          </button>
-        ))}
-      </nav>
-      {tab === 'which' ? <FindCable /> : tab === 'proposals' ? <ProposalDecisions /> : <ResolverLibrary />}
+      <RouteTabs id="resolver" label="resolver" items={[{ id: 'which', label: 'Find a cable' }, { id: 'proposals', label: 'Proposals' }, { id: 'library', label: 'Devices and recipes' }]} value={tab} onChange={setTab} />
+      <div role="tabpanel" id={`resolver-panel-${tab}`} aria-labelledby={`resolver-tab-${tab}`}>
+        {tab === 'which' ? <FindCable onOpenDevices={() => setTab('library')} /> : tab === 'proposals' ? <ProposalDecisions /> : <ResolverLibrary />}
+      </div>
     </div>
   );
 }
@@ -135,7 +133,7 @@ function OptionCard({ option, chosen, onChoose }: { option: CableOption; chosen:
   );
 }
 
-function FindCable(): JSX.Element {
+function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Element {
   const studio = useStudio();
   const navigate = useNavigate();
   const db = studio.db;
@@ -190,9 +188,14 @@ function FindCable(): JSX.Element {
 
   if (ends.length === 0) {
     return (
-      <p className="max-w-2xl text-faint" data-testid="resolver-empty">
-        The library has no device profiles yet. Add some under Devices and recipes, or install a pack that ships them (the bundled PC & serial, pro-audio and automotive packs do).
-      </p>
+      <section className="cs-route-empty" data-testid="resolver-empty" aria-label="Device profiles needed">
+        <h2 className="mb-2 text-[13px] font-semibold">Add device profiles to find a cable</h2>
+        <p className="text-dim">There are no device profiles available to connect yet. Add profiles here, or browse catalog packs that include them.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" className="cs-route-action cs-route-action-primary" onClick={onOpenDevices}>Device profiles</button>
+          <Link to="/library/store" className="cs-route-action">Browse store</Link>
+        </div>
+      </section>
     );
   }
   return (
@@ -201,7 +204,7 @@ function FindCable(): JSX.Element {
         <EndPicker label="From" devices={ends} device={src.device} port={src.port} onChange={(device, port) => setSrc({ device, port })} />
         <button
           type="button"
-          className="mt-5 underline"
+          className="cs-route-action mt-5"
           onClick={() => {
             setSrc(dst);
             setDst(src);
@@ -266,7 +269,7 @@ function FindCable(): JSX.Element {
                 </label>
                 <button
                   type="button"
-                  className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50"
+                  className="cs-route-action cs-route-action-primary"
                   disabled={busy || derived === undefined || !derived.ok || errors.length > 0 || taken || studio.me?.role === 'viewer'}
                   onClick={() => void create()}
                 >
@@ -349,17 +352,17 @@ function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
                 <div key={o} className="text-warn">Open: {o}</div>
               ))}
               {readOnly || row.state === 'accepted' ? null : row.state === 'declined' ? (
-                <button type="button" className="underline" onClick={() => void act('reopen', row)}>
+                <button type="button" className="cs-route-action" onClick={() => void act('reopen', row)}>
                   Offer again
                 </button>
               ) : (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <input aria-label="Reason" placeholder="why not (optional)" className="rounded border border-line bg-panel px-1 py-0.5" value={reason[p.key] ?? ''} onChange={(e) => setReason({ ...reason, [p.key]: e.target.value })} />
-                  <button type="button" className="underline" onClick={() => void act('decline', row)}>
+                  <button type="button" className="cs-route-action" onClick={() => void act('decline', row)}>
                     Decline
                   </button>
                   <input aria-label="New board id" placeholder="new board id" className="rounded border border-line bg-panel px-1 py-0.5" value={boardId[p.key] ?? ''} onChange={(e) => setBoardId({ ...boardId, [p.key]: e.target.value })} />
-                  <button type="button" className="underline disabled:opacity-50" disabled={(boardId[p.key] ?? '') === ''} onClick={() => void act('accept', row)}>
+                  <button type="button" className="cs-route-action" disabled={(boardId[p.key] ?? '') === ''} onClick={() => void act('accept', row)}>
                     Start a board
                   </button>
                 </div>
@@ -390,7 +393,7 @@ function ProposalDecisions(): JSX.Element {
           {me?.role === 'viewer' || d.state !== 'declined' ? null : (
             <button
               type="button"
-              className="ml-2 underline"
+              className="cs-route-action ml-2"
               onClick={async () => {
                 const out = await decideProposal('reopen', { key: d.key });
                 if (!out.ok) return void toast.error(out.message);
@@ -496,11 +499,11 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
             {r.origin === 'pack' ? <span className="text-faint"> · from pack {r.pack}{r.held ? ', edited here' : ''}</span> : null}
             {readOnly ? null : (
               <span className="ml-2 inline-flex gap-3">
-                <button type="button" className="underline" onClick={() => setEditing({ text: pretty(strip(r)), replaces: r.id })}>
+                <button type="button" className="cs-route-action" onClick={() => setEditing({ text: pretty(strip(r)), replaces: r.id })}>
                   {r.origin === 'pack' && !r.held ? 'Override…' : 'Edit…'}
                 </button>
                 {r.origin === 'local' ? (
-                  <button type="button" className="underline" disabled={busy} onClick={() => void persist(own.filter((x) => x['id'] !== r.id), `Removed ${r.id}.`)}>
+                  <button type="button" className="cs-route-action" disabled={busy} onClick={() => void persist(own.filter((x) => x['id'] !== r.id), `Removed ${r.id}.`)}>
                     Remove
                   </button>
                 ) : null}
@@ -510,7 +513,7 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
         ))}
       </ul>
       {readOnly ? null : (
-        <button type="button" className="underline" onClick={() => setEditing({ text: pretty(EXAMPLES(iface, body)[list]) })}>
+        <button type="button" className="cs-route-action" onClick={() => setEditing({ text: pretty(EXAMPLES(iface, body)[list]) })}>
           New from an example…
         </button>
       )}
@@ -521,10 +524,10 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
             <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label={`${title} record`} value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
           </details>
           <div className="mt-1 flex gap-2">
-            <button type="button" className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50" disabled={busy} onClick={() => void save()}>
+            <button type="button" className="cs-route-action cs-route-action-primary" disabled={busy} onClick={() => void save()}>
               Save
             </button>
-            <button type="button" className="underline" onClick={() => setEditing(undefined)}>
+            <button type="button" className="cs-route-action" onClick={() => setEditing(undefined)}>
               Cancel
             </button>
           </div>
@@ -593,11 +596,11 @@ function ResolverLibrary(): JSX.Element {
         <div className="text-faint">Criteria: {view.policy.criteria.join(', ')}</div>
         {readOnly ? null : policyText === undefined ? (
           <div className="mt-1 flex gap-3">
-            <button type="button" className="underline" onClick={() => setPolicyText(pretty(view.policy.local ?? view.policy.default))}>
+            <button type="button" className="cs-route-action" onClick={() => setPolicyText(pretty(view.policy.local ?? view.policy.default))}>
               Edit…
             </button>
             {view.policy.local === null ? null : (
-              <button type="button" className="underline" onClick={() => void savePolicy(null)}>
+              <button type="button" className="cs-route-action" onClick={() => void savePolicy(null)}>
                 Use the default
               </button>
             )}
@@ -619,7 +622,7 @@ function ResolverLibrary(): JSX.Element {
               >
                 Save
               </button>
-              <button type="button" className="underline" onClick={() => setPolicyText(undefined)}>
+              <button type="button" className="cs-route-action" onClick={() => setPolicyText(undefined)}>
                 Cancel
               </button>
             </div>
