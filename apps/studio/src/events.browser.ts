@@ -11,7 +11,9 @@
  * working on what it polls and fetches on navigation: `onState(false)` says
  * so, and the client reconnects with a growing pause (1 s … 30 s). After a
  * reconnect the greeting's version is compared with the last one seen, so a
- * commit made while the stream was down still triggers a refetch.
+ * commit made while the stream was down still triggers a refetch. Navigation
+ * suspends the stream on pagehide and restores it on pageshow, including a
+ * back/forward cache restore, without retaining a connection for a cached page.
  */
 
 export interface EventStreamHandlers {
@@ -29,8 +31,16 @@ export interface EventSourceLike {
   onerror: ((event: unknown) => void) | null;
 }
 
+/** Page lifecycle only: ordinary tab visibility changes do not suspend the stream. */
+export interface EventStreamLifecycle {
+  addEventListener(type: 'pagehide' | 'pageshow', listener: () => void): void;
+  removeEventListener(type: 'pagehide' | 'pageshow', listener: () => void): void;
+}
+
 export interface EventStreamOptions {
   url?: string;
+  /** injectable for tests; defaults to window when available */
+  lifecycle?: EventStreamLifecycle;
   /** injectable for tests; default the browser's `EventSource` (none: no stream) */
   eventSource?: (url: string) => EventSourceLike;
   /** injectable for tests */
@@ -47,7 +57,10 @@ export function connectEventStream(handlers: EventStreamHandlers, options: Event
   const cancel = options.clearTimeout ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
   let source: EventSourceLike | undefined;
   let timer: unknown;
+  let pendingRetry: object | undefined;
   let stopped = false;
+  let suspended = false;
+  const lifecycle = options.lifecycle ?? (typeof window === 'undefined' ? undefined : window);
   let pause = 1000;
   let lastVersion: string | undefined;
   let live = false;
@@ -65,10 +78,12 @@ export function connectEventStream(handlers: EventStreamHandlers, options: Event
     }
   };
   const open = (): void => {
-    if (stopped) return;
+    if (stopped || suspended || source !== undefined) return;
     const next = make(url);
     source = next;
+    const current = (): boolean => !stopped && !suspended && source === next;
     next.addEventListener('hello', (event) => {
+      if (!current()) return;
       pause = 1000;
       const version = parse(event.data)['version'];
       const seen = typeof version === 'string' && version !== '' ? version : undefined;
@@ -79,6 +94,7 @@ export function connectEventStream(handlers: EventStreamHandlers, options: Event
       if (seen !== undefined) lastVersion = seen;
     });
     next.addEventListener('catalog', (event) => {
+      if (!current()) return;
       const version = parse(event.data)['version'];
       if (typeof version !== 'string') return;
       if (version === lastVersion) return;
@@ -86,24 +102,55 @@ export function connectEventStream(handlers: EventStreamHandlers, options: Event
       handlers.onCatalog(version);
     });
     next.addEventListener('locks', (event) => {
+      if (!current()) return;
       const record = parse(event.data)['record'];
       handlers.onLocks(typeof record === 'string' ? record : undefined);
     });
     next.onerror = () => {
+      if (!current()) return;
       // close and reconnect on our own schedule: the browser's own retry is a fixed few seconds, forever
+      source = undefined;
       next.close();
-      if (source === next) source = undefined;
       setLive(false);
       if (stopped) return;
-      timer = later(open, pause);
+      const retry = {};
+      pendingRetry = retry;
+      timer = later(() => {
+        if (pendingRetry !== retry) return;
+        pendingRetry = undefined;
+        timer = undefined;
+        open();
+      }, pause);
       pause = Math.min(pause * 2, 30_000);
     };
   };
+  const disconnect = (): void => {
+    pendingRetry = undefined;
+    if (timer !== undefined) cancel(timer);
+    timer = undefined;
+    const previous = source;
+    source = undefined;
+    previous?.close();
+    setLive(false);
+  };
+  const hide = (): void => {
+    if (stopped) return;
+    suspended = true;
+    disconnect();
+  };
+  const show = (): void => {
+    if (stopped || !suspended) return;
+    suspended = false;
+    open();
+  };
+  lifecycle?.addEventListener('pagehide', hide);
+  lifecycle?.addEventListener('pageshow', show);
   open();
   return () => {
+    if (stopped) return;
     stopped = true;
-    if (timer !== undefined) cancel(timer);
-    source?.close();
-    setLive(false);
+    lifecycle?.removeEventListener('pagehide', hide);
+    lifecycle?.removeEventListener('pageshow', show);
+    disconnect();
   };
 }
