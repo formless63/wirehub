@@ -260,6 +260,7 @@ export function mountAuth(app: Hono, auth: StudioAuth): void {
           ? {}
           : { oidc: { providerId: config().oidc!.providerId, name: config().oidc!.name, emailClaim: config().oidc!.emailClaim } }),
         ...((auth.providers ?? []).length === 0 ? {} : { providers: auth.providers }),
+        connectProviders: [...(config().github === undefined ? [] : [{ providerId: 'github', name: 'GitHub' }]), ...(config().google === undefined ? [] : [{ providerId: 'google', name: 'Google' }])],
         magicLink: config().smtp !== undefined,
         localAccounts: config().localAccounts,
         ...(noMethod ? { noMethod: true } : {}),

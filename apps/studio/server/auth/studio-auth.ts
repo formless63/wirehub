@@ -40,6 +40,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import pg from 'pg';
 
 import { requestOrigin } from '../env.ts';
+import { builtInProviders, socialProviders } from './social-providers.ts';
 import type { AuthProviderContribution } from '@wirehub/modules';
 
 import { AuthConfigError, authRequested, readAuthConfig, type AuthConfigEnabled, type OidcConfig } from './config.ts';
@@ -76,7 +77,7 @@ export interface StudioAuth {
   handler(request: Request): Promise<Response>;
   /** the signed-in person for this request's cookies, or `null` */
   sessionUser(headers: Headers): Promise<SessionUser | null>;
-  /** the sign-in buttons modules added, beside the configured OIDC one */
+  /** built-in and module sign-in buttons, beside the configured OIDC one */
   providers?: readonly { providerId: string; name: string }[];
   /** may this email hold a session: the allow-list, or (database backend) a person of the org */
   isAllowed(email: string): boolean | Promise<boolean>;
@@ -110,7 +111,7 @@ export interface StudioAuthOverrides {
   database?: DatabaseSync;
   /** a connection already open (the live sign-in's rebuilds share one; `liveStudioAuth`); not closed by `close()` */
   sharedDatabase?: BetterAuthOptions['database'];
-  /** tests route the IdP's userinfo call through here; default global fetch */
+  /** tests route OIDC/OAuth userinfo and GitHub profile calls here; Better Auth token/JWKS calls use global fetch */
   fetch?: typeof fetch;
   /**
    * The database backend (plan §3.15): Better Auth's tables are schema `auth`
@@ -239,8 +240,9 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
   const mail = overrides.mailTransport ?? (config.smtp === undefined ? undefined : smtpTransport(config.smtp));
   const fetchImpl = overrides.fetch ?? fetch;
 
+  const linking = new AsyncLocalStorage<{ email: string }>();
   const plugins: BetterAuthPlugin[] = [];
-  const fromModules = resolveModuleProviders(overrides.providers ?? [], overrides.providerEnv ?? process.env, config.oidc === undefined ? [] : [config.oidc.providerId]);
+  const fromModules = resolveModuleProviders(overrides.providers ?? [], overrides.providerEnv ?? process.env, [...builtInProviders(config).map((p) => p.providerId), ...(config.oidc === undefined ? [] : [config.oidc.providerId])]);
   const oauthConfigs: GenericOAuthConfig[] = [];
   if (config.oidc !== undefined) {
     const oidc = config.oidc;
@@ -295,6 +297,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
 
   const options: BetterAuthOptions = {
     appName: 'Studio',
+    socialProviders: socialProviders(config, fetchImpl, isAllowed, () => linking.getStore()?.email),
     baseURL: config.baseURL,
     basePath: AUTH_BASE_PATH,
     secret: config.secret,
@@ -355,13 +358,26 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
 
   return {
     config,
-    handler: (request) => auth.handler(request),
+    async handler(request) {
+      // Better Auth endpoints precede the app gate. A disabled person must not
+      // connect an identity through a still-valid session or a direct ID token.
+      if (new URL(request.url).pathname === `${AUTH_BASE_PATH}/link-social`) {
+        const session = await auth.api.getSession({ headers: request.headers });
+        if (session !== null) {
+          if (!(await isAllowed(session.user.email))) return Response.json({ code: EMAIL_NOT_ALLOWED, message: 'This account is not allowed to use this hub.' }, { status: 403 });
+          // The pinned direct-token route returns early for already linked
+          // accounts; require the same email before its getUserInfo returns.
+          return linking.run({ email: session.user.email.trim().toLowerCase() }, () => auth.handler(request));
+        }
+      }
+      return auth.handler(request);
+    },
     async sessionUser(headers) {
       const session = await auth.api.getSession({ headers });
       if (session === null) return null;
       return { id: session.user.id, email: session.user.email, name: session.user.name };
     },
-    providers: fromModules.oauth.map((p) => ({ providerId: p.providerId, name: p.name })),
+    providers: [...builtInProviders(config), ...fromModules.oauth.map((p) => ({ providerId: p.providerId, name: p.name }))],
     isAllowed,
     ...(overrides.pg?.tokens === undefined ? {} : { tokens: overrides.pg.tokens, tokenEnv: overrides.pg.tokenEnv ?? 'dev', limiter: overrides.pg.limiter ?? new RateLimiter() }),
     close: async () => {

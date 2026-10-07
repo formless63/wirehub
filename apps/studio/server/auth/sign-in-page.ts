@@ -8,8 +8,10 @@
 export interface SignInPageModel {
   /** OIDC button, when configured */
   oidc?: { providerId: string; name: string; emailClaim: string };
-  /** sign-in buttons contributed by modules */
+  /** enabled built-in and module sign-in buttons */
   providers?: readonly { providerId: string; name: string }[];
+  /** built-in providers an allowed signed-in person may explicitly connect */
+  connectProviders?: readonly { providerId: string; name: string }[];
   /** the magic-link form, when SMTP is configured */
   magicLink: boolean;
   /** the email + password form (database backend, plan §9.3) */
@@ -33,8 +35,16 @@ function esc(value: string): string {
 }
 
 /** Plain words for every error code the flows can send back here. Codes only — never echo query text. */
-export function signInErrorMessage(code: string, model: Pick<SignInPageModel, 'oidc'>): string {
+export function signInErrorMessage(code: string, model: Pick<SignInPageModel, 'oidc' | 'connectProviders'>): string {
   switch (code.toUpperCase()) {
+    case 'FAILED_TO_GET_USER_INFO':
+    case 'UNABLE_TO_GET_USER_INFO':
+      if ((model.connectProviders ?? []).length > 0) return 'Could not verify your provider identity. Use a verified email allowed on this hub and try again.';
+      break;
+    case 'ACCOUNT_NOT_LINKED':
+      return 'This email already has an account. Sign in with its current method first; enabled GitHub and Google providers can then be connected from this page.';
+    case 'EMAIL_DOES_NOT_MATCH':
+      return 'Use the same verified email as your current hub account to connect a sign-in provider.';
     case 'EMAIL_NOT_ALLOWED':
       return 'That account is not allowed to use this hub. Ask an administrator to add your email to the allow-list.';
     case 'EMAIL_NOT_FOUND':
@@ -47,9 +57,8 @@ export function signInErrorMessage(code: string, model: Pick<SignInPageModel, 'o
       return 'That sign-in link has expired or was already used. Request a new one.';
     case 'ACCESS_DENIED':
       return 'Sign-in was cancelled at the provider.';
-    default:
-      return `Sign-in did not complete (${code.slice(0, 60)}). Try again.`;
   }
+  return `Sign-in did not complete (${code.slice(0, 60)}). Try again.`;
 }
 
 export function renderSignInPage(model: SignInPageModel): string {
@@ -59,6 +68,8 @@ export function renderSignInPage(model: SignInPageModel): string {
   if (who !== undefined && who.allowed) {
     body = `<p class="who">Signed in as <b>${esc(who.email)}</b></p>
 <a class="btn primary" href="${esc(model.next)}">Open studio</a>
+${(model.connectProviders ?? []).length === 0 ? '' : '<p class="who">Connect a provider using the same verified email as this account.</p>'}
+${(model.connectProviders ?? []).map((provider) => `<button class="btn" type="button" data-connect data-provider="${esc(provider.providerId)}">Connect ${esc(provider.name)}</button>`).join('\n')}
 <button class="btn" type="button" id="sign-out">Sign out</button>`;
   } else {
     const parts: string[] = [];
@@ -151,6 +162,7 @@ var status=document.getElementById('status');
 function say(text,kind){status.textContent=text;status.className='msg '+(kind||'')}
 function post(path,body){return fetch('/api/auth'+path,{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,body:j}})})}
 Array.prototype.forEach.call(document.querySelectorAll('[data-sso]'),function(oidc){oidc.addEventListener('click',function(){oidc.disabled=true;post('/sign-in/social',{provider:oidc.dataset.provider,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){location.href=r.body.url}else{oidc.disabled=false;say(r.body.message||'Could not reach the sign-in provider.','err')}},function(){oidc.disabled=false;say('Could not reach the studio.','err')})})});
+Array.prototype.forEach.call(document.querySelectorAll('[data-connect]'),function(button){button.addEventListener('click',function(){button.disabled=true;post('/link-social',{provider:button.dataset.provider,callbackURL:'/sign-in',errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){location.href=r.body.url}else{button.disabled=false;say(r.body.message||'Could not connect that account.','err')}},function(){button.disabled=false;say('Could not reach the studio.','err')})})});
 var form=document.getElementById('magic');
 if(form)form.addEventListener('submit',function(e){e.preventDefault();var email=form.email.value.trim();if(!email){say('Enter your email.','err');return}var b=form.querySelector('button');b.disabled=true;post('/sign-in/magic-link',{email:email,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){b.disabled=false;if(r.ok){say('Link sent to '+email+'. It works once, for 10 minutes.','ok')}else{say(r.body.message||'Could not send the link.','err')}},function(){b.disabled=false;say('Could not reach the studio.','err')})});
 var pw=document.getElementById('password');
