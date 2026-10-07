@@ -77,7 +77,7 @@ export const JOURNEY_STEPS: readonly { id: StepId; label: string; tab: string }[
   { id: 'connector', label: 'Connector', tab: 'connector' },
   { id: 'builds', label: 'Builds', tab: 'builds' },
   // the Library's Artwork pane is where the entry guides are set
-  { id: 'guides', label: 'Guides', tab: 'artwork' },
+  { id: 'guides', label: 'Artwork & guides', tab: 'artwork' },
 ];
 
 /** The detail tabs the journey renders itself (Guides is the Library's own Artwork pane). */
@@ -968,4 +968,3 @@ function BuildsStep(props: { journey: BoardJourney }): JSX.Element {
     </section>
   );
 }
-

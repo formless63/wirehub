@@ -4,10 +4,11 @@ import { expect, it } from 'vitest';
 import { standardWork } from '../src/index.ts';
 import { adoptLabour } from '../src/logic.ts';
 
-it('registers only an inspector, exporter and validation rule without automatic labour writes', () => {
+it('places operation estimates with documents and exports without automatic labour writes', () => {
   expect(manifestProblems([standardWork])).toEqual([]);
   expect(() => createRegistry([standardWork])).not.toThrow();
-  expect(standardWork.panels[0]!.slot).toBe('cable-inspector');
+  expect(standardWork.panels[0]!.slot).toBe('cable-documents');
+  expect(createRegistry([standardWork]).panels('cable-inspector')).toEqual([]);
   expect('commitHook' in standardWork).toBe(false); expect('integrations' in standardWork).toBe(false);
   const d = loadDesign('dc-led-lead'); d.labourMinutes = 77;
   d.extensions = { 'standard-work': { schema: 1, operations: [{ id: 'operation', label: 'Synthetic operation', minutes: 5, quantity: 1, basis: 'per-cable', src: 'synthetic timing fixture' }] } };

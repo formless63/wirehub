@@ -155,10 +155,14 @@ export function derivedDir(packsDir: string): string {
  * them above it.
  */
 export function liveCatalogSource(): CatalogSource {
-  const root = dataPath('');
+  // Pure catalog consumers (including runtime browser modules) never read the
+  // filesystem. Resolve its location only when a source is actually used:
+  // opaque blob/data module URLs cannot be bases for relative filesystem URLs.
+  let resolvedRoot: string | undefined;
+  const root = (): string => resolvedRoot ??= dataPath('');
   return {
     name: 'the catalog',
-    root,
+    get root() { return root(); },
     read(relative) {
       return current().read(relative);
     },
@@ -168,8 +172,8 @@ export function liveCatalogSource(): CatalogSource {
   };
   function current(): CatalogSource {
     const packs = livePacksDir();
-    if (packs === undefined) return fsCatalogSource(root, 'the catalog');
-    return catalogWithPacksSource(root, packs, { name: 'the catalog', first: () => [fsCatalogSource(derivedDir(packs), 'derived files')] });
+    if (packs === undefined) return fsCatalogSource(root(), 'the catalog');
+    return catalogWithPacksSource(root(), packs, { name: 'the catalog', first: () => [fsCatalogSource(derivedDir(packs), 'derived files')] });
   }
 }
 
@@ -305,4 +309,3 @@ export type {
   PinAnchor,
   SourceKind,
 } from './depictions/index.ts';
-

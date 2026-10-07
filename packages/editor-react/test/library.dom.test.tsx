@@ -143,6 +143,17 @@ function emptyArtworkAdapter(defId: string, kind: 'connector' | 'pcba'): Artwork
 
 const GERBER_BOARD = 'PCA-00101-rev6-basic';
 
+it('exposes the board depiction editor through the journey artwork step', async () => {
+  const board = db.pcbas[0]!;
+  const adapter = emptyArtworkAdapter(board.id, 'pcba');
+  render(<Library db={db} kind="pcbas" selectedId={board.id} definitions={host()} artworkAdapter={adapter} boardJourney={{}} />);
+  const step = await screen.findByRole('button', { name: /Artwork & guides/ });
+  fireEvent.click(step);
+  await screen.findByText('Uploaded artwork');
+  expect(screen.getByText(/Upload a picture above/)).toBeTruthy();
+  expect(document.querySelector('input[type="file"]')).not.toBeNull();
+});
+
 /** The real gerber-tier fixture (`packages/catalog/depictions/PCA-00101-rev6-basic`) */
 function gerberArtworkAdapter(): ArtworkAdapter {
   const depictions = diskDepictions();

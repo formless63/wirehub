@@ -8,8 +8,9 @@
  * text, and the renderer gets a `DepictionSource` that never touches a
  * filesystem.
  *
- * This is a *loader*, not a second copy of the data: the globs point at the
- * catalog's own directory, so there is nothing here to keep in sync.
+ * The live workbench index and artwork API take precedence, so runtime-installed
+ * packs and uploads render too. The globs are an offline fallback until the
+ * live index is available; a live index also removes disabled pack artwork.
  *
  * **Lazy, per definition**. The tree is ~8 MB of SVG
  * and manifests; bundled eagerly it made the main chunk 12 MB. Each file is
@@ -28,6 +29,8 @@ import type { CableDesign } from '@wirehub/model';
 import type { DepictionArtwork, DepictionSource } from '@wirehub/editor-react';
 
 import { assembleDepictionSource, defIdOf, type DepictionModules } from './depictions.assemble.ts';
+import { liveDepictions, type LiveDepictions } from './depictions.live.ts';
+import { workbenchArtwork } from './artwork.browser.ts';
 
 export { assembleDepictionSource, versionDepictionSource, type DepictionModules } from './depictions.assemble.ts';
 
@@ -171,14 +174,19 @@ const RASTER = import.meta.glob(['../../../packages/catalog/depictions/*/*.{png,
   import: 'default',
 }) as Record<string, () => Promise<string>>;
 
-let cached: LazyDepictions | undefined;
+let cached: LiveDepictions | undefined;
 
 /**
  * The catalog's depiction tree, lazily loaded — one per page, so every view
  * shares what has already been fetched.
  */
-export function browserDepictions(): LazyDepictions {
-  cached ??= lazyDepictions({ meta: META, vector: VECTOR, raster: RASTER });
+export function browserDepictions(): LiveDepictions {
+  cached ??= liveDepictions(lazyDepictions({ meta: META, vector: VECTOR, raster: RASTER }), workbenchArtwork(), async () => {
+    const response = await fetch('/api/depictions');
+    if (!response.ok) throw new Error('Depiction index unavailable');
+    const value: unknown = await response.json();
+    if (typeof value !== 'object' || value === null || !('depictions' in value) || !Array.isArray(value.depictions) || !value.depictions.every((id) => typeof id === 'string')) throw new Error('Invalid depiction index');
+    return value.depictions as string[];
+  });
   return cached;
 }
-

@@ -167,6 +167,9 @@ not quarantined.
   every catalog event. When a module it already ran is removed or replaced and that module set a
   commit hook or carried CSS, a banner asks for a page refresh (old code cannot be unloaded from
   a page).
+  Browser entries must be tested from an opaque URL, rather than only a local file:
+  relative filesystem URL initialization cannot run against a blob URL. Pure
+  catalog imports defer filesystem source resolution until an actual source read.
 - **Worker.** The worker builds the same live registry and host, loads it before it binds its
   queues, and follows the same `LISTEN studio_catalog` notification; import jobs and derived
   records use the live set.

@@ -5,7 +5,7 @@ default Studio manifest and ships no factory timing values. Install a signed
 runtime bundle and enable it explicitly, or add it to your deployment's module
 manifest (`docs/modules.md`). The inspector editing capability requires module API 1.4 or newer.
 
-The cable inspector holds a table of operator-supplied times and sources. Each
+The cable's Documents panel holds a table of operator-supplied times and sources. Each
 operation has an explicit quantity and a `per-cable` or `per-batch` basis. Missing
 times are invalid; an explicit zero is valid. An empty table may be saved to
 clear the configuration, but has no estimate to adopt or export. Nothing infers

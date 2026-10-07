@@ -5,7 +5,7 @@ import { supplierIntegration } from './server.ts';
 import { DocumentsPanel, LibraryPanel, ProcurementPage, SettingsPanel } from './ui.ts';
 
 export const suppliers = defineModule({
-  id: 'suppliers', label: 'Suppliers', version: '0.1.0', license: 'MIT',
+  id: 'suppliers', label: 'Suppliers', version: '0.1.1', license: 'MIT',
   integrations: [supplierIntegration],
   importers: [{ id: 'selected-quote', label: 'Selected supplier quote (review cost update)', accepts: ['.supplier-quote.json'], import: importQuote }],
   exporters: [{ id: 'requirements-csv', label: 'Procurement requirements (CSV)', description: 'Cable BOM purchasing quantities, without supplier refresh or automatic substitutions.', render: (design, db, options) => ({ mimeType: 'text/csv', fileName: `${design.id}-procurement.csv`, body: requirementsCsv(design, db, options?.['builds'] === undefined ? 1 : Number(options['builds'])) }) }],

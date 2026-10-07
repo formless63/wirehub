@@ -137,6 +137,13 @@ catalog's own tree by default, the bundled modules' trees layered after it
 identity of the asset and the renderer asks the same source for the bytes, so both must be
 given the same one.
 
+The Studio browser discovers live artwork through `GET /api/depictions`, then
+loads each needed manifest and view lazily. This includes runtime-installed pack
+art and uploaded depictions. Catalog changes refresh the index and cached artwork;
+the live index takes precedence over the build's bundled artwork, including when a
+pack is removed or disabled. Until the live index is reachable, bundled artwork is
+an offline fallback.
+
 ## 5. Board art, entry guides and mounted parts
 
 A board's art may be rendered from fabrication outputs rather than drawn: its real outline,
@@ -189,6 +196,10 @@ to a record someone else holds are refused by the edit lock (`specs/design-versi
 section 8).
 
 ## 7. In versions and in the Library
+
+Boards with the journey strip open the depiction upload and anchor editor through
+**Artwork & guides**. This is the same artwork editor used by the standalone
+**Artwork** tab, including entry-guide editing.
 
 - A saved version copies each referenced definition's artwork, content-addressed
   (`specs/design-versions.md` section 3), so an old revision draws the art it was released

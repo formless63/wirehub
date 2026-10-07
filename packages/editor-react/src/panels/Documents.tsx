@@ -79,6 +79,8 @@ export interface DocumentsProps {
   extensions?: EditorExtensions;
   /** a read-only view (passed on to the panels) */
   readOnly?: boolean;
+  /** The editor's guarded replacement callback; available only for the working draft. */
+  onChange?: (design: CableDesign, description?: string) => void;
   /** the design as it stands in the editor — draft included */
   design: CableDesign;
   db: Db;
@@ -352,6 +354,7 @@ export function DocumentsPane({
   testDefaults: testDefaultsProp,
   extensions,
   readOnly = false,
+  onChange,
 }: DocumentsProps): JSX.Element {
   const sidecar = useDrawingSidecar(design.id, drawings);
   const testDefaults = testDefaultsProp ?? sidecar.orgDefaults;
@@ -380,6 +383,20 @@ export function DocumentsPane({
   const pending = external && (loadedRev === undefined || loadedRev === 'missing' || loadedRev.rev !== target);
   const shown = external && !pending && typeof loadedRev === 'object' ? loadedRev : undefined;
   const docDesign = shown?.design ?? design;
+  const moduleEditable = !readOnly && !editLocked && (release === undefined || target === 'working') && onChange !== undefined;
+  const moduleEditRef = useRef({ target, editable: moduleEditable, generation: 0, mounted: true });
+  if (moduleEditRef.current.target !== target || moduleEditRef.current.editable !== moduleEditable) {
+    moduleEditRef.current = { ...moduleEditRef.current, target, editable: moduleEditable, generation: moduleEditRef.current.generation + 1 };
+  }
+  useEffect(() => {
+    moduleEditRef.current.mounted = true;
+    return () => { moduleEditRef.current.mounted = false; };
+  }, []);
+  const moduleGeneration = moduleEditRef.current.generation;
+  const moduleOnChange = (next: CableDesign, description?: string): void => {
+    if (!moduleEditRef.current.mounted || !moduleEditRef.current.editable || moduleEditRef.current.generation !== moduleGeneration) return;
+    onChange?.(next, description);
+  };
   const docDb = shown?.db ?? db;
   // another saved revision prints with the artwork it was saved with
   const docDepictions = depictions !== false && shown?.depictions !== undefined ? shown.depictions : depictions;
@@ -737,7 +754,7 @@ export function DocumentsPane({
 
       {extensions?.documents === undefined ? null : (
         <div className="cs-extension-slot" data-slot="cable-documents">
-          {extensions.documents({ design: docDesign, db: docDb, readOnly: readOnly || editLocked || target !== 'working' && release !== undefined })}
+          {extensions.documents({ design: docDesign, db: docDb, readOnly: readOnly || editLocked || target !== 'working' && release !== undefined, ...(moduleEditable ? { onChange: moduleOnChange } : {}) })}
         </div>
       )}
 

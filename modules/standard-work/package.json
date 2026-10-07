@@ -1,6 +1,6 @@
 {
   "name": "@wirehub/module-standard-work",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "private": true,
   "description": "Optional operation-time estimates and explicit labour adoption for WireHub",

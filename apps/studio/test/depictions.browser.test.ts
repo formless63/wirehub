@@ -8,7 +8,7 @@
  */
 
 import { renderPreview } from '@wirehub/editor-react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { cableListRows, liveCatalogInMemory } from './catalog-in-memory.ts';
 
@@ -18,6 +18,9 @@ const loadDesignInBrowser = catalog.loadDesign;
 const bundledDesignIds = catalog.listDesignIds;
 const bundledCableList = cableListRows;
 import { assembleDepictionSource, browserDepictions, depictionDefsOf, lazyDepictions, versionDepictionSource } from '../src/depictions.browser.ts';
+import { liveDepictions } from '../src/depictions.live.ts';
+import type { ArtworkAdapter, ArtworkDetail } from '@wirehub/editor-react';
+import type { DepictionMeta } from '@wirehub/catalog';
 
 const DIR = '../../../packages/catalog/depictions';
 
@@ -44,6 +47,80 @@ function meta(defId: string, extra: Record<string, unknown> = {}): unknown {
 }
 
 const ART = '<svg viewBox="0 0 10 10"><rect id="frame" width="10" height="10"/></svg>';
+
+describe('live installed-pack depictions', () => {
+  const detail = (id: string): ArtworkDetail => ({ defId: id, exists: true, meta: meta(id) as DepictionMeta, views: [], pinAnchors: {}, unanchored: [], issues: [], uploadableViews: [] });
+  const fallback = () => lazyDepictions({ meta: {}, vector: {} });
+
+  it('discovers an unbundled board and shares its lazy artwork requests', async () => {
+    const adapter: Pick<ArtworkAdapter, 'detail' | 'artwork'> = {
+      detail: vi.fn<ArtworkAdapter['detail']>(async (id) => ({ ok: true, value: detail(id) })),
+      artwork: vi.fn<ArtworkAdapter['artwork']>(async () => ({ ok: true, value: { kind: 'vector', source: ART } })),
+    };
+    const live = liveDepictions(fallback(), adapter, async () => ['installed-board']);
+    const changed = vi.fn();
+    live.subscribe(changed);
+    await live.refresh();
+    expect(live.known()).toEqual(['installed-board']);
+    await Promise.all([live.load(['installed-board']), live.load(['installed-board'])]);
+    expect(live.current().meta('installed-board')?.defId).toBe('installed-board');
+    expect(live.current().artwork('installed-board', 'board-top')).toEqual({ kind: 'vector', source: ART });
+    expect(adapter.detail).toHaveBeenCalledTimes(1);
+    expect(adapter.artwork).toHaveBeenCalledTimes(1);
+    expect(changed).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the live index over bundled art, and drops removed packs on refresh', async () => {
+    let ids = ['board'];
+    let source = ART;
+    const bundled = lazyDepictions({ meta: { [`${DIR}/bundled-only/meta.json`]: async () => meta('bundled-only') }, vector: {} });
+    const live = liveDepictions(bundled, {
+      detail: async (id) => ({ ok: true, value: detail(id) }),
+      artwork: async () => ({ ok: true, value: { kind: 'vector', source } }),
+    }, async () => ids);
+    await live.load(['board']);
+    expect(live.current().meta('bundled-only')).toBeUndefined();
+    source = '<svg>updated synthetic artwork</svg>';
+    await live.refresh();
+    await live.load(['board']);
+    expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'vector', source });
+    ids = [];
+    await live.refresh();
+    expect(live.known()).toEqual([]);
+    expect(live.current().meta('board')).toBeUndefined();
+  });
+
+  it('does not restore a removed pack when an old request finishes late', async () => {
+    let finish!: (value: Awaited<ReturnType<ArtworkAdapter['detail']>>) => void;
+    let ids = ['board'];
+    const live = liveDepictions(fallback(), {
+      detail: () => new Promise((resolve) => { finish = resolve; }),
+      artwork: async () => ({ ok: true, value: { kind: 'vector', source: ART } }),
+    }, async () => ids);
+    await live.refresh();
+    const loading = live.load(['board']);
+    await Promise.resolve();
+    ids = [];
+    await live.refresh();
+    finish({ ok: true, value: detail('board') });
+    await loading;
+    expect(live.current().meta('board')).toBeUndefined();
+  });
+
+  it('retries unavailable live artwork and embeds raster bytes from the adapter', async () => {
+    let available = false;
+    const raster = 'data:image/png;base64,c3ludGhldGlj';
+    const live = liveDepictions(fallback(), {
+      detail: async (id) => available ? ({ ok: true, value: { ...detail(id), meta: meta(id, { views: { 'board-top': { file: 'board-top.png', kind: 'raster', mmPerUnit: 1, sourceKind: 'photo', widthUnits: 10, heightUnits: 10, src: 'synthetic example' } } }) as DepictionMeta } }) : ({ ok: false, message: 'Temporarily unavailable' }),
+      artwork: async () => ({ ok: true, value: { kind: 'raster', dataUri: raster } }),
+    }, async () => ['board']);
+    await live.load(['board']);
+    expect(live.current().meta('board')).toBeUndefined();
+    available = true;
+    await live.load(['board']);
+    expect(live.current().artwork('board', 'board-top')).toEqual({ kind: 'raster', dataUri: raster });
+  });
+});
 
 describe('assembleDepictionSource', () => {
   it('keys manifests by directory and hands back the matching artwork', () => {
