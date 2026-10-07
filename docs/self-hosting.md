@@ -58,7 +58,7 @@ reverse proxy) and `WIREHUB_PUBLIC_URL` to the address people open.
 
 **<https://formless63.github.io/wirehub/generator/>** writes a `compose.yaml` and a
 `.env` from a few choices: the public URL and ports, your own PostgreSQL or
-S3 instead of the bundled ones, backups, OIDC sign-in, the image tag, and the
+S3 instead of the bundled ones, backups, the image tag, and the
 domain modules to suggest at setup. It runs entirely in your browser — the
 page makes no network request at all, and the same result is possible
 without it (download the files and let the stack generate its secrets, or
@@ -75,15 +75,16 @@ it is done) asks for:
 3. the **admin**: your name, email and a password (12 characters or more).
    Single sign-on is usually added afterwards, under Settings > Sign-in &
    accounts. A hub that must never have a password from the start sets
-   `AUTH_LOCAL_ACCOUNTS=false` and `AUTH_OIDC_*` on the server for its first
-   start (in a `compose.override.yaml`); setup then asks only for the email
-   the identity provider knows you by;
+   `AUTH_LOCAL_ACCOUNTS=false` and a configured GitHub, Google or OIDC
+   provider on the server for its first start (in a `compose.override.yaml`);
+   setup records the owner email the provider knows you by, then asks you
+   to sign in through that provider;
 4. the **catalog**: the starter catalog (example cables and the parts they
    use) or an empty one (the base vocabulary only);
 5. the **domain modules** (below).
 
-Finishing creates all of it in the database, signs you in, and opens the
-studio. Invite the others from **People** (the people icon in the left rail;
+Finishing creates all of it in the database. Password setup signs you in
+and opens the studio; provider-only setup finishes through provider sign-in. Invite the others from **People** (the people icon in the left rail;
 `/settings/people`): each invitation is a link you send, valid for 7 days,
 with the role you chose — **owner** (manages people), **editor** (changes the
 catalog) or **viewer** (reads).
@@ -230,7 +231,7 @@ install-level variables; to pin a runtime one, add it under the service's
 PDF settings; the app's **and** the worker's for alerts, the git mirror and
 job settings).
 
-**Secrets entered in Settings** (the SMTP password, the OIDC client secret,
+**Secrets entered in Settings** (the SMTP password, the OAuth/OIDC client secrets,
 the webhook URL and token, the git mirror's token or key) are write-only:
 the page shows "set" or "not set", never the value. They are kept encrypted
 (AES-256-GCM) with the install's `settings_key` from the `secrets` volume,
@@ -356,6 +357,7 @@ but is no longer in the default `compose.yaml`.
 | --- | --- | --- |
 | Notifications (owner) | `WIREHUB_NOTIFY_URL`\*, `WIREHUB_NOTIFY_FORMAT`, `WIREHUB_NOTIFY_TOKEN`\* | where alerts go is the owner's choice and changes with their tools |
 | Sign-in & accounts (owner) | `AUTH_LOCAL_ACCOUNTS`, `AUTH_ALLOWED_EMAILS` | who may sign in is people management, like invitations |
+| | `AUTH_GITHUB_ENABLED`, `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET`\*, `AUTH_GOOGLE_ENABLED`, `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET`\* | built-in GitHub and Google sign-in; disabled by default, configured by an owner without redeploying |
 | | `AUTH_OIDC_ISSUER`, `AUTH_OIDC_CLIENT_ID`, `AUTH_OIDC_CLIENT_SECRET`\*, `AUTH_OIDC_SCOPES`, `AUTH_OIDC_EMAIL_CLAIM`, `AUTH_OIDC_PROVIDER_ID`, `AUTH_OIDC_NAME` | an identity provider is added or rotated without touching the stack; the sign-in rebuilds in-process, sessions stay |
 | | `AUTH_SMTP_HOST`, `AUTH_SMTP_PORT`, `AUTH_SMTP_SECURE`, `AUTH_SMTP_USER`, `AUTH_SMTP_PASS`\*, `AUTH_SMTP_FROM` | the magic link's mail server, the same |
 | | `WIREHUB_TOKEN_READS_PER_MINUTE`, `WIREHUB_TOKEN_WRITES_PER_MINUTE`, `WIREHUB_TOKEN_WRITES_PER_DAY` | API token budgets, tuned to how the hub's scripts work (new; were fixed) |
@@ -379,7 +381,7 @@ can also be given as a file (`NAME_FILE`).
 | `WIREHUB_TEST_DEFAULTS` | continuity test parameters as JSON. Like every runtime setting, a parameter it sets wins and shows read-only as "set by the server" under Settings > Testing; the parameters it leaves out are set there (changed in v0.2.0: it used to be a fallback Settings overrode) |
 
 **Sign-in** is on: first-run setup makes the admin's account, and the admin
-invites everyone else. Single sign-on (OIDC), magic links over SMTP and the
+invites everyone else. GitHub, Google, single sign-on (OIDC), magic links over SMTP and the
 allowed emails (who may sign in without an invitation, as editors) are set
 under Settings > Sign-in & accounts; nobody can claim a new hub before you,
 because `/setup` asks for the setup code. Before the hub is reachable from
@@ -790,6 +792,82 @@ the stack, move `pg_data` aside, change the `postgres` image tag, start (the
 roles are recreated), then restore the dump as above. Try it on a copy first. Releases are listed at
 <https://github.com/formless63/wirehub/releases>; the image is tagged `X.Y.Z`,
 `X.Y`, `X` (from 1.0) and `latest`. Pin a full version in production.
+
+### GitHub and Google sign-in
+
+Set `WIREHUB_PUBLIC_URL` to the final browser-facing HTTPS address **before**
+registering either provider. In **Settings > Sign-in & accounts**, enter the
+provider's client ID and client secret, enable it, then save. Both providers
+are off by default. Secrets are encrypted and write-only; configuring one
+does not grant access to everyone with a provider account. Invitations,
+organisation membership and the existing allowed-email rules still apply.
+
+**Adding a provider to an existing password account:** sign in with the
+password first, click your avatar to open the sign-in/account page, then
+choose **Connect GitHub** or **Connect Google**. Use the same verified email
+as the existing WireHub account. A successful provider login does not
+silently link an unverified local email; connecting while authenticated
+proves control of both accounts. Test provider sign-in before disabling
+password accounts.
+
+| Provider | Register | Exact callback URL (example public address) |
+| --- | --- | --- |
+| GitHub | A GitHub **OAuth app** | `https://studio.example.com/api/auth/callback/github` |
+| Google | A Google OAuth client of type **Web application** | `https://studio.example.com/api/auth/callback/google` |
+
+For GitHub, create the OAuth app under **Settings > Developer settings >
+OAuth apps**, use the hub's public address as its homepage, and enter the
+callback above. Copy its client ID and generate a client secret. The sign-in
+uses a verified email from GitHub, including a private email; the address
+must match the owner's or invited person's address. See GitHub's
+[OAuth app registration](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
+and [email API](https://docs.github.com/en/rest/users/emails#list-email-addresses-for-the-authenticated-user).
+
+For Google, configure the project's OAuth consent audience, then create a
+**Web application** client with the callback above in **Authorized redirect
+URIs**. If the consent app is in testing, add the people who will test it to
+its test users. WireHub requires a verified Google email matching the person
+in the hub. See Google's
+[web-server client setup](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred)
+and [OpenID Connect email claims](https://developers.google.com/identity/openid-connect/openid-connect#obtainuserinfo).
+
+The callback's scheme, hostname, port and path must match the hub's public
+URL; do not register the container or localhost address for a public hub.
+A reverse proxy must forward the callback to WireHub
+without replacing it with another sign-in flow. Set `WIREHUB_TRUST_PROXY=1`
+only behind a trusted proxy. GitHub and Google use their own built-in
+provider IDs; generic OIDC remains a separate sign-in method.
+
+**Optional server initialization.** The standard Compose and config generator
+leave these runtime settings to the owner in the app. Uncommenting values
+in `.env` alone does not pass them to the app. To configure a provider before
+first setup, add explicit entries to `compose.override.yaml`:
+
+```yaml
+services:
+  wirehub:
+    environment:
+      AUTH_GITHUB_ENABLED: ${AUTH_GITHUB_ENABLED:-false}
+      AUTH_GITHUB_CLIENT_ID: ${AUTH_GITHUB_CLIENT_ID:-}
+      AUTH_GITHUB_CLIENT_SECRET: ${AUTH_GITHUB_CLIENT_SECRET:-}
+      # For a hub that starts with provider sign-in only:
+      AUTH_LOCAL_ACCOUNTS: "false"
+```
+
+Google uses the corresponding `AUTH_GOOGLE_*` names. For a secret file,
+mount it read-only and set `AUTH_GITHUB_CLIENT_SECRET_FILE` or
+`AUTH_GOOGLE_CLIENT_SECRET_FILE` instead of the plain secret. Explicit
+server values lock those Settings fields. To make the provider editable
+later, use **Adopt the server's values**, then remove the provider variables
+from the override and redeploy; saved secrets stay encrypted.
+
+For provider-only first setup, enable and fully configure at least one
+provider, enter the setup code, and record the owner's exact verified
+provider email. Completing setup alone does not establish a provider session:
+finish with **Sign in with GitHub** or **Sign in with Google**. Afterward,
+invite other people as usual. Keep a working owner sign-in method while
+changing providers; the owner-password recovery command below remains
+available if access is lost.
 
 ### Upgrading to v0.2.0: settings moved into the app
 

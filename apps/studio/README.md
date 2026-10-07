@@ -159,8 +159,8 @@ session, the SPA redirects to `/sign-in`, and only allow-listed emails get in.
 Standalone server only — `vite dev` ignores it (and warns if
 `AUTH_ENABLED=true`).
 
-Sign-in: **email + password** accounts (database backend), **OIDC** against
-any compliant provider, and/or an emailed **magic link**; at least one must
+Sign-in: **email + password** accounts (database backend), built-in **GitHub** and **Google**, **OIDC**
+against any compliant provider, and/or an emailed **magic link**; at least one must
 be configured. A missing or invalid variable stops the server at startup with
 one line naming it.
 
@@ -208,8 +208,8 @@ pnpm --filter studio render de9-crossover build-sheet --format pdf --rev latest 
 curl -H "authorization: Bearer $WIREHUB_API_TOKEN" "$WIREHUB_API_URL/api/designs/de9-crossover/documents/schematic?format=pdf" -o schematic.pdf
 ```
 
-**Most of these are set in the app.** The sign-in methods (OIDC, magic link, email +
-password), the allowed emails and the API token budgets are under **Settings > Sign-in &
+**Most of these are set in the app.** The sign-in methods (GitHub, Google,
+OIDC, magic link, email + password), the allowed emails and the API token budgets are under **Settings > Sign-in &
 accounts** (owners), and a change there rebuilds the sign-in in the running server, with
 everyone staying signed in (`specs/runtime-settings.md`). Each variable below still works
 and, when set, wins: Settings then shows it as "set by the server". `AUTH_ENABLED`,
@@ -224,6 +224,9 @@ in the environment.
 | `AUTH_ALLOWED_EMAILS` | — | required on the file backend (optional on pg); comma-separated, case-insensitive; checked at sign-in and on every request |
 | `AUTH_LOCAL_ACCOUNTS` | `true` on pg, else `false` | email + password accounts (database backend only); new ones through setup or an invitation |
 | `AUTH_DATA_DIR` | `<repo>/data/auth` | `auth.sqlite` (sessions) + `saves.jsonl` (save audit) |
+| `AUTH_GITHUB_ENABLED` / `AUTH_GOOGLE_ENABLED` | `false` | enables the built-in provider when its ID and secret are configured |
+| `AUTH_GITHUB_CLIENT_ID` / `AUTH_GOOGLE_CLIENT_ID` | — | OAuth client ID from the provider |
+| `AUTH_GITHUB_CLIENT_SECRET` / `AUTH_GOOGLE_CLIENT_SECRET` | — | confidential client secret; encrypted and write-only when saved in Settings |
 | `AUTH_OIDC_ISSUER` | — | enables OIDC; discovery at `<issuer>/.well-known/openid-configuration` |
 | `AUTH_OIDC_CLIENT_ID` | — | required with the issuer |
 | `AUTH_OIDC_CLIENT_SECRET` | — | confidential client secret |
@@ -237,6 +240,20 @@ in the environment.
 | `AUTH_SMTP_USER` / `AUTH_SMTP_PASS` | — | |
 | `AUTH_SMTP_FROM` | `AUTH_SMTP_USER` | sender address |
 | `WIREHUB_LOCAL_USER` | `git config user.name`, else `local` | who the studio names with the login **off**; `GET /api/me` answers either |
+
+**GitHub / Google:** set `WIREHUB_PUBLIC_URL` (`BETTER_AUTH_URL` on a standalone
+server) before registering the OAuth client. The exact callbacks are
+`<public URL>/api/auth/callback/github` and
+`<public URL>/api/auth/callback/google`. Both require a verified provider
+email; GitHub private emails are supported. Existing membership, invitations
+and allowed-email rules apply. To add a provider to an existing password
+account, sign in locally, click the avatar, then **Connect GitHub** or
+**Connect Google** with the same verified email. Test it before disabling
+password accounts. See the [provider setup and provider-only
+first-run guide](../../docs/self-hosting.md#github-and-google-sign-in).
+The default Compose does not pass runtime auth variables: prefer Settings,
+or explicitly pass them in an override. Any variable also supports `NAME_FILE`;
+server-provided values lock their Settings fields until adopted and removed.
 
 **OIDC client:** a confidential client with PKCE, callback URL
 `<BETTER_AUTH_URL>/api/auth/callback/<AUTH_OIDC_PROVIDER_ID>`.
