@@ -25,6 +25,7 @@ import { stripMakerSuffix, type WireDefinition } from '@wirehub/model';
 import {
   crossSectionLayout,
   METRICS as M,
+  textWidth,
   type CrossSection,
   type CrossSectionCore,
   type CrossSectionRing,
@@ -368,6 +369,15 @@ export function renderCrossSectionPanel(cs: CrossSection): string {
     },
     parts.join(''),
   );
+}
+
+/** Horizontal bounds of dimension and ruler labels in the renderer's own font metrics. */
+export function crossSectionAnnotationBounds(cs: CrossSection): { minX: number; maxX: number } {
+  const halfDimension = textWidth(cs.dimension.label, M.fontCrossSectionKey) / 2;
+  return {
+    minX: Math.min(cs.dimension.labelX - halfDimension, cs.ruler.labelX),
+    maxX: Math.max(cs.dimension.labelX + halfDimension, cs.ruler.labelX + textWidth(cs.ruler.label, M.fontCrossSectionKey)),
+  };
 }
 
 /* ------------------------------------------------------------------ *

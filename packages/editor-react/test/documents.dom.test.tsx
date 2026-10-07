@@ -63,6 +63,60 @@ describe('<DocumentsPane>', () => {
     expect(document.activeElement).toBe(viewport);
   });
 
+  it('includes the measured native gutter and border without changing printed markup or oscillating', () => {
+    vi.useFakeTimers();
+    let resize: (() => void) | undefined;
+    const disconnect = vi.fn();
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { resize = callback; }
+      observe(): void {}
+      disconnect = disconnect;
+    });
+    try {
+      const view = render(<DocumentsPane design={design} db={db} debounceMs={10} render={spyRender()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Formboard' }));
+      act(() => void vi.advanceTimersByTime(10));
+      const frame = view.container.querySelector('iframe')!;
+      const page = frame.contentDocument!.documentElement;
+      Object.defineProperties(frame, { clientWidth: { value: 1121 }, offsetWidth: { value: 1123 } });
+      Object.defineProperty(frame.contentWindow!, 'innerWidth', { value: 1121 });
+      Object.defineProperty(page, 'clientWidth', { value: 1106, writable: true });
+      fireEvent.load(frame);
+      expect(Number.parseFloat(frame.style.minWidth.replace('calc(', ''))).toBeCloseTo(297 * 96 / 25.4 + 17, 2);
+      expect(frame.getAttribute('srcdoc')).toBe('<!doctype html><p>formboard</p>');
+      // A narrower scrollbar must not trigger a shrink/grow feedback loop.
+      Object.defineProperty(page, 'clientWidth', { value: 1121 });
+      act(() => resize?.());
+      expect(Number.parseFloat(frame.style.minWidth.replace('calc(', ''))).toBeCloseTo(297 * 96 / 25.4 + 17, 2);
+      // A later native gutter change still reserves the complete physical page.
+      Object.defineProperty(page, 'clientWidth', { value: 1091 });
+      act(() => resize?.());
+      expect(Number.parseFloat(frame.style.minWidth.replace('calc(', ''))).toBeCloseTo(297 * 96 / 25.4 + 32, 2);
+      view.unmount();
+      expect(disconnect).toHaveBeenCalled();
+      act(() => resize?.());
+    } finally {
+      cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it.each([
+    [0, 0, 0, '210mm'],
+    [794, 794, 796, 210 * 96 / 25.4 + 2],
+  ] as const)('handles unmeasured and overlay-scrollbar frames (content %s)', (inner, client, outer, minimum) => {
+    vi.useFakeTimers();
+    const view = render(<DocumentsPane design={design} db={db} debounceMs={10} render={spyRender()} />);
+    act(() => void vi.advanceTimersByTime(10));
+    const frame = view.container.querySelector('iframe')!;
+    Object.defineProperties(frame, { clientWidth: { value: client }, offsetWidth: { value: outer } });
+    Object.defineProperty(frame.contentWindow!, 'innerWidth', { value: inner });
+    Object.defineProperty(frame.contentDocument!.documentElement, 'clientWidth', { value: inner });
+    fireEvent.load(frame);
+    if (typeof minimum === 'string') expect(frame.style.minWidth).toBe(minimum);
+    else expect(Number.parseFloat(frame.style.minWidth.replace('calc(', ''))).toBeCloseTo(minimum, 2);
+  });
+
   it('opens a different document at its left edge while retaining pan during regeneration', () => {
     vi.useFakeTimers();
     const derive = spyRender();
