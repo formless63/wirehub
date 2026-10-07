@@ -100,7 +100,7 @@ export const SETTING_GROUPS: readonly SettingGroup[] = [
       { key: 'oidc.clientId', env: 'AUTH_OIDC_CLIENT_ID', label: 'OIDC client id', help: 'From the client you made in the identity provider.', kind: 'text' },
       { key: 'oidc.clientSecret', env: 'AUTH_OIDC_CLIENT_SECRET', label: 'OIDC client secret', help: 'Kept encrypted; never shown again.', kind: 'text', secret: true },
       { key: 'oidc.scopes', env: 'AUTH_OIDC_SCOPES', label: 'OIDC scopes', help: 'Space- or comma-separated.', kind: 'text', defaultText: 'openid email profile' },
-      { key: 'oidc.emailClaim', env: 'AUTH_OIDC_EMAIL_CLAIM', label: 'Email claim', help: 'The claim read as the person’s email.', kind: 'text', defaultText: 'email' },
+      { key: 'oidc.emailClaim', env: 'AUTH_OIDC_EMAIL_CLAIM', label: 'Email claim', help: 'The ID-token or userinfo claim used as the person’s hub email; set your provider’s custom claim here if its standard email differs. Connecting a provider requires the same email as your current hub account.', kind: 'text', defaultText: 'email' },
       { key: 'oidc.providerId', env: 'AUTH_OIDC_PROVIDER_ID', label: 'Provider id', help: 'Lowercase letters, digits and hyphens; the last part of the redirect URI.', kind: 'text', defaultText: 'oidc' },
       { key: 'oidc.name', env: 'AUTH_OIDC_NAME', label: 'Button label', help: '"Sign in with …" on the sign-in page.', kind: 'text', defaultText: 'Single sign-on' },
       { key: 'smtp.host', env: 'AUTH_SMTP_HOST', label: 'SMTP server', help: 'Magic-link sign-in: a link by email, the way in when the identity provider is down.', kind: 'text', placeholder: 'smtp.example.com' },

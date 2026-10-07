@@ -10,7 +10,7 @@ export interface SignInPageModel {
   oidc?: { providerId: string; name: string; emailClaim: string };
   /** enabled built-in and module sign-in buttons */
   providers?: readonly { providerId: string; name: string }[];
-  /** built-in providers an allowed signed-in person may explicitly connect */
+  /** configured OIDC and built-in providers an allowed signed-in person may explicitly connect */
   connectProviders?: readonly { providerId: string; name: string }[];
   /** the magic-link form, when SMTP is configured */
   magicLink: boolean;
@@ -42,7 +42,7 @@ export function signInErrorMessage(code: string, model: Pick<SignInPageModel, 'o
       if ((model.connectProviders ?? []).length > 0) return 'Could not verify your provider identity. Use a verified email allowed on this hub and try again.';
       break;
     case 'ACCOUNT_NOT_LINKED':
-      return 'This email already has an account. Sign in with its current method first; enabled GitHub and Google providers can then be connected from this page.';
+      return 'This email already has an account. Sign in with its current method first, then use Connect on this page to add the configured provider.';
     case 'EMAIL_DOES_NOT_MATCH':
       return 'Use the same verified email as your current hub account to connect a sign-in provider.';
     case 'EMAIL_NOT_ALLOWED':

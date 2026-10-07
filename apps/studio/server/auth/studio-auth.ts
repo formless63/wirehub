@@ -154,7 +154,7 @@ function decodeJwtClaims(token: string): Record<string, unknown> {
  * plugin has already verified the ID token (JWKS + nonce) before calling this;
  * if the claim is not in the ID token, the userinfo endpoint is asked.
  */
-function oidcUserInfo(oidc: OidcConfig, fetchImpl: typeof fetch) {
+function oidcUserInfo(oidc: OidcConfig, fetchImpl: typeof fetch, connecting?: { email(): string | undefined; isAllowed(email: string): Promise<boolean> }) {
   let userInfoUrl: Promise<string | undefined> | undefined;
   const discoverUserInfo = (): Promise<string | undefined> =>
     (userInfoUrl ??= fetchImpl(`${oidc.issuer}/.well-known/openid-configuration`)
@@ -171,6 +171,8 @@ function oidcUserInfo(oidc: OidcConfig, fetchImpl: typeof fetch) {
       }
     }
     const claim = profile[oidc.emailClaim];
+    const expected = connecting?.email();
+    if (expected !== undefined && (typeof claim !== 'string' || claim.toLowerCase() !== expected || !(await connecting!.isAllowed(expected)))) return null;
     const sub = profile.sub;
     if (typeof sub !== 'string' && typeof sub !== 'number') return null;
     const name = profile.name ?? profile.preferred_username;
@@ -254,7 +256,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
       ...(oidc.clientSecret === undefined ? {} : { clientSecret: oidc.clientSecret }),
       scopes: oidc.scopes,
       pkce: true,
-      getUserInfo: oidcUserInfo(oidc, fetchImpl),
+      getUserInfo: oidcUserInfo(oidc, fetchImpl, { email: () => linking.getStore()?.email, isAllowed }),
     } as GenericOAuthConfig);
   }
   for (const provider of fromModules.oauth) {
@@ -298,6 +300,14 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
   const options: BetterAuthOptions = {
     appName: 'Studio',
     socialProviders: socialProviders(config, fetchImpl, isAllowed, () => linking.getStore()?.email),
+    user: {
+      async validateUserInfo({ user, source }) {
+        // An owner can revoke access while an external-provider link is in
+        // flight. Code callbacks check again before creating the link; direct
+        // token links are checked by the userinfo wrapper before early returns.
+        if (config.oidc !== undefined && source.action === 'link-account' && source.oauth?.providerId === config.oidc.providerId && typeof user.email === 'string' && !(await isAllowed(user.email))) throw forbidden(user.email);
+      },
+    },
     baseURL: config.baseURL,
     basePath: AUTH_BASE_PATH,
     secret: config.secret,
