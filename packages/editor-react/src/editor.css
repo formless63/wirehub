@@ -6465,3 +6465,12 @@ fieldset.cs-lock-fence {
   opacity: .55;
   cursor: default;
 }
+
+/* Long module forms must not consume the document preview's entire height. */
+.cs-documents > .cs-extension-slot {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(24rem, 45dvh);
+  overflow: auto;
+  margin: 0 10px 10px;
+}
