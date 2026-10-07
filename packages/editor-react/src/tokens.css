@@ -16,6 +16,8 @@
  */
 
 :root {
+  /* Native menus and form controls must use the same palette as the app. */
+  color-scheme: dark;
   /* dark is the default palette written directly onto :root; light overrides
      it under `[data-theme='light']` and under the `prefers-color-scheme`
      fallback below. */
@@ -67,6 +69,7 @@
 }
 
 [data-theme='light'] {
+  color-scheme: light;
   --bg: #f7f6f3;
   --rail: #efeee9;
   --panel: #ffffff;
@@ -109,6 +112,7 @@
    first paint) — mirrors `[data-theme='light']` above; kept in sync by hand */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
+    color-scheme: light;
     --bg: #f7f6f3;
     --rail: #efeee9;
     --panel: #ffffff;
