@@ -34,9 +34,12 @@ Do not modify an artifact in place while a process is using it.
 Mount the verified output directory **read-only** on every process that can
 convert models (normally the worker, plus app/import tooling when applicable),
 then set `WIREHUB_OCCT_STYLES_DIR` to that mount's absolute path. There is no
-network lookup, download, or browser import of this artifact. An opted-in cold
-build refuses if its artifact is missing, unverified or unsupported, including
-assembly builds that otherwise tolerate missing component files.
+network lookup, download, or browser import of this artifact. Opted-in STEP/IGES,
+assembly and multi-STL conversions refuse if the artifact is missing, unverified
+or unsupported, including assemblies that otherwise tolerate missing component
+files. Direct single-STL conversion and GLB pass-through keep their existing
+format paths and need no reader artifact; the occurrence reader changes neither
+format. Their explicit profile keys are still distinct from historical keys.
 
 Explicitly request the `occurrence` profile when creating a source key:
 

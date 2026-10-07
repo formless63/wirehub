@@ -7,6 +7,7 @@ import { sha256Hex, sourceKey, type SourceFile, type ModelBuild } from '../serve
 import { buildProfileOf, buildLinkedModel, type Converter } from '../server/models/build.ts';
 import { relinkWithArt } from '../server/models/board-art.ts';
 import { prepareStepReader, readStep } from '../server/models/step.ts';
+import { convertModel } from '../server/models/convert.ts';
 import { assemble, IDENTITY, translation } from '../server/models/assembly.ts';
 const dirs: string[] = [];
 const temporary = (): string => { const d = mkdtempSync(join(tmpdir(), 'step-style-test-')); dirs.push(d); return d; };
@@ -91,3 +92,15 @@ it('forwards the explicit profile/artwork for multi-file builds, keeping histori
   vi.stubEnv('WIREHUB_OCCT_STYLES_DIR','');
   await expect(buildLinkedModel({ record:'bodies/synthetic',sourceKind:'kicad-library',asset:sourceKey(sources,150_000,undefined,'occurrence'),files:sources,src:'synthetic example' },read)).rejects.toThrow(/must be built and mounted/);
 }, 30_000);
+
+it('keeps direct STL and GLB pass-through formats independent of the optional reader', async () => {
+  vi.stubEnv('WIREHUB_OCCT_STYLES_DIR','');
+  const bytes = new Uint8Array(readFileSync(new URL('./fixtures/models/tetra.stl',import.meta.url)));
+  const old = await convertModel(bytes,'synthetic.stl',{maxTriangles:150_000});
+  const next = await convertModel(bytes,'synthetic.stl',{maxTriangles:150_000,boardTextureProfile:'occurrence'});
+  expect(next.glb).toEqual(old.glb);
+  expect(next.format).toBe('stl');
+  const glb = await convertModel(old.glb,'synthetic.glb',{boardTextureProfile:'occurrence'});
+  expect(glb.glb).toEqual(old.glb);
+  expect(glb.format).toBe('glb');
+});
