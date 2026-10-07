@@ -20,6 +20,7 @@
  * one dependency.
  */
 
+import type { BoardTextureProfile } from './cache.ts';
 import type { MeshPart } from './mesh.ts';
 
 /** A board's two sides of gerber-tier art, SVG text — `board-top`/`board-bottom` (or a revision's). */
@@ -62,13 +63,13 @@ export function boundsOfXY(part: Pick<MeshPart, 'positions'>): Bounds2D {
 }
 
 /** The name convention a board body's mesh part gets, from either source. */
-export function looksLikeBoardPart(name: string): boolean {
-  return name === 'board' || /_pcb(#\d+)?$/i.test(name);
+export function looksLikeBoardPart(name: string, profile: BoardTextureProfile = 'exporter'): boolean {
+  return name === 'board' || /_pcb(#\d+)?$/i.test(name) || (profile === 'exporter' && /^board~[a-z0-9]{1,64}(?:#\d{1,6})?$/i.test(name));
 }
 
 /** The index of the part that is the board body, or `undefined`. */
-export function findBoardPart(parts: readonly MeshPart[]): number | undefined {
-  const at = parts.findIndex((p) => looksLikeBoardPart(p.name));
+export function findBoardPart(parts: readonly MeshPart[], profile: BoardTextureProfile = 'exporter'): number | undefined {
+  const at = parts.findIndex((p) => looksLikeBoardPart(p.name, profile));
   return at === -1 ? undefined : at;
 }
 
@@ -190,9 +191,9 @@ export async function rasterizeSvg(svg: string, size: { width: number; height: n
  * the edge a flat dark colour. `parts` unchanged when there is no board-like
  * part or no `art`.
  */
-export async function applyBoardTexture(parts: readonly MeshPart[], art: BoardArt | undefined): Promise<MeshPart[]> {
+export async function applyBoardTexture(parts: readonly MeshPart[], art: BoardArt | undefined, profile: BoardTextureProfile = 'exporter'): Promise<MeshPart[]> {
   if (art === undefined) return [...parts];
-  const at = findBoardPart(parts);
+  const at = findBoardPart(parts, profile);
   if (at === undefined) return [...parts];
   const board = parts[at]!;
   const split = splitBoardFaces(board);
