@@ -71,6 +71,7 @@ export function ServerEvents({ locks, onCatalog }: { locks?: LockClient | undefi
     () =>
       connectEventStream({
         onCatalog: () => {
+          void browserDepictions().refresh();
           for (const queryKey of [designsKey, cableListKey, dbKey, partNumbersKey, ['studio', 'versions']]) void queryClient.invalidateQueries({ queryKey });
           onCatalog?.();
         },

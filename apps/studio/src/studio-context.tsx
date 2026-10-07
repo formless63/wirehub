@@ -204,6 +204,7 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
   );
 
   const lazyDepictions = useMemo(() => browserDepictions(), []);
+  useEffect(() => { void lazyDepictions.refresh(); }, [lazyDepictions]);
   const depictions = useSyncExternalStore(lazyDepictions.subscribe, lazyDepictions.current);
   const loadDepictionsFor = useCallback((d: CableDesign) => lazyDepictions.load(depictionDefsOf(d)), [lazyDepictions]);
   const rawPersistence = useMemo(() => workbenchPersistence(), []);
@@ -291,9 +292,10 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
   }, [apiOffline]);
 
   const onDefinitionsChange = useCallback((): void => {
+    void lazyDepictions.refresh();
     void queryClient.invalidateQueries({ queryKey: dbKey });
     void queryClient.invalidateQueries({ queryKey: partNumbersKey });
-  }, [queryClient]);
+  }, [queryClient, lazyDepictions]);
 
   /* ------------------------------------------------------------------ *
    * Design lifecycle mutations. `editor-react` calls these adapter methods

@@ -127,7 +127,7 @@ export function LibraryRoute(): JSX.Element {
   // the numbering scheme for the part-number Suggest — live from the workbench
   const partNumbers = studio.partNumbers;
   // the tables' Used column and Art flag: every design, and which parts have drawn art
-  const art = useMemo(() => new Set(browserDepictions().known()), []);
+  const art = useMemo(() => new Set(browserDepictions().known()), [studio.depictions]);
 
   // beside "+ New": Browse store (packs from the trusted store indexes), and the
   // Import… button importers modules contribute
