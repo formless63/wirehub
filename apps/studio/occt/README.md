@@ -63,8 +63,12 @@ unit of work.
 For paired board art, source-identified `_soldermask` shell surfaces receive the
 supplied top/bottom textures without deleting their geometry. Other products,
 silkscreen and anonymous surfaces retain their source appearance. Painting
-requires exactly one identified board body; ambiguous or split-color board
-bodies retain source styles instead of borrowing another body's art/bounds.
+requires exactly one original reader board mesh. Its face-color groups carry
+one internal reader identity and use their union bounds without losing source
+triangles. Different reader bodies or placed copies stay separate even when
+their product names, ancestry or coordinates match; ambiguous bodies retain
+source styles. This painter is explicitly keyed as `board-coating-2`; earlier
+occurrence painter keys must not be populated with its output.
 Surface opacity/material transparency is not recovered by this first profile;
 its reader preserves RGB styles and exact source labels.
 

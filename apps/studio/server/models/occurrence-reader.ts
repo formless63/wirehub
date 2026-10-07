@@ -11,7 +11,7 @@ Object.freeze(supported.files);
 Object.freeze(supported);
 export const OCCURRENCE_ARTIFACT = supported;
 // Include the exact supported code and WASM hashes, not the contents of a local directory.
-export const OCCURRENCE_VERSION = `occt-occurrence-1:${createHash('sha256').update(JSON.stringify(supported)).digest('hex')}:board-coating-1`;
+export const OCCURRENCE_VERSION = `occt-occurrence-1:${createHash('sha256').update(JSON.stringify(supported)).digest('hex')}:board-coating-2`;
 const require = createRequire(import.meta.url);
 const hash = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 const REFUSAL = 'The optional occurrence-style importer is unavailable or does not match its pinned manifest. Rebuild and mount the supported artifact.';

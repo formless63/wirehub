@@ -95,6 +95,7 @@ export async function readStep(bytes: Uint8Array, linearDeflection = 0.001, iges
       const compact = compactPart(positions, normals, indices);
       parts.push({
         name: colours.size === 1 ? name : `${name}#${++n}`,
+        ...(profile === 'occurrence' ? { readerMeshId: `occt-mesh:${m}` } : {}),
         ...(profile !== 'occurrence' || mesh.sourceProductName === undefined ? {} : { sourceProductName: mesh.sourceProductName }),
         ...(profile !== 'occurrence' || mesh.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: mesh.sourceOccurrenceName }),
         ...(profile !== 'occurrence' || mesh.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: mesh.sourceAssemblyPath }),

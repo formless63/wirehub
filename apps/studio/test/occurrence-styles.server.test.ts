@@ -33,6 +33,13 @@ describe.skipIf(dir === undefined || dir === '')('pinned occurrence reader', () 
     expect(before.success).toBe(true); expect(after.success).toBe(true);
     expect(geometry(after.meshes)).toEqual(geometry(before.meshes));
   });
+  it('carries original reader mesh identity across face-color splits without grouping separate bodies', async () => {
+    const one = await readStep(fixture('face-colors'),.001,false,'occurrence');
+    expect(one.length).toBeGreaterThan(1);
+    expect(new Set(one.map(p=>p.readerMeshId)).size).toBe(1);
+    const repeated = await readStep(fixture('nested-location-colors'),.001,false,'occurrence');
+    expect(new Set(repeated.map(p=>p.readerMeshId)).size).toBe(2);
+  });
   it('keeps occurrence colors separate for the same product at different locations', async () => {
     const { next } = await load(); const meshes = next.ReadStepFile(fixture('occurrence-colors'), params).meshes;
     expect(meshes).toHaveLength(2);

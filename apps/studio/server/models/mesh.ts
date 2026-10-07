@@ -15,6 +15,8 @@ export interface MeshPart {
   sourceProductName?: string;
   sourceOccurrenceName?: string;
   sourceAssemblyPath?: string;
+  /** Internal identity of one original reader mesh before color splitting; scoped per placed model. */
+  readerMeshId?: string;
   /** xyz per vertex */
   positions: Float32Array;
   /** three vertex indices per triangle */

@@ -122,6 +122,7 @@ export function splitBoardFaces(part: MeshPart): { top: MeshPart; bottom: MeshPa
     ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }),
     ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }),
     ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }),
+    ...(part.readerMeshId === undefined ? {} : { readerMeshId: part.readerMeshId }),
   });
   return { top: pick(top, 'top'), bottom: pick(bottom, 'bottom'), edge: pick(edge, 'edge') };
 }
@@ -184,44 +185,74 @@ export async function rasterizeSvg(svg: string, size: { width: number; height: n
   return new Uint8Array(png);
 }
 
-/**
- * The whole board-texturing pass: find the board body among `parts`, split
- * it into top/bottom/edge, paint the top and bottom with `art`'s rasters and
- * the edge a flat dark colour. `parts` unchanged when there is no board-like
- * part or no `art`.
- */
+/** One original board reader mesh may have been split into several color groups. */
+function occurrenceBoard(parts: readonly MeshPart[]): { board: MeshPart; members: Set<MeshPart> } | undefined {
+  const groups = new Map<string, MeshPart[]>();
+  parts.forEach((part, at) => {
+    if (!looksLikeBoardPart(part.name, 'occurrence')) return;
+    // Missing reader identity can only establish a singleton, never merge bodies.
+    const key = part.readerMeshId ?? `unidentified:${at}`;
+    groups.set(key, [...(groups.get(key) ?? []), part]);
+  });
+  if (groups.size !== 1) return undefined;
+  const group = [...groups.values()][0]!;
+  const first = group[0]!;
+  if (group.length === 1) return { board: first, members: new Set(group) };
+  if (group.some((part) => part.sourceProductName !== first.sourceProductName
+    || part.sourceOccurrenceName !== first.sourceOccurrenceName
+    || part.sourceAssemblyPath !== first.sourceAssemblyPath
+    || (part.normals === undefined) !== (first.normals === undefined))) return undefined;
+  const count = group.reduce((n, p) => n + p.positions.length, 0);
+  const positions = new Float32Array(count);
+  const normals = first.normals === undefined ? undefined : new Float32Array(count);
+  const indices = new Uint32Array(group.reduce((n, p) => n + p.indices.length, 0));
+  let offset = 0;
+  let triangleOffset = 0;
+  for (const part of group) {
+    positions.set(part.positions, offset);
+    if (normals !== undefined) normals.set(part.normals!, offset);
+    for (const index of part.indices) indices[triangleOffset++] = index + offset / 3;
+    offset += part.positions.length;
+  }
+  // Joining color groups changes no source vertex or triangle, and supplies one
+  // shared XY frame for all sides. It cannot combine separate reader bodies.
+  return { board: { ...first, positions, indices, ...(normals === undefined ? {} : { normals }) }, members: new Set(group) };
+}
+
+/** Paint one source board's faces and its explicitly associated coating shells. */
 export async function applyBoardTexture(parts: readonly MeshPart[], art: BoardArt | undefined, profile: BoardTextureProfile = 'exporter'): Promise<MeshPart[]> {
   if (art === undefined) return [...parts];
-  // Occurrence identities can reveal more than one board; never borrow one
-  // board's artwork or bounds for another. A split-color/ambiguous body keeps
-  // its supplied source styles until a single board can be identified.
-  if (profile === 'occurrence' && parts.filter((p) => looksLikeBoardPart(p.name, profile)).length !== 1) return [...parts];
+  const grouped = profile === 'occurrence' ? occurrenceBoard(parts) : undefined;
+  if (profile === 'occurrence' && grouped === undefined) return [...parts];
   const at = findBoardPart(parts, profile);
   if (at === undefined) return [...parts];
-  const board = parts[at]!;
+  const board = grouped?.board ?? parts[at]!;
   const split = splitBoardFaces(board);
   if (split === undefined) return [...parts];
-  // a board STEP may carry a separate, uncoloured "…_soldermask" solid
-  // coincident with the board surface (a thin rim/pad outline, not a full
-  // covering — occt-import-js reads it as its own body's
-  // real-board check on PCA-00109). Z-fighting against the painted top/bottom
-  // faces would otherwise hide the art behind its flat default grey.
   const withoutSoldermask = profile === 'occurrence' ? [...parts] : parts.filter((_, i) => i === at || !/soldermask/i.test(parts[i]!.name));
   const bounds = boundsOfXY(board);
-  // one raster at a time: two 4096 px renders at once would double the child's resident peak (the conversion's memory cap)
+  // Render serially: simultaneous large renders would double resident memory.
   const rasters: Uint8Array[] = [];
   for (const svg of [art.top, art.bottom]) {
     const sizeMm = svgSizeMm(svg) ?? { width: bounds.maxX - bounds.minX || 1, height: bounds.maxY - bounds.minY || 1 };
     rasters.push(await rasterizeSvg(svg, boardRasterSize(sizeMm)));
   }
   const [topPng, bottomPng] = rasters as [Uint8Array, Uint8Array];
-  // the texture is the paint now — drop whichever flat STEP/assembly colour the split faces inherited
   const { color: _topColour, ...topRest } = split.top;
   const { color: _bottomColour, ...bottomRest } = split.bottom;
   const top: MeshPart = { ...topRest, uv: boardFaceUv(split.top, bounds, false), image: topPng };
   const bottom: MeshPart = { ...bottomRest, uv: boardFaceUv(split.bottom, bounds, true), image: bottomPng };
   const edge: MeshPart = { ...split.edge, color: BOARD_EDGE_COLOUR };
+  if (grouped !== undefined) {
+    const out: MeshPart[] = [];
+    let inserted = false;
+    for (const part of withoutSoldermask) {
+      if (!grouped.members.has(part)) out.push(part);
+      else if (!inserted) { out.push(top, bottom, edge); inserted = true; }
+    }
+    return textureBoardCoatings(out, bounds, { top: topPng, bottom: bottomPng }, board);
+  }
   const out = [...withoutSoldermask];
   out.splice(out.indexOf(board), 1, top, bottom, edge);
-  return profile === 'occurrence' ? textureBoardCoatings(out, bounds, { top: topPng, bottom: bottomPng }, board) : out;
+  return out;
 }

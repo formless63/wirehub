@@ -118,7 +118,7 @@ export function transformPart(part: MeshPart, m: Mat4, name = part.name): MeshPa
       indices[t + 2] = part.indices[t + 1]!;
     }
   }
-  return { name, positions, indices, ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }), ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }), ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }), ...(normals === undefined ? {} : { normals }), ...(part.color === undefined ? {} : { color: part.color }) };
+  return { name, positions, indices, ...(part.sourceProductName === undefined ? {} : { sourceProductName: part.sourceProductName }), ...(part.sourceOccurrenceName === undefined ? {} : { sourceOccurrenceName: part.sourceOccurrenceName }), ...(part.sourceAssemblyPath === undefined ? {} : { sourceAssemblyPath: part.sourceAssemblyPath }), ...(part.readerMeshId === undefined ? {} : { readerMeshId: part.readerMeshId }), ...(normals === undefined ? {} : { normals }), ...(part.color === undefined ? {} : { color: part.color }) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -213,7 +213,7 @@ export function mergeByColour(parts: readonly MeshPart[]): MeshPart[] {
   }
   const out: MeshPart[] = [];
   for (const [key, group] of [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    if (group.some((part) => part.sourceProductName !== undefined || part.sourceOccurrenceName !== undefined || part.sourceAssemblyPath !== undefined)) {
+    if (group.some((part) => part.sourceProductName !== undefined || part.sourceOccurrenceName !== undefined || part.sourceAssemblyPath !== undefined || part.readerMeshId !== undefined)) {
       out.push(...group);
       continue;
     }
@@ -266,6 +266,7 @@ export function assemble(plan: Pick<AssemblyPlan, 'board' | 'instances'>, meshes
     for (const part of meshes[instance.model] ?? []) {
       const placed = transformPart(part, instance.matrix);
       // Reader-local ancestry is meaningful only within this model occurrence.
+      if (placed.readerMeshId !== undefined) placed.readerMeshId = `model:${instance.model}/instance:${at}/${placed.readerMeshId}`;
       if (placed.sourceAssemblyPath !== undefined) placed.sourceAssemblyPath = `model:${instance.model}/instance:${at}${placed.sourceAssemblyPath}`;
       parts.push(placed);
     }

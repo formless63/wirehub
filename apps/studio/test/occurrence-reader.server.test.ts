@@ -2,7 +2,7 @@ import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
-import { occurrenceFactory, OCCURRENCE_ARTIFACT } from '../server/models/occurrence-reader.ts';
+import { occurrenceFactory, OCCURRENCE_ARTIFACT, OCCURRENCE_VERSION } from '../server/models/occurrence-reader.ts';
 import { sha256Hex, sourceKey, type SourceFile, type ModelBuild } from '../server/models/cache.ts';
 import { buildProfileOf, buildLinkedModel, type Converter } from '../server/models/build.ts';
 import { relinkWithArt } from '../server/models/board-art.ts';
@@ -15,6 +15,7 @@ afterEach(() => { vi.unstubAllEnvs(); for (const dir of dirs.splice(0)) rmSync(d
 const files: SourceFile[] = [{ path: 'synthetic/component.step', sha256: 'a'.repeat(64) }];
 const art: SourceFile[] = [{ path: 'depictions/synthetic/board-top.svg', sha256: 'b'.repeat(64) }, { path: 'depictions/synthetic/board-bottom.svg', sha256: 'c'.repeat(64) }];
 it('keeps legacy/exporter keys and explicitly separates both components and paired boards', () => {
+  expect(OCCURRENCE_VERSION.endsWith(':board-coating-2')).toBe(true);
   for (const sources of [files, [...files, ...art]]) {
     const keys = (['legacy', 'exporter', 'occurrence'] as const).map((profile) => sourceKey(sources, 150_000, undefined, profile));
     expect(keys[2]).not.toBe(keys[0]); expect(keys[2]).not.toBe(keys[1]);
@@ -67,11 +68,12 @@ it('rejects a symlinked artifact directory and files, unexpected manifest and ch
 });
 
 it('preserves source identity while separating placed copies and component-file contexts', () => {
-  const part = { name: 'synthetic', sourceProductName: 'Synthetic_PCB', sourceOccurrenceName: 'Synthetic instance', sourceAssemblyPath: '/1/2/',
+  const part = { name: 'synthetic', readerMeshId: 'occt-mesh:0', sourceProductName: 'Synthetic_PCB', sourceOccurrenceName: 'Synthetic instance', sourceAssemblyPath: '/1/2/',
     positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]), indices: new Uint32Array([0, 1, 2]), color: [1, 0, 0] as [number, number, number] };
   const out = assemble({ instances: [{ model: 0, matrix: IDENTITY }, { model: 0, matrix: translation(5, 0, 0) }, { model: 1, matrix: IDENTITY }] }, [[part], [part]]);
   expect(out).toHaveLength(3);
   expect(new Set(out.map((p) => p.sourceAssemblyPath)).size).toBe(3);
+  expect(new Set(out.map(p=>p.readerMeshId)).size).toBe(3);
   expect(out.every((p) => p.sourceProductName === part.sourceProductName && p.sourceOccurrenceName === part.sourceOccurrenceName)).toBe(true);
   expect(out[1]!.positions[0]).toBe(5);
   expect(part.sourceAssemblyPath).toBe('/1/2/');
