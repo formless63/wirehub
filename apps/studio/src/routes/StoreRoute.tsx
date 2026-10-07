@@ -10,7 +10,7 @@ import { StoreBrowser } from '../modules/StoreBrowser.tsx';
 
 export function StoreRoute(): JSX.Element {
   return (
-    <div className="overflow-auto">
+    <div className="min-w-0 overflow-auto">
       <div className="px-3 pt-2">
         <Link to="/library/$kind" params={{ kind: 'connectors' }} className="underline">
           ← Library

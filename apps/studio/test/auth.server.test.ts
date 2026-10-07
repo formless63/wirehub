@@ -420,7 +420,7 @@ it('explicitly connects configured OIDC to an unverified local account using its
   const implicit = await oidcSignIn(call, OWNER);
   expect(implicit.landing.headers.get('location')).toContain('account_not_linked');
   expect(database.prepare('SELECT count(*) AS n FROM account').get()).toMatchObject({ n: 1 });
-  const page = await (await call('/sign-in', {}, local)).text();
+  const page = await (await call('/sign-in?embed=1', {}, local)).text();
   expect(page).toContain('Connect Example identity');
   const mismatch = await oidcSignIn(call, 'alex@example.test', local, true);
   expect(mismatch.landing.headers.get('location')).toContain('email_does_not_match');

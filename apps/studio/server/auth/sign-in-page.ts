@@ -160,15 +160,16 @@ ${body}
 var next=${JSON.stringify(model.next).replace(/</g, '\\u003c')};
 var status=document.getElementById('status');
 function say(text,kind){status.textContent=text;status.className='msg '+(kind||'')}
+function go(url){location.href=url}
 function post(path,body){return fetch('/api/auth'+path,{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){return {ok:r.ok,body:j}})})}
-Array.prototype.forEach.call(document.querySelectorAll('[data-sso]'),function(oidc){oidc.addEventListener('click',function(){oidc.disabled=true;post('/sign-in/social',{provider:oidc.dataset.provider,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){location.href=r.body.url}else{oidc.disabled=false;say(r.body.message||'Could not reach the sign-in provider.','err')}},function(){oidc.disabled=false;say('Could not reach the studio.','err')})})});
-Array.prototype.forEach.call(document.querySelectorAll('[data-connect]'),function(button){button.addEventListener('click',function(){button.disabled=true;post('/link-social',{provider:button.dataset.provider,callbackURL:'/sign-in',errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){location.href=r.body.url}else{button.disabled=false;say(r.body.message||'Could not connect that account.','err')}},function(){button.disabled=false;say('Could not reach the studio.','err')})})});
+Array.prototype.forEach.call(document.querySelectorAll('[data-sso]'),function(oidc){oidc.addEventListener('click',function(){oidc.disabled=true;post('/sign-in/social',{provider:oidc.dataset.provider,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){go(r.body.url)}else{oidc.disabled=false;say(r.body.message||'Could not reach the sign-in provider.','err')}},function(){oidc.disabled=false;say('Could not reach the studio.','err')})})});
+Array.prototype.forEach.call(document.querySelectorAll('[data-connect]'),function(button){button.addEventListener('click',function(){button.disabled=true;post('/link-social',{provider:button.dataset.provider,callbackURL:'/sign-in',errorCallbackURL:'/sign-in'}).then(function(r){if(r.ok&&r.body.url){go(r.body.url)}else{button.disabled=false;say(r.body.message||'Could not connect that account.','err')}},function(){button.disabled=false;say('Could not reach the studio.','err')})})});
 var form=document.getElementById('magic');
 if(form)form.addEventListener('submit',function(e){e.preventDefault();var email=form.email.value.trim();if(!email){say('Enter your email.','err');return}var b=form.querySelector('button');b.disabled=true;post('/sign-in/magic-link',{email:email,callbackURL:next,errorCallbackURL:'/sign-in'}).then(function(r){b.disabled=false;if(r.ok){say('Link sent to '+email+'. It works once, for 10 minutes.','ok')}else{say(r.body.message||'Could not send the link.','err')}},function(){b.disabled=false;say('Could not reach the studio.','err')})});
 var pw=document.getElementById('password');
-if(pw)pw.addEventListener('submit',function(e){e.preventDefault();var b=pw.querySelector('button');b.disabled=true;post('/sign-in/email',{email:pw.email.value.trim(),password:pw.password.value,callbackURL:next}).then(function(r){if(r.ok){location.href=next}else{b.disabled=false;say(r.body.message||'That email and password do not match.','err')}},function(){b.disabled=false;say('Could not reach the studio.','err')})});
+if(pw)pw.addEventListener('submit',function(e){e.preventDefault();var b=pw.querySelector('button');b.disabled=true;post('/sign-in/email',{email:pw.email.value.trim(),password:pw.password.value,callbackURL:next}).then(function(r){if(r.ok){go(next)}else{b.disabled=false;say(r.body.message||'That email and password do not match.','err')}},function(){b.disabled=false;say('Could not reach the studio.','err')})});
 var out=document.getElementById('sign-out');
-if(out)out.addEventListener('click',function(){post('/sign-out',{}).then(function(){location.href='/sign-in'})});
+if(out)out.addEventListener('click',function(){post('/sign-out',{}).then(function(){go('/sign-in')})});
 })();
 </script>
 </body>
@@ -194,7 +195,7 @@ export function renderInvitePage(model: { token: string; localAccounts: boolean 
     .replace(
       'var out=document.getElementById',
       `var acc=document.getElementById('accept');
-if(acc)acc.addEventListener('submit',function(e){e.preventDefault();var b=acc.querySelector('button');b.disabled=true;fetch('/api/invitations/accept',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify({token:${JSON.stringify(model.token).replace(/</g, '\\u003c')},name:acc.name.value,password:acc.password.value})}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(r.ok){location.href='/'}else{b.disabled=false;say(j.error||j.message||'Could not accept the invitation.','err')}})},function(){b.disabled=false;say('Could not reach the studio.','err')})});
+if(acc)acc.addEventListener('submit',function(e){e.preventDefault();var b=acc.querySelector('button');b.disabled=true;fetch('/api/invitations/accept',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify({token:${JSON.stringify(model.token).replace(/</g, '\\u003c')},name:acc.name.value,password:acc.password.value})}).then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(r.ok){go('/')}else{b.disabled=false;say(j.error||j.message||'Could not accept the invitation.','err')}})},function(){b.disabled=false;say('Could not reach the studio.','err')})});
 var out=document.getElementById`,
     );
 }
@@ -256,4 +257,27 @@ var inv=document.getElementById('invite');
 if(inv){load();inv.addEventListener('submit',function(e){e.preventDefault();call('POST','/api/invitations',{email:inv.iemail.value,role:inv.irole.value}).then(function(r){if(r.ok){document.getElementById('link').textContent='Send this link to '+r.body.invitation.email+' (shown once): '+r.body.link;inv.iemail.value='';load()}else{say(r.body.error||'Could not invite.','err')}})})}
 var out=document.getElementById`,
     );
+}
+
+/** Only the authenticated gate serves this same-origin frame inside the SPA. */
+export function renderEmbeddedAccountPage(page: string): string {
+  return page
+    .replace('<h1>WireHub <span>· sign in</span></h1>', '<h1>My account</h1>')
+    .replace('<h1>WireHub <span>· API tokens</span></h1>', '<h1>My API tokens</h1>')
+    .replace('<h1>WireHub <span>· people</span></h1>', '<h1>People of this hub</h1>')
+    .replace('</style>', `
+main{min-height:0;display:block;padding:16px}
+.card{max-width:720px;background:transparent;border:0;border-radius:0;padding:0;gap:12px}
+.card h1{font-size:16px;margin-bottom:4px}
+.card .btn{width:auto;min-height:32px;height:auto;padding:0 12px;align-self:flex-start}
+.card form .btn{align-self:flex-start}
+.card select{max-width:100%;padding:6px;border:1px solid var(--line2);border-radius:5px;background:var(--raised);color:var(--ink);font:inherit}
+.card ul{padding-left:20px;overflow-wrap:anywhere}
+.card input[type=checkbox]{height:auto;width:auto}
+.card li{margin:8px 0}
+.card li .btn{display:inline-block;margin:4px 6px}
+.card a:not(.btn){color:var(--accent)}
+</style>`)
+    .replace(/<a /g, '<a target="_top" ')
+    .replace('function go(url){location.href=url}', 'function go(url){window.top.location.href=url}');
 }

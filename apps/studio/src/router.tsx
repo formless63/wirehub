@@ -31,6 +31,8 @@ import { CableRoute } from './routes/CableRoute.tsx';
 import { SetupRoute } from './routes/SetupRoute.tsx';
 import { ModuleRoute, ModulesRoute } from './routes/ModuleRoute.tsx';
 import { JobsRoute } from './routes/JobsRoute.tsx';
+import { settingsSection, type SettingsSection } from './settings-sections.ts';
+import { AccountRoute } from './routes/AccountRoute.tsx';
 import { SettingsRoute } from './routes/SettingsRoute.tsx';
 import { PartNumbersRoute } from './routes/PartNumbersRoute.tsx';
 import { HistoryRoute } from './routes/HistoryRoute.tsx';
@@ -199,6 +201,10 @@ export const jobsRoute = createRoute({
 export const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
+  validateSearch: (search: Record<string, unknown>): { section?: SettingsSection } => {
+    const section = settingsSection(search['section']);
+    return section === undefined ? {} : { section };
+  },
   component: SettingsRoute,
 });
 
@@ -237,9 +243,23 @@ export const productRoute = createRoute({
   component: ProductRoute,
 });
 
+/** Session-gated account and people controls, with the same app navigation. */
+export const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/sign-in',
+  validateSearch: (search: Record<string, unknown>): { error?: string } =>
+    typeof search['error'] === 'string' && /^[A-Z0-9_]{1,60}$/i.test(search['error']) ? { error: search['error'] } : {},
+  component: AccountRoute,
+});
+export const peopleRoute = createRoute({ getParentRoute: () => rootRoute, path: '/settings/people', component: AccountRoute });
+export const tokensRoute = createRoute({ getParentRoute: () => rootRoute, path: '/account/tokens', component: AccountRoute });
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   setupRoute,
+  accountRoute,
+  peopleRoute,
+  tokensRoute,
   cablesRoute,
   cableRoute,
   libraryIndexRoute,

@@ -41,7 +41,7 @@ import { useCommandRegistry } from '../commands/registry.tsx';
 import { formatShortcut } from '../commands/shortcuts.ts';
 import { StudioMark, Wordmark } from './Wordmark.tsx';
 import { BackupIndicator } from './BackupIndicator.tsx';
-import { cableRoute, libraryIndexRoute, libraryItemRoute, libraryKindRoute, type CableSearch, type CableView } from '../router.tsx';
+import { cableRoute, type CableSearch, type CableView } from '../router.tsx';
 import { swappableStocks } from '@wirehub/editor-react';
 import { useStudio } from '../studio-context.tsx';
 import { useEditorChrome } from './editor-chrome.tsx';
@@ -50,6 +50,8 @@ import { ProductChips } from './ProductChips.tsx';
 import { StatusChip } from './StatusChip.tsx';
 import { ReleaseChip } from '../versions/ReleaseChip.tsx';
 import { HistoryButton } from '../history/HistoryPanel.tsx';
+import { pageTitle } from './navigation.ts';
+import { useModules } from '../modules/ModulesContext.tsx';
 import { designRecord } from '../locks/records.ts';
 
 const VIEWS: readonly { key: CableView; label: string }[] = [
@@ -93,13 +95,11 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
   const registry = useCommandRegistry();
   const chrome = useEditorChrome();
 
+  const pathname = matches[matches.length - 1]?.pathname ?? '';
+  const modules = useModules();
+  const moduleTitle = modules.routes().find(route => pathname === `/m/${route.module}/${route.path}`)?.label;
   const cableMatch = matches.find((match) => match.routeId === cableRoute.id);
-  const onLibrary = matches.some(
-    (match) =>
-      match.routeId === libraryIndexRoute.id ||
-      match.routeId === libraryKindRoute.id ||
-      match.routeId === libraryItemRoute.id,
-  );
+
 
   const cableId = cableMatch === undefined ? undefined : (cableMatch.params as { id: string }).id;
   const search = cableMatch === undefined ? undefined : (cableMatch.search as CableSearch);
@@ -135,10 +135,10 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
       >
         <IconMenu2 size={18} />
       </button>
-      <div className="flex h-11 w-12 shrink-0 items-center justify-center border-r border-line max-sm:w-8 max-sm:border-r-0">
+      <Link to="/cables" aria-label="WireHub home" title="Cables" className="cs-home-mark flex h-11 shrink-0 items-center justify-center border-r border-line max-sm:border-r-0">
         <StudioMark />
-      </div>
-      <Wordmark className="text-[15px] max-sm:hidden" />
+      </Link>
+      <Link to="/cables" aria-label="WireHub home wordmark" title="Cables" className="max-sm:hidden"><Wordmark className="text-[15px]" /></Link>
       <span className="h-[18px] w-px shrink-0 bg-line2 max-sm:hidden" aria-hidden="true" />
 
       {cableId !== undefined ? (
@@ -247,7 +247,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
         </nav>
       ) : (
         <span data-testid="section-title" className="truncate text-[12.5px] font-medium text-ink">
-          {onLibrary ? 'Library' : 'Cables'}
+          {moduleTitle ?? pageTitle(pathname)}
         </span>
       )}
 

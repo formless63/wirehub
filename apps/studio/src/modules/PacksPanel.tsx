@@ -1,3 +1,4 @@
+import { AppLink } from '../shell/AppLink.tsx';
 /**
  * Catalog packs on the modules page: what is installed, update with a diff,
  * disable, and "Install pack…" from a file or an https URL. Every change is
@@ -178,9 +179,14 @@ export function PacksPanel(): JSX.Element {
     });
 
   return (
-    <section className="mb-4 border-b border-line pb-3" data-testid="packs-panel">
+    <section className="mb-4 min-w-0 border-b border-line pb-3 [overflow-wrap:anywhere]" data-testid="packs-panel">
       <h2 className="text-[13px] font-medium">Catalog packs</h2>
-      <a href="/library/store" className="underline">Browse store</a> for packs from the store indexes this hub trusts.
+      <p className="mb-2 text-faint">Installed catalog data and uploads. A pack may also carry a signed code module; its preview asks for owner consent before code can run.</p>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <AppLink to="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse store</AppLink>
+        <AppLink to="/settings" section="modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage code modules</AppLink>
+        <AppLink to="/settings" section="stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</AppLink>
+      </div>
       {packs === undefined ? <div className="text-faint">Loading…</div> : packs.length === 0 ? <div className="text-faint">No packs are installed.</div> : null}
       <ul>
         {(packs ?? []).map((p) => (
@@ -192,18 +198,18 @@ export function PacksPanel(): JSX.Element {
                 <span key={n.index} role="alert" className="ml-2 border border-warn px-1 text-warn" data-pack-warning={p.id} title={noticeText(n)}>
                   {n.yanked !== undefined ? 'Yanked' : n.revoked !== undefined ? 'Revoked key' : 'Flagged'}: {noticeText(n)}{' '}
                   {n.suggest === undefined ? null : (
-                    <a href="/library/store" className="underline">
+                    <AppLink to="/library/store" className="underline">
                       Update…
-                    </a>
+                    </AppLink>
                   )}
                 </span>
               ))}
             {!canWrite || p.available === undefined ? null : (
-              <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void run(async () => showPlan(await previewUpdate(p.id), 'update', p.id))}>
+              <button type="button" className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void run(async () => showPlan(await previewUpdate(p.id), 'update', p.id))}>
                 Update to {p.available}…
               </button>
             )}
-            {!canWrite ? null : <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void run(async () => showPlan(await previewDisable(p.id), 'disable', p.id))}>
+            {!canWrite ? null : <button type="button" className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void run(async () => showPlan(await previewDisable(p.id), 'disable', p.id))}>
               Disable…
             </button>}
           </li>
@@ -215,6 +221,7 @@ export function PacksPanel(): JSX.Element {
         <div className="mt-1">
           <input
             type="file"
+            className="max-w-full"
             aria-label="Pack file"
             accept=".zip,.json,application/zip,application/json"
             disabled={busy}
@@ -240,15 +247,15 @@ export function PacksPanel(): JSX.Element {
             placeholder="Publisher key (RW…), for a pack with code"
             value={trustKey}
             onChange={(e) => setTrustKey(e.target.value)}
-            className="w-80 border border-line px-1"
+            className="w-80 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1.5"
           />{' '}
           <span className="text-faint">only for a code module from a file or address: its publisher's public key, compared with the publisher another way (owners)</span>
         </div>
-        <div className="mt-1">
-          <input type="url" aria-label="Pack address" placeholder="https://…/pack.zip" value={url} onChange={(e) => setUrl(e.target.value)} className="w-80 border border-line px-1" />
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <input type="url" aria-label="Pack address" placeholder="https://…/pack.zip" value={url} onChange={(e) => setUrl(e.target.value)} className="w-80 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1.5" />
           <button
             type="button"
-            className="ml-2 underline"
+            className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50"
             disabled={busy || url.trim() === ''}
             onClick={() => void run(async () => showPlan(await previewInstall({ url: url.trim() }, '/api', { trustKey }), 'install', url.trim(), { url: url.trim() }))}
           >
@@ -266,10 +273,10 @@ export function PacksPanel(): JSX.Element {
           </b>
           <PlanView plan={pending.plan} />
           {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
-          <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="mr-2 underline">
+          <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="mr-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:opacity-50">
             {pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable pack' : 'Install'}
           </button>
-          <button type="button" onClick={() => setPending(undefined)} className="underline">
+          <button type="button" onClick={() => setPending(undefined)} className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">
             Cancel
           </button>
         </div>

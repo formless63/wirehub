@@ -18,7 +18,7 @@
  * touches the ≥640px layout.
  */
 
-import { useState, type JSX, type ReactNode } from 'react';
+import { useState, useCallback, type JSX, type ReactNode } from 'react';
 
 import { AppCommands } from '../commands/AppCommands.tsx';
 import { CommandPalette } from '../commands/CommandPalette.tsx';
@@ -32,6 +32,7 @@ import { TopBar } from './TopBar.tsx';
 
 export function Shell({ children }: { children: ReactNode }): JSX.Element {
   const [navOpen, setNavOpen] = useState(false);
+  const closeNav = useCallback(() => setNavOpen(false), []);
   return (
     <EditorChromeProvider>
       <div className="flex h-full flex-col overflow-hidden bg-bg text-ink">
@@ -45,7 +46,7 @@ export function Shell({ children }: { children: ReactNode }): JSX.Element {
         <StatusBar />
         <CommandPalette />
         <NewCableWizardHost />
-        <MobileNavSheet open={navOpen} onClose={() => setNavOpen(false)} />
+        <MobileNavSheet open={navOpen} onClose={closeNav} />
       </div>
     </EditorChromeProvider>
   );

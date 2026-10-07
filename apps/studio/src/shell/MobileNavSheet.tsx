@@ -1,106 +1,37 @@
-/**
- * The left rail's stand-in at portrait phone widths:
- * `Rail` (48px, always visible on desktop) is hidden below `sm` — see its
- * own `max-sm:hidden` — and this slide-in sheet takes over Cables/Library
- * navigation instead of squeezing it permanently onto the canvas. Desktop
- * never mounts this open (`Shell` only flips it from the hamburger button
- * that is itself `max-sm:` only), so there is nothing here that can affect
- * the ≥640px layout.
- */
-
-import { Link, useMatches } from '@tanstack/react-router';
-import { IconBox, IconHistory, IconList, IconPackages, IconRoute, IconX } from '@tabler/icons-react';
-import { useEffect, type JSX } from 'react';
-
-import { useModules } from '../modules/ModulesContext.tsx';
+/** Phone navigation uses the same destinations as the desktop rail. */
+import { Link } from '@tanstack/react-router';
+import { IconX } from '@tabler/icons-react';
+import { useEffect, useRef, type JSX } from 'react';
+import { NavItems } from './NavItems.tsx';
 import { Wordmark } from './Wordmark.tsx';
 
-const LINKS = [
-  { to: '/cables' as const, label: 'Cables', icon: IconList },
-  { to: '/library' as const, label: 'Library', icon: IconBox },
-  { to: '/history' as const, label: 'History', icon: IconHistory },
-  { to: '/resolver' as const, label: 'Which cable do I need?', icon: IconRoute },
-  { to: '/products' as const, label: 'Products', icon: IconPackages },
-];
-
-export function MobileNavSheet(props: { open: boolean; onClose: () => void }): JSX.Element | null {
-  const { open, onClose } = props;
-  const matches = useMatches();
-  const registry = useModules();
-  const moduleRoutes = registry.routes().filter((r) => r.icon !== undefined);
-  const hasImporters = registry.importers().length > 0;
-  const pathname = matches[matches.length - 1]?.pathname ?? '';
-
+export function MobileNavSheet({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element | null {
+  const dialog = useRef<HTMLDivElement>(null);
+  const close = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    close.current?.focus();
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') { event.preventDefault(); onClose(); }
+      if (event.key !== 'Tab') return;
+      const items = [...(dialog.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled):not([tabindex="-1"])') ?? [])];
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); previous?.focus(); };
   }, [open, onClose]);
-
   if (!open) return null;
-
-  return (
-    <div role="dialog" aria-modal="true" aria-label="Navigation" className="fixed inset-0 z-50 hidden max-sm:block">
-      <button
-        type="button"
-        aria-label="Close navigation"
-        onClick={onClose}
-        className="absolute inset-0 border-0 bg-black/45 p-0"
-      />
-      <nav className="absolute inset-y-0 left-0 flex w-64 max-w-[80vw] flex-col gap-1 border-r border-line bg-panel p-2 shadow-[var(--shadow)]">
-        <div className="flex items-center justify-between px-1.5 py-1.5">
-          <Wordmark className="text-[13px]" />
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-dim"
-          >
-            <IconX size={16} />
-          </button>
-        </div>
-        {LINKS.map(({ to, label, icon: Icon }) => {
-          const active = pathname.startsWith(to);
-          return (
-            <Link
-              key={to}
-              to={to}
-              onClick={onClose}
-              className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] no-underline ${
-                active ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-hover'
-              }`}
-            >
-              <Icon size={17} />
-              {label}
-            </Link>
-          );
-        })}
-        {moduleRoutes.map((r) => (
-          <Link
-            key={`${r.module}/${r.path}`}
-            to="/m/$module/$"
-            params={{ module: r.module, _splat: r.path }}
-            onClick={onClose}
-            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] no-underline ${
-              pathname === `/m/${r.module}/${r.path}` ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-hover'
-            }`}
-          >
-            {r.label}
-          </Link>
-        ))}
-        {hasImporters ? (
-          <Link
-            to="/jobs"
-            onClick={onClose}
-            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] no-underline ${pathname === '/jobs' ? 'bg-accent-soft text-accent' : 'text-ink hover:bg-hover'}`}
-          >
-            Jobs
-          </Link>
-        ) : null}
-      </nav>
-    </div>
-  );
+  return <div ref={dialog} role="dialog" aria-modal="true" aria-label="Navigation" className="fixed inset-0 z-50 hidden max-sm:block">
+    <button type="button" tabIndex={-1} aria-label="Close navigation" onClick={onClose} className="absolute inset-0 border-0 bg-black/45 p-0" />
+    <nav aria-label="Mobile sections" className="absolute inset-y-0 left-0 flex w-64 max-w-[85vw] flex-col border-r border-line bg-panel p-2 shadow-[var(--shadow)]">
+      <div className="flex shrink-0 items-center justify-between px-1.5 py-1.5">
+        <Link to="/cables" onClick={onClose} aria-label="WireHub home mobile"><Wordmark className="text-[13px]" /></Link>
+        <button ref={close} type="button" aria-label="Close" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-md border border-line2 bg-raised text-dim"><IconX size={16} /></button>
+      </div>
+      <div className="min-h-0 grow overflow-y-auto"><NavItems onNavigate={onClose} /></div>
+    </nav>
+  </div>;
 }

@@ -6,8 +6,8 @@ name: Pages
 # browsable module store (/store/), rebuilt whenever they change.
 # (Settings → Pages → Source: GitHub Actions.)
 #
-# It also publishes the official catalog store index of WireHub's bundled
-# packs at https://formless63.github.io/wirehub/store/index.json (the packs
+# It also publishes bundled catalog packs and explicitly selected optional runtime
+# modules in the official store index at https://formless63.github.io/wirehub/store/index.json (the packs
 # zipped beside it), signed with the WIREHUB_STORE_SIGNING_KEY secret
 # (docs/catalog-store.md §4). Without the secret the index is published
 # unsigned, with a warning, and deployments refuse it until it is signed.
@@ -19,10 +19,25 @@ on:
       - site/**
       - compose.yaml
       - brand/**
-      - modules/*/src/index.ts
+      - modules/*/src/**
       - modules/*/pack/**
+      - modules/*/package.json
+      - modules/*/tsconfig.json
+      - modules/*/LICENSE
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
+      - apps/studio/tsconfig.json
+      - apps/studio/scripts/wirehub-module.ts
+      - apps/studio/src/node-shim.ts
+      - apps/studio/server/pg/module-migrations.ts
+      - packages/model/src/**
+      - packages/docs/src/**
+      - packages/modules/src/**
+      - packages/catalog/src/**
+      - scripts/build-official-runtime.mjs
+      - scripts/official-store-meta.json
       - scripts/store-index.mjs
-      - packages/catalog/src/store-index.ts
       - apps/studio/server/pack-archive.ts
       - apps/studio/server/store.ts
       - apps/studio/modules.config.ts
@@ -54,7 +69,7 @@ jobs:
       - run: pnpm --filter site test
       # the whole site: home, generator, docs, and the store's browsable page (store/index.html)
       - run: node site/build.mjs site/dist
-      # the official store index: every bundled pack zipped, and index.json listing them. With the
+      # the official store index: bundled data packs and allowlisted runtime modules. With the
       # WIREHUB_PACK_SIGNING_KEY secret the packs are signed first as the publisher 'wirehub' and
       # the index lists that publisher (signedBy); without it, unsigned packs and no publishers.
       - name: Build the official store index
@@ -79,6 +94,9 @@ jobs:
             done
             meta="--meta scripts/official-store-meta.json"
           fi
+          # Only the explicit optional packages are bundled as runtime code;
+          # built-in modules stay built in. No publisher key means no code zip.
+          node scripts/build-official-runtime.mjs site/dist/store
           node scripts/store-index.mjs official --out site/dist/store $meta
       - name: Sign the store index
         env:

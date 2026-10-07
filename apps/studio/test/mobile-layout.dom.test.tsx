@@ -16,7 +16,7 @@ import { composeConnectors } from '@wirehub/model';
 import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition } from '@wirehub/model';
 import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -131,4 +131,17 @@ describe('the mobile nav sheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close navigation' }));
     expect(screen.queryByRole('dialog', { name: 'Navigation' })).toBeNull();
   });
+});
+
+it('phone navigation includes Store and Settings, traps focus and closes with Escape', async () => {
+  stubNarrow(true); render(<App router={buildRouter('/cables')} />);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Navigation' })).toBeTruthy());
+  const trigger = screen.getByRole('button', { name: 'Navigation' });trigger.focus();fireEvent.click(trigger);
+  const dialog = screen.getByRole('dialog', { name: 'Navigation' });
+  expect(within(dialog).getByRole('link', { name: 'Store' }).getAttribute('href')).toBe('/library/store');
+  expect(within(dialog).getByRole('link', { name: 'Hub settings' }).getAttribute('href')).toBe('/settings');
+  const links = within(dialog).getAllByRole('link');links.at(-1)?.focus();fireEvent.keyDown(window, { key: 'Tab' });
+  expect(document.activeElement).toBe(within(dialog).getByRole('link', { name: 'WireHub home mobile' }));
+  fireEvent.keyDown(window, { key: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: 'Navigation' })).toBeNull();expect(document.activeElement).toBe(trigger);
 });

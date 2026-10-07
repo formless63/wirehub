@@ -253,7 +253,7 @@ function RotateKey({ keyRing, onDone }: { keyRing: { previousKeys: number; stale
   );
 }
 
-export function RuntimeSettings(): JSX.Element {
+export function RuntimeSettings({ section }: { section?: 'authentication' | 'runtime' } = {}): JSX.Element {
   const client = useQueryClient();
   const query = useQuery(runtimeSettingsQuery);
   const [draft, setDraft] = useState<Draft>({});
@@ -268,8 +268,10 @@ export function RuntimeSettings(): JSX.Element {
   if (query.isError) return <div className="mt-8 border-t border-line pt-4 text-faint">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div>;
   if (query.data === undefined) return <div className="mt-6 text-faint">Loading…</div>;
   const data = query.data;
+  const groups = data.groups.filter((group) => section === undefined || (section === 'authentication' ? group.id === 'sign-in' : group.id !== 'sign-in'));
+  const adoptable = data.adoptable?.filter((item) => groups.some((group) => group.fields.some((field) => field.key === item.key)));
   return (
-    <div className="mt-8 flex max-w-xl flex-col gap-8 border-t border-line pt-4" data-testid="runtime-settings">
+    <div className="flex max-w-xl flex-col gap-8" data-testid={`runtime-settings${section === undefined ? '' : `-${section}`}`}>
       <p className="text-dim">
         The settings below used to be environment variables. They apply at once, with no restart; a value the server&rsquo;s environment sets wins and is shown read-only. Where the
         database, the files, the ports and the install&rsquo;s secrets are stays on the server (docs/self-hosting.md, &ldquo;What lives where&rdquo;).
@@ -282,9 +284,9 @@ export function RuntimeSettings(): JSX.Element {
         </div>
       ) : null}
       {data.secrets.available ? null : <div className="text-dim">{data.secrets.note}</div>}
-      {data.secrets.keyRing !== undefined ? <RotateKey keyRing={data.secrets.keyRing} onDone={refetch} /> : null}
-      {data.adoptable !== undefined && data.adoptable.length > 0 ? <AdoptServerValues items={data.adoptable} onDone={refetch} /> : null}
-      {data.groups.map((group) => (
+      {section !== 'authentication' && data.secrets.keyRing !== undefined ? <RotateKey keyRing={data.secrets.keyRing} onDone={refetch} /> : null}
+      {adoptable !== undefined && adoptable.length > 0 ? <AdoptServerValues items={adoptable} onDone={refetch} /> : null}
+      {groups.map((group) => (
         <Group key={group.id} group={group} draft={draft[group.id] ?? {}} setDraft={(d) => setDraft({ ...draft, [group.id]: d })} secretsAvailable={data.secrets.available} refetch={refetch} />
       ))}
     </div>

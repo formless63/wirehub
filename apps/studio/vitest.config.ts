@@ -21,15 +21,20 @@ import { defineConfig } from 'vitest/config';
 // official store pass their own key and a local fixture (storeIndexesFromEnv's 2nd argument).
 const noOfficialStore = { WIREHUB_STORE_INDEXES: 'none' };
 
+// Vitest 4 inline projects do not inherit the root timeout. Apply the same
+// shared-machine budget explicitly while keeping each project's Vite aliases separate.
+const TEST_TIMEOUT = 15_000;
+
 export default defineConfig({
   test: {
     // see packages/editor-react/vitest.config.ts: loaded shared box, not hangs
-    testTimeout: 15_000,
+    testTimeout: TEST_TIMEOUT,
     projects: [
       {
         extends: './vite.config.ts',
         test: {
           name: 'browser-path',
+          testTimeout: TEST_TIMEOUT,
           include: ['test/**/*.browser.test.ts'],
           environment: 'node',
           env: noOfficialStore,
@@ -38,6 +43,7 @@ export default defineConfig({
       {
         test: {
           name: 'workbench-api',
+          testTimeout: TEST_TIMEOUT,
           include: ['test/**/*.server.test.ts'],
           environment: 'node',
           env: noOfficialStore,
@@ -46,6 +52,7 @@ export default defineConfig({
       {
         test: {
           name: 'shell',
+          testTimeout: TEST_TIMEOUT,
           include: ['test/**/*.dom.test.tsx'],
           environment: 'jsdom',
           env: noOfficialStore,

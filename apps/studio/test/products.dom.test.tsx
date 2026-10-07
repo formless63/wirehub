@@ -58,6 +58,20 @@ afterEach(() => {
 });
 
 describe('products', () => {
+  it('keeps New product prominent from either section and exposes keyboard tab state', async () => {
+    await serve(); mount('/products');
+    await screen.findByTestId('product-list');
+    const families=screen.getByRole('tab',{name:'Families'}), lineup=screen.getByRole('tab',{name:'Lineup'});
+    families.focus();fireEvent.keyDown(families,{key:'ArrowRight'});
+    expect(lineup.getAttribute('aria-selected')).toBe('true');expect(document.activeElement).toBe(lineup);
+    const panel=screen.getByRole('tabpanel');expect(panel.getAttribute('aria-labelledby')).toBe(lineup.id);
+    const create=screen.getByRole('button',{name:'New product…'});
+    expect(create.classList.contains('cs-route-action-primary')).toBe(true);
+    fireEvent.click(create);
+    expect(families.getAttribute('aria-selected')).toBe('true');
+    expect(await screen.findByRole('textbox',{name:'Product record'})).toBeTruthy();
+  });
+
   it('lists the families and shows the lineup', async () => {
     await serve();
     mount('/products');

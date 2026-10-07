@@ -1,0 +1,11 @@
+.cs-route-tabs { display: flex; flex-wrap: wrap; gap: .375rem; margin: .75rem 0 1rem; }
+.cs-route-tabs > button { min-height: 2.25rem; padding: .4rem .8rem; border: 1px solid var(--line2); border-radius: .375rem; background: var(--panel); color: var(--dim); font: inherit; font-weight: 500; cursor: pointer; }
+.cs-route-tabs > button[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+.cs-route-tabs > button:hover { color: var(--ink); border-color: var(--accent); }
+.cs-route-action { display: inline-flex; width: fit-content; min-height: 2.125rem; align-items: center; justify-content: center; gap: .375rem; padding: .4rem .75rem; border: 1px solid var(--line2); border-radius: .375rem; background: var(--panel); color: var(--ink); font: inherit; font-weight: 500; text-decoration: none; cursor: pointer; }
+.cs-route-action:hover:not(:disabled) { background: var(--hover); border-color: var(--accent); }
+.cs-route-action-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 650; }
+.cs-route-action-primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+.cs-route-action:disabled { opacity: .5; cursor: not-allowed; }
+.cs-route-action:focus-visible, .cs-route-tabs > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cs-route-empty { max-width: 42rem; padding: 1rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--panel); }

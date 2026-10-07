@@ -1,3 +1,4 @@
+import { AppLink } from '../shell/AppLink.tsx';
 /**
  * The code-module half of `/settings` (`specs/runtime-modules.md`): the code
  * modules installed here and what became of each (loaded, off, failed with its
@@ -78,11 +79,15 @@ export function CodeModulesSettings(): JSX.Element {
   };
 
   return (
-    <section className="mt-6 max-w-2xl border-t border-line pt-4" data-testid="code-modules-settings">
+    <section className="mt-6 min-w-0 max-w-2xl border-t border-line pt-4 [overflow-wrap:anywhere]" data-testid="code-modules-settings">
       <h2 className="mb-1 text-[13px] font-semibold">Code modules</h2>
       <p className="mb-2 text-faint">
-        Modules that run code in this hub, installed from a store or a signed upload (Library, Modules). The modules built into this image always run. Only owners install, turn on or off, or restart.
+        Control installed code modules here. Built-in modules ship with this image and always run; optional runtime modules are installed separately. Only owners install, turn on or off, or restart.
       </p>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <AppLink to="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</AppLink>
+        <AppLink to="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Install from a file or URL</AppLink>
+      </div>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The code modules could not be read.'}</div> : null}
       {query.data === null ? <div className="text-faint">This server does not run code modules.</div> : null}
       {view === undefined ? (
@@ -117,7 +122,7 @@ export function CodeModulesSettings(): JSX.Element {
                   {m.enabledBy === undefined ? '' : ` Last changed by ${m.enabledBy}.`}
                 </div>
                 {!owner ? null : (
-                  <button type="button" className="underline" disabled={busy} onClick={() => void toggle(m, !m.enabled || m.state === 'failed')}>
+                  <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void toggle(m, !m.enabled || m.state === 'failed')}>
                     {m.enabled && m.state !== 'failed' ? 'Turn off' : m.state === 'failed' ? 'Try again' : 'Turn on'}
                   </button>
                 )}
@@ -132,7 +137,7 @@ export function CodeModulesSettings(): JSX.Element {
               <li key={k.key} data-pinned-key={k.keyId}>
                 {k.label ?? 'Key'} · id {k.keyId} · fingerprint <code>{k.fingerprint}</code>
                 {!owner ? null : (
-                  <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void act(() => unpinKey(k.keyId), 'The key is no longer trusted for uploads.')}>
+                  <button type="button" className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void act(() => unpinKey(k.keyId), 'The key is no longer trusted for uploads.')}>
                     Remove
                   </button>
                 )}
@@ -141,11 +146,11 @@ export function CodeModulesSettings(): JSX.Element {
           </ul>
           {!owner ? null : (
             <div className="mt-1 flex flex-wrap gap-2">
-              <input className="w-96 rounded border border-line bg-panel px-2 py-1" aria-label="Publisher public key" placeholder="RW…" value={key} onChange={(e) => setKey(e.target.value)} />
-              <input className="w-40 rounded border border-line bg-panel px-2 py-1" aria-label="Key label" placeholder="Publisher name" value={label} onChange={(e) => setLabel(e.target.value)} />
+              <input className="w-96 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1" aria-label="Publisher public key" placeholder="RW…" value={key} onChange={(e) => setKey(e.target.value)} />
+              <input className="w-40 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1" aria-label="Key label" placeholder="Publisher name" value={label} onChange={(e) => setLabel(e.target.value)} />
               <button
                 type="button"
-                className="underline"
+                className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50"
                 disabled={busy || key.trim() === ''}
                 onClick={() =>
                   void act(async () => {
