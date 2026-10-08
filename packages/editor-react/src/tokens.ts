@@ -29,6 +29,8 @@ export interface SemanticTokens {
   hover: string;
   line: string;
   line2: string;
+  /** boundary of inputs, selects and checkboxes (WCAG 1.4.11, 3:1) */
+  lineField: string;
   ink: string;
   dim: string;
   faint: string;
@@ -67,9 +69,10 @@ export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
     hover: '#24252a',
     line: '#27282d',
     line2: '#34353b',
+    lineField: '#6a6b72',
     ink: '#ebe8e3',
     dim: '#a19e96',
-    faint: '#6f6d67',
+    faint: '#8b887f',
     canvas: '#0f1012',
     dot: '#232428',
     accent: '#e39256',
@@ -102,22 +105,23 @@ export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
     hover: '#efeee9',
     line: '#e4e2dc',
     line2: '#d3d0c8',
+    lineField: '#8a867c',
     ink: '#1b1a18',
     dim: '#5f5c55',
-    faint: '#98948b',
+    faint: '#6f6b62',
     canvas: '#f2f1ed',
     dot: '#d7d4cc',
-    accent: '#b9622a',
+    accent: '#a4531c',
     accentInk: '#ffffff',
-    accentSoft: 'rgba(185,98,42,0.10)',
+    accentSoft: 'rgba(164,83,28,0.10)',
     brand: '#1d3a5f',
     brandInk: '#ffffff',
     brandCopper: '#c06a2b',
     brandWordmark: '#1d3a5f',
-    ok: '#2f8f5b',
-    warn: '#a8740f',
+    ok: '#267a4c',
+    warn: '#946509',
     err: '#c9403c',
-    board: '#2f8f5b',
+    board: '#267a4c',
     jacket: '#e6e4de',
     jacketLine: '#c2beb4',
     diel: '#fbfaf6',

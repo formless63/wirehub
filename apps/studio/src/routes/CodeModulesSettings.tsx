@@ -146,8 +146,8 @@ export function CodeModulesSettings(): JSX.Element {
           </ul>
           {!owner ? null : (
             <div className="mt-1 flex flex-wrap gap-2">
-              <input className="w-96 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1" aria-label="Publisher public key" placeholder="RW…" value={key} onChange={(e) => setKey(e.target.value)} />
-              <input className="w-40 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1" aria-label="Key label" placeholder="Publisher name" value={label} onChange={(e) => setLabel(e.target.value)} />
+              <input className="w-96 max-w-full min-w-0 rounded border border-line-field bg-panel px-2 py-1" aria-label="Publisher public key" placeholder="RW…" value={key} onChange={(e) => setKey(e.target.value)} />
+              <input className="w-40 max-w-full min-w-0 rounded border border-line-field bg-panel px-2 py-1" aria-label="Key label" placeholder="Publisher name" value={label} onChange={(e) => setLabel(e.target.value)} />
               <button
                 type="button"
                 className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50"

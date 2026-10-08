@@ -188,14 +188,14 @@ export function StoreBrowser(): JSX.Element {
         <div key={n} className="text-dim">{n}</div>
       ))}
       <div className="my-2 flex flex-wrap gap-2">
-        <input type="search" aria-label="Search modules and packs" placeholder="Search modules & packs" value={query} onChange={(e) => setQuery(e.target.value)} className="w-64 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1.5" />
-        <select aria-label="Content type" value={kind} onChange={(e) => setKind(e.target.value)} className="max-w-full rounded border border-line bg-panel px-2 py-1.5">
+        <input type="search" aria-label="Search modules and packs" placeholder="Search modules & packs" value={query} onChange={(e) => setQuery(e.target.value)} className="w-64 max-w-full min-w-0 rounded border border-line-field bg-panel px-2 py-1.5" />
+        <select aria-label="Content type" value={kind} onChange={(e) => setKind(e.target.value)} className="max-w-full rounded border border-line-field bg-panel px-2 py-1.5">
           <option value="">Modules & catalog packs</option>
           <option value="code">Code modules</option>
           <option value="catalog">Catalog packs</option>
         </select>
         {indexes.filter((i) => i.ok).length < 2 ? null : (
-          <select aria-label="Store" value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} className="min-w-0 max-w-full rounded border border-line bg-panel px-2 py-1.5">
+          <select aria-label="Store" value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} className="min-w-0 max-w-full rounded border border-line-field bg-panel px-2 py-1.5">
             <option value="">All stores</option>
             {indexes
               .filter((i) => i.ok)
@@ -206,7 +206,7 @@ export function StoreBrowser(): JSX.Element {
               ))}
           </select>
         )}
-        <select aria-label="Domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="min-w-0 max-w-full rounded border border-line bg-panel px-2 py-1.5">
+        <select aria-label="Domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="min-w-0 max-w-full rounded border border-line-field bg-panel px-2 py-1.5">
           <option value="">All domains</option>
           {domains.map((d) => (
             <option key={d} value={d}>

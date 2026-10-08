@@ -68,9 +68,9 @@ function SecretField({ module, field, editable, available, onSaved }: { module: 
       {editable && !locked && available ? (
         <div className="flex gap-2">
           {field.multiline === true ? (
-            <textarea className="min-h-16 flex-1 rounded border border-line bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : undefined} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
+            <textarea className="min-h-16 flex-1 rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : undefined} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
           ) : (
-            <input className="flex-1 rounded border border-line bg-panel px-2 py-1" type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : undefined} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" />
+            <input className="flex-1 rounded border border-line-field bg-panel px-2 py-1" type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : undefined} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" />
           )}
           <button type="button" className="rounded border border-line px-2 py-1 disabled:opacity-50" disabled={busy || value.trim() === ''} onClick={() => void save(value)}>
             {field.set === true ? 'Replace' : 'Set'}
@@ -104,13 +104,13 @@ function ValueField({ field, value, disabled, set }: { field: ModuleFieldView; v
         })}
       </span>
     ) : field.kind === 'bool' ? (
-      <select className="w-fit rounded border border-line bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={shown === true ? 'on' : shown === false ? 'off' : ''} onChange={(e) => set(e.target.value === 'on' ? true : e.target.value === 'off' ? false : '')}>
+      <select className="w-fit rounded border border-line-field bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={shown === true ? 'on' : shown === false ? 'off' : ''} onChange={(e) => set(e.target.value === 'on' ? true : e.target.value === 'off' ? false : '')}>
         <option value="">Not set</option>
         <option value="on">On</option>
         <option value="off">Off</option>
       </select>
     ) : (
-      <input className="rounded border border-line bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={Array.isArray(shown) ? shown.join(', ') : String(shown)} onChange={(e) => set(e.target.value)} />
+      <input className="rounded border border-line-field bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={Array.isArray(shown) ? shown.join(', ') : String(shown)} onChange={(e) => set(e.target.value)} />
     );
   return (
     <div className="flex flex-col gap-0.5">

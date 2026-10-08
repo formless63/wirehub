@@ -142,12 +142,12 @@ export function PartNumberSettings(): JSX.Element {
           <details className="mt-2"><summary>Advanced scheme JSON</summary>
             <label className="flex flex-col gap-0.5">
               <span className="font-medium">Definition</span>
-              <textarea className="h-64 rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Scheme definition" value={text} disabled={readOnly} spellCheck={false} onChange={(e) => setText(e.target.value)} />
+              <textarea className="h-64 rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Scheme definition" value={text} disabled={readOnly} spellCheck={false} onChange={(e) => setText(e.target.value)} />
             </label>
           </details>
           <label className="mt-2 flex flex-col gap-0.5">
             <span className="font-medium">Sample numbers to check</span>
-            <input className="rounded border border-line bg-panel px-2 py-1" aria-label="Sample numbers" placeholder="1C-000001-00  CON-00001" value={samples} onChange={(e) => setSamples(e.target.value)} />
+            <input className="rounded border border-line-field bg-panel px-2 py-1" aria-label="Sample numbers" placeholder="1C-000001-00  CON-00001" value={samples} onChange={(e) => setSamples(e.target.value)} />
           </label>
           <div className="mt-2 flex flex-wrap gap-2">
             <button type="button" className="rounded border border-line px-3 py-1" disabled={busy} onClick={() => void check()}>

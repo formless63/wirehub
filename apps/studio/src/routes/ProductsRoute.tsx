@@ -184,7 +184,7 @@ export function ProductsRoute(): JSX.Element {
           </ul>
           {readOnly || editing === undefined ? null : (
             <div className="mt-2 max-w-3xl">
-              <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Product record" value={editing} spellCheck={false} onChange={(e) => setEditing(e.target.value)} />
+              <textarea className="h-64 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Product record" value={editing} spellCheck={false} onChange={(e) => setEditing(e.target.value)} />
               <div className="mt-1 flex gap-2">
                 <button type="button" className="cs-route-action cs-route-action-primary" onClick={() => void create()}>
                   Save
@@ -281,7 +281,7 @@ export function ProductRoute(): JSX.Element {
               <legend>New variant</legend>
               <label className="flex flex-col">
                 <span className="text-faint">Design</span>
-                <select aria-label="Variant design" className="rounded border border-line bg-panel px-1 py-1" value={adding.design} onChange={(e) => setAdding({ ...adding, design: e.target.value, id: adding.id === '' ? e.target.value : adding.id })}>
+                <select aria-label="Variant design" className="rounded border border-line-field bg-panel px-1 py-1" value={adding.design} onChange={(e) => setAdding({ ...adding, design: e.target.value, id: adding.id === '' ? e.target.value : adding.id })}>
                   <option value="">Pick a design…</option>
                   {studio.designs.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -292,23 +292,23 @@ export function ProductRoute(): JSX.Element {
               </label>
               <label className="flex flex-col">
                 <span className="text-faint">Variant id</span>
-                <input aria-label="Variant id" className="rounded border border-line bg-panel px-1 py-1" value={adding.id} onChange={(e) => setAdding({ ...adding, id: e.target.value })} />
+                <input aria-label="Variant id" className="rounded border border-line-field bg-panel px-1 py-1" value={adding.id} onChange={(e) => setAdding({ ...adding, id: e.target.value })} />
               </label>
               <label className="flex flex-col">
                 <span className="text-faint">Number</span>
-                <input aria-label="Variant number" className="rounded border border-line bg-panel px-1 py-1 font-mono" value={adding.partNumber} onChange={(e) => setAdding({ ...adding, partNumber: e.target.value })} />
+                <input aria-label="Variant number" className="rounded border border-line-field bg-panel px-1 py-1 font-mono" value={adding.partNumber} onChange={(e) => setAdding({ ...adding, partNumber: e.target.value })} />
               </label>
               <button type="button" className="cs-route-action" onClick={() => void suggest()}>
                 Suggest
               </button>
               <label className="flex flex-col">
                 <span className="text-faint">Length, mm</span>
-                <input aria-label="Variant length" className="w-20 rounded border border-line bg-panel px-1 py-1" value={adding.lengthMm} onChange={(e) => setAdding({ ...adding, lengthMm: e.target.value })} />
+                <input aria-label="Variant length" className="w-20 rounded border border-line-field bg-panel px-1 py-1" value={adding.lengthMm} onChange={(e) => setAdding({ ...adding, lengthMm: e.target.value })} />
               </label>
               {(product.options ?? []).map((axis) => (
                 <label key={axis.id} className="flex flex-col">
                   <span className="text-faint">{axis.label}</span>
-                  <select aria-label={`Variant ${axis.label}`} className="rounded border border-line bg-panel px-1 py-1" value={adding.options[axis.id] ?? ''} onChange={(e) => setAdding({ ...adding, options: { ...adding.options, [axis.id]: e.target.value } })}>
+                  <select aria-label={`Variant ${axis.label}`} className="rounded border border-line-field bg-panel px-1 py-1" value={adding.options[axis.id] ?? ''} onChange={(e) => setAdding({ ...adding, options: { ...adding.options, [axis.id]: e.target.value } })}>
                     <option value="">—</option>
                     {axis.values.map((v) => (
                       <option key={v.id} value={v.id}>
@@ -374,8 +374,8 @@ export function ProductRoute(): JSX.Element {
                   <input type="checkbox" checked={splitPick.includes(v.id)} onChange={(e) => setSplitPick((m) => (e.target.checked ? [...m, v.id] : m.filter((x) => x !== v.id)))} /> {v.label ?? v.id}
                 </label>
               ))}
-              <input aria-label="New product id" placeholder="new id" className="rounded border border-line bg-panel px-1 py-1" value={splitTo.id} onChange={(e) => setSplitTo({ ...splitTo, id: e.target.value })} />
-              <input aria-label="New product name" placeholder="name" className="rounded border border-line bg-panel px-1 py-1" value={splitTo.label} onChange={(e) => setSplitTo({ ...splitTo, label: e.target.value })} />
+              <input aria-label="New product id" placeholder="new id" className="rounded border border-line-field bg-panel px-1 py-1" value={splitTo.id} onChange={(e) => setSplitTo({ ...splitTo, id: e.target.value })} />
+              <input aria-label="New product name" placeholder="name" className="rounded border border-line-field bg-panel px-1 py-1" value={splitTo.label} onChange={(e) => setSplitTo({ ...splitTo, label: e.target.value })} />
               <button
                 type="button"
                 className="cs-route-action"
@@ -399,7 +399,7 @@ export function ProductRoute(): JSX.Element {
             </button>
           ) : (
             <div>
-              <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Product record" value={json} spellCheck={false} onChange={(e) => setJson(e.target.value)} />
+              <textarea className="h-64 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Product record" value={json} spellCheck={false} onChange={(e) => setJson(e.target.value)} />
               <div className="mt-1 flex gap-2">
                 <button
                   type="button"

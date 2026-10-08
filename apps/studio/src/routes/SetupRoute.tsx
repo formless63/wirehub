@@ -173,16 +173,16 @@ export function SetupRoute(): JSX.Element {
                   ) : null}
                   <label className="flex flex-col gap-1 text-[12px] text-dim">
                     Your name
-                    <input className="rounded border border-line bg-panel px-2 py-1 text-[13px] text-ink" value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
+                    <input className="rounded border border-line-field bg-panel px-2 py-1 text-[13px] text-ink" value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
                   </label>
                   <label className="flex flex-col gap-1 text-[12px] text-dim">
                     Email
-                    <input type="email" className="rounded border border-line bg-panel px-2 py-1 text-[13px] text-ink" value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
+                    <input type="email" className="rounded border border-line-field bg-panel px-2 py-1 text-[13px] text-ink" value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
                   </label>
                   {view.create.admin === 'password' ? (
                     <label className="flex flex-col gap-1 text-[12px] text-dim">
                       Password ({view.create.minPassword} characters or more)
-                      <input type="password" className="rounded border border-line bg-panel px-2 py-1 text-[13px] text-ink" value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
+                      <input type="password" className="rounded border border-line-field bg-panel px-2 py-1 text-[13px] text-ink" value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
                     </label>
                   ) : null}
                 </fieldset>

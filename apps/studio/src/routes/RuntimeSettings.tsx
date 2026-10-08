@@ -72,9 +72,9 @@ function SecretField({ field, group, available, onSaved }: { field: RuntimeField
       {editable ? (
         <div className="flex gap-2">
           {field.kind === 'multiline' ? (
-            <textarea className="min-h-16 flex-1 rounded border border-line bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
+            <textarea className="min-h-16 flex-1 rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
           ) : (
-            <input className="flex-1 rounded border border-line bg-panel px-2 py-1" type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" />
+            <input className="flex-1 rounded border border-line-field bg-panel px-2 py-1" type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" />
           )}
           <button type="button" className="rounded border border-line px-2 py-1 disabled:opacity-50" disabled={busy || value.trim() === ''} onClick={() => void save(value)}>
             Set
@@ -97,13 +97,13 @@ function Field({ field, value, disabled, set }: { field: RuntimeFieldView; value
   const placeholder = field.placeholder ?? (field.defaultText === undefined ? undefined : `default: ${field.defaultText}`);
   const control =
     field.kind === 'bool' ? (
-      <select className="w-fit max-w-full rounded border border-line bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={shown === true ? 'on' : shown === false ? 'off' : ''} onChange={(e) => set(e.target.value === 'on' ? true : e.target.value === 'off' ? false : '')}>
+      <select className="w-fit max-w-full rounded border border-line-field bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={shown === true ? 'on' : shown === false ? 'off' : ''} onChange={(e) => set(e.target.value === 'on' ? true : e.target.value === 'off' ? false : '')}>
         <option value="">{`Default${field.defaultText === undefined ? '' : ` (${field.defaultText})`}`}</option>
         <option value="on">On</option>
         <option value="off">Off</option>
       </select>
     ) : field.kind === 'enum' ? (
-      <select className="w-48 rounded border border-line bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={String(shown)} onChange={(e) => set(e.target.value)}>
+      <select className="w-48 rounded border border-line-field bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={String(shown)} onChange={(e) => set(e.target.value)}>
         <option value="">{`Default${field.defaultText === undefined ? '' : ` (${field.defaultText})`}`}</option>
         {(field.options ?? []).map((o) => (
           <option key={o} value={o}>
@@ -112,7 +112,7 @@ function Field({ field, value, disabled, set }: { field: RuntimeFieldView; value
         ))}
       </select>
     ) : field.kind === 'multiline' ? (
-      <textarea className="min-h-16 rounded border border-line bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} disabled={disabled || locked} value={String(shown)} placeholder={placeholder} onChange={(e) => set(e.target.value)} spellCheck={false} />
+      <textarea className="min-h-16 rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} disabled={disabled || locked} value={String(shown)} placeholder={placeholder} onChange={(e) => set(e.target.value)} spellCheck={false} />
     ) : (
       <input
         className="rounded border border-line bg-panel px-2 py-1"

@@ -24,6 +24,7 @@
   --color-hover: var(--hover);
   --color-line: var(--line);
   --color-line2: var(--line2);
+  --color-line-field: var(--line-field);
   --color-ink: var(--ink);
   --color-dim: var(--dim);
   --color-faint: var(--faint);
@@ -93,7 +94,7 @@ body,
   min-width: 0;
   max-width: 100%;
   padding: 6px 8px;
-  border: 1px solid var(--line2);
+  border: 1px solid var(--line-field);
   border-radius: 4px;
   color: var(--ink);
   background: var(--bg);

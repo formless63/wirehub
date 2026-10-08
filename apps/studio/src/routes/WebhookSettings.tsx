@@ -150,11 +150,11 @@ export function WebhookSettings(): JSX.Element | null {
             <div className="mt-2 border border-line p-2" data-testid="webhook-editor">
               <label className="flex flex-col gap-0.5">
                 <span className="font-medium">Name (optional)</span>
-                <input className="rounded border border-line bg-panel px-2 py-1" aria-label="Webhook name" value={editing.label} maxLength={80} onChange={(e) => setEditing({ ...editing, label: e.target.value })} />
+                <input className="rounded border border-line-field bg-panel px-2 py-1" aria-label="Webhook name" value={editing.label} maxLength={80} onChange={(e) => setEditing({ ...editing, label: e.target.value })} />
               </label>
               <label className="mt-1 flex flex-col gap-0.5">
                 <span className="font-medium">URL</span>
-                <input className="rounded border border-line bg-panel px-2 py-1" aria-label="Webhook URL" placeholder="https://erp.example.com/hooks/wirehub" value={editing.url} onChange={(e) => setEditing({ ...editing, url: e.target.value })} />
+                <input className="rounded border border-line-field bg-panel px-2 py-1" aria-label="Webhook URL" placeholder="https://erp.example.com/hooks/wirehub" value={editing.url} onChange={(e) => setEditing({ ...editing, url: e.target.value })} />
               </label>
               <fieldset className="mt-1 border-0 p-0">
                 <legend className="font-medium">Events</legend>

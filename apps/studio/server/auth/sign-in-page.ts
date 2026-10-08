@@ -118,9 +118,9 @@ ${(model.connectProviders ?? []).map((provider) => `<button class="btn" type="bu
 <title>Sign in · WireHub</title>
 <script>try{var t=localStorage.getItem('wirehub:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 <style>
-:root{--bg:#121315;--panel:#18191c;--raised:#1f2024;--line:#27282d;--line2:#34353b;--ink:#ebe8e3;--dim:#a19e96;--faint:#6f6d67;--accent:#e39256;--accent-ink:#1c1008;--ok:#5fbf8a;--err:#ef6461}
-[data-theme='light']{--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#98948b;--accent:#b9622a;--accent-ink:#fff;--ok:#2f8f5b;--err:#c9403c}
-@media (prefers-color-scheme:light){:root:not([data-theme='dark']){--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#98948b;--accent:#b9622a;--accent-ink:#fff;--ok:#2f8f5b;--err:#c9403c}}
+:root{--bg:#121315;--panel:#18191c;--raised:#1f2024;--line:#27282d;--line2:#34353b;--ink:#ebe8e3;--dim:#a19e96;--faint:#8b887f;--line-field:#6a6b72;--accent:#e39256;--accent-ink:#1c1008;--ok:#5fbf8a;--err:#ef6461}
+[data-theme='light']{--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#6f6b62;--line-field:#8a867c;--accent:#a4531c;--accent-ink:#fff;--ok:#267a4c;--err:#c9403c}
+@media (prefers-color-scheme:light){:root:not([data-theme='dark']){--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#6f6b62;--line-field:#8a867c;--accent:#a4531c;--accent-ink:#fff;--ok:#267a4c;--err:#c9403c}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:13px/1.4 'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 main{min-height:100%;display:grid;place-items:center;padding:16px}
@@ -133,7 +133,7 @@ h1 span{color:var(--faint);font-weight:400}
 .btn:disabled{opacity:.6;cursor:default}
 form{display:flex;flex-direction:column;gap:6px;margin:0}
 label{color:var(--dim);font-size:12px}
-input{height:30px;border-radius:5px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:inherit;padding:0 8px}
+input{height:30px;border-radius:5px;border:1px solid var(--line-field);background:var(--bg);color:var(--ink);font:inherit;padding:0 8px}
 input:focus,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .or{display:flex;align-items:center;gap:8px;color:var(--faint);font-size:11px}
 .or:before,.or:after{content:'';flex:1;border-top:1px solid var(--line)}

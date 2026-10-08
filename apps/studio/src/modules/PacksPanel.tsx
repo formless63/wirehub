@@ -252,7 +252,7 @@ export function PacksPanel(): JSX.Element {
           <span className="text-faint">only for a code module from a file or address: its publisher's public key, compared with the publisher another way (owners)</span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <input type="url" aria-label="Pack address" placeholder="https://…/pack.zip" value={url} onChange={(e) => setUrl(e.target.value)} className="w-80 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1.5" />
+          <input type="url" aria-label="Pack address" placeholder="https://…/pack.zip" value={url} onChange={(e) => setUrl(e.target.value)} className="w-80 max-w-full min-w-0 rounded border border-line-field bg-panel px-2 py-1.5" />
           <button
             type="button"
             className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50"

@@ -153,7 +153,7 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
             </label>
             <label>
               Source for rows without one{' '}
-              <input aria-label="Batch source" value={batchSrc} onChange={(e) => setBatchSrc(e.target.value)} placeholder="e.g. supplier catalog 2026" className="w-56 rounded border border-line bg-panel px-1" />
+              <input aria-label="Batch source" value={batchSrc} onChange={(e) => setBatchSrc(e.target.value)} placeholder="e.g. supplier catalog 2026" className="w-56 rounded border border-line-field bg-panel px-1" />
             </label>
             <label title="A row for an id the library has changes that record (blank cells keep what it has) instead of being skipped; the dry run shows each change">
               <input type="checkbox" aria-label="Update existing records" checked={update} onChange={(e) => setUpdate(e.target.checked)} /> Update existing records

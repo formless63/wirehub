@@ -108,7 +108,7 @@ export function EngineeringSettings(): JSX.Element {
           </span>
         ) : null}
       </span>
-      <input className="w-28 shrink-0 rounded border border-line bg-panel px-2 py-1" aria-label={label} value={value} disabled={readOnly || locked} inputMode="decimal" placeholder={placeholder} onChange={(e) => set(e.target.value)} />
+      <input className="w-28 shrink-0 rounded border border-line-field bg-panel px-2 py-1" aria-label={label} value={value} disabled={readOnly || locked} inputMode="decimal" placeholder={placeholder} onChange={(e) => set(e.target.value)} />
     </label>
   );
 

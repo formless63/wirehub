@@ -221,7 +221,7 @@ export function RulesSettings(): JSX.Element {
             <div className="mt-2" data-testid="rule-editor">
               {draftObject(editing.text) === undefined ? <p className="text-faint">Correct the advanced JSON to use the form.</p> : <RuleEditor value={draftObject(editing.text)!} onChange={(next) => { setEditing({ ...editing, text: pretty(next) }); setResult(undefined); }} />}
               <details className="mt-2"><summary>Advanced rule JSON</summary>
-                <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Rule definition" value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
+                <textarea className="h-64 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Rule definition" value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
               </details>
               <div className="mt-1 flex gap-2">
                 <button type="button" className="rounded border border-line px-3 py-1" disabled={busy} onClick={() => void test()}>

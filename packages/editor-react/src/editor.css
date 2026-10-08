@@ -45,6 +45,7 @@
   --color-hover: var(--hover);
   --color-line: var(--line);
   --color-line2: var(--line2);
+  --color-line-field: var(--line-field);
   --color-ink: var(--ink);
   --color-dim: var(--dim);
   --color-faint: var(--faint);
@@ -415,7 +416,7 @@
   font-size: 12px;
   color: var(--cs-ink);
   background: var(--bg);
-  border: 1px solid var(--cs-line);
+  border: 1px solid var(--line-field);
   border-radius: 4px;
   padding: 4px 6px;
 }

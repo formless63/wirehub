@@ -54,7 +54,7 @@ function EndPicker(props: { label: string; devices: DeviceProfile[]; device: str
   return (
     <fieldset className="flex flex-col gap-1">
       <legend className="text-faint">{props.label}</legend>
-      <select aria-label={`${props.label} device`} className="rounded border border-line bg-panel px-1 py-1" value={props.device} onChange={(e) => props.onChange(e.target.value, '')}>
+      <select aria-label={`${props.label} device`} className="rounded border border-line-field bg-panel px-1 py-1" value={props.device} onChange={(e) => props.onChange(e.target.value, '')}>
         <option value="">Pick a device…</option>
         {props.devices.map((d) => (
           <option key={d.id} value={d.id}>
@@ -63,7 +63,7 @@ function EndPicker(props: { label: string; devices: DeviceProfile[]; device: str
         ))}
       </select>
       {ports.length > 1 ? (
-        <select aria-label={`${props.label} port`} className="rounded border border-line bg-panel px-1 py-1" value={props.port} onChange={(e) => props.onChange(props.device, e.target.value)}>
+        <select aria-label={`${props.label} port`} className="rounded border border-line-field bg-panel px-1 py-1" value={props.port} onChange={(e) => props.onChange(props.device, e.target.value)}>
           <option value="">{ports[0]?.label ?? ports[0]?.id} (first)</option>
           {ports.map((p) => (
             <option key={p.id} value={p.id}>
@@ -246,7 +246,7 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
               <div className="flex flex-wrap items-end gap-3">
                 <label className="flex flex-col">
                   <span className="text-faint">Wire stock</span>
-                  <select aria-label="Wire stock" className="rounded border border-line bg-panel px-1 py-1" value={stock} onChange={(e) => setStock(e.target.value)}>
+                  <select aria-label="Wire stock" className="rounded border border-line-field bg-panel px-1 py-1" value={stock} onChange={(e) => setStock(e.target.value)}>
                     <option value="">{stocks[0] === undefined ? 'none fits' : `${stocks[0].label} (suggested)`}</option>
                     {stocks.map((s) => (
                       <option key={s.id} value={s.id} title={s.reasons.join('; ')}>
@@ -257,15 +257,15 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
                 </label>
                 <label className="flex flex-col">
                   <span className="text-faint">Length, mm</span>
-                  <input aria-label="Length in millimetres" className="w-24 rounded border border-line bg-panel px-1 py-1" value={length} onChange={(e) => setLength(e.target.value)} />
+                  <input aria-label="Length in millimetres" className="w-24 rounded border border-line-field bg-panel px-1 py-1" value={length} onChange={(e) => setLength(e.target.value)} />
                 </label>
                 <label className="flex flex-col">
                   <span className="text-faint">Id</span>
-                  <input aria-label="Design id" className="rounded border border-line bg-panel px-1 py-1" placeholder={derived?.ok ? derived.design.id : ''} value={id} onChange={(e) => setId(e.target.value)} />
+                  <input aria-label="Design id" className="rounded border border-line-field bg-panel px-1 py-1" placeholder={derived?.ok ? derived.design.id : ''} value={id} onChange={(e) => setId(e.target.value)} />
                 </label>
                 <label className="flex flex-col">
                   <span className="text-faint">Name</span>
-                  <input aria-label="Design name" className="w-72 rounded border border-line bg-panel px-1 py-1" placeholder={derived?.ok ? derived.design.label : ''} value={label} onChange={(e) => setLabel(e.target.value)} />
+                  <input aria-label="Design name" className="w-72 rounded border border-line-field bg-panel px-1 py-1" placeholder={derived?.ok ? derived.design.label : ''} value={label} onChange={(e) => setLabel(e.target.value)} />
                 </label>
                 <button
                   type="button"
@@ -357,11 +357,11 @@ function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
                 </button>
               ) : (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <input aria-label="Reason" placeholder="why not (optional)" className="rounded border border-line bg-panel px-1 py-0.5" value={reason[p.key] ?? ''} onChange={(e) => setReason({ ...reason, [p.key]: e.target.value })} />
+                  <input aria-label="Reason" placeholder="why not (optional)" className="rounded border border-line-field bg-panel px-1 py-0.5" value={reason[p.key] ?? ''} onChange={(e) => setReason({ ...reason, [p.key]: e.target.value })} />
                   <button type="button" className="cs-route-action" onClick={() => void act('decline', row)}>
                     Decline
                   </button>
-                  <input aria-label="New board id" placeholder="new board id" className="rounded border border-line bg-panel px-1 py-0.5" value={boardId[p.key] ?? ''} onChange={(e) => setBoardId({ ...boardId, [p.key]: e.target.value })} />
+                  <input aria-label="New board id" placeholder="new board id" className="rounded border border-line-field bg-panel px-1 py-0.5" value={boardId[p.key] ?? ''} onChange={(e) => setBoardId({ ...boardId, [p.key]: e.target.value })} />
                   <button type="button" className="cs-route-action" disabled={(boardId[p.key] ?? '') === ''} onClick={() => void act('accept', row)}>
                     Start a board
                   </button>
@@ -521,7 +521,7 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
         <div className="mt-2">
           {fields === undefined ? null : list === 'devices' ? <DeviceForm record={fields as unknown as DeviceProfile} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : list === 'recipes' ? <RecipeForm record={fields as unknown as ConditioningRecipe} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : null}
           <details open={list === 'hazards' || fields === undefined} className="mt-2"><summary>Advanced JSON</summary>
-            <textarea className="h-64 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label={`${title} record`} value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
+            <textarea className="h-64 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label={`${title} record`} value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
           </details>
           <div className="mt-1 flex gap-2">
             <button type="button" className="cs-route-action cs-route-action-primary" disabled={busy} onClick={() => void save()}>
@@ -607,7 +607,7 @@ function ResolverLibrary(): JSX.Element {
           </div>
         ) : (
           <div className="mt-2">
-            <textarea className="h-40 w-full rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Ranking policy" value={policyText} spellCheck={false} onChange={(e) => setPolicyText(e.target.value)} />
+            <textarea className="h-40 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Ranking policy" value={policyText} spellCheck={false} onChange={(e) => setPolicyText(e.target.value)} />
             <div className="mt-1 flex gap-2">
               <button
                 type="button"

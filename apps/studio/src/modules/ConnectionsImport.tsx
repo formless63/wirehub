@@ -113,11 +113,11 @@ export function ConnectionsImport({ onImported }: { onImported: () => void }): J
           <div className="flex flex-wrap items-center gap-2">
             <label>
               Design id{' '}
-              <input aria-label="Design id" value={designId} onChange={(e) => setDesignId(e.target.value)} placeholder={slug(fileName.replace(/\.[^.]+$/, ''))} className="w-48 rounded border border-line bg-panel px-1 font-mono" />
+              <input aria-label="Design id" value={designId} onChange={(e) => setDesignId(e.target.value)} placeholder={slug(fileName.replace(/\.[^.]+$/, ''))} className="w-48 rounded border border-line-field bg-panel px-1 font-mono" />
             </label>
             <label>
               Name{' '}
-              <input aria-label="Design name" value={label} onChange={(e) => setLabel(e.target.value)} className="w-56 rounded border border-line bg-panel px-1" />
+              <input aria-label="Design name" value={label} onChange={(e) => setLabel(e.target.value)} className="w-56 rounded border border-line-field bg-panel px-1" />
             </label>
             <label>
               Carried on{' '}
