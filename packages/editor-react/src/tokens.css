@@ -71,8 +71,10 @@
   }
 }
 
-/* Palette. Dark is the default, written directly onto :root; light overrides it. */
-:root {
+/* Palette. Dark is the default, written directly onto :root (and any `data-theme=dark` subtree, so a
+   region can be dark inside a light page); light overrides it. */
+:root,
+[data-theme='dark'] {
   /* Native menus and form controls must use the same palette as the app. */
   color-scheme: dark;
   /* dark is the default palette written directly onto :root; light overrides

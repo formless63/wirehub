@@ -34,7 +34,7 @@ export function parseTokens(css) {
     const sel = text.slice(i, open).trim();
     const close = block(open);
     const body = text.slice(open + 1, close);
-    if (sel === ':root') decls(body, base);
+    if (/^:root(,\s*\[data-theme='dark'\])?$/.test(sel)) decls(body, base);
     else if (sel === "[data-theme='light']") decls(body, light);
     else if (sel.startsWith('@media (prefers-color-scheme: light)')) {
       const inner = body.indexOf('{');
