@@ -9,24 +9,7 @@ import { generateKeyPairSync } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  buildStoreIndex,
-  offeredVersion,
-  packDigests,
-  packFileDigest,
-  packFileProblems,
-  parseStoreIndex,
-  publisherKeys,
-  reviewOf,
-  revokedKeysOf,
-  signPackManifest,
-  splitPackSignatures,
-  storePublicKeyOf,
-  verifyPackSignature,
-  versionVisible,
-  type StoreBundle,
-  type StoreIndexPack,
-} from '../src/index.ts';
+import { buildStoreIndex, offeredVersion, packDigests, packFileDigest, packFileProblems, parseStoreIndex, publisherKeys, reviewOf, revokedKeysOf, signPackManifest, splitPackSignatures, storePublicKeyOf, verifyPackSignature, versionVisible, type StoreBundle, type StoreIndexPack } from '../src/server.ts';
 
 const freshPem = (): string => generateKeyPairSync('ed25519').privateKey.export({ format: 'pem', type: 'pkcs8' }) as string;
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);

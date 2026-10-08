@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { storePublicKeyOf, verifyPackSignature } from '@wirehub/catalog';
+import { storePublicKeyOf, verifyPackSignature } from '@wirehub/catalog/src/server.ts';
 import { createRegistry, MODULE_API_VERSION, type WireHubModule } from '@wirehub/modules';
 import { expect, it, vi } from 'vitest';
 import { buildModule } from '../scripts/wirehub-module.ts';

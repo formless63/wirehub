@@ -44,7 +44,7 @@ import { migrateModules } from './module-migrations.ts';
 import { registry } from '../modules.ts';
 import { SnapshotCache } from './snapshot.ts';
 import { migrateInstalledModules } from './runtime-migrations.ts';
-import { normalStoreKey } from '@wirehub/catalog';
+import { normalStoreKey } from '@wirehub/catalog/src/server.ts';
 
 const env = process.env;
 const from = (path: string): string => resolve(env.INIT_CWD ?? process.cwd(), path);

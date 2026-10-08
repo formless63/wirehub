@@ -21,7 +21,7 @@
  * one change set on Postgres (`SetupDeps.transact`).
  */
 
-import { normalStoreKey } from '@wirehub/catalog';
+import { normalStoreKey } from '@wirehub/catalog/src/server.ts';
 import { MODULE_API_VERSION } from '@wirehub/modules';
 
 import { publishCatalog, type ApiResponse, type WorkbenchDeps } from '../api.ts';

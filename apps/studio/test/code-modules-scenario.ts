@@ -14,7 +14,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { packDigests, signPackManifest } from '@wirehub/catalog';
+import { packDigests, signPackManifest } from '@wirehub/catalog/src/server.ts';
 import type { LiveModuleRegistry, PanelContribution } from '@wirehub/modules';
 import { expect } from 'vitest';
 

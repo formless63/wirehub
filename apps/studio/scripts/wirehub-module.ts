@@ -31,7 +31,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { packDigests, signPackManifest, PACK_SIGNATURE, type PackManifest } from '@wirehub/catalog';
+import { type PackManifest } from '@wirehub/catalog';
+import { packDigests, signPackManifest, PACK_SIGNATURE } from '@wirehub/catalog/src/server.ts';
 import * as React from 'react';
 import * as JsxRuntime from 'react/jsx-runtime';
 

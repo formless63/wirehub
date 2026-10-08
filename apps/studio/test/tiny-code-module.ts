@@ -6,7 +6,7 @@
 
 import { generateKeyPairSync } from 'node:crypto';
 
-import { packDigests, signPackManifest, storePublicKeyOf } from '@wirehub/catalog';
+import { packDigests, signPackManifest, storePublicKeyOf } from '@wirehub/catalog/src/server.ts';
 import { MODULE_API_VERSION } from '@wirehub/modules';
 
 import { zipFiles } from './pack-bundle-flow.ts';

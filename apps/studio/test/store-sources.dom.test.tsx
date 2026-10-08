@@ -12,7 +12,8 @@ import { join } from 'node:path';
 
 import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { catalogWithPacksSource, createCatalog, installedAcross, storeKeyFingerprint } from '@wirehub/catalog';
+import { catalogWithPacksSource, createCatalog, installedAcross } from '@wirehub/catalog';
+import { storeKeyFingerprint } from '@wirehub/catalog/src/server.ts';
 import { createRegistry } from '@wirehub/modules';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

@@ -11,7 +11,7 @@
  * `store-settings.ts`.
  */
 
-import { normalStoreKey, storeKeyFingerprint } from '@wirehub/catalog';
+import { normalStoreKey, storeKeyFingerprint } from '@wirehub/catalog/src/server.ts';
 
 import type { DocStore } from './storage/doc-store.ts';
 import type { StoreDeps, TrustedStoreIndex } from './store.ts';
