@@ -98,6 +98,6 @@ describe('deriveCost', () => {
     const csv = baseExport('bom.csv')!.render(d, db, { buildQty: 10 });
     expect(String(csv.body)).toContain('unit_cost,extended_cost,currency');
     expect(renderBomMarkdown(d, db)).toContain('## Cost');
-    expect(renderBomSheet(d, db, { buildQty: 10 })).toContain('Total, 10 cables');
+    expect(renderBomSheet(d, db, { buildQty: 10 })).toContain('Total, 10 units');
   });
 });

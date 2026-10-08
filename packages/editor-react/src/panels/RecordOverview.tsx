@@ -166,7 +166,7 @@ export function WhereUsed(props: {
 export function SourceBlock({ src }: { src: string }): JSX.Element {
   return (
     <details className="cs-record-section cs-record-src">
-      <summary>Source</summary>
+      <summary>Reference</summary>
       <p>{src === '' ? '—' : src}</p>
     </details>
   );

@@ -351,9 +351,9 @@ describe('click a pin, click the picture', () => {
     const none = anchorProgress(TERMINALS, {});
     expect(unanchoredSentence(none, 'DE-9 male', {})).toBeUndefined();
     const one = unanchoredSentence(none, 'DE-9 male', { '2': ['a-cable'] });
-    expect(one).toContain('One pin that cables solder to has no spot yet (2)');
-    expect(one).toContain('that cable draws the pin table');
-    expect(unanchoredSentence(none, 'DE-9 male', { '1': ['x', 'y'], '3': ['y'] })).toContain('2 pins that cables solder to have no spot yet (1, 3) — those 2 cables');
+    expect(one).toContain('One pin that designs solder to has no spot yet (2)');
+    expect(one).toContain('that design draws the pin table');
+    expect(unanchoredSentence(none, 'DE-9 male', { '1': ['x', 'y'], '3': ['y'] })).toContain('2 pins that designs solder to have no spot yet (1, 3) — those 2 designs');
   });
 });
 

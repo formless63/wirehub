@@ -18,7 +18,7 @@ export interface NotFoundViewProps {
 export function NotFoundView({
   message,
   backTo = '/cables',
-  backLabel = 'Back to Cables',
+  backLabel = 'Back to Designs',
 }: NotFoundViewProps): JSX.Element {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-dim">

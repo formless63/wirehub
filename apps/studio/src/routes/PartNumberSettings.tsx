@@ -5,6 +5,7 @@
  * a pack's scheme is an owner's confirmation. Saving never rewrites an existing number.
  */
 
+import { InfoTip } from '../shell/InfoTip.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -123,11 +124,10 @@ export function PartNumberSettings(): JSX.Element {
 
   return (
     <section ref={editor} className="mt-6 max-w-xl border-t border-line pt-3" data-testid="pn-settings">
-      <h2 className="mb-1 text-[13px] font-semibold">Part numbers</h2>
-      <p className="mb-2 text-faint">
-        How this hub numbers parts and cables. Edit declarative segments in the form, or use advanced JSON: fields with allowed values per record kind, zero-padded counters with ranges (several spans, numbers never issued, a range per set of combinations), a variant suffix, separators, a validation regex.
-        Saving never rewrites an existing number. Exotic cases stay a code scheme in a module.
-      </p>
+      <h2 className="mb-1 text-[13px] font-semibold">
+        Part numbers
+        <InfoTip topic="part-numbers" text="How this hub numbers parts and designs. Edit declarative segments in the form, or use advanced JSON: fields with allowed values per record kind, zero-padded counters with ranges (several spans, numbers never issued, a range per set of combinations), a variant suffix, separators, a validation regex. Saving never rewrites an existing number. Exotic cases stay a code scheme in a module." />
+      </h2>
       {view === undefined ? (
         <div className="text-faint">{query.isError ? 'The scheme could not be read.' : 'Loading…'}</div>
       ) : (

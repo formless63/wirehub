@@ -69,7 +69,7 @@ describe('the New hub strip', () => {
     cleanup();
     window.localStorage.clear();
     mount('/cables');
-    await screen.findByLabelText('Filter cables');
+    await screen.findByLabelText('Filter designs');
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId('new-hub-strip')).toBeNull();
   });

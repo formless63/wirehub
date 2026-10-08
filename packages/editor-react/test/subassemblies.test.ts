@@ -26,7 +26,7 @@ describe('the canvas', () => {
     expect(data.rows.map((r) => r.key)).toEqual(['lead-1:j1:1', 'lead-1:j1:2', 'lead-1:w1@b:red', 'lead-1:w1@b:black']);
     expect(data.groups.map((g) => [g.label, g.count])).toEqual([
       ['JST XH 2-pin housing, DC (1 = +V)', 2],
-      ['w1 end b (flying)', 2],
+      ['w1 destination end (flying)', 2],
     ]);
     expect(data.rows.filter((r) => r.used).map((r) => r.terminal)).toEqual(['w1@b:red', 'w1@b:black']);
     expect(cardDataOf(node)).toMatchObject({ part: 'subassembly', title: data.title });

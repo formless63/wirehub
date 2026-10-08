@@ -76,7 +76,7 @@ describe('bulk CSV import', () => {
     expect((within(dialog).getByLabelText('Column for Name') as HTMLSelectElement).value).toBe('1');
     expect((within(dialog).getByLabelText('Column for Kind') as HTMLSelectElement).value).toBe('2');
     fireEvent.change(within(dialog).getByLabelText('Column for Part number'), { target: { value: '0' } });
-    fireEvent.change(within(dialog).getByLabelText('Column for Source'), { target: { value: '3' } });
+    fireEvent.change(within(dialog).getByLabelText('Column for Reference'), { target: { value: '3' } });
     fireEvent.change(within(dialog).getByLabelText('Column for Unit price'), { target: { value: '4' } });
     // row 2 has no source and row 3 no name: the dry run says so
     expect(within(dialog).getByTestId('csv-dry-run').textContent).toContain('1 new, 0 already in the library (left as they are), 2 invalid');

@@ -10,7 +10,7 @@
 
 import { deriveLabels, labelsHtml } from '../exports/labels.ts';
 import { resolveTestParameters, type TestParameters } from '../exports/test-params.ts';
-import { findWire, isFullyBonded, placedDesign, resolveTerminal, terminalKey, validateDesign, type CableDesign, type Db } from '@wirehub/model';
+import { findWire, isFullyBonded, placedDesign, resolveTerminal, terminalKey, validateDesign, type CableDesign, type Db, endName } from '@wirehub/model';
 import { catalogDepictions, type DepictionSource } from '@wirehub/layout';
 
 import { deriveDrawing, type DrawingFace } from '../drawing/model.ts';
@@ -490,7 +490,7 @@ function testPage(n: number, spec: TestSpec, db?: Db): string {
       block(
         'Ground twists — before the shell goes on',
         `<ul class="cs-notes">${spec.groundLandings
-          .map((g) => `<li><span class="cs-check"></span> <span>${escapeHtml(`end ${g.end}: ${g.membersText} → ${g.landing === '' ? 'NOT LANDED' : `${g.landing}${g.pad === undefined ? '' : ` (${g.pad})`}`}`)} <span class="cs-meta">${escapeHtml(g.expected)}</span></span></li>`)
+          .map((g) => `<li><span class="cs-check"></span> <span>${escapeHtml(`${endName(g.end)}: ${g.membersText} → ${g.landing === '' ? 'NOT LANDED' : `${g.landing}${g.pad === undefined ? '' : ` (${g.pad})`}`}`)} <span class="cs-meta">${escapeHtml(g.expected)}</span></span></li>`)
           .join('')}</ul>`,
       ),
     );

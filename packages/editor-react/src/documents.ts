@@ -69,12 +69,12 @@ export const DOCUMENT_LABELS: Readonly<Record<DocumentKind, string>> = {
 /** One plain sentence per document, for someone who has not met them before. */
 export const DOCUMENT_BLURBS: Readonly<Record<DocumentKind, string>> = {
   'build-sheet': 'The bench flow, one page per stage: kit & cut, each end with its board and numbered landings, assembly, test.',
-  bom: 'The cable’s part number, then its parts by section, each with its part number.',
-  'test-spec': 'What the meter should read when the cable is finished, including the opens that are meant to be open.',
+  bom: 'The design’s part number, then its parts by section, each with its part number.',
+  'test-spec': 'What the meter should read when the design is finished, including the opens that are meant to be open.',
   drawing:
     'The engineering drawing (ANSI A, landscape): title block, BOM, connector faces coloured by conductor, the wire table and remarks. Part number, revision and the other title-block facts are edited above the sheet.',
   formboard:
-    'The cable laid flat at true length for the board: runs, branch angles, pegs at the ends and breakouts, connectors, labels. An overview sheet, then pages tiled at the chosen scale with registration marks.',
+    'The design laid flat at true length for the board: runs, branch angles, pegs at the ends and breakouts, connectors, labels. An overview sheet, then pages tiled at the chosen scale with registration marks.',
 };
 
 export interface DocumentOptions {
@@ -460,7 +460,7 @@ export const DRAWING_FIELD_LABELS: Record<keyof DrawingMeta, string> = {
   cutaway: 'Cable illustration',
   sheet: 'Sheet options',
   test: 'Test parameters',
-  src: 'Source',
+  src: 'Reference',
 };
 
 /** A conflicting value, for the banner — never blank-looking. */

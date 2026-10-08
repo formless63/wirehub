@@ -37,8 +37,7 @@ import {
   type Db,
   type InstanceKind,
   type ResolvedTerminal,
-  type TerminalRef,
-} from '@wirehub/model';
+  type TerminalRef, endName } from '@wirehub/model';
 import { wireDisplayName } from '@wirehub/docs';
 import {
   IconCheck,
@@ -81,7 +80,7 @@ function endChip(end: ConnectionEnd): JSX.Element {
   return (
     <span className="cs-conn-chip">
       {end.instance}
-      {end.end === undefined ? null : <span className="cs-conn-chip-end">· end {end.end}</span>}
+      {end.end === undefined ? null : <span className="cs-conn-chip-end">· {endName(end.end)}</span>}
     </span>
   );
 }
@@ -147,7 +146,7 @@ export function SubassemblySection({ state, id }: { state: EditorState; id: stri
             dispatch({ type: 'update-instance', id, patch: { rev: event.target.value === '' ? undefined : Number(event.target.value) } })
           }
         >
-          <option value="">working copy (frozen when this cable's version is saved)</option>
+          <option value="">working copy (frozen when this design's version is saved)</option>
           {versions.map((v) => (
             <option key={v.rev} value={String(v.rev)}>
               Rev {v.rev}
@@ -1039,8 +1038,8 @@ function SegmentLabels({ state, id }: { state: EditorState; id: string }): JSX.E
     <div data-testid="segment-labels">
       <h3>labels</h3>
       <LabelField label="run label" value={segment.label ?? ''} placeholder="W1 (generated)" onCommit={(v) => dispatch({ type: 'update-instance', id, patch: { label: v.trim() } })} />
-      <LabelField label="end A text" value={lines('a')} placeholder="generated; lines separated by |" onCommit={(v) => setEnd('a', v)} />
-      <LabelField label="end B text" value={lines('b')} placeholder="generated; lines separated by |" onCommit={(v) => setEnd('b', v)} />
+      <LabelField label="Source end text" value={lines('a')} placeholder="generated; lines separated by |" onCommit={(v) => setEnd('a', v)} />
+      <LabelField label="Destination end text" value={lines('b')} placeholder="generated; lines separated by |" onCommit={(v) => setEnd('b', v)} />
       {cores.map((path) => (
         <LabelField
           key={path}
@@ -1452,7 +1451,7 @@ export function PartPanel({ state }: { state: EditorState }): JSX.Element {
                     }
                   >
                     {other.instance}
-                    {other.end === undefined ? '' : ` · end ${other.end}`}
+                    {other.end === undefined ? '' : ` · ${endName(other.end)}`}
                   </button>
                   <span className="cs-count">{connection.joints.length}</span>
                 </li>

@@ -300,7 +300,7 @@ export function createStudioRouter(history?: RouterHistory): ReturnType<typeof c
     parseSearch: parseStudioSearch,
     ...(history === undefined ? {} : { history }),
     defaultNotFoundComponent: () => (
-      <NotFoundView message="That page does not exist." backTo="/cables" backLabel="Back to Cables" />
+      <NotFoundView message="That page does not exist." backTo="/cables" backLabel="Back to Designs" />
     ),
   });
   // first-run setup stands alone (`setup-mode.ts`): follow the location, including a redirect into it

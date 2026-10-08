@@ -726,7 +726,7 @@ export function DocumentsPane({
             style={{ width: '5.5em' }}
             inputMode="numeric"
             aria-label="Build quantity"
-            title="Cables in the build: quantity breaks in the cost are read at this many (the cost shows only where parts are priced)"
+            title="Units in the build: quantity breaks in the cost are read at this many (the cost shows only where parts are priced)"
             value={buildQtyText}
             onChange={(event) => setBuildQtyText(event.target.value)}
           />

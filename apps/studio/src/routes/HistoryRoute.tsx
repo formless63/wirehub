@@ -14,7 +14,7 @@ import { fetchHubHistory, type HubHistoryQuery } from '../history.browser.ts';
 import { EntryDetail, EntrySummary } from '../history/HistoryPanel.tsx';
 import { HISTORY_KINDS, parseSubject, type HistoryCapabilities, type HistoryEntry, type HistoryKind } from '../history/types.ts';
 
-const KIND_LABEL: Readonly<Record<HistoryKind, string>> = { design: 'Cables', library: 'Library', vocab: 'Lists', builds: 'Board builds', other: 'Other' };
+const KIND_LABEL: Readonly<Record<HistoryKind, string>> = { design: 'Designs', library: 'Library', vocab: 'Lists', builds: 'Board builds', other: 'Other' };
 const URL_KIND: Readonly<Record<string, string>> = { pcbas: 'boards', mechanicals: 'hardware' };
 const INPUT = 'h-7 min-w-0 rounded-md border border-line2 bg-bg px-2 text-[12.5px] text-ink outline-none placeholder:text-faint focus:border-accent';
 

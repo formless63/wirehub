@@ -63,14 +63,14 @@ const GROUPS: { kind: InstanceKind; title: string }[] = [
   { kind: 'segment', title: 'wire stock' },
   { kind: 'component', title: 'components' },
   { kind: 'pcba', title: 'PCBAs' },
-  { kind: 'subassembly', title: 'sub-assemblies (cables)' },
+  { kind: 'subassembly', title: 'sub-assemblies (designs)' },
 ];
 
 /** Other designs, as sub-assemblies to place (never the design itself). */
 export function subassemblyEntries(designs: readonly { id: string; label: string }[], current?: string): PaletteEntry[] {
   return designs
     .filter((design) => design.id !== current)
-    .map((design) => ({ kind: 'subassembly' as const, def: design.id, label: design.label, detail: `cable ${design.id}` }))
+    .map((design) => ({ kind: 'subassembly' as const, def: design.id, label: design.label, detail: `design ${design.id}` }))
     .sort((a, b) => (a.def < b.def ? -1 : a.def > b.def ? 1 : 0));
 }
 

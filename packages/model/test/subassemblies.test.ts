@@ -68,7 +68,7 @@ describe('ports', () => {
   it('are the terminals of the sub-assembly instance, resolved with their labels', () => {
     const terminals = terminalsOf(y(), db(), 'lead-1');
     expect(terminals.map((t) => t.key)).toEqual(['lead-1:j1:1', 'lead-1:j1:2', 'lead-1:w1@b:red', 'lead-1:w1@b:black']);
-    expect(terminals[2]).toMatchObject({ instanceKind: 'subassembly', def: 'dc-pigtail-lead', label: 'w1 end b (flying) +V' });
+    expect(terminals[2]).toMatchObject({ instanceKind: 'subassembly', def: 'dc-pigtail-lead', label: 'w1 destination end (flying) +V' });
   });
 
   it('of a nested sub-assembly are the ports its parent leaves free', () => {

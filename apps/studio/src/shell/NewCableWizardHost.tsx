@@ -30,7 +30,7 @@ export function NewCableWizardHost(): JSX.Element | null {
 
   return (
     <div className="cs-editor" style={{ position: 'fixed', inset: 0, zIndex: 30 }}>
-      <div className="cs-modal" role="dialog" aria-modal="true" aria-label="New cable">
+      <div className="cs-modal" role="dialog" aria-modal="true" aria-label="New design">
         <NewCableWizard
           db={studio.db}
           persistence={studio.persistence}

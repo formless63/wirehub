@@ -8,10 +8,10 @@ import { IconBox, IconBuilding, IconChecklist, IconHistory, IconKey, IconList, I
  * (`modules/placement.ts`).
  */
 export const NAV_LINKS = [
-  { to: '/cables', label: 'Cables', title: 'Cables', icon: IconList, rail: true },
+  { to: '/cables', label: 'Designs', title: 'Designs', icon: IconList, rail: true },
   { to: '/library', label: 'Library', title: 'Library', icon: IconBox, rail: true },
   { to: '/library/store', label: 'Store', title: 'Store', icon: IconShoppingBag, rail: true },
-  { to: '/resolver', label: 'Find cable', title: 'Which cable do I need?', icon: IconRoute, rail: true },
+  { to: '/resolver', label: 'Find a design', title: 'Find a design', icon: IconRoute, rail: true },
   { to: '/products', label: 'Products', title: 'Products', icon: IconPackages, rail: true },
   { to: '/history', label: 'History', title: 'History', icon: IconHistory, rail: true },
   { to: '/jobs', label: 'Jobs', title: 'Jobs', icon: IconChecklist, rail: true },

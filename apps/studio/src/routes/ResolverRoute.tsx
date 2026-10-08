@@ -36,8 +36,8 @@ export function ResolverRoute(): JSX.Element {
   const [tab, setTab] = useState<Tab>('which');
   return (
     <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="resolver">
-      <h1 className="mb-1 text-[14px] font-semibold">Which cable do I need?</h1>
-      <RouteTabs id="resolver" label="resolver" items={[{ id: 'which', label: 'Find a cable' }, { id: 'proposals', label: 'Proposals' }, { id: 'library', label: 'Devices and recipes' }]} value={tab} onChange={setTab} />
+      <h1 className="mb-1 text-[14px] font-semibold">Find a design</h1>
+      <RouteTabs id="resolver" label="resolver" items={[{ id: 'which', label: 'Find' }, { id: 'proposals', label: 'Proposals' }, { id: 'library', label: 'Devices and recipes' }]} value={tab} onChange={setTab} />
       <div role="tabpanel" id={`resolver-panel-${tab}`} aria-labelledby={`resolver-tab-${tab}`}>
         {tab === 'which' ? <FindCable onOpenDevices={() => setTab('library')} /> : tab === 'proposals' ? <ProposalDecisions /> : <ResolverLibrary />}
       </div>
@@ -190,7 +190,7 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
   if (ends.length === 0) {
     return (
       <section className="cs-route-empty" data-testid="resolver-empty" aria-label="Device profiles needed">
-        <h2 className="mb-2 text-[13px] font-semibold">Add device profiles to find a cable</h2>
+        <h2 className="mb-2 text-[13px] font-semibold">Add device profiles to find a design</h2>
         <p className="text-dim">There are no device profiles available to connect yet. Add profiles here, or browse catalog packs that include them.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" className="cs-route-action cs-route-action-primary" onClick={onOpenDevices}>Device profiles</button>
@@ -387,7 +387,7 @@ function ProposalDecisions(): JSX.Element {
     return out.value.proposals;
   }, retry: false });
   if (list.data === undefined) return <div className="text-faint">{list.isError ? 'The proposals could not be read.' : 'Loading…'}</div>;
-  if (list.data.length === 0) return <p className="text-faint" data-testid="proposal-decisions">No proposal has been filed, declined or accepted yet. Find a cable that nothing completes to see drafts.</p>;
+  if (list.data.length === 0) return <p className="text-faint" data-testid="proposal-decisions">No proposal has been filed, declined or accepted yet. Find a design that nothing completes to see drafts.</p>;
   return (
     <ul className="max-w-3xl" data-testid="proposal-decisions">
       {list.data.map((d) => (

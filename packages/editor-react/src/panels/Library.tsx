@@ -457,7 +457,7 @@ function InKits(props: {
   };
   return (
     <div className="cs-in-kits">
-      <span className="cs-journey-label" title="Kits are informational: a cable BOM lists the parts, never the kit">
+      <span className="cs-journey-label" title="Kits are informational: a design BOM lists the parts, never the kit">
         In kits
       </span>
       {inKits.length === 0 ? <span className="cs-empty">none</span> : null}

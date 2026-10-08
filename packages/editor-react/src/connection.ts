@@ -13,7 +13,7 @@
  * joints belong to which connection.
  */
 
-import { terminalKey, type CableDesign, type Joint, type TerminalRef } from '@wirehub/model';
+import { terminalKey, type CableDesign, type Joint, type TerminalRef, endName } from '@wirehub/model';
 
 import type { Selection } from './store.ts';
 
@@ -152,7 +152,7 @@ export function orientJoint(connection: Connection, joint: Joint): { a: Terminal
 }
 
 function formatEnd(end: ConnectionEnd): string {
-  return end.end === undefined ? end.instance : `${end.instance} · end ${end.end}`;
+  return end.end === undefined ? end.instance : `${end.instance} · ${endName(end.end)}`;
 }
 
 /** "u1 → w1 · end a" — the Connection tab's header line, and a good test/aria label. */

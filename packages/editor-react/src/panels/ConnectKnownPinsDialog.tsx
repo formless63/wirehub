@@ -9,9 +9,9 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import { jointKey, proposeKnownJoints, recipeJointProposals, type CableDesign, type Db, type Joint, type TerminalRef } from '@wirehub/model';
+import { jointKey, proposeKnownJoints, recipeJointProposals, type CableDesign, type Db, type Joint, type TerminalRef, endName } from '@wirehub/model';
 
-const show = (ref: TerminalRef): string => `${ref.instance} ${ref.terminal}${ref.end === undefined ? '' : ` (end ${ref.end})`}`;
+const show = (ref: TerminalRef): string => `${ref.instance} ${ref.terminal}${ref.end === undefined ? '' : ` (${endName(ref.end)})`}`;
 
 export function ConnectKnownPinsDialog(props: {
   design: CableDesign;

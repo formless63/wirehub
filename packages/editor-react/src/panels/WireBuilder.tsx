@@ -597,7 +597,7 @@ export function NewPartDialog(props: {
             value={v('manufacturer')}
             onChange={set('manufacturer')}
           />
-          <Text label="Source" value={v('src')} onChange={set('src')} wide title="The vendor sheet or measurement behind these values; say INFERRED when a value is assumed" />
+          <Text label="Reference" value={v('src')} onChange={set('src')} wide title="The vendor sheet or measurement behind these values; say INFERRED when a value is assumed" />
         </div>
         {problem === undefined ? null : <p className="cs-error">{problem}</p>}
         <div className="cs-modal-actions">
@@ -726,7 +726,7 @@ export function WireBuilder(props: WireBuilderProps): JSX.Element {
                 onChange={(maker) => set('manufacturer', maker === '' ? undefined : maker)}
               />
 
-              <Text label="Source" value={recipe.src} wide onChange={(value) => set('src', value)} title="The vendor sheet behind this stock; say INFERRED for anything assumed" />
+              <Text label="Reference" value={recipe.src} wide onChange={(value) => set('src', value)} title="The vendor sheet behind this stock; say INFERRED for anything assumed" />
             </div>
           </section>
 

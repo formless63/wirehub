@@ -25,8 +25,7 @@ import {
   type BreakoutFate,
   type BreakoutInstance,
   type CableDesign,
-  type Db,
-} from '@wirehub/model';
+  type Db, endName } from '@wirehub/model';
 import { wireDisplayName } from '@wirehub/docs';
 import { bondFoldedPaths } from '@wirehub/render-svg';
 import { useState, type JSX } from 'react';
@@ -78,7 +77,7 @@ export function SegmentBreakoutSection({ state, segment }: { state: EditorState;
         .filter((e) => e.at !== undefined)
         .map((e) => (
           <p key={e.end} className="cs-meta">
-            end {e.end} is the {e.at!.role} of{' '}
+            The {endName(e.end)} is the {e.at!.role} of{' '}
             <button type="button" className="cs-link" onClick={() => dispatch({ type: 'select', selection: { kind: 'instance', id: e.at!.breakout.id } })}>
               {e.at!.breakout.id}
             </button>
@@ -93,7 +92,7 @@ export function SegmentBreakoutSection({ state, segment }: { state: EditorState;
             placeholder={seg?.lengthMm === undefined ? 'at mm from a' : `at mm from a (of ${seg.lengthMm})`}
             value={atMm}
             onChange={(event) => setAtMm(event.target.value)}
-            aria-label="split point, mm from end a"
+            aria-label="split point, mm from the source end"
           />
           <button
             type="button"

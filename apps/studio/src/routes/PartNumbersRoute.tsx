@@ -87,7 +87,7 @@ export function PartNumbersRoute(): JSX.Element {
               ))}
             </ul>
           </Section>
-          <Section title="Cables whose numbers disagree" count={report.disagreements.length} empty="Every cable’s product reference matches its drawing number." testId="pn-disagreements">
+          <Section title="Designs whose numbers disagree" count={report.disagreements.length} empty="Every design’s product reference matches its drawing number." testId="pn-disagreements">
             <ul className="flex flex-col gap-1">
               {report.disagreements.map((d) => (
                 <li key={d.designId} data-design={d.designId}>

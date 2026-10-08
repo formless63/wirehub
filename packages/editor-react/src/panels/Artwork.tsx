@@ -321,7 +321,7 @@ function UploadBox(props: UploadBoxProps): JSX.Element {
         />
       </label>
       <label className="cs-field" title="Provenance travels with the artwork. Left empty, the file name is all anyone gets.">
-        <span>Source</span>
+        <span>Reference</span>
         <input
           className="cs-input"
           value={src}
@@ -1121,7 +1121,7 @@ export function ArtworkDetailPane(props: DetailProps): JSX.Element {
               <span className="cs-count">
                 {progress.todo.length} to place
                 {detail?.usedBy === undefined ? null : (
-                  <span title="unplaced pins a cable solders to"> · {progress.todo.filter((id) => (detail.usedBy?.[id]?.length ?? 0) > 0).length} used</span>
+                  <span title="unplaced pins a design solders to"> · {progress.todo.filter((id) => (detail.usedBy?.[id]?.length ?? 0) > 0).length} used</span>
                 )}
               </span>
             </div>
@@ -1135,7 +1135,7 @@ export function ArtworkDetailPane(props: DetailProps): JSX.Element {
                       type="button"
                       {...(detail?.usedBy === undefined
                         ? {}
-                        : { title: usedBy.length === 0 ? 'no cable solders here' : `soldered in ${usedBy.length === 1 ? usedBy[0] : `${usedBy.length} cables`}` })}
+                        : { title: usedBy.length === 0 ? 'no design solders here' : `soldered in ${usedBy.length === 1 ? usedBy[0] : `${usedBy.length} designs`}` })}
                       data-used={detail?.usedBy === undefined ? undefined : usedBy.length > 0}
                       className={classes(
                         'cs-artwork-terminal',

@@ -502,7 +502,7 @@ export function BuildEditor(props: BuildEditorProps): JSX.Element {
             <HazardRows hazards={build.hazards ?? []} onChange={(h) => setBuild({ ...build, ...(h.length === 0 ? { hazards: undefined } : { hazards: h }) } as BoardBuild)} />
           </Section>
 
-          <Section title="Source">
+          <Section title="Reference">
             <label className="cs-bj-text is-wide">
               <span>src</span>
               <textarea rows={2} value={build.src} onChange={(e) => setBuild({ ...build, src: e.target.value })} />

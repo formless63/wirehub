@@ -1669,7 +1669,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                       colours are a white card, which on this canvas read as a
                       blank rectangle someone forgot to style. Nodes
                       keep the palette's kind colours, so the map is a legend
-                      of the cable as much as a viewport. */}
+                      of the design as much as a viewport. */}
                   <MiniMap
                     pannable
                     zoomable

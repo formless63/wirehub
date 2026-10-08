@@ -75,6 +75,7 @@ devices and lists ranked designs that connect them.
   is named only where its data is edited ("Devices and recipes"); a person finds a design.
 - **build sheet**, **BOM**, **continuity spec**, **drawing**: the documents a design produces.
   Documents are *issued*, designs are *saved*.
+- **unit**: one physical build of a design. BOM totals and quantities count units ("Total, one unit").
 - **wire stock**: a purchasable cable or wire in the library (not a design).
 
 ## Copy rules that go with the words

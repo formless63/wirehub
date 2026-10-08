@@ -161,9 +161,9 @@ describe('deep links', () => {
 describe('an unknown cable id', () => {
   it('shows a compact not-found state instead of crashing', async () => {
     render(<App router={buildRouter('/cables/does-not-exist-anywhere')} />);
-    await waitFor(() => expect(screen.getByText(/No cable/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText(/No design/)).toBeDefined());
     expect(screen.queryByTestId('editor')).toBeNull();
-    expect(screen.getByRole('link', { name: 'Back to Cables' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Back to Designs' })).toBeDefined();
   });
 });
 
@@ -279,7 +279,7 @@ it('Home is a client navigation and asks before discarding a Library draft', asy
   expect(native).not.toHaveBeenCalled();
 });
 
-it.each([['/resolver', 'Which cable do I need?'], ['/products', 'Products'], ['/history', 'History'], ['/part-numbers', 'Part numbers'], ['/settings', 'Hub settings'], ['/library/store', 'Store'], ['/sign-in', 'My account']])('shows the page title for %s', async (path, title) => {
+it.each([['/resolver', 'Find a design'], ['/products', 'Products'], ['/history', 'History'], ['/part-numbers', 'Part numbers'], ['/settings', 'Hub settings'], ['/library/store', 'Store'], ['/sign-in', 'My account']])('shows the page title for %s', async (path, title) => {
   render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [path] }))} />);
   await waitFor(() => expect(screen.getByTestId('section-title').textContent).toBe(title));
 });

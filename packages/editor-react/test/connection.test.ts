@@ -183,7 +183,7 @@ describe('connectionLabel', () => {
   it('names a segment side by its end', () => {
     const d = design();
     const connection = connectionOfJoint(d, 1) as Connection;
-    expect(connectionLabel(connection)).toBe('u1 → w1 · end a');
+    expect(connectionLabel(connection)).toBe('u1 → w1 · source end');
   });
 
   it('leaves the end off a non-segment side', () => {

@@ -30,7 +30,7 @@ import {
 } from './useDesignLifecycle.ts';
 
 const DIALOG_TITLE: Record<DialogKind, string> = {
-  wizard: 'New cable',
+  wizard: 'New design',
   new: 'New design',
   duplicate: 'Save a copy',
   variant: 'Make a variant',
@@ -41,12 +41,12 @@ const DIALOG_TITLE: Record<DialogKind, string> = {
 /** What each dialog says before it asks for anything. */
 const DIALOG_SAY: Record<DialogKind, string> = {
   wizard: '',
-  new: 'Starts an empty cable. You add the connectors, wire and board on the canvas afterwards.',
+  new: 'Starts an empty design. You add the connectors, wire and board on the canvas afterwards.',
   duplicate:
-    'Copies this cable — every part and every joint — under a new name. The original is left exactly as it is.',
+    'Copies this design — every part and every joint — under a new name. The original is left exactly as it is.',
   variant:
-    'Copies this cable onto another wire stock. The trunk moves across by conductor colour; everything else is copied as it is, and this cable is left exactly as it is.',
-  rename: 'Changes this cable’s name and id. The design itself is not altered.',
+    'Copies this design onto another wire stock. The trunk moves across by conductor colour; everything else is copied as it is, and this design is left exactly as it is.',
+  rename: 'Changes this design’s name and id. The design itself is not altered.',
   delete: '',
 };
 
@@ -156,7 +156,7 @@ function NameDialog(props: DialogProps): JSX.Element {
             placeholder="datasheet §4, measured on the bench, …"
           />
           <small>
-            The document, board or measurement behind this cable. Say so here if any of it is
+            The document, board or measurement behind this design. Say so here if any of it is
             inferred — every record in the catalog carries its source.
           </small>
         </label>
@@ -212,10 +212,10 @@ function VariantDialog(props: {
       <h2>{DIALOG_TITLE.variant}</h2>
       <p className="cs-modal-say">{DIALOG_SAY.variant}</p>
       {props.dirty ? (
-        <p className="cs-modal-warn">You have changes that are not saved yet; the variant includes them. This cable itself stays as it is saved.</p>
+        <p className="cs-modal-warn">You have changes that are not saved yet; the variant includes them. This design itself stays as it is saved.</p>
       ) : null}
       {stocks.length === 0 ? (
-        <p className="cs-modal-say">There is no other wire stock in the library this cable’s trunk could move to.</p>
+        <p className="cs-modal-say">There is no other wire stock in the library this design’s trunk could move to.</p>
       ) : (
         <>
           <label className="cs-field">
@@ -300,7 +300,7 @@ function DeleteDialog(props: {
       </p>
       <p className="cs-modal-say">
         This removes it from the catalog for good — the drawings, build sheet and BOM that come
-        from it go with it. Nothing else in the catalog refers to a design, so no other cable is
+        from it go with it. Nothing else in the catalog refers to a design, so no other design is
         affected.
       </p>
       {props.problem === undefined ? null : <Problem problem={props.problem} />}
@@ -342,8 +342,8 @@ function WarningsDialog(props: {
     <div className="cs-modal-card">
       <h2>Save {props.design.label}?</h2>
       <p className="cs-modal-say">
-        Nothing here stops this cable being saved — {count === 1 ? 'this is a' : 'these are'} thing
-        {count === 1 ? '' : 's'} to look at, not {count === 1 ? 'a mistake' : 'mistakes'}. A cable
+        Nothing here stops this design being saved — {count === 1 ? 'this is a' : 'these are'} thing
+        {count === 1 ? '' : 's'} to look at, not {count === 1 ? 'a mistake' : 'mistakes'}. A design
         you are still building up will have {count === 1 ? 'one' : 'some'}.
       </p>
       <ul className="cs-problem-list">

@@ -1013,7 +1013,7 @@ function cableMaterial(cores: Core[], label: string): string {
 
 /** The remarks block, from the stock's own structure. */
 function deriveRemarks(cores: Core[], hasGround: boolean): Remark[] {
-  const out: Remark[] = [{ text: 'All cables 100% QC tested.' }];
+  const out: Remark[] = [{ text: 'All units 100% QC tested.' }];
   const shielded = cores.filter((c) => c.shielded);
   const plain = cores.filter((c) => !c.shielded);
   const colors = (list: Core[]): string => list.map((c) => titleCase(c.element.color ?? c.path)).join(', ');
