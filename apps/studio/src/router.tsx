@@ -255,6 +255,15 @@ export const accountRoute = createRoute({
 export const peopleRoute = createRoute({ getParentRoute: () => rootRoute, path: '/settings/people', component: AccountRoute });
 export const tokensRoute = createRoute({ getParentRoute: () => rootRoute, path: '/account/tokens', component: AccountRoute });
 
+/**
+ * `/dev/ui`: the primitives gallery. Registered only when `import.meta.env.DEV`; Vite replaces it
+ * with `false` in a production build, so the route, its lazy chunk and the gallery code are all
+ * dropped from the bundle (a test checks the built output).
+ */
+const devRoutes = import.meta.env.DEV
+  ? [createRoute({ getParentRoute: () => rootRoute, path: '/dev/ui', component: lazyRouteComponent(() => import('./routes/dev/UiGallery.tsx'), 'UiGallery') })]
+  : [];
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   setupRoute,
@@ -276,6 +285,7 @@ const routeTree = rootRoute.addChildren([
   resolverRoute,
   productsRoute,
   productRoute,
+  ...devRoutes,
 ]);
 
 /**

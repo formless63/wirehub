@@ -45,6 +45,11 @@ branding, a numbering scheme) is a **module** (`docs/modules.md`), not base code
 - Every catalog data record carries `"src"`: a citation for where its values came
   from (a public standard, a datasheet, a measurement, or "synthetic example").
   Inferred values are flagged as inferred inside the src text.
+- UI: `packages/editor-react/src/tokens.css` is the one source of design tokens; `tokens.ts` and `theme.css`
+  (the Tailwind `@theme` map) are generated from it (`pnpm --filter @wirehub/editor-react gen:tokens`, a drift
+  test fails otherwise). Build screens from `src/ui/` primitives (gallery: `/dev/ui` in a dev build). The
+  `ui-guard` test rejects raw `text-[Npx]` / `font-size: Npx`, raw hex, native `<select>` and `confirm(` /
+  `prompt(` outside an allow-list that may only shrink (how: the header of `packages/editor-react/test/ui-guard.test.ts`).
 - Deterministic library code: no `Date.now()`, no randomness, no network.
 - IDs kebab-case. Wire ends: `a` = source side, `b` = destination side.
 - Part numbers go through the `PartNumberScheme` interface
