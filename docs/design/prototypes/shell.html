@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cables · WireHub (prototype)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* Prototype of the proposed shell: grouped rail, one page-header pattern,
+     a dense list, a side detail panel and a fresh-hub start strip.
+     docs/design/prime-time-plan.md, sections 3.4 and 3.6. Static: no app code. */
+  .app { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: 40px 1fr 24px; height: 100vh; }
+  .rail { grid-row: 1 / 4; background: var(--rail); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: var(--s-2) 0; gap: 2px; }
+  .rail .mark { width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; margin-bottom: var(--s-3); }
+  .rail a { width: 40px; height: 36px; display: grid; place-items: center; border-radius: var(--r-sm); color: var(--dim); position: relative; }
+  .rail a:hover { background: var(--hover); color: var(--ink); }
+  .rail a[aria-current='page'] { color: var(--accent); background: var(--accent-soft); }
+  .rail a[aria-current='page']::before { content: ''; position: absolute; left: -8px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--accent); }
+  .rail svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  .rail .sep { width: 24px; height: 1px; background: var(--line2); margin: var(--s-2) 0; }
+  .rail .grow { flex: 1; }
+  .rail a .tip { position: absolute; left: 48px; white-space: nowrap; background: var(--ink); color: var(--bg); font-size: var(--text-xs); padding: 3px 6px; border-radius: var(--r-xs); opacity: 0; pointer-events: none; transition: opacity var(--dur-fast); z-index: 5; }
+  .rail a:hover .tip, .rail a:focus-visible .tip { opacity: 1; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--raised); border: 1px solid var(--line2); display: grid; place-items: center; font-size: var(--text-2xs); font-weight: 600; color: var(--dim); }
+
+  .top { display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-4); border-bottom: 1px solid var(--line); background: var(--panel); }
+  .crumb { display: flex; gap: var(--s-2); align-items: center; font-size: var(--text-sm); }
+  .crumb .here { font-weight: 600; }
+  .search { margin-left: var(--s-4); display: flex; align-items: center; gap: var(--s-3); height: var(--h-sm); width: 340px; padding: 0 var(--s-3); border: 1px solid var(--line2); border-radius: var(--r-sm); color: var(--faint); background: var(--bg); }
+  .search .kbd { margin-left: auto; }
+  .top .right { margin-left: auto; display: flex; gap: var(--s-2); align-items: center; }
+
+  .main { display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+  .page { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .pagehead { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
+  .pagehead h1 { margin: 0; font-size: var(--text-lg); font-weight: 600; }
+  .pagehead .count { color: var(--faint); font-size: var(--text-xs); }
+  .pagehead .actions { margin-left: auto; display: flex; gap: var(--s-2); }
+  .filters { display: flex; gap: var(--s-2); padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--line); align-items: center; }
+  .filters .input { width: 240px; }
+  .filters .btn { color: var(--dim); border-style: dashed; }
+
+  .start { margin: var(--s-3) var(--s-4) 0; padding: var(--s-3) var(--s-4); display: flex; gap: var(--s-5); align-items: center; border: 1px solid var(--line2); border-radius: var(--r-md); background: var(--panel); }
+  .start ol { margin: 0; padding: 0; list-style: none; display: flex; gap: var(--s-5); counter-reset: s; }
+  .start li { counter-increment: s; display: flex; gap: var(--s-2); align-items: center; font-size: var(--text-xs); color: var(--dim); }
+  .start li::before { content: counter(s); width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: var(--text-2xs); border: 1px solid var(--line-field); }
+  .start li.done { color: var(--faint); text-decoration: line-through; }
+  .start li.done::before { content: '✓'; background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+  .start li a { color: var(--ink); font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--line-field); }
+  .start .x { margin-left: auto; }
+
+  .listwrap { overflow: auto; flex: 1; padding: 0 var(--s-2); }
+  .pn { color: var(--dim); font-family: var(--font-mono); font-size: var(--text-xs); }
+  .muted { color: var(--faint); }
+
+  .side { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  .side header { padding: var(--s-4); border-bottom: 1px solid var(--line); }
+  .side h2 { margin: 0 0 var(--s-1); font-size: var(--text-md); font-weight: 600; line-height: var(--leading-tight); }
+  .side .meta { display: flex; gap: var(--s-2); flex-wrap: wrap; margin-top: var(--s-2); }
+  .side .thumb { margin: var(--s-4); height: 120px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--canvas); display: grid; place-items: center; }
+  .kv { display: grid; grid-template-columns: 96px 1fr; gap: var(--s-2) var(--s-3); padding: 0 var(--s-4); font-size: var(--text-xs); }
+  .kv dt { color: var(--faint); }
+  .kv dd { margin: 0; }
+  .side .acts { margin-top: auto; padding: var(--s-4); border-top: 1px solid var(--line); display: flex; gap: var(--s-2); flex-wrap: wrap; }
+
+  .status { grid-column: 2; display: flex; gap: var(--s-4); align-items: center; padding: 0 var(--s-4); font-size: var(--text-2xs); color: var(--faint); border-top: 1px solid var(--line); background: var(--panel); }
+  .status .ok { color: var(--ok); }
+  .toaster { position: fixed; right: 16px; bottom: 36px; }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .side { display: none; }
+    .search { width: auto; flex: 1; }
+    .start ol { flex-wrap: wrap; gap: var(--s-2) var(--s-4); }
+    .table .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5M12 12v9M12 12L4 7.5"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H12"/></symbol>
+    <symbol id="i-pack" viewBox="0 0 24 24"><path d="M12 2l8 4v6l-8 4-8-4V6z M4 12v6l8 4 8-4v-6"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M12 8v4l2 2M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></symbol>
+    <symbol id="i-jobs" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2zM9 14l2 2 4-4"/></symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M4 7h3a1 1 0 0 0 1-1V5a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-1a2 2 0 0 0-4 0v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a2 2 0 0 0 0-4H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M10.3 4.3a1.7 1.7 0 0 1 3.4 0 1.7 1.7 0 0 0 2.6 1.1 1.7 1.7 0 0 1 2.3 2.3 1.7 1.7 0 0 0 1.1 2.6 1.7 1.7 0 0 1 0 3.4 1.7 1.7 0 0 0-1.1 2.6 1.7 1.7 0 0 1-2.3 2.3 1.7 1.7 0 0 0-2.6 1.1 1.7 1.7 0 0 1-3.4 0 1.7 1.7 0 0 0-2.6-1.1 1.7 1.7 0 0 1-2.3-2.3 1.7 1.7 0 0 0-1.1-2.6 1.7 1.7 0 0 1 0-3.4 1.7 1.7 0 0 0 1.1-2.6 1.7 1.7 0 0 1 2.3-2.3 1.7 1.7 0 0 0 2.6-1.1"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7"/><path d="M21 21l-6-6"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2zM9 13h6M9 17h6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <nav class="rail" aria-label="Main">
+    <div class="mark" aria-hidden="true">H</div>
+    <a href="#" aria-current="page"><svg><use href="#i-list"/></svg><span class="tip">Cables</span></a>
+    <a href="#"><svg><use href="#i-box"/></svg><span class="tip">Library</span></a>
+    <a href="#"><svg><use href="#i-route"/></svg><span class="tip">Find a cable</span></a>
+    <a href="#"><svg><use href="#i-pack"/></svg><span class="tip">Products</span></a>
+    <div class="sep" role="separator"></div>
+    <a href="#"><svg><use href="#i-history"/></svg><span class="tip">History</span></a>
+    <a href="#"><svg><use href="#i-jobs"/></svg><span class="tip">Jobs</span></a>
+    <div class="grow"></div>
+    <a href="#"><svg><use href="#i-puzzle"/></svg><span class="tip">Extensions</span></a>
+    <a href="#"><svg><use href="#i-settings"/></svg><span class="tip">Settings</span></a>
+    <button class="avatar" aria-label="Account: Ada Example" style="margin-top:6px">AE</button>
+  </nav>
+
+  <header class="top">
+    <div class="crumb"><span class="muted">Example Shop</span><span class="muted">/</span><span class="here">Cables</span></div>
+    <div class="search"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-search"/></svg><span style="white-space:nowrap">Search cables, parts, commands</span><span class="kbd">Ctrl K</span></div>
+    <div class="right">
+      <span class="chip ok"><span class="dot"></span>Saved</span>
+      <button class="btn icon ghost" aria-label="Switch theme" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'"><svg fill="none" stroke="currentColor"><use href="#i-moon"/></svg></button>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="page">
+      <div class="pagehead">
+        <h1>Cables</h1><span class="count">16</span>
+        <div class="actions">
+          <button class="btn">Import…</button>
+          <button class="btn primary"><svg fill="none" stroke="currentColor"><use href="#i-plus"/></svg>New cable <span class="kbd" style="color:inherit;border-color:currentColor;opacity:.7">N</span></button>
+        </div>
+      </div>
+      <div class="filters">
+        <input class="input" placeholder="Filter by name, part number, connector" aria-label="Filter cables">
+        <button class="btn xs">Source</button><button class="btn xs">Destination</button><button class="btn xs">Wire</button><button class="btn xs">Status</button>
+      </div>
+      <div class="start" role="region" aria-label="Get started">
+        <strong style="font-size:var(--text-xs)">New hub</strong>
+        <ol>
+          <li class="done">Set up</li>
+          <li><a href="#">Open an example cable</a></li>
+          <li><a href="#">Make your first cable</a></li>
+          <li><a href="#">Print a build sheet</a></li>
+          <li><a href="#">Add parts from the store</a></li>
+        </ol>
+        <button class="btn icon ghost x" aria-label="Hide"><svg fill="none" stroke="currentColor"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="listwrap">
+        <table class="table" style="table-layout:fixed">
+          <colgroup><col style="width:110px"><col><col style="width:170px" class="hide-sm"><col style="width:220px" class="hide-sm"><col style="width:90px"></colgroup>
+          <thead><tr><th>PN</th><th>Cable</th><th class="hide-sm">Ends</th><th class="hide-sm">Wire</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr tabindex="0"><td class="pn">CBL-00011</td><td>DE-9 RS-232 → DE-9 RS-232, null modem</td><td class="hide-sm muted">DE-9 F · DE-9 F</td><td class="hide-sm muted">2-pair shielded, 24 AWG</td><td><span class="chip ok">Released</span></td></tr>
+            <tr tabindex="0"><td class="pn">CBL-00012</td><td>Terminal block → JST XH 2-pin, LED supply lead</td><td class="hide-sm muted">TB-4 · JST XH-2</td><td class="hide-sm muted">DC 2 × 24 AWG</td><td><span class="chip">Draft</span></td></tr>
+            <tr tabindex="0" aria-selected="true"><td class="pn">CBL-00014</td><td>XLR female → XLR male, balanced mic cable, 5 m</td><td class="hide-sm muted">XLR3 F · XLR3 M</td><td class="hide-sm muted">Mic 2 × 0.22 mm², braid</td><td><span class="chip ok">Released</span></td></tr>
+            <tr tabindex="0"><td class="pn">CBL-00015</td><td>RJ45 → RJ45, Cat 5e patch, T568B</td><td class="hide-sm muted">RJ45 · RJ45</td><td class="hide-sm muted">Cat 5e U/UTP</td><td><span class="chip">Draft</span></td></tr>
+            <tr tabindex="0"><td class="pn">CBL-00016</td><td>3.5 mm TRS → moulded Y → 2× RCA</td><td class="hide-sm muted">TRS · 2× RCA</td><td class="hide-sm muted">Stereo audio lead</td><td><span class="chip warn">2 warnings</span></td></tr>
+            <tr tabindex="0"><td class="pn">CBL-00017</td><td>USB-A → JST XH 2-pin, LED supply lead</td><td class="hide-sm muted">USB-A · JST XH-2</td><td class="hide-sm muted">DC 2 × 24 AWG</td><td><span class="chip">Draft</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="side" aria-label="Selected cable">
+      <header>
+        <h2>XLR female → XLR male, balanced mic cable, 5 m</h2>
+        <div class="pn">CBL-00014 · rev 2</div>
+        <div class="meta"><span class="chip ok">Released</span><span class="chip">pro-audio</span><span class="chip info">3 parts · 6 joints</span></div>
+      </header>
+      <div class="thumb" aria-label="Schematic thumbnail">
+        <svg width="260" height="70" viewBox="0 0 260 70" fill="none" stroke="var(--dim)">
+          <rect x="4" y="15" width="50" height="40" rx="4"/><rect x="206" y="15" width="50" height="40" rx="4"/>
+          <path d="M54 27h152" stroke="var(--err)" stroke-width="2"/><path d="M54 35h152" stroke="var(--ink)" stroke-width="1"/><path d="M54 43h152" stroke-dasharray="4 3"/>
+        </svg>
+      </div>
+      <dl class="kv">
+        <dt>Source end</dt><dd>XLR 3-pin female · microphone</dd>
+        <dt>Destination</dt><dd>XLR 3-pin male · mixer</dd>
+        <dt>Wire</dt><dd>Mic cable 2 × 0.22 mm², 5000 mm</dd>
+        <dt>Checks</dt><dd><span style="color:var(--ok)">0 errors · 0 warnings</span></dd>
+        <dt>Changed</dt><dd>Ada Example · 2 h ago</dd>
+      </dl>
+      <div class="acts">
+        <button class="btn primary">Open</button>
+        <button class="btn"><svg fill="none" stroke="currentColor"><use href="#i-file"/></svg>Build sheet</button>
+        <button class="btn">BOM</button>
+        <button class="btn ghost">More…</button>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="status"><span class="ok">● Connected</span><span>Postgres · S3</span><span style="margin-left:auto">WireHub 0.6.0</span></footer>
+</div>
+
+<div class="toaster" role="status">
+  <div class="toast"><span style="color:var(--ok)">●</span> Installed AV / video 0.1.0 · 43 records <button class="btn xs act">View</button><button class="btn xs ghost">Undo</button></div>
+</div>
+</body>
+</html>

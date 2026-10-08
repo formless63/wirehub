@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extensions · WireHub (prototype)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* Prototype: one "Extensions" page for packs and code modules (Browse /
+     Installed / Sources) with the install preview in a side drawer next to
+     what was clicked. docs/design/prime-time-plan.md, F-STORE and P0-B. */
+  body { display: flex; flex-direction: column; height: 100vh; }
+  .head { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); background: var(--panel); }
+  .head h1 { margin: 0; font-size: var(--text-lg); font-weight: 600; }
+  .tabs { display: flex; gap: 2px; margin-left: var(--s-4); }
+  .tabs button { height: var(--h-sm); padding: 0 var(--s-3); border: 0; background: none; color: var(--dim); font: 500 var(--text-sm) var(--font-sans); border-radius: var(--r-sm); cursor: pointer; }
+  .tabs button[aria-selected='true'] { background: var(--raised); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+  .tabs .n { color: var(--faint); font-size: var(--text-2xs); margin-left: 4px; }
+  .head .right { margin-left: auto; display: flex; gap: var(--s-2); }
+  .body { flex: 1; display: grid; grid-template-columns: 200px 1fr 400px; min-height: 0; }
+  .facets { padding: var(--s-4); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: var(--s-4); font-size: var(--text-xs); }
+  .facets h3 { margin: 0 0 var(--s-2); font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+  .facets label { display: flex; gap: var(--s-2); align-items: center; padding: 3px 0; color: var(--dim); }
+  .facets label .c { margin-left: auto; color: var(--faint); }
+  .grid { padding: var(--s-4); overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s-3); align-content: start; }
+  .card { border: 1px solid var(--line2); border-radius: var(--r-md); background: var(--panel); padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); cursor: pointer; }
+  .card:hover { border-color: var(--line-field); }
+  .card[aria-selected='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card .top { display: flex; gap: var(--s-3); align-items: center; }
+  .glyph { width: 32px; height: 32px; border-radius: var(--r-sm); display: grid; place-items: center; font: 600 var(--text-xs) var(--font-mono); background: var(--raised); color: var(--dim); border: 1px solid var(--line2); }
+  .card h2 { margin: 0; font-size: var(--text-sm); font-weight: 600; }
+  .card .sub { font-size: var(--text-2xs); color: var(--faint); font-family: var(--font-mono); }
+  .card p { margin: 0; font-size: var(--text-xs); color: var(--dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .foot { display: flex; gap: var(--s-2); align-items: center; margin-top: auto; padding-top: var(--s-2); }
+  .card .foot .btn { margin-left: auto; }
+  .drawer { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  .drawer header { padding: var(--s-4); border-bottom: 1px solid var(--line); }
+  .drawer h2 { margin: 0; font-size: var(--text-md); }
+  .drawer .scroll { overflow: auto; padding: var(--s-4); display: flex; flex-direction: column; gap: var(--s-4); }
+  .drawer h3 { margin: 0 0 var(--s-2); font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+  .diff { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s-3); font-size: var(--text-xs); }
+  .diff span:nth-child(even) { color: var(--ok); font-family: var(--font-mono); text-align: right; }
+  .trust { display: grid; grid-template-columns: 16px 1fr; gap: var(--s-2) var(--s-2); font-size: var(--text-xs); color: var(--dim); }
+  .drawer footer { margin-top: auto; padding: var(--s-4); border-top: 1px solid var(--line); display: flex; gap: var(--s-2); align-items: center; }
+  .drawer footer .btn.primary { margin-left: auto; }
+  .consent[hidden] { display: none; }
+  .consent { display: flex; gap: var(--s-2); align-items: flex-start; font-size: var(--text-xs); padding: var(--s-3); border-radius: var(--r-sm); background: var(--warn-soft); color: var(--ink); }
+  @media (max-width: 1000px) { .body { grid-template-columns: 1fr; } .facets { display: none; } .drawer { position: fixed; inset: auto 0 0 0; max-height: 70vh; box-shadow: var(--shadow-3); border-radius: var(--r-lg) var(--r-lg) 0 0; } }
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>Extensions</h1>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true">Browse<span class="n">8</span></button>
+      <button role="tab">Installed<span class="n">5</span></button>
+      <button role="tab">Sources<span class="n">1</span></button>
+    </div>
+    <div class="right">
+      <input class="input" placeholder="Search packs and modules" aria-label="Search" style="width:240px">
+      <button class="btn">Install from file…</button>
+      <button class="btn icon ghost" aria-label="Switch theme" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'">◐</button>
+    </div>
+  </div>
+  <div class="body">
+    <aside class="facets" aria-label="Filters">
+      <div><h3>Kind</h3>
+        <label><input type="checkbox" checked> Catalog packs <span class="c">5</span></label>
+        <label><input type="checkbox" checked> Code modules <span class="c">3</span></label></div>
+      <div><h3>Domain</h3>
+        <label><input type="checkbox"> Automotive <span class="c">1</span></label>
+        <label><input type="checkbox"> AV / video <span class="c">1</span></label>
+        <label><input type="checkbox"> Networking <span class="c">1</span></label>
+        <label><input type="checkbox"> PC &amp; serial <span class="c">1</span></label>
+        <label><input type="checkbox"> Pro audio <span class="c">1</span></label></div>
+      <div><h3>Source</h3>
+        <label><input type="checkbox" checked> Official store <span class="c">8</span></label></div>
+    </aside>
+    <main class="grid">
+      <article class="card"><div class="top"><div class="glyph">PC</div><div><h2>PC &amp; serial</h2><div class="sub">pc-serial 0.2.0 · 49 KB</div></div></div>
+        <p>RS-232, RS-485 and USB signals, DE-9 pinouts, the USB-A plug, a null modem and an RS-485 terminated-board cable.</p>
+        <div class="foot"><span class="chip">Pack</span><span class="chip">CC0-1.0</span><span class="chip ok">Installed</span></div></article>
+      <article class="card" aria-selected="true"><div class="top"><div class="glyph">AV</div><div><h2>AV / video</h2><div class="sub">av-video 0.1.0 · 68 KB</div></div></div>
+        <p>RGB, sync, composite, S-Video and component signals; VGA and SCART connectors; a VGA monitor cable.</p>
+        <div class="foot"><span class="chip">Pack</span><span class="chip">CC0-1.0</span><button class="btn xs primary">Install</button></div></article>
+      <article class="card"><div class="top"><div class="glyph">AU</div><div><h2>Automotive</h2><div class="sub">automotive 0.3.0 · 47 KB</div></div></div>
+        <p>CAN, K/L-line and J1850 signals, the OBD-II connector, a sealed 3-way family with contacts, seals and crimp tool.</p>
+        <div class="foot"><span class="chip">Pack</span><span class="chip">CC0-1.0</span><button class="btn xs">Install</button></div></article>
+      <article class="card"><div class="top"><div class="glyph">FX</div><div><h2>FX reference rates</h2><div class="sub">fx-rates 0.1.2 · 758 KB</div></div></div>
+        <p>Dated reference exchange-rate snapshots for costing reports in another currency.</p>
+        <div class="foot"><span class="chip info">Code</span><span class="chip">MIT</span><button class="btn xs">Install</button></div></article>
+      <article class="card"><div class="top"><div class="glyph">SU</div><div><h2>Suppliers</h2><div class="sub">suppliers 0.2.0 · 720 KB</div></div></div>
+        <p>Supplier quotes and procurement exports. Needs supplier API credentials, set under Settings › Modules.</p>
+        <div class="foot"><span class="chip info">Code</span><span class="chip">MIT</span><button class="btn xs">Install</button></div></article>
+      <article class="card"><div class="top"><div class="glyph">SW</div><div><h2>Standard work</h2><div class="sub">standard-work 0.1.1 · 55 KB</div></div></div>
+        <p>Shop process steps and work-instruction templates for build sheets.</p>
+        <div class="foot"><span class="chip info">Code</span><span class="chip">MIT</span><button class="btn xs">Install</button></div></article>
+    </main>
+    <aside class="drawer" aria-label="Install AV / video">
+      <header><h2>Install AV / video 0.1.0</h2><div class="sub mono" style="color:var(--faint);font-size:var(--text-2xs)">official store · signed</div></header>
+      <div class="scroll">
+        <div><h3>Adds</h3>
+          <div class="diff"><span>Signals</span><span>+14</span><span>Connectors</span><span>+3</span><span>Bodies and interfaces</span><span>+6</span><span>Wire stocks</span><span>+1</span><span>Example cables</span><span>+1</span><span>Changes or removals</span><span style="color:var(--faint)">0</span></div>
+          <button class="btn xs ghost" style="margin-top:6px">Show all 43 records</button></div>
+        <div><h3>Trust</h3>
+          <div class="trust"><span style="color:var(--ok)">✓</span><span>Signature verified: official store key</span><span style="color:var(--faint)">–</span><span>Content not reviewed by WireHub <span title="A signature proves who published the index, not that its data is right." style="border-bottom:1px dotted">(?)</span></span><span style="color:var(--ok)">✓</span><span>Data only: runs no code</span></div></div>
+        <div class="consent" hidden><input type="checkbox" id="c"><label for="c">I trust this module to run code on this hub.</label></div>
+      </div>
+      <footer><button class="btn">Cancel</button><button class="btn primary md">Install 43 records</button></footer>
+    </aside>
+  </div>
+</body>
+</html>

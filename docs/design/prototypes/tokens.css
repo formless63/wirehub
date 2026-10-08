@@ -1,0 +1,217 @@
+/*
+ * WireHub design tokens, proposal v1 (docs/design/prime-time-plan.md, section 3).
+ * A throwaway prototype: the values here are what P1-A ports into
+ * packages/editor-react/src/tokens.css. Not used by the app.
+ *
+ * Changes from today's tokens.css:
+ *  - contrast fixes: --faint and the new --line-field meet WCAG (4.5:1 text, 3:1 boundaries);
+ *    --accent in light mode darkened so white button text passes 4.5:1;
+ *  - new scales: type, space, radius, control height, elevation, motion;
+ *  - semantic aliases for status (ok/warn/err/info) with soft backgrounds.
+ */
+
+:root {
+  color-scheme: dark;
+  /* surfaces */
+  --bg: #121315;
+  --rail: #0d0e10;
+  --panel: #18191c;
+  --raised: #1f2024;
+  --hover: #24252a;
+  --selected: rgba(227, 146, 86, 0.12);
+  --canvas: #0f1012;
+  --dot: #232428;
+  /* lines */
+  --line: #27282d;          /* dividers only */
+  --line2: #34353b;         /* card and panel edges */
+  --line-field: #6a6b72;    /* input, select and checkbox boundaries: >= 3:1 */
+  /* text */
+  --ink: #ebe8e3;
+  --dim: #a19e96;
+  --faint: #8b887f;         /* was #6f6d67 (3.6:1), now 5.2:1 */
+  /* accent: copper */
+  --accent: #e39256;
+  --accent-ink: #1c1008;
+  --accent-soft: rgba(227, 146, 86, 0.14);
+  --focus: #7ea6db;
+  /* status */
+  --ok: #5fbf8a;   --ok-soft: rgba(95, 191, 138, 0.12);
+  --warn: #d9a441; --warn-soft: rgba(217, 164, 65, 0.12);
+  --err: #ef6461;  --err-soft: rgba(239, 100, 97, 0.12);
+  --info: #7ea6db; --info-soft: rgba(126, 166, 219, 0.12);
+  /* brand */
+  --brand: #2e5e99;
+  --brand-copper: #e39256;
+  /* kinds (library) */
+  --conn-kind: #7ea6db;
+  --wire-kind: #d2a85a;
+  --comp-kind: #b38be0;
+  --board-kind: #5fbf8a;
+  --scrim: rgba(0, 0, 0, 0.5);
+
+  /* type: IBM Plex Sans / Mono, six UI steps */
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --text-2xs: 11px;  /* table headers (caps), badges, kbd */
+  --text-xs: 12px;   /* secondary text, hints, table cells (dense) */
+  --text-sm: 13px;   /* base UI: controls, body, table cells */
+  --text-md: 14px;   /* panel titles, dialog body */
+  --text-lg: 16px;   /* page titles */
+  --text-xl: 20px;   /* setup and empty-state headlines only */
+  --leading-tight: 1.25;
+  --leading: 1.45;
+
+  /* space: 4 px grid */
+  --s-0: 2px; --s-1: 4px; --s-2: 6px; --s-3: 8px; --s-4: 12px; --s-5: 16px; --s-6: 24px; --s-7: 32px;
+
+  /* radius */
+  --r-xs: 2px;   /* chips inside tables, kbd */
+  --r-sm: 4px;   /* controls */
+  --r-md: 6px;   /* cards, menus, panels */
+  --r-lg: 8px;   /* dialogs, drawers */
+  --r-full: 999px;
+
+  /* control heights */
+  --h-xs: 22px;  /* canvas toolbar, inline table actions */
+  --h-sm: 26px;  /* default (dense) */
+  --h-md: 30px;  /* dialogs, setup, primary page action */
+
+  /* elevation */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.55);
+
+  /* motion */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f7f6f3;
+  --rail: #efeee9;
+  --panel: #ffffff;
+  --raised: #f4f3ef;
+  --hover: #efeee9;
+  --selected: rgba(164, 83, 28, 0.09);
+  --canvas: #f2f1ed;
+  --dot: #d7d4cc;
+  --line: #e4e2dc;
+  --line2: #d3d0c8;
+  --line-field: #8a867c;    /* 3.4:1 on panel */
+  --ink: #1b1a18;
+  --dim: #5f5c55;
+  --faint: #6f6b62;         /* was #98948b (2.8:1), now 4.9:1 */
+  --accent: #a4531c;        /* was #b9622a; white text now 5.5:1 */
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(164, 83, 28, 0.1);
+  --focus: #2f64b0;
+  --ok: #25744a;   --ok-soft: rgba(37, 116, 74, 0.1);
+  --warn: #8a5f0a; --warn-soft: rgba(168, 116, 15, 0.12);
+  --err: #b3352f;  --err-soft: rgba(179, 53, 47, 0.08);
+  --info: #2f64b0; --info-soft: rgba(47, 100, 176, 0.08);
+  --brand: #1d3a5f;
+  --brand-copper: #c06a2b;
+  --conn-kind: #3f6fb0;
+  --wire-kind: #8f6a1f;
+  --comp-kind: #8656c4;
+  --board-kind: #2f8f5b;
+  --scrim: rgba(40, 36, 30, 0.28);
+  --shadow-1: 0 1px 2px rgba(40, 36, 30, 0.08);
+  --shadow-2: 0 6px 16px rgba(40, 36, 30, 0.12);
+  --shadow-3: 0 16px 40px rgba(40, 36, 30, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; }
+}
+
+/* ---- prototype base ---- */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: var(--text-sm) / var(--leading) var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: var(--font-mono); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; border-radius: var(--r-xs); }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  height: var(--h-sm); padding: 0 var(--s-3);
+  border: 1px solid var(--line2); border-radius: var(--r-sm);
+  background: var(--panel); color: var(--ink);
+  font: 500 var(--text-sm) / 1 var(--font-sans); cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--dim); }
+.btn.ghost:hover { background: var(--hover); color: var(--ink); }
+.btn.danger { color: var(--err); }
+.btn.md { height: var(--h-md); padding: 0 var(--s-4); }
+.btn.xs { height: var(--h-xs); padding: 0 var(--s-2); font-size: var(--text-xs); }
+.btn.icon { width: var(--h-sm); padding: 0; justify-content: center; }
+.btn svg { width: 16px; height: 16px; stroke-width: 1.75; }
+.kbd {
+  font: var(--text-2xs) / 1 var(--font-mono); padding: 2px 4px;
+  border: 1px solid var(--line2); border-radius: var(--r-xs); color: var(--faint);
+}
+
+/* fields */
+.field { display: flex; flex-direction: column; gap: var(--s-1); }
+.field > label { font-size: var(--text-xs); font-weight: 500; color: var(--dim); }
+.field .hint { font-size: var(--text-xs); color: var(--faint); }
+.field .error { font-size: var(--text-xs); color: var(--err); }
+.input, .select {
+  height: var(--h-sm); padding: 0 var(--s-3);
+  border: 1px solid var(--line-field); border-radius: var(--r-sm);
+  background: var(--panel); color: var(--ink); font: var(--text-sm) var(--font-sans);
+}
+.input::placeholder { color: var(--faint); }
+.input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 30%, transparent); }
+
+/* chips and badges */
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px;
+  border: 1px solid var(--line2); border-radius: var(--r-xs);
+  font-size: var(--text-2xs); color: var(--dim); white-space: nowrap;
+}
+.chip.ok { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+.chip.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+.chip.err { color: var(--err); background: var(--err-soft); border-color: transparent; }
+.chip.info { color: var(--info); background: var(--info-soft); border-color: transparent; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
+
+/* tables */
+.table { width: 100%; border-collapse: collapse; }
+.table th {
+  text-align: left; font: 600 var(--text-2xs) / 1 var(--font-sans); letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--faint); padding: 0 var(--s-3); height: 28px;
+  border-bottom: 1px solid var(--line2); position: sticky; top: 0; background: var(--bg);
+}
+.table td { padding: 0 var(--s-3); height: 32px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
+.table tr[tabindex] { cursor: pointer; }
+.table tr[tabindex]:hover td { background: var(--hover); }
+.table tr[aria-selected='true'] td { background: var(--selected); }
+.table tr[aria-selected='true'] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* callout: one line, optional detail */
+.callout {
+  display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line2); border-radius: var(--r-md); background: var(--panel);
+}
+.callout.info { border-color: color-mix(in srgb, var(--info) 35%, var(--line2)); background: var(--info-soft); }
+.callout.warn { border-color: color-mix(in srgb, var(--warn) 35%, var(--line2)); background: var(--warn-soft); }
+
+.toast {
+  display: flex; gap: var(--s-3); align-items: center; padding: var(--s-3) var(--s-4);
+  background: var(--raised); border: 1px solid var(--line2); border-radius: var(--r-md);
+  box-shadow: var(--shadow-2); font-size: var(--text-sm); min-width: 300px;
+}
+.toast .act { margin-left: auto; }
