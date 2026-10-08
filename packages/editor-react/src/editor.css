@@ -22,7 +22,7 @@
  *
  * `tokens.css` is the semantic palette (light/dark, `data-theme` on `<html>`)
  * — the single source of truth this package owns for both here and
- * apps/studio, which imports the identical file. `@theme inline` below binds
+ * apps/studio, which imports the identical file. `theme.css` (generated) binds
  * those custom properties into Tailwind (so `cs:bg-panel` etc. exist); every
  * hand-written rule in this file reads the same properties directly
  * (`var(--panel)`, …), so the prefixed utilities and the hand-authored `.cs-*`
@@ -38,44 +38,7 @@
 @import './library-table.css';
 @import './ui/ui.css';
 
-@theme inline {
-  --color-bg: var(--bg);
-  --color-rail: var(--rail);
-  --color-panel: var(--panel);
-  --color-raised: var(--raised);
-  --color-hover: var(--hover);
-  --color-line: var(--line);
-  --color-line2: var(--line2);
-  --color-line-field: var(--line-field);
-  --color-ink: var(--ink);
-  --color-dim: var(--dim);
-  --color-faint: var(--faint);
-  --color-canvas: var(--canvas);
-  --color-dot: var(--dot);
-  --color-accent: var(--accent);
-  --color-accent-ink: var(--accent-ink);
-  --color-accent-soft: var(--accent-soft);
-  --color-brand: var(--brand);
-  --color-brand-ink: var(--brand-ink);
-  --color-brand-copper: var(--brand-copper);
-  --color-brand-wordmark: var(--brand-wordmark);
-  --color-ok: var(--ok);
-  --color-warn: var(--warn);
-  --color-err: var(--err);
-  --color-board: var(--board);
-  --color-jacket: var(--jacket);
-  --color-jacket-line: var(--jacket-line);
-  --color-diel: var(--diel);
-  --color-foil: var(--foil);
-  --color-copper: var(--copper);
-  --color-scrim: var(--scrim);
-  --color-conn-kind: var(--conn-kind);
-  --color-wire-kind: var(--wire-kind);
-  --color-comp-kind: var(--comp-kind);
-
-  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-}
+@import './theme.css';
 
 .cs-editor {
   --cs-bg: var(--bg);
@@ -6617,6 +6580,8 @@ fieldset.cs-lock-fence {
 .cs-doc-tools .cs-doc-tool:hover,
 .cs-doc-tools .cs-doc-tool:focus-visible {
   background: var(--hover);
+}
+
 .cs-node-head:has(.cs-conn-adorn) {
   padding-right: 88px;
 }

@@ -11,7 +11,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
+import { Button, Callout, Checkbox, Chip, Field, HelpTip, Input, Select, Textarea } from '@wirehub/editor-react';
+
 import { runtimeSettingsKey, runtimeSettingsQuery, saveModuleSecret, saveModuleSettings, type ModuleFieldView, type ModuleSettingsView, type RuntimeValue } from '../settings.browser.ts';
+
+const ABOUT =
+  'Credentials and options this module asks for. Secrets are kept encrypted with the hub\u2019s settings key and never shown again; a change applies at once, with no restart. A value the server\u2019s environment sets wins and is shown locked.';
 
 type Draft = Record<string, string | boolean | string[]>;
 
@@ -38,9 +43,9 @@ function Status({ field }: { field: ModuleFieldView }): JSX.Element {
             ? `missing: required${gate}`
             : 'not set';
   return (
-    <span className={`rounded border border-line px-1 text-[11px] ${field.status === 'missing' ? 'text-err' : 'text-faint'}`} data-status={field.status ?? 'restricted'}>
+    <Chip tone={field.status === 'missing' ? 'err' : field.status === 'configured' ? 'ok' : 'neutral'} data-status={field.status ?? 'restricted'}>
       {text}
-    </span>
+    </Chip>
   );
 }
 
@@ -60,29 +65,35 @@ function SecretField({ module, field, editable, available, onSaved }: { module: 
     toast.success(next === undefined ? `${field.label} cleared.` : `${field.label} saved. It is kept encrypted and never shown again.`);
     onSaved();
   };
+  const placeholder = field.set === true ? 'Enter a new value to replace it' : undefined;
   return (
-    <div className="flex flex-col gap-0.5" data-testid={`module-secret-${module}-${field.key}`}>
-      <span className="flex flex-wrap items-center gap-2 font-medium">
-        {field.label} {field.status === undefined ? null : <Status field={field} />}
-      </span>
+    <div data-testid={`module-secret-${module}-${field.key}`}>
       {editable && !locked && available ? (
-        <div className="flex gap-2">
-          {field.multiline === true ? (
-            <textarea className="min-h-16 flex-1 rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : undefined} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
-          ) : (
-            <input className="flex-1 rounded border border-line-field bg-panel px-2 py-1" type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : undefined} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" />
-          )}
-          <button type="button" className="rounded border border-line px-2 py-1 disabled:opacity-50" disabled={busy || value.trim() === ''} onClick={() => void save(value)}>
-            {field.set === true ? 'Replace' : 'Set'}
-          </button>
-          {field.set === true ? (
-            <button type="button" className="rounded border border-line px-2 py-1 disabled:opacity-50" disabled={busy} onClick={() => void save(undefined)}>
-              Clear
-            </button>
-          ) : null}
+        <Field label={field.label} {...(field.status === undefined ? {} : { meta: <Status field={field} /> })} {...(field.help === '' ? {} : { hint: field.help })}>
+          <div className="flex gap-2">
+            {field.multiline === true ? (
+              <Textarea mono value={value} {...(placeholder === undefined ? {} : { placeholder })} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
+            ) : (
+              <Input type="password" value={value} {...(placeholder === undefined ? {} : { placeholder })} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" />
+            )}
+            <Button disabled={busy || value.trim() === ''} onClick={() => void save(value)}>
+              {field.set === true ? 'Replace' : 'Set'}
+            </Button>
+            {field.set === true ? (
+              <Button disabled={busy} onClick={() => void save(undefined)}>
+                Clear
+              </Button>
+            ) : null}
+          </div>
+        </Field>
+      ) : (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 text-xs font-medium text-dim">
+            {field.label} {field.status === undefined ? null : <Status field={field} />}
+          </div>
+          {field.help === '' ? null : <p className="m-0 text-xs text-faint">{field.help}</p>}
         </div>
-      ) : null}
-      {field.help === '' ? null : <span className="text-dim">{field.help}</span>}
+      )}
     </div>
   );
 }
@@ -90,36 +101,38 @@ function SecretField({ module, field, editable, available, onSaved }: { module: 
 function ValueField({ field, value, disabled, set }: { field: ModuleFieldView; value: string | boolean | string[]; disabled: boolean; set: (v: string | boolean | string[]) => void }): JSX.Element {
   const locked = field.source === 'server';
   const shown = locked ? (field.value ?? '') : value;
-  const control =
-    field.kind === 'list' && field.options !== undefined ? (
-      <span className="flex flex-wrap gap-3" role="group" aria-label={field.label}>
-        {field.options.map((option) => {
-          const list = Array.isArray(shown) ? shown : [];
-          return (
-            <label key={option} className="flex items-center gap-1">
-              <input type="checkbox" disabled={disabled || locked} checked={list.includes(option)} onChange={(e) => set(e.target.checked ? [...list, option] : list.filter((v) => v !== option))} />
-              {option}
-            </label>
-          );
-        })}
-      </span>
-    ) : field.kind === 'bool' ? (
-      <select className="w-fit rounded border border-line-field bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={shown === true ? 'on' : shown === false ? 'off' : ''} onChange={(e) => set(e.target.value === 'on' ? true : e.target.value === 'off' ? false : '')}>
-        <option value="">Not set</option>
-        <option value="on">On</option>
-        <option value="off">Off</option>
-      </select>
-    ) : (
-      <input className="rounded border border-line-field bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={Array.isArray(shown) ? shown.join(', ') : String(shown)} onChange={(e) => set(e.target.value)} />
+  const meta = field.status === 'server' || field.status === 'missing' ? <Status field={field} /> : undefined;
+  const hint = field.help === '' ? {} : { hint: field.help };
+  if (field.kind === 'list' && field.options !== undefined) {
+    const list = Array.isArray(shown) ? shown : [];
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2 text-xs font-medium text-dim">
+          {field.label} {meta}
+        </div>
+        <div className="flex flex-wrap gap-3" role="group" aria-label={field.label}>
+          {field.options.map((option) => (
+            <Checkbox key={option} label={option} disabled={disabled || locked} checked={list.includes(option)} onCheckedChange={(on) => set(on ? [...list, option] : list.filter((v) => v !== option))} />
+          ))}
+        </div>
+        {field.help === '' ? null : <p className="m-0 text-xs text-faint">{field.help}</p>}
+      </div>
     );
+  }
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="flex flex-wrap items-center gap-2 font-medium">
-        {field.label} {field.status === 'server' || field.status === 'missing' ? <Status field={field} /> : null}
-      </span>
-      {control}
-      {field.help === '' ? null : <span className="text-dim">{field.help}</span>}
-    </div>
+    <Field label={field.label} {...(meta === undefined ? {} : { meta })} {...hint}>
+      {field.kind === 'bool' ? (
+        <Select
+          className="w-fit"
+          value={shown === true ? 'on' : shown === false ? 'off' : 'unset'}
+          disabled={disabled || locked}
+          onValueChange={(v) => set(v === 'on' ? true : v === 'off' ? false : '')}
+          options={[{ value: 'unset', label: 'Not set' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]}
+        />
+      ) : (
+        <Input disabled={disabled || locked} value={Array.isArray(shown) ? shown.join(', ') : String(shown)} onChange={(e) => set(e.target.value)} />
+      )}
+    </Field>
   );
 }
 
@@ -159,11 +172,12 @@ function ModuleSection({ section, available, refetch }: { section: ModuleSetting
         void save();
       }}
     >
-      <h2 className="text-[13px] font-semibold">
+      <h2 className="m-0 flex items-center gap-2 text-sm font-semibold">
         {section.title} <span className="font-normal text-faint">{section.module}</span>
+        <HelpTip label={`About ${section.title} settings`}>{ABOUT}</HelpTip>
       </h2>
       {section.restricted === true ? (
-        <div className="text-dim">Shown to owners: only an owner sees and changes a module&rsquo;s settings.</div>
+        <Callout>Shown to owners: only an owner sees and changes a module&rsquo;s settings.</Callout>
       ) : (
         <>
           {section.fields.map((field) =>
@@ -174,12 +188,12 @@ function ModuleSection({ section, available, refetch }: { section: ModuleSetting
             ),
           )}
           {!section.editable ? (
-            <div className="text-dim">An owner changes these settings, in a signed-in session.</div>
+            <Callout>An owner changes these settings, in a signed-in session.</Callout>
           ) : plain.some((f) => f.source !== 'server') ? (
             <div>
-              <button type="submit" disabled={busy} className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50">
+              <Button type="submit" variant="primary" disabled={busy}>
                 {busy ? 'Saving…' : `Save ${section.title} settings`}
-              </button>
+              </Button>
             </div>
           ) : null}
         </>
@@ -192,16 +206,12 @@ export function ModuleSettings(): JSX.Element {
   const client = useQueryClient();
   const query = useQuery(runtimeSettingsQuery);
   const refetch = (): void => void client.invalidateQueries({ queryKey: runtimeSettingsKey });
-  if (query.isError) return <div className="mt-8 border-t border-line pt-4 text-faint">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div>;
+  if (query.isError) return <Callout tone="err">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</Callout>;
   if (query.data === undefined) return <div className="mt-6 text-faint">Loading…</div>;
   const sections = query.data.modules ?? [];
   return (
     <div className="flex max-w-xl flex-col gap-8" data-testid="module-settings">
-      <p className="text-dim">
-        Credentials and options the installed modules ask for. Secrets are kept encrypted with the hub&rsquo;s settings key and never shown again; a change applies at once, with no
-        restart. A value the server&rsquo;s environment sets wins and is shown locked (docs/self-hosting.md, &ldquo;What lives where&rdquo;).
-      </p>
-      {query.data.secrets.available ? null : <div className="text-dim">{query.data.secrets.note}</div>}
+      {query.data.secrets.available ? null : <Callout tone="warn">{query.data.secrets.note}</Callout>}
       {sections.length === 0 ? <div className="text-faint">No installed module declares settings.</div> : null}
       {sections.map((section) => (
         <ModuleSection key={section.module} section={section} available={query.data.secrets.available} refetch={refetch} />

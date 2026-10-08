@@ -8,6 +8,9 @@
 import { AlertDialog } from 'radix-ui';
 import type { JSX, ReactNode } from 'react';
 
+import { Button } from './Button.tsx';
+import { usePortalContainer } from './portal.ts';
+
 export interface ConfirmDialogProps {
   open: boolean;
   title: string;
@@ -24,10 +27,11 @@ export interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog(props: ConfirmDialogProps): JSX.Element {
+  const container = usePortalContainer();
   const { open, title, children, confirmLabel = 'Confirm', cancelLabel = 'Cancel', destructive = false, busy = false } = props;
   return (
     <AlertDialog.Root open={open} onOpenChange={(next) => { if (!next && !busy) props.onCancel(); }}>
-      <AlertDialog.Portal>
+      <AlertDialog.Portal container={container}>
         <AlertDialog.Overlay className="cs-ui-overlay" />
         <AlertDialog.Content className="cs-ui-dialog" data-testid="confirm-dialog">
           <AlertDialog.Title className="cs-ui-title">{title}</AlertDialog.Title>
@@ -36,11 +40,11 @@ export function ConfirmDialog(props: ConfirmDialogProps): JSX.Element {
           </AlertDialog.Description>
           <div className="cs-ui-actions">
             <AlertDialog.Cancel asChild>
-              <button type="button" className="cs-ui-btn" disabled={busy}>{cancelLabel}</button>
+              <Button disabled={busy}>{cancelLabel}</Button>
             </AlertDialog.Cancel>
-            <button type="button" className={`cs-ui-btn ${destructive ? 'is-danger' : 'is-primary'}`} disabled={busy} onClick={props.onConfirm} data-testid="confirm-dialog-ok">
+            <Button variant={destructive ? 'danger' : 'primary'} loading={busy} onClick={props.onConfirm} data-testid="confirm-dialog-ok">
               {confirmLabel}
-            </button>
+            </Button>
           </div>
         </AlertDialog.Content>
       </AlertDialog.Portal>
