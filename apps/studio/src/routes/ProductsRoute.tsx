@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import type { LineupRow, ProductFamily } from '@wirehub/model';
 
 import { cableListKey, dbKey } from '../queries.ts';
+import { EMPTY_PRIMARY, EmptyState } from '../shell/EmptyState.tsx';
 import { RouteChip } from '../shell/RouteChip.tsx';
 import { useStudio } from '../studio-context.tsx';
 import {
@@ -161,7 +162,14 @@ export function ProductsRoute(): JSX.Element {
         <div className="text-faint">{query.isError ? 'The products could not be read.' : 'Loading…'}</div>
       ) : (
         <>
-          {view.products.length === 0 ? <div className="text-faint">No products yet.</div> : null}
+          {view.products.length === 0 ? (
+            <EmptyState
+              topic="products"
+              action={readOnly ? undefined : <button type="button" className={EMPTY_PRIMARY} disabled={editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty(EXAMPLE)); }}>New product…</button>}
+            >
+              No products yet.
+            </EmptyState>
+          ) : null}
           <ul data-testid="product-list">
             {view.products.map((p) => {
               const problems = view.issues.filter((i) => i.where?.startsWith(`products/${p.id}`));

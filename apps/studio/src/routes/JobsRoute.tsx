@@ -5,8 +5,10 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useState, type JSX } from 'react';
 
+import { EMPTY_PRIMARY, EmptyState } from '../shell/EmptyState.tsx';
 import { ImportJob } from '../modules/ImportJob.tsx';
 import { fetchJobs, isFinished, jobsKey, type JobView } from '../jobs.browser.ts';
 
@@ -47,7 +49,18 @@ export function JobsRoute(): JSX.Element {
             Run by {data.runner}.{' '}
             {data.worker === undefined ? null : data.worker === null ? 'No worker has reported in yet.' : `Worker ${data.worker.worker} ${data.worker.version} last beat ${when(data.worker.beatAt)}.`}
           </div>
-          {data.jobs.length === 0 ? <div className="text-faint">No jobs yet.</div> : null}
+          {data.jobs.length === 0 ? (
+            <EmptyState
+              topic="jobs"
+              action={
+                <Link to="/modules" className={`${EMPTY_PRIMARY} inline-flex items-center`}>
+                  Open modules
+                </Link>
+              }
+            >
+              No jobs yet. Imports and long renders run here.
+            </EmptyState>
+          ) : null}
           <table className="w-full max-w-4xl text-left">
             <thead>
               <tr className="text-faint">

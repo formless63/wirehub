@@ -312,3 +312,11 @@ describe('a record from an installed pack', () => {
     await waitFor(() => expect(selected).toContain(`${target.id}-mine`));
   });
 });
+
+it('an empty list says so once, offers New, and links to the docs when the host gives a link', async () => {
+  const empty: Db = { ...db, kits: [] };
+  render(<Library db={empty} kind="kits" definitions={memoryDefinitions(empty, [design])} emptyHelp={(kind) => `https://docs.example/${kind}`} />);
+  const line = await screen.findByText(/No kits yet\./);
+  expect(within(line).getByRole('button', { name: /New/ })).toBeTruthy();
+  expect(within(line).getByRole('link', { name: 'Learn more' }).getAttribute('href')).toBe('https://docs.example/kits');
+});

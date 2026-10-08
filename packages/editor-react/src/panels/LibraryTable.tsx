@@ -42,7 +42,7 @@ export interface LibraryTableProps {
   /** the Compare pick-two mode: a checkbox per row */
   pick?: { ids: readonly string[]; toggle: (id: string) => void };
   /** what an empty table says */
-  empty: string;
+  empty: ReactNode;
   /** rows shown / total, reported up for the count */
   onCount?: (shown: number, total: number) => void;
   /** the host's own tools at the start of the filter bar (search, New …) */

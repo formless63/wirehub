@@ -8,6 +8,8 @@
 import { Link } from '@tanstack/react-router';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 
+import { EMPTY_PRIMARY, EmptyState } from '../shell/EmptyState.tsx';
+import { useStudio } from '../studio-context.tsx';
 import { fetchHubHistory, type HubHistoryQuery } from '../history.browser.ts';
 import { EntryDetail, EntrySummary } from '../history/HistoryPanel.tsx';
 import { HISTORY_KINDS, parseSubject, type HistoryCapabilities, type HistoryEntry, type HistoryKind } from '../history/types.ts';
@@ -37,6 +39,7 @@ function SubjectLink(props: { subject: string; label: string }): JSX.Element {
 }
 
 export function HistoryRoute(): JSX.Element {
+  const studio = useStudio();
   const [filters, setFilters] = useState<HubHistoryQuery>({});
   const [draft, setDraft] = useState<HubHistoryQuery>({});
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
@@ -131,7 +134,22 @@ export function HistoryRoute(): JSX.Element {
         </button>
       </form>
       {error !== undefined ? <div role="alert" className="text-err">{error}</div> : null}
-      {!loading && error === undefined && entries.length === 0 && capabilities?.backend !== 'none' ? <div className="text-faint">No changes match.</div> : null}
+      {!loading && error === undefined && entries.length === 0 && capabilities?.backend !== 'none' ? (
+        Object.values(filters).some((v) => v !== undefined && v !== '') ? (
+          <div className="text-faint">No changes match.</div>
+        ) : (
+          <EmptyState
+            topic="history"
+            action={
+              <button type="button" className={EMPTY_PRIMARY} onClick={studio.openNewCableWizard}>
+                New design
+              </button>
+            }
+          >
+            No changes yet. Saving a design or a part records it here.
+          </EmptyState>
+        )
+      ) : null}
       <ol className="m-0 max-w-4xl list-none space-y-1 p-0">
         {entries.map((entry) => (
           <li key={entry.id} className={`rounded border px-2 py-1 ${open === entry.id ? 'border-accent' : 'border-line'} bg-bg`} data-entry={entry.id}>

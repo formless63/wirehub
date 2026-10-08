@@ -47,6 +47,7 @@ import { useStudio } from '../studio-context.tsx';
 import { useEditorChrome } from './editor-chrome.tsx';
 import { designProducts } from '../cable-list.ts';
 import { ProductChips } from './ProductChips.tsx';
+import { HelpLink } from './HelpLink.tsx';
 import { StatusChip } from './StatusChip.tsx';
 import { ReleaseChip } from '../versions/ReleaseChip.tsx';
 import { HistoryButton } from '../history/HistoryPanel.tsx';
@@ -246,9 +247,12 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
           </DropdownMenu.Root>
         </nav>
       ) : (
-        <span data-testid="section-title" className="truncate text-[12.5px] font-medium text-ink">
-          {moduleTitle ?? pageTitle(pathname)}
-        </span>
+        <>
+          <span data-testid="section-title" className="truncate text-[12.5px] font-medium text-ink">
+            {moduleTitle ?? pageTitle(pathname)}
+          </span>
+          <HelpLink pathname={pathname} />
+        </>
       )}
 
       {cableId !== undefined && search !== undefined ? (

@@ -125,6 +125,8 @@ import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 import { useEditLocked } from './edit-session.ts';
 
 export interface LibraryProps {
+  /** where a kind's documentation lives: an empty list offers it as "Learn more" */
+  emptyHelp?: (kind: LibraryKind) => string | undefined;
   /** the library as the editor has it, and the fallback when there is no adapter */
   db: Db;
   /** how this host stores definitions; without one the Library is read-only */
@@ -1320,9 +1322,22 @@ export function Library(props: LibraryProps): JSX.Element {
                   },
                 })}
             empty={
-              rows.length === 0
-                ? `There are no ${DEFINITION_LABELS[kind].toLowerCase()} yet. Add the first one above.`
-                : `Nothing here matches “${query}”. Clear the search or the filters to see all ${countLabel(kind, rows.length)}.`
+              rows.length === 0 ? (
+                <span className="cs-lt-empty-line">
+                  No {DEFINITION_LABELS[kind].toLowerCase()} yet.{' '}
+                  <button type="button" className="cs-primary" disabled={definitions === undefined || busy} onClick={() => openNew()}>
+                    + New {DEFINITION_NOUNS[kind]}
+                  </button>
+                  {props.emptyHelp?.(kind) === undefined ? null : (
+                    <>
+                      {' '}
+                      <a href={props.emptyHelp?.(kind)} target="_blank" rel="noreferrer">
+                        Learn more
+                      </a>
+                    </>
+                  )}
+                </span>
+              ) : `Nothing here matches “${query}”. Clear the search or the filters to see all ${countLabel(kind, rows.length)}.`
             }
             onCount={onTableCount}
             {...(mode.kind === 'browse' ? { lead: listTools } : {})}

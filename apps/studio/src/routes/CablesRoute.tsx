@@ -59,6 +59,8 @@ import { useIsNarrow } from '../hooks/useIsNarrow.ts';
 import { entryMatches } from '../pn-search.ts';
 import { cableListKey, loadCableList } from '../queries.ts';
 import { cablesRoute, type CableListSort, type CablesSearch } from '../router.tsx';
+import { EMPTY_PRIMARY, EmptyState } from '../shell/EmptyState.tsx';
+import { NewHubStrip } from '../shell/NewHubStrip.tsx';
 import { StatusChip } from '../shell/StatusChip.tsx';
 import { RouteChip } from '../shell/RouteChip.tsx';
 import { RevChip } from '../versions/RevChip.tsx';
@@ -703,6 +705,8 @@ export function CablesRoute(): JSX.Element {
         </button>
       </div>
 
+      <NewHubStrip firstDesign={entries[0]?.id} onNewDesign={studio.openNewCableWizard} />
+
       {/*
         The table region: header and rows share one scroll container so a
         horizontal scrollbar carries both together (the header stays put only
@@ -745,9 +749,22 @@ export function CablesRoute(): JSX.Element {
           </div>
 
           {rows.length === 0 ? (
-            <p className="px-4 py-6 text-[12.5px] text-faint">
-              {entries.length === 0 ? 'No cables yet.' : 'Nothing matches this filter.'}
-            </p>
+            <div className="px-4 py-6 text-[12.5px] text-faint">
+              {entries.length === 0 ? (
+                <EmptyState
+                  topic="new-design"
+                  action={
+                    <button type="button" className={EMPTY_PRIMARY} onClick={studio.openNewCableWizard}>
+                      New design
+                    </button>
+                  }
+                >
+                  No designs yet.
+                </EmptyState>
+              ) : (
+                'Nothing matches this filter.'
+              )}
+            </div>
           ) : (
             <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
               {virtualizer.getVirtualItems().map((item) => {

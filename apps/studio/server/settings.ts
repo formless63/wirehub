@@ -51,11 +51,16 @@ export const DRAWING_ART_PATH = 'data/drawing-art.json';
 
 export const ENGINEERING_PATH = 'data/settings/engineering.json';
 
+/** Small per-hub UI state that belongs to the hub, not a browser (the dismissed "New hub" strip). */
+export const HUB_PATH = 'data/settings/hub.json';
+
 export const SETTINGS_ROUTES = [
   'GET    /api/settings/branding',
   'PUT    /api/settings/branding',
   'GET    /api/settings/engineering',
   'PUT    /api/settings/engineering',
+  'GET    /api/settings/hub',
+  'PUT    /api/settings/hub',
   'GET    /api/settings/stores',
   'PUT    /api/settings/stores',
 ] as const;
@@ -295,6 +300,34 @@ async function handleEngineering(method: string, body: unknown, deps: SettingsDe
   return { status: 200, body: engineeringView(saved, deps.testDefaults), headers: { ETag: contentETag(saved ?? null) } };
 }
 
+/**
+ * `data/settings/hub.json`: UI state of the hub itself. Today one flag, `welcomeDismissed`: the
+ * "New hub" strip on the designs list was closed by someone, for everyone.
+ */
+export interface HubRecord {
+  welcomeDismissed?: boolean;
+  src: string;
+}
+
+async function handleHub(method: string, body: unknown, deps: SettingsDeps): Promise<ApiResponse> {
+  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
+  const current = (await deps.docs.read(HUB_PATH)) as HubRecord | undefined;
+  const view = (record: HubRecord | undefined): ApiResponse => ({ status: 200, body: { welcomeDismissed: record?.welcomeDismissed === true }, headers: { ETag: contentETag(record ?? null) } });
+  if (method === 'GET') return view(current);
+  if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return fail(400, 'Send the settings as a JSON object.');
+  const given = (body as Record<string, unknown>)['welcomeDismissed'];
+  if (given !== undefined && typeof given !== 'boolean') return fail(400, 'welcomeDismissed is true or false.');
+  const dismissed = given === undefined ? current?.welcomeDismissed === true : given;
+  if (!dismissed) {
+    await deps.docs.remove(HUB_PATH);
+    return view(undefined);
+  }
+  const next: HubRecord = { welcomeDismissed: true, src: 'Hub settings (entered in the app)' };
+  await deps.docs.write(HUB_PATH, next);
+  return view(next);
+}
+
 /* ------------------------------------------------------------------ *
  * Fonts
  * ------------------------------------------------------------------ */
@@ -444,6 +477,7 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
   if (parts[0] !== 'api' || parts[1] !== 'settings') return undefined;
   if (isStoreSourcesPath(parts)) return await handleStoreSources(method, body, deps, ifMatch, user);
   if (parts[2] === 'engineering' && parts.length === 3) return await handleEngineering(method, body, deps, ifMatch);
+  if (parts[2] === 'hub' && parts.length === 3) return await handleHub(method, body, deps);
   if (parts[2] === 'branding' && parts[3] === 'fonts' && parts.length === 4) {
     if (method === 'GET') return { status: 200, body: { fonts: await listFonts(deps), limits: { bytes: MAX_FONT_BYTES, formats: ['ttf', 'otf', 'woff2'] }, licence: LICENCE_PROMPT } };
     if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers GET (the fonts you may choose) and POST (upload one).');
