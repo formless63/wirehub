@@ -118,13 +118,19 @@ describe('length', () => {
 
 describe('the flow', () => {
   it('will not leave the first step without a name, an id and a source', () => {
-    const fresh = initialWizardState(db, ['de9-crossover']);
+    const fresh = { ...initialWizardState(db, ['de9-crossover']), src: '' };
     expect(stepBlockers(fresh)).toHaveLength(3);
 
     const blocked = wizardReducer(fresh, { type: 'next' });
     expect(blocked.step).toBe('name');
     expect(blocked.blocked.join(' ')).toContain('name');
     expect(blocked.blocked.join(' ')).toContain('where this information comes from');
+  });
+
+  it('starts a hand-made design with the Reference "own design", so nobody is blocked for lack of a datasheet', () => {
+    const fresh = initialWizardState(db, []);
+    expect(fresh.src).toBe('own design');
+    expect(stepBlockers(fresh)).toHaveLength(2);
   });
 
   it('refuses an id that is already in the catalog, in plain words', () => {

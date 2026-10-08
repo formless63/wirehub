@@ -237,14 +237,14 @@ function openMenu(name: string): void {
 describe('the cable menu', () => {
   it('opens the rename dialog through the editor handle', async () => {
     await readyOnCable();
-    openMenu('Cable menu');
+    openMenu('Design menu');
     fireEvent.click(await screen.findByText('Rename…'));
     expect(handle.openLifecycle).toHaveBeenCalledWith('rename');
   });
 
   it("revert is disabled while the draft isn't dirty", async () => {
     await readyOnCable();
-    openMenu('Cable menu');
+    openMenu('Design menu');
     const revert = await screen.findByText('Revert');
     expect(revert.closest('[data-disabled]')).not.toBeNull();
   });

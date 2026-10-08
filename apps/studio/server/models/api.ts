@@ -161,7 +161,7 @@ export function linkETag(link: ModelLink | undefined): string {
 
 /** The words for an imported model whose cache entry is not built on this box. */
 export const NOT_BUILT = {
-  error: 'This 3D model has not been built on this studio yet.',
+  error: 'This 3D model has not been built on this hub yet.',
   hint: 'The model-cache job builds it from its source files (an uploaded board file, or a mounted model-sources folder); reload once it has run.',
   state: 'not-built',
 } as const;
@@ -188,7 +188,7 @@ export async function cachedModelFile(deps: ModelDeps, id: string): Promise<ApiR
 /** Everything under `/api/models`. */
 export async function handleModelRequest(request: ModelRequest, deps: ModelDeps): Promise<ApiResponse> {
   if (deps.links === undefined || deps.assets === undefined) {
-    return fail(501, 'This studio does not keep 3D models.', 'The rest of the Library works as before.');
+    return fail(501, 'This hub does not keep 3D models.', 'The rest of the Library works as before.');
   }
   const links = deps.links;
   const assets = deps.assets;
@@ -364,13 +364,13 @@ async function uploadBoardFile(
   },
 ): Promise<ApiResponse> {
   if (upload.kind !== 'pcbas') return fail(400, 'A KiCad board file is the model of a board.', 'Upload it on a board (pcbas) record, or upload a STEP, STL or GLB here.');
-  if ((deps.docs ?? undefined) === undefined) return fail(501, 'This studio does not keep catalog documents, so it cannot keep a board file.', 'Upload a STEP, STL or GLB instead.');
+  if ((deps.docs ?? undefined) === undefined) return fail(501, 'This hub does not keep catalog documents, so it cannot keep a board file.', 'Upload a STEP, STL or GLB instead.');
   const text = new TextDecoder().decode(upload.bytes);
   let board: ReturnType<typeof parseKicadPcb>;
   try {
     board = parseKicadPcb(text);
   } catch (error) {
-    return fail(422, `${upload.name} is not a KiCad board file this studio can read.`, `Nothing was saved. ${error instanceof Error ? error.message : String(error)}`);
+    return fail(422, `${upload.name} is not a KiCad board file this hub can read.`, `Nothing was saved. ${error instanceof Error ? error.message : String(error)}`);
   }
   if (board.outlines[0] === undefined) return fail(422, `${upload.name} has no closed board outline (Edge.Cuts).`, 'Nothing was saved. Close the outline in KiCad and upload it again.');
   // the bytes the reader will hand back: the text as stored
@@ -384,7 +384,7 @@ async function uploadBoardFile(
   const early = checkIfMatch(request.ifMatch, linkETag(current), '3D model link', upload.record);
   if (early !== undefined) return early;
   return upload.guarded(async (_current, stores) => {
-    if (stores.docs === undefined) return fail(501, 'This studio does not keep catalog documents, so it cannot keep a board file.');
+    if (stores.docs === undefined) return fail(501, 'This hub does not keep catalog documents, so it cannot keep a board file.');
     if ((await stores.docs.read(path)) === undefined) await stores.docs.write(path, text);
     const who = deps.who ?? 'the Library';
     const link: ModelLink = {

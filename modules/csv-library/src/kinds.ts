@@ -28,7 +28,7 @@ const COST_FIELDS: readonly FieldSpec[] = [
 
 const ID: FieldSpec = { key: 'id', label: 'Id', hint: 'lowercase words joined by hyphens; blank derives it from the name', aliases: ['identifier', 'slug'] };
 const LABEL: FieldSpec = { key: 'label', label: 'Name', required: true, hint: 'what people call the part', aliases: ['name', 'description', 'title'] };
-const SRC: FieldSpec = { key: 'src', label: 'Source', required: true, hint: 'where the values come from: a datasheet, a measurement, a catalog page. Required on every row (or give one batch source).', aliases: ['source', 'citation', 'reference'] };
+const SRC: FieldSpec = { key: 'src', label: 'Reference', required: true, hint: 'where the values come from: a datasheet, a measurement, a catalog page. Required on every row (or give one batch source).', aliases: ['source', 'citation', 'reference'] };
 const PN: FieldSpec = { key: 'part_number', label: 'Part number', hint: 'your own orderable number for the part', aliases: ['pn', 'sku', 'partno', 'part_no', 'part'] };
 
 export const FIELDS: Readonly<Record<LibraryKind, readonly FieldSpec[]>> = {

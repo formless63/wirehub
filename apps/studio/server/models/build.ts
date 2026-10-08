@@ -32,7 +32,7 @@ import { convertAssembly, convertModel, convertModelFiles, ModelRefusal, type Co
 export class ModelSourceUnavailable extends ModelRefusal {
   readonly path: string;
   constructor(path: string) {
-    super(`${path} is not readable here.`, 'Mount the model sources (WIREHUB_MODEL_SOURCES) on this studio.');
+    super(`${path} is not readable here.`, 'Mount the model sources (WIREHUB_MODEL_SOURCES) on this hub.');
     this.path = path;
   }
 }
@@ -116,7 +116,7 @@ export async function buildLinkedModel(
   if (files === undefined) throw new ModelRefusal(`${link.record}'s model is an upload, not built from sources.`, 'Uploads are stored as they were converted.');
   const profile = buildProfileOf(link);
   if (profile === undefined) {
-    throw new ModelRefusal(`${link.record}'s model key was made by another converter version or budget.`, 'Run the importer that made it again: it re-keys the link for this studio.');
+    throw new ModelRefusal(`${link.record}'s model key was made by another converter version or budget.`, 'Run the importer that made it again: it re-keys the link for this hub.');
   }
   const { budget, boardTextureProfile } = profile;
   const bytes = new Map<string, Uint8Array>();

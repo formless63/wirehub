@@ -189,7 +189,7 @@ describe('engineering settings (testing defaults, electrical thresholds, approva
     expect((await eng(d, 'PUT', { costing: { labourRatePerHour: -2 } }, saved.headers!.ETag!)).status).toBe(400);
   });
 
-  it('a parameter the server sets (WIREHUB_TEST_DEFAULTS) wins over the settings, per parameter', async () => {
+  it('a parameter the server sets wins over the settings, per parameter', async () => {
     const { docs } = deps();
     const env = { isolationVolts: 100, hipotVolts: 1500 };
     expect(await effectiveTestDefaults({ docs, testDefaults: env })).toEqual(env);
@@ -206,7 +206,7 @@ describe('engineering settings (testing defaults, electrical thresholds, approva
     // another value for a parameter the server sets: refused, saving nothing
     const refused = await eng(d, 'PUT', { testDefaults: { isolationVolts: 250, hipotVolts: 1200 } }, first.headers!.ETag!);
     expect(refused.status).toBe(409);
-    expect(JSON.stringify(refused.body)).toMatch(/set by the server \(WIREHUB_TEST_DEFAULTS\)/);
+    expect(JSON.stringify(refused.body)).toMatch(/set by the server/);
     expect(docs.docs.has(ENGINEERING_PATH)).toBe(false);
     // the rest saves; the server's own value may be adopted (sent back as it is)
     const adopted = await eng(d, 'PUT', { testDefaults: { isolationVolts: 100, hipotVolts: 1200 } }, first.headers!.ETag!);

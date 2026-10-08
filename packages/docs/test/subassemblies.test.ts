@@ -83,7 +83,7 @@ describe('the build sheet', () => {
     const html = renderBuildSheet(y(), db, { depictions: false });
     expect(html).toContain('Sub-assemblies — build each to its own sheet first');
     expect(html).toContain('build to the build sheet of dc-pigtail-lead (working copy — not frozen)');
-    expect(html).toContain('w1@b:red · w1 end b (flying) +V → j1:1');
+    expect(html).toContain('w1@b:red · w1 destination end (flying) +V → j1:1');
     // the lead is not inlined: none of its own landings are bench steps here
     expect(html).not.toContain('lead-1/w1');
     const md = buildSheetMarkdown(y(), db);

@@ -852,7 +852,7 @@ function planAgainst(local: CatalogSource, installed: InstalledPacks, packDir: s
 /** `packs.json`, or an empty record when nothing was installed. */
 export function readInstalledPacks(catalogDir: string): InstalledPacks {
   const path = join(catalogDir, PACKS_FILE);
-  if (!existsSync(path)) return { src: 'catalog packs installed into this catalog (docs/catalog-store.md)', packs: [] };
+  if (!existsSync(path)) return { src: 'catalog packs installed into this catalog', packs: [] };
   return JSON.parse(readFileSync(path, 'utf8')) as InstalledPacks;
 }
 

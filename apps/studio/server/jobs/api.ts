@@ -83,7 +83,7 @@ export function jobView(job: JobRun): Record<string, unknown> {
  */
 export async function startImportJob(request: ApiRequest, io: ModuleIoPath, deps: WorkbenchDeps): Promise<ApiResponse> {
   const jobs = deps.jobs;
-  if (jobs === undefined || !jobs.kinds.includes('import')) return fail(501, 'This studio does not run import jobs.', 'Send the import without `job` to preview and accept it in one request.');
+  if (jobs === undefined || !jobs.kinds.includes('import')) return fail(501, 'This hub does not run import jobs.', 'Send the import without `job` to preview and accept it in one request.');
   const importer = deps.modules?.importer(io.module, io.id);
   if (importer === undefined) return fail(404, `${io.module} has no importer ${io.id}.`, "Check the deployment's modules.config.ts.");
   const body = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as Record<string, unknown>;
@@ -104,7 +104,7 @@ export async function startImportJob(request: ApiRequest, io: ModuleIoPath, deps
 
 /** The checks on an import's file name and importer shared by the two ways of sending one. */
 export function importUploadRefusal(deps: WorkbenchDeps, io: ModuleIoPath, fileName: string | null): ApiResponse | undefined {
-  if (deps.jobs === undefined || !deps.jobs.kinds.includes('import')) return fail(501, 'This studio does not run import jobs.', 'Send the import as JSON, without `job`, to preview and accept it in one request.');
+  if (deps.jobs === undefined || !deps.jobs.kinds.includes('import')) return fail(501, 'This hub does not run import jobs.', 'Send the import as JSON, without `job`, to preview and accept it in one request.');
   const importer = deps.modules?.importer(io.module, io.id);
   if (importer === undefined) return fail(404, `${io.module} has no importer ${io.id}.`, "Check the deployment's modules.config.ts.");
   if (fileName === null || fileName.trim() === '' || fileName.length > 200 || /[\\/\u0000]/.test(fileName)) return fail(400, 'Say the file name in the query: ?fileName=… (a name, no folders).');
@@ -133,7 +133,7 @@ export async function handleJobRequest(request: ApiRequest, deps: WorkbenchDeps)
   const method = request.method.toUpperCase();
   const parts = partsOf(request.path);
   const jobs = deps.jobs;
-  if (jobs === undefined) return fail(501, 'This studio does not run jobs.', 'Imports and model builds need the job runner (docs/self-hosting.md).');
+  if (jobs === undefined) return fail(501, 'This WireHub does not run jobs.', 'Imports and model builds need the job runner.');
 
   const [, , id, action, ...rest] = parts;
   if (rest.length > 0) return fail(404, 'There is nothing at that address.', JOB_ROUTES.join('; '));
@@ -153,7 +153,7 @@ export async function handleJobRequest(request: ApiRequest, deps: WorkbenchDeps)
     if (method === 'POST') {
       const kind = (request.body as { kind?: unknown } | undefined)?.kind;
       if (!isJobKind(kind) || !(ON_DEMAND.includes(kind) || isModuleJobKind(kind))) return fail(400, `Say which job to run: one of ${ON_DEMAND.join(', ')}, or a module's queue (<module>:<queue>).`);
-      if (!jobs.kinds.includes(kind)) return fail(501, `This studio does not run '${kind}' jobs.`);
+      if (!jobs.kinds.includes(kind)) return fail(501, `This hub does not run '${kind}' jobs.`);
       const job = await jobs.enqueue(kind, { reason: 'requested' }, request.user);
       return { status: 202, body: { job: jobView(job) }, headers: { Location: `/api/jobs/${job.id}` } };
     }

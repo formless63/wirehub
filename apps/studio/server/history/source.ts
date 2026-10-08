@@ -60,7 +60,7 @@ export interface HistorySource {
 
 export const NO_HISTORY: HistoryCapabilities = {
   backend: 'none',
-  note: 'This hub keeps its catalog as files outside git, so no change history is recorded. Saved design versions still work. Put the catalog in a git repository and turn on the git export (WIREHUB_GIT_AUTOCOMMIT=true) to record every save, or use the database backend.',
+  note: 'This hub keeps its catalog as files outside git, so no change history is recorded. Saved design versions still work. Put the catalog in a git repository and turn on the git export to record every save, or use the database backend.',
   perRecord: false,
   diff: false,
   restore: false,

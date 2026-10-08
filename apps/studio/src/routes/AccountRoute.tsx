@@ -17,7 +17,7 @@ export function AccountRoute(): JSX.Element {
     if (doc?.documentElement !== undefined) doc.documentElement.dataset['theme'] = theme;
   };
   useEffect(applyTheme, [theme]);
-  if (me?.source !== 'session') return <div className="p-4"><h1>{title}</h1><p className="text-dim">Account controls require a signed-in session.</p><Link to="/cables" className="underline">Return to Cables</Link></div>;
+  if (me?.source !== 'session') return <div className="p-4"><h1>{title}</h1><p className="text-dim">Account controls require a signed-in session.</p><Link to="/cables" className="underline">Return to Designs</Link></div>;
   if (path !== '/sign-in' && me.instance?.accounts !== true) return <div className="p-4"><h1>{title}</h1><p className="text-dim">This server does not provide these account controls.</p></div>;
   return <iframe ref={iframe} title={title} src={src} onLoad={applyTheme} className="block h-full w-full border-0" data-testid="account-frame" />;
 }

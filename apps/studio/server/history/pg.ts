@@ -39,7 +39,7 @@ import { stateAfter, stepsByChangeSet, type PartRow, type PartStep } from './tim
 
 export const DATABASE_HISTORY: HistoryCapabilities = {
   backend: 'database',
-  note: 'Every save is a change set in the database, with the person who made it. Changes saved before this hub recorded earlier states (migration 0017) may show without their "before".',
+  note: 'Every save is a change set in the database, with the person who made it. Changes saved before this hub recorded earlier states may show without their "before".',
   perRecord: true,
   diff: true,
   restore: true,

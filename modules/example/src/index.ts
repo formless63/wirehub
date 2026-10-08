@@ -84,7 +84,7 @@ export const example = defineModule({
           method: 'POST',
           path: 'recount',
           handle: async (request) => {
-            if (request.jobs === undefined) return { status: 501, body: { error: 'This studio runs no jobs.' } };
+            if (request.jobs === undefined) return { status: 501, body: { error: 'This hub runs no jobs.' } };
             const only = (request.body as { only?: unknown } | undefined)?.only;
             const job = await request.jobs.enqueue('recount', typeof only === 'string' ? { only } : {});
             return { status: 202, body: { job } };

@@ -294,7 +294,7 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
   const wasOffline = useRef(false);
   useEffect(() => {
     if (apiOffline && !wasOffline.current) {
-      toast.warning('Workbench unreachable', {
+      toast.warning('Server unreachable', {
         description: 'Showing the last copy this browser fetched.',
       });
     }

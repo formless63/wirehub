@@ -5,6 +5,7 @@
  * each record links to its page, where its own History restores it.
  */
 
+import { InfoTip } from '../shell/InfoTip.tsx';
 import { Link } from '@tanstack/react-router';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 
@@ -13,7 +14,7 @@ import { fetchHubHistory, type HubHistoryQuery } from '../history.browser.ts';
 import { EntryDetail, EntrySummary } from '../history/HistoryPanel.tsx';
 import { HISTORY_KINDS, parseSubject, type HistoryCapabilities, type HistoryEntry, type HistoryKind } from '../history/types.ts';
 
-const KIND_LABEL: Readonly<Record<HistoryKind, string>> = { design: 'Cables', library: 'Library', vocab: 'Lists', builds: 'Board builds', other: 'Other' };
+const KIND_LABEL: Readonly<Record<HistoryKind, string>> = { design: 'Designs', library: 'Library', vocab: 'Lists', builds: 'Board builds', other: 'Other' };
 const URL_KIND: Readonly<Record<string, string>> = { pcbas: 'boards', mechanicals: 'hardware' };
 const INPUT = 'h-7 min-w-0 rounded-md border border-line2 bg-bg px-2 text-[12.5px] text-ink outline-none placeholder:text-faint focus:border-accent';
 
@@ -70,12 +71,19 @@ export function HistoryRoute(): JSX.Element {
   const f = capabilities?.filters;
   return (
     <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="history">
-      <h1 className="mb-1 text-[14px] font-semibold">History</h1>
-      {capabilities === undefined ? null : (
+      <h1 className="mb-3 text-[14px] font-semibold">
+        History
+        {capabilities === undefined || capabilities.backend === 'none' ? null : (
+          <span data-testid="history-capabilities" data-backend={capabilities.backend}>
+            <InfoTip topic="history" text={capabilities.note} />
+          </span>
+        )}
+      </h1>
+      {capabilities?.backend === 'none' ? (
         <p className="mb-3 mt-0 max-w-3xl text-[11.5px] text-faint" data-testid="history-capabilities" data-backend={capabilities.backend}>
           {capabilities.note}
         </p>
-      )}
+      ) : null}
       <form
         className="mb-3 flex max-w-4xl flex-wrap items-end gap-2"
         onSubmit={(event) => {

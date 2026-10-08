@@ -13,7 +13,7 @@
 function unavailable(name: string): (...args: unknown[]) => never {
   return () => {
     throw new Error(
-      `${name}() is not available in the browser — the studio loads catalog data as JSON`,
+      `${name}() is not available in the browser — WireHub loads catalog data as JSON`,
     );
   };
 }

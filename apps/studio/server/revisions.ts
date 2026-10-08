@@ -161,9 +161,9 @@ async function nextNumber(deps: WorkbenchDeps, kind: string, id: string): Promis
 
 export async function handleRevisionsRequest(method: string, parts: string[], body: unknown, deps: WorkbenchDeps, ifMatch: string | undefined, user: StudioUser | undefined): Promise<ApiResponse> {
   const [, , kind, id, rest] = parts;
-  if (kind === undefined || id === undefined || parts.length > 5) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${REVISION_ROUTES.join('; ')}.`);
+  if (kind === undefined || id === undefined || parts.length > 5) return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${REVISION_ROUTES.join('; ')}.`);
   if (!isRevisionKind(kind)) return fail(400, `'${kind}' keeps no revisions.`, 'Connectors, components, wires, boards, mechanicals, kits, bodies and pinouts do.');
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Revisions are stored with the catalog.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Revisions are stored with the catalog.');
 
   if (rest === 'next-number') {
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');

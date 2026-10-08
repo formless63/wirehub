@@ -206,9 +206,9 @@ export async function handleResolverRequest(method: string, parts: string[], pat
     return { status: 200, body: v.body };
   }
   if (sub === 'devices' || sub === 'recipes' || sub === 'hazards' || sub === 'policy') {
-    if (parts.length !== 3) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${RESOLVER_ROUTES.join('; ')}.`);
+    if (parts.length !== 3) return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${RESOLVER_ROUTES.join('; ')}.`);
     if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers PUT; GET /api/resolver reads them.');
-    if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'The resolver library is stored with the catalog.');
+    if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'The resolver library is stored with the catalog.');
     return sub === 'policy' ? putPolicy(deps, body, ifMatch) : putList(deps, sub, body, ifMatch);
   }
   if (sub === 'resolve' || sub === 'derive') {
@@ -241,5 +241,5 @@ export async function handleResolverRequest(method: string, parts: string[], pat
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     return designReport(deps, parts[3]);
   }
-  return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${RESOLVER_ROUTES.join('; ')}.`);
+  return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${RESOLVER_ROUTES.join('; ')}.`);
 }

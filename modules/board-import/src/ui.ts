@@ -62,7 +62,7 @@ async function call(method: string, path: string, body?: unknown, headers: Recor
     const parsed = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     return { ok: response.status < 400, status: response.status, body: parsed };
   } catch {
-    return { ok: false, status: 0, body: { error: 'The studio could not be reached.' } };
+    return { ok: false, status: 0, body: { error: 'WireHub could not be reached.' } };
   }
 }
 

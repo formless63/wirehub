@@ -46,7 +46,7 @@ export function BackupDetails({ status, now }: { status: BackupStatus; now: Date
             version {status.lastChangeSet.version} · {status.lastChangeSet.by} · {ago(status.lastChangeSet.at, now)}
           </Row>
         ) : null}
-        {status.enabled ? null : <Row label="State">off — set WIREHUB_GIT_AUTOCOMMIT=true</Row>}
+        {status.enabled ? null : <Row label="State">off — switched on by the server</Row>}
         {status.enabled && status.state !== 'database' ? <Row label="State">{status.state}</Row> : null}
         {status.enabled && status.state !== 'database' ? (
           <Row label="Remote">

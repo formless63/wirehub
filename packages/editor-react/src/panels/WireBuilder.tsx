@@ -172,7 +172,7 @@ function VendorDocs(props: {
         <span className="cs-count">{docs.length}</span>
         <span className="cs-wb-spacer" />
         {documents === undefined ? null : (
-          <button type="button" className="cs-small" onClick={open} title="Link one of the manufacturer's files held in the studio">
+          <button type="button" className="cs-small" onClick={open} title="Link one of the manufacturer's files held in WireHub">
             <IconPlus size={13} stroke={1.75} /> Link document…
           </button>
         )}
@@ -196,7 +196,7 @@ function VendorDocs(props: {
               type="button"
               className="cs-icon-btn cs-small"
               aria-label={`unlink ${doc.label}`}
-              title="Unlink (the file stays in the studio)"
+              title="Unlink (the file stays in WireHub)"
               onClick={() => props.onChange(removeVendorDoc(recipe, doc.asset))}
             >
               <IconTrash size={13} stroke={1.75} />
@@ -597,7 +597,7 @@ export function NewPartDialog(props: {
             value={v('manufacturer')}
             onChange={set('manufacturer')}
           />
-          <Text label="Source" value={v('src')} onChange={set('src')} wide title="The vendor sheet or measurement behind these values; say INFERRED when a value is assumed" />
+          <Text label="Reference" value={v('src')} onChange={set('src')} wide title="The vendor sheet or measurement behind these values; say INFERRED when a value is assumed" />
         </div>
         {problem === undefined ? null : <p className="cs-error">{problem}</p>}
         <div className="cs-modal-actions">
@@ -726,7 +726,7 @@ export function WireBuilder(props: WireBuilderProps): JSX.Element {
                 onChange={(maker) => set('manufacturer', maker === '' ? undefined : maker)}
               />
 
-              <Text label="Source" value={recipe.src} wide onChange={(value) => set('src', value)} title="The vendor sheet behind this stock; say INFERRED for anything assumed" />
+              <Text label="Reference" value={recipe.src} wide onChange={(value) => set('src', value)} title="The vendor sheet behind this stock; say INFERRED for anything assumed" />
             </div>
           </section>
 

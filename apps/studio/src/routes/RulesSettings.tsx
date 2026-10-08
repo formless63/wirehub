@@ -64,7 +64,7 @@ export const RULE_EXAMPLES: { label: string; rule: Record<string, unknown> }[] =
     },
   },
   {
-    label: 'Each cable end with a connector needs a shell',
+    label: 'Each end of a design with a connector needs a shell',
     rule: {
       id: 'example-end-shell',
       severity: 'warning',
@@ -164,7 +164,7 @@ export function RulesSettings(): JSX.Element {
     <section ref={editor} className="mt-6 max-w-2xl border-t border-line pt-3" data-testid="rules-settings">
       <h2 className="mb-1 text-[13px] font-semibold">Validation rules</h2>
       <p className="mb-2 max-w-xl text-faint">
-        Checks written as data: what each rule is about, which of those it applies to, what must hold, a severity and a message. They run with the built-in checks, so they show in each cable’s issues panel, and an error blocks a save. No code runs; complex cases stay code rules in a module.
+        Checks written as data: what each rule is about, which of those it applies to, what must hold, a severity and a message. They run with the built-in checks, so they show in each design’s issues panel, and an error blocks a save. No code runs; complex cases stay code rules in a module.
       </p>
       {view === undefined ? (
         <div className="text-faint">{query.isError ? 'The rules could not be read.' : 'Loading…'}</div>

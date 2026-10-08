@@ -63,7 +63,7 @@ describe('Module settings', () => {
     const probe = await screen.findByTestId('module-settings-keyed-probe');
     const suppliersSection = screen.getByTestId('module-settings-suppliers');
     // locked by the server's variable; required and missing
-    expect(within(screen.getByTestId('module-secret-suppliers-lcscKey')).getByText('set by the server (WIREHUB_SUPPLIERS_LCSC_KEY), locked')).toBeTruthy();
+    expect(within(screen.getByTestId('module-secret-suppliers-lcscKey')).getByText('set by the server, locked')).toBeTruthy();
     expect(within(screen.getByTestId('module-secret-suppliers-lcscKey')).queryByLabelText('LCSC API key')).toBeNull();
     const key = within(probe).getByTestId('module-secret-keyed-probe-apiKey');
     expect(within(key).getByText('missing: required for lookups')).toBeTruthy();

@@ -103,8 +103,8 @@ export function EngineeringSettings(): JSX.Element {
       <span className="flex flex-wrap items-center gap-2">
         {label}
         {locked ? (
-          <span className="rounded border border-line px-1 text-[11px] text-faint" title="The server's WIREHUB_TEST_DEFAULTS sets this; it wins over Settings.">
-            set by the server (WIREHUB_TEST_DEFAULTS)
+          <span className="rounded border border-line px-1 text-[11px] text-faint" title="The server sets this; it wins over Settings.">
+            set by the server
           </span>
         ) : null}
       </span>
@@ -126,7 +126,7 @@ export function EngineeringSettings(): JSX.Element {
         <h2 className="text-[13px] font-semibold">Testing</h2>
         <p className="text-faint">
           Default continuity test parameters for every design; a design's own values still win. Empty keeps the built-in value
-          {fromEnv === undefined ? '' : '. A parameter the server sets (WIREHUB_TEST_DEFAULTS) wins and is read-only here'}.
+          {fromEnv === undefined ? '' : '. A parameter the server sets wins and is read-only here'}.
         </p>
         {TEST_PARAMETER_KEYS.map((k) =>
           input(

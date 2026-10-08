@@ -80,7 +80,7 @@ export function ConnectionsImport({ onImported, expose }: { onImported: () => vo
       const flat: Record<string, string> = { ...(options.design === undefined ? {} : { design: options.design }), ...(options.label === undefined ? {} : { label: options.label }), ...(wire === '' ? {} : { wire }), ...(Object.keys(parts).length === 0 ? {} : { parts: JSON.stringify(parts) }) };
       const queued = await startImportJob('csv-library', 'connection-list', fileName, toBase64(new TextEncoder().encode(text)), flat);
       if (!queued.ok) {
-        setMessage(queued.status === 501 ? 'This studio runs no import jobs.' : `${queued.error}${queued.hint === undefined ? '' : ` ${queued.hint}`}`);
+        setMessage(queued.status === 501 ? 'This hub runs no import jobs.' : `${queued.error}${queued.hint === undefined ? '' : ` ${queued.hint}`}`);
         return;
       }
       setJobId(queued.value.job.id);

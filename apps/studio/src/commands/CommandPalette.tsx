@@ -314,7 +314,7 @@ export function CommandPalette(): JSX.Element {
               </Command.Empty>
 
               {cableResults.length > 0 ? (
-                <Command.Group heading={<GroupHeading>Cables</GroupHeading>}>
+                <Command.Group heading={<GroupHeading>Designs</GroupHeading>}>
                   {cableResults.map((entry) => (
                     <Command.Item
                       key={entry.id}

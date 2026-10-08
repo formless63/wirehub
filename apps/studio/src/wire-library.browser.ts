@@ -26,7 +26,7 @@ async function call<T>(
   } catch (error) {
     return {
       ok: false,
-      message: 'The studio could not reach the workbench.',
+      message: 'WireHub could not reach the server.',
       hint: `Nothing was changed. (${error instanceof Error ? error.message : String(error)})`,
     };
   }
@@ -34,13 +34,13 @@ async function call<T>(
   try {
     payload = await response.json();
   } catch {
-    return { ok: false, message: `The workbench answered with something the studio could not read (HTTP ${response.status}).` };
+    return { ok: false, message: `The server answered with something WireHub could not read (HTTP ${response.status}).` };
   }
   if (response.ok) return { ok: true, value: payload as T };
   const refusal = (payload ?? {}) as { error?: string; hint?: string; issues?: Issue[] };
   return {
     ok: false,
-    message: refusal.error ?? `The workbench refused that (HTTP ${response.status}).`,
+    message: refusal.error ?? `The server refused that (HTTP ${response.status}).`,
     ...(refusal.hint === undefined ? {} : { hint: refusal.hint }),
     ...(refusal.issues === undefined ? {} : { issues: refusal.issues }),
   };

@@ -408,8 +408,8 @@ function costHtml(cost: CostSummary): string {
   const row = (what: string, amount: string): string => `<tr><td>${escapeHtml(what)}</td><td class="cs-num">${escapeHtml(amount)}</td></tr>`;
   const rows = [row('Materials', formatMoney(cost.materials, cost.currency))];
   if (cost.labour !== undefined) rows.push(row(`Labour (${cost.labour.minutes} min${cost.labour.ratePerHour === undefined ? '' : ` at ${formatMoney(cost.labour.ratePerHour)}/h`})`, cost.labour.cost === undefined ? 'not priced' : formatMoney(cost.labour.cost, cost.currency)));
-  rows.push(row('Total, one cable', formatMoney(cost.total, cost.currency)));
-  if (cost.buildQty > 1) rows.push(row(`Total, ${cost.buildQty} cables (prices at ${cost.buildQty}-off quantities)`, formatMoney(cost.buildTotal, cost.currency)));
+  rows.push(row('Total, one unit', formatMoney(cost.total, cost.currency)));
+  if (cost.buildQty > 1) rows.push(row(`Total, ${cost.buildQty} units (prices at ${cost.buildQty}-off quantities)`, formatMoney(cost.buildTotal, cost.currency)));
   return `<section class="cs-section cs-cost" data-section="cost"><h2 class="cs-section__h">Cost</h2><table class="cs-table cs-costtable"><tbody>${rows.join('')}</tbody></table>${
     cost.notes.length === 0 ? '' : `<ul class="cs-notes">${cost.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
   }</section>`;
@@ -419,7 +419,7 @@ export function bomSheetBody(sheet: BomSheet): string {
   const parts: string[] = ['<div class="cs-root cs-sheet cs-bench wh-sheet-col">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}${headerFrameCss(sheet.header)}${brandSheetCss()}</style>`, headerHtml(sheet.header)];
   if (sheet.header.productPn === undefined && sheet.header.family === undefined) {
     parts.push(
-      `<p class="cs-callout">No part number for this cable.${
+      `<p class="cs-callout">No part number for this design.${
         sheet.productProposal === undefined ? '' : ` Proposed: <strong>${escapeHtml(sheet.productProposal.pn)}</strong> <span class="cs-meta">${escapeHtml(sheet.productProposal.explanation)}</span>`
       }</p>`,
     );
@@ -492,7 +492,7 @@ export function bomSheetMarkdown(sheet: BomSheet): string {
     out.push('## Cost', '', `- Materials: ${formatMoney(c.materials, c.currency)}`);
     if (c.labour !== undefined) out.push(`- Labour: ${c.labour.minutes} min${c.labour.cost === undefined ? ' (no rate set)' : `, ${formatMoney(c.labour.cost, c.currency)}`}`);
     out.push(`- Total, one cable: ${formatMoney(c.total, c.currency)}`);
-    if (c.buildQty > 1) out.push(`- Total, ${c.buildQty} cables: ${formatMoney(c.buildTotal, c.currency)}`);
+    if (c.buildQty > 1) out.push(`- Total, ${c.buildQty} units: ${formatMoney(c.buildTotal, c.currency)}`);
     for (const n of c.notes) out.push(`- ${n}`);
     out.push('');
   }

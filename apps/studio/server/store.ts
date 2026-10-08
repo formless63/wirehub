@@ -324,7 +324,7 @@ export async function handleStoreRequest(
       ...(verified.some((i) => i.hideUnreviewed) ? { hidden } : {}),
       ...([...(store.problems ?? []), ...trustedNow.problems].length === 0 ? {} : { problems: [...(store.problems ?? []), ...trustedNow.problems] }),
       ...(trustedNow.indexes.length === 0
-        ? { hint: store.allowUserSources === false ? 'No store index is configured. Set WIREHUB_STORE_INDEXES to "<index url> <public key>" (docs/self-hosting.md).' : 'No store is configured. Add one under Settings > Store sources, or set WIREHUB_STORE_INDEXES (docs/self-hosting.md).' }
+        ? { hint: store.allowUserSources === false ? 'No store index is configured. Ask whoever runs the server to name one.' : 'No store is configured. Add one under Settings > Catalog stores.' }
         : {}),
     });
   }

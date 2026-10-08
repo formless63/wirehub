@@ -72,7 +72,7 @@ async function call(method: string, path: string, body?: unknown): Promise<PackA
       body: parsed,
     };
   } catch (error) {
-    return { ok: false, status: 0, error: 'The studio could not reach the workbench.', hint: error instanceof Error ? error.message : String(error), body: {} };
+    return { ok: false, status: 0, error: 'WireHub could not reach the server.', hint: error instanceof Error ? error.message : String(error), body: {} };
   }
 }
 

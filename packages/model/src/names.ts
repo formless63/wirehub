@@ -56,10 +56,19 @@ export function wireElementName(wire: WireDefinition | undefined, path: string):
   return groups.length === 0 ? own : `${groups.join(' ')} · ${own}`;
 }
 
-/** `J1 pin 2 · RXD`, `W1 pair 1 · blue (end A)`, `U1 · GND`. */
+/**
+ * What a person calls a wire end in prose (docs/design/terminology.md): `a` is the source end, `b` the
+ * destination end. The data keeps `a` and `b`.
+ */
+export function endName(end: 'a' | 'b' | 'A' | 'B' | string | undefined): string {
+  const side = String(end ?? '').toLowerCase();
+  return side === 'a' ? 'source end' : side === 'b' ? 'destination end' : `end ${String(end ?? '')}`.trim();
+}
+
+/** `J1 pin 2 · RXD`, `W1 pair 1 · blue (source end)`, `U1 · GND`. */
 export function terminalName(design: CableDesign, db: Db, ref: TerminalRef): string {
   const name = instanceName(ref);
-  const end = ref.end === undefined ? '' : ` (end ${ref.end.toUpperCase()})`;
+  const end = ref.end === undefined ? '' : ` (${endName(ref.end)})`;
   const connector = design.instances.connectors.find((c) => c.id === ref.instance);
   if (connector !== undefined) {
     if (ref.terminal === 'shell') return `${name} shell`;

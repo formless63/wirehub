@@ -316,7 +316,7 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
       if (accountFrame) return accountFrameRefusal(401);
       if (api) {
         return json(401, {
-          error: 'You are signed out, so the studio did not do that.',
+          error: 'You are signed out, so WireHub did not do that.',
           hint: 'Nothing was changed. Reload the page to sign in again.',
           signIn: SIGN_IN_PATH,
         });
@@ -329,7 +329,7 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
       if (accountFrame) return accountFrameRefusal(403);
       if (api) {
         return json(403, {
-          error: `${user.email} is not allowed to use the studio.`,
+          error: `${user.email} is not allowed to use WireHub.`,
           hint: 'Ask an owner to invite it or add it to the allowed emails (Settings, Sign-in & accounts), or sign out and use another account.',
           code: EMAIL_NOT_ALLOWED,
         });

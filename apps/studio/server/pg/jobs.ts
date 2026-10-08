@@ -204,7 +204,7 @@ export async function startBoss(url: string, role: 'studio' | 'worker', log: (li
 export function bossJobRunner(boss: () => Promise<PgBoss>, orgId: () => string): JobRunner {
   const moduleQueues = new Map<string, Promise<void>>();
   return {
-    describe: 'the worker (pg-boss)',
+    describe: 'the background worker',
     async submit(job, options) {
       const payload: BossPayload = { id: job.id, org: orgId() };
       const sender = await boss();

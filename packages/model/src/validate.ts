@@ -5,7 +5,7 @@
  * `Issue`. `resolveTerminal` is the foundation every derived view uses.
  */
 
-import { humanizeIssue, terminalName } from './names.ts';
+import { humanizeIssue, terminalName, endName } from './names.ts';
 import { designElectricalProblems, electricalIssues } from './electrical.ts';
 import {
   findComponent,
@@ -1000,7 +1000,7 @@ function rawDesignIssues(design: CableDesign, db: Db): Issue[] {
     for (const end of ['a', 'b'] as const) {
       const lines = instance.endLabels?.[end] ?? [];
       if (lines.length > 3 || lines.some((l) => l.length > 40)) {
-        issues.push(issue('label-too-long', `the end ${end.toUpperCase()} label of segment '${instance.id}' is more than 3 lines or has a line over 40 characters`, instance.id, 'warning'));
+        issues.push(issue('label-too-long', `the ${endName(end)} label of segment '${instance.id}' is more than 3 lines or has a line over 40 characters`, instance.id, 'warning'));
       }
     }
     const wire = findWire(db, instance.def);
@@ -1171,7 +1171,7 @@ function rawDesignIssues(design: CableDesign, db: Db): Issue[] {
       issues.push(
         issue(
           'screen-floating',
-          `${set === undefined ? `screen '${path}'` : `the bonded shield mass (${set.members.join(', ')})`} of segment '${segment.id}' is landed at end ${hasA ? 'A' : 'B'} but not at end ${floating.end?.toUpperCase() ?? ''} — add a design note if this is deliberate`,
+          `${set === undefined ? `screen '${path}'` : `the bonded shield mass (${set.members.join(', ')})`} of segment '${segment.id}' is landed at the ${endName(hasA ? 'a' : 'b')} but not at the ${endName(floating.end)} — add a design note if this is deliberate`,
           terminalKey(floating),
           'warning',
         ),
@@ -1207,7 +1207,7 @@ function rawDesignIssues(design: CableDesign, db: Db): Issue[] {
       issues.push(
         issue(
           'floating-conductor-end',
-          `${terminalName(design, db, { ...refA, end: undefined })} is connected at end ${hasA ? 'A' : 'B'} but floating at end ${floating.end?.toUpperCase() ?? ''} — add a design note if this is deliberate`,
+          `${terminalName(design, db, { ...refA, end: undefined })} is connected at the ${endName(hasA ? 'a' : 'b')} but floating at the ${endName(floating.end)} — add a design note if this is deliberate`,
           terminalKey(floating),
           'warning',
         ),

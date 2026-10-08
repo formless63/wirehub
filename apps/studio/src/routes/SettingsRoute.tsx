@@ -7,11 +7,11 @@
  */
 
 import { Link, useNavigate } from '@tanstack/react-router';
-import { IconHelp } from '@tabler/icons-react';
+import { settingsRoute } from '../router.tsx';
 import { helpForSettingsSection } from '../help.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
-import { settingsRoute } from '../router.tsx';
-import { SETTINGS_SECTIONS, settingsSection } from '../settings-sections.ts';
+import { InfoTip } from '../shell/InfoTip.tsx';
+import { SETTINGS_SECTIONS, sectionHelp, settingsSection } from '../settings-sections.ts';
 import './settings-sections.css';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -191,14 +191,12 @@ export function SettingsRoute(): JSX.Element {
       </nav>
       <div className="settings-content" ref={content}>
         <header className="settings-section-heading">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[14px] font-semibold">{currentSection.label}</h2>
-            <a href={helpForSettingsSection(selected, docsBase)} target="_blank" rel="noreferrer" title={`Help: ${currentSection.label}`} aria-label={`Help: ${currentSection.label}`} data-testid="settings-help-link" className="flex h-5 w-5 items-center justify-center rounded-full text-dim hover:text-ink"><IconHelp size={14} /></a>
-          </div>
-          <p className="text-dim">{currentSection.description}</p>
+          <h2 className="text-[14px] font-semibold">
+            {currentSection.label}
+            <InfoTip text={sectionHelp(currentSection)} href={helpForSettingsSection(selected, docsBase)} />
+          </h2>
         </header>
         <section hidden={selected !== 'documents'} aria-label="Document settings" data-settings-section="documents">
-      <p className="mb-3 max-w-xl text-faint">Who the documents are issued by. Leave a field empty to keep the generic text. A module that supplies its own title-block art takes precedence.</p>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div> : null}
       {query.data === undefined ? (
         query.isError ? null : <div className="text-faint">Loading…</div>
@@ -357,7 +355,7 @@ export function SettingsRoute(): JSX.Element {
           <fieldset className="flex flex-col gap-1 border-0 p-0" data-testid="drawing-art">
             <legend className="font-medium">Drawing art</legend>
             <span className="text-faint">
-              Traced connector faces and plugs and wire cutaways, keyed by definition id, in the shape a module&rsquo;s art has (docs/modules.md, &ldquo;Art&rdquo;). In force now:{' '}
+              Traced connector faces and plugs and wire cutaways, keyed by definition id, in the shape a module&rsquo;s art has. In force now:{' '}
               {['faces', 'plugs', 'cutaways'].map((k) => `${Object.keys((query.data?.art as Record<string, Record<string, unknown>> | undefined)?.[k] ?? {}).length} ${k}`).join(', ')}
               {' '}(this hub&rsquo;s and its packs&rsquo;). Empty keeps the generated art; a cutaway&rsquo;s SVG is cleaned of scripts and external references when it is saved.
             </span>

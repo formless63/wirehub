@@ -246,7 +246,7 @@ function gateConnector(value: unknown): Gate<ConnectorDefinition> {
   const gender = record['gender'];
   if (gender !== undefined && gender !== 'male' && gender !== 'female') {
     return reject(
-      `${JSON.stringify(String(gender))} is not a gender this studio understands.`,
+      `${JSON.stringify(String(gender))} is not a gender this hub understands.`,
       'A connector is male, female, or left unsaid.',
     );
   }
@@ -308,7 +308,7 @@ function gateComponent(value: unknown): Gate<ComponentDefinition> {
   const record = common.record;
   if (!(COMPONENT_KINDS as readonly unknown[]).includes(record['kind'])) {
     return reject(
-      `${JSON.stringify(String(record['kind']))} is not a kind of component this studio knows.`,
+      `${JSON.stringify(String(record['kind']))} is not a kind of component this hub knows.`,
       `Pick one of: ${COMPONENT_KINDS.join(', ')}.`,
     );
   }
@@ -421,7 +421,7 @@ function gateWire(value: unknown): Gate<WireDefinition> {
     }
     if (lay['arrangement'] !== '6-around-1') {
       return reject(
-        `'${String(lay['arrangement'])}' is not a lay this studio can draw.`,
+        `'${String(lay['arrangement'])}' is not a lay this hub can draw.`,
         'The only arrangement it knows is 6-around-1: six cores around one centre core.',
       );
     }
@@ -599,7 +599,7 @@ function gateInterface(value: unknown): Gate<Interface> {
   const bad = gatePinMap(record['pins'], 'This pinout');
   if (bad !== undefined) return reject(bad.error, bad.hint);
   if (record['confidence'] !== undefined && !(CONFIDENCES as readonly unknown[]).includes(record['confidence'])) {
-    return reject(`Confidence '${String(record['confidence'])}' is not one this studio knows.`, `Pick one of ${CONFIDENCES.join(', ')}.`);
+    return reject(`Confidence '${String(record['confidence'])}' is not one this hub knows.`, `Pick one of ${CONFIDENCES.join(', ')}.`);
   }
   return { ok: true, record: value as Interface };
 }
@@ -638,7 +638,7 @@ export function gateHousing(value: unknown): { error: string; hint: string } | u
   if (value === undefined) return undefined;
   if (!isObject(value)) return { error: 'The crimp housing is not in the right form.', hint: 'It is an object: systems, sealing, plugUnused, cavities.' };
   if (!isOptionalWords(value['systems']) || !isOptionalWords(value['cavities'])) return { error: 'The housing systems or cavities are not a list of ids.', hint: 'List contact system ids and pin ids.' };
-  if (value['sealing'] !== undefined && !['none', 'per-wire', 'mat'].includes(String(value['sealing']))) return { error: `Sealing '${String(value['sealing'])}' is not one this studio knows.`, hint: 'Pick none, per-wire or mat.' };
+  if (value['sealing'] !== undefined && !['none', 'per-wire', 'mat'].includes(String(value['sealing']))) return { error: `Sealing '${String(value['sealing'])}' is not one this hub knows.`, hint: 'Pick none, per-wire or mat.' };
   if (value['plugUnused'] !== undefined && typeof value['plugUnused'] !== 'boolean') return { error: '"Plug unused cavities" is not yes or no.', hint: 'Tick it for a sealed housing whose unused cavities take a plug.' };
   if (!isOptionalString(value['src'])) return { error: "The housing's source is not text.", hint: 'Write it as words.' };
   return undefined;
@@ -677,7 +677,7 @@ function gateKit(value: unknown): Gate<KitDefinition> {
     if (typeof line['qty'] !== 'number') return reject(`${at} has no quantity.`, 'How many of this part the kit ships — 1, or 4 screws.');
     const when = line['when'];
     if (when !== undefined && (!isObject(when) || (when['stockFamily'] !== undefined && when['stockFamily'] !== 'coax' && when['stockFamily'] !== 'bonded'))) {
-      return reject(`${at} is scoped to a stock this studio does not know.`, 'A line is for every stock, coax only, or bonded multi-core only.');
+      return reject(`${at} is scoped to a stock this hub does not know.`, 'A line is for every stock, coax only, or bonded multi-core only.');
     }
     if (line['inferred'] !== undefined && typeof line['inferred'] !== 'boolean') {
       return reject(`${at}'s "inferred" flag is not yes or no.`, 'Tick it when the line is an inference rather than a stated fact.');
@@ -886,8 +886,8 @@ function describeUsage(usage: DefinitionUsage): string {
 function noStore(): ApiResponse {
   return fail(
     501,
-    'This studio is not set up to edit the parts library.',
-    'Designs can still be opened and saved. Definition editing needs a host that stores the catalog files — the studio dev server does.',
+    'This hub is not set up to edit the parts library.',
+    'Designs can still be opened and saved. Definition editing needs a host that stores the catalog files — the WireHub server does.',
   );
 }
 
@@ -902,7 +902,7 @@ function notFound(kind: DefinitionKind, id: string): ApiResponse {
 function badKind(value: string): ApiResponse {
   return fail(
     404,
-    `'${value}' is not a part of the library this studio edits.`,
+    `'${value}' is not a part of the library this hub edits.`,
     `The editable parts are: ${DEFINITION_KINDS.join(', ')}. Generated boards (pcbas.generated.json) come from the importer and are rewritten by it.`,
   );
 }

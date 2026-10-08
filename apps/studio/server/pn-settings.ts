@@ -112,12 +112,12 @@ async function preview(body: unknown, deps: WorkbenchDeps): Promise<ApiResponse>
 }
 
 export async function handlePartNumberSettings(method: string, parts: string[], body: unknown, deps: WorkbenchDeps, ifMatch: string | undefined, user: StudioUser | undefined): Promise<ApiResponse> {
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'The numbering scheme is stored with the catalog.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'The numbering scheme is stored with the catalog.');
   if (parts.length === 4 && parts[3] === 'preview') {
     if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
     return preview(body, deps);
   }
-  if (parts.length !== 3) return fail(404, `${parts.join('/')} is not part of the workbench API.`);
+  if (parts.length !== 3) return fail(404, `${parts.join('/')} is not part of the server API.`);
   const stored = await deps.docs.read(PN_SETTINGS_PATH);
   const etag = contentETag(stored ?? null);
   if (method === 'GET') return { status: 200, body: await view(deps, stored), headers: { ETag: etag } };

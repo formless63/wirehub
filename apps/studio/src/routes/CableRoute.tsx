@@ -249,7 +249,7 @@ export function CableRoute(): JSX.Element {
   }
 
   if (studio.notFoundId === id) {
-    return <NotFoundView message={`No cable “${id}”.`} />;
+    return <NotFoundView message={`No design “${id}”.`} />;
   }
 
   // the workbench could not answer: never an editable copy — a retry, and

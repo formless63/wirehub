@@ -285,8 +285,16 @@ export function touchOf(recordKind: string, key: string, op: HistoryTouch['op'],
     case 'depiction-asset':
       return { ...base, subject: `other:artwork:${head}`, label: `artwork ${head}` };
     default:
-      return { ...base, subject: `other:${recordKind}:${key}`, label: `${recordKind} ${key}` };
+      return { ...base, subject: `other:${recordKind}:${key}`, label: otherLabel(recordKind, key) };
   }
+}
+
+const OTHER_KIND: Readonly<Record<string, string>> = { doc: 'setting', 'catalog-file': 'catalog file', asset: 'file' };
+
+/** What a record with no page of its own is called: its kind and its name, never its path in the data tree. */
+export function otherLabel(recordKind: string, key: string): string {
+  const name = (key.split('/').pop() ?? key).replace(/\.(json|md|svg|png|jpg|webp)$/i, '');
+  return `${OTHER_KIND[recordKind] ?? recordKind} ${name}`;
 }
 
 /** `connectors` → the subject of one of its records. */

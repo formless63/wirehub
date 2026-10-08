@@ -131,7 +131,7 @@ async function handleDepiction(
     }
   } catch (error) {
     return jsonResponse(413, {
-      error: 'The studio could not read that upload.',
+      error: 'WireHub could not read that upload.',
       hint: `Nothing was changed. (${(error as Error).message})`,
     });
   }
@@ -156,8 +156,8 @@ async function handleDepiction(
     return jsonResponse(response.status, response.body);
   } catch (error) {
     return jsonResponse(500, {
-      error: 'The workbench hit an unexpected problem and stopped before changing anything.',
-      hint: `Check the terminal running the studio for details. (${(error as Error).message})`,
+      error: 'The server hit an unexpected problem and stopped before changing anything.',
+      hint: `Check the terminal running WireHub for details. (${(error as Error).message})`,
     });
   }
 }
@@ -170,7 +170,7 @@ async function handleImportUpload(io: NonNullable<ReturnType<typeof parseModuleI
   if (early !== undefined) return jsonResponse(early.status, early.body);
   const type = (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase();
   if (type !== 'application/octet-stream') {
-    return jsonResponse(415, { error: `The studio does not accept ${type === '' || type === undefined ? 'a body with no type' : `'${type}'`} here.`, hint: 'Nothing was changed. Send the file as application/octet-stream.' });
+    return jsonResponse(415, { error: `WireHub does not accept ${type === '' || type === undefined ? 'a body with no type' : `'${type}'`} here.`, hint: 'Nothing was changed. Send the file as application/octet-stream.' });
   }
   const limit = importUploadLimit(runtimeEnv(deps));
   let bytes: Uint8Array;
@@ -182,7 +182,7 @@ async function handleImportUpload(io: NonNullable<ReturnType<typeof parseModuleI
     }
     bytes = read.bytes;
   } catch (error) {
-    return jsonResponse(400, { error: 'The studio could not read that upload.', hint: `Nothing was changed. (${(error as Error).message})` });
+    return jsonResponse(400, { error: 'WireHub could not read that upload.', hint: `Nothing was changed. (${(error as Error).message})` });
   }
   try {
     const user = signedInUser(request);
@@ -191,7 +191,7 @@ async function handleImportUpload(io: NonNullable<ReturnType<typeof parseModuleI
     );
     return jsonResponse(response.status, response.body, response.headers);
   } catch (error) {
-    return jsonResponse(500, { error: 'The workbench hit an unexpected problem and stopped before changing anything.', hint: `Check the terminal running the studio for details. (${(error as Error).message})` });
+    return jsonResponse(500, { error: 'The server hit an unexpected problem and stopped before changing anything.', hint: `Check the terminal running WireHub for details. (${(error as Error).message})` });
   }
 }
 
@@ -215,7 +215,7 @@ async function handleJson(
     text = new TextDecoder().decode(read.bytes);
   } catch (error) {
     return jsonResponse(400, {
-      error: 'The studio could not read what was sent with that request.',
+      error: 'WireHub could not read what was sent with that request.',
       hint: `Nothing was changed. (${(error as Error).message})`,
     });
   }
@@ -229,7 +229,7 @@ async function handleJson(
       body = JSON.parse(text);
     } catch (error) {
       return jsonResponse(400, {
-        error: 'The studio could not read what was sent with that request.',
+        error: 'WireHub could not read what was sent with that request.',
         hint: `Nothing was changed. (${(error as Error).message})`,
       });
     }
@@ -287,8 +287,8 @@ async function handleJson(
     return jsonResponse(response.status, response.body, response.headers);
   } catch (error) {
     return jsonResponse(500, {
-      error: 'The workbench hit an unexpected problem and stopped before changing anything.',
-      hint: `Check the terminal running the studio for details. (${(error as Error).message})`,
+      error: 'The server hit an unexpected problem and stopped before changing anything.',
+      hint: `Check the terminal running WireHub for details. (${(error as Error).message})`,
     });
   }
 }
@@ -335,7 +335,7 @@ export function mountWorkbenchApi(
   // what changed, as server-sent events (B6): ahead of compression, which would buffer the stream
   app.get('/api/events', (c) => {
     const events = deps.events;
-    if (events === undefined) return jsonResponse(501, { error: 'This studio does not stream events.', hint: 'Reload to see changes.' });
+    if (events === undefined) return jsonResponse(501, { error: 'This hub does not stream events.', hint: 'Reload to see changes.' });
     return streamSSE(c, async (stream) => {
       const queue: StudioEvent[] = [];
       let wake: (() => void) | undefined;

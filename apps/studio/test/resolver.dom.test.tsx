@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** "Which cable do I need?" (`/resolver`): pick two devices, read the ranked options, create the design, and find its recipe in the editor. */
+/** "Find a design" (`/resolver`): pick two devices, read the ranked options, create the design, and find its recipe in the editor. */
 
 import { join } from 'node:path';
 
@@ -59,8 +59,8 @@ describe('which cable do I need', () => {
     expect(devices.getAttribute('aria-selected')).toBe('true');
     expect(await screen.findByTestId('resolver-devices')).toBeTruthy();
     devices.focus();fireEvent.keyDown(devices,{key:'Home'});
-    expect(screen.getByRole('tab',{name:'Find a cable'}).getAttribute('aria-selected')).toBe('true');
-    expect(document.activeElement).toBe(screen.getByRole('tab',{name:'Find a cable'}));
+    expect(screen.getByRole('tab',{name:'Find'}).getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(screen.getByRole('tab',{name:'Find'}));
   });
 
   it('ranks the options for two devices and creates the chosen one as a design with its recipe', async () => {

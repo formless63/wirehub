@@ -2,7 +2,7 @@
 
 exports[`Save with warnings > names the things to look at the way a person would 1`] = `
 [
-  "W1 pair 1 · white is connected at end A but floating at end B — add a design note if this is deliberate",
-  "W1 pair 1 · blue is connected at end A but floating at end B — add a design note if this is deliberate",
+  "W1 pair 1 · white is connected at the source end but floating at the destination end — add a design note if this is deliberate (W1 pair 1 · white (destination end))",
+  "W1 pair 1 · blue is connected at the source end but floating at the destination end — add a design note if this is deliberate (W1 pair 1 · blue (destination end))",
 ]
 `;

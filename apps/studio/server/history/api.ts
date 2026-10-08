@@ -114,7 +114,7 @@ export async function handleHistoryRequest(request: ApiRequest, deps: WorkbenchD
   const method = request.method.toUpperCase();
   const query = new URLSearchParams(queryText);
   const source: HistorySource | undefined = deps.history;
-  if (source === undefined) return fail(501, 'This studio keeps no change history.', 'The database backend records every save; the file backend reads the git log of its catalog.');
+  if (source === undefined) return fail(501, 'This hub keeps no change history.', 'The database backend records every save; the file backend reads the git log of its catalog.');
   const capabilities = await source.capabilities();
   const [, , section, id, action, ...rest] = parts;
   if (rest.length > 0) return fail(404, `${pathPart} is not part of the history API.`, `Try one of: ${HISTORY_ROUTES.join('; ')}.`);
