@@ -424,6 +424,14 @@ export function deriveCable(lib: ResolverLibrary, query: ResolveQuery, optionId?
     notes.push('the stock has no screen: the chassis pins are not joined');
   }
 
+  // conductors the option leaves unconnected at both ends are spares: say so, so the design reads clean
+  const landed = new Set<string>();
+  for (const j of joints) for (const t of [j.a, j.b]) if (t.instance === 'w1') landed.add(t.terminal);
+  for (const entry of elementPaths(wire.structure)) {
+    if (entry.element.kind !== 'conductor' || entry.element.bare === true || landed.has(entry.path)) continue;
+    notes.push(`w1:${entry.path}@a is a spare: not connected at either end`);
+  }
+
   const recipe: CableRecipe = {
     source: { device: src.id, port: ports.source.id },
     destination: { device: dst.id, port: ports.destination.id },
