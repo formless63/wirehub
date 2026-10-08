@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jsonRequest } from '../src/providers/http.ts';
 import type { ProviderContext } from '../src/types.ts';
 
-const context = (fetcher: typeof fetch): ProviderContext => ({ env: {}, fetch: fetcher, now: () => new Date('2026-01-01Z'), nonce: () => 'synthetic' });
+const context = (fetcher: typeof fetch): ProviderContext => ({ credentials: {}, fetch: fetcher, now: () => new Date('2026-01-01Z'), nonce: () => 'synthetic' });
 const url = 'https://api.mouser.com/synthetic?apiKey=test-only-credential';
 afterEach(() => vi.useRealTimers());
 

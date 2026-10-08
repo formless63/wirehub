@@ -9,6 +9,7 @@
 import type { ModuleJobs, ModuleRegistry } from '@wirehub/modules';
 
 import type { StudioUser } from '../me.ts';
+import { moduleSettingsFor } from '../module-settings.ts';
 import type { WorkbenchDeps } from '../api.ts';
 import type { JobHandlers, JobKind, JobRun, JobService } from './types.ts';
 
@@ -18,7 +19,7 @@ export function moduleJobKinds(modules: ModuleRegistry | undefined): JobKind[] {
 }
 
 /** The handlers of the registry's queues: `run` gets the request, a step reporter and the catalog as it is. */
-export function moduleJobHandlers(modules: ModuleRegistry | undefined, deps: Pick<WorkbenchDeps, 'loadDb'>): JobHandlers {
+export function moduleJobHandlers(modules: ModuleRegistry | undefined, deps: Pick<WorkbenchDeps, 'loadDb' | 'runtimeSettings'>): JobHandlers {
   const handlers: JobHandlers = {};
   for (const queue of modules?.queues() ?? []) {
     handlers[queue.kind as JobKind] = async (context) => {
@@ -26,12 +27,16 @@ export function moduleJobHandlers(modules: ModuleRegistry | undefined, deps: Pic
       // disable during the claim must never call the module instance we captured earlier.
       const current = modules?.queues().find((q) => q.kind === queue.kind);
       if (current === undefined) throw new Error(`Module queue '${queue.kind}' is no longer enabled.`);
+      // a module that declares settings reads them as they are now: a key saved a moment ago in
+      // another process is seen even if its catalog notification has not arrived yet
+      if ((modules?.module(current.module)?.settings ?? []).length > 0) await deps.runtimeSettings?.refresh();
       const result = await current.run({
         module: current.module,
         queue: current.id,
         request: context.job.request,
         step: context.step,
         db: async () => deps.loadDb(),
+        settings: moduleSettingsFor(current.module, () => modules, () => deps.runtimeSettings),
       });
       return { result: result === undefined || result === null ? {} : (JSON.parse(JSON.stringify(result)) as Record<string, unknown>) };
     };

@@ -19,6 +19,7 @@ import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadF
 import { EngineeringSettings } from './EngineeringSettings.tsx';
 import { PartNumberSettings } from './PartNumberSettings.tsx';
 import { RulesSettings } from './RulesSettings.tsx';
+import { ModuleSettings } from './ModuleSettings.tsx';
 import { RuntimeSettings } from './RuntimeSettings.tsx';
 import { WebhookSettings } from './WebhookSettings.tsx';
 import { StoreSourcesSettings } from './StoreSourcesSettings.tsx';
@@ -351,6 +352,7 @@ export function SettingsRoute(): JSX.Element {
         <section hidden={selected !== 'runtime'} aria-label="Runtime settings" data-settings-section="runtime"><RuntimeSettings section="runtime" /></section>
         <section hidden={selected !== 'webhooks'} aria-label="Webhook settings" data-settings-section="webhooks"><WebhookSettings /></section>
         <section hidden={selected !== 'stores'} aria-label="Catalog store settings" data-settings-section="stores"><StoreSourcesSettings /></section>
+        <section hidden={selected !== 'module-settings'} aria-label="Module settings" data-settings-section="module-settings"><ModuleSettings /></section>
         <section hidden={selected !== 'modules'} aria-label="Code module settings" data-settings-section="modules"><CodeModulesSettings /></section>
       </div>
     </div>

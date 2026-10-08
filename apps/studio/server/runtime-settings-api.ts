@@ -41,6 +41,7 @@ import {
   type SettingValue,
   type SettingsDoc,
 } from './runtime-settings.ts';
+import { moduleSettingsView } from './module-settings.ts';
 import { rotateSecrets, rotationStatus } from './settings-secrets.ts';
 import { ENGINEERING_PATH, readEngineering } from './settings.ts';
 import { UnitOfWork } from './storage/unit-of-work.ts';
@@ -240,6 +241,8 @@ async function groupsView(deps: WorkbenchDeps, settings: RuntimeSettings, user: 
   }
   return {
     groups,
+    // the settings installed modules declare (module-settings.ts): one section per module
+    modules: await moduleSettingsView(deps, settings, user),
     secrets: settings.cipher === undefined
       ? { available: false, note: 'This server has no settings key (WIREHUB_SETTINGS_KEY), so secrets cannot be saved here; set them on the server instead. The compose stack generates the key.' }
       : { available: true, ...(await keyRingView(settings, user)) },

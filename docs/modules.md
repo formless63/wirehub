@@ -255,6 +255,7 @@ export const acme = defineModule({
   documents: [...],              // catalog documents the module owns
   derived: [...],                // derived records kept beside the catalog
   art,                           // optional: connector drawings, body layouts, sheet art
+  settings: [...],               // credentials and options an owner enters in Settings (API 1.5)
 });
 ```
 
@@ -279,6 +280,7 @@ export const acme = defineModule({
 | **Migrations** | `ModuleMigrationsContribution { dir }` — forward-only SQL for the module's own tables, Postgres backend only | server, `db:migrate` | **yes** — applied after the base's, into schema `mod_<id>` (below) |
 | **Art** | `ArtContribution { connectors?, bodyLayouts?, drawing? }` — parsed JSON from the pack's `art/` directory (`ConnectorArtRecord`, `BodyLayoutRecord` in `@wirehub/catalog`; `DrawingArt` in `@wirehub/docs`), opaque in the contract | browser and server, at start | **yes** — below |
 | **Bench steps** | `BenchContribution { rules?, provider? }` — the shop's work instructions on the build sheet, as JSON rules or a `BenchStepsProvider` | server and browser | **yes** — see "Bench work instructions" |
+| **Settings** | `ModuleSettingContribution { key, label, help?, kind?: 'secret' \| 'text' \| 'bool' \| 'list', multiline?, options?, required?, gates?, env? }` — credentials and options the module needs; read through `request.settings` / `context.settings` (`ModuleSettings.get(key)`) | server (values), browser (Settings) | **yes** — Settings → Module settings; module API 1.5; below |
 | **Commit hook** | `(before, proposed, description) → CableDesign` — rewrite an edit as it is committed (e.g. record it as an override in module data) | browser (editor) | **yes** — the app installs `registry.commitHook()` into the editor store (`setCommitHook`) when it starts |
 
 ### Art (connector drawings, body layouts, sheet art)
@@ -399,6 +401,47 @@ integrations: [{
   The queue ids must be kebab-case and unique in the module; `manifestProblems` checks them
   and the schedule. On pg-boss the queue is named `<module>.<queue>` (it takes no colon).
 - `registry.queues()` lists them; the example module's `example:recount` shows all of it.
+
+### Module settings (module API 1.5)
+
+A module that needs a credential (a supplier's API key, an ERP token) or a switch declares it,
+and an owner enters it in **Settings → Module settings** — no deployment variable, no redeploy:
+
+```ts
+settings: [
+  { key: 'apiToken', label: 'ERP API token', required: true, gates: 'push', env: 'ACME_ERP_TOKEN',
+    help: 'A token with write access to the item master.' },          // kind 'secret' is the default
+  { key: 'targets', label: 'Push to', kind: 'list', options: ['items', 'boms'] },
+],
+integrations: [{ id: 'erp', label: 'ERP', routes: [{ method: 'POST', path: 'push', async handle(request) {
+  const token = await request.settings?.get('apiToken');                // never process.env
+  if (token === undefined) return { status: 409, body: { error: 'Set the ERP token in Settings.' } };
+  …
+} }], queues: [{ id: 'push', label: 'Push', async run({ settings }) { const token = await settings?.get('apiToken'); … } }] }],
+```
+
+- **Stored like the hub's own secrets** (`specs/runtime-settings.md` §4): a `secret` is AES-256-GCM
+  ciphertext under the install's `WIREHUB_SETTINGS_KEY` in the settings secret store
+  (`studio.settings_secret` on Postgres, `settings-secrets.json` beside the sign-in data on files),
+  named `module.<module id>.<key>`, bound to the organisation, rotated with the rest. It is
+  write-only: the page shows *configured* (and when), *set by the server* (locked) or *missing*,
+  never the value. `text`, `bool` and `list` values are kept in the owner-only document
+  `data/settings/modules.json`, which also records when each secret was set (the change history
+  says when, never what).
+- **Per organisation**, as every setting: each organisation of a Postgres hub enters its own.
+- **The environment wins.** When `env` names a variable the server has set, its value applies and
+  the field is locked; clear the variable to manage it in Settings. `NAME_FILE` works as for any
+  variable. Each `env` is a permission (`env:<NAME>`) the owner consents to at install.
+- **Owners only**, in a signed-in session (no API token): `PUT|DELETE
+  /api/settings/modules/<module>/secrets/<key>` `{ value }`, `PUT /api/settings/modules/<module>`
+  `{ values }` with `If-Match`; `GET /api/settings/runtime` lists them under `modules`. Editors and
+  viewers see the declarations only.
+- **Read through the module API**, never `process.env`: `get(key)` answers the value in effect as
+  text (a list comma-separated, a flag `true`/`false`) or `undefined`, for the module's own declared
+  keys only. A save applies at once: the next `get` sees it, in every studio process and in the worker
+  (a job of a module with settings refreshes them before it runs).
+- An older module (no `settings`) needs nothing; a bundle that declares settings records
+  `apiVersion` 1.5 and needs a hub that runs module API 1.5 or newer.
 
 ### Module tables (Postgres backend)
 
@@ -562,7 +605,7 @@ The design is `specs/runtime-modules.md`; this is the summary.
   index lists, or by a key an owner pins (`trustKey` on the upload, or Settings → Code modules).
   The preview lists what it may do and the apply needs `consent: { code: "<id>@<version>" }`. A
   module built for another major of the module API, or a newer minor, is refused (`MODULE_API_VERSION`,
-  now `1.4`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
+  now `1.5`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
   pack is the data).
 - **Loading.** The server, the worker and the page load the enabled modules into a **live
   registry** (`createLiveRegistry`, `composeRegistry`): the built-ins first, then runtime modules in
@@ -638,7 +681,8 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 - The registry API (`@wirehub/modules`) and the model types are the module contract.
   Breaking changes to them bump the base's major version and are listed in the changelog.
-- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.4`) is what a runtime bundle records as its
+- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.5`: 1.2 revision sources, 1.3 module SQL,
+  1.4 `PanelProps.onChange`, 1.5 declared module settings) is what a runtime bundle records as its
   `apiVersion`: a hub runs a bundle of the same major and a minor no newer than its own.
 - A module declares the base range it supports in `peerDependencies`; pnpm warns on a
   mismatch at install.

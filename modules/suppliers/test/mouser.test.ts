@@ -4,7 +4,7 @@ import type { LookupRequest, ProviderContext } from '../src/types.ts';
 
 const request: LookupRequest = { provider: 'mouser', query: 'SYN-1/A', match: 'mpn', manufacturer: 'Synthetic', quantity: 10, currency: 'USD', country: 'US' };
 const part = { MouserPartNumber: 'SKU-1', ManufacturerPartNumber: 'SYN-1/A', Manufacturer: 'Synthetic', Description: 'Synthetic component', AvailabilityInStock: '12', Min: '2', Mult: '2', ProductAttributes: [{ AttributeName: 'Packaging', AttributeValue: 'Cut Tape' }], PriceBreaks: [{ Quantity: 1, Price: '$1.25', Currency: 'USD' }, { Quantity: 10, Price: '1.00 USD', Currency: 'USD' }] };
-const context = (response: unknown): ProviderContext => ({ env: { WIREHUB_SUPPLIERS_MOUSER_KEY: 'test-only-credential' }, fetch: vi.fn(async () => Response.json(response)) as typeof fetch, now: () => new Date('2026-01-02T03:04:05Z'), nonce: () => 'synthetic' });
+const context = (response: unknown): ProviderContext => ({ credentials: { mouserKey: 'test-only-credential' }, fetch: vi.fn(async () => Response.json(response)) as typeof fetch, now: () => new Date('2026-01-02T03:04:05Z'), nonce: () => 'synthetic' });
 
 describe('Mouser V2 synthetic responses', () => {
   it('sends the official exact part-number request and maps trustworthy quote fields', async () => {

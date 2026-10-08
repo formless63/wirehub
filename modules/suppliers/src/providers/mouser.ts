@@ -34,7 +34,7 @@ function productUrl(value: unknown): string | undefined {
 
 /** Official V2 SearchApi schema: https://api.mouser.com/api/docs/V2 . */
 export const mouserAdapter: SupplierAdapter = async (request, context) => {
-  const key = context.env.WIREHUB_SUPPLIERS_MOUSER_KEY?.trim();
+  const key = context.credentials.mouserKey?.trim();
   if (!key) throw new SupplierHttpError('Supplier credentials are not configured.');
   // V2 uses this method for both manufacturer and supplier part numbers.
   const url = new URL('https://api.mouser.com/api/v2/search/partnumberandmanufacturer');

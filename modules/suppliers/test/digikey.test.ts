@@ -3,7 +3,7 @@ import type { LookupRequest, ProviderContext } from '../src/types.ts';
 import { digiKeyAdapter } from '../src/providers/digikey.ts';
 
 const request: LookupRequest = { provider: 'digikey', query: 'SYN-42/CT-ND', match: 'supplier', quantity: 20, currency: 'EUR', country: 'GB' };
-const env = { WIREHUB_SUPPLIERS_DIGIKEY_CLIENT_ID: 'synthetic-id', WIREHUB_SUPPLIERS_DIGIKEY_CLIENT_SECRET: 'synthetic-secret', WIREHUB_SUPPLIERS_DIGIKEY_ACCOUNT_ID: '12345' };
+const credentials = { digikeyClientId: 'synthetic-id', digikeyClientSecret: 'synthetic-secret', digikeyAccountId: '12345' };
 const product = () => ({ SearchLocaleUsed: { Currency: 'EUR' }, Product: {
   ManufacturerProductNumber: 'SYN-42+', Manufacturer: { Name: 'Synthetic Components' },
   ProductUrl: 'https://www.digikey.com/en/products/detail/synthetic/42', Description: { ProductDescription: 'Synthetic part' },
@@ -17,7 +17,7 @@ const product = () => ({ SearchLocaleUsed: { Currency: 'EUR' }, Product: {
 } });
 function setup(response: unknown = product(), token: unknown = { access_token: 'synthetic-token', token_type: 'Bearer', expires_in: 600 }) {
   const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(Response.json(token)).mockResolvedValueOnce(Response.json(response));
-  const context: ProviderContext = { env, fetch, now: () => new Date('2026-01-01T00:00:00Z'), nonce: () => 'syntheticnonce01' };
+  const context: ProviderContext = { credentials, fetch, now: () => new Date('2026-01-01T00:00:00Z'), nonce: () => 'syntheticnonce01' };
   return { fetch, context };
 }
 
@@ -65,7 +65,7 @@ describe('DigiKey V4 adapter', () => {
   });
   it('requires all credentials and sanitizes failed authentication and network bodies', async () => {
     const s = setup();
-    await expect(digiKeyAdapter(request, { ...s.context, env: { ...env, WIREHUB_SUPPLIERS_DIGIKEY_ACCOUNT_ID: '' } })).rejects.toThrow('DigiKey credentials are not configured.');
+    await expect(digiKeyAdapter(request, { ...s.context, credentials: { ...credentials, digikeyAccountId: '' } })).rejects.toThrow('DigiKey credentials are not configured.');
     expect(s.fetch).not.toHaveBeenCalled();
     await expect(digiKeyAdapter(request, setup(undefined, { error: 'synthetic-secret' }).context)).rejects.toThrow('DigiKey lookup failed.');
     const bad = setup(); bad.fetch.mockReset().mockResolvedValue(Response.json({ error: 'synthetic-secret' }, { status: 401 }));

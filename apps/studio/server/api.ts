@@ -52,6 +52,7 @@ import { PROPOSAL_ROUTES, handleProposalsRequest, isProposalsPath } from './prop
 import { PN_SETTINGS_ROUTES, handlePartNumberSettings, isPnSettingsPath } from './pn-settings.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
+import { MODULE_SETTINGS_ROUTES, handleModuleSecret, handleModuleSettingsRequest, isModuleSecretPath, moduleSettingsFor } from './module-settings.ts';
 import { RUNTIME_SETTINGS_ROUTES, handleRuntimeSettingsRequest, handleSettingsAdopt, handleSettingsRotate, handleSettingsSecret, isSettingsAdoptPath, isSettingsRotatePath, isSettingsSecretPath } from './runtime-settings-api.ts';
 import { isOwnerOnlySettingsPath } from './runtime-settings.ts';
 import { runtimeEnv, type RuntimeSettings } from './runtime-settings.ts';
@@ -977,6 +978,7 @@ const ROUTES = [
   ...PROPOSAL_ROUTES,
   ...WEBHOOK_ROUTES,
   ...RUNTIME_SETTINGS_ROUTES,
+  ...MODULE_SETTINGS_ROUTES,
   ...VOCAB_ROUTES,
   ...WIRE_LIBRARY_ROUTES,
   ...BUILDS_ROUTES,
@@ -1022,7 +1024,7 @@ function methodNotAllowed(method: string, allowed: string[]): ApiResponse {
  * A module integration's route for `request` (`/api/modules/<module>/<path>`),
  * ready to run, or `undefined` when the path is not one.
  */
-function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefined, jobs?: WorkbenchDeps['jobs']): { writes?: boolean; run: () => Promise<ApiResponse> } | undefined {
+function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefined, jobs?: WorkbenchDeps['jobs'], runtimeSettings?: () => WorkbenchDeps['runtimeSettings']): { writes?: boolean; run: () => Promise<ApiResponse> } | undefined {
   const [pathPart, query = ''] = request.path.split('?');
   const parts = (pathPart ?? '').split('/').filter((p) => p !== '').map(decodeSegment);
   if (parts[0] !== 'api' || parts[1] !== 'modules' || parts[2] === undefined) return undefined;
@@ -1043,6 +1045,8 @@ function findModuleRoute(request: ApiRequest, modules: ModuleRegistry | undefine
         query: new URLSearchParams(query),
         ...(request.user === undefined ? {} : { user: request.user }),
         ...(moduleJobs === undefined ? {} : { jobs: moduleJobs }),
+        // its declared settings (module API 1.5): the server's variable, else what an owner saved in Settings
+        settings: moduleSettingsFor(moduleId, () => modules, runtimeSettings ?? (() => undefined)),
       });
       return { status: out.status, body: out.body };
     },
@@ -1144,7 +1148,7 @@ async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps
   if (isJobPath(request.path)) return handleJobRequest(request, deps);
   const io = parseModuleIoPath(request.path);
   if (io !== undefined) return handleModuleIo(request, io, deps);
-  const moduleRoute = findModuleRoute(request, deps.modules, deps.jobs);
+  const moduleRoute = findModuleRoute(request, deps.modules, deps.jobs, () => deps.runtimeSettings);
   if (moduleRoute !== undefined) return moduleRoute.writes === true ? withWriteLock(moduleRoute.run) : moduleRoute.run();
   // first-run setup installs packs straight into the catalog (journaled by
   // the installer), outside the unit of work, under the write lock
@@ -1201,6 +1205,16 @@ async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps
       }),
     );
   }
+  // a module's declared secret (module API 1.5): the same encrypted store, the same marker-only change set
+  if (isModuleSecretPath(request.path)) {
+    return withWriteLock(() =>
+      handleModuleSecret(request, deps, async (uow, context, answered) => {
+        const response = await commitUnit(uow, context, answered);
+        if (response.status < 400 && uow.changes.length > 0) await publishCatalog(deps);
+        return response;
+      }),
+    );
+  }
   // "adopt the server's values": the environment's runtime settings copied into Settings, one change set
   if (isSettingsAdoptPath(request.path)) {
     return withWriteLock(() =>
@@ -1226,7 +1240,7 @@ async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps
     if (response.status < 400 && uow.changes.length > 0) {
       await publishCatalog(deps);
       // a settings save applies before its answer is sent (other processes follow the notification)
-      if ((request.path.split('?')[0] ?? '').startsWith('/api/settings/runtime/')) await deps.runtimeSettings?.refresh();
+      if (/^\/api\/settings\/(?:runtime|modules)\//.test(request.path.split('?')[0] ?? '')) await deps.runtimeSettings?.refresh();
     }
     return response;
   };
@@ -1500,6 +1514,8 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
 
   const runtime = await handleRuntimeSettingsRequest(method, parts, request.body, deps, ifMatch, request.user ?? deps.localUser);
   if (runtime !== undefined) return runtime;
+  const moduleSettings = await handleModuleSettingsRequest(method, request.path, request.body, deps, ifMatch, request.user ?? deps.localUser);
+  if (moduleSettings !== undefined) return moduleSettings;
 
   if (isWebhooksPath(parts)) return await handleWebhooksRequest(method, parts, request.path, request.body, deps, ifMatch, request.user ?? deps.localUser);
   if (isRulesPath(parts)) return await handleRulesRequest(method, parts, request.body, deps, ifMatch);

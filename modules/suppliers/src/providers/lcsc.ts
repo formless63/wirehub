@@ -34,8 +34,8 @@ function prices(v: unknown): SupplierOffer['breaks'] {
 }
 
 export const lcscAdapter: SupplierAdapter = async (request, context) => {
-  const key = context.env.WIREHUB_SUPPLIERS_LCSC_KEY;
-  const secret = context.env.WIREHUB_SUPPLIERS_LCSC_SECRET;
+  const key = context.credentials.lcscKey;
+  const secret = context.credentials.lcscSecret;
   if (!key?.trim() || !secret?.trim()) throw new Error('LCSC credentials are not configured.');
   try {
     if (!['USD', 'CNY', 'EUR', 'HKD'].includes(request.currency)) throw new Error('Unsupported currency.');

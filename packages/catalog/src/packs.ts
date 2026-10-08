@@ -310,7 +310,7 @@ export const PACK_HOST_CONTROL_FILES: readonly string[] = [
   'packs.json', 'setup.json', 'proposals.json',
   'settings/code-modules.json', 'settings/stores.json', 'settings/sign-in.json',
   'settings/notifications.json', 'settings/integrations.json', 'settings/jobs.json',
-  'settings/webhooks.json',
+  'settings/webhooks.json', 'settings/modules.json',
 ];
 
 export function isPackHostControlPath(relative: string): boolean {

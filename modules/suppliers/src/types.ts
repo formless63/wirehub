@@ -28,7 +28,8 @@ export interface SupplierOffer {
 }
 export interface LookupResult { request: LookupRequest; offers: SupplierOffer[]; observedAt: string }
 export interface ProviderContext {
-  env: Readonly<Record<string, string | undefined>>;
+  /** the provider credentials, by setting key (`mouserKey` …), as the host's module settings give them */
+  credentials: Readonly<Partial<Record<string, string>>>;
   fetch: typeof globalThis.fetch;
   now: () => Date;
   nonce: () => string;

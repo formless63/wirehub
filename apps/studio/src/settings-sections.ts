@@ -8,6 +8,7 @@ export const SETTINGS_SECTIONS = [
   { id: 'runtime', label: 'Runtime', description: 'Notifications, integrations, job limits and encrypted settings.' },
   { id: 'webhooks', label: 'Webhooks', description: 'Event deliveries to external services.' },
   { id: 'stores', label: 'Catalog stores', description: 'Catalog sources and trusted publishers.' },
+  { id: 'module-settings', label: 'Module settings', description: 'Credentials and options the installed modules declare.' },
   { id: 'modules', label: 'Code modules', description: 'Installed modules and their permissions.' },
 ] as const;
 

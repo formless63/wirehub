@@ -4,14 +4,14 @@ import type { LookupRequest, ProviderContext } from '../src/types.ts';
 import { lcscAdapter } from '../src/providers/lcsc.ts';
 
 const request: LookupRequest = { provider: 'lcsc', query: 'C123456', match: 'supplier', quantity: 25, currency: 'USD', country: 'US' };
-const env = { WIREHUB_SUPPLIERS_LCSC_KEY: 'synthetic-key', WIREHUB_SUPPLIERS_LCSC_SECRET: 'synthetic-secret' };
+const credentials = { lcscKey: 'synthetic-key', lcscSecret: 'synthetic-secret' };
 const product = () => ({ lcscProductNumber: 'C123456', manufacturerProductNumber: 'SYN-42+', manufacturer: { name: 'Synthetic Components' },
   productDetailURL: 'https://www.lcsc.com/product-detail/C123456.html', packageType: 'Tape & Reel (TR)', quantityAvailable: '540', minimumOrderQuantity: 5, incrementQuantity: 5, manufacturerStandardPackageQuantity: 4000,
   productPrice: { currency: 'USD', standardPricing: [{ breakQuantity: 5, unitPrice: 0.4 }, { breakQuantity: 100, unitPrice: 0.3 }], lcscReelFee: 2 },
 });
 function setup(result: unknown = product(), overrides: Record<string, unknown> = {}) {
   const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(async () => Response.json({ success: true, code: 200, result, ...overrides }));
-  const context: ProviderContext = { env, fetch, now: () => new Date('2026-01-01T00:00:00Z'), nonce: () => 'abcdefghijklmnop' };
+  const context: ProviderContext = { credentials, fetch, now: () => new Date('2026-01-01T00:00:00Z'), nonce: () => 'abcdefghijklmnop' };
   return { fetch, context };
 }
 
@@ -106,7 +106,7 @@ describe('LCSC approved partner API v3.4 adapter', () => {
   });
   it('fails absent credentials/invalid nonce without fetching and never reflects provider error payloads', async () => {
     const s = setup();
-    await expect(lcscAdapter(request, { ...s.context, env: {} })).rejects.toThrow('LCSC credentials are not configured.');
+    await expect(lcscAdapter(request, { ...s.context, credentials: {} })).rejects.toThrow('LCSC credentials are not configured.');
     await expect(lcscAdapter(request, { ...s.context, nonce: () => 'invalid' })).rejects.toThrow('LCSC lookup failed.');
     expect(s.fetch).not.toHaveBeenCalled();
     await expect(lcscAdapter(request, setup(null, { success: false, code: 4005, message: 'synthetic-secret' }).context)).rejects.toThrow('LCSC lookup failed.');

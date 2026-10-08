@@ -1,25 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { JobQueueContext, ModuleJobs } from '@wirehub/modules';
+import type { JobQueueContext, ModuleJobs, ModuleSettings } from '@wirehub/modules';
 import type { SupplierAdapter, SupplierOffer } from '../src/types.ts';
 import { createSupplierIntegration, lookupRequest } from '../src/server.ts';
 import { SupplierHttpError } from '../src/providers/http.ts';
 
 const input = { provider: 'mouser', query: 'SYN-1/A', match: 'mpn', manufacturer: 'Synthetic', quantity: 10, currency: 'USD', country: 'US' };
-const env = { WIREHUB_SUPPLIERS_PROVIDERS: 'mouser', WIREHUB_SUPPLIERS_MOUSER_KEY: 'test-only-credential' };
+// the module's declared settings, as the host's module API resolves them (by setting key)
+const env = { providers: 'mouser', mouserKey: 'test-only-credential' };
+const settingsOf = (values: Record<string, string | undefined>): ModuleSettings => ({ get: async (key) => values[key] });
 const now = () => new Date('2026-01-02T03:04:05Z');
 const offer: SupplierOffer = { provider: 'mouser', supplierNumber: 'SKU-1', mpn: 'SYN-1/A', manufacturer: 'Synthetic', currency: 'USD', unit: 'each', observedAt: now().toISOString(), stock: 0, breaks: [{ minQty: 1, unitPrice: 1.25 }] };
 const job = { id: 'job-1', kind: 'suppliers:lookup', status: 'queued' };
 const jobs = (): ModuleJobs => ({ enqueue: vi.fn(async () => job), get: vi.fn(async () => ({ ...job, steps: [] })) });
 function setup(adapter: SupplierAdapter = async () => [offer], environment: Record<string, string | undefined> = env) {
-  const integration = createSupplierIntegration({ env: () => environment, now, adapters: { mouser: adapter } });
+  const integration = createSupplierIntegration({ settings: settingsOf(environment), now, adapters: { mouser: adapter } });
   const route = (method: string, path: string) => integration.routes!.find((r) => r.method === method && r.path === path)!.handle;
   const run = (request: Record<string, unknown>) => integration.queues![0]!.run({ request } as JobQueueContext);
   return { integration, route, run };
 }
 
 describe('supplier orchestration', () => {
-  it('reports explicit enablement and credential presence, never secret values; reads env lazily', async () => {
-    const environment: Record<string, string | undefined> = { WIREHUB_SUPPLIERS_MOUSER_KEY: env.WIREHUB_SUPPLIERS_MOUSER_KEY };
+  it('reports explicit enablement and credential presence, never secret values; reads settings lazily', async () => {
+    const environment: Record<string, string | undefined> = { mouserKey: env.mouserKey };
     const { route, integration } = setup(undefined, environment);
     const config = async () => route('GET', 'config')({ query: new URLSearchParams() });
     expect(await config()).toEqual({ status: 200, body: { providers: [
@@ -27,10 +29,11 @@ describe('supplier orchestration', () => {
       { id: 'digikey', label: 'DigiKey', enabled: false, configured: false },
       { id: 'lcsc', label: 'LCSC', enabled: false, configured: false },
     ] } });
-    environment.WIREHUB_SUPPLIERS_PROVIDERS = 'mouser,unknown';
-    expect(JSON.stringify(await config())).not.toContain(env.WIREHUB_SUPPLIERS_MOUSER_KEY);
+    environment.providers = 'mouser,unknown';
+    expect(JSON.stringify(await config())).not.toContain(env.mouserKey);
     expect((await config()).body).toMatchObject({ providers: [{ id: 'mouser', enabled: true }, {}, {}] });
-    expect(integration.env).toContain('WIREHUB_SUPPLIERS_DIGIKEY_ACCOUNT_ID');
+    // credentials come from the module settings the host resolves, never from the process environment
+    expect(integration.env).toBeUndefined();
   });
 
   it.each([
@@ -64,11 +67,11 @@ describe('supplier orchestration', () => {
     const { route, run } = setup(adapter, environment);
     const scope = jobs();
     await route('POST', 'lookup')({ body: input, query: new URLSearchParams(), jobs: scope });
-    environment.WIREHUB_SUPPLIERS_PROVIDERS = '';
+    environment.providers = '';
     expect((await route('POST', 'lookup')({ body: input, query: new URLSearchParams(), jobs: scope })).status).toBe(409);
     await expect(run(input)).rejects.toThrow('disabled or not configured');
-    environment.WIREHUB_SUPPLIERS_PROVIDERS = 'mouser';
-    environment.WIREHUB_SUPPLIERS_MOUSER_KEY = '';
+    environment.providers = 'mouser';
+    environment.mouserKey = '';
     await expect(run(input)).rejects.toThrow('disabled or not configured');
     expect(adapter).not.toHaveBeenCalled();
   });
@@ -76,7 +79,7 @@ describe('supplier orchestration', () => {
   it('dispatches once, exact-filters identities/manufacturer, sanitizes and bounds offers', async () => {
     const adapter = vi.fn(async () => [
       { ...offer, mpn: 'SYN1A' }, { ...offer, mpn: 'SYN-1/A-EXTRA' }, { ...offer, manufacturer: 'Other' },
-      { ...offer, description: `Text ${env.WIREHUB_SUPPLIERS_MOUSER_KEY}`, url: 'javascript:bad', stock: Number.NaN, orderMultiple: 0,
+      { ...offer, description: `Text ${env.mouserKey}`, url: 'javascript:bad', stock: Number.NaN, orderMultiple: 0,
         breaks: [{ minQty: 1, unitPrice: Number.NaN }, { minQty: 2, unitPrice: 0 }, { minQty: -1, unitPrice: 2 }],
       },
     ]);
@@ -84,7 +87,7 @@ describe('supplier orchestration', () => {
     const result = await run(input);
     expect(adapter).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ request: input, offers: [{ mpn: 'SYN-1/A', breaks: [{ minQty: 2, unitPrice: 0 }] }], observedAt: now().toISOString() });
-    expect(JSON.stringify(result)).not.toContain(env.WIREHUB_SUPPLIERS_MOUSER_KEY);
+    expect(JSON.stringify(result)).not.toContain(env.mouserKey);
     expect(JSON.stringify(result)).not.toContain('javascript');
     expect((result?.offers as SupplierOffer[])[0]).not.toHaveProperty('stock');
   });
@@ -101,9 +104,9 @@ describe('supplier orchestration', () => {
     expect((await get({ query: new URLSearchParams(), jobs: jobs() })).status).toBe(400);
     expect((await get({ query: new URLSearchParams('id=missing'), jobs: { ...jobs(), get: async () => undefined } })).status).toBe(404);
     expect((await get({ query: new URLSearchParams('id=other'), jobs: { ...jobs(), get: async () => ({ ...job, kind: 'suppliers:other', steps: [] }) } })).status).toBe(404);
-    const response = await get({ query: new URLSearchParams('id=job-1'), jobs: { ...jobs(), get: async () => ({ ...job, status: 'failed', steps: [], error: `https://private.invalid?key=${env.WIREHUB_SUPPLIERS_MOUSER_KEY}` }) } });
+    const response = await get({ query: new URLSearchParams('id=job-1'), jobs: { ...jobs(), get: async () => ({ ...job, status: 'failed', steps: [], error: `https://private.invalid?key=${env.mouserKey}` }) } });
     expect(response.status).toBe(200);
-    expect(JSON.stringify(response)).not.toContain(env.WIREHUB_SUPPLIERS_MOUSER_KEY);
+    expect(JSON.stringify(response)).not.toContain(env.mouserKey);
     expect(JSON.stringify(response)).not.toContain('private.invalid');
   });
 
@@ -114,17 +117,17 @@ describe('supplier orchestration', () => {
 
   it('dispatches each explicitly enabled provider with a valid default nonce', async () => {
     const environment = {
-      ...env, WIREHUB_SUPPLIERS_PROVIDERS: 'mouser,digikey,lcsc',
-      WIREHUB_SUPPLIERS_DIGIKEY_CLIENT_ID: 'synthetic-id', WIREHUB_SUPPLIERS_DIGIKEY_CLIENT_SECRET: 'synthetic-secret',
-      WIREHUB_SUPPLIERS_DIGIKEY_ACCOUNT_ID: 'synthetic-account',
-      WIREHUB_SUPPLIERS_LCSC_KEY: 'synthetic-key', WIREHUB_SUPPLIERS_LCSC_SECRET: 'synthetic-secret',
+      ...env, providers: 'mouser,digikey,lcsc',
+      digikeyClientId: 'synthetic-id', digikeyClientSecret: 'synthetic-secret',
+      digikeyAccountId: 'synthetic-account',
+      lcscKey: 'synthetic-key', lcscSecret: 'synthetic-secret',
     };
     for (const provider of ['mouser', 'digikey', 'lcsc'] as const) {
       const adapter = vi.fn(async (_request: Parameters<SupplierAdapter>[0], ctx: Parameters<SupplierAdapter>[1]) => {
         expect(ctx.nonce()).toMatch(/^[a-zA-Z0-9]{16}$/);
         return [{ ...offer, provider }];
       }) as SupplierAdapter;
-      const integration = createSupplierIntegration({ env: environment, now, adapters: { [provider]: adapter } });
+      const integration = createSupplierIntegration({ settings: settingsOf(environment), now, adapters: { [provider]: adapter } });
       const result = await integration.queues![0]!.run({ request: { ...input, provider } } as unknown as JobQueueContext);
       expect(result).toMatchObject({ offers: [{ provider }] });
       expect(adapter).toHaveBeenCalledOnce();
@@ -142,7 +145,22 @@ describe('supplier orchestration', () => {
   });
 
   it('keeps only safe transport diagnostics and never arbitrary provider errors', async () => {
-    await expect(setup(async () => { throw new Error(`private body ${env.WIREHUB_SUPPLIERS_MOUSER_KEY}`); }).run(input)).rejects.toThrow(/^Supplier lookup failed\.$/);
+    await expect(setup(async () => { throw new Error(`private body ${env.mouserKey}`); }).run(input)).rejects.toThrow(/^Supplier lookup failed\.$/);
     await expect(setup(async () => { throw new SupplierHttpError('Supplier rate limit reached; retry after 2 seconds.'); }).run(input)).rejects.toThrow('retry after 2 seconds');
+  });
+
+  it('prefers the settings the host hands each request and job over any fallback', async () => {
+    const adapter = vi.fn(async (_request: Parameters<SupplierAdapter>[0], ctx: Parameters<SupplierAdapter>[1]) => {
+      expect(ctx.credentials.mouserKey).toBe('from-the-host');
+      return [offer];
+    }) as SupplierAdapter;
+    const integration = createSupplierIntegration({ now, adapters: { mouser: adapter } });
+    const config = integration.routes!.find((r) => r.path === 'config')!.handle;
+    // no settings at all (an older host): everything off, nothing read from the environment
+    expect((await config({ query: new URLSearchParams() })).body).toMatchObject({ providers: [{ id: 'mouser', enabled: false, configured: false }, {}, {}] });
+    const host = settingsOf({ providers: 'mouser', mouserKey: 'from-the-host' });
+    expect((await config({ query: new URLSearchParams(), settings: host })).body).toMatchObject({ providers: [{ id: 'mouser', enabled: true, configured: true }, {}, {}] });
+    await integration.queues![0]!.run({ request: input, settings: host } as unknown as JobQueueContext);
+    expect(adapter).toHaveBeenCalledOnce();
   });
 });

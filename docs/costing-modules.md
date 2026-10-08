@@ -3,7 +3,8 @@
 The `fx-rates` and `standard-work` modules are installed separately as signed
 runtime modules. They are absent from the default module list. Their saved
 settings live in the cable design's extensions, so revisions retain the rates
-and timings selected for them. Builds from this checkout target module API 1.4.
+and timings selected for them. A bundle built from this checkout records its module API version
+(`MODULE_API_VERSION`, now 1.5) and runs on a hub at that version or a newer minor.
 
 ## FX reference rates
 

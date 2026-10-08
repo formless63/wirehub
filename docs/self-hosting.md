@@ -292,6 +292,14 @@ them, and the history shows an editor that one changed but not what it held.
 The webhook subscriptions (`data/settings/webhooks.json`, Settings > Webhooks) are owner-only in the
 same way, and each one's signing secret is kept encrypted like the others above.
 
+**Module settings.** A module may declare the settings it needs, mostly credentials (a
+supplier's API key). Each installed one gets a section under **Settings > Module settings**,
+for owners only: its secrets are set, replaced or cleared there and kept encrypted like the
+others above (never shown again; *configured*, *set by the server* or *missing*), per
+organisation; its other values are in the owner-only `data/settings/modules.json`. A variable a
+module names (for example `WIREHUB_SUPPLIERS_MOUSER_KEY`) still wins when the app and the worker
+have it, and the field shows it locked; unset it to manage the value in Settings.
+
 The variables most people set in `.env` (every one is explained in `.env.example`):
 
 | Variable | Default | |
@@ -370,6 +378,8 @@ but is no longer in the default `compose.yaml`.
 | | `WIREHUB_IMPORT_MAX_MB` | the largest import file, read at each upload |
 | | `WIREHUB_BACKUP_MAX_AGE_HOURS` | when a backup counts as stale for the health check and the backup watch (new; was fixed at 30) |
 | | `WIREHUB_WEBHOOK_BACKOFF` | seconds to wait before each retry of a failed event webhook, comma-separated, at most five (default `30,120,600,3600,21600`; `docs/webhooks.md`); an environment variable only, there is no Settings field for it |
+
+| Module settings (owner) | each installed module's declared settings, for example the optional suppliers module's `WIREHUB_SUPPLIERS_PROVIDERS`, `WIREHUB_SUPPLIERS_MOUSER_KEY`\*, `WIREHUB_SUPPLIERS_DIGIKEY_CLIENT_ID`\*, `WIREHUB_SUPPLIERS_DIGIKEY_CLIENT_SECRET`\*, `WIREHUB_SUPPLIERS_DIGIKEY_ACCOUNT_ID`\*, `WIREHUB_SUPPLIERS_LCSC_KEY`\*, `WIREHUB_SUPPLIERS_LCSC_SECRET`\* | a module's API keys and switches are the owner's account details, entered per organisation and changed without a redeploy; the module reads them at its next lookup, in the app and the worker (`docs/modules.md`, "Module settings") |
 
 \* a secret: write-only and encrypted in Settings. In the environment each
 can also be given as a file (`NAME_FILE`).
