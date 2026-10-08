@@ -5,6 +5,7 @@
  * a pack's scheme is an owner's confirmation. Saving never rewrites an existing number.
  */
 
+import { InfoTip } from '../shell/InfoTip.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -21,7 +22,7 @@ export const EXAMPLE_SCHEME = {
   template: '{level}{type}-{seq}-{variant}',
   segments: [
     { id: 'level', type: 'choice', label: 'Level', values: [{ value: '1', label: 'Part', kinds: ['connector', 'wire', 'component', 'shell', 'fastener', 'mechanical-other'] }, { value: '2', label: 'Assembly', kinds: ['pcba', 'design', 'kit'] }] },
-    { id: 'type', type: 'choice', label: 'Type', values: [{ value: 'C', label: 'Connector', kinds: ['connector', 'shell'] }, { value: 'W', label: 'Wire', kinds: ['wire'] }, { value: 'E', label: 'Component', kinds: ['component'] }, { value: 'H', label: 'Hardware', kinds: ['fastener', 'mechanical-other'] }, { value: 'B', label: 'Board', kinds: ['pcba'] }, { value: 'A', label: 'Cable assembly', kinds: ['design', 'kit'] }] },
+    { id: 'type', type: 'choice', label: 'Type', values: [{ value: 'C', label: 'Connector', kinds: ['connector', 'shell'] }, { value: 'W', label: 'Wire', kinds: ['wire'] }, { value: 'E', label: 'Component', kinds: ['component'] }, { value: 'H', label: 'Hardware', kinds: ['fastener', 'mechanical-other'] }, { value: 'B', label: 'Board', kinds: ['pcba'] }, { value: 'A', label: 'Assembly', kinds: ['design', 'kit'] }] },
     { id: 'seq', type: 'counter', label: 'Sequence', width: 6, per: ['level', 'type'], ranges: [{ from: 1, to: 999999 }] },
     { id: 'variant', type: 'variant', label: 'Variant', style: 'numeric', width: 2, first: '00', max: '99' },
   ],
@@ -123,11 +124,10 @@ export function PartNumberSettings(): JSX.Element {
 
   return (
     <section ref={editor} className="mt-6 max-w-xl border-t border-line pt-3" data-testid="pn-settings">
-      <h2 className="mb-1 text-[13px] font-semibold">Part numbers</h2>
-      <p className="mb-2 text-faint">
-        How this hub numbers parts and cables. Edit declarative segments in the form, or use advanced JSON: fields with allowed values per record kind, zero-padded counters with ranges (several spans, numbers never issued, a range per set of combinations), a variant suffix, separators, a validation regex.
-        Saving never rewrites an existing number. Exotic cases stay a code scheme in a module.
-      </p>
+      <h2 className="mb-1 text-[13px] font-semibold">
+        Part numbers
+        <InfoTip topic="part-numbers" text="How this hub numbers parts and designs. Edit declarative segments in the form, or use advanced JSON: fields with allowed values per record kind, zero-padded counters with ranges (several spans, numbers never issued, a range per set of combinations), a variant suffix, separators, a validation regex. Saving never rewrites an existing number. Exotic cases stay a code scheme in a module." />
+      </h2>
       {view === undefined ? (
         <div className="text-faint">{query.isError ? 'The scheme could not be read.' : 'Loading…'}</div>
       ) : (

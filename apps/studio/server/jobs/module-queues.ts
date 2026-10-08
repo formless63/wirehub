@@ -66,7 +66,7 @@ export function moduleJobsFor(moduleId: string, jobs: JobService | undefined, mo
     async enqueue(queue, request = {}) {
       const found = own.find((q) => q.id === queue);
       if (found === undefined) throw new Error(`module '${moduleId}' has no queue '${queue}'`);
-      if (!jobs.kinds.includes(found.kind as JobKind)) throw new Error(`this studio does not run '${found.kind}' jobs`);
+      if (!jobs.kinds.includes(found.kind as JobKind)) throw new Error(`this hub does not run '${found.kind}' jobs`);
       const job = await jobs.enqueue(found.kind as JobKind, request, user);
       return { id: job.id, kind: job.kind, status: job.status };
     },

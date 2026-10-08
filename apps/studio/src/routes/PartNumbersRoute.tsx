@@ -6,6 +6,7 @@
  * drawings through the deployment's `PartNumberScheme`; nothing is stored.
  */
 
+import { InfoTip } from '../shell/InfoTip.tsx';
 import { Link } from '@tanstack/react-router';
 import { useMemo, type JSX } from 'react';
 import { partNumberReport } from '@wirehub/model';
@@ -63,11 +64,10 @@ export function PartNumbersRoute(): JSX.Element {
   );
   return (
     <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="part-numbers">
-      <h1 className="mb-1 text-[14px] font-semibold">Part numbers</h1>
-      <p className="mb-3 max-w-2xl text-faint">
-        Read through {partNumbers?.scheme.label ?? 'the numbering scheme'}. A connector and the body it is built on share a number without clashing, and a cable’s product reference and drawing
-        number are one number written twice.
-      </p>
+      <h1 className="mb-3 text-[14px] font-semibold">
+        Part numbers
+        <InfoTip topic="part-numbers" text={`Read through ${partNumbers?.scheme.label ?? 'the numbering scheme'}. A connector and the body it is built on share a number without clashing, and a design’s product reference and drawing number are one number written twice.`} />
+      </h1>
       {report === undefined ? (
         <div className="text-faint">Loading…</div>
       ) : (
@@ -87,7 +87,7 @@ export function PartNumbersRoute(): JSX.Element {
               ))}
             </ul>
           </Section>
-          <Section title="Cables whose numbers disagree" count={report.disagreements.length} empty="Every cable’s product reference matches its drawing number." testId="pn-disagreements">
+          <Section title="Designs whose numbers disagree" count={report.disagreements.length} empty="Every design’s product reference matches its drawing number." testId="pn-disagreements">
             <ul className="flex flex-col gap-1">
               {report.disagreements.map((d) => (
                 <li key={d.designId} data-design={d.designId}>

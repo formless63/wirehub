@@ -125,7 +125,7 @@ export function SrcField(props: { value: string; onChange: (next: string) => voi
       className="cs-field is-wide"
       title="The vendor datasheet, board or measurement behind these values. Say so here when a value is inferred."
     >
-      <span>Source</span>
+      <span>Reference</span>
       <textarea
         className="cs-textarea"
         rows={3}

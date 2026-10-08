@@ -8,12 +8,15 @@
 
 import { Link, useNavigate } from '@tanstack/react-router';
 import { settingsRoute } from '../router.tsx';
-import { SETTINGS_SECTIONS, settingsSection } from '../settings-sections.ts';
+import { InfoTip } from '../shell/InfoTip.tsx';
+import { SETTINGS_SECTIONS, sectionHelp, settingsSection } from '../settings-sections.ts';
 import './settings-sections.css';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
+import { Select } from '@wirehub/editor-react';
+import { PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
 
 import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
 import { EngineeringSettings } from './EngineeringSettings.tsx';
@@ -35,6 +38,8 @@ const FIELDS = [
 ] as const;
 
 type Draft = Record<(typeof FIELDS)[number]['key'], string> & {
+  paper: PaperId | '';
+  titleBlock: TitleBlockStandard | '';
   notes: [string, string, string];
   tolerances: [string, string][];
 };
@@ -50,6 +55,8 @@ const DEFAULT_TOLERANCES = [
 ] as const;
 
 const draftOf = (view: BrandingView | undefined): Draft => ({
+  paper: view?.paper ?? '',
+  titleBlock: view?.titleBlock ?? '',
   notes: [view?.notes?.[0] ?? '', view?.notes?.[1] ?? '', view?.notes?.[2] ?? ''],
   tolerances: DEFAULT_TOLERANCES.map((_, i) => [view?.tolerances?.[i]?.[0] ?? '', view?.tolerances?.[i]?.[1] ?? ''] as [string, string]),
   organisation: view?.organisation ?? '',
@@ -181,11 +188,12 @@ export function SettingsRoute(): JSX.Element {
       </nav>
       <div className="settings-content" ref={content}>
         <header className="settings-section-heading">
-          <h2 className="text-[14px] font-semibold">{currentSection.label}</h2>
-          <p className="text-dim">{currentSection.description}</p>
+          <h2 className="text-[14px] font-semibold">
+            {currentSection.label}
+            <InfoTip text={sectionHelp(currentSection)} topic="settings" />
+          </h2>
         </header>
         <section hidden={selected !== 'documents'} aria-label="Document settings" data-settings-section="documents">
-      <p className="mb-3 max-w-xl text-faint">Who the documents are issued by. Leave a field empty to keep the generic text. A module that supplies its own title-block art takes precedence.</p>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div> : null}
       {query.data === undefined ? (
         query.isError ? null : <div className="text-faint">Loading…</div>
@@ -211,6 +219,28 @@ export function SettingsRoute(): JSX.Element {
               <span className="text-faint">{f.hint}</span>
             </label>
           ))}
+          <div className="flex gap-3">
+            <div className="flex flex-1 flex-col gap-0.5" title="The paper every document prints on unless a design or a download asks for another. The drawing, formboard, labels and schematic keep their own orientation.">
+              <span className="font-medium">Paper</span>
+              <Select
+                aria-label="Paper"
+                value={draft.paper === '' ? 'default' : draft.paper}
+                disabled={readOnly}
+                onValueChange={(value) => setDraft({ ...draft, paper: value === 'default' ? '' : (value as PaperId) })}
+                options={[{ value: 'default', label: 'A4 (default)' }, ...PAPER_IDS.filter((id) => id !== 'A4').map((id) => ({ value: id, label: PAPERS[id].label }))]}
+              />
+            </div>
+            <div className="flex flex-1 flex-col gap-0.5" title="The title-block layout of every sheet: ISO 7200 (a block at the bottom right) or ANSI (a full-width block). By default the paper decides: ISO for the A sizes, ANSI for Letter and the larger American sizes.">
+              <span className="font-medium">Title block</span>
+              <Select
+                aria-label="Title block"
+                value={draft.titleBlock === '' ? 'default' : draft.titleBlock}
+                disabled={readOnly}
+                onValueChange={(value) => setDraft({ ...draft, titleBlock: value === 'default' ? '' : (value as TitleBlockStandard) })}
+                options={[{ value: 'default', label: 'Follow the paper' }, ...TITLE_BLOCK_STANDARDS.map((id) => ({ value: id, label: TITLE_BLOCKS[id].label }))]}
+              />
+            </div>
+          </div>
           <fieldset className="flex flex-col gap-1 border-0 p-0">
             <legend className="font-medium">Drawing general note</legend>
             {DEFAULT_NOTES.map((placeholder, i) => (
@@ -322,7 +352,7 @@ export function SettingsRoute(): JSX.Element {
           <fieldset className="flex flex-col gap-1 border-0 p-0" data-testid="drawing-art">
             <legend className="font-medium">Drawing art</legend>
             <span className="text-faint">
-              Traced connector faces and plugs and wire cutaways, keyed by definition id, in the shape a module&rsquo;s art has (docs/modules.md, &ldquo;Art&rdquo;). In force now:{' '}
+              Traced connector faces and plugs and wire cutaways, keyed by definition id, in the shape a module&rsquo;s art has. In force now:{' '}
               {['faces', 'plugs', 'cutaways'].map((k) => `${Object.keys((query.data?.art as Record<string, Record<string, unknown>> | undefined)?.[k] ?? {}).length} ${k}`).join(', ')}
               {' '}(this hub&rsquo;s and its packs&rsquo;). Empty keeps the generated art; a cutaway&rsquo;s SVG is cleaned of scripts and external references when it is saved.
             </span>

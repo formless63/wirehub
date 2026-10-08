@@ -136,10 +136,10 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
       >
         <IconMenu2 size={18} />
       </button>
-      <Link to="/cables" aria-label="WireHub home" title="Cables" className="cs-home-mark flex h-11 shrink-0 items-center justify-center border-r border-line max-sm:border-r-0">
+      <Link to="/cables" aria-label="WireHub home" title="Designs" className="cs-home-mark flex h-11 shrink-0 items-center justify-center border-r border-line max-sm:border-r-0">
         <StudioMark />
       </Link>
-      <Link to="/cables" aria-label="WireHub home wordmark" title="Cables" className="max-sm:hidden"><Wordmark className="text-[15px]" /></Link>
+      <Link to="/cables" aria-label="WireHub home wordmark" title="Designs" className="max-sm:hidden"><Wordmark className="text-[15px]" /></Link>
       <span className="h-[18px] w-px shrink-0 bg-line2 max-sm:hidden" aria-hidden="true" />
 
       {cableId !== undefined ? (
@@ -147,7 +147,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
           {/* the crumb is the first thing to go once space is tight — the
               title itself gets priority */}
           <Link to="/cables" className="shrink-0 text-dim no-underline hover:text-ink max-[1300px]:hidden max-sm:hidden">
-            Cables
+            Designs
           </Link>
           <span className="shrink-0 text-faint max-[1300px]:hidden max-sm:hidden">/</span>
           <span
@@ -179,15 +179,15 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
             />
           ) : null}
 
-          {/* the cable menu: rename/duplicate/delete/revert, per the mockup's
+          {/* the design menu: rename/duplicate/delete/revert, per the mockup's
               chevron right after the breadcrumb label */}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button
                 type="button"
                 disabled={!workspaceReady}
-                title="Cable menu"
-                aria-label="Cable menu"
+                title="Design menu"
+                aria-label="Design menu"
                 className="flex h-6 w-5 shrink-0 items-center justify-center rounded border-0 bg-transparent text-dim hover:text-ink disabled:cursor-default disabled:opacity-40"
               >
                 <IconChevronDown size={14} />
@@ -212,7 +212,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
                 <DropdownMenu.Item
                   className={MENU_ITEM}
                   disabled={!canMakeVariant}
-                  title="Copy this cable onto another wire stock"
+                  title="Copy this design onto another wire stock"
                   onSelect={() => handle?.openLifecycle('variant')}
                 >
                   <IconGitBranch size={14} />
@@ -457,7 +457,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
       {studio.apiOffline ? (
         <span
           role="status"
-          title="The studio could not reach the workbench. Showing the designs this page was built with — retries on every navigation."
+          title="WireHub could not reach the server. Showing the designs this page was built with — retries on every navigation."
           className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-raised px-2 text-[11px] font-medium text-warn"
         >
           <IconPlugOff size={13} />

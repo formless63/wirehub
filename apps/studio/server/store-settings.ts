@@ -129,7 +129,7 @@ export async function handleStoreSourcesQuery(request: { method: string; path: s
   }
 
   if (request.user?.role === 'viewer') return fail(403, 'Adding a store is for owners and editors.', 'Ask an owner for the editor role.');
-  if (!allowed(deps)) return fail(403, 'This deployment does not allow adding stores in the app.', 'An administrator sets WIREHUB_STORE_INDEXES on the server.');
+  if (!allowed(deps)) return fail(403, 'This deployment does not allow adding stores in the app.', 'An administrator names the stores on the server.');
   const checked = checkSource({ url, publicKey: 'x' }, 'The store');
   if ('error' in checked && !/public key/.test(checked.error)) return fail(400, checked.error);
   const href = new URL(url).href;
@@ -170,12 +170,12 @@ export async function handleStoreSourcesQuery(request: { method: string; path: s
 
 /** `GET`/`PUT /api/settings/stores` */
 export async function handleStoreSources(method: string, body: unknown, deps: StoreSourceDeps, ifMatch: string | undefined, user?: { role?: string }): Promise<ApiResponse> {
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = await view(deps);
   if (method === 'GET') return { status: 200, body: current.body, headers: { ETag: current.etag } };
   if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
   if (user?.role === 'viewer') return fail(403, 'Changing store sources is for owners and editors.', 'Ask an owner for the editor role.');
-  if (!allowed(deps)) return fail(403, 'This deployment does not allow adding stores in the app.', 'An administrator sets WIREHUB_STORE_INDEXES on the server, or WIREHUB_STORE_ALLOW_USER_SOURCES=true.');
+  if (!allowed(deps)) return fail(403, 'This deployment does not allow adding stores in the app.', 'An administrator names the stores on the server, or lets owners and editors add their own.');
   const guard = checkIfMatch(ifMatch, current.etag, 'settings', 'stores');
   if (guard !== undefined) return guard;
   const list = typeof body === 'object' && body !== null ? (body as { sources?: unknown }).sources : undefined;
@@ -189,7 +189,7 @@ export async function handleStoreSources(method: string, body: unknown, deps: St
     const got = checkSource(raw, `Store ${n + 1}`);
     if ('error' in got) return fail(400, got.error);
     const s = got.source;
-    if (envUrls.has(s.url)) return fail(409, `${s.url} is set by the server (WIREHUB_STORE_INDEXES); it cannot be added here.`, 'The server entry wins; remove the one you added.');
+    if (envUrls.has(s.url)) return fail(409, `${s.url} is set by the server; it cannot be added here.`, 'The server entry wins; remove the one you added.');
     if (seen.has(s.url)) return fail(400, `${s.url} is listed twice.`);
     seen.add(s.url);
     // a store that is new, or re-keyed, is fetched and verified before it is kept

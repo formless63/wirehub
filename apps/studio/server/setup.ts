@@ -95,7 +95,7 @@ export interface DomainSuggestion {
  * one exists.
  */
 export const DOMAIN_SUGGESTIONS: readonly DomainSuggestion[] = [
-  { label: 'Fieldbus', description: 'PROFIBUS, CAN, Modbus, M8/M12 codings: planned (docs/catalog-store.md).' },
+  { label: 'Fieldbus', description: 'PROFIBUS, CAN, Modbus, M8/M12 codings: planned.' },
 ];
 
 const SETUP_FILE = 'setup.json';

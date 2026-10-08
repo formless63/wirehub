@@ -17,6 +17,7 @@
  * its label — so nothing on these sheets connects nothing.
  */
 
+import { endName } from '@wirehub/model';
 import {
   boardFaces,
   resolveDepiction,
@@ -500,7 +501,7 @@ export function stripFigure(end: SegmentEnd, cableSide: 'left' | 'right'): strin
     if (t.kind === 'land') body.push(marker(stubEnd, y, t.n, true, 1.9));
     body.push(txt(labelX, y + 1, el.name, 2.9, { anchor }));
   });
-  return svgDoc(STRIP_W, height, body.join(''), 'cs-bench-strip', `${end.segment} end ${end.end}: strip plan`);
+  return svgDoc(STRIP_W, height, body.join(''), 'cs-bench-strip', `${end.segment} ${endName(end.end)}: strip plan`);
 }
 
 /* ------------------------------------------------------------------ *

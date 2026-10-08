@@ -7,9 +7,14 @@
  * and a document that reorders itself between runs is not a document.
  */
 
-/** HTML-escape text destined for an element body or a double-quoted attribute. */
+/**
+ * HTML-escape text destined for an element body or a double-quoted attribute.
+ * Printed text carries no markdown: a backtick (from a message written as
+ * markdown, `j1:3`) is dropped, so a sheet never prints one.
+ */
 export function escapeHtml(value: string): string {
   return value
+    .replace(/`/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

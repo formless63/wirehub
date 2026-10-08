@@ -27,7 +27,7 @@
  */
 
 import { costingRulesProblems, electricalRulesProblems, type CostingRules, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, type ElectricalRules } from '@wirehub/model';
-import { FILE_PREFIX_PATTERN, readTestParameters, type TestParameters } from '@wirehub/docs';
+import { FILE_PREFIX_PATTERN, PAPER_IDS, TITLE_BLOCK_STANDARDS, isPaperId, isTitleBlockStandard, readTestParameters, type PaperId, type TestParameters, type TitleBlockStandard } from '@wirehub/docs';
 import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
 
 import { drawingArtProblems, type BrandFace } from '@wirehub/docs';
@@ -117,6 +117,10 @@ export interface BrandingRecord {
   designer?: string;
   /** the prefix of exported wire spec files (default `WSS_`) */
   filePrefix?: string;
+  /** the paper every document prints on unless it is asked for another (Settings › Documents); unset = A4 */
+  paper?: PaperId;
+  /** the title-block layout of every sheet, `ansi` or `iso`; unset = the paper's own convention */
+  titleBlock?: TitleBlockStandard;
   /** the title block's three-line general note */
   notes?: [string, string, string];
   /** the title block's tolerance table: up to five label/value rows */
@@ -246,7 +250,7 @@ function engineeringView(record: EngineeringRecord | undefined, envDefaults: Tes
 }
 
 async function handleEngineering(method: string, body: unknown, deps: SettingsDeps, ifMatch: string | undefined): Promise<ApiResponse> {
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = await readEngineering(deps.docs);
   const etag = contentETag(current ?? null);
   if (method === 'GET') return { status: 200, body: engineeringView(current, deps.testDefaults), headers: { ETag: etag } };
@@ -266,7 +270,7 @@ async function handleEngineering(method: string, body: unknown, deps: SettingsDe
       const saved = (current?.testDefaults as Record<string, number> | undefined)?.[key];
       const given = parameters[key];
       if (given !== undefined && given !== saved && given !== fromServer) {
-        return fail(409, `${key} is set by the server (WIREHUB_TEST_DEFAULTS); it cannot be changed here.`, 'Leave it out, or ask whoever runs the server to unset the variable.');
+        return fail(409, `${key} is set by the server; it cannot be changed here.`, 'Leave it out, or ask whoever runs the server to unset the variable.');
       }
       if (given === fromServer) continue;
       if (saved === undefined) delete parameters[key];
@@ -310,7 +314,7 @@ export interface HubRecord {
 }
 
 async function handleHub(method: string, body: unknown, deps: SettingsDeps): Promise<ApiResponse> {
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = (await deps.docs.read(HUB_PATH)) as HubRecord | undefined;
   const view = (record: HubRecord | undefined): ApiResponse => ({ status: 200, body: { welcomeDismissed: record?.welcomeDismissed === true }, headers: { ETag: contentETag(record ?? null) } });
   if (method === 'GET') return view(current);
@@ -395,7 +399,7 @@ const LICENCE_PROMPT = 'Confirm you hold a licence that lets this font be embedd
 
 /** Upload a font: checked, and kept as an asset. The caller confirmed the licence. */
 async function uploadFont(body: unknown, deps: SettingsDeps, user: StudioUser | undefined): Promise<ApiResponse> {
-  if (deps.assets === undefined) return fail(501, 'This studio does not keep a shared asset library.', 'There is nowhere to keep the font.');
+  if (deps.assets === undefined) return fail(501, 'This hub does not keep a shared asset library.', 'There is nowhere to keep the font.');
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return fail(400, 'Send { name, data, licence } as JSON.');
   const input = body as { name?: unknown; data?: unknown; licence?: unknown };
   if (input.licence !== true) return fail(400, LICENCE_PROMPT, 'Send "licence": true once you have confirmed it.');
@@ -484,7 +488,7 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
     return await uploadFont(body, deps, user);
   }
   if (parts[2] !== 'branding' || parts.length !== 3) return undefined;
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = (await deps.docs.read(BRANDING_PATH)) as BrandingRecord | undefined;
   const ownArt = (await deps.docs.read(DRAWING_ART_PATH)) as DrawingArtData | undefined;
   const etag = contentETag({ branding: current ?? null, art: ownArt ?? null });
@@ -507,6 +511,13 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
     const got = clean(input[field], field, max);
     if (got.error !== undefined) return fail(400, got.error);
     if (got.value !== undefined) next[field] = got.value;
+  }
+  // the document defaults: the paper and the title-block layout (absent or empty keeps the built-in: A4, and the paper's own convention)
+  for (const [field, valid, choices] of [['paper', isPaperId, PAPER_IDS], ['titleBlock', isTitleBlockStandard, TITLE_BLOCK_STANDARDS]] as const) {
+    const value = input[field];
+    if (value === undefined || value === null || value === '') continue;
+    if (!valid(value)) return fail(400, `${field} must be one of ${choices.join(', ')}.`);
+    (next as unknown as Record<string, unknown>)[field] = value;
   }
   if (next.filePrefix !== undefined && !FILE_PREFIX_PATTERN.test(next.filePrefix)) {
     return fail(400, 'filePrefix may use letters, digits, dot, dash and underscore, up to 16 characters.', 'For example WSS_ or ACME-WS-.');
@@ -594,7 +605,7 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
     }
     const clear = sanitizePng(pngBytes);
     if (!clear.ok) return fail(400, clear.reason);
-    if (deps.assets === undefined) return fail(501, 'This studio does not keep a shared asset library.', 'There is nowhere to keep the logo.');
+    if (deps.assets === undefined) return fail(501, 'This hub does not keep a shared asset library.', 'There is nowhere to keep the logo.');
     next.logo = (await deps.assets.put(clear.bytes, 'image/png', 'logo.png', `Organisation logo (hub settings), ${how}.`)).id;
   }
   const empty = Object.keys(next).every((k) => k === 'src');

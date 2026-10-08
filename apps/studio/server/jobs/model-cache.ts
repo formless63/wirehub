@@ -131,7 +131,7 @@ export async function sweepModelCache(
 export async function runModelCacheJob(context: JobContext, options: ModelCacheJobOptions): Promise<JobOutcome> {
   const { deps } = options;
   const cache: ModelCache | undefined = deps.modelCache;
-  if (cache === undefined || deps.modelLinks === undefined) return { result: { live: 0, built: [], skipped: 'this studio keeps no model cache' } };
+  if (cache === undefined || deps.modelLinks === undefined) return { result: { live: 0, built: [], skipped: 'this hub keeps no model cache' } };
   const live = liveModelLinks(await deps.modelLinks.list());
   const built: { key: string; record: string; triangles: number; ms: number; peakRssMb?: number }[] = [];
   const failed: { key: string; record: string; error: string; hint?: string }[] = [];

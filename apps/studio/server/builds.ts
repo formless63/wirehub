@@ -177,7 +177,7 @@ export async function handleBuildsRequest(method: string, parts: string[], body:
   const [, , name, ...rest] = parts;
   if (rest.length > 0) return undefined;
   const store = deps.builds;
-  if (store === undefined) return fail(501, 'This studio does not keep board build files.', 'The builds are read-only here.');
+  if (store === undefined) return fail(501, 'This hub does not keep board build files.', 'The builds are read-only here.');
   if (name === undefined) {
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     const db = await deps.loadDb();

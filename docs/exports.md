@@ -174,7 +174,7 @@ A token (or a session) may GET these; they render the working copy, or a saved r
 the definitions frozen when it was saved (`rev=<n>` or `rev=latest`).
 
 ```
-GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=A4|letter&variation=…&page=…&copies=…
+GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=<paper>&variation=…&page=…&copies=…
 GET /api/designs/:id/exports/:format?rev=…
 GET /api/exports                       the lists below
 ```
@@ -202,9 +202,22 @@ the cross-section figure.
 with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
 
 - **`html`** is the browser's own render, byte for byte (the same functions); the working
-  copy is marked UNRELEASED when the studio keeps saved revisions, exactly as on screen, and
-  the hub's branding (Settings) is on the drawing sheet and the build sheet as the browser
-  draws it.
+  copy's state is UNRELEASED when the studio keeps saved revisions, exactly as on screen, and
+  the hub's branding (Settings) is on the sheets as the browser draws it.
+- **One frame for every sheet.** The build sheet, BOM, continuity spec, drawing, formboard,
+  label sheet and schematic carry the same border, title block (organisation, title, part
+  number, revision, state, paper, drawn and checked, date, sheet n of m) and a small state
+  stamp in the corner for a state that is not released (`UNRELEASED`, `UNAPPROVED`, `DRAFT`),
+  in IBM Plex Sans and Mono with 0.5 pt hairlines (`packages/docs/src/frame/`). The drawing
+  also carries a revision table (the saved revisions, oldest first). `?paper=` is honoured by
+  every sheet: `A4`, `A3`, `A2`, `A1`, `A0`, `letter`, `legal`, `tabloid`, `ansi-c`, `ansi-d`,
+  `ansi-e`; the drawing and the formboard turn the page landscape, and the label sheet, whose
+  stock comes in two grids, takes A4 for the ISO sizes and Letter for the ANSI ones. The
+  title-block layout is data: an ISO 7200 block at the bottom right, or an ANSI full-width
+  block. **Where it is set:** Settings > Documents, "Paper" and "Title block" (stored with the
+  branding; the title block follows the paper by default: ISO for the A sizes, ANSI for the
+  North American ones). A design's own sheet options (the Documents view's Paper menu) win
+  over the hub's setting, and `?paper=` over both.
 - **`formboard`** is the cable laid flat at true length with pegs, connectors and label
   positions, at 1:1 or `?scale=` (`0.5` or `1:2`) and tiled across `?paper=` pages with
   registration marks (`specs/formboard.md`).
@@ -212,10 +225,9 @@ with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
   sheet, with a browser PDF engine** (`WIREHUB_PDF_ENGINE_URL`; the compose profile `pdf`,
   `docs/self-hosting.md` "Printed PDFs") is the `html` sheet printed by Chromium, exactly as a
   browser's Print → Save as PDF prints it: the sheet's own `@page` size and margins (`paper=`),
-  the figures, the UNRELEASED / UNAPPROVED mark, the hub's branding, selectable text. The
-  sheet is sent with its images and fonts inline; the sans stack is set in the Liberation Sans
-  faces the drawings embed (metric-compatible with Helvetica and Arial), so the file is the
-  same whichever machine runs the engine. Code is `apps/studio/server/render/browser-pdf.ts`.
+  the figures, the frame on every page with its state stamp, the hub's branding, selectable
+  text. The sheet is sent with its images and fonts inline, set in the IBM Plex faces the
+  sheets embed, so the file is the same whichever machine runs the engine. Code is `apps/studio/server/render/browser-pdf.ts`.
   When the hub set its own typeface (Settings, Branding; `docs/modules.md`) that font travels inline as
   well and is first in the stacks, so the PDF is set in it.
 - **Without an engine** (or when it fails), those PDFs are the headless ones below, and the
@@ -223,12 +235,12 @@ with `Content-Disposition` and a sandboxing `Content-Security-Policy`.
   it as a note. Every PDF carries `X-WireHub-PDF-Renderer`: `browser`, `text-layout`, `raster`
   or `vector`.
 - **`svg` and `pdf` of the schematic, the drawing sheet, the label sheet and the formboard** are the
-  drawings themselves. The PDF is a rasterised page (SVG through `@resvg/resvg-js`, which
+  drawings themselves, inside the frame. **With an engine** the PDF of the schematic, the drawing
+  sheet and the label sheet is that SVG printed by Chromium: vector, text selectable, renderer
+  `browser`. **Without one** it is a rasterised page (SVG through `@resvg/resvg-js`, which
   the Library's 3D board textures already use, with the Liberation Sans faces in
-  `packages/docs/fonts` and no system fonts, so it does not depend on the machine); the
-  formboard's is vector, so a 1:1 tile prints crisp. With an engine, the drawing sheet's PDF
-  is its HTML printed (above) instead; the schematic, the label sheet and the formboard keep
-  theirs. A hub's own typeface (Settings, Branding) is used by the drawing's raster PDF (a TrueType or
+  `packages/docs/fonts` and no system fonts, so it does not depend on the machine) and says so
+  in `X-WireHub-PDF-Fallback`. The formboard's is always vector, so a 1:1 tile prints crisp. A hub's own typeface (Settings, Branding) is used by the drawing's raster PDF (a TrueType or
   OpenType file) and embedded as a subset in the formboard's vector PDF (TrueType outlines: `.ttf`, or an
   `.otf` that has them); a CFF `.otf` or a WOFF2 keeps the Liberation Sans on those two.
 - **`svg` (and, without an engine, `pdf`) of the build sheet, BOM and continuity spec** are a

@@ -241,7 +241,7 @@ function RotateKey({ keyRing, onDone }: { keyRing: { previousKeys: number; stale
           : keyRing.previousKeys > 0
             ? 'Every stored secret is under the current key; the previous key can now be removed from the server.'
             : 'Every stored secret is under the current key.'}{' '}
-        To rotate, give the server a new <code>WIREHUB_SETTINGS_KEY</code> and the old one as <code>WIREHUB_SETTINGS_KEY_PREVIOUS</code> (docs/self-hosting.md, &ldquo;Rotating the settings key&rdquo;), then re-encrypt here.
+        To rotate, give the server a new <code>WIREHUB_SETTINGS_KEY</code> and the old one as <code>WIREHUB_SETTINGS_KEY_PREVIOUS</code> then re-encrypt here.
         {keyRing.unreadable > 0 ? ` ${keyRing.unreadable} secret${keyRing.unreadable === 1 ? '' : 's'} cannot be read with any key and must be entered again.` : ''}
       </span>
       <div>
@@ -272,10 +272,6 @@ export function RuntimeSettings({ section }: { section?: 'authentication' | 'run
   const adoptable = data.adoptable?.filter((item) => groups.some((group) => group.fields.some((field) => field.key === item.key)));
   return (
     <div className="flex max-w-xl flex-col gap-8" data-testid={`runtime-settings${section === undefined ? '' : `-${section}`}`}>
-      <p className="text-dim">
-        The settings below used to be environment variables. They apply at once, with no restart; a value the server&rsquo;s environment sets wins and is shown read-only. Where the
-        database, the files, the ports and the install&rsquo;s secrets are stays on the server (docs/self-hosting.md, &ldquo;What lives where&rdquo;).
-      </p>
       {data.problems.length > 0 ? (
         <div role="alert" className="flex flex-col gap-1 rounded border border-line p-2">
           {data.problems.map((p) => (

@@ -15,6 +15,7 @@ import type { CableDesign, Db } from '@wirehub/model';
 import { continuityCsv, continuityJson, deriveContinuityExport } from './continuity.ts';
 import { deriveLabels, labelSheetSvg, labelsTable, type LabelSheetOptions } from './labels.ts';
 import { bomTable, crimpListTable, cutListTable, wireListTable, type ExportOptions } from './rows.ts';
+import { sheetFrameFor } from '../sheet-frame.ts';
 import type { TestParameters } from './test-params.ts';
 import { toCsv, toXlsx, XLSX_MIME } from './table.ts';
 
@@ -104,7 +105,7 @@ export const BASE_EXPORTS: readonly ExportFormat[] = [
     render: (design, db, options = {}) => ({
       mimeType: 'image/svg+xml',
       fileName: `${stem(design, options, 'labels')}.svg`,
-      body: labelSheetSvg(deriveLabels(design, db), options),
+      body: labelSheetSvg(deriveLabels(design, db), { ...options, frame: options.frame ?? sheetFrameFor(design, db, options, 'LABELS', 'portrait', 'strip') }),
     }),
   },
 ];

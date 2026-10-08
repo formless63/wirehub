@@ -525,14 +525,14 @@ export function unanchoredSentence(
     if (used.length === 0) return undefined;
     const shown = used.slice(0, 8).join(', ');
     const more = used.length > 8 ? `, and ${used.length - 8} more` : '';
-    const cables = new Set(used.flatMap((id) => usedBy[id] ?? [])).size;
-    return `${used.length === 1 ? 'One pin' : `${used.length} pins`} that cables solder to ${used.length === 1 ? 'has' : 'have'} no spot yet (${shown}${more}) — ${cables === 1 ? 'that cable draws' : `those ${cables} cables draw`} the pin table.`;
+    const designs = new Set(used.flatMap((id) => usedBy[id] ?? [])).size;
+    return `${used.length === 1 ? 'One pin' : `${used.length} pins`} that designs solder to ${used.length === 1 ? 'has' : 'have'} no spot yet (${shown}${more}) — ${designs === 1 ? 'that design draws' : `those ${designs} designs draw`} the pin table.`;
   }
   const shown = progress.todo.slice(0, 8).join(', ');
   const more = progress.todo.length > 8 ? `, and ${progress.todo.length - 8} more` : '';
   return progress.anchored.length === 0
-    ? `Nothing on ${label} is anchored yet. Until a pin has a spot on the picture, every cable that uses it is drawn as the plain pin table instead of the artwork.`
-    : `${progress.todo.length} of ${progress.todo.length + progress.anchored.length} pins still have no spot on the picture (${shown}${more}). A cable that solders to one of those is drawn as the plain pin table instead of this artwork.`;
+    ? `Nothing on ${label} is anchored yet. Until a pin has a spot on the picture, every design that uses it is drawn as the plain pin table instead of the artwork.`
+    : `${progress.todo.length} of ${progress.todo.length + progress.anchored.length} pins still have no spot on the picture (${shown}${more}). A design that solders to one of those is drawn as the plain pin table instead of this artwork.`;
 }
 
 /* ------------------------------------------------------------------ *

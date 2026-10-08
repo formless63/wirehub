@@ -184,7 +184,7 @@ function editorProp<T>(name: string): T {
 
 function backToCables(): void {
   const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' });
-  fireEvent.click(within(breadcrumb).getByRole('link', { name: 'Cables' }));
+  fireEvent.click(within(breadcrumb).getByRole('link', { name: 'Designs' }));
 }
 
 function buildRouter(initialPath: string): ReturnType<typeof createStudioRouter> {
@@ -221,7 +221,7 @@ describe('the cables list', () => {
       const row = cableLinks().find((link) => link.getAttribute('href') === `/cables/${id}`)!;
       expect(row.textContent).toContain(loadDesign(id).label);
     }
-    expect(screen.getByText('CABLE')).toBeTruthy();
+    expect(screen.getByText('DESIGN')).toBeTruthy();
   });
 
   it('keeps assembly labels visible in the phone cards too', async () => {
@@ -387,12 +387,12 @@ describe('when the workbench is not there', () => {
       if (found === undefined) throw new Error('no Offline indicator yet');
       return found;
     });
-    expect(indicator.getAttribute('title')).toContain('could not reach the workbench');
+    expect(indicator.getAttribute('title')).toContain('could not reach the server');
     // the list says what it is showing: the last-fetched copy, read only
     expect((await screen.findByTestId('offline-banner')).textContent).toMatch(/offline copy from .* — read only/);
 
     // and a toast, once, for the same transition
-    await screen.findByText('Workbench unreachable');
+    await screen.findByText('Server unreachable');
 
     // the last copy is the fallback (the bundle carries no catalog data,
     //): the two designs the workbench last listed
@@ -513,7 +513,7 @@ describe('opening a cable while the workbench is down', () => {
     offline = true;
     render(<App router={buildRouter(`/cables/${id}`)} queryClient={testQueryClient()} />);
     await waitFor(() => expect(openId()).toBe(id));
-    expect(screen.queryByText(/No cable/)).toBeNull();
+    expect(screen.queryByText(/No design/)).toBeNull();
     expect((await screen.findByTestId('offline-banner')).textContent).toMatch(/Offline copy from .* — read only/);
     expect(editorProp<boolean>('readOnly')).toBe(true);
   });

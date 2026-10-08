@@ -1,3 +1,4 @@
+import { helpUrl } from '../help.ts';
 import { AppLink } from '../shell/AppLink.tsx';
 /**
  * The store half of `/settings` (`server/store-settings.ts`): the stores this hub
@@ -27,7 +28,7 @@ import { useStudio } from '../studio-context.tsx';
 const OFFICIAL_TEXT = {
   trusted: 'signed: its key is built in and its packs are listed under Browse store',
   'not-signed-yet': 'not signed yet: this build has no public key for the official index, so it is not listed',
-  'not-enabled': 'not enabled: this server\'s WIREHUB_STORE_INDEXES does not include it',
+  'not-enabled': 'not enabled: this server does not include it',
 } as const;
 
 const originText = (s: StoreSourceView): string => (s.origin === 'user' ? 'added here' : s.origin === 'official' ? 'official, set by the server' : 'set by the server');
@@ -120,11 +121,7 @@ export function StoreSourcesSettings(): JSX.Element {
     <section className="mt-6 min-w-0 max-w-xl text-[12.5px] [overflow-wrap:anywhere]" data-testid="store-sources">
       <h2 className="mb-1 text-[13px] font-semibold">Store sources</h2>
       <p className="mb-2 text-faint">
-        Choose which stores supply modules and catalog packs to the Store page. Adding a store does not install anything. Anyone can host a store; WireHub does not check what a store lists. Each store&apos;s index must be signed with the key you give here. To run a store of your own, start from the{' '}
-        <a className="underline" href="https://github.com/formless63/wirehub/blob/main/docs/store-hosting.md" target="_blank" rel="noreferrer">
-          run your own store
-        </a>
-        .
+        <a className="underline" href={helpUrl('store')} target="_blank" rel="noreferrer">Run your own store</a>
       </p>
       <AppLink to="/library/store" className="mb-3 inline-block rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</AppLink>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The stores could not be read.'}</div> : null}
@@ -140,7 +137,7 @@ export function StoreSourcesSettings(): JSX.Element {
               {p}
             </div>
           ))}
-          {view.allowUserSources ? null : <div className="mb-2 text-faint">This server allows only the stores it names (WIREHUB_STORE_ALLOW_USER_SOURCES is off). Stores added here are not used.</div>}
+          {view.allowUserSources ? null : <div className="mb-2 text-faint">This server allows only the stores it names. Stores added here are not used.</div>}
           <ul className="mb-3 flex flex-col gap-2" aria-label="Configured stores">
             {view.sources.length === 0 ? <li className="text-faint">No store is configured.</li> : null}
             {view.sources.map((s) => (

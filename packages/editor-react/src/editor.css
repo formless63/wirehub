@@ -914,6 +914,7 @@
   min-width: 0;
   overflow: auto;
   display: flex;
+  align-items: flex-start;
   padding: 0 10px 10px;
 }
 
@@ -922,17 +923,24 @@
   padding: 10px 0;
 }
 
-/* white paper, dark chrome: the frame is the document's own world */
+/* white paper, dark chrome: the frame is the document's own world. The frame is exactly one
+   sheet wide (its inline size is the paper in CSS pixels) and the height of the document; the
+   wrapper holds the scaled size, so the sheet keeps its proportion at any window width */
+.cs-doc-paper {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 auto;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+}
+
 .cs-doc-frame {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  /* an iframe is a replaced element with an intrinsic 300×150 box, so it does
-     not reliably stretch to a flex line — say the height out loud */
-  height: 100%;
-  border: 1px solid var(--cs-line);
-  border-radius: 4px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  border: 0;
   background: #ffffff;
+  transform-origin: 0 0;
 }
 
 /* the drawing sheet's title-block form: above the sheet, collapsible, so a

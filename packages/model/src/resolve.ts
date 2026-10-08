@@ -557,6 +557,11 @@ interface Built {
   rejects: Finding[];
 }
 
+/** A port's label as a noun phrase: "Serial port" stays itself, "RS-232" becomes "RS-232 port". */
+function portPhrase(label: string): string {
+  return /\bports?$/i.test(label.trim()) ? label.trim() : `${label} port`;
+}
+
 function build(lib: ResolverLibrary, kind: OptionKind, p: Pairing, boards: BoardUse[], extra: { hazards?: Pairing['hazards']; missing?: Finding[]; unverified?: string[]; label: string; reasons?: string[] }): Built {
   const recipeIds = [...p.links.flatMap((l) => l.recipes), ...p.requirements.map((r) => r.recipe)];
   const allHazards = [...p.hazards, ...(extra.hazards ?? [])];
@@ -714,7 +719,7 @@ export function resolve(lib: ResolverLibrary, query: ResolveQuery): Resolution {
         extraUnverified.push(...mate.unverified);
         left = { end: 'source', pins: bindPort(lib, sa.pads), port: sa.pads };
         boards.push({ end: 'source', device: sa.device.id, pcba: sa.device.board!, mate: sa.mate.id, pads: sa.pads.id });
-        reasons.push(`${sa.device.label} mates the ${src.label} port and carries the cable from its pads`);
+        reasons.push(`${sa.device.label} mates the ${portPhrase(src.label)} and carries the cable from its pads`);
       }
       if (da !== undefined) {
         const mate = pairStraight(lib, hazards, { end: 'source', pins: bindPort(lib, da.mate) }, D, true);
@@ -723,7 +728,7 @@ export function resolve(lib: ResolverLibrary, query: ResolveQuery): Resolution {
         extraUnverified.push(...mate.unverified);
         right = { end: 'destination', pins: bindPort(lib, da.pads), port: da.pads };
         boards.push({ end: 'destination', device: da.device.id, pcba: da.device.board!, mate: da.mate.id, pads: da.pads.id });
-        reasons.push(`${da.device.label} mates the ${dst.label} port and takes the cable on its pads`);
+        reasons.push(`${da.device.label} mates the ${portPhrase(dst.label)} and takes the cable on its pads`);
       }
       const p = pairBySignal(lib, hazards, left, right);
       // the device-side requirements still apply where a board does not stand in front of them

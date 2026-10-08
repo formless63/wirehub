@@ -415,7 +415,7 @@ export function readDesignBody(value: unknown): { ok: true; design: CableDesign 
   const candidate = value as Partial<CableDesign>;
   if (!isReadableSchemaVersion(candidate.schemaVersion)) {
     return say(
-      `This document says it is schema version ${JSON.stringify(candidate.schemaVersion)}, and this studio reads versions 1 to ${MAX_SCHEMA_VERSION}.`,
+      `This document says it is schema version ${JSON.stringify(candidate.schemaVersion)}, and this hub reads versions 1 to ${MAX_SCHEMA_VERSION}.`,
       'It was probably written by a different (or much older) version of the tool.',
     );
   }
@@ -698,7 +698,7 @@ async function duplicateDesign(deps: WorkbenchDeps, id: DesignId, body: unknown)
     label: move.newLabel ?? `${source.label} (copy)`,
     // provenance travels with the facts: the copy states its own descent so a
     // reader is never left guessing where the numbers came from
-    src: `${source.src} — duplicated from design '${id}' in the studio workbench.`,
+    src: `${source.src} — duplicated from design '${id}' in WireHub.`,
   };
   const rejection = await validated(deps, copy);
   if (rejection !== undefined) return rejection;
@@ -801,7 +801,7 @@ async function drawingRequest(
 ): Promise<ApiResponse> {
   if (!isDesignId(id)) return badId(id, 'a design id');
   if (deps.drawings === undefined) {
-    return fail(501, 'This studio does not keep drawing details.', 'The drawing sheet still renders; its title block just cannot be saved here.');
+    return fail(501, 'This hub does not keep drawing details.', 'The drawing sheet still renders; its title block just cannot be saved here.');
   }
   if (!await deps.designs.has(id)) {
     return fail(404, `There is no design called '${id}' to keep drawing details for.`, 'Save the design first, then its drawing details.');
@@ -838,7 +838,7 @@ async function drawingRequest(
     const stored = await drawings.read(id);
     return ok(stored.photo === undefined ? {} : { photo: stored.photo }, 200, await tagOf());
   }
-  return fail(404, `/api/drawings/${id}/${action} is not part of the workbench API.`, `Try one of: ${ROUTES.join('; ')}.`);
+  return fail(404, `/api/drawings/${id}/${action} is not part of the server API.`, `Try one of: ${ROUTES.join('; ')}.`);
 }
 
 /* ------------------------------------------------------------------ *
@@ -847,7 +847,7 @@ async function drawingRequest(
 
 async function getPartNumbers(deps: WorkbenchDeps): Promise<ApiResponse> {
   if (deps.loadPartNumberFiles === undefined) {
-    return fail(501, 'This studio does not keep part-number data.', 'Part numbers still print from the drawings.');
+    return fail(501, 'This hub does not keep part-number data.', 'Part numbers still print from the drawings.');
   }
   const files = await deps.loadPartNumberFiles();
   const designs: CableDesign[] = [];
@@ -874,7 +874,7 @@ async function getPartNumbers(deps: WorkbenchDeps): Promise<ApiResponse> {
 /** Every design's drawing details (title-block PN, lengths) — photos left out. */
 async function getDrawingIndex(deps: WorkbenchDeps): Promise<ApiResponse> {
   if (deps.drawings === undefined) {
-    return fail(501, 'This studio does not keep drawing details.', 'The drawing sheet still renders; its title block just has nothing saved.');
+    return fail(501, 'This hub does not keep drawing details.', 'The drawing sheet still renders; its title block just has nothing saved.');
   }
   const drawings: Record<string, unknown> = {};
   for (const summary of await deps.designs.list()) {
@@ -895,7 +895,7 @@ async function getDrawingIndex(deps: WorkbenchDeps): Promise<ApiResponse> {
 
 async function getAssets(deps: WorkbenchDeps): Promise<ApiResponse> {
   if (deps.assets === undefined) {
-    return fail(501, 'This studio does not keep a shared asset library.', 'Uploaded photos still work; there is just nothing to pick from.');
+    return fail(501, 'This hub does not keep a shared asset library.', 'Uploaded photos still work; there is just nothing to pick from.');
   }
   // the picker's whole list, thumbnails included — the internal tool's own
   // scale (a few dozen photos at most) makes this simpler than a second,
@@ -910,7 +910,7 @@ async function getAssets(deps: WorkbenchDeps): Promise<ApiResponse> {
 /** Every stored file, bytes left out — what a wire stock's vendor documents link to. */
 async function getAssetIndex(deps: WorkbenchDeps): Promise<ApiResponse> {
   if (deps.assets === undefined) {
-    return fail(501, 'This studio does not keep a shared asset library.', 'There are no stored files to link.');
+    return fail(501, 'This hub does not keep a shared asset library.', 'There are no stored files to link.');
   }
   // models are listed by `/api/models`: a GLB is not a vendor document
   return ok({ assets: (await deps.assets.list()).filter((asset) => !isModelAsset(asset) && !isFontAsset(asset)) });
@@ -921,7 +921,7 @@ const ASSET_ID = /^[0-9a-f]{64}$/;
 /** One stored file's bytes, as its own type — so a PDF datasheet opens in the browser. */
 async function getAssetFile(deps: WorkbenchDeps, id: string): Promise<ApiResponse> {
   if (deps.assets === undefined) {
-    return fail(501, 'This studio does not keep a shared asset library.', 'There are no stored files to open.');
+    return fail(501, 'This hub does not keep a shared asset library.', 'There are no stored files to open.');
   }
   if (!ASSET_ID.test(id)) return badId(id, 'an asset id (64 hex characters)');
   const found = await deps.assets.get(id);
@@ -1334,7 +1334,7 @@ export async function publishCatalog(deps: WorkbenchDeps): Promise<void> {
  * written. A write quotes the version it read (If-Match).
  */
 async function docRequest(method: string, path: string, body: unknown, deps: WorkbenchDeps, ifMatch: string | undefined): Promise<ApiResponse> {
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.');
   if (!isDocPath(path)) return fail(400, `${JSON.stringify(path)} is not a catalog document path.`, 'A document lives under data/ and ends in .json, .md or .txt.');
   if (method === 'GET') {
     const value = await deps.docs.read(path);
@@ -1375,7 +1375,7 @@ export async function commitUnit(uow: UnitOfWork, request: Pick<ApiRequest, 'met
   } catch (error) {
     if (error instanceof StaleRecordError) return staleWriteResponse(error.kind, error.key);
     if (error instanceof CommitRefusedError) return fail(error.status, error.message, error.hint);
-    if (error instanceof ReadOnlyBackendError) return fail(503, error.message, 'Nothing was written. This studio serves its catalog read-only for now.');
+    if (error instanceof ReadOnlyBackendError) return fail(503, error.message, 'Nothing was written. This hub serves its catalog read-only for now.');
     throw error;
   }
   return response;
@@ -1411,7 +1411,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   const path = request.path.split('?')[0] ?? '';
   const parts = path.split('/').filter((part) => part !== '').map(decodeSegment);
   if (parts[0] !== 'api') {
-    return fail(404, `${path} is not part of the workbench API.`, `Try one of: ${ROUTES.join('; ')}.`);
+    return fail(404, `${path} is not part of the server API.`, `Try one of: ${ROUTES.join('; ')}.`);
   }
   const [, head, id, action, ...rest] = parts;
 
@@ -1431,7 +1431,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     if (id === 'retry' && action === undefined) {
       if (method !== 'POST') return methodNotAllowed(method, ['POST']);
       const current = (await deps.backup?.status()) ?? BACKUP_DISABLED;
-      if (current.state === 'database') return fail(404, 'Not used with the database backend.', 'Its saves are the database itself; backups are database dumps (docs/self-hosting.md).');
+      if (current.state === 'database') return fail(404, 'Not used with the database backend.', 'Its saves are the database itself; backups are database dumps.');
       deps.backup?.retry();
       return ok((await deps.backup?.status()) ?? BACKUP_DISABLED);
     }
@@ -1440,7 +1440,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   if (head === 'blobs' && id !== undefined && action === undefined) {
     if (method !== 'GET') return methodNotAllowed(method, ['GET']);
     if (!/^[0-9a-f]{64}$/.test(id)) return fail(400, `${JSON.stringify(id)} is not a content address.`, 'A blob is named by the sha256 of its bytes: 64 lowercase hex digits.');
-    if (deps.blob === undefined) return fail(501, 'This studio does not serve blobs by content address.', 'Use /api/assets/:id for uploaded files.');
+    if (deps.blob === undefined) return fail(501, 'This hub does not serve blobs by content address.', 'Use /api/assets/:id for uploaded files.');
     const found = await deps.blob(id);
     if (found === undefined) return fail(404, `There is no blob ${id}.`, 'It may never have been uploaded, or it was removed after nothing used it.');
     return {
@@ -1465,7 +1465,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
 
   if (head === 'export' && id === undefined) {
     if (method !== 'GET') return methodNotAllowed(method, ['GET']);
-    if (deps.exportCatalog === undefined) return fail(501, 'This studio does not offer a catalog export.', 'Export the catalog files from the host instead.');
+    if (deps.exportCatalog === undefined) return fail(501, 'This hub does not offer a catalog export.', 'Export the catalog files from the host instead.');
     const full = await deps.exportCatalog();
     const ownerOnly = Object.keys(full.files).filter(isOwnerOnlySettingsPath);
     if (ownerOnly.length === 0) return ok(full);
@@ -1573,5 +1573,5 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
     }
   }
 
-  return fail(404, `${path} is not part of the workbench API.`, `Try one of: ${ROUTES.join('; ')}.`);
+  return fail(404, `${path} is not part of the server API.`, `Try one of: ${ROUTES.join('; ')}.`);
 }

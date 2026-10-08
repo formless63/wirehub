@@ -14,6 +14,8 @@ import { findWire, resolveElementPath, type CableDesign, type Db } from '@wirehu
 import { trunkSegment } from '../drawing/model.ts';
 import { suppliedEnds } from '../supplied.ts';
 import { compareStrings, escapeHtml, htmlTable } from '../text.ts';
+import { PLEX_SANS_STACK, frameFontStyle, frameGeometry, frameSvgGroup, type PaperId, type SheetFrameSpec } from '../frame/index.ts';
+import { PAPERS } from '../frame/paper.ts';
 import type { Table } from './table.ts';
 
 export interface WireLabel {
@@ -172,7 +174,10 @@ export const LABEL_LAYOUT_LETTER: LabelSheetLayout = {
 };
 
 export interface LabelSheetOptions {
-  paper?: 'A4' | 'letter';
+  /** label stock comes in two grids: A4 and Letter; any other paper takes the one of its standard (ISO sizes A4, ANSI sizes Letter) */
+  paper?: PaperId;
+  /** the shared frame's strip and state stamp, printed in the free band under the labels (`frame/`); absent: the labels alone */
+  frame?: SheetFrameSpec;
   layout?: LabelSheetLayout;
   /** 1-based page, when the labels need more than one */
   page?: number;
@@ -182,8 +187,18 @@ export interface LabelSheetOptions {
 
 const n3 = (v: number): string => String(Math.round(v * 1000) / 1000);
 
+/** Which stock grid a paper prints on: Letter for Letter, else by the paper's own standard. */
+export function labelPaperOf(paper: PaperId | undefined): 'A4' | 'letter' {
+  if (paper === undefined || paper === 'A4') return 'A4';
+  return paper === 'letter' ? 'letter' : PAPERS[paper].standard === 'ansi' ? 'letter' : 'A4';
+}
+
+function layoutOf(options: LabelSheetOptions): LabelSheetLayout {
+  return options.layout ?? (labelPaperOf(options.paper) === 'letter' ? LABEL_LAYOUT_LETTER : LABEL_LAYOUT_A4);
+}
+
 export function labelSheetPages(count: number, options: LabelSheetOptions = {}): number {
-  const layout = options.layout ?? (options.paper === 'letter' ? LABEL_LAYOUT_LETTER : LABEL_LAYOUT_A4);
+  const layout = layoutOf(options);
   return Math.max(1, Math.ceil((count * (options.copies ?? 1)) / (layout.columns * layout.rows)));
 }
 
@@ -192,7 +207,7 @@ export function labelSheetPages(count: number, options: LabelSheetOptions = {}):
  * print at 100% (no scale to fit). Cut guides are hairlines in light grey.
  */
 export function labelSheetSvg(labels: readonly WireLabel[], options: LabelSheetOptions = {}): string {
-  const layout = options.layout ?? (options.paper === 'letter' ? LABEL_LAYOUT_LETTER : LABEL_LAYOUT_A4);
+  const layout = layoutOf(options);
   const copies = Math.max(1, Math.floor(options.copies ?? 1));
   const all = labels.flatMap((l) => Array.from({ length: copies }, () => l));
   const perPage = layout.columns * layout.rows;
@@ -200,7 +215,8 @@ export function labelSheetSvg(labels: readonly WireLabel[], options: LabelSheetO
   const page = Math.min(Math.max(1, Math.floor(options.page ?? 1)), pages);
   const slice = all.slice((page - 1) * perPage, page * perPage);
   const out: string[] = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n3(layout.pageWidth)} ${n3(layout.pageHeight)}" width="${n3(layout.pageWidth)}mm" height="${n3(layout.pageHeight)}mm" data-page="${page}" data-pages="${pages}" font-family="Helvetica, Arial, sans-serif">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n3(layout.pageWidth)} ${n3(layout.pageHeight)}" width="${n3(layout.pageWidth)}mm" height="${n3(layout.pageHeight)}mm" data-page="${page}" data-pages="${pages}" font-family="${PLEX_SANS_STACK}">`,
+    ...(options.frame === undefined ? [] : [frameFontStyle()]),
     `<rect width="${n3(layout.pageWidth)}" height="${n3(layout.pageHeight)}" fill="#ffffff"/>`,
   ];
   slice.forEach((label, index) => {
@@ -219,6 +235,11 @@ export function labelSheetSvg(labels: readonly WireLabel[], options: LabelSheetO
     });
     out.push('</g>');
   });
+  if (options.frame !== undefined) {
+    // the strip sits in the band under the stock, 5 mm from the edge; the stock itself is never framed (its registration is the printer's)
+    const spec: SheetFrameSpec = { ...options.frame, paper: labelPaperOf(options.paper), orientation: 'portrait', variant: 'strip', inset: 5, sheet: `${page} of ${pages}` };
+    out.push(frameSvgGroup(frameGeometry(spec), { border: false }));
+  }
   out.push('</svg>');
   return out.join('');
 }

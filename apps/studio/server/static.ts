@@ -155,7 +155,7 @@ export function mountStaticApp(app: Hono, distDir: string): void {
     const index = await readIfFile(indexPath);
     if (index === undefined) {
       return c.text(
-        'The studio has not been built yet. Run `pnpm --filter studio bundle`, then start the server again.',
+        'WireHub has not been built yet. Run `pnpm --filter studio bundle`, then start the server again.',
         501,
       );
     }

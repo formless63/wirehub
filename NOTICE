@@ -9,9 +9,13 @@ packages/docs/src/drawing/fonts.generated.ts)
     SIL Open Font License 1.1 — packages/docs/fonts/LICENSE-LiberationSans.txt
   TeX Gyre Adventor (Regular)
     GUST Font License — packages/docs/fonts/LICENSE-TeXGyreAdventor.txt
+  IBM Plex Sans (Regular, SemiBold) and IBM Plex Mono (Regular, Medium), Latin subsets
+    SIL Open Font License 1.1 — packages/docs/fonts/LICENSE-IBMPlex.txt
+    (as data in packages/docs/src/frame/plex.generated.ts, made by packages/docs/fonts/gen-plex.py)
 
-In the generated drawing sheet they are embedded under the family names
-"CS Sans" and "CS Gothic".
+Every generated sheet is set in IBM Plex under its own family names ("IBM Plex Sans",
+"IBM Plex Mono"); Liberation Sans stays embedded as "CS Sans", the fallback for glyphs
+Plex's Latin subset lacks (arrows, the ohm sign), and for the formboard's vector PDF.
 
 App fonts
 ---------

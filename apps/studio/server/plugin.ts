@@ -67,7 +67,7 @@ function readBody(req: IncomingMessage): Promise<string> {
       if (size <= MAX_BODY_BYTES) text += chunk.toString('utf8');
     });
     req.on('end', () =>
-      size > MAX_BODY_BYTES ? reject(new Error('that document is too large for the workbench to accept')) : resolve(text),
+      size > MAX_BODY_BYTES ? reject(new Error('that document is too large for the server to accept')) : resolve(text),
     );
     req.on('error', reject);
   });
@@ -124,7 +124,7 @@ async function handleImportUpload(
     if (type !== 'application/octet-stream') {
       req.resume();
       send(res, 415, {
-        error: `The studio does not accept ${type === '' ? 'a body with no type' : `'${type}'`} here.`,
+        error: `WireHub does not accept ${type === '' ? 'a body with no type' : `'${type}'`} here.`,
         hint: 'Nothing was changed. Send the file as application/octet-stream.',
       });
       return;
@@ -140,8 +140,8 @@ async function handleImportUpload(
     send(res, response.status, response.body, response.headers);
   } catch (error) {
     send(res, 500, {
-      error: 'The workbench hit an unexpected problem and stopped before changing anything.',
-      hint: `Check the terminal running the studio for details. (${(error as Error).message})`,
+      error: 'The server hit an unexpected problem and stopped before changing anything.',
+      hint: `Check the terminal running WireHub for details. (${(error as Error).message})`,
     });
   }
 }
@@ -191,7 +191,7 @@ export function workbenchJsonMiddleware(
         if (text.trim() !== '') body = JSON.parse(text);
       } catch (error) {
         send(res, /too large/.test((error as Error).message) ? 413 : 400, {
-          error: 'The studio could not read what was sent with that request.',
+          error: 'WireHub could not read what was sent with that request.',
           hint: `Nothing was changed. (${(error as Error).message})`,
         });
         return;
@@ -228,8 +228,8 @@ export function workbenchJsonMiddleware(
       } catch (error) {
         // a bug in here must still leave the user with a next step
         send(res, 500, {
-          error: 'The workbench hit an unexpected problem and stopped before changing anything.',
-          hint: `Check the terminal running the studio for details. (${(error as Error).message})`,
+          error: 'The server hit an unexpected problem and stopped before changing anything.',
+          hint: `Check the terminal running WireHub for details. (${(error as Error).message})`,
         });
       }
     })();

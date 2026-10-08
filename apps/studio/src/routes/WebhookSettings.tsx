@@ -5,6 +5,7 @@
  * BOM through the API with a token (`docs/webhooks.md`).
  */
 
+import { InfoTip } from '../shell/InfoTip.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -92,11 +93,10 @@ export function WebhookSettings(): JSX.Element | null {
 
   return (
     <section className="mt-6 max-w-2xl border-t border-line pt-3" data-testid="webhook-settings">
-      <h2 className="mb-1 text-[13px] font-semibold">Webhooks</h2>
-      <p className="mb-2 max-w-xl text-faint">
-        Tell an outside system (an ERP, a chat channel, a script) when something happens: a signed JSON event with ids, links, the actor and a short diff. The receiver then fetches what it needs through the API with a token. Failed deliveries are retried with a growing wait.
-        These are separate from the alert webhook under Notifications, which reports the hub’s own problems.
-      </p>
+      <h2 className="mb-1 text-[13px] font-semibold">
+        Webhooks
+        <InfoTip text="Tell an outside system (an ERP, a chat channel, a script) when something happens: a signed JSON event with ids, links, the actor and a short diff. The receiver then fetches what it needs through the API with a token. Failed deliveries are retried with a growing wait. These are separate from the alert webhook under Notifications, which reports the hub’s own problems." topic="settings" />
+      </h2>
       {view === undefined ? (
         <div className="text-faint">{query.isError ? 'The webhooks could not be read.' : 'Loading…'}</div>
       ) : (

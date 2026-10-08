@@ -151,7 +151,7 @@ export function assemblySteps(design: CableDesign, db: Db, end: BenchEnd, sets: 
 
 /** The functional check after continuity. */
 const GENERIC_QA: readonly Step[] = [
-  { text: 'Run the continuity and isolation checks on the test page; then a functional check with the equipment the cable is for.', src: GENERIC },
+  { text: 'Run the continuity and isolation checks on the test page; then a functional check with the equipment the design is for.', src: GENERIC },
 ];
 
 export function qaSteps(db?: Db): readonly Step[] {

@@ -219,8 +219,8 @@ function EndStep(props: {
         <legend>What is at this end?</legend>
         {(
           [
-            ['pcba', 'A board', 'The cable is soldered to a board (PCBA) from the library.'],
-            ['connector', 'A plug on its own', 'The cable is soldered straight into the plug’s hood.'],
+            ['pcba', 'A board', 'The design is soldered to a board (PCBA) from the library.'],
+            ['connector', 'A plug on its own', 'The design is soldered straight into the plug’s hood.'],
           ] as const
         ).map(([value, title, say]) => (
           <label key={value} className="cs-wizard-radio" title={say}>
@@ -323,8 +323,8 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
   return (
     <div className="cs-wizard-card" role="document">
       <header className="cs-wizard-head">
-        <h2 title="Six questions. At the end you get a cable that is already wired, already checked, and already drawn — not an empty canvas.">
-          New cable
+        <h2 title="Six questions. At the end you get a design that is already wired, already checked, and already drawn — not an empty canvas.">
+          New design
         </h2>
       </header>
 
@@ -360,14 +360,14 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
               </label>
               <label
                 className="cs-field"
-                title="The document, board or measurement behind this cable. Every record in the catalog carries its source; the wizard adds a line saying which joints it worked out for you."
+                title="Where the data comes from: a datasheet, a board, a measurement, or 'own design'. Every record in the catalog carries a reference; the wizard adds a line saying which joints it worked out for you."
               >
-                <span>Source</span>
+                <span>Reference</span>
                 <input
                   className="cs-input"
                   required
                   value={state.src}
-                  placeholder="datasheet §4, measured on the bench, …"
+                  placeholder="datasheet §4, measured on the bench, own design, …"
                   onChange={(event) => dispatch({ type: 'set-src', value: event.target.value })}
                 />
               </label>
@@ -503,7 +503,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
                 {plan.unconnected.length === 0 ? null : (
                   <p className="cs-form-say">
                     These are deliberate: the wizard never guesses a joint. Add them on the canvas
-                    once the cable is open, or go back and answer the questions on the previous
+                    once the design is open, or go back and answer the questions on the previous
                     step.
                   </p>
                 )}
@@ -570,7 +570,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
         </button>
         {props.onBlank === undefined ? null : (
           <button type="button" className="cs-link" onClick={props.onBlank} disabled={busy}>
-            Start from a blank cable instead
+            Start from a blank design instead
           </button>
         )}
         <span className="cs-spacer" />
@@ -586,7 +586,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
             type="button"
             className="cs-primary"
             disabled={busy || blockers.length > 0}
-            title={blockers.length > 0 ? blockers.join(' ') : 'Write this cable to the catalog'}
+            title={blockers.length > 0 ? blockers.join(' ') : 'Write this design to the catalog'}
             onClick={() => void create()}
           >
             {busy ? 'Creating…' : 'Create this cable'}

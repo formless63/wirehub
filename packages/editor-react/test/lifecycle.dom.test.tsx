@@ -226,7 +226,7 @@ describe('New', () => {
   it('opens the guided wizard when the host hands the library in', () => {
     setup({ withDb: true });
     fireEvent.click(screen.getByRole('button', { name: 'New…' }));
-    const heading = screen.getByRole('heading', { name: 'New cable' });
+    const heading = screen.getByRole('heading', { name: 'New design' });
     expect(heading).toBeTruthy();
     // the wizard's intro sentence moved into the heading's tooltip (// no narrative copy on the page itself)
     expect(heading.title).toContain('already wired');
@@ -235,7 +235,7 @@ describe('New', () => {
   it('still offers the blank design for anyone who wants one', () => {
     setup({ withDb: true });
     fireEvent.click(screen.getByRole('button', { name: 'New…' }));
-    fireEvent.click(screen.getByRole('button', { name: /blank cable instead/ }));
+    fireEvent.click(screen.getByRole('button', { name: /blank design instead/ }));
     expect(screen.getByRole('heading', { name: 'New design' })).toBeTruthy();
   });
 

@@ -149,12 +149,12 @@ export function createSupplierIntegration(options: SupplierServerOptions = {}): 
         const lookup = lookupRequest(request.body);
         if (lookup === undefined) return { status: 400, body: { error: 'Invalid supplier lookup request.' } };
         if (!ready(lookup, await context(request.settings))) return { status: 409, body: { error: 'Supplier is disabled or not configured.' } };
-        if (request.jobs === undefined) return { status: 501, body: { error: 'This studio runs no jobs.' } };
+        if (request.jobs === undefined) return { status: 501, body: { error: 'This hub runs no jobs.' } };
         try { return { status: 202, body: { job: await request.jobs.enqueue('lookup', { ...lookup }) } }; }
         catch { return { status: 500, body: { error: 'Could not enqueue supplier lookup.' } }; }
       } },
       { method: 'GET', path: 'lookup', handle: async (request) => {
-        if (request.jobs === undefined) return { status: 501, body: { error: 'This studio runs no jobs.' } };
+        if (request.jobs === undefined) return { status: 501, body: { error: 'This hub runs no jobs.' } };
         const id = request.query.get('id');
         if (id === null || id === '' || id.length > 200) return { status: 400, body: { error: 'A lookup job id is required.' } };
         try {

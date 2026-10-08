@@ -19,7 +19,7 @@
  */
 
 import { isDesignId } from '@wirehub/catalog';
-import { BASE_EXPORTS, baseExport, parseScale, readTestParameters, type DrawingArt, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, PAPER_IDS, baseExport, parsePaper, parseScale, readTestParameters, type DrawingArt, type RevisionRow, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import { knownPartNumbers, releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type DesignVersionFile, type KnownPartNumber, type PartNumberScheme, type VersionSummary } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
 
@@ -115,7 +115,7 @@ async function load(deps: DocumentDeps, id: string, rev: string | null): Promise
     // a design placing sub-assemblies reads them from the design library
     return { design: working, db: await withDesignLibrary(deps, working, live), drawing, ...(photo === undefined ? {} : { photo }), target: keepsRevisions ? 'working' : undefined };
   }
-  if (deps.versions === undefined) return fail(501, 'This studio does not keep saved revisions.', 'Leave out ?rev= to render the working copy.');
+  if (deps.versions === undefined) return fail(501, 'This hub does not keep saved revisions.', 'Leave out ?rev= to render the working copy.');
   let number: number;
   if (rev === 'latest') {
     const all = await deps.versions.revisions(id);
@@ -180,6 +180,25 @@ async function partNumbersOf(deps: DocumentDeps, loaded: Loaded): Promise<{ sche
   } catch {
     return undefined;
   }
+}
+
+/** The drawing's revision table: one row per saved revision up to the one rendered (a working copy gets its own row), oldest first. */
+async function revisionRows(deps: DocumentDeps, id: string, target: 'working' | number | undefined): Promise<RevisionRow[] | undefined> {
+  if (deps.versions === undefined) return undefined;
+  const rows: RevisionRow[] = [];
+  try {
+    for (const n of await deps.versions.revisions(id)) {
+      if (typeof target === 'number' && n > target) break;
+      const file = await deps.versions.read(id, n);
+      if (file === undefined) continue;
+      rows.push({ rev: String(n), description: file.note.trim() === '' ? `Revision ${n}` : file.note.trim(), date: file.savedAt.slice(0, 10).replace(/-/g, '.'), by: file.savedBy });
+    }
+  } catch {
+    // the table is a convenience: a version store that cannot be read prints the sheet without it
+    return undefined;
+  }
+  if (target === 'working') rows.push({ rev: '—', description: 'Working copy, not released' });
+  return rows;
 }
 
 function today(): string {
@@ -296,7 +315,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     };
   }
   if (head !== 'designs' || id === undefined || (section !== 'documents' && section !== 'exports')) return undefined;
-  if (rest.length > 0 || name === undefined) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${DOCUMENT_ROUTES.join('; ')}.`);
+  if (rest.length > 0 || name === undefined) return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${DOCUMENT_ROUTES.join('; ')}.`);
   if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
   if (!isDesignId(id)) return fail(400, `${JSON.stringify(id)} cannot be used as a design id.`);
 
@@ -308,8 +327,9 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   if (typeof copies === 'object') return copies;
   const quantity = positive(query.get('quantity'), 'quantity');
   if (typeof quantity === 'object') return quantity;
-  const paper = query.get('paper');
-  if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
+  const paperAsked = query.get('paper');
+  const paper = paperAsked === null || paperAsked === '' ? null : parsePaper(paperAsked);
+  if (paperAsked !== null && paperAsked !== '' && paper === undefined) return fail(400, `paper must be one of ${PAPER_IDS.join(', ')}, not '${paperAsked}'.`);
   const variation = query.get('variation') ?? undefined;
   // the BOM lists each sub-assembly's parts instead of one line for it
   const explode = query.get('explode') === '1' || query.get('explode') === 'true';
@@ -323,14 +343,16 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const artwork = section === 'documents' && ['schematic', 'build-sheet', 'bom'].includes(name) ? await artworkOf(deps, loaded) : undefined;
   const partNumbers = wantsProposals ? await partNumbersOf(deps, loaded) : undefined;
   // the title block's organisation, logo and notes: the sheets the browser draws with them
-  const branding = section === 'documents' && (name === 'drawing' || name === 'build-sheet' || name === 'bom' || name === 'test-spec' || name === 'formboard') ? await brandingOf(deps, loaded.db) : undefined;
+  const branding = section === 'documents' && (name === 'drawing' || name === 'build-sheet' || name === 'bom' || name === 'test-spec' || name === 'formboard' || name === 'schematic' || name === 'labels') ? await brandingOf(deps, loaded.db) : undefined;
+  // the drawing's revision table: the saved revisions up to the one printed
+  const revisions = section === 'documents' && name === 'drawing' ? await revisionRows(deps, id, loaded.target) : undefined;
 
   if (section === 'exports') {
     const format = baseExport(name);
     if (format === undefined) return fail(404, `There is no export called '${name}'.`, `Formats: ${BASE_EXPORTS.map((f) => f.id).join(', ')}.`);
     const options: FormatOptions = {
       drawing: meta,
-      ...(paper === null ? {} : { paper }),
+      ...(paper === null || paper === undefined ? {} : { paper }),
       ...(variation === undefined ? {} : { variation }),
       ...(typeof loaded.target === 'number' ? { revisionNumber: loaded.target } : {}),
       ...(meta.test === undefined ? {} : { testParameters: meta.test }),
@@ -361,8 +383,10 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(typeof loaded.target === 'number' ? { revisionNumber: loaded.target } : {}),
     ...(loaded.target === 'working' ? { unreleased: true } : {}),
     ...(loaded.approvals !== undefined && loaded.approvals.approval?.state !== 'approved' ? { unreleased: true, unreleasedLabel: 'UNAPPROVED' } : {}),
-    ...(paper === null ? {} : { paper }),
+    ...(paper === null || paper === undefined ? {} : { paper }),
     ...(variation === undefined ? {} : { variation }),
+    ...(loaded.approvals?.approval?.state === 'approved' ? { checked: loaded.approvals.approval.by } : {}),
+    ...(revisions === undefined ? {} : { revisions }),
     ...(page === undefined ? {} : { page }),
     ...(copies === undefined ? {} : { copies }),
     ...(scale === undefined ? {} : { scale }),

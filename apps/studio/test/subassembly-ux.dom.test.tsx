@@ -135,7 +135,7 @@ describe('Place in… on the cable list', () => {
     const button = await screen.findByLabelText('Place dc-pigtail-lead in…');
     fireEvent.click(button);
     // not itself; the other cables are offered
-    const choices = await screen.findByRole('group', { name: 'cables to place it in' });
+    const choices = await screen.findByRole('group', { name: 'designs to place it in' });
     const options = within(choices).getAllByRole('button');
     expect(options.map((o) => o.textContent)).not.toContain('dc-pigtail-lead');
     fireEvent.click(options.find((o) => o.textContent?.includes('dc-y-from-leads'))!);

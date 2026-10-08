@@ -26,7 +26,7 @@ import { documentFactsFor, offlineCopyFrom } from '../catalog.browser.ts';
 import { PLAIN_BUTTON } from '../versions/shared.tsx';
 import { useEditorChrome } from '../shell/editor-chrome.tsx';
 import { depictionDefsOf } from '../depictions.browser.ts';
-import { getVersion, loadVersionArt } from '../versions.browser.ts';
+import { getVersion, loadVersionArt, revisionRow } from '../versions.browser.ts';
 import { versionDepictionSource } from '../depictions.browser.ts';
 import { useVersionListing } from '../versions/shared.tsx';
 import { VersionView } from '../versions/VersionView.tsx';
@@ -238,6 +238,7 @@ export function CableRoute(): JSX.Element {
         ? undefined
         : {
             revisions: listing.revisions.map((r) => r.rev),
+            rows: listing.revisions.map(revisionRow),
             showing: {
               kind: 'working',
               unreleased: listing.working.unreleased,
@@ -264,7 +265,7 @@ export function CableRoute(): JSX.Element {
   }
 
   if (studio.notFoundId === id) {
-    return <NotFoundView message={`No cable “${id}”.`} />;
+    return <NotFoundView message={`No design “${id}”.`} />;
   }
 
   // the workbench could not answer: never an editable copy — a retry, and

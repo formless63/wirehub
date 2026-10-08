@@ -14,6 +14,7 @@
  * why nothing is drawn.
  */
 
+import { endName } from '@wirehub/model';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -376,7 +377,7 @@ export default function WireModel3d(props: WireModel3dProps): JSX.Element {
                 title={s === 'a' ? 'The source end' : s === 'b' ? 'The destination end' : 'The whole length'}
                 onClick={() => setState((st) => ({ ...st, show: s }))}
               >
-                {s === 'a' ? 'End A' : s === 'b' ? 'End B' : 'Full length'}
+                {s === 'a' ? 'Source end' : s === 'b' ? 'Destination end' : 'Full length'}
               </button>
             ))}
           </div>
@@ -407,7 +408,7 @@ export default function WireModel3d(props: WireModel3dProps): JSX.Element {
           <Slider label="Explode" value={state.explode} min={0} max={1} step={0.05} title="Splay the stripped cores out, and pull each layer's end apart" onChange={(v) => setState((s) => ({ ...s, explode: v }))} />
         </div>
         {props.compact === true ? null : (
-          <div className="cs-w3-row" aria-label={`strip at ${state.show === 'both' ? 'both ends' : `end ${state.show.toUpperCase()}`}`}>
+          <div className="cs-w3-row" aria-label={`strip at ${state.show === 'both' ? 'both ends' : endName(state.show)}`}>
             <Slider label="Jacket" value={end.jacketMm} min={0} max={maxStrip} step={1} unit=" mm" title="Overall jacket (and foil) taken off from the tip" onChange={(v) => set({ jacketMm: v })} />
             {hasSheath ? <Slider label="Sheath" value={end.sheathMm} min={0} max={maxStrip} step={1} unit=" mm" title="Each coax's own sheath taken off from the tip" onChange={(v) => set({ sheathMm: v })} /> : null}
             <label className="cs-w3-field" title={SHIELD_MODES.find((m) => m.value === end.shield)?.title}>

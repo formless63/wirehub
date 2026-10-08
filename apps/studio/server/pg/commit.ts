@@ -74,7 +74,7 @@ export async function uploadChangeBlobs(set: ChangeSet, orgId: string, blobs: Bl
     const sha = sha256Hex(change.bytes);
     if (seen.has(sha)) continue;
     seen.add(sha);
-    if (blobs === undefined) throw new CommitRefusedError(503, 'This studio has no blob store for uploaded files.', 'Set WIREHUB_BLOBS (s3 or fs:<dir>) and restart.');
+    if (blobs === undefined) throw new CommitRefusedError(503, 'This hub has no blob store for uploaded files.', 'Set WIREHUB_BLOBS (s3 or fs:<dir>) and restart.');
     const key = blobObjectKey(orgId, sha);
     if (await blobs.has(key)) continue;
     await blobs.put(key, Buffer.from(change.bytes), 'application/octet-stream');

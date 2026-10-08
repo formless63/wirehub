@@ -5,6 +5,7 @@
 
 import type { BrandingSettings } from '../module-art.ts';
 import type { Outcome } from '@wirehub/editor-react';
+import type { PaperId, TitleBlockStandard } from '@wirehub/docs';
 import { request } from './definitions.browser.ts';
 
 export const brandingKey = ['settings', 'branding'] as const;
@@ -55,6 +56,10 @@ export interface BrandingInput {
   designer?: string;
   /** the prefix of exported wire spec files */
   filePrefix?: string;
+  /** the paper documents print on by default; empty keeps A4 */
+  paper?: PaperId | '';
+  /** the title-block layout; empty keeps the paper's own convention */
+  titleBlock?: TitleBlockStandard | '';
   /** the title block's three-line general note (a line may be empty) */
   notes?: [string, string, string];
   /** the title block's tolerance rows, label and value; empty rows are dropped */

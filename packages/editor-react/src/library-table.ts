@@ -131,7 +131,7 @@ const KIND_COLUMNS: Record<LibraryKind, LibraryColumn[]> = {
     { id: 'terminals', header: 'Terms', title: 'Terminals', width: 50, numeric: true, hiddenByDefault: true },
   ],
   wires: [
-    { id: 'tag', header: 'Construction', title: 'The construction tag the cable list shows (6+2C, 8C …)', width: 96, facet: true },
+    { id: 'tag', header: 'Construction', title: 'The construction tag the design list shows (6+2C, 8C …)', width: 96, facet: true },
     { id: 'conductors', header: 'Cores', title: 'Conductors (cores and groups, bare drains not counted)', width: 52, numeric: true },
     { id: 'od', header: 'OD', title: 'Outside diameter, mm (figure-8: width × height)', width: 84, numeric: true },
     { id: 'lay', header: 'Lay', width: 50, hiddenByDefault: true },

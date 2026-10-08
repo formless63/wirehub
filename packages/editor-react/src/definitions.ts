@@ -96,14 +96,14 @@ export const DEFINITION_NOUNS: Record<DefinitionKind, string> = {
 
 /** One line under each tab: what belongs in it, in the user's words. */
 export const DEFINITION_BLURBS: Record<DefinitionKind, string> = {
-  connectors: 'The plugs and sockets at the ends of a cable, and the pins each one has.',
+  connectors: 'The plugs and sockets at the ends of a design, and the pins each one has.',
   components: 'Loose parts soldered into a build — resistors, capacitors, switches.',
   wires: 'The cable stock itself: what the cores are made of, how thick, and the order they are laid in.',
   pcbas: 'The boards, with the pads a conductor lands on and what is joined inside.',
   bodies: 'The physical connector: shell, gender and numbered positions — no signal meaning.',
   interfaces: 'A named pinout: which signal each position of a body carries.',
   mechanicals: 'Printed shells, housings and the screws and nuts that close them.',
-  kits: 'Orderable kits: one SKU and the parts it ships. Informational — cable BOMs list the parts.',
+  kits: 'Orderable kits: one SKU and the parts it ships. Informational — design BOMs list the parts.',
 };
 
 /** Who is using a definition — the answer the host's referential check gives. */

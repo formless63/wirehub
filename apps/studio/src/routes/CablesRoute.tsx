@@ -191,7 +191,7 @@ function PlaceInMenu({ entry, targets }: { entry: CableListEntry; targets: reado
         <Popover.Trigger asChild>
           <button
             type="button"
-            title={`Place ${entry.id} in another cable as a sub-assembly`}
+            title={`Place ${entry.id} in another design as a sub-assembly`}
             aria-label={`Place ${entry.id} in…`}
             className="flex h-[22px] items-center gap-1 rounded-sm border border-line2 bg-panel px-1.5 text-[11px] text-dim opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
           >
@@ -207,14 +207,14 @@ function PlaceInMenu({ entry, targets }: { entry: CableListEntry; targets: reado
           >
             <input
               autoFocus
-              aria-label="find a cable to place it in"
-              placeholder="find a cable…"
+              aria-label="find a design to place it in"
+              placeholder="find a design…"
               value={needle}
               onChange={(event) => setNeedle(event.target.value)}
               className="m-1 rounded-sm border border-line2 bg-raised px-2 py-1 text-[12px] text-ink"
             />
-            <div role="group" aria-label="cables to place it in" className="min-h-0 overflow-auto p-1">
-              {shown.length === 0 ? <p className="px-2 py-1 text-faint">No cables match.</p> : null}
+            <div role="group" aria-label="designs to place it in" className="min-h-0 overflow-auto p-1">
+              {shown.length === 0 ? <p className="px-2 py-1 text-faint">No designs match.</p> : null}
               {shown.map((target) => (
                 <button
                   key={target.id}
@@ -296,7 +296,7 @@ const columns = columnHelper.columns([
   }),
   columnHelper.accessor('label', {
     id: 'source',
-    header: 'CABLE',
+    header: 'DESIGN',
     cell: (ctx) => (
       <span className="flex min-w-0 items-start gap-1.5">
         {/* full label on hover: no aggressive one-line
@@ -535,7 +535,7 @@ export function CablesRoute(): JSX.Element {
   // once the Status filter is itself in play, retired is no longer implicit —
   // count against the full catalog like every other filter combination does
   const countTotal = status.length > 0 ? entries.length : nonRetiredTotal;
-  const countLabel = filtered.length === countTotal ? `${countTotal} cables` : `${filtered.length} of ${countTotal} cables`;
+  const countLabel = filtered.length === countTotal ? `${countTotal} designs` : `${filtered.length} of ${countTotal} designs`;
   const showRetiredHint = status.length === 0 && retiredCount > 0;
 
   const sorting: SortingState = search.sort === undefined ? [] : [{ id: search.sort, desc: search.dir === 'desc' }];
@@ -618,8 +618,8 @@ export function CablesRoute(): JSX.Element {
   // one array so the inline chips and the collapsed Filters popover (below
   // ~900px) read from exactly the same groups — Source first
   const filterGroups: FilterGroupProps[] = [
-    { label: 'Source', options: sourceOptions, selected: source, onChange: (next) => setSearch({ source: next }) },
-    { label: 'Destination', options: destOptions, selected: dest, onChange: (next) => setSearch({ dest: next }) },
+    { label: 'Source end', options: sourceOptions, selected: source, onChange: (next) => setSearch({ source: next }) },
+    { label: 'Destination end', options: destOptions, selected: dest, onChange: (next) => setSearch({ dest: next }) },
     { label: 'Wire', options: wireOptions, selected: wire, onChange: (next) => setSearch({ wire: next }) },
     { label: 'Board', options: boardOptions, selected: board, onChange: (next) => setSearch({ board: next }) },
     { label: 'Status', options: [...DESIGN_STATUSES], selected: status, onChange: (next) => setSearch({ status: next }) },
@@ -642,8 +642,8 @@ export function CablesRoute(): JSX.Element {
           <input
             value={q}
             onChange={(event) => setSearch({ q: event.target.value })}
-            placeholder="Filter cables"
-            aria-label="Filter cables"
+            placeholder="Filter designs"
+            aria-label="Filter designs"
             title="Filter by part number, label, id, destination, wire, notes or board — across every row, not just what's shown"
             className="w-full border-0 bg-transparent text-[12.5px] text-ink outline-none placeholder:text-faint"
           />
@@ -686,22 +686,22 @@ export function CablesRoute(): JSX.Element {
         </Link>
         <Link
           to="/resolver"
-          title="Which cable do I need? — pick two devices, get ranked options"
-          aria-label="Which cable do I need?"
+          title="Find a design — pick two devices, get ranked options"
+          aria-label="Find a design"
           className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-panel px-2.5 text-[12.5px] text-ink no-underline"
         >
           <IconRoute size={14} />
-          <span className="max-[1099px]:hidden">Which cable?</span>
+          <span className="max-[1099px]:hidden">Find a design</span>
         </Link>
         <button
           type="button"
           onClick={studio.openNewCableWizard}
-          title="New cable — the guided wizard"
-          aria-label="New cable"
+          title="New design — the guided wizard"
+          aria-label="New design"
           className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-accent px-2.5 text-[12.5px] font-semibold text-accent-ink"
         >
           <IconPlus size={14} />
-          <span className="max-[1099px]:hidden">New cable</span>
+          <span className="max-[1099px]:hidden">New design</span>
         </button>
       </div>
 
@@ -723,7 +723,7 @@ export function CablesRoute(): JSX.Element {
         <div style={narrow ? undefined : { minWidth: TABLE_MIN_PX }}>
           <div
             role="group"
-            aria-label="Sort cables"
+            aria-label="Sort designs"
             style={{ gridTemplateColumns: GRID_COLS }}
             className="sticky top-0 z-10 grid h-7 shrink-0 items-center gap-2 border-b border-line bg-raised px-3 font-mono text-[10px] tracking-wide text-faint uppercase max-sm:hidden"
           >

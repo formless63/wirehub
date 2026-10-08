@@ -23,7 +23,7 @@ import { useModules } from '../modules/ModulesContext.tsx';
 import { cableRoute, type CableSearch } from '../router.tsx';
 import { useEditorChrome } from '../shell/editor-chrome.tsx';
 import { useStudio } from '../studio-context.tsx';
-import { approvalStep, branchVersion, editVersion, getVersion, loadVersionArt, lockVersion, shortTime, unlockVersion, type ApprovalStep, type VersionArt } from '../versions.browser.ts';
+import { approvalStep, branchVersion, editVersion, getVersion, loadVersionArt, lockVersion, revisionRow, shortTime, unlockVersion, type ApprovalStep, type VersionArt } from '../versions.browser.ts';
 import { versionDepictionSource } from '../depictions.browser.ts';
 import { withAssemblyLibrary, workbenchAssemblies } from '../persistence.browser.ts';
 import { PLAIN_BUTTON, PRIMARY_BUTTON, TEXT_INPUT, useVersionFile, useVersionListing } from './shared.tsx';
@@ -88,6 +88,7 @@ export function VersionView(props: {
   const release = useMemo<DocumentRelease>(
     () => ({
       revisions: (listing?.revisions ?? []).map((r) => r.rev),
+      rows: (listing?.revisions ?? []).map(revisionRow),
       showing: { kind: 'rev', rev },
       load: async (other) => {
         const out = await getVersion(id, other);

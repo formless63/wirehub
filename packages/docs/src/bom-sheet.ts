@@ -28,7 +28,8 @@ import { catalogDepictions } from '@wirehub/layout';
 
 import { costLineOf, deriveCost, formatMoney, type CostSummary } from './cost.ts';
 import { deriveBom, type BomCategory, type BomLine } from './bom.ts';
-import { headerHtml, sheetHeader, type DocumentFacts, type SheetHeader } from './bench/header.ts';
+import { footHtml, headerFrameCss, headerHtml, sheetHeader, type DocumentFacts, type SheetHeader } from './bench/header.ts';
+import type { PaperId, TitleBlockStandard } from './frame/index.ts';
 import { trunkSides } from './bench/model.ts';
 import { trunkSegment, type DrawingMeta } from './drawing/model.ts';
 import { brandSheetCss } from './drawing/brand-font.ts';
@@ -149,6 +150,10 @@ export interface BomSheetOptions {
   explode?: boolean;
   /** cables in the build: quantity breaks in the cost roll-up are read at this (default 1) */
   buildQty?: number;
+  /** the paper the sheet prints on, the title-block layout and the checker (the shared frame, `frame/`) */
+  paper?: PaperId;
+  titleBlock?: TitleBlockStandard;
+  checked?: string;
   /** internal: the designs whose BOM is being costed above this one (a sub-assembly's roll-up), a cycle guard */
   assemblyStack?: readonly string[];
 }
@@ -182,15 +187,24 @@ function depictionSourceOf(option: boolean | DepictionSource | undefined): Depic
 
 const MM_PER_FT = 304.8;
 
-export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOptions = {}): BomSheet {
-  const header = sheetHeader(design, db, {
-    kind: 'BILL OF MATERIALS',
+/** The title-block facts of a sheet printed from these options: the BOM's, the build sheet's and the continuity spec's header. */
+export function sheetHeaderOf(design: CableDesign, db: Db, options: BomSheetOptions & { title?: string }, kind: string): SheetHeader {
+  return sheetHeader(design, db, {
+    kind,
+    ...(options.title === undefined ? {} : { title: options.title }),
     ...(options.drawing === undefined ? {} : { drawing: options.drawing }),
     ...(options.variation === undefined ? {} : { variation: options.variation }),
     ...(options.document === undefined ? {} : { document: options.document }),
     ...(options.facts === undefined ? {} : { facts: options.facts }),
     ...(options.generatedAt === undefined ? {} : { generatedAt: options.generatedAt }),
+    ...(options.paper === undefined ? {} : { paper: options.paper }),
+    ...(options.titleBlock === undefined ? {} : { titleBlock: options.titleBlock }),
+    ...(options.checked === undefined ? {} : { checked: options.checked }),
   });
+}
+
+export function deriveBomSheet(design: CableDesign, db: Db, options: BomSheetOptions = {}): BomSheet {
+  const header = sheetHeaderOf(design, db, options, 'BILL OF MATERIALS');
   const bom = deriveBom(design, db, options.explode === true ? { explode: true } : {});
   const source = depictionSourceOf(options.depictions);
   const variations = header.variation !== undefined ? [header.variation] : header.variations.filter(() => header.family !== undefined);
@@ -394,18 +408,18 @@ function costHtml(cost: CostSummary): string {
   const row = (what: string, amount: string): string => `<tr><td>${escapeHtml(what)}</td><td class="cs-num">${escapeHtml(amount)}</td></tr>`;
   const rows = [row('Materials', formatMoney(cost.materials, cost.currency))];
   if (cost.labour !== undefined) rows.push(row(`Labour (${cost.labour.minutes} min${cost.labour.ratePerHour === undefined ? '' : ` at ${formatMoney(cost.labour.ratePerHour)}/h`})`, cost.labour.cost === undefined ? 'not priced' : formatMoney(cost.labour.cost, cost.currency)));
-  rows.push(row('Total, one cable', formatMoney(cost.total, cost.currency)));
-  if (cost.buildQty > 1) rows.push(row(`Total, ${cost.buildQty} cables (prices at ${cost.buildQty}-off quantities)`, formatMoney(cost.buildTotal, cost.currency)));
+  rows.push(row('Total, one unit', formatMoney(cost.total, cost.currency)));
+  if (cost.buildQty > 1) rows.push(row(`Total, ${cost.buildQty} units (prices at ${cost.buildQty}-off quantities)`, formatMoney(cost.buildTotal, cost.currency)));
   return `<section class="cs-section cs-cost" data-section="cost"><h2 class="cs-section__h">Cost</h2><table class="cs-table cs-costtable"><tbody>${rows.join('')}</tbody></table>${
     cost.notes.length === 0 ? '' : `<ul class="cs-notes">${cost.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
   }</section>`;
 }
 
 export function bomSheetBody(sheet: BomSheet): string {
-  const parts: string[] = ['<div class="cs-root cs-sheet cs-bench">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}${brandSheetCss()}</style>`, headerHtml(sheet.header)];
+  const parts: string[] = ['<div class="cs-root cs-sheet cs-bench wh-sheet-col">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}${headerFrameCss(sheet.header)}${brandSheetCss()}</style>`, headerHtml(sheet.header)];
   if (sheet.header.productPn === undefined && sheet.header.family === undefined) {
     parts.push(
-      `<p class="cs-callout">No part number for this cable.${
+      `<p class="cs-callout">No part number for this design.${
         sheet.productProposal === undefined ? '' : ` Proposed: <strong>${escapeHtml(sheet.productProposal.pn)}</strong> <span class="cs-meta">${escapeHtml(sheet.productProposal.explanation)}</span>`
       }</p>`,
     );
@@ -430,7 +444,7 @@ export function bomSheetBody(sheet: BomSheet): string {
   if (problems.length > 0) {
     parts.push(`<section class="cs-section"><h2 class="cs-section__h">Problems</h2><ul class="cs-notes">${problems.map((p) => `<li><span class="cs-tag">${escapeHtml(p.code)}</span> <span>${escapeHtml(p.message)}</span></li>`).join('')}</ul></section>`);
   }
-  parts.push('</div>');
+  parts.push(footHtml(sheet.header), '</div>');
   return parts.join('');
 }
 
@@ -478,7 +492,7 @@ export function bomSheetMarkdown(sheet: BomSheet): string {
     out.push('## Cost', '', `- Materials: ${formatMoney(c.materials, c.currency)}`);
     if (c.labour !== undefined) out.push(`- Labour: ${c.labour.minutes} min${c.labour.cost === undefined ? ' (no rate set)' : `, ${formatMoney(c.labour.cost, c.currency)}`}`);
     out.push(`- Total, one cable: ${formatMoney(c.total, c.currency)}`);
-    if (c.buildQty > 1) out.push(`- Total, ${c.buildQty} cables: ${formatMoney(c.buildTotal, c.currency)}`);
+    if (c.buildQty > 1) out.push(`- Total, ${c.buildQty} units: ${formatMoney(c.buildTotal, c.currency)}`);
     for (const n of c.notes) out.push(`- ${n}`);
     out.push('');
   }

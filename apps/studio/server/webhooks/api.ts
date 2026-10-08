@@ -65,7 +65,7 @@ async function view(deps: WorkbenchDeps): Promise<Record<string, unknown>> {
     signature: { header: SIGNATURE_HEADER, scheme: 't=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>" with the secret>', payloadSchema: PAYLOAD_SCHEMA },
     secrets: available
       ? { available: true }
-      : { available: false, note: 'This server has no settings key (WIREHUB_SETTINGS_KEY), so a signing secret cannot be kept, and nothing is sent unsigned. The compose stack generates the key.' },
+      : { available: false, note: 'This server has no settings key, so a signing secret cannot be kept, and nothing is sent unsigned. The compose stack generates the key.' },
   };
 }
 
@@ -73,7 +73,7 @@ export async function handleWebhooksRequest(method: string, parts: string[], raw
   if (!isOwner(user)) return fail(403, 'Webhooks are managed by an owner.', 'Ask an owner of this hub.');
   const write = method !== 'GET';
   if (write && user?.apiTokenId !== undefined) return fail(403, 'Webhooks are changed in a signed-in session, not with an API token.');
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Webhook subscriptions are stored with the catalog.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Webhook subscriptions are stored with the catalog.');
   const rest = parts.slice(3);
   const query = new URLSearchParams(rawPath.split('?')[1] ?? '');
 
@@ -100,7 +100,7 @@ export async function handleWebhooksRequest(method: string, parts: string[], raw
   if (rest[0] === 'deliveries') {
     if (rest.length === 1) {
       if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
-      if (deps.jobs === undefined) return fail(501, 'This studio runs no jobs, so it keeps no delivery log.');
+      if (deps.jobs === undefined) return fail(501, 'This hub runs no jobs, so it keeps no delivery log.');
       const limit = Math.min(Math.max(Number(query.get('limit') ?? 100) || 100, 1), 200);
       const subscription = query.get('subscription');
       const all = await deps.jobs.list({ kind: 'webhook', limit: 200 });
@@ -112,7 +112,7 @@ export async function handleWebhooksRequest(method: string, parts: string[], raw
     }
     if (rest.length === 3 && rest[2] === 'redeliver') {
       if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
-      if (deps.jobs === undefined || deps.webhooks === undefined) return fail(501, 'This studio runs no jobs, so it cannot deliver.');
+      if (deps.jobs === undefined || deps.webhooks === undefined) return fail(501, 'This hub runs no jobs, so it cannot deliver.');
       const job = await deps.jobs.get(rest[1] as string);
       const request = job?.kind === 'webhook' ? readDeliveryRequest(job.request) : undefined;
       if (request === undefined) return fail(404, `There is no webhook delivery ${String(rest[1])}.`, 'GET /api/settings/webhooks/deliveries lists them.');
@@ -120,11 +120,11 @@ export async function handleWebhooksRequest(method: string, parts: string[], raw
       const id = await deps.webhooks.redeliver(request, user === undefined ? {} : { user });
       return { status: 202, body: { job: id } };
     }
-    return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${WEBHOOK_ROUTES.join('; ')}.`);
+    return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${WEBHOOK_ROUTES.join('; ')}.`);
   }
 
   const id = rest[0];
-  if (!isSubscriptionId(id)) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${WEBHOOK_ROUTES.join('; ')}.`);
+  if (!isSubscriptionId(id)) return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${WEBHOOK_ROUTES.join('; ')}.`);
   if (!(await readSubscriptions(deps.docs)).some((s) => s.id === id)) return fail(404, `There is no webhook subscription ${id}.`);
 
   if (rest.length === 2 && rest[1] === 'secret') {
@@ -136,7 +136,7 @@ export async function handleWebhooksRequest(method: string, parts: string[], raw
       await settings?.refresh();
       return { status: 200, body: { id, set: false } };
     }
-    if (settings === undefined || !secretsAvailable(settings)) return fail(409, 'This server has no settings key (WIREHUB_SETTINGS_KEY), so it cannot keep a signing secret.', 'The compose stack generates the key; set WIREHUB_SETTINGS_KEY on the server otherwise.');
+    if (settings === undefined || !secretsAvailable(settings)) return fail(409, 'This server has no settings key, so it cannot keep a signing secret.', 'The compose stack generates the key; give the server a settings key otherwise.');
     const given = typeof body === 'object' && body !== null ? (body as { value?: unknown }).value : undefined;
     if (given !== undefined && (typeof given !== 'string' || given.trim().length < 16 || given.length > 256)) return fail(400, 'A signing secret is 16 to 256 characters.', 'Leave "value" out and the server makes one.');
     const value = given === undefined ? newSecretValue() : (given as string).trim();
@@ -148,10 +148,10 @@ export async function handleWebhooksRequest(method: string, parts: string[], raw
 
   if (rest.length === 2 && rest[1] === 'test') {
     if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
-    if (deps.webhooks === undefined || deps.jobs === undefined) return fail(501, 'This studio runs no jobs, so it cannot deliver.');
+    if (deps.webhooks === undefined || deps.jobs === undefined) return fail(501, 'This hub runs no jobs, so it cannot deliver.');
     if ((await readSecret(deps.runtimeSettings, id)) === undefined) return fail(409, 'Set the signing secret first: nothing is sent unsigned.');
     const job = await deps.webhooks.test(id, user === undefined ? {} : { user });
     return { status: 202, body: { job } };
   }
-  return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${WEBHOOK_ROUTES.join('; ')}.`);
+  return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${WEBHOOK_ROUTES.join('; ')}.`);
 }

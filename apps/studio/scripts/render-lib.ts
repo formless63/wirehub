@@ -16,7 +16,7 @@ export class RenderCliError extends Error {}
 
 export const RENDER_USAGE = [
   'usage: pnpm --filter studio render <design> <what> [--format svg|pdf|csv|html] [--rev <n>|latest] [--out <dir>|-]',
-  '                                    [--paper A4|letter] [--variation <suffix>] [--page <n>] [--copies <n>] [--scale <ratio>]',
+  '                                    [--paper A4|A3|letter|…] [--variation <suffix>] [--page <n>] [--copies <n>] [--scale <ratio>]',
   '  <what>  schematic | build-sheet | bom | test-spec | drawing | labels | formboard   (a document, in --format; default per document)',
   '          bom.csv | wire-list.csv | cut-list.csv | crimp-list.csv | production.xlsx | continuity.csv | continuity.json | labels.csv | labels.svg   (an export)',
   '          all   every document in its default format, plus pdf of each',

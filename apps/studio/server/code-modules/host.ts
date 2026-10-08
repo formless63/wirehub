@@ -243,7 +243,7 @@ export function createCodeModuleHost(options: CodeModuleHostOptions): CodeModule
       if (!status.enabled) continue;
       if (!allowEnv || !allowSettings) {
         status.state = 'off';
-        status.error = allowEnv ? 'code modules are turned off in Settings' : 'code modules are turned off by the server (WIREHUB_ALLOW_CODE_MODULES=false)';
+        status.error = allowEnv ? 'code modules are turned off in Settings' : 'code modules are turned off by the server';
         continue;
       }
       const api = apiCompatibility(m.apiVersion);

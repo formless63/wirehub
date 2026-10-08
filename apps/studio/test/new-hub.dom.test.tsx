@@ -69,7 +69,7 @@ describe('the New hub strip', () => {
     cleanup();
     window.localStorage.clear();
     mount('/cables');
-    await screen.findByLabelText('Filter cables');
+    await screen.findByLabelText('Filter designs');
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId('new-hub-strip')).toBeNull();
   });
@@ -83,12 +83,12 @@ describe('the New hub strip', () => {
 });
 
 describe('empty states', () => {
-  it.each([['/products', 'products'], ['/jobs', 'jobs'], ['/history', 'history']] as const)('%s says one line, offers one action and links to the docs', async (path, topic) => {
+  it.each([['/products', 'products', 0], ['/jobs', 'jobs', 1], ['/history', 'history', 1]] as const)('%s says one line, offers at most one action and links to the docs', async (path, topic, actions) => {
     serve();
     {
       mount(path);
       const empty = await screen.findByTestId('empty-state');
-      expect(empty.querySelectorAll('button, a:not([href^="http"])').length, path).toBe(1);
+      expect(empty.querySelectorAll('button, a:not([href^="http"])').length, path).toBe(actions);
       expect(empty.querySelector('a[href^="http"]')?.getAttribute('href'), path).toBe(helpUrl(topic));
       cleanup();
     }

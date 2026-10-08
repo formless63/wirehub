@@ -47,7 +47,7 @@ export function JobsRoute(): JSX.Element {
         <>
           <div className="mb-2 text-faint" data-testid="jobs-runner">
             Run by {data.runner}.{' '}
-            {data.worker === undefined ? null : data.worker === null ? 'No worker has reported in yet.' : `Worker ${data.worker.worker} ${data.worker.version} last beat ${when(data.worker.beatAt)}.`}
+            {data.worker === undefined ? null : data.worker === null ? 'No worker has reported in yet.' : `The worker (version ${data.worker.version}) last reported ${when(data.worker.beatAt)}.`}
           </div>
           {data.jobs.length === 0 ? (
             <EmptyState

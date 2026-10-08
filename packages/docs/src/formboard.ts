@@ -22,9 +22,10 @@
  * randomness; identical input gives identical bytes.
  */
 
-import { breakoutAt, findComponent, findConnector, findMechanical, findPcba, findWire, flattenSubassemblies, hasSubassemblies, type CableDesign, type Db, type SegmentInstance } from '@wirehub/model';
+import { breakoutAt, findComponent, findConnector, findMechanical, findPcba, findWire, flattenSubassemblies, hasSubassemblies, type CableDesign, type Db, type SegmentInstance, endName } from '@wirehub/model';
 
 import { brandFontFaces, brandStack } from './drawing/brand-font.ts';
+import { PAPER_IDS, frameGeometry, frameSpecFor, frameSvgGroup, paperSize, plexFontFaceCss, type PaperId, type SheetFrameSpec } from './frame/index.ts';
 import { textWidth } from './drawing/render.ts';
 import { trunkSegment } from './drawing/model.ts';
 import type { DrawingMeta } from './drawing/model.ts';
@@ -50,13 +51,13 @@ const SLEEVE_DEFAULT_MM = 25;
 const BOARD_MARGIN_MM = 40;
 const MARGIN = 12;
 const FOOTER = 7;
+/** the page note sits this far above the page's bottom edge: between the content and the frame's strip */
+const FOOTER_NOTE_Y = 17.3;
 /** Paper padding round the board on every side, so dimension lines and labels near its edge stay on the sheet. */
 const PAD = 10;
 
-export const FORMBOARD_PAPER = {
-  A4: { width: 297, height: 210 },
-  letter: { width: 279.4, height: 215.9 },
-} as const;
+/** A formboard page is landscape on any paper: millimetres, by paper. */
+export const FORMBOARD_PAPER: Readonly<Record<PaperId, { width: number; height: number }>> = Object.fromEntries(PAPER_IDS.map((id) => [id, paperSize(id, 'landscape')])) as Record<PaperId, { width: number; height: number }>;
 
 /* ------------------------------------------------------------------ *
  * The derived board
@@ -271,7 +272,7 @@ export function deriveFormboard(given: CableDesign, givenDb: Db, options: Formbo
       const here = breakoutAt(design, id, end);
       if (here === undefined) {
         termini.push({ segment: id, end, at: { ...at }, angleDeg: outward, joined: joinedAt(design, db, id, end) });
-        pegSpots.push({ at: { ...at }, kind: 'end', note: `${id} end ${end.toUpperCase()}` });
+        pegSpots.push({ at: { ...at }, kind: 'end', note: `${id} ${endName(end)}` });
       } else if (end === other(fromEnd)) {
         const mouldInstance = here.breakout.mould === undefined ? undefined : (design.instances.mechanical ?? []).find((m) => m.id === here.breakout.mould);
         const mouldLabel = mouldInstance === undefined ? undefined : findMechanical(db, mouldInstance.def)?.label;
@@ -409,7 +410,9 @@ export function deriveFormboard(given: CableDesign, givenDb: Db, options: Formbo
  * ------------------------------------------------------------------ */
 
 export interface FormboardSheetOptions {
-  paper?: 'A4' | 'letter';
+  paper?: PaperId;
+  /** the shared frame (`frame/`): the strip every page carries and the state stamp; absent: one made from the board's title */
+  frame?: SheetFrameSpec;
   /** paper millimetres per board millimetre; 1 is 1:1 (the default); 0.5 is 1:2 */
   scale?: number;
   /** document facts for the footer */
@@ -417,7 +420,7 @@ export interface FormboardSheetOptions {
 }
 
 export interface FormboardLayout {
-  paper: 'A4' | 'letter';
+  paper: PaperId;
   scale: number;
   cols: number;
   rows: number;
@@ -590,6 +593,8 @@ const translated = (poly: Poly, dx: number, dy: number): Poly => poly.map((p) =>
 const bounds = (poly: Poly): { x0: number; x1: number } => ({ x0: Math.min(...poly.map((p) => p.x)), x1: Math.max(...poly.map((p) => p.x)) });
 
 interface Captions {
+  /** everything drawn that a later caption must keep clear of */
+  occupied: Occupied;
   /** how far a mould's or a terminus's whole caption moves from its home place */
   mould: Map<string, Pt>;
   terminus: Map<string, Pt>;
@@ -610,7 +615,7 @@ function planCaptions(board: Formboard, frame: Frame, compact: boolean): Caption
   const S = frame.scale;
   const view = frame.view;
   const occupied = new Occupied();
-  const plan: Captions = { mould: new Map(), terminus: new Map(), peg: new Map(), tick: new Map() };
+  const plan: Captions = { occupied, mould: new Map(), terminus: new Map(), peg: new Map(), tick: new Map() };
   const px = (p: BoardPoint): Pt => ({ x: frame.x(p.x), y: frame.y(p.y) });
   const byRun = new Map(board.runs.map((r) => [r.segment, r]));
 
@@ -763,12 +768,13 @@ function planCaptions(board: Formboard, frame: Frame, compact: boolean): Caption
 }
 
 /** The drawing of the board in one frame: runs, glyphs, pegs, dimensions. No page furniture. */
-function drawBoard(board: Formboard, frame: Frame, compact = false): string {
+function drawBoard(board: Formboard, frame: Frame, compact = false, sink?: { occupied?: Occupied }): string {
   const out: string[] = [];
   const S = frame.scale;
   const px = (p: BoardPoint): [number, number] => [frame.x(p.x), frame.y(p.y)];
   const byRun = new Map(board.runs.map((r) => [r.segment, r]));
   const plan = planCaptions(board, frame, compact);
+  if (sink !== undefined) sink.occupied = plan.occupied;
 
   // moulds, under the runs
   for (const m of board.moulds) {
@@ -920,11 +926,15 @@ function svgOpen(width: number, height: number, page: number, pages: number, kin
   );
 }
 
-function footer(board: Formboard, layout: FormboardLayout, size: { width: number; height: number }, left: string, options: FormboardSheetOptions): string {
-  const rev = options.revisionNumber === undefined ? '' : ` · rev ${options.revisionNumber}`;
+/** The page's frame: the shared strip (title, part number, revision, state, sheet n of m) and the stamp, plus a note on the page above it. */
+function footer(board: Formboard, layout: FormboardLayout, size: { width: number; height: number }, note: string, options: FormboardSheetOptions, sheet: number): string {
+  const base: SheetFrameSpec =
+    options.frame ??
+    frameSpecFor({ kind: 'Formboard', title: board.title, orientation: 'landscape', paper: layout.paper, ...(options.revisionNumber === undefined ? {} : { rev: String(options.revisionNumber) }) });
+  const spec: SheetFrameSpec = { ...base, paper: layout.paper, orientation: 'landscape', variant: 'strip', sheet: `${sheet} of ${layout.tiles + 1}` };
   return (
-    text(MARGIN, size.height - MARGIN + 3.5, 3, `${board.designId}${rev} · formboard · ${scaleText(layout.scale)} on ${layout.paper}`, ` fill="${MUTED}"`) +
-    text(size.width - MARGIN, size.height - MARGIN + 3.5, 3, left, ` text-anchor="end" fill="${MUTED}"`)
+    frameSvgGroup(frameGeometry(spec)) +
+    text(size.width - MARGIN, size.height - FOOTER_NOTE_Y, 2.4, `${scaleText(layout.scale)} on ${layout.paper} · ${note}`, ` text-anchor="end" fill="${MUTED}"`)
   );
 }
 
@@ -971,7 +981,7 @@ function tileSvg(board: Formboard, layout: FormboardLayout, page: number, option
     row > 0 ? `up p${page - layout.cols}` : '',
     row < layout.rows - 1 ? `down p${page + layout.cols}` : '',
   ].filter((j) => j !== '');
-  out.push(footer(board, layout, size, `page ${page} of ${layout.tiles} (column ${col + 1}, row ${row + 1})${joins.length === 0 ? '' : ` · joins ${joins.join(', ')}`}`, options));
+  out.push(footer(board, layout, size, `page ${page} of ${layout.tiles} (column ${col + 1}, row ${row + 1})${joins.length === 0 ? '' : ` · joins ${joins.join(', ')}`}`, options, page + 1));
   out.push('</svg>');
   return out.join('');
 }
@@ -985,12 +995,12 @@ function overviewSvg(board: Formboard, layout: FormboardLayout, options: Formboa
   const area = { x: MARGIN, y: MARGIN + 7, width: size.width - 2 * MARGIN, height: size.height - 2 * MARGIN - FOOTER - tableHeight - 7 };
   const fit = Math.min((area.width - 2 * PAD) / board.width, (area.height - 2 * PAD) / board.height);
   const frame: Frame = { x: (v) => area.x + PAD + v * fit, y: (v) => area.y + PAD + v * fit, scale: fit, view: { x0: area.x, y0: area.y, x1: area.x + area.width, y1: area.y + area.height } };
-  out.push(text(MARGIN, MARGIN + 3.5, 4.2, board.title, ' font-weight="bold"'));
   out.push(
     text(size.width - MARGIN, MARGIN + 3.5, 3, `overview, fitted ${scaleText(fit)} · tiles at ${scaleText(layout.scale)}: ${layout.tiles} page${layout.tiles === 1 ? '' : 's'} (${layout.cols} × ${layout.rows})`, ` text-anchor="end" fill="${MUTED}"`),
   );
   out.push(`<rect x="${n2(area.x + PAD)}" y="${n2(area.y + PAD)}" width="${n2(board.width * fit)}" height="${n2(board.height * fit)}" fill="none" stroke="${MUTED}" stroke-width="0.2"/>`);
-  out.push(drawBoard(board, frame, true));
+  const sink: { occupied?: Occupied } = {};
+  out.push(drawBoard(board, frame, true, sink));
   // the tile map: each page's cell on the fitted board
   if (layout.tiles > 1) {
     for (let page = 1; page <= layout.tiles; page += 1) {
@@ -1005,7 +1015,29 @@ function overviewSvg(board: Formboard, layout: FormboardLayout, options: Formboa
       const y = area.y + PAD + by0 * fit;
       const w = (bx1 - bx0) * fit;
       const h = (by1 - by0) * fit;
-      out.push(`<g data-tile="${page}"><rect x="${n2(x)}" y="${n2(y)}" width="${n2(w)}" height="${n2(h)}" fill="none" stroke="${ACCENT}" stroke-width="0.2" stroke-dasharray="2 1.2"/>${text(x + 1.4, y + 3.6, 3.4, `p${page}`, ` fill="${ACCENT}" font-weight="bold"`)}</g>`);
+      // the page's name goes on the first free corner of its cell (inside, then just outside), clear of the board's own captions
+      const label = `p${page}`;
+      const box = { size: 3.4, bold: true } as const;
+      const corners: { x: number; y: number; anchor: 'start' | 'end' }[] = [
+        { x: x + 1.4, y: y + 3.6, anchor: 'start' },
+        { x: x + w - 1.4, y: y + 3.6, anchor: 'end' },
+        { x: x + 1.4, y: y + h - 1.2, anchor: 'start' },
+        { x: x + w - 1.4, y: y + h - 1.2, anchor: 'end' },
+        { x: x + 1.4, y: y - 1.2, anchor: 'start' },
+        { x: x + w - 1.4, y: y - 1.2, anchor: 'end' },
+        { x: x + 1.4, y: y + h + 3.8, anchor: 'start' },
+        { x: x + w - 1.4, y: y + h + 3.8, anchor: 'end' },
+      ];
+      // then anywhere near the cell, nearest first, on a 2.5 mm grid: a crowded corner (a breakout's connectors and pegs) still finds a free place
+      const spots = [...corners];
+      const near: { x: number; y: number; anchor: 'start' | 'end'; d: number }[] = [];
+      for (let dx = -12; dx <= w + 12; dx += 2.5) {
+        for (let dy = -8; dy <= h + 12; dy += 2.5) near.push({ x: x + dx, y: y + dy, anchor: 'start', d: Math.hypot(dx - 1.4, dy - 3.6) });
+      }
+      near.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);
+      spots.push(...near.map(({ x: nx, y: ny, anchor }) => ({ x: nx, y: ny, anchor })));
+      const at = sink.occupied === undefined ? (spots[0] as (typeof spots)[number]) : placeFirstFree(sink.occupied, spots, (c) => textPoly({ x: c.x, y: c.y }, label, { ...box, anchor: c.anchor }), frame.view);
+      out.push(`<g data-tile="${page}"><rect x="${n2(x)}" y="${n2(y)}" width="${n2(w)}" height="${n2(h)}" fill="none" stroke="${ACCENT}" stroke-width="0.2" stroke-dasharray="2 1.2"/>${text(at.x, at.y, 3.4, label, ` fill="${ACCENT}" font-weight="bold"${at.anchor === 'start' ? '' : ' text-anchor="end"'}`)}</g>`);
     }
   }
   // tables: runs on the left, pegs on the right
@@ -1027,7 +1059,7 @@ function overviewSvg(board: Formboard, layout: FormboardLayout, options: Formboa
   });
   const noteTop = top + 3.5 * (Math.min(tableRows, Math.max(1, maxRows)) + 1) + 2;
   notes.forEach((note, i) => out.push(text(MARGIN, noteTop + i * 3.2, 2.7, note, ` fill="${MUTED}"`)));
-  out.push(footer(board, layout, size, 'glyphs (connector, mould, sleeve) are symbols, not to scale; lengths are true', options));
+  out.push(footer(board, layout, size, 'glyphs (connector, mould, sleeve) are symbols, not to scale; lengths are true', options, 1));
   out.push('</svg>');
   return out.join('');
 }
@@ -1063,7 +1095,7 @@ export function formboardHtml(board: Formboard, options: FormboardSheetOptions =
     .join('\n');
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(board.title)} — formboard</title>` +
-    `<style>${brandFontFaces()}@page{size:${size.width}mm ${size.height}mm;margin:0}html,body{margin:0;background:#e9e9e9}` +
+    `<style>${brandFontFaces()}${plexFontFaceCss()}@page{size:${size.width}mm ${size.height}mm;margin:0}html,body{margin:0;background:#e9e9e9}` +
     `.cs-formboard-page{width:${size.width}mm;height:${size.height}mm;margin:0 auto 6mm;background:#fff;page-break-after:always;break-after:page;overflow:hidden}` +
     `.cs-formboard-page svg{display:block;width:${size.width}mm;height:${size.height}mm}` +
     `@media print{html,body{background:#fff}.cs-formboard-page{margin:0}}</style></head><body>\n${pages}\n</body></html>`
