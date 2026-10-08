@@ -88,6 +88,8 @@ export {
   standaloneDocument,
 } from './standalone.ts';
 export { SHEET_STYLESHEET } from './styles.ts';
+export * from './frame/index.ts';
+export { sheetFrameFor } from './sheet-frame.ts';
 
 export * from './exports/index.ts';
 
@@ -142,3 +144,5 @@ export type { WireSpecOptions } from './wire-spec.ts';
 export { constructionTag, stripMakerSuffix, wireDisplayName } from '@wirehub/model';
 export { registerBenchSteps } from './bench/standard-work.ts';
 export type { BenchStepsProvider, ShellSet, Step as BenchStep } from './bench/standard-work.ts';
+
+export { framedSchematicSvg, schematicFrame, svgSize } from './schematic-sheet.ts';

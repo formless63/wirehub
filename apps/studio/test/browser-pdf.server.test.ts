@@ -100,7 +100,7 @@ describe('the sheet sent to the engine', () => {
     const html = printableHtml('<!doctype html><html><head><title>t</title></head><body><div class="cs-root">x</div></body></html>');
     const style = /<style data-wirehub-print-fonts>([\s\S]*?)<\/style><\/head>/.exec(html)?.[1] ?? '';
     for (const family of ['CS Sans', 'Helvetica', 'Arial']) expect(style).toContain(`font-family:'${family}';font-style:normal;font-weight:700;src:url(data:font/woff2;base64,`);
-    expect(style).toContain(".cs-root{--cs-font:'CS Sans',Helvetica,Arial,sans-serif}");
+    expect(style).toContain(".cs-root{--cs-font:'IBM Plex Sans','CS Sans',Helvetica,Arial,sans-serif}");
     expect(html).not.toMatch(/https?:\/\//);
   });
 
@@ -152,16 +152,18 @@ describe('the documents route', () => {
       expect(res.headers?.['X-WireHub-PDF-Renderer']).toBe(kind === 'drawing' ? 'raster' : 'text-layout');
       expect(res.headers?.['X-WireHub-PDF-Fallback']).toMatch(/No browser PDF engine is configured \(WIREHUB_PDF_ENGINE_URL\)/);
     }
-    // the drawings that are drawings already: no fallback to report
-    const schematic = await get(`/api/designs/${ID}/documents/schematic?format=pdf`, deps);
-    expect(schematic.headers?.['X-WireHub-PDF-Renderer']).toBe('raster');
-    expect(schematic.headers?.['X-WireHub-PDF-Fallback']).toBeUndefined();
+    // the schematic and the label sheet are printed by the engine when there is one, so without it they are raster and say why
+    for (const kind of ['schematic', 'labels']) {
+      const res = await get(`/api/designs/${ID}/documents/${kind}?format=pdf`, deps);
+      expect(res.headers?.['X-WireHub-PDF-Renderer']).toBe('raster');
+      expect(res.headers?.['X-WireHub-PDF-Fallback']).toMatch(/No browser PDF engine is configured/);
+    }
     expect((await get(`/api/designs/${ID}/documents/formboard?format=pdf&scale=0.1`, deps)).headers?.['X-WireHub-PDF-Renderer']).toBe('vector');
     // not a PDF: no PDF headers
     expect((await get(`/api/designs/${ID}/documents/bom?format=html`, deps)).headers?.['X-WireHub-PDF-Renderer']).toBeUndefined();
   });
 
-  it('with an engine: the HTML sheet, marked as the browser marks it, printed by the engine', async () => {
+  it('with an engine: the HTML sheet, stamped with its state, printed by the engine', async () => {
     const deps = hubDeps({ pdfEngine: engine });
     for (const kind of SHEETS) {
       const res = await get(`/api/designs/${ID}/documents/${kind}?format=pdf&paper=letter`, deps);
@@ -174,19 +176,32 @@ describe('the documents route', () => {
       // what was sent is the html format's own answer
       const html = new TextDecoder().decode((await get(`/api/designs/${ID}/documents/${kind}?format=html&paper=letter`, deps)).bytes);
       expect(engine.sent.at(-1)).toBe(html);
-      expect(html).toContain('cs-unreleased-mark');
+      // the state is in the title block and the corner stamp: no watermark across the content
+      expect(html).toMatch(/class="wh-stamp"|data-state-stamp="UNRELEASED"/);
+      expect(html).not.toContain('cs-unreleased-mark');
     }
-    expect(engine.sent[0]).toContain('@page{size:letter portrait');
-    // the schematic, the labels and the formboard keep their own PDFs
-    for (const kind of ['schematic', 'labels']) expect((await get(`/api/designs/${ID}/documents/${kind}?format=pdf`, deps)).headers?.['X-WireHub-PDF-Renderer']).toBe('raster');
-    expect(engine.sent).toHaveLength(SHEETS.length);
+    expect(engine.sent[0]).toContain('@page{size:215.9mm 279.4mm');
+    // the schematic and the labels are printed by the engine too, inside the same frame: vector, text kept as text
+    for (const kind of ['schematic', 'labels']) {
+      const res = await get(`/api/designs/${ID}/documents/${kind}?format=pdf&paper=letter`, deps);
+      expect(res.headers?.['X-WireHub-PDF-Renderer']).toBe('browser');
+      expect(res.headers?.['X-WireHub-PDF-Fallback']).toBeUndefined();
+      const page = engine.sent.at(-1) ?? '';
+      expect(page).toMatch(/<svg[^>]*class="wh-sheet"|<svg[^>]*data-pages=/);
+      expect(page).toContain('data-state-stamp="UNRELEASED"');
+      expect(page).toContain('<text');
+      expect(page).not.toContain('<image');
+    }
+    // the formboard keeps its own vector PDF
+    expect((await get(`/api/designs/${ID}/documents/formboard?format=pdf&scale=0.1`, deps)).headers?.['X-WireHub-PDF-Renderer']).toBe('vector');
+    expect(engine.sent).toHaveLength(SHEETS.length + 2);
   });
 
   it('a saved revision prints without the mark', async () => {
     const deps = hubDeps({ pdfEngine: engine });
     expect((await routeWorkbenchRequest({ method: 'POST', path: `/api/designs/${ID}/versions`, body: { note: 'first' } }, deps)).status).toBe(201);
     expect((await get(`/api/designs/${ID}/documents/build-sheet?format=pdf&rev=latest`, deps)).headers?.['X-WireHub-PDF-Renderer']).toBe('browser');
-    expect(engine.sent.at(-1)).not.toContain('cs-unreleased-mark');
+    expect(engine.sent.at(-1)).not.toContain('class="wh-stamp"');
   });
 
   it('an engine that fails: still a PDF, the headless one, and the header says why', async () => {

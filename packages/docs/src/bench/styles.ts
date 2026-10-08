@@ -7,32 +7,7 @@
  */
 
 export const BENCH_STYLESHEET = `@layer wirehub.docs{
-.cs-bench{--cs-accent:#c2602a;--cs-ok:#1f7a45;font-family:Helvetica,Arial,var(--cs-font);font-size:8.6pt}
-.cs-tb{border:1pt solid #000;margin:0 0 3mm;break-inside:avoid}
-.cs-tb__row{display:flex;border-top:0.6pt solid #000}
-.cs-tb__row--top{border-top:0}
-.cs-tb__kind{writing-mode:vertical-rl;transform:rotate(180deg);font-size:6.4pt;font-weight:700;letter-spacing:0.14em;padding:1mm 0.8mm;border-right:0.6pt solid #000;background:#000;color:#fff;text-align:center}
-.cs-tb__cell{flex:1 1 0;min-width:0;padding:0.9mm 1.6mm 1.1mm;border-left:0.6pt solid #000;display:flex;flex-direction:column;gap:0.3mm}
-.cs-tb__row .cs-tb__cell:first-child,.cs-tb__kind+.cs-tb__cell{border-left:0}
-.cs-tb__rights{border-top:0.6pt solid #000;padding:0.6mm 1.6mm;font-size:6pt;letter-spacing:0.04em}
-.cs-tb__title{flex:3 1 0}
-.cs-tb__pncell{flex:1.6 1 0}
-.cs-tb__rev{flex:0.9 1 0}
-.cs-tb__k{font-size:5.6pt;letter-spacing:0.08em;text-transform:uppercase;color:#000}
-.cs-tb__v{font-size:9.4pt;line-height:1.2;overflow-wrap:normal;word-break:normal;hyphens:none}
-.cs-tb__title .cs-tb__v{font-size:11.5pt;font-weight:700}
-.cs-tb__pn{font-size:12pt;font-weight:700;letter-spacing:0.02em;display:block}
-.cs-tb__pns{display:flex;flex-wrap:wrap;gap:0.6mm 2.4mm;font-weight:700;font-size:9pt}
-.cs-tb__sub{display:block;font-size:6.6pt;color:var(--cs-muted);letter-spacing:0.04em}
-.cs-tb__none{font-size:9pt;font-weight:700;color:var(--cs-hazard)}
-.cs-tb__mono .cs-tb__v{font-family:var(--cs-mono);font-size:7.6pt}
-.cs-tb__cell.cs-is-flag .cs-tb__v{font-weight:700;color:var(--cs-hazard);font-size:7.6pt;overflow-wrap:normal}
-.cs-badge{display:inline-block;margin-top:0.6mm;padding:0.2mm 1.2mm;border:0.8pt solid currentColor;border-radius:0.6mm;font-size:6.4pt;font-weight:700;letter-spacing:0.1em;width:max-content}
-.cs-badge.cs-is-released{color:var(--cs-ok)}
-.cs-badge.cs-is-unreleased{color:var(--cs-hazard)}
-.cs-run{display:flex;gap:4mm;justify-content:space-between;border-bottom:0.8pt solid #000;padding:0 0 0.8mm;margin:0 0 2.6mm;font-size:6.8pt}
-.cs-run__pn{font-weight:700}
-.cs-run__stage{font-weight:700;letter-spacing:0.1em;text-transform:uppercase}
+.cs-bench{--cs-accent:#c2602a;--cs-ok:#1f7a45;font-size:8.6pt}
 .cs-page{break-before:page}
 .cs-page:first-of-type{break-before:auto}
 .cs-stage{display:flex;align-items:baseline;gap:2.4mm;margin:0 0 2mm;border-bottom:1.2pt solid #000;padding-bottom:0.8mm;break-after:avoid}

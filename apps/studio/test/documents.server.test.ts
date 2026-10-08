@@ -86,6 +86,41 @@ function readPdf(bytes: Uint8Array): { pages: number; streams: string[]; images:
   return { pages: Number(/\/Count (\d+)/.exec(text)![1]), streams, images };
 }
 
+describe('every sheet in the one frame, on the paper asked for', () => {
+  it('honours paper= on every kind: the page size follows, the frame is on the sheet', async () => {
+    const size = (svg: string): [number, number] => {
+      const m = /width="([\d.]+)mm" height="([\d.]+)mm"/.exec(svg)!;
+      return [Number(m[1]), Number(m[2])];
+    };
+    const [dw, dh] = size(text(await get(`/api/designs/${ID}/documents/drawing?format=svg&paper=A3`)));
+    expect([dw, dh]).toEqual([420, 297]);
+    expect(size(text(await get(`/api/designs/${ID}/documents/drawing?format=svg&paper=letter`)))).toEqual([279.4, 215.9]);
+    expect(size(text(await get(`/api/designs/${ID}/documents/formboard?format=svg&paper=A3`)))).toEqual([420, 297]);
+    expect(size(text(await get(`/api/designs/${ID}/documents/labels?format=svg&paper=letter`)))).toEqual([215.9, 279.4]);
+    const schematic = text(await get(`/api/designs/${ID}/documents/schematic?format=svg&paper=A3`));
+    expect(schematic).toMatch(/data-paper="A3"/);
+    expect(schematic).toContain('data-state-stamp="UNRELEASED"');
+    const bom = text(await get(`/api/designs/${ID}/documents/bom?format=html&paper=ansi-c`));
+    expect(bom).toContain('@page{size:431.8mm 558.8mm');
+    const refused = await get(`/api/designs/${ID}/documents/bom?paper=A5`);
+    expect(refused.status).toBe(400);
+    expect(JSON.stringify(refused.body)).toContain('A4, A3');
+  });
+
+  it('prints the saved revisions in the drawing’s revision table, the working copy as its own row', async () => {
+    await release();
+    const working = text(await get(`/api/designs/${ID}/documents/drawing?format=svg`));
+    expect(working).toContain('class="wh-revisions"');
+    expect(working).toContain('first');
+    expect(working).toContain('Working copy, not released');
+    // a saved revision's drawing lists up to itself, and is released: no stamp
+    const saved = text(await get(`/api/designs/${ID}/documents/drawing?format=svg&rev=1`));
+    expect(saved).toContain('class="wh-revisions"');
+    expect(saved).not.toContain('Working copy, not released');
+    expect(saved).not.toContain('data-state-stamp');
+  });
+});
+
 describe('GET /api/designs/:id/documents/:kind', () => {
   it('renders the html sheets with the browser\'s own functions; the working copy is marked UNRELEASED', async () => {
     const r = await get(`/api/designs/${ID}/documents/build-sheet`);

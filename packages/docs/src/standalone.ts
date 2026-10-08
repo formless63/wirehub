@@ -15,61 +15,34 @@
  * kind), same determinism — no clock unless the caller passes one.
  */
 
-import { designStatus, type CableDesign, type Db } from '@wirehub/model';
+import type { CableDesign, Db } from '@wirehub/model';
 
-import { bomSheetBody, bomSheetMarkdown, deriveBomSheet } from './bom-sheet.ts';
-import { benchOptions, type BuildSheetOptions, type SheetOptions } from './build-sheet.ts';
+import { footHtml, headerFrame, headerHtml, headerFrameCss, type SheetHeader } from './bench/header.ts';
+import { bomSheetBody, bomSheetMarkdown, deriveBomSheet, sheetHeaderOf } from './bom-sheet.ts';
+import { type BuildSheetOptions, type SheetOptions, benchOptions } from './build-sheet.ts';
 import { brandSheetCss } from './drawing/brand-font.ts';
+import { flowPageCss, type SheetFrameSpec } from './frame/index.ts';
 import { SHEET_STYLESHEET } from './styles.ts';
 import { resolveTestParameters } from './exports/test-params.ts';
 import { deriveTestSpec } from './test-spec.ts';
 import { testSpecToHtml } from './test-spec-render.ts';
 import { escapeHtml, facts } from './text.ts';
 
-function fact(key: string, value: string): string {
-  return (
-    '<div class="cs-fact">' +
-    `<span class="cs-fact__k">${escapeHtml(key)}</span>` +
-    `<span class="cs-fact__v">${escapeHtml(value)}</span>` +
-    '</div>'
-  );
-}
-
 /**
- * The `.cs-root` element for a one-section document: title block, the caller's
- * fragment, and the same footer line the build sheet closes with.
+ * The `.cs-root` element for a one-section document: the frame's title block
+ * (`header`), the caller's fragment, and the same footer line the build sheet
+ * closes with.
  */
-export function documentBody(
-  kind: string,
-  design: CableDesign,
-  section: string,
-  options: SheetOptions = {},
-): string {
-  const identity = options.document ?? {};
-  const title = options.title ?? design.label;
+export function documentBody(header: SheetHeader, section: string): string {
   return [
-    '<div class="cs-root cs-sheet">',
-    `<style>${SHEET_STYLESHEET}${brandSheetCss()}</style>`,
-    '<header class="cs-titleblock">',
-    '<div class="cs-titleblock__bar">',
-    `<span class="cs-titleblock__kind">${escapeHtml(kind)}</span>`,
-    `<span class="cs-titleblock__doc">${escapeHtml(
-      facts([identity.number, identity.revision, identity.status]) || design.id,
-    )}</span>`,
-    '</div>',
-    `<div class="cs-titleblock__title">${escapeHtml(title)}</div>`,
-    '<div class="cs-titleblock__facts">',
-    fact('Design', design.id),
-    ...(design.productRef === undefined ? [] : [fact('Product ref', design.productRef)]),
-    // a development or legacy design says so on its title block; active stays quiet
-    ...(designStatus(design) === 'active' ? [] : [fact('Design status', designStatus(design).toUpperCase())]),
-    ...(options.generatedAt === undefined ? [] : [fact('Generated', options.generatedAt)]),
-    '</div>',
-    '</header>',
+    '<div class="cs-root cs-sheet wh-sheet-col">',
+    `<style>${SHEET_STYLESHEET}${headerFrameCss(header)}${brandSheetCss()}</style>`,
+    headerHtml(header),
     section,
     `<footer class="cs-foot">${escapeHtml(
-      facts([design.id, 'derived from the canonical model — one derivation, however it is printed']),
+      facts([header.designId, 'derived from the canonical model — one derivation, however it is printed']),
     )}</footer>`,
+    footHtml(header),
     '</div>',
   ].join('');
 }
@@ -77,11 +50,13 @@ export function documentBody(
 /**
  * Wrap a body in the document shell. `@page` lives here for the same reason it
  * lives in `renderBuildSheet`: a page rule cannot be scoped to a class, so an
- * embeddable fragment must never emit one.
+ * embeddable fragment must never emit one. Given the sheet's frame, the shell
+ * also carries what repeats on every printed page: the border, the strip and
+ * the state stamp (`frame/`).
  */
-export function standaloneDocument(title: string, body: string, options: SheetOptions = {}): string {
+export function standaloneDocument(title: string, body: string, options: SheetOptions = {}, frame?: SheetFrameSpec): string {
   if (options.fragment === true) return body;
-  const paper = options.paper ?? 'A4';
+  const page = frame === undefined ? '@page{size:A4 portrait;margin:12mm}' : flowPageCss(frame);
   return [
     '<!doctype html>',
     '<html lang="en">',
@@ -89,9 +64,9 @@ export function standaloneDocument(title: string, body: string, options: SheetOp
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width,initial-scale=1">',
     `<title>${escapeHtml(title)}</title>`,
-    `<style>@page{size:${paper} portrait;margin:12mm}html,body{margin:0;padding:0;background:#ffffff}</style>`,
+    `<style>${page}html,body{margin:0;padding:0;background:#ffffff}</style>`,
     '</head>',
-    '<body>',
+    `<body${frame === undefined ? '' : ' class="wh-paged"'}>`,
     body,
     '</body>',
     '</html>',
@@ -99,14 +74,15 @@ export function standaloneDocument(title: string, body: string, options: SheetOp
 }
 
 /**
- * The bill of materials, printable on its own: the
- * product PN in the header, the lines grouped by section — exactly an ERP
- * export's lines (`deriveBomSheet`).
+ * The bill of materials, printable on its own: the product PN in the title
+ * block, the lines grouped by section — exactly an ERP export's lines
+ * (`deriveBomSheet`).
  */
 export function renderBomSheet(design: CableDesign, db: Db, options: BuildSheetOptions = {}): string {
   const bench = benchOptions(options);
   const body = bomSheetBody(deriveBomSheet(design, db, bench));
-  return standaloneDocument(`${options.title ?? design.label} — bill of materials`, body, options);
+  const frame = headerFrame(sheetHeaderOf(design, db, bench, 'BILL OF MATERIALS'));
+  return standaloneDocument(`${options.title ?? design.label} — bill of materials`, body, options, frame);
 }
 
 /** The BOM as markdown, from the same model (Documents › Copy). */
@@ -115,21 +91,12 @@ export function renderBomMarkdown(design: CableDesign, db: Db, options: BuildShe
 }
 
 /** The continuity / test spec, printable on its own. */
-export function renderTestSpecSheet(
-  design: CableDesign,
-  db: Db,
-  options: SheetOptions = {},
-): string {
+export function renderTestSpecSheet(design: CableDesign, db: Db, options: BuildSheetOptions = {}): string {
   const parameters = resolveTestParameters(options.testParameters, options.testDefaults);
+  const header = sheetHeaderOf(design, db, benchOptions(options), 'CONTINUITY & TEST SPEC');
   const body = documentBody(
-    'CONTINUITY & TEST SPEC',
-    design,
+    header,
     testSpecToHtml(deriveTestSpec(design, db, { continuityOhmsMax: parameters.continuityOhmsMax }), parameters),
-    options,
   );
-  return standaloneDocument(
-    `${options.title ?? design.label} — continuity & test spec`,
-    body,
-    options,
-  );
+  return standaloneDocument(`${options.title ?? design.label} — continuity & test spec`, body, options, headerFrame(header));
 }

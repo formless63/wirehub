@@ -175,22 +175,29 @@ export function testSpecToMarkdown(spec: TestSpec, parameters?: ResolvedTestPara
     out.push(markdownTable(ISOLATION_HEADERS, spec.violations.map(isolationRow)));
   }
 
-  out.push('');
-  out.push('## Continuity — one net, one node');
-  out.push('');
-  out.push(markdownTable(NET_HEADERS, spec.netChecks.map(netRow)));
+  // a section with nothing in it is left out: no heading over an empty table
+  if (spec.netChecks.length > 0) {
+    out.push('');
+    out.push('## Continuity — one net, one node');
+    out.push('');
+    out.push(markdownTable(NET_HEADERS, spec.netChecks.map(netRow)));
+  }
 
-  out.push('');
-  out.push('## Continuity — through something');
-  out.push('');
-  out.push(METER_PREAMBLE);
-  out.push('');
-  out.push(markdownTable(PATH_HEADERS, spec.pathChecks.map(pathRow), PATH_ALIGN));
+  if (spec.pathChecks.length > 0) {
+    out.push('');
+    out.push('## Continuity — through something');
+    out.push('');
+    out.push(METER_PREAMBLE);
+    out.push('');
+    out.push(markdownTable(PATH_HEADERS, spec.pathChecks.map(pathRow), PATH_ALIGN));
+  }
 
-  out.push('');
-  out.push('## Isolation — must NOT be connected');
-  out.push('');
-  out.push(markdownTable(ISOLATION_HEADERS, spec.isolationChecks.map(isolationRow)));
+  if (spec.isolationChecks.length > 0) {
+    out.push('');
+    out.push('## Isolation — must NOT be connected');
+    out.push('');
+    out.push(markdownTable(ISOLATION_HEADERS, spec.isolationChecks.map(isolationRow)));
+  }
 
   if (spec.commoned.length > 0) {
     out.push('');
@@ -199,10 +206,12 @@ export function testSpecToMarkdown(spec: TestSpec, parameters?: ResolvedTestPara
     out.push(markdownTable(COMMONED_HEADERS, spec.commoned.map(commonedRow)));
   }
 
-  out.push('');
-  out.push('## Deliberate open circuits — do not "fix" these');
-  out.push('');
-  out.push(markdownTable(OPEN_HEADERS, spec.openChecks.map(openRow)));
+  if (spec.openChecks.length > 0) {
+    out.push('');
+    out.push('## Deliberate open circuits — do not "fix" these');
+    out.push('');
+    out.push(markdownTable(OPEN_HEADERS, spec.openChecks.map(openRow)));
+  }
 
   if (spec.groundLandings.length > 0) {
     out.push('');
@@ -262,31 +271,33 @@ export function testSpecToHtml(spec: TestSpec, parameters?: ResolvedTestParamete
     );
   }
 
-  parts.push('<h3 class="cs-section__h3">Continuity — one net, one node</h3>');
-  parts.push(htmlTable('cs-table cs-table--nets', NET_HEADERS, spec.netChecks.map(netRow)));
+  // a section with nothing in it is left out: no heading over an empty table
+  if (spec.netChecks.length > 0) {
+    parts.push('<h3 class="cs-section__h3">Continuity — one net, one node</h3>');
+    parts.push(htmlTable('cs-table cs-table--nets', NET_HEADERS, spec.netChecks.map(netRow)));
+  }
 
-  parts.push('<h3 class="cs-section__h3">Continuity — through something</h3>');
-  parts.push(`<p class="cs-caution">${escapeHtml(METER_PREAMBLE)}</p>`);
-  parts.push(
-    htmlTable('cs-table cs-table--paths', PATH_HEADERS, spec.pathChecks.map(pathRow), PATH_ALIGN),
-  );
+  if (spec.pathChecks.length > 0) {
+    parts.push('<h3 class="cs-section__h3">Continuity — through something</h3>');
+    // printed text: the markdown's code marks are not carried (`escapeHtml` drops them)
+    parts.push(`<p class="cs-caution">${escapeHtml(METER_PREAMBLE)}</p>`);
+    parts.push(htmlTable('cs-table cs-table--paths', PATH_HEADERS, spec.pathChecks.map(pathRow), PATH_ALIGN));
+  }
 
-  parts.push('<h3 class="cs-section__h3">Isolation — must NOT be connected</h3>');
-  parts.push(
-    htmlTable(
-      'cs-table cs-table--isolation',
-      ISOLATION_HEADERS,
-      spec.isolationChecks.map(isolationRow),
-    ),
-  );
+  if (spec.isolationChecks.length > 0) {
+    parts.push('<h3 class="cs-section__h3">Isolation — must NOT be connected</h3>');
+    parts.push(htmlTable('cs-table cs-table--isolation', ISOLATION_HEADERS, spec.isolationChecks.map(isolationRow)));
+  }
 
   if (spec.commoned.length > 0) {
     parts.push('<h3 class="cs-section__h3">Commoned by design — one net on purpose</h3>');
     parts.push(htmlTable('cs-table cs-table--commoned', COMMONED_HEADERS, spec.commoned.map(commonedRow)));
   }
 
-  parts.push('<h3 class="cs-section__h3">Deliberate open circuits — do not &ldquo;fix&rdquo; these</h3>');
-  parts.push(htmlTable('cs-table cs-table--opens', OPEN_HEADERS, spec.openChecks.map(openRow)));
+  if (spec.openChecks.length > 0) {
+    parts.push('<h3 class="cs-section__h3">Deliberate open circuits — do not &ldquo;fix&rdquo; these</h3>');
+    parts.push(htmlTable('cs-table cs-table--opens', OPEN_HEADERS, spec.openChecks.map(openRow)));
+  }
 
   if (spec.groundLandings.length > 0) {
     parts.push('<h3 class="cs-section__h3">Ground landings — pre-shell visual check</h3>');

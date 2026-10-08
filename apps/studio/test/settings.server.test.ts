@@ -131,6 +131,23 @@ describe('branding settings', () => {
     expect((await put(d, { tolerances: [['a label too long', '1']] }, now)).status).toBe(400);
   });
 
+  it('keeps the paper and the title-block layout the documents print with, and refuses what is neither', async () => {
+    const { deps: d } = deps();
+    const first = await get(d);
+    const saved = await put(d, { organisation: 'Acme', paper: 'A3', titleBlock: 'ansi' }, first.headers!.ETag!);
+    expect(saved.status).toBe(200);
+    expect(saved.body).toMatchObject({ paper: 'A3', titleBlock: 'ansi' });
+    expect(await get(d)).toMatchObject({ body: { paper: 'A3', titleBlock: 'ansi' } });
+    const tag = (await get(d)).headers!.ETag!;
+    expect((await put(d, { paper: 'A5' }, tag)).status).toBe(400);
+    expect((await put(d, { titleBlock: 'din' }, tag)).status).toBe(400);
+    // empty keeps the built-in: A4, and the layout the paper calls for
+    const cleared = await put(d, { organisation: 'Acme', paper: '', titleBlock: '' }, tag);
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).not.toHaveProperty('paper');
+    expect(cleared.body).not.toHaveProperty('titleBlock');
+  });
+
   it('keeps the general note and tolerance rows, dropping empty rows', async () => {
     const { deps: d } = deps();
     const tag = (await get(d)).headers!.ETag!;

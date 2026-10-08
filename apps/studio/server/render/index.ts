@@ -25,6 +25,16 @@
 import { renderSchematic } from '@wirehub/render-svg';
 import {
   baseExport,
+  effectivePaper,
+  frameFontStyle,
+  framedSchematicSvg,
+  frameGeometry,
+  paperSize,
+  schematicFrame,
+  sheetFrameFor,
+  type PaperId,
+  type RevisionRow,
+  type TitleBlockStandard,
   buildSheetMarkdown,
   deriveFormboard,
   deriveLabels,
@@ -40,7 +50,6 @@ import {
   renderDrawingSheet,
   renderTestSpecSheet,
   sheetRenderOptions,
-  withUnreleasedMark,
   testSpecToMarkdown,
   deriveTestSpec,
   resolveTestParameters,
@@ -105,7 +114,13 @@ export interface DocumentRequest {
   photo?: string;
   /** the saved revision being rendered */
   revisionNumber?: number;
-  paper?: 'A4' | 'letter';
+  paper?: PaperId;
+  /** the title-block layout (`ansi` or `iso`), when the hub sets one */
+  titleBlock?: TitleBlockStandard;
+  /** who checked it (the approver, when approvals are on) */
+  checked?: string;
+  /** the drawing's revision table: the saved revisions, oldest first */
+  revisions?: readonly RevisionRow[];
   variation?: string;
   /** label sheet: 1-based page and copies of each label */
   page?: number;
@@ -118,9 +133,9 @@ export interface DocumentRequest {
   explode?: boolean;
   /** the organisation's default test parameters */
   testDefaults?: TestParameters;
-  /** print the working copy marked UNRELEASED (html) — set when the studio keeps saved revisions */
+  /** the working copy: its state is UNRELEASED, in the title block and in the corner stamp — set when the studio keeps saved revisions */
   unreleased?: boolean;
-  /** the word the mark carries (default UNRELEASED; a saved version still awaiting approval says UNAPPROVED) */
+  /** the state word when the sidecar names none (default UNRELEASED; a saved version still awaiting approval says UNAPPROVED) */
   unreleasedLabel?: string;
   /** board artwork the sheets draw (default: the catalog's own tree) */
   depictions?: DepictionSource;
@@ -144,8 +159,20 @@ export type DocumentResult =
   | { ok: true; output: FormatOutput; pdf?: PdfProvenance }
   | { ok: false; status: number; error: string; hint: string };
 
-/** The documents whose PDF is their HTML sheet printed by the browser engine, when one is configured. */
-export const BROWSER_PDF_KINDS: ReadonlySet<DocumentKind> = new Set(['build-sheet', 'bom', 'test-spec', 'drawing']);
+/** The documents whose PDF is their sheet printed by the browser engine, when one is configured: the HTML sheets, and the schematic, drawing and label sheets (an SVG page each). Their text stays text. */
+export const BROWSER_PDF_KINDS: ReadonlySet<DocumentKind> = new Set(['build-sheet', 'bom', 'test-spec', 'drawing', 'schematic', 'labels']);
+
+/** SVG pages as one HTML document the browser engine prints: a page each, of the SVG's own size. */
+export function svgPagesHtml(title: string, pages: readonly string[], width: number, height: number): string {
+  const size = `${Math.round(width * 100) / 100}mm ${Math.round(height * 100) / 100}mm`;
+  return (
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title.replace(/[<&]/g, ' ')}</title>` +
+    `<style>@page{size:${size};margin:0}html,body{margin:0;padding:0;background:#fff}` +
+    `.wh-page{width:${width}mm;height:${height}mm;overflow:hidden;break-after:page;page-break-after:always}.wh-page:last-child{break-after:auto;page-break-after:auto}.wh-page svg{display:block;width:${width}mm;height:${height}mm}</style></head><body>` +
+    pages.map((svg) => `<div class="wh-page">${svg}</div>`).join('') +
+    '</body></html>'
+  );
+}
 
 /** Run a synchronous sheet render with the hub's branding registered, and only then (the registry is shared). */
 export function withBranding<T>(art: DrawingArt | undefined, render: () => T): T {
@@ -182,10 +209,18 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
   }
   const meta = request.drawing ?? {};
   const sheet = sheetRenderOptions(meta, design, () => request.today ?? '');
-  const paper = request.paper ?? sheet.paper ?? 'A4';
+  // one state for every sheet: the sidecar's (RELEASED, UNRELEASED · awaiting approval …), else the working copy's
+  const state = sheet.document?.status ?? (request.unreleased === true ? (request.unreleasedLabel ?? 'UNRELEASED') : undefined);
+  const identity = state === undefined ? sheet.document : { ...(sheet.document ?? {}), status: state };
+  // the paper: asked for, else the sheet's own, else the hub's setting (registered with the branding), else A4
+  const asked: PaperId | undefined = request.paper ?? sheet.paper;
+  const paper: PaperId = withBranding(request.branding, () => effectivePaper(asked));
   const options: FormatOptions = {
     ...sheet,
+    ...(identity === undefined ? {} : { document: identity }),
     paper,
+    ...(request.titleBlock === undefined ? {} : { titleBlock: request.titleBlock }),
+    ...(request.checked === undefined ? {} : { checked: request.checked }),
     drawing: meta,
     ...(request.variation === undefined ? {} : { variation: request.variation }),
     ...(request.revisionNumber === undefined ? {} : { revisionNumber: request.revisionNumber }),
@@ -198,21 +233,60 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     depictions: request.depictions ?? true,
     ...(request.partNumbers === undefined ? {} : { partNumbers: request.partNumbers }),
   };
-  const marked = (html: string): string => (request.unreleased === true ? withUnreleasedMark(html, request.unreleasedLabel) : html);
   let pdf: PdfProvenance | undefined;
   const out = (body: string | Uint8Array, fileFormat: DocumentFormat = format, renderer?: PdfProvenance['renderer']): DocumentResult => ({
     ok: true,
-    output: {
-      mimeType: MIME[fileFormat],
-      fileName: `${stem(request)}.${fileFormat}`,
-      body: typeof body === 'string' && fileFormat === 'html' ? marked(body) : body,
-    },
+    output: { mimeType: MIME[fileFormat], fileName: `${stem(request)}.${fileFormat}`, body },
     ...(fileFormat === 'pdf' && renderer !== undefined ? { pdf: { ...pdf, renderer } } : {}),
   });
-  const drawingOptions = { meta, ...(request.photo === undefined ? {} : { photo: request.photo }) };
-  /** the HTML sheet of a document that has one (not the formboard: its PDF is vector already) */
-  const sheetHtml = (): string =>
-    withBranding(request.branding, () =>
+  const drawingOptions = {
+    meta,
+    ...(request.photo === undefined ? {} : { photo: request.photo }),
+    paper,
+    ...(request.titleBlock === undefined ? {} : { titleBlock: request.titleBlock }),
+    ...(state === undefined ? {} : { state }),
+    ...(request.checked === undefined ? {} : { checked: request.checked }),
+    ...(request.revisions === undefined ? {} : { revisions: request.revisions }),
+  };
+  /** a design's sheet frame, for the sheets drawn as SVG */
+  const frameOf = (what: string, orientation: 'portrait' | 'landscape', variant: 'full' | 'strip' = 'full') => sheetFrameFor(design, db, options, what, orientation, variant);
+  /** the schematic: the render-svg drawing, framed (`withBranding`: the title block's organisation and logo) */
+  const schematicSvg = (): string => {
+    let svg: string;
+    try {
+      svg = renderSchematic(design, db, request.depictions === undefined ? {} : { depictions: request.depictions });
+    } catch {
+      svg = renderSchematic(design, db, { depictions: false });
+    }
+    return withBranding(request.branding, () => framedSchematicSvg(svg, schematicFrame(design, db, svg, options)));
+  };
+  /** the label sheet's pages, each framed */
+  const labelPages = (): string[] => {
+    const labels = deriveLabels(design, db);
+    const count = labelSheetPages(labels.length, options);
+    return withBranding(request.branding, () => {
+      const frame = frameOf('LABELS', 'portrait', 'strip');
+      return Array.from({ length: count }, (_, i) => labelSheetSvg(labels, { ...options, frame, page: i + 1 }));
+    });
+  };
+  const sizeOfSvg = (svg: string): { width: number; height: number } => {
+    const mm = /width="([\d.]+)mm" height="([\d.]+)mm"/.exec(svg);
+    return { width: Number(mm?.[1] ?? 210), height: Number(mm?.[2] ?? 297) };
+  };
+  const toPt = (mm: number): number => (mm / 25.4) * 72;
+  /** the sheet of a document that has one, as the HTML the browser engine prints (not the formboard: its PDF is vector already) */
+  const sheetHtml = (): string => {
+    if (kind === 'schematic') {
+      const svg = schematicSvg();
+      const size = sizeOfSvg(svg);
+      return svgPagesHtml(titleOf(request), [svg], size.width, size.height);
+    }
+    if (kind === 'labels') {
+      const pages = labelPages();
+      const size = sizeOfSvg(pages[0] as string);
+      return svgPagesHtml(titleOf(request), pages, size.width, size.height);
+    }
+    return withBranding(request.branding, () =>
       kind === 'build-sheet'
         ? renderBuildSheet(design, db, options)
         : kind === 'bom'
@@ -221,13 +295,14 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
             ? renderTestSpecSheet(design, db, options)
             : renderDrawingSheet(design, db, drawingOptions),
     );
+  };
   try {
     if (format === 'pdf' && BROWSER_PDF_KINDS.has(kind)) {
       if (request.pdfEngine === undefined) {
         pdf = { renderer: 'text-layout', fallback: 'No browser PDF engine is configured (WIREHUB_PDF_ENGINE_URL), so this is the headless PDF, not the printed HTML sheet (format=html prints that in a browser).' };
       } else {
         try {
-          return out(await request.pdfEngine.htmlToPdf(marked(sheetHtml())), 'pdf', 'browser');
+          return out(await request.pdfEngine.htmlToPdf(sheetHtml()), 'pdf', 'browser');
         } catch (error) {
           const why = error instanceof Error ? error.message : String(error);
           console.warn(`[documents] browser PDF of ${design.id} ${kind}: ${why}; sent the headless PDF instead`);
@@ -242,53 +317,46 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     }
     switch (kind) {
       case 'schematic': {
-        let svg: string;
-        try {
-          svg = renderSchematic(design, db, request.depictions === undefined ? {} : { depictions: request.depictions });
-        } catch {
-          svg = renderSchematic(design, db, { depictions: false });
-        }
+        const svg = schematicSvg();
         if (format === 'svg') return out(svg);
-        return out(pagesToPdf([await svgToPdfPage({ svg, width: 841.89, height: 595.28, margin: 24 })], titleOf(request)), 'pdf', 'raster');
+        const size = sizeOfSvg(svg);
+        return out(pagesToPdf([await svgToPdfPage({ svg, width: toPt(size.width), height: toPt(size.height), ...(request.branding?.font === undefined ? {} : { brand: request.branding.font }) })], titleOf(request)), 'pdf', 'raster');
       }
       case 'drawing': {
         if (format === 'html') return out(sheetHtml());
         const svg = withBranding(request.branding, () => renderDrawingSheet(design, db, { ...drawingOptions, fragment: true }));
         if (format === 'svg') return out(svg);
-        return out(pagesToPdf([await svgToPdfPage({ svg, width: 792, height: 612, ...(request.branding?.font === undefined ? {} : { brand: request.branding.font }) })], titleOf(request)), 'pdf', 'raster');
+        const size = paperSize(paper, 'landscape');
+        return out(pagesToPdf([await svgToPdfPage({ svg, width: toPt(size.width), height: toPt(size.height), ...(request.branding?.font === undefined ? {} : { brand: request.branding.font }) })], titleOf(request)), 'pdf', 'raster');
       }
       case 'formboard': {
         // the hub's own typeface (branding) is registered while the board is drawn and its PDF text is chosen
         return withBranding(request.branding, () => {
           const board = deriveFormboard(design, db, { ...(request.variation === undefined ? {} : { variation: request.variation }), drawing: meta });
-          const sheetOptions = { paper, ...(request.scale === undefined ? {} : { scale: request.scale }), ...(request.revisionNumber === undefined ? {} : { revisionNumber: request.revisionNumber }) };
+          const sheetOptions = { paper, frame: frameOf('FORMBOARD', 'landscape', 'strip'), ...(request.scale === undefined ? {} : { scale: request.scale }), ...(request.revisionNumber === undefined ? {} : { revisionNumber: request.revisionNumber }) };
           const layout = formboardLayout(board, sheetOptions);
           if (request.page !== undefined && request.page > layout.tiles) {
             return refuse(400, `The formboard has ${layout.tiles} tile page${layout.tiles === 1 ? '' : 's'} at ${request.scale === undefined ? '1:1' : `scale ${request.scale}`} on ${paper}, not ${request.page}.`, `Use page=1 to ${layout.tiles}, or leave page out for the overview.`);
           }
           if (format === 'html') return out(formboardHtml(board, sheetOptions));
           if (format === 'svg') return out(formboardSvg(board, request.page ?? 0, sheetOptions));
-          const mm = paper === 'letter' ? { w: 279.4, h: 215.9 } : { w: 297, h: 210 };
+          const mm = paperSize(paper, 'landscape');
           const pages: PdfPage[] = [];
           for (const svg of formboardSvgPages(board, sheetOptions)) {
-            pages.push(svgToVectorPdfPage(svg, { width: (mm.w / 25.4) * 72, height: (mm.h / 25.4) * 72 }));
+            pages.push(svgToVectorPdfPage(svg, { width: toPt(mm.width), height: toPt(mm.height) }));
           }
           return out(pagesToPdf(pages, titleOf(request)), 'pdf', 'vector');
         });
       }
       case 'labels': {
-        const labels = deriveLabels(design, db);
-        const count = labelSheetPages(labels.length, options);
-        if (format === 'svg') return out(labelSheetSvg(labels, options));
-        const pages: PdfPage[] = [];
-        for (let page = 1; page <= count; page += 1) {
-          const svg = labelSheetSvg(labels, { ...options, page });
-          const mm = /width="([\d.]+)mm" height="([\d.]+)mm"/.exec(svg);
-          const w = (Number(mm?.[1] ?? 210) / 25.4) * 72;
-          const h = (Number(mm?.[2] ?? 297) / 25.4) * 72;
-          pages.push(await svgToPdfPage({ svg, width: w, height: h, dpi: 300 }));
+        const pages = labelPages();
+        if (format === 'svg') return out(pages[request.page === undefined ? 0 : Math.min(request.page, pages.length) - 1] as string);
+        const rendered: PdfPage[] = [];
+        for (const svg of pages) {
+          const size = sizeOfSvg(svg);
+          rendered.push(await svgToPdfPage({ svg, width: toPt(size.width), height: toPt(size.height), dpi: 300 }));
         }
-        return out(pagesToPdf(pages, titleOf(request)), 'pdf', 'raster');
+        return out(pagesToPdf(rendered, titleOf(request)), 'pdf', 'raster');
       }
       default: {
         if (format === 'html') return out(sheetHtml());
@@ -301,7 +369,8 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
               : testSpecToMarkdown(deriveTestSpec(design, db, { continuityOhmsMax: parameters.continuityOhmsMax }), parameters),
         );
         return withBranding(request.branding, () => {
-          const pages = layoutMarkdown(markdown, { paper: PAPER[paper], footer: `${design.id} ${kind}${request.revisionNumber === undefined ? '' : ` rev ${request.revisionNumber}`}` });
+          const size = PAPER[paper === 'letter' ? 'letter' : 'A4'];
+          const pages = layoutMarkdown(markdown, { paper: size, footer: `${design.id} ${kind}${request.revisionNumber === undefined ? '' : ` rev ${request.revisionNumber}`}` });
           return format === 'svg' ? out(pagesToSvg(pages)) : out(pagesToPdf(pages.map((page): PdfPage => ({ kind: 'ops', page })), titleOf(request)), 'pdf', 'text-layout');
         });
       }

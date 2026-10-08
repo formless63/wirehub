@@ -1,9 +1,15 @@
 /**
- * The drawing sheet on paper: ANSI A landscape, 792 × 612 pt, laid out on the
- * same grid as the owner's Illustrator sheets — the title block, BOM table,
- * wire-table rows and remark column sit where the hand-drawn ones do, measured
- * off `racc/sample-schematics` so a generated sheet can be filed next to a
- * drawn one without looking like a different family.
+ * The drawing sheet on paper, landscape, on any paper size (`frame/paper.ts`):
+ * the shared WireHub frame (border, title block, revision table, state stamp:
+ * `frame/`) cut to the paper, and the composition — BOM table, cable and
+ * connector faces, wire table, remarks — drawn on one fixed grid and fitted
+ * uniformly into what the frame leaves, so the sheet reads the same on A4,
+ * Letter or A3. The grid is the owner's Illustrator layout (measured off
+ * `racc/sample-schematics`): the BOM table, wire-table rows and remark column
+ * sit where the hand-drawn ones do.
+ *
+ * Set in IBM Plex: Sans for words, Mono for identifiers (designators, pin
+ * names, the part number), 0.5 pt hairlines for tables.
  *
  * Same house rules as the rest of the package: deterministic string output,
  * no external resources (the logo and the cutaway are inlined), no script.
@@ -12,10 +18,11 @@
 import type { CableDesign, Db } from '@wirehub/model';
 
 import { escapeHtml } from '../text.ts';
-import { registeredLogo, registeredTitleBlock } from './assets.ts';
+import { registeredTitleBlock } from './assets.ts';
 import { cutawayFor } from './cutaway.ts';
 import { brandFontFaces, brandStack, brandWidth } from './brand-font.ts';
 import { gothic, sans, sansBold } from './fonts.generated.ts';
+import { framedSvg, frameSpecFor, framePage, pageSizeCss, PLEX_MONO_STACK, PLEX_SANS_STACK, fitText, plexFontFaceCss, plexWidth, type FrameExtras, type PaperId, type RevisionRow, type TitleBlockStandard } from '../frame/index.ts';
 import { faceEdgeTop, faceEdgeX, type FaceArt, type FacePin } from './faces.ts';
 import {
   GROUND_FILL,
@@ -31,14 +38,13 @@ import {
   type WireRow,
 } from './model.ts';
 
+/** the composition's own grid, pt: the sheet it was measured on (US Letter landscape) */
 export const SHEET_WIDTH = 792;
 export const SHEET_HEIGHT = 612;
 
-const FONT_BASE = "'CS Sans', Helvetica, Arial, sans-serif";
-const TABLE_FONT_BASE = "'CS Gothic', 'Century Gothic', 'URW Gothic', 'CS Sans', sans-serif";
 /** the stacks, with the hub's own typeface first when branding set one */
-const fontStack = (): string => brandStack(FONT_BASE);
-const tableFontStack = (): string => brandStack(TABLE_FONT_BASE);
+const fontStack = (): string => brandStack(PLEX_SANS_STACK);
+const monoStack = (): string => PLEX_MONO_STACK;
 
 /* ------------------------------------------------------------------ *
  * Text metrics — the embedded faces' own advance widths
@@ -49,27 +55,42 @@ const tableFontStack = (): string => brandStack(TABLE_FONT_BASE);
  * that actually prints — on any machine, with or without Helvetica.
  * ------------------------------------------------------------------ */
 
-type Face = 'sans' | 'gothic';
+type Face = 'sans' | 'mono';
 
-export function textWidth(text: string, size: number, bold = false, face: Face = 'sans'): number {
+/**
+ * Width of `text` at `size` in the bundled Liberation faces (the hub's typeface first when branding
+ * set one): the faces the formboard's vector PDF embeds, so the formboard measures with these.
+ * The drawing sheet is set in IBM Plex and measures with `plexMeasure`.
+ */
+export function textWidth(text: string, size: number, bold = false, face: 'sans' | 'gothic' = 'sans'): number {
   const widths = face === 'gothic' ? gothic.widths : bold ? sansBold.widths : sans.widths;
   let units = 0;
   for (const ch of text) units += brandWidth(ch, bold) ?? widths[ch] ?? 556;
   return (units / 1000) * size;
 }
 
+/** Width of `text` at `size` in IBM Plex (the hub's typeface first when branding set one), without headroom. */
+function plexMeasure(text: string, size: number, bold = false, face: Face = 'sans'): number {
+  return plexWidth(text, size, face === 'mono' ? 'mono' : bold ? 'semi' : 'sans', 0, 1);
+}
+
 /** A hair of headroom for kerning and rasterisation, nothing more. */
 function roomy(text: string, size: number, bold = false, face: Face = 'sans'): number {
-  return textWidth(text, size, bold, face) * 1.02;
+  return plexMeasure(text, size, bold, face) * 1.02;
 }
 
 function fontFaces(): string {
-  return brandFontFaces() + [sans, sansBold, gothic]
-    .map(
-      (face) =>
-        `@font-face{font-family:'${face.family}';font-weight:${face.weight};font-style:normal;src:url(data:font/woff2;base64,${face.woff2}) format('woff2')}`,
-    )
-    .join('');
+  // Plex first; the Liberation faces stay as the fallback for glyphs Plex's Latin subset lacks (arrows, the ohm sign)
+  return (
+    brandFontFaces() +
+    plexFontFaceCss() +
+    [sans, sansBold]
+      .map(
+        (face) =>
+          `@font-face{font-family:'${face.family}';font-weight:${face.weight};font-style:normal;src:url(data:font/woff2;base64,${face.woff2}) format('woff2')}`,
+      )
+      .join('')
+  );
 }
 
 function wrap(text: string, size: number, width: number): string[] {
@@ -118,20 +139,22 @@ function rightsRows(line: string | undefined): string[] {
   return rows;
 }
 
-function text(x: number, y: number, value: string, size: number, options: { anchor?: Anchor; bold?: boolean; family?: string; fill?: string; fit?: number } = {}): string {
+function text(x: number, y: number, value: string, size: number, options: { anchor?: Anchor; bold?: boolean; family?: string; fill?: string; fit?: number; mono?: boolean } = {}): string {
   const anchor = options.anchor ?? 'start';
+  const face: Face = options.mono === true ? 'mono' : 'sans';
   let fontSize = size;
   if (options.fit !== undefined) {
-    const width = roomy(value, size, options.bold, options.family === tableFontStack() ? 'gothic' : 'sans');
+    const width = roomy(value, size, options.bold, face);
     if (width > options.fit) fontSize = Math.max(6, (size * options.fit) / width);
   }
+  const family = options.mono === true ? monoStack() : options.family;
   const attrs = [
     `x="${n(x)}"`,
     `y="${n(y)}"`,
     `font-size="${n(fontSize)}"`,
     ...(anchor === 'start' ? [] : [`text-anchor="${anchor}"`]),
-    ...(options.bold === true ? ['font-weight="bold"'] : []),
-    ...(options.family === undefined ? [] : [`font-family="${esc(options.family)}"`]),
+    ...(options.bold === true ? ['font-weight="600"'] : []),
+    ...(family === undefined ? [] : [`font-family="${esc(family)}"`]),
     ...(options.fill === undefined ? [] : [`fill="${options.fill}"`]),
   ];
   return `<text ${attrs.join(' ')}>${esc(value)}</text>`;
@@ -147,78 +170,13 @@ const DASH: Readonly<Record<WireRow['line'], string>> = {
 };
 
 /* ------------------------------------------------------------------ *
- * Title block — measured off the sheets (pt)
+ * The composition's box (pt): everything the sheet draws sits inside it; the
+ * shared frame (`frame/`) owns the border, the title block and the stamp
  * ------------------------------------------------------------------ */
 
 const FRAME = { x: 13.4, y: 10.5, right: 780, bottom: 601.1 };
-const TB = { top: 508.9, mid: 539, low: 570.9 };
-
-function titleBlock(drawing: Drawing): string {
-  const { x, right, bottom } = FRAME;
-  const out: string[] = [];
-  out.push(line(x, TB.top, right, TB.top));
-  out.push(line(x, TB.mid, right, TB.mid));
-  out.push(line(519.5, TB.low, right, TB.low));
-  for (const vx of [344.2, 519.5, 606.1]) out.push(line(vx, TB.top, vx, bottom));
-  for (const vx of [235.6, 432.8, 692.9]) out.push(line(vx, TB.mid, vx, bottom));
-  out.push(line(736.2, TB.mid, 736.2, TB.low));
-
-  const caption = (cx: number, cy: number, value: string): string => text(cx, cy, value, 6.1);
-  out.push(caption(20.2, 517.3, 'TITLE'));
-  out.push(caption(349, 517.3, 'PART NUMBER'));
-  out.push(caption(522.5, 517.3, 'REVISION'));
-  out.push(caption(609.5, 516.8, 'MATERIAL'));
-  out.push(caption(349, 547.7, 'UNITS'));
-  out.push(caption(436.3, 547.5, 'TOLERANCES'));
-  out.push(caption(523, 547.1, 'DESIGNER'));
-  out.push(caption(608.6, 547.1, 'DATE'));
-  out.push(caption(696.2, 547.1, 'SIZE'));
-  out.push(caption(739.3, 547.3, 'SCALE'));
-  out.push(caption(523, 578.8, 'WEIGHT'));
-  out.push(caption(609.9, 579.4, 'FINISH'));
-  out.push(caption(695.9, 578.8, 'SHEET'));
-
-  const value = (left: number, rightEdge: number, y: number, v: string, bold = false): string =>
-    text((left + rightEdge) / 2, y, v === '' ? '-' : v, 12.1, { anchor: 'middle', bold, fit: rightEdge - left - 8 });
-  out.push(value(x, 344.2, 532.9, drawing.title, true));
-  out.push(value(344.2, 519.5, 532.9, drawing.partNumber, true));
-  out.push(value(519.5, 606.1, 532.9, drawing.revision));
-  out.push(value(606.1, right, 531.3, drawing.material));
-  out.push(value(519.5, 606.1, 563, drawing.designer === '' ? (registeredTitleBlock().designer ?? '') : drawing.designer));
-  out.push(value(606.1, 692.9, 563.2, drawing.date));
-  const text0 = registeredTitleBlock();
-  out.push(value(692.9, 736.2, 562.6, text0.size ?? 'A'));
-  out.push(value(736.2, right, 562.6, '-'));
-  out.push(value(519.5, 606.1, 594, '-'));
-  out.push(value(606.1, 692.9, 593.9, '-'));
-  out.push(value(692.9, right, 594.1, '1 of 1'));
-
-  const rights = rightsRows(text0.rights);
-  rights.forEach((row, i) => out.push(text(289.9, 558.8 + i * 7.2, row, 6, { anchor: 'middle' })));
-    (text0.notes ?? ['ALL DIMENSIONS ARE', 'IN MM UNLESS', 'OTHERWISE SPECIFIED']).forEach((row, i) =>
-    out.push(text(388.5, 568.1 + i * 7.2, row, 6.1, { anchor: 'middle' })),
-  );
-  const tolerances: readonly (readonly [string, string])[] = text0.tolerances ?? [
-    ['x.xx', '± 0.1'],
-    ['x.xxx', '± 0.03'],
-    ['x.xxx', '± 0.005'],
-    ['FRACTIONAL', '± 1/16'],
-    ['ANGLE', '± 1°'],
-  ];
-  tolerances.forEach(([k, v], i) => {
-    out.push(text(442.8, 562.3 + i * 7.2, k, 6));
-    out.push(text(490.4, 562.2 + i * 7.2, v, 6.1));
-  });
-
-  const logo = registeredLogo();
-  if (logo !== undefined) {
-    const [lx, ly, lw, lh] = logo.box;
-    out.push(
-      `<image x="${n(lx)}" y="${n(ly)}" width="${n(lw)}" height="${n(lh)}" preserveAspectRatio="xMidYMid meet" href="data:image/png;base64,${logo.pngBase64}"/>`,
-    );
-  }
-  return `<g class="ra-titleblock">${out.join('')}</g>`;
-}
+/** the composition's own bottom edge: where the title block began on the grid it was measured on */
+const TB = { top: 508.9 };
 
 /* ------------------------------------------------------------------ *
  * BOM table (top right)
@@ -228,31 +186,46 @@ const BOM_COLS = [449.7, 477.3, 579.3, 745.5, 780];
 const BOM_TOP = 10.5;
 const BOM_HEADER = 15;
 const BOM_ROW = 17.3;
+const BOM_TEXT = 9;
+const BOM_PITCH = BOM_TEXT * 1.2;
+const BOM_PAD = 5;
 
+/**
+ * The BOM table. Each cell is set at its own size and wraps to the lines it
+ * needs (a long material wraps, up to three lines, and only then shrinks), so
+ * no text is squeezed or runs out of its cell; the row grows to hold them.
+ */
 function bomTable(drawing: Drawing): { svg: string; bottom: number } {
   const out: string[] = [];
-  const rows = drawing.bom.length;
-  const bottom = BOM_TOP + BOM_HEADER + rows * BOM_ROW;
   const [c0, c1, c2, c3, c4] = BOM_COLS as [number, number, number, number, number];
-  out.push(`<rect x="${n(c0)}" y="${n(BOM_TOP)}" width="${n(c4 - c0)}" height="${n(bottom - BOM_TOP)}" fill="#fff" stroke="none"/>`);
-  for (const cx of BOM_COLS) out.push(line(cx, BOM_TOP, cx, bottom, 0.51));
-  out.push(line(c0, BOM_TOP, c4, BOM_TOP, 0.51));
-  for (let i = 0; i <= rows; i += 1) {
-    const y = BOM_TOP + BOM_HEADER + i * BOM_ROW;
-    out.push(line(c0, y, c4, y, 0.51));
-  }
-  const cell = { family: tableFontStack() };
-  out.push(text((c0 + c1) / 2, 22.3, '#', 12, { ...cell, anchor: 'middle' }));
-  out.push(text((c1 + c2) / 2, 22.3, 'Reference', 12, { ...cell, anchor: 'middle' }));
-  out.push(text((c2 + c3) / 2, 22.3, 'Material', 12, { ...cell, anchor: 'middle' }));
-  out.push(text((c3 + c4) / 2, 22.3, 'QTY.', 12, { ...cell, anchor: 'middle' }));
-  drawing.bom.forEach((row, i) => {
-    const y = BOM_TOP + BOM_HEADER + (i + 1) * BOM_ROW - 4.6;
-    out.push(text((c0 + c1) / 2, y, String(row.n), 12, { ...cell, anchor: 'middle' }));
-    out.push(text(c1 + 4, y, row.reference, 12, { ...cell, fit: c2 - c1 - 7 }));
-    out.push(text(c2 + 9, y, row.material, 12, { ...cell, fit: c3 - c2 - 13 }));
-    out.push(text((c3 + c4) / 2, y, row.qty, 12, { ...cell, anchor: 'middle' }));
+  const cell = (value: string, width: number, kind: 'sans' | 'mono', lines: number) => fitText(value, width - 2 * BOM_PAD, BOM_TEXT, kind, lines);
+  const rows = drawing.bom.map((row) => {
+    const ref = cell(row.reference, c2 - c1, 'mono', 2);
+    const material = cell(row.material, c3 - c2, 'sans', 3);
+    const count = Math.max(ref.lines.length, material.lines.length);
+    return { row, ref, material, height: Math.max(BOM_ROW, BOM_PAD * 1.6 + count * BOM_PITCH) };
   });
+  const bottom = BOM_TOP + BOM_HEADER + rows.reduce((sum, r) => sum + r.height, 0);
+  out.push(`<rect x="${n(c0)}" y="${n(BOM_TOP)}" width="${n(c4 - c0)}" height="${n(bottom - BOM_TOP)}" fill="#fff" stroke="none"/>`);
+  for (const cx of BOM_COLS) out.push(line(cx, BOM_TOP, cx, bottom, 0.5));
+  out.push(line(c0, BOM_TOP, c4, BOM_TOP, 0.5));
+  let y = BOM_TOP + BOM_HEADER;
+  out.push(line(c0, y, c4, y, 0.5));
+  const head = { bold: true, anchor: 'middle' as const };
+  const hy = BOM_TOP + BOM_HEADER - 4.6;
+  out.push(text((c0 + c1) / 2, hy, '#', 8.5, head));
+  out.push(text((c1 + c2) / 2, hy, 'Reference', 8.5, head));
+  out.push(text((c2 + c3) / 2, hy, 'Material', 8.5, head));
+  out.push(text((c3 + c4) / 2, hy, 'QTY.', 8.5, head));
+  for (const { row, ref, material, height } of rows) {
+    const base = y + BOM_PAD + BOM_TEXT * 0.8;
+    out.push(text((c0 + c1) / 2, base, String(row.n), BOM_TEXT, { mono: true, anchor: 'middle' }));
+    ref.lines.forEach((l, i) => out.push(text(c1 + BOM_PAD, base + i * BOM_PITCH, l, ref.size, { mono: true })));
+    material.lines.forEach((l, i) => out.push(text(c2 + BOM_PAD, base + i * BOM_PITCH, l, material.size)));
+    out.push(text((c3 + c4) / 2, base, row.qty, BOM_TEXT, { mono: true, anchor: 'middle' }));
+    y += height;
+    out.push(line(c0, y, c4, y, 0.5));
+  }
   return { svg: `<g class="ra-bom">${out.join('')}</g>`, bottom };
 }
 
@@ -368,7 +341,7 @@ function faceSvg(placed: Placed): string {
   for (const label of art.labels) out.push(text(label.x, label.y, label.text, face.traced ? 10 : 6.5, { anchor: 'middle' }));
   for (const bridge of face.bridges) out.push(bridgeSvg(art, bridge));
   const cx = art.width / 2;
-  out.push(text(cx, art.height + 15, face.port.designator, 14, { anchor: 'middle' }));
+  out.push(text(cx, art.height + 15, face.port.designator, 14, { mono: true, anchor: 'middle' }));
   out.push(text(cx, art.height + 25.5, art.subtitle ?? 'Solder Side', 8, { anchor: 'middle' }));
   // the face is the family's general shape, not a mechanical drawing
   if (art.approximate !== undefined) {
@@ -575,7 +548,7 @@ function whipsSvg(plugs: DrawingPlug[], side: 'a' | 'b', anchor: Placed, ceiling
       out.push(plugArtSvg(plug, o, x, y));
       // the designator under the plug, towards its business end
       const tipward = side === 'a' ? 0.62 : 0.38;
-      out.push(text(x + o.width * tipward, y + o.height + 15, plug.port.designator, 14, { anchor: 'middle' }));
+      out.push(text(x + o.width * tipward, y + o.height + 15, plug.port.designator, 14, { mono: true, anchor: 'middle' }));
       top = Math.min(top, y - (o.art.labels.length > 0 ? 12 : 2));
     }
     const first = placed[0];
@@ -602,7 +575,7 @@ function whipsSvg(plugs: DrawingPlug[], side: 'a' | 'b', anchor: Placed, ceiling
       out.push(g.join(''));
       const tx = side === 'a' ? x + art.width + 4 : x - 4;
       const anchorText = side === 'a' ? 'start' : 'end';
-      out.push(text(tx, y + art.height / 2 + 2, plug.port.designator, 14, { anchor: anchorText }));
+      out.push(text(tx, y + art.height / 2 + 2, plug.port.designator, 14, { mono: true, anchor: anchorText }));
       out.push(text(tx, y + art.height / 2 + 12, 'Board-Mounted Jack', 8, { anchor: anchorText }));
       top = Math.min(top, y);
     });
@@ -639,7 +612,7 @@ function breakoutSvg(breakout: Breakout, side: 'a' | 'b', ceiling: number): { sv
     out.push(text(mid, top - 5, `With Embedded ${breakout.jack.label} Jack`, 9.6, { anchor: 'middle' }));
     const jx = mid + dir * 20;
     out.push(`<circle cx="${n(jx)}" cy="${n(top + 13)}" r="9.7" fill="#fff" stroke="#000" stroke-width="1"/>`);
-    if (breakout.jack.designator !== undefined) out.push(text(jx, top + 37, breakout.jack.designator, 14, { anchor: 'middle' }));
+    if (breakout.jack.designator !== undefined) out.push(text(jx, top + 37, breakout.jack.designator, 14, { mono: true, anchor: 'middle' }));
   }
   // the lead leaving the far end, broken off
   const s0 = outerEdge;
@@ -665,7 +638,7 @@ function breakoutSvg(breakout: Breakout, side: 'a' | 'b', ceiling: number): { sv
       const x = start + i * pitch + (width - o.art.width) / 2;
       const y = CABLE_Y - 30 - o.art.height;
       out.push(plugArtSvg(plug, o, x, y));
-      out.push(text(x + o.art.width / 2, CABLE_Y - 10.5, plug.port.designator, 14, { anchor: 'middle' }));
+      out.push(text(x + o.art.width / 2, CABLE_Y - 10.5, plug.port.designator, 14, { mono: true, anchor: 'middle' }));
       highest = Math.min(highest, y);
     });
     out.push(text(side === 'b' ? start : start + rowWidth, CABLE_Y + 9, caption, 9.6, { anchor: side === 'b' ? 'start' : 'end' }));
@@ -684,7 +657,7 @@ function breakoutSvg(breakout: Breakout, side: 'a' | 'b', ceiling: number): { sv
       const x = side === 'b' ? FRAME.right - 8 - o.width : FRAME.x + 8;
       const y = bottom - o.height;
       out.push(plugArtSvg(plug, o, x, y));
-      out.push(text(side === 'b' ? x + o.width - 14 : x + 14, y + o.height + 13, plug.port.designator, 14, { anchor: 'middle' }));
+      out.push(text(side === 'b' ? x + o.width - 14 : x + 14, y + o.height + 13, plug.port.designator, 14, { mono: true, anchor: 'middle' }));
       bottom = y - 18;
       highest = Math.min(highest, y);
     });
@@ -763,9 +736,9 @@ function cableAndFaces(drawing: Drawing, bomBottom: number): { svg: string; lowe
   );
   const leftEdge = a === undefined ? startX : a.x + a.face.face.width;
   const rightEdge = b === undefined ? endX : b.x;
-  const widest = Math.max(0, ...lengths.map((l) => textWidth(l, 14)));
+  const widest = Math.max(0, ...lengths.map((l) => plexMeasure(l, 14, false, 'mono')));
   const lx = (leftEdge + rightEdge) / 2 - widest / 2;
-  lengths.forEach((l, i) => out.push(text(lx, CABLE_Y - CABLE_HALF - 6.7 - (lengths.length - 1 - i) * 16.8, l, 14)));
+  lengths.forEach((l, i) => out.push(text(lx, CABLE_Y - CABLE_HALF - 6.7 - (lengths.length - 1 - i) * 16.8, l, 14, { mono: true })));
 
   const lowest = Math.max(
     a === undefined ? 0 : a.y + a.face.face.height + faceFooter(a.face.face),
@@ -806,10 +779,10 @@ function wireTable(drawing: Drawing, top: number): string {
   const pitch = count <= 1 ? ROW_PITCH : Math.min(ROW_PITCH, (ROWS_BOTTOM - start) / (count - 1));
   drawing.rows.forEach((row, i) => {
     const y = start + i * pitch;
-    out.push(text(198, y + 3.4, row.left, 10, { anchor: 'end', fit: 178 }));
+    out.push(text(198, y + 3.4, row.left, 10, { anchor: 'end', fit: 178, mono: true }));
     out.push(line(206, y, 516, y, 1, ` stroke-dasharray="${DASH[row.line]}"`));
     out.push(text(364, y - 4.3, row.name, 8, { anchor: 'middle' }));
-    out.push(text(528, y + 3.4, row.right, 10, { fit: 100 }));
+    out.push(text(528, y + 3.4, row.right, 10, { fit: 100, mono: true }));
   });
   return `<g class="ra-wires">${out.join('')}</g>`;
 }
@@ -847,6 +820,18 @@ function remarks(drawing: Drawing): string {
 export interface DrawingSvgOptions {
   /** a product photo for the top-left, as a data URI (png/jpeg) */
   photo?: string;
+  /** the paper (default: the organisation's, else A4); the sheet is landscape */
+  paper?: PaperId;
+  /** the title-block layout (default: the organisation's, else the paper's convention) */
+  titleBlock?: TitleBlockStandard;
+  /** `RELEASED`, `UNRELEASED`, … (the title block's state, and the corner stamp) */
+  state?: string;
+  /** who checked it (the approver, when approvals are on) */
+  checked?: string;
+  /** the issuing organisation, when it is not the registered one */
+  org?: string;
+  /** the revision table: oldest first */
+  revisions?: readonly RevisionRow[];
 }
 
 function cutaway(drawing: Drawing, bomBottom: number, hasPhoto: boolean, floor: number): string {
@@ -868,14 +853,48 @@ function cutaway(drawing: Drawing, bomBottom: number, hasPhoto: boolean, floor: 
   );
 }
 
+/** The composition's own size on its grid, pt. */
+const COMPOSITION = { width: FRAME.right - FRAME.x, height: TB.top - FRAME.y };
+
+/** The title block's facts for a drawing: the drawing sidecar's, the sheet's state, the registered wording. */
+function frameFor(drawing: Drawing, options: DrawingSvgOptions): Parameters<typeof frameSpecFor>[0] {
+  const registered = registeredTitleBlock();
+  const designer = drawing.designer === '' ? (registered.designer ?? '') : drawing.designer;
+  const notes = registered.notes ?? ['ALL DIMENSIONS ARE', 'IN MM UNLESS', 'OTHERWISE SPECIFIED'];
+  const extras: FrameExtras = {
+    material: drawing.material === '' ? 'See BOM' : drawing.material,
+    notes: [...notes, ...(registered.rights === undefined ? [] : [registered.rights])],
+    tolerances: registered.tolerances ?? [
+      ['x.xx', '± 0.1'],
+      ['x.xxx', '± 0.03'],
+      ['x.xxx', '± 0.005'],
+      ['FRACTIONAL', '± 1/16'],
+      ['ANGLE', '± 1°'],
+    ],
+  };
+  return {
+    kind: 'Drawing',
+    title: drawing.title,
+    orientation: 'landscape',
+    ...(options.paper === undefined ? {} : { paper: options.paper }),
+    ...(options.titleBlock === undefined ? {} : { standard: options.titleBlock }),
+    ...(options.org === undefined ? {} : { org: options.org }),
+    pn: drawing.partNumber,
+    rev: drawing.revision,
+    ...(options.state === undefined ? {} : { state: options.state }),
+    drawn: designer,
+    ...(options.checked === undefined ? {} : { checked: options.checked }),
+    date: drawing.date,
+    sheet: '1 of 1',
+    ...(options.revisions === undefined || options.revisions.length === 0 ? {} : { revisions: options.revisions }),
+    extras,
+  };
+}
+
 export function drawingToSvg(drawing: Drawing, options: DrawingSvgOptions = {}): string {
   const bom = bomTable(drawing);
   const cable = cableAndFaces(drawing, bom.bottom);
-  const parts = [
-    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="ra-drawing" viewBox="0 0 ${SHEET_WIDTH} ${SHEET_HEIGHT}" width="11in" height="8.5in" font-family="${esc(fontStack())}">`,
-    `<style>${fontFaces()}</style>`,
-    `<rect width="${SHEET_WIDTH}" height="${SHEET_HEIGHT}" fill="#fff"/>`,
-    `<rect x="${FRAME.x}" y="${FRAME.y}" width="${n(FRAME.right - FRAME.x)}" height="${n(FRAME.bottom - FRAME.y)}" fill="none" stroke="#000" stroke-width="0.5"/>`,
+  const composition = [
     options.photo === undefined
       ? ''
       : `<image x="19" y="15" width="207" height="206" preserveAspectRatio="xMinYMin meet" href="${esc(options.photo)}"/>`,
@@ -884,10 +903,18 @@ export function drawingToSvg(drawing: Drawing, options: DrawingSvgOptions = {}):
     cable.svg,
     wireTable(drawing, cable.lowest > 380 ? cable.lowest : ROWS_TOP),
     remarks(drawing),
-    titleBlock(drawing),
-    '</svg>',
-  ];
-  return parts.join('');
+  ].join('');
+  const spec = frameSpecFor(frameFor(drawing, options));
+  const sheet = framedSvg(
+    spec,
+    {
+      markup: `<g class="ra-drawing" font-family="${esc(fontStack())}"><g transform="translate(${n(-FRAME.x)} ${n(-FRAME.y)})">${composition}</g></g>`,
+      width: COMPOSITION.width,
+      height: COMPOSITION.height,
+    },
+    { fonts: false, head: `<style>${fontFaces()}</style>` },
+  );
+  return sheet;
 }
 
 export interface DrawingSheetOptions extends DrawingSvgOptions {
@@ -897,14 +924,22 @@ export interface DrawingSheetOptions extends DrawingSvgOptions {
 }
 
 /**
- * The drawing as a standalone, print-exact HTML document: US Letter landscape
- * with no page margin, because the frame *is* the margin. On screen the sheet
- * scales to the frame's width.
+ * The drawing as a standalone, print-exact HTML document: the paper's landscape
+ * page with no page margin, because the frame *is* the margin. On screen the
+ * sheet scales to the width of the window, keeping the paper's proportion.
  */
 export function renderDrawingSheet(design: CableDesign, db: Db, options: DrawingSheetOptions = {}): string {
   const drawing = deriveDrawing(design, db, options.meta);
-  const svg = drawingToSvg(drawing, options);
+  const svgOptions: DrawingSvgOptions = {
+    ...options,
+    ...(options.state === undefined && options.meta?.sheet?.status !== undefined ? { state: options.meta.sheet.status } : {}),
+    ...(options.paper === undefined && options.meta?.sheet?.paper !== undefined ? { paper: options.meta.sheet.paper } : {}),
+  };
+  const svg = drawingToSvg(drawing, svgOptions);
   if (options.fragment === true) return svg;
+  const spec = frameSpecFor(frameFor(drawing, svgOptions));
+  const size = pageSizeCss(spec.paper, spec.orientation);
+  const page = framePage(spec);
   const title = `${drawing.partNumber === '' ? design.id : drawing.partNumber} — ${drawing.title}`;
   return [
     '<!doctype html>',
@@ -914,11 +949,11 @@ export function renderDrawingSheet(design: CableDesign, db: Db, options: Drawing
     '<meta name="viewport" content="width=device-width,initial-scale=1">',
     `<title>${escapeHtml(title)}</title>`,
     '<style>',
-    '@page{size:11in 8.5in;margin:0}',
+    `@page{size:${size};margin:0}`,
     'html,body{margin:0;padding:0;background:#e9e9e9}',
-    '.ra-page{max-width:1100px;margin:12px auto;box-shadow:0 1px 6px rgba(0,0,0,.25);background:#fff;line-height:0}',
+    `.ra-page{max-width:${Math.round(page.width * 3.7795)}px;margin:0 auto;box-shadow:0 1px 6px rgba(0,0,0,.25);background:#fff;line-height:0}`,
     '.ra-page svg{width:100%;height:auto;display:block}',
-    '@media print{html,body{background:#fff}.ra-page{max-width:none;margin:0;box-shadow:none}.ra-page svg{width:11in;height:8.5in}}',
+    `@media print{html,body{background:#fff}.ra-page{max-width:none;margin:0;box-shadow:none}.ra-page svg{width:${page.width}mm;height:${page.height}mm}}`,
     '</style>',
     '</head>',
     '<body>',

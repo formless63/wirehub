@@ -26,12 +26,14 @@
 import type { CableDesign, Db, KnownPartNumber, PartNumberScheme } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
 
-import type { DocumentFacts } from './bench/header.ts';
+import { headerFrame, type DocumentFacts } from './bench/header.ts';
+import type { PaperId, TitleBlockStandard } from './frame/index.ts';
+import { sheetHeaderOf } from './bom-sheet.ts';
+import { standaloneDocument } from './standalone.ts';
 import type { TestParameters } from './exports/test-params.ts';
 import { benchSheetBody, type BenchSheetOptions } from './bench/render.ts';
 import type { DrawingMeta } from './drawing/model.ts';
 import type { GroundLanding } from './landings.ts';
-import { escapeHtml } from './text.ts';
 
 /* ------------------------------------------------------------------ *
  * Options
@@ -50,8 +52,12 @@ export interface DocumentIdentity {
  * just the embeddable `.cs-root` element.
  */
 export interface SheetOptions {
-  /** `A4` (default) or `letter` — emitted as the `@page` size */
-  paper?: 'A4' | 'letter';
+  /** the paper (`frame/paper.ts`): A4 by default, or the organisation's setting — the `@page` size and the frame */
+  paper?: PaperId;
+  /** the title-block layout (`ansi` or `iso`); default: the organisation's setting, else the paper's convention */
+  titleBlock?: TitleBlockStandard;
+  /** who checked the document, for the title block (the approver, when approvals are on) */
+  checked?: string;
   /** override the sheet title (defaults to `design.label`) */
   title?: string;
   /**
@@ -163,6 +169,9 @@ export function benchOptions(options: BuildSheetOptions): BenchSheetOptions {
     ...(options.revisionNumber === undefined ? {} : { revision: options.revisionNumber }),
     ...(options.document === undefined ? {} : { document: options.document }),
     ...(options.generatedAt === undefined ? {} : { generatedAt: options.generatedAt }),
+    ...(options.paper === undefined ? {} : { paper: options.paper }),
+    ...(options.titleBlock === undefined ? {} : { titleBlock: options.titleBlock }),
+    ...(options.checked === undefined ? {} : { checked: options.checked }),
     ...(options.testDefaults === undefined ? {} : { testDefaults: options.testDefaults }),
     ...(options.explode === undefined ? {} : { explode: options.explode }),
     ...(options.buildQty === undefined ? {} : { buildQty: options.buildQty }),
@@ -194,20 +203,7 @@ export function renderBuildSheet(
 ): string {
   const body = buildSheetBody(design, db, options);
   if (options.fragment === true) return body;
-  const paper = options.paper ?? 'A4';
   const title = options.title ?? design.label;
-  return [
-    '<!doctype html>',
-    '<html lang="en">',
-    '<head>',
-    '<meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width,initial-scale=1">',
-    `<title>${escapeHtml(`${title} — bench build sheet`)}</title>`,
-    `<style>@page{size:${paper} portrait;margin:10mm}html,body{margin:0;padding:0;background:#ffffff}</style>`,
-    '</head>',
-    '<body>',
-    body,
-    '</body>',
-    '</html>',
-  ].join('');
+  const frame = headerFrame(sheetHeaderOf(design, db, benchOptions(options), 'BENCH BUILD SHEET'));
+  return standaloneDocument(`${title} — bench build sheet`, body, options, frame);
 }

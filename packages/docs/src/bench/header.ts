@@ -16,6 +16,7 @@ import { designStatus, findWire, type CableDesign, type Db } from '@wirehub/mode
 import type { DrawingMeta, LengthVariant } from '../drawing/model.ts';
 import { trunkSegment } from '../drawing/model.ts';
 import { registeredTitleBlock } from '../drawing/assets.ts';
+import { flowFooter, frameCss, frameSpecFor, titleBlockHtml, type PaperId, type SheetFrameSpec, type TitleBlockStandard } from '../frame/index.ts';
 import { escapeHtml } from '../text.ts';
 import { feetAttribute, feetFromMm, lengthFromMm } from '../units.ts';
 
@@ -72,6 +73,8 @@ export interface SheetHeader {
   rights?: string;
   date?: string;
   generatedAt?: string;
+  /** what the shared frame is drawn with: the paper, the layout, the checker */
+  frame: { paper?: PaperId; titleBlock?: TitleBlockStandard; checked?: string };
 }
 
 export interface HeaderInput {
@@ -83,6 +86,9 @@ export interface HeaderInput {
   document?: { number?: string; revision?: string; status?: string };
   facts?: DocumentFacts;
   generatedAt?: string;
+  paper?: PaperId;
+  titleBlock?: TitleBlockStandard;
+  checked?: string;
 }
 
 function shortStock(label: string): string {
@@ -146,6 +152,11 @@ export function sheetHeader(design: CableDesign, db: Db, input: HeaderInput): Sh
     ...(registered.rights === undefined ? {} : { rights: registered.rights }),
     ...(drawing.date === undefined ? {} : { date: drawing.date }),
     ...(input.generatedAt === undefined ? {} : { generatedAt: input.generatedAt }),
+    frame: {
+      ...(input.paper === undefined ? {} : { paper: input.paper }),
+      ...(input.titleBlock === undefined ? {} : { titleBlock: input.titleBlock }),
+      ...(input.checked === undefined ? {} : { checked: input.checked }),
+    },
   };
 }
 
@@ -156,60 +167,64 @@ export function lengthWords(header: SheetHeader, designMm: number | undefined): 
   return designMm === undefined ? '—' : lengthFromMm(designMm).text;
 }
 
-function cell(label: string, value: string, cls = '', raw = false): string {
-  return `<div class="cs-tb__cell${cls === '' ? '' : ` ${cls}`}"><span class="cs-tb__k">${escapeHtml(label)}</span><span class="cs-tb__v">${raw ? value : escapeHtml(value)}</span></div>`;
+/**
+ * The shared frame this sheet is printed in (`frame/`): the same border, title
+ * block, strip and state stamp as every other sheet, filled from the header.
+ * On the sheet's paper, in the orientation the document prints in.
+ */
+export function headerFrame(header: SheetHeader, variant: 'full' | 'strip' = 'full', orientation: 'portrait' | 'landscape' = 'portrait'): SheetFrameSpec {
+  const pn = header.productPn ?? (header.family === undefined ? undefined : `${header.family} family`);
+  return frameSpecFor({
+    kind: header.kind,
+    title: header.title,
+    orientation,
+    variant,
+    ...(header.frame.paper === undefined ? {} : { paper: header.frame.paper }),
+    ...(header.frame.titleBlock === undefined ? {} : { standard: header.frame.titleBlock }),
+    ...(header.organisation === undefined ? {} : { org: header.organisation }),
+    ...(pn === undefined ? {} : { pn }),
+    ...(header.revision === undefined ? {} : { rev: header.revision }),
+    ...(header.release === undefined ? {} : { state: header.release }),
+    ...(header.designer === DEFAULT_DESIGNER ? {} : { drawn: header.designer }),
+    ...(header.frame.checked === undefined ? {} : { checked: header.frame.checked }),
+    ...((header.date ?? header.generatedAt) === undefined ? {} : { date: (header.date ?? header.generatedAt) as string }),
+  });
+}
+
+function fact(label: string, value: string, mono = false): string {
+  return `<span class="cs-fact"><span class="cs-fact__k">${escapeHtml(label)}</span><span class="cs-fact__v${mono ? ' cs-mono' : ''}">${escapeHtml(value)}</span></span>`;
 }
 
 /**
- * The title block, in the drawing-sheet language: a ruled grid of
- * small upper-case labels over large values. `sheet` = `n of m` for a
- * multi-page document.
+ * The top of a sheet's first page: the frame's title block, then the facts a
+ * bench reads before anything else (design, stock, destination, status) on one
+ * line, and the part numbers of a length family.
  */
-export function headerHtml(header: SheetHeader, options: { sheet?: string } = {}): string {
-  const release = header.release;
-  const releaseCls = release === undefined ? '' : /UNRELEASED|DRAFT|PRELIM/i.test(release) ? ' cs-is-unreleased' : /RELEASED/i.test(release) ? ' cs-is-released' : '';
-  const pnValue =
-    header.productPn !== undefined
-      ? `<span class="cs-tb__pn">${escapeHtml(header.productPn)}</span>${
-          header.family === undefined ? '' : `<span class="cs-tb__sub">${escapeHtml(`${header.family} family · ${header.variation?.feet ?? ''}`)}</span>`
-        }`
-      : header.family !== undefined
-        ? `<span class="cs-tb__sub">${escapeHtml(`${header.family} family`)}</span><span class="cs-tb__pns">${header.variations
-            .map((v) => `<span>${escapeHtml(v.pn)}</span>`)
-            .join('')}</span>`
-        : '<span class="cs-tb__none">no part number</span>';
-  const rev = `<span class="cs-tb__pn">${escapeHtml(header.revision ?? '—')}</span>${
-    release === undefined ? '' : `<span class="cs-badge${releaseCls}">${escapeHtml(release)}</span>`
-  }`;
-  const status = header.status === 'active' ? 'Active' : header.status.toUpperCase();
-  return [
-    '<header class="cs-tb">',
-    '<div class="cs-tb__row cs-tb__row--top">',
-    `<div class="cs-tb__kind">${escapeHtml(header.kind)}</div>`,
-    cell('Title', header.title, 'cs-tb__title'),
-    cell(header.productPn === undefined && header.family !== undefined ? 'Part numbers' : 'Part number', pnValue, 'cs-tb__pncell', true),
-    cell('Revision', rev, 'cs-tb__rev', true),
-    '</div>',
-    '<div class="cs-tb__row">',
-    ...(header.organisation === undefined ? [] : [cell('Issued by', header.organisation)]),
-    cell('Design', header.designId, 'cs-tb__mono'),
-    cell('Stock', header.stock),
-    cell('Sync', header.sync ?? '—'),
-    cell('Destination', header.destination ?? '—'),
-    cell('Status', status, header.status === 'active' ? '' : 'cs-is-flag'),
-    cell('Designer', header.designer),
-    ...(header.generatedAt === undefined ? [] : [cell('Printed', header.generatedAt)]),
-    ...(options.sheet === undefined ? [] : [cell('Sheet', options.sheet)]),
-    '</div>',
-    ...(header.rights === undefined ? [] : [`<div class="cs-tb__rights">${escapeHtml(header.rights)}</div>`]),
-    '</header>',
+export function headerHtml(header: SheetHeader): string {
+  const spec = headerFrame(header);
+  const status = header.status === 'active' ? undefined : header.status.toUpperCase();
+  const line = [
+    fact('Design', header.designId, true),
+    fact('Stock', header.stock),
+    ...(header.sync === undefined ? [] : [fact('Sync', header.sync)]),
+    ...(header.destination === undefined ? [] : [fact('Destination', header.destination)]),
+    ...(status === undefined ? [] : [`<span class="cs-fact cs-is-flag"><span class="cs-fact__k">Status</span><span class="cs-fact__v">${escapeHtml(status)}</span></span>`]),
+    ...(header.productPn === undefined && header.family !== undefined && header.variations.length > 0
+      ? [fact('Part numbers', header.variations.map((v) => v.pn).join(' · '), true)]
+      : []),
+    ...(header.productPn !== undefined && header.family !== undefined && header.variation !== undefined ? [fact('Family', `${header.family} · ${header.variation.feet}`, true)] : []),
   ].join('');
+  return `<header class="cs-head">${titleBlockHtml(spec)}<div class="cs-facts">${line}</div>${
+    header.rights === undefined ? '' : `<div class="cs-rights">${escapeHtml(header.rights)}</div>`
+  }</header>`;
 }
 
-/** The running header on every page after the first: PN · rev · design · sheet. */
-export function runningHeaderHtml(header: SheetHeader, stage: string, sheet: string): string {
-  const pn = header.productPn ?? (header.family === undefined ? header.designId : `${header.family} family`);
-  return `<div class="cs-run"><span class="cs-run__pn">${escapeHtml(pn)}</span><span>Rev ${escapeHtml(header.revision ?? '—')}${
-    header.release === undefined ? '' : ` · ${escapeHtml(header.release)}`
-  }</span><span class="cs-run__stage">${escapeHtml(stage)}</span><span>${escapeHtml(header.designId)}</span><span>Sheet ${escapeHtml(sheet)}</span></div>`;
+/** The stylesheet of the frame for this header's sheet: class rules only (`@page` belongs to the whole document). */
+export function headerFrameCss(header: SheetHeader): string {
+  return frameCss(headerFrame(header));
+}
+
+/** The sheet's foot: the strip and stamp of the frame, the last children of the sheet's root. */
+export function footHtml(header: SheetHeader): string {
+  return flowFooter(headerFrame(header, 'strip'));
 }

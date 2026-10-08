@@ -26,6 +26,7 @@
  * still draws.
  */
 
+import type { PaperId } from '../frame/paper.ts';
 import {
   breakoutsOf,
   buildGraph,
@@ -108,8 +109,8 @@ export interface DrawingMeta {
 
 /** The printed sheets' page and document identity, as the studio stores them. */
 export interface SheetSettings {
-  /** `A4` (the renderers' default) or `letter` */
-  paper?: 'A4' | 'letter';
+  /** the paper (`frame/paper.ts`): `A4` (the renderers' default), `letter`, `A3`, … */
+  paper?: PaperId;
   /** document number; the host defaults it to the part number */
   number?: string;
   revision?: string;
