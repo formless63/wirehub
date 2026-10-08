@@ -58,6 +58,7 @@ import {
   signalOf,
   signalOfLane,
   validateDesign,
+  wireElementName,
   vocabEntry,
   type SignalEntry,
   type TerminalTags,
@@ -293,6 +294,26 @@ export function pcbaTerminals(pcba: PcbaDefinition, db: Db): EndTerminal[] {
   });
 }
 
+/**
+ * A wire label with its colour words taken out: parenthesised colours
+ * ("Pair 1 (blue)") go, and a label made only of colours ("white/blue")
+ * is nothing. `undefined` when nothing but colour is left.
+ */
+export function withoutColourWords(db: Db, label: string): string | undefined {
+  const colours = new Set<string>();
+  for (const entry of (db.vocab?.['colours']?.entries ?? []) as { id: string; label?: string; aliases?: string[] }[]) {
+    for (const text of [entry.id, entry.label, ...(entry.aliases ?? [])]) {
+      if (typeof text === 'string') colours.add(text.trim().toLowerCase());
+    }
+  }
+  const isColour = (text: string): boolean => {
+    const parts = text.toLowerCase().split(/[\s/,&+-]+/).filter((part) => part !== '');
+    return parts.length > 0 && parts.every((part) => colours.has(part) || part === 'stripe' || part === 'striped');
+  };
+  const rest = label.replace(/\(([^)]*)\)/g, (whole, inner: string) => (isColour(inner) ? ' ' : whole)).replace(/\s+/g, ' ').trim();
+  return rest === '' || isColour(rest) ? undefined : rest;
+}
+
 /** One electrical element of a wire stock, with the signal it carries. */
 export interface WireLine {
   /** the element path a `TerminalRef` uses — `pair-1.a`, `drain` */
@@ -321,7 +342,12 @@ export function wireLines(wire: WireDefinition, db: Db): WireLine[] {
     return tags === undefined || tags.screen === true ? undefined : roleOfTags(db, tags)?.role;
   };
   const isTagged = (path: string): boolean => signalOf(db, 'segment', wire.id, path) !== undefined;
-  const ofLabel = (label: string | undefined): Role | undefined => (label === undefined ? undefined : roleOfLabels(db, [label])?.role);
+  // a conductor's label may name its colour ("Pair 1 (blue)", "white/blue"); a
+  // colour is not a signal, however a vocabulary's aliases happen to spell it
+  const ofLabel = (label: string | undefined): Role | undefined => {
+    const words = label === undefined ? undefined : withoutColourWords(db, label);
+    return words === undefined ? undefined : roleOfLabels(db, [words])?.role;
+  };
 
   const walk = (element: Element, path: string, coreRole: Role | undefined): void => {
     if (element.kind === 'group') {
@@ -1065,7 +1091,7 @@ export function planCable(state: WizardState): CablePlan {
 
         if (target === undefined) {
           unconnected.push({
-            what: `${line.label} (${line.path}) at the ${where}`,
+            what: `${line.label === line.path ? wireElementName(wire, line.path) : line.label} at the ${where}`,
             why: why ?? `nothing on ${end.label} matches it.`,
           });
           continue;

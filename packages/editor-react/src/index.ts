@@ -92,6 +92,7 @@ export {
   roleOfTags,
   stepBlockers,
   wireLines,
+  withoutColourWords,
   wizardReducer,
 } from './wizard.ts';
 export type {

@@ -75,12 +75,10 @@ function setup(
  */
 function draftWithWarnings(): CableDesign {
   const draft = structuredClone(REAL);
-  const at = draft.joints.findIndex(
-    (joint) =>
-      (joint.a.terminal === 'core-red.center' && joint.a.end === 'b') ||
-      (joint.b.terminal === 'core-red.center' && joint.b.end === 'b'),
+  // every destination-end landing of the first pair
+  draft.joints = draft.joints.filter(
+    (joint) => !((joint.a.terminal.startsWith('pair-1.') && joint.a.end === 'b') || (joint.b.terminal.startsWith('pair-1.') && joint.b.end === 'b')),
   );
-  draft.joints.splice(at, 1);
   return draft;
 }
 
@@ -207,6 +205,13 @@ describe('Delete', () => {
 });
 
 describe('Save with warnings', () => {
+  it('names the things to look at the way a person would', async () => {
+    setup({ draft: draftWithWarnings(), withDb: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Save with warnings' });
+    expect(dialog.textContent).not.toMatch(/\bw1:|@[ab]\b/);
+    expect(Array.from(dialog.querySelectorAll('li')).map((li) => li.textContent)).toMatchSnapshot();
+  });
 
   it('saves straight through when there is nothing to look at', async () => {
     const clean = { ...structuredClone(REAL), label: 'edited' };

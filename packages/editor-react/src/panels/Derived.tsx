@@ -76,7 +76,7 @@ export function NetsPanel({ state }: { state: EditorState }): JSX.Element {
 }
 
 /** Warnings a design note naming the terminal (`issue.where`) silences — `noteReferencesTerminal`. */
-const NOTE_FIXABLE: ReadonlySet<string> = new Set(['floating-conductor-end', 'screen-floating']);
+const NOTE_FIXABLE: ReadonlySet<string> = new Set(['floating-conductor', 'floating-conductor-end', 'screen-floating']);
 
 function IssueRow({ issue, notes }: { issue: Issue; notes?: readonly string[] }): JSX.Element {
   const { dispatch } = useEditorApi();
@@ -85,13 +85,13 @@ function IssueRow({ issue, notes }: { issue: Issue; notes?: readonly string[] })
     <div className={classes('cs-issue', `is-${issue.severity}`, fix && 'has-fix')}>
       <span className="cs-issue-code">{issue.code}</span>
       <span className="cs-issue-message">{issue.message}</span>
-      {issue.where === undefined ? null : <span className="cs-issue-where">{issue.where}</span>}
+      {issue.where === undefined || fix || issue.whereLabel !== undefined ? null : <span className="cs-issue-where">{issue.where}</span>}
       {!fix ? null : (
         <button
           type="button"
           className="cs-icon-btn cs-issue-fix"
-          title={`Deliberate — add a design note naming ${issue.where}`}
-          aria-label={`add a design note naming ${issue.where}`}
+          title={`Deliberate — add a design note naming ${issue.whereLabel ?? issue.where}`}
+          aria-label={`add a design note naming ${issue.whereLabel ?? issue.where}`}
           onClick={() => dispatch({ type: 'set-notes', notes: [...notes, floatingEndNote(issue.where as string)] })}
         >
           <IconNote size={14} />

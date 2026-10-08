@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`derived panels > writes validator issues with human names, never terminal keys 1`] = `
+[
+  "pigtail 'shield' of segment W1 at end 'b' has no landing joint",
+  "the bonded shield mass (foil, drain) of segment W1 is landed at end A but not at end B — add a design note if this is deliberate",
+  "W1 pair 1 · white is connected at end A but floating at end B — add a design note if this is deliberate",
+  "W1 pair 1 · blue is connected at end A but floating at end B — add a design note if this is deliberate",
+  "W1 pair 2 · white is connected at end A but floating at end B — add a design note if this is deliberate",
+]
+`;

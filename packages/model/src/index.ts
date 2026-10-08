@@ -602,3 +602,4 @@ export type { ExternalRevision, NewRevisionInput, RecordRevision, RecordRevision
 // ---- board and adapter proposals from resolver gaps ----
 export { openProposals, proposalPcba, proposalProblems, proposeBoards } from './proposals.ts';
 export type { BoardProposal, ProposalDecision, ProposalState, ProposedNet, ProposedPart } from './proposals.ts';
+export * from './names.ts';

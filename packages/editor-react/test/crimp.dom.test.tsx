@@ -87,7 +87,7 @@ describe('the Part tab cavities', () => {
   it('the issues panel names a cavity with no contact', () => {
     const state = initialEditorState(withCavities(loadDesignFromDisk('dc-led-lead'), 'j2', []), db);
     render(harness(state, <IssuesPanel state={state} />).ui);
-    expect(screen.getAllByText(/cavity j2:1 takes a wire but has no contact/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/cavity J2 pin 1 · .* takes a wire but has no contact/).length).toBeGreaterThan(0);
   });
 });
 

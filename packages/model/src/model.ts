@@ -1103,6 +1103,8 @@ export interface Issue {
   severity: Severity;
   message: string;
   where?: string;
+  /** `where` in a person's words (`J1 pin 2 · RXD`), when it is a terminal of the design */
+  whereLabel?: string;
 }
 
 export function errors(issues: Issue[]): Issue[] {

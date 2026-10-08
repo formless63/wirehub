@@ -22,7 +22,7 @@ import { dockCaption, type ArtShape, type ConnectorArt, type ConnectorPinArt } f
 import { classes, useEditorApi } from '../context.ts';
 import { BridgeBusPaths } from './BridgeBus.tsx';
 import { GROUND_CSS, type ConnectorNodeData, type TerminalRow } from '../derive.ts';
-import { BOX, estimateNodeSize } from '../layout-size.ts';
+import { BOX, CONNECTOR_THUMB, estimateNodeSize } from '../layout-size.ts';
 
 /** What the drawing needs to know about one pin. */
 export interface PinPaint {
@@ -390,5 +390,25 @@ export function ConnectorArtNode({
       </header>
       {area}
     </div>
+  );
+}
+
+/**
+ * The part's face as a small picture in the node header: never a target, only
+ * a reminder of what the part looks like. The pin list below is what you
+ * connect to.
+ */
+export function ConnectorThumb({ art }: { art: ConnectorArt }): JSX.Element {
+  return (
+    <svg
+      className="cs-conn-thumb"
+      width={CONNECTOR_THUMB.width}
+      height={CONNECTOR_THUMB.height}
+      viewBox={`0 0 ${art.width} ${art.height}`}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+    >
+      <ConnectorDrawing art={art} paint={() => undefined} />
+    </svg>
   );
 }

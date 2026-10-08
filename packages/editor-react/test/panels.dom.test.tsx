@@ -68,6 +68,17 @@ describe('derived panels', () => {
     expect(screen.getByText('made up for the view')).toBeDefined();
   });
 
+  it('writes validator issues with human names, never terminal keys', () => {
+    const design = structuredClone(loadDesignFromDisk('de9-terminal-board'));
+    design.joints = design.joints.filter((joint) => joint.a.end !== 'b' && joint.b.end !== 'b');
+    const state = initialEditorState(design, db);
+    render(harness(state, <IssuesPanel state={state} />).ui);
+    const rows = Array.from(document.querySelectorAll('.cs-issue-message')).map((el) => el.textContent);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.join('\n')).not.toMatch(/\bw1:|@[ab]\b/);
+    expect(rows).toMatchSnapshot();
+  });
+
   it('offers a design note as the fix for a floating end, naming the terminal', () => {
     const base = initialEditorState(loadDesignFromDisk('de9-terminal-board'), db);
     const state: EditorState = {

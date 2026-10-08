@@ -274,7 +274,10 @@ export function initialEditorState(
  * the person holding the soldering iron, and the message already says it.
  */
 export function describeIssue(issue: Issue): string {
-  return issue.where === undefined ? issue.message : `${issue.message} (${issue.where})`;
+  const where = issue.whereLabel ?? issue.where;
+  // a raw terminal key is for programs; only a named place is worth saying
+  if (where === undefined || (issue.whereLabel === undefined && /^[\w-]+:\S+$/.test(where)) || (issue.whereLabel !== undefined && issue.message.includes(where.replace(/ \(end [AB]\)$/, '')))) return issue.message;
+  return `${issue.message} (${where})`;
 }
 
 /** One sentence per blocking issue — what a "this cannot be saved" list shows. */

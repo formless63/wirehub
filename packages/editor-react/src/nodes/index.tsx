@@ -19,8 +19,9 @@
  */
 
 import { parseTerminalKey } from '@wirehub/model';
-import { Handle, Position, type NodeProps, type NodeTypes, type Node } from '@xyflow/react';
-import { useMemo, type CSSProperties, type JSX, type MouseEvent, type ReactNode } from 'react';
+import { IconList, IconPlug } from '@tabler/icons-react';
+import { Handle, Position, useUpdateNodeInternals, type NodeProps, type NodeTypes, type Node } from '@xyflow/react';
+import { useMemo, useState, type CSSProperties, type JSX, type MouseEvent, type ReactNode } from 'react';
 
 import { classes, useEditorApi } from '../context.ts';
 import type {
@@ -36,7 +37,7 @@ import type {
 import { estimateNodeSize, nodeHeading } from '../layout-size.ts';
 import { BoardArtNode } from './BoardNode.tsx';
 import { BridgeBusOverlay } from './BridgeBus.tsx';
-import { ConnectorArtNode } from './ConnectorNode.tsx';
+import { ConnectorArtNode, ConnectorThumb } from './ConnectorNode.tsx';
 import { WireArtNode } from './WireNode.tsx';
 import { CardNode } from './CardNode.tsx';
 import { PinRow } from './PinRow.tsx';
@@ -46,6 +47,8 @@ interface ShellProps {
   data: EditorNodeData;
   selected: boolean;
   children: ReactNode;
+  /** extra header content, after the title (a connector's face thumbnail and toggle) */
+  adornment?: ReactNode;
 }
 
 /**
@@ -83,6 +86,7 @@ function NodeShell(props: ShellProps): JSX.Element {
         </span>
         <span className="cs-subtitle">{heading.subtitle}</span>
         {heading.meta === undefined ? null : <span className="cs-meta">{heading.meta}</span>}
+        {props.adornment}
       </header>
       <div className="cs-node-body">{props.children}</div>
     </div>
@@ -94,16 +98,64 @@ function NodeShell(props: ShellProps): JSX.Element {
  * ------------------------------------------------------------------ */
 
 export function ConnectorNode({
+  id,
   data,
   selected,
 }: NodeProps<Node<ConnectorNodeData, 'connector'>>): JSX.Element {
-  // a family with a drawing draws as itself; everything else keeps the pin
-  // list (see `ConnectorArtNode` and `connector-art.ts`)
-  if (data.art !== undefined) {
+  const [face, setFace] = useState(false);
+  const updateInternals = useUpdateNodeInternals();
+  // docked on a board or housed in a mould: the drawing is the node (no header, no list)
+  if (data.art !== undefined && data.dock !== undefined) {
     return <ConnectorArtNode data={data} layout={data.art} selected={selected === true} />;
   }
+  // the face view: the drawing with its pins as targets, on request only
+  if (data.art !== undefined && face) {
+    return (
+      <div className="cs-conn-faceview">
+        <ConnectorArtNode data={data} layout={data.art} selected={selected === true} />
+        <button
+          type="button"
+          className="cs-conn-face-toggle is-on"
+          aria-pressed="true"
+          title="Back to the pin list"
+          aria-label={`${data.instanceId} pin list`}
+          onClick={() => {
+            setFace(false);
+            requestAnimationFrame(() => updateInternals(id));
+          }}
+        >
+          <IconList size={12} />
+        </button>
+      </div>
+    );
+  }
+  // every connector is its pin list: number, name, direction, with a 16 px handle each
   return (
-    <NodeShell data={data} selected={selected === true}>
+    <NodeShell
+      data={data}
+      selected={selected === true}
+      adornment={
+        data.art === undefined ? null : (
+          <span className="cs-conn-adorn">
+            <ConnectorThumb art={data.art.art} />
+            <button
+              type="button"
+              className="cs-conn-face-toggle nodrag"
+              aria-pressed="false"
+              title="Show the face"
+              aria-label={`${data.instanceId} face`}
+              onClick={(event) => {
+                event.stopPropagation();
+                setFace(true);
+                requestAnimationFrame(() => updateInternals(id));
+              }}
+            >
+              <IconPlug size={12} />
+            </button>
+          </span>
+        )
+      }
+    >
       <div className="cs-pins">
         <PinListBus rows={data.rows} bridges={data.bridges} width={estimateNodeSize(data).width} />
         {data.rows.map((row) => (
@@ -230,7 +282,7 @@ function WireEndpoint({
       position={side === 'left' ? Position.Left : Position.Right}
       id={row.key}
       className={classes('cs-handle', `cs-handle-${role}`)}
-      style={{ background: color ?? 'var(--foil)' }}
+      style={{ '--handle-fill': color ?? 'var(--foil)' } as CSSProperties}
     />
   );
   return (
