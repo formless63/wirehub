@@ -476,11 +476,10 @@ package, so it needs no React); the app renders it as a React component.
 `<section data-module data-panel>` and its own error boundary (a panel that throws shows one
 error line, the page stays up). The component receives `PanelProps`:
 `{ slot, module, db, design?, record?, readOnly, onChange?, api }`. `cable-inspector` is appended to the
-inspector column with the **live** design; `cable-documents` sits under the Documents tabs with
+inspector column with the **live** design; `cable-documents` sits after the sheet in Documents with
 the design being printed (a saved revision when one is chosen, with `readOnly: true`);
 `library-detail` sits under the open Library record with `record: { kind, id }`; `settings`
-panels are listed per module on `/modules`, which the rail links to only when some module has
-one. `api(method, path, body?)` calls the module's own routes
+panels are listed per module on `/modules`. `api(method, path, body?)` calls the module's own routes
 (`/api/modules/<module>/<path>`) and resolves `{ status, body }`.
 
 Module API 1.4 adds optional `onChange(proposedDesign, description?)` for editable cable
@@ -504,10 +503,27 @@ pressed on (or the first ticked), `b` the second when it has been chosen (a view
 for it), and `onClose` returns to the Library. A module's own view is where a board's artwork and
 3D revisions, or two shells' dimensions, are shown side by side.
 
+**Module slots.** On the core pages that mount module panels (Library detail, Documents) the host
+puts each module's panels in one `ModuleSlot` frame: titled with the module's name and a "module"
+chip, collapsible, **after** the page's own content and **collapsed by default**. The host, not the
+module, declares the order (`MODULE_SLOT_ORDER` in `apps/studio/src/modules/slots.tsx`; modules it
+does not name follow in manifest order). A person can pin a slot open; the pin is remembered per
+user in this browser's `localStorage` (`wirehub:module-slot-pins:<user>`), because the hub has no
+per-user preference store yet. A module that declares `required` settings that are still empty
+shows one line, "<Module> is not set up · Set up →", linking to Settings › Module settings, instead
+of its form. Panels are not mounted while collapsed, so a panel should not rely on running
+side effects before it is opened. A module's exporters are listed in the Documents toolbar's
+**Tools** menu, not as toolbar buttons.
+
 **UI routes.** `/m/<module>/<path>` renders the route's component with `RouteProps`
-(`{ module, path, db, api }`) inside the shell. A route with an `icon` (a Tabler icon name from
-`IconPlug`, `IconPuzzle`, `IconReport`, `IconSettings`, `IconTool`, `IconBox`, `IconList`; anything
-else is a puzzle piece) gets a rail entry and a place in the mobile menu. Paths are lowercase
+(`{ module, path, db, api }`) inside the shell. A route declares a **place** (`placement`, module
+API 1.6) rather than a navigation item: `library-import` (the Library's Import menu), `document-tools`
+(the Documents Tools menu), `settings` or `extensions` (the page's link on the Modules page; the
+default). `rail` asks for a left-rail item and is honoured only for a module the owner allowed
+(`railModules` in `apps/studio/modules.config.ts`, empty by default); otherwise it is `extensions`.
+An older module's `icon` (a Tabler icon name from `IconPlug`, `IconPuzzle`, `IconReport`,
+`IconSettings`, `IconTool`, `IconBox`, `IconList`; anything else is a puzzle piece) no longer adds a
+rail item by itself, and its page stays reachable from the Modules page. Paths are lowercase
 kebab segments joined by `/`, with no parameters.
 
 **Importers.** The server runs them (`POST /api/modules/<module>/_import/<importer>` with
@@ -605,7 +621,7 @@ The design is `specs/runtime-modules.md`; this is the summary.
   index lists, or by a key an owner pins (`trustKey` on the upload, or Settings → Code modules).
   The preview lists what it may do and the apply needs `consent: { code: "<id>@<version>" }`. A
   module built for another major of the module API, or a newer minor, is refused (`MODULE_API_VERSION`,
-  now `1.5`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
+  now `1.6`). `migrations` requires the owner workflow below; `setup` and `catalogPacks` are ignored (the
   pack is the data).
 - **Loading.** The server, the worker and the page load the enabled modules into a **live
   registry** (`createLiveRegistry`, `composeRegistry`): the built-ins first, then runtime modules in
@@ -681,8 +697,8 @@ fork keeps a private fork of this repository whose only difference is those two 
 
 - The registry API (`@wirehub/modules`) and the model types are the module contract.
   Breaking changes to them bump the base's major version and are listed in the changelog.
-- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.5`: 1.2 revision sources, 1.3 module SQL,
-  1.4 `PanelProps.onChange`, 1.5 declared module settings) is what a runtime bundle records as its
+- `MODULE_API_VERSION` (`<major>.<minor>`, now `1.6`: 1.2 revision sources, 1.3 module SQL,
+  1.4 `PanelProps.onChange`, 1.5 declared module settings, 1.6 a UI route's `placement`) is what a runtime bundle records as its
   `apiVersion`: a hub runs a bundle of the same major and a minor no newer than its own.
 - A module declares the base range it supports in `peerDependencies`; pnpm warns on a
   mismatch at install.

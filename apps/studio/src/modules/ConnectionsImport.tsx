@@ -11,7 +11,7 @@
  */
 
 import { analyseConnections, type ConnectionAnalysis } from '@wirehub/module-csv-library';
-import { useMemo, useRef, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { startImportJob } from '../jobs.browser.ts';
 import { useStudio } from '../studio-context.tsx';
@@ -25,9 +25,11 @@ const toBase64 = (bytes: Uint8Array): string => {
 
 const slug = (text: string): string => text.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-export function ConnectionsImport({ onImported }: { onImported: () => void }): JSX.Element {
+export function ConnectionsImport({ onImported, expose }: { onImported: () => void; expose?: (open: () => void) => void }): JSX.Element {
   const studio = useStudio();
   const input = useRef<HTMLInputElement | null>(null);
+  // the Library's Import menu opens the file picker from its own entry instead of a button here
+  useEffect(() => { expose?.(() => input.current?.click()); }, [expose]);
   const [open, setOpen] = useState(false);
   const [fileName, setFileName] = useState('');
   const [text, setText] = useState('');
@@ -102,9 +104,11 @@ export function ConnectionsImport({ onImported }: { onImported: () => void }): J
           if (file !== undefined) void read(file);
         }}
       />
-      <button type="button" className="cs-small" title="Make a design from a from/to pin CSV (a connection list)" onClick={() => input.current?.click()}>
+      {expose !== undefined ? null : (
+        <button type="button" className="cs-small" title="Make a design from a from/to pin CSV (a connection list)" onClick={() => input.current?.click()}>
         Connections CSV…
       </button>
+      )}
       {jobId === undefined ? null : <ImportJob id={jobId} onClose={() => setJobId(undefined)} onPublished={onImported} />}
       {!open ? null : (
         <div role="dialog" aria-label="Connections CSV import" className="cs-import-dialog fixed inset-x-3 top-12 z-50 mx-auto flex max-h-[85vh] max-w-3xl flex-col gap-2 overflow-auto rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">

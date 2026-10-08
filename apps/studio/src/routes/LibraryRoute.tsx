@@ -41,9 +41,7 @@ import { LockMarker } from '../locks/LockMarker.tsx';
 import { definitionRecord } from '../locks/records.ts';
 import { browserDepictions } from '../depictions.browser.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
-import { ConnectionsImport } from '../modules/ConnectionsImport.tsx';
-import { CsvImport } from '../modules/CsvImport.tsx';
-import { ModuleImport } from '../modules/ModuleImport.tsx';
+import { ImportMenu } from '../modules/ImportMenu.tsx';
 import { ModulePanels } from '../modules/slots.tsx';
 import { HistoryButton } from '../history/HistoryPanel.tsx';
 import { definitionNoun } from '../history/types.ts';
@@ -139,15 +137,11 @@ export function LibraryRoute(): JSX.Element {
         Browse store
       </Link>
     );
-    const button = modules.importers().length === 0 ? null : <ModuleImport registry={modules} onImported={studio.onDefinitionsChange} />;
-    const bulk = modules.importers().some((i) => i.module === 'csv-library') ? <CsvImport onImported={studio.onDefinitionsChange} /> : null;
-    const connections = modules.importers().some((i) => i.module === 'csv-library' && i.id === 'connection-list') ? <ConnectionsImport onImported={studio.onDefinitionsChange} /> : null;
+    const importMenu = <ImportMenu registry={modules} onImported={studio.onDefinitionsChange} />;
     const both = (
       <>
-        {button}
-        {bulk}
+        {importMenu}
         {store}
-        {connections}
       </>
     );
     return { connectors: both, components: both, wires: both, pcbas: both, mechanicals: both };
@@ -180,6 +174,9 @@ export function LibraryRoute(): JSX.Element {
         listActions={listActions}
         onCompare={(a, b) => setCompare({ a, ...(b === undefined ? {} : { b }) })}
         compareKinds={LIBRARY_KINDS}
+        moduleExtras={(record: { kind: LibraryKind; id: string }) =>
+          modules.panels('library-detail').length === 0 ? null : <ModulePanels registry={modules} slot="library-detail" context={{ db: studio.db, record, readOnly: false }} framed />
+        }
         detailExtras={(record: { kind: LibraryKind; id: string }) => (
           <>
             {/* the record's change history: who changed what, and restore an earlier state */}
@@ -200,7 +197,6 @@ export function LibraryRoute(): JSX.Element {
                 onChanged={() => studio.onDefinitionsChange()}
               />
             ) : null}
-            {modules.panels('library-detail').length === 0 ? null : <ModulePanels registry={modules} slot="library-detail" context={{ db: studio.db, record, readOnly: false }} />}
           </>
         )}
         {...(partNumbers === undefined ? {} : { partNumbers })}

@@ -27,7 +27,7 @@ export interface ExtraDocumentOutput {
   body: string | Uint8Array;
 }
 
-/** An export the Documents view offers beside Print: one button, one download. */
+/** An export the Documents view offers in its Tools menu: one entry, one download. */
 export interface ExtraExporter {
   id: string;
   label: string;
@@ -45,13 +45,23 @@ export interface ExtraExportContext {
   testDefaults?: TestParameters;
 }
 
+/** A module page the Documents Tools menu opens (`placement: 'document-tools'`). */
+export interface ExtraToolLink {
+  id: string;
+  label: string;
+  /** open the page (the host navigates) */
+  open(): void;
+}
+
 export interface EditorExtensions {
   /** appended to the inspector column (the cable's right-hand side) */
   inspector?: (context: EditorSlotContext) => ReactNode;
-  /** shown under the Documents tabs */
+  /** shown after the sheet in Documents (the host frames it: collapsed, below the document) */
   documents?: (context: EditorSlotContext) => ReactNode;
-  /** extra export buttons in the Documents toolbar */
+  /** extra exports, listed in the Documents toolbar's Tools menu */
   exporters?: readonly ExtraExporter[];
+  /** module pages listed in the same Tools menu */
+  toolLinks?: readonly ExtraToolLink[];
 }
 
 /** Save an export's file through the browser (a Blob and a temporary link). */

@@ -12,7 +12,7 @@
  */
 
 import { analyseCsv, applyMapping, detectKind, FIELDS, kindOfType, LIBRARY_KINDS, looksLikeZip, parseCsv, readXlsx, suggestMapping, templateCsv, templateFileName, TYPE_COLUMN, type LibraryKind } from '@wirehub/module-csv-library';
-import { useMemo, useRef, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { uploadImportJob, startImportJob } from '../jobs.browser.ts';
 import { useStudio } from '../studio-context.tsx';
@@ -41,9 +41,11 @@ const toBase64 = (bytes: Uint8Array): string => {
   return btoa(binary);
 };
 
-export function CsvImport({ onImported }: { onImported: () => void }): JSX.Element {
+export function CsvImport({ onImported, expose }: { onImported: () => void; expose?: (open: () => void) => void }): JSX.Element {
   const studio = useStudio();
   const input = useRef<HTMLInputElement | null>(null);
+  // the Library's Import menu opens the file picker from its own entry instead of a button here
+  useEffect(() => { expose?.(() => input.current?.click()); }, [expose]);
   const [open, setOpen] = useState(false);
   const [fileName, setFileName] = useState('');
   const [rows, setRows] = useState<string[][]>([]);
@@ -128,9 +130,11 @@ export function CsvImport({ onImported }: { onImported: () => void }): JSX.Eleme
           if (file !== undefined) void read(file);
         }}
       />
-      <button type="button" className="cs-small" title="Import library parts from a CSV or an XLSX sheet, with a column mapping and a dry run" onClick={() => input.current?.click()}>
+      {expose !== undefined ? null : (
+        <button type="button" className="cs-small" title="Import library parts from a CSV or an XLSX sheet, with a column mapping and a dry run" onClick={() => input.current?.click()}>
         Bulk CSV…
       </button>
+      )}
       {message === undefined || open ? null : (
         <span role="status" className="cs-count">
           {message}

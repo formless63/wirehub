@@ -108,6 +108,13 @@ describe('derived records, owned files and reserved names', () => {
     expect(registry.exporter('example', 'x')).toBeUndefined();
   });
 
+  it('accepts a UI route placement, defaults to none, and refuses an unknown one', () => {
+    const route = (placement?: string) => defineModule({ id: 'pl', label: 'Pl', version: '1.0.0', routes: [{ path: 'x', label: 'X', component: null, ...(placement === undefined ? {} : { placement: placement as never }) }] });
+    expect(manifestProblems([route()])).toEqual([]);
+    expect(manifestProblems([route('library-import')])).toEqual([]);
+    expect(manifestProblems([route('sidebar')]).join(' ')).toMatch(/unknown placement 'sidebar'/);
+  });
+
   it('refuses bad derived files, documents under data/derived/, reserved route names and duplicate panels', () => {
     const bad = defineModule({
       id: 'bad',

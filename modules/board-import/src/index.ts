@@ -44,5 +44,5 @@ export const boardImport = defineModule({
   version: '0.1.0',
   license: 'MIT',
   importers: [kicadBoardImporter, gerberImporter, fabBomImporter],
-  routes: [{ path: 'boards', label: 'Board import', icon: 'IconTool', component: BoardImportPage }],
+  routes: [{ path: 'boards', label: 'Board import', placement: 'library-import', icon: 'IconTool', component: BoardImportPage }],
 });

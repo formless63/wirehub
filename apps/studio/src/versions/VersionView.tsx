@@ -12,7 +12,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { IconArrowLeft, IconGitBranch, IconLock, IconLockOpen, IconPhotoExclamation } from '@tabler/icons-react';
-import { CableEditor, type DocumentRelease, type EditorView } from '@wirehub/editor-react';
+import { CableEditor, type DocumentRelease, type DocumentReport, type EditorView } from '@wirehub/editor-react';
 import { versionDb, type CableDesign } from '@wirehub/model';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -40,9 +40,14 @@ export function VersionView(props: {
   const studio = useStudio();
   const modules = useModules();
   // the modules' panels and exporters, over the revision's own design and frozen definitions (read-only while it is locked)
-  const extensions = useMemo(() => editorExtensions(modules), [modules]);
-  const chrome = useEditorChrome();
   const navigate = useNavigate();
+  const openModuleRoute = useCallback((module: string, path: string): void => { void navigate({ to: '/m/$module/$', params: { module, _splat: path } }); }, [navigate]);
+  const extensions = useMemo(() => editorExtensions(modules, openModuleRoute), [modules, openModuleRoute]);
+  const onDocumentReport = useCallback((report: DocumentReport): void => {
+    if (report.kind === 'success') toast.success(report.message, report.detail === undefined ? {} : { description: report.detail });
+    else toast.error(report.message, report.detail === undefined ? {} : { description: report.detail });
+  }, []);
+  const chrome = useEditorChrome();
   const queryClient = useQueryClient();
   const { listing, refresh } = useVersionListing(id);
   const { file, error } = useVersionFile(id, rev);
@@ -342,6 +347,7 @@ export function VersionView(props: {
           release={release}
           assemblies={assemblies}
           {...(extensions === undefined ? {} : { extensions })}
+          onDocumentReport={onDocumentReport}
           view={props.view}
           onViewChange={props.onViewChange}
           onStatusChange={studio.setEditorStatus}

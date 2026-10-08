@@ -211,6 +211,8 @@ export interface LibraryProps {
    * `library-detail` slot): called with the record's kind and id.
    */
   detailExtras?: (record: { kind: LibraryKind; id: string }) => ReactNode;
+  /** host-added module panels, shown after everything the Library itself shows for the record */
+  moduleExtras?: (record: { kind: LibraryKind; id: string }) => ReactNode;
   /**
    * A small marker before a row's label — the studio's "someone else is
    * editing this" avatar (edit locks). `null` for none.
@@ -1713,6 +1715,12 @@ export function Library(props: LibraryProps): JSX.Element {
               />
             ) : null}
             {mode.kind === 'edit' && baseline !== undefined ? <SourceBlock src={baseline.src} /> : null}
+            {/* module panels come last: the definition first, then what installed modules add */}
+            {mode.kind === 'edit' && props.moduleExtras !== undefined ? (
+              <div className="cs-extension-slot" data-slot="library-detail">
+                {props.moduleExtras({ kind, id: mode.id })}
+              </div>
+            ) : null}
           </>
         )}
 

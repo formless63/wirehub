@@ -41,3 +41,11 @@ function exampleFlag(): boolean {
 }
 
 export const modules: readonly WireHubModule[] = [pcSerial, networking, proAudio, avVideo, automotive, boardImport, wireviz, csvLibrary, ...(exampleFlag() ? [example] : [])];
+
+/**
+ * The modules the owner lets add an item to the left rail (`placement: 'rail'` on a UI route,
+ * module API 1.6). Empty by default: modules declare a place (the Library's Import menu, the
+ * Modules page, the Documents Tools menu) and the rail stays the hub's own. List a module id
+ * here to pin its rail item.
+ */
+export const railModules: readonly string[] = [];

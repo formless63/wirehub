@@ -612,7 +612,7 @@ export { BoardComponentsSection } from './panels/BoardComponentsSection.tsx';
 export type { BoardComponentsSectionProps } from './panels/BoardComponentsSection.tsx';
 
 export { downloadOutput } from './extensions.ts';
-export type { EditorExtensions, EditorSlotContext, ExtraDocumentOutput, ExtraExporter } from './extensions.ts';
+export type { EditorExtensions, EditorSlotContext, ExtraDocumentOutput, ExtraExporter, ExtraToolLink } from './extensions.ts';
 export { dbWithLibrary, mergeLibraries, missingDesigns, versionsOf } from './assemblies.ts';
 export type { AssembliesAdapter } from './assemblies.ts';
 export type { SubassemblyNodeData } from './derive.ts';
@@ -620,3 +620,6 @@ export { RevisionsSection } from './panels/RevisionsSection.tsx';
 export { compareSideId, parseCompareSide } from './revisions.ts';
 export type { CompareSide, RevisionSummary, RevisionsAdapter, RevisionsView, SaveRevisionInput } from './revisions.ts';
 export { SourcingFields, sourcingOfExtra, withExtraSourcing, withSourcing } from './panels/SourcingFields.tsx';
+export { ConfirmDialog, Drawer } from './ui/index.ts';
+export type { ConfirmDialogProps, DrawerProps } from './ui/index.ts';
+export type { DocumentReport } from './panels/Documents.tsx';

@@ -97,6 +97,7 @@ import { useDesignLifecycle, type LifecycleAction } from './panels/useDesignLife
 import { nodeTypes } from './nodes/index.tsx';
 import { ConnectionPanel, PartPanel } from './panels/Inspector.tsx';
 import type { EditorExtensions } from './extensions.ts';
+import type { DocumentReport } from './panels/Documents.tsx';
 import { IssuesPanel, NetsPanel } from './panels/Derived.tsx';
 import { NotesPanel } from './panels/Notes.tsx';
 import { PinSearch } from './panels/PinSearch.tsx';
@@ -301,6 +302,8 @@ export interface CableEditorProps {
    * registry (`extensions.ts`). Omitted: the editor is exactly the base.
    */
   extensions?: EditorExtensions;
+  /** where Documents reports a save, copy or export: success, or an error with its detail (the studio shows a toast) */
+  onDocumentReport?: (report: DocumentReport) => void;
   /**
    * Where the designs this cable places as sub-assemblies come from
    * (`assemblies.ts`). Given one, the palette offers the host's other designs
@@ -1405,6 +1408,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
             {...(props.partNumbers === undefined ? {} : { partNumbers: props.partNumbers })}
             {...(props.documentFacts === undefined ? {} : { facts: props.documentFacts })}
             {...(props.extensions === undefined ? {} : { extensions: props.extensions })}
+            {...(props.onDocumentReport === undefined ? {} : { onReport: props.onDocumentReport })}
             readOnly={readOnly}
             {...(panelEditable ? { onChange: panelOnChange } : {})}
           />

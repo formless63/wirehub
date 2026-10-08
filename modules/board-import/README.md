@@ -12,7 +12,7 @@ that is their review step:
 
 Every import is a proposal. The studio runs it as a job, shows the plan (the art is
 previewed) and publishes it as one change set; a record the Library already has is
-kept, never overwritten. The page is `/m/board-import/boards` (rail: **Board import**);
+kept, never overwritten. The page is `/m/board-import/boards` (Library › **Import** › Board import);
 the Library's **Import…** offers the same importers without the review options.
 
 **Order.** Import the `.kicad_pcb` first: it makes the board and records where each

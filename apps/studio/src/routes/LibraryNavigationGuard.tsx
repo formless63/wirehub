@@ -1,5 +1,5 @@
 import { useBlocker } from '@tanstack/react-router';
-import { EditSessionContext, useEditSession } from '@wirehub/editor-react';
+import { ConfirmDialog, EditSessionContext, useEditSession } from '@wirehub/editor-react';
 import { useCallback, useMemo, useState, type JSX, type ReactNode } from 'react';
 
 /** Protect Library drafts when leaving the section (Home, Settings, etc.).
@@ -12,9 +12,15 @@ export function LibraryNavigationGuard({ children }: { children: ReactNode }): J
     setDirtyCount(count => Math.max(0, count + (dirty ? 1 : -1)));
   }, [session.onDirtyChange]);
   const value = useMemo(() => ({ ...session, onDirtyChange }), [session, onDirtyChange]);
-  useBlocker({
-    shouldBlockFn: ({ next }) => (next.pathname === '/library/store' || (!next.pathname.startsWith('/library/') && next.pathname !== '/library')) && dirtyCount > 0 && !window.confirm('Discard unsaved Library edits and leave this page?'),
+  const blocker = useBlocker({
+    shouldBlockFn: ({ next }) => (next.pathname === '/library/store' || (!next.pathname.startsWith('/library/') && next.pathname !== '/library')) && dirtyCount > 0,
     enableBeforeUnload: false, // the Library already provides the browser unload guard
+    withResolver: true,
   });
-  return <EditSessionContext.Provider value={value}>{children}</EditSessionContext.Provider>;
+  return <EditSessionContext.Provider value={value}>
+    {children}
+    <ConfirmDialog open={blocker.status === 'blocked'} title="Discard unsaved Library edits?" confirmLabel="Discard and leave" cancelLabel="Stay" destructive onConfirm={() => blocker.proceed?.()} onCancel={() => blocker.reset?.()}>
+      Leaving this page loses the edits you have not saved.
+    </ConfirmDialog>
+  </EditSessionContext.Provider>;
 }

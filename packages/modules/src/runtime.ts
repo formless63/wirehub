@@ -24,9 +24,9 @@ import { createRegistry, manifestProblems, type ModuleRegistry, type WireHubModu
  * `1.0` was the build-time-only contract; `1.1` adds runtime loading (nothing a
  * 1.0 module relies on changed); `1.2` adds `revisionSources`; `1.3` module SQL migrations; `1.4` `PanelProps.onChange`;
  * `1.5` declared module settings (`WireHubModule.settings`, read through `request.settings` /
- * `context.settings`). A minor bump adds; a major bump breaks.
+ * `context.settings`); `1.6` a UI route's `placement`. A minor bump adds; a major bump breaks.
  */
-export const MODULE_API_VERSION = '1.5';
+export const MODULE_API_VERSION = '1.6';
 
 const API_VERSION = /^(\d+)\.(\d+)$/;
 

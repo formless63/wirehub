@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { catalogWithPacksSource, createCatalog, installedAcross } from '@wirehub/catalog';
 import { createLiveRegistry, createRegistry, type LiveModuleRegistry } from '@wirehub/modules';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { toasts } from './toast-spy.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -25,6 +26,10 @@ import { TINY_MODULE, tinyBundle, tinyKeys } from './tiny-code-module.ts';
 
 vi.mock('../src/studio-context.tsx', () => ({ useStudio: () => ({ me: { name: 'Ow', source: 'session', role: 'owner' } }) }));
 const { CodeModulesSettings } = await import('../src/routes/CodeModulesSettings.tsx');
+
+vi.mock('sonner', async () => (await import('./toast-spy.ts')).sonnerMock);
+
+beforeEach(() => { toasts.length = 0; });
 
 let root = '';
 let deps: WorkbenchDeps;
@@ -70,7 +75,7 @@ describe('installing a code module from a file', () => {
     const file = new File([tinyBundle(keys.pem) as BlobPart], 'tiny-1.0.0.zip', { type: 'application/zip' });
     fireEvent.change(screen.getByLabelText('Pack file'), { target: { files: [file] } });
     const consent = await screen.findByTestId('code-consent');
-    expect(consent.textContent).toContain('Tiny rule (tiny 1.0.0, module API 1.5)');
+    expect(consent.textContent).toContain('Tiny rule (tiny 1.0.0, module API 1.6)');
     expect(consent.textContent).toContain('runs code in your hub');
     expect(consent.textContent).toContain('May: server-code');
     const install = screen.getByRole('button', { name: 'Install' }) as HTMLButtonElement;
@@ -78,7 +83,7 @@ describe('installing a code module from a file', () => {
     fireEvent.click(screen.getByLabelText('I trust this module to run code in this hub'));
     expect(install.disabled).toBe(false);
     fireEvent.click(install);
-    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Its code runs now.'));
+    await waitFor(() => expect(toasts.map((t) => t.description ?? '').join(' ')).toContain('Its code runs now.'));
     expect(live.module('tiny')?.version).toBe('1.0.0');
   }, 30_000);
 });
@@ -120,9 +125,13 @@ describe('Settings → Code modules', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       fireEvent.click(screen.getByRole('button', { name: 'Restart WireHub' }));
+      // a ConfirmDialog first: nothing restarts until it is confirmed
+      fireEvent.click(await screen.findByTestId('confirm-dialog-ok'));
       await waitFor(() => expect(screen.getByTestId('restart-overlay').textContent).toContain('Restarting WireHub'));
       expect(restarts).toBe(1);
       await vi.advanceTimersByTimeAsync(2000);
+      await waitFor(() => expect(screen.getByTestId('restart-overlay').textContent).toMatch(/reconnected in \d+ s/));
+      await vi.advanceTimersByTimeAsync(1500);
       await waitFor(() => expect(reload).toHaveBeenCalled());
     } finally {
       vi.useRealTimers();
