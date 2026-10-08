@@ -9,6 +9,7 @@
  */
 
 import type { CableDesign, Db } from '@wirehub/model';
+import type { RevisionRow } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 
 /** What the editor has open: the working copy, or one saved revision. */
@@ -19,6 +20,8 @@ export type ReleaseShowing =
 export interface DocumentRelease {
   /** saved revision numbers, ascending */
   revisions: readonly number[];
+  /** the saved revisions as the drawing's revision table prints them (note, date, who), by revision, ascending; absent: the table shows the numbers alone */
+  rows?: readonly RevisionRow[];
   showing: ReleaseShowing;
   /**
    * a saved revision's design, resolved against its frozen definitions, and
@@ -41,6 +44,16 @@ export function defaultDocumentTarget(release: DocumentRelease | undefined): Doc
 /** The title-block revision for a target: the saved number, or a dash for the working copy. */
 export function targetRevision(target: DocumentTarget): string {
   return target === 'working' ? '—' : String(target);
+}
+
+/** The drawing's revision table for a target: the saved revisions up to it, a working copy as its own row. */
+export function revisionTable(release: DocumentRelease | undefined, target: DocumentTarget): RevisionRow[] | undefined {
+  if (release === undefined) return undefined;
+  const known = new Map((release.rows ?? []).map((r) => [r.rev, r]));
+  const rows = release.revisions
+    .filter((n) => target === 'working' || n <= target)
+    .map((n) => known.get(String(n)) ?? { rev: String(n), description: `Revision ${n}` });
+  return target === 'working' ? [...rows, { rev: '—', description: 'Working copy, not released' }] : rows;
 }
 
 export { withUnreleasedMark } from '@wirehub/docs';

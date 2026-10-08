@@ -27,7 +27,7 @@
  */
 
 import { costingRulesProblems, electricalRulesProblems, type CostingRules, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, type ElectricalRules } from '@wirehub/model';
-import { FILE_PREFIX_PATTERN, readTestParameters, type TestParameters } from '@wirehub/docs';
+import { FILE_PREFIX_PATTERN, PAPER_IDS, TITLE_BLOCK_STANDARDS, isPaperId, isTitleBlockStandard, readTestParameters, type PaperId, type TestParameters, type TitleBlockStandard } from '@wirehub/docs';
 import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
 
 import { drawingArtProblems, type BrandFace } from '@wirehub/docs';
@@ -117,6 +117,10 @@ export interface BrandingRecord {
   designer?: string;
   /** the prefix of exported wire spec files (default `WSS_`) */
   filePrefix?: string;
+  /** the paper every document prints on unless it is asked for another (Settings › Documents); unset = A4 */
+  paper?: PaperId;
+  /** the title-block layout of every sheet, `ansi` or `iso`; unset = the paper's own convention */
+  titleBlock?: TitleBlockStandard;
   /** the title block's three-line general note */
   notes?: [string, string, string];
   /** the title block's tolerance table: up to five label/value rows */
@@ -507,6 +511,13 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
     const got = clean(input[field], field, max);
     if (got.error !== undefined) return fail(400, got.error);
     if (got.value !== undefined) next[field] = got.value;
+  }
+  // the document defaults: the paper and the title-block layout (absent or empty keeps the built-in: A4, and the paper's own convention)
+  for (const [field, valid, choices] of [['paper', isPaperId, PAPER_IDS], ['titleBlock', isTitleBlockStandard, TITLE_BLOCK_STANDARDS]] as const) {
+    const value = input[field];
+    if (value === undefined || value === null || value === '') continue;
+    if (!valid(value)) return fail(400, `${field} must be one of ${choices.join(', ')}.`);
+    (next as unknown as Record<string, unknown>)[field] = value;
   }
   if (next.filePrefix !== undefined && !FILE_PREFIX_PATTERN.test(next.filePrefix)) {
     return fail(400, 'filePrefix may use letters, digits, dot, dash and underscore, up to 16 characters.', 'For example WSS_ or ACME-WS-.');

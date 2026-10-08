@@ -22,7 +22,7 @@ import { compareStrings, escapeHtml } from '../text.ts';
 import { lengthFromMm } from '../units.ts';
 import { conductorPaint } from '@wirehub/render-svg';
 import { boardFigure, breakoutFigure, faceFigure, landingWords, stripFigure, type FaceSource } from './figures.ts';
-import { headerHtml, runningHeaderHtml, type SheetHeader } from './header.ts';
+import { footHtml, headerFrameCss, headerHtml, type SheetHeader } from './header.ts';
 import { deriveBench, type Bench, type BenchEnd, type Landing, type SegmentEnd, type Termination } from './model.ts';
 import { breakoutSection } from './breakouts.ts';
 import { assemblySteps, endSteps, prepSteps, qaSteps, solderStep, shellSets, type Step } from './standard-work.ts';
@@ -554,14 +554,11 @@ export function benchSheetBody(design: CableDesign, db: Db, options: BenchSheetO
   pages.push({ title: 'Assembly', html: assemblyPage(pages.length + 1, bench, design, db, supplied) });
   pages.push({ title: 'Test', html: testPage(pages.length + 1, spec, db) });
 
-  const total = pages.length;
-  const out: string[] = ['<div class="cs-root cs-sheet cs-bench">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}${brandSheetCss()}</style>`];
+  const out: string[] = ['<div class="cs-root cs-sheet cs-bench wh-sheet-col">', `<style>${SHEET_STYLESHEET}${BENCH_STYLESHEET}${headerFrameCss(header)}${brandSheetCss()}</style>`];
+  // the first page opens with the title block; every printed page carries the frame's strip (`frame/`), so the later stages need no running header
   pages.forEach((page, i) => {
-    const sheet = `${i + 1} of ${total}`;
-    out.push(
-      `<section class="cs-page" data-stage="${escapeHtml(page.title)}">${i === 0 ? headerHtml(header, { sheet }) : runningHeaderHtml(header, page.title, sheet)}${page.html}</section>`,
-    );
+    out.push(`<section class="cs-page" data-stage="${escapeHtml(page.title)}">${i === 0 ? headerHtml(header) : ''}${page.html}</section>`);
   });
-  out.push('</div>');
+  out.push(footHtml(header), '</div>');
   return out.join('');
 }

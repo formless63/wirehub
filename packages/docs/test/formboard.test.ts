@@ -19,6 +19,7 @@ import {
   formboardSvgPages,
   parseScale,
   scaleText,
+  textWidth,
 } from '../src/index.ts';
 
 const db = loadDb();
@@ -246,5 +247,43 @@ describe('goldens', () => {
   });
   it('the whole board on one sheet at 1:10', async () => {
     await expect(formboardSvg(board, 1, { scale: 0.1 })).toMatchFileSnapshot('./__golden__/formboard-dc-y-splitter-1-10.svg');
+  });
+});
+
+describe('the overview’s tile names', () => {
+  /** every unrotated caption of an SVG page as a rectangle: x0, x1, top, bottom (mm) */
+  function captions(svg: string): { tile?: number; x0: number; x1: number; y0: number; y1: number; text: string }[] {
+    const out: { tile?: number; x0: number; x1: number; y0: number; y1: number; text: string }[] = [];
+    for (const m of svg.matchAll(/(<g data-tile="(\d+)">[^]*?<\/g>)|<text ([^>]*)>([^<]*)<\/text>/g)) {
+      const group = m[1];
+      const tile = m[2] === undefined ? undefined : Number(m[2]);
+      const body = group === undefined ? (m[3] as string) : (/<text ([^>]*)>/.exec(group)?.[1] ?? '');
+      const text = group === undefined ? (m[4] as string) : (/<text [^>]*>([^<]*)<\/text>/.exec(group)?.[1] ?? '');
+      if (/transform=/.test(body)) continue;
+      const attr = (name: string): string | undefined => new RegExp(`${name}="([^"]*)"`).exec(body)?.[1];
+      const size = Number(attr('font-size'));
+      const x = Number(attr('x'));
+      const y = Number(attr('y'));
+      const w = textWidth(text, size, attr('font-weight') === 'bold');
+      const anchor = attr('text-anchor');
+      const x0 = anchor === 'end' ? x - w : anchor === 'middle' ? x - w / 2 : x;
+      out.push({ ...(tile === undefined ? {} : { tile }), x0, x1: x0 + w, y0: y - size * 0.78, y1: y + size * 0.22, text });
+    }
+    return out;
+  }
+
+  it.each(['dc-y-splitter', 'de9-crossover', 'dc-y-from-leads'])('%s: no page name sits on another caption, and none on another', (id) => {
+    const board = deriveFormboard(loadDesign(id), db);
+    for (const scale of [1, 0.5]) {
+      const texts = captions(formboardSvg(board, 0, { scale }));
+      const tiles = texts.filter((t) => t.tile !== undefined);
+      const hit = (a: (typeof texts)[number], b: (typeof texts)[number]): boolean => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+      for (const tile of tiles) {
+        for (const other of texts) {
+          if (other === tile) continue;
+          expect(hit(tile, other), `p${tile.tile} on “${other.text}” at 1:${1 / scale}`).toBe(false);
+        }
+      }
+    }
   });
 });

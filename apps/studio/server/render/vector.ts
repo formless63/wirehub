@@ -89,7 +89,7 @@ function inherit(parent: Style, attrs: Attrs): Style {
     strokeOpacity: attrs['stroke-opacity'] === undefined ? parent.strokeOpacity : Number(attrs['stroke-opacity']),
     dash: dash === undefined ? parent.dash : dash === 'none' ? [] : dash.split(/[\s,]+/).map(Number),
     cap: attrs['stroke-linecap'] === undefined ? parent.cap : attrs['stroke-linecap'] === 'round' ? 1 : attrs['stroke-linecap'] === 'square' ? 2 : 0,
-    bold: attrs['font-weight'] === undefined ? parent.bold : attrs['font-weight'] === 'bold',
+    bold: attrs['font-weight'] === undefined ? parent.bold : attrs['font-weight'] === 'bold' || Number(attrs['font-weight']) >= 600,
     anchor: attrs['text-anchor'] === undefined ? parent.anchor : (attrs['text-anchor'] as Style['anchor']),
   };
 }

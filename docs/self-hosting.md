@@ -675,11 +675,11 @@ rewritten history to the same remote, set the hub's working clone aside
 
 By default the PDF of the build sheet, the BOM, the continuity spec and a wire
 stock's spec sheet is a plain text layout of the sheet (tables and notes, no
-figures), and the drawing sheet's is a rasterised page, because laying out
+figures), and the drawing sheet's, the schematic's and the label sheet's is a rasterised page, because laying out
 HTML takes a browser engine and the WireHub image does not carry one. The
 `pdf` profile adds one beside the app, so `?format=pdf` (and the `render`
 command) gives the sheet exactly as a browser prints it — page size and
-margins, figures, the UNRELEASED / UNAPPROVED mark, the branding:
+margins, figures, the frame and its state stamp, the branding:
 
 ```
 COMPOSE_PROFILES=pdf

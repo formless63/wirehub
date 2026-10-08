@@ -37,8 +37,8 @@ export const SHEET_STYLESHEET = `@layer wirehub.docs{
 --cs-hazard-fill:#fbe9e9;
 --cs-caution:#7a4a00;
 --cs-caution-fill:#fdf4e4;
---cs-font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
---cs-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+--cs-font:"IBM Plex Sans","CS Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+--cs-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
 --cs-size:8.4pt;
 --cs-size-small:7.2pt;
 --cs-gap:3.4mm;
@@ -60,18 +60,17 @@ print-color-adjust:exact;
 .cs-root p{margin:0 0 1.6mm}
 .cs-root ul{margin:0 0 var(--cs-gap);padding-left:5mm}
 .cs-root li{margin:0 0 0.8mm;break-inside:avoid}
-.cs-root code{font-family:var(--cs-mono);font-size:var(--cs-size-small)}
+.cs-root code,.cs-sku,.cs-refs{font-family:var(--cs-mono)}
+.cs-root code{font-size:var(--cs-size-small)}
 
-.cs-titleblock{border:1.2pt solid var(--cs-rule);margin-bottom:var(--cs-gap);break-inside:avoid;break-after:avoid}
-.cs-titleblock__bar{display:flex;flex-wrap:wrap;gap:2mm;justify-content:space-between;align-items:baseline;padding:1.4mm var(--cs-cell-x);border-bottom:1pt solid var(--cs-rule);background:var(--cs-fill-head)}
-.cs-titleblock__kind{font-weight:700;letter-spacing:0.16em;font-size:9pt}
-.cs-titleblock__doc{font-family:var(--cs-mono);font-size:var(--cs-size-small)}
-.cs-titleblock__title{padding:1.4mm var(--cs-cell-x);font-size:11pt;font-weight:600;border-bottom:1pt solid var(--cs-rule-light)}
-.cs-titleblock__facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(52mm,1fr));gap:0}
-.cs-fact{padding:1.2mm var(--cs-cell-x);border-right:1pt solid var(--cs-rule-light);border-top:1pt solid var(--cs-rule-light)}
-.cs-fact:last-child{border-right:0}
-.cs-fact__k{display:block;font-size:var(--cs-size-small);letter-spacing:0.08em;text-transform:uppercase;color:var(--cs-muted)}
-.cs-fact__v{display:block}
+.cs-head{margin:0 0 var(--cs-gap);break-inside:avoid;break-after:avoid}
+.cs-facts{display:flex;flex-wrap:wrap;gap:0.6mm 5mm;margin:2.2mm 0 0;font-size:var(--cs-size-small)}
+.cs-fact{display:inline-flex;gap:1.4mm;align-items:baseline}
+.cs-fact__k{font-size:5.6pt;letter-spacing:0.08em;text-transform:uppercase;color:var(--cs-muted)}
+.cs-fact__v{color:var(--cs-ink)}
+.cs-fact.cs-is-flag .cs-fact__v{font-weight:600;color:var(--cs-hazard)}
+.cs-mono{font-family:var(--cs-mono)}
+.cs-rights{margin-top:1.2mm;font-size:6pt;letter-spacing:0.04em;color:var(--cs-muted)}
 
 .cs-section{margin:0 0 var(--cs-gap);break-inside:auto}
 .cs-section__h{font-size:10pt;font-weight:700;letter-spacing:0.06em;margin:0 0 1.4mm;padding-bottom:0.8mm;border-bottom:1pt solid var(--cs-rule);break-after:avoid}
@@ -109,7 +108,4 @@ print-color-adjust:exact;
    document for an embedded drawing.) */
 .cs-svg{color:var(--cs-ink)}
 
-@media screen{
-.cs-root{padding:8mm;box-shadow:0 0 0 1px var(--cs-rule-light)}
-}
 }`;

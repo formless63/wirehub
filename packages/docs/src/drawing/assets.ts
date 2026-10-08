@@ -15,6 +15,7 @@
 
 import type { DepictionSource } from '@wirehub/layout';
 
+import type { PaperId, TitleBlockStandard } from '../frame/paper.ts';
 import type { FaceArt } from './faces.ts';
 
 /** A cutaway as an SVG document and its frame size. */
@@ -48,6 +49,10 @@ export interface TitleBlockText {
   designer?: string;
   /** the prefix of every exported wire spec file (default `WIRE_SPEC_FILE_PREFIX`, `WSS_`) */
   filePrefix?: string;
+  /** the paper the sheets print on when nothing asks for another (Settings › Documents); unset = A4 */
+  paper?: PaperId;
+  /** the title-block layout of every sheet (Settings › Documents); unset = the paper's own convention (ISO for the A sizes, ANSI for the North American ones) */
+  titleBlock?: TitleBlockStandard;
 }
 
 export interface DrawingArt {
@@ -146,9 +151,9 @@ export function registeredTitleBlock(): TitleBlockText {
   const blocks = registered.map((art) => art.titleBlock).filter((t): t is TitleBlockText => t !== undefined);
   const notes = blocks.find((t) => t.notes !== undefined)?.notes;
   const tolerances = blocks.find((t) => t.tolerances !== undefined)?.tolerances;
-  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer' | 'filePrefix'>(key: K): Partial<Record<K, string>> => {
+  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer' | 'filePrefix' | 'paper' | 'titleBlock'>(key: K): Partial<Record<K, NonNullable<TitleBlockText[K]>>> => {
     const found = blocks.find((t) => t[key] !== undefined && t[key] !== '')?.[key];
-    return found === undefined ? {} : ({ [key]: found } as Record<K, string>);
+    return found === undefined ? {} : ({ [key]: found } as Record<K, NonNullable<TitleBlockText[K]>>);
   };
   return {
     ...(notes === undefined ? {} : { notes }),
@@ -159,6 +164,8 @@ export function registeredTitleBlock(): TitleBlockText {
     ...first('rights'),
     ...first('designer'),
     ...first('filePrefix'),
+    ...first('paper'),
+    ...first('titleBlock'),
   };
 }
 

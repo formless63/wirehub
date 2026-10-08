@@ -47,7 +47,7 @@ export function printableHtml(html: string): string {
     `@font-face{font-family:'${family}';font-style:normal;font-weight:${weight === 'bold' ? 700 : 400};src:url(data:font/woff2;base64,${woff2}) format('woff2')}`;
   const faces = ['CS Sans', 'Helvetica', 'Arial'].map((family) => face(family, 'normal', sans.woff2) + face(family, 'bold', sansBold.woff2)).join('');
   // the hub's own typeface (branding) travels inline in the sheet as 'CS Brand': keep it first
-  const stack = `${html.includes("font-family:'CS Brand'") ? `'CS Brand',` : ''}'CS Sans',Helvetica,Arial,sans-serif`;
+  const stack = `${html.includes("font-family:'CS Brand'") ? `'CS Brand',` : ''}'IBM Plex Sans','CS Sans',Helvetica,Arial,sans-serif`;
   const style =
     `<style data-wirehub-print-fonts>${faces}` +
     // the design sheets read --cs-font; the wire spec sheet names its stack on .cs-ws

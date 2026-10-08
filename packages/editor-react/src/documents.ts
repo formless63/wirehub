@@ -41,6 +41,10 @@ import {
   renderTestSpecSheet,
   deriveFormboard,
   formboardHtml,
+  sheetFrameFor,
+  type BuildSheetOptions,
+  type PaperId,
+  type RevisionRow,
   type DocumentFacts,
   type DocumentIdentity,
   type DrawingMeta,
@@ -72,7 +76,7 @@ export const DOCUMENT_BLURBS: Readonly<Record<DocumentKind, string>> = {
   bom: 'The cable’s part number, then its parts by section, each with its part number.',
   'test-spec': 'What the meter should read when the cable is finished, including the opens that are meant to be open.',
   drawing:
-    'The engineering drawing (ANSI A, landscape): title block, BOM, connector faces coloured by conductor, the wire table and remarks. Part number, revision and the other title-block facts are edited above the sheet.',
+    'The engineering drawing (landscape, on the sheet’s paper): title block, revision table, BOM, connector faces coloured by conductor, the wire table and remarks. Part number, revision and the other title-block facts are edited above the sheet.',
   formboard:
     'The cable laid flat at true length for the board: runs, branch angles, pegs at the ends and breakouts, connectors, labels. An overview sheet, then pages tiled at the chosen scale with registration marks.',
 };
@@ -83,7 +87,7 @@ export interface DocumentOptions {
    * a source: that source. Only the build sheet has a drawing on it.
    */
   depictions?: boolean | DepictionSource;
-  paper?: 'A4' | 'letter';
+  paper?: PaperId;
   /** printed in the title block verbatim; omitted keeps the output deterministic */
   generatedAt?: string;
   /** the drawing sheet's sidecar: title-block facts and an optional photo */
@@ -98,6 +102,8 @@ export interface DocumentOptions {
   variation?: string;
   /** the saved revision being printed */
   revisionNumber?: number;
+  /** the drawing's revision table (the saved revisions, oldest first) */
+  revisions?: readonly RevisionRow[];
   /** formboard: paper millimetres per board millimetre (1 is 1:1) */
   scale?: number;
   /** cables in the build: the BOM's quantity breaks are read at this (default 1) */
@@ -167,6 +173,7 @@ export function renderDocument(
             }),
             {
               ...(options.paper === undefined ? {} : { paper: options.paper }),
+              frame: sheetFrameFor(design, db, { ...shared, ...benchInput(options) } as BuildSheetOptions, 'FORMBOARD', 'landscape', 'strip'),
               ...(options.scale === undefined ? {} : { scale: options.scale }),
               ...(options.revisionNumber === undefined ? {} : { revisionNumber: options.revisionNumber }),
             },
@@ -177,6 +184,9 @@ export function renderDocument(
           html: renderDrawingSheet(design, db, {
             ...(options.drawing?.meta === undefined ? {} : { meta: options.drawing.meta }),
             ...(options.drawing?.photo === undefined ? {} : { photo: options.drawing.photo }),
+            ...(options.paper === undefined ? {} : { paper: options.paper }),
+            ...(options.document?.status === undefined ? {} : { state: options.document.status }),
+            ...(options.revisions === undefined ? {} : { revisions: options.revisions }),
           }),
         };
     }
