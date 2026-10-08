@@ -168,3 +168,24 @@ describe('running a command', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
+
+describe('docs results', () => {
+  it('lists docs headings from the shipped index and opens one in a new tab on the docs base', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    await readyOnCables();
+    const dialog = await openPalette();
+    fireEvent.change(within(dialog).getByPlaceholderText('Search…'), { target: { value: 'webhooks' } });
+    const row = await within(dialog).findByText('Webhooks');
+    fireEvent.click(row);
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(String(open.mock.calls[0]?.[0])).toMatch(/^https:\/\/formless63\.github\.io\/wirehub\/docs\/reference\/webhooks\//);
+    expect(open.mock.calls[0]?.[1]).toBe('_blank');
+  });
+
+  it('adds nothing to a commands-only search, and works without the network', async () => {
+    await readyOnCables();
+    const dialog = await openPalette();
+    fireEvent.change(within(dialog).getByPlaceholderText('Search…'), { target: { value: '>webhooks' } });
+    await waitFor(() => expect(within(dialog).queryByText('Docs')).toBeNull());
+  });
+});

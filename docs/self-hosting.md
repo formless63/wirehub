@@ -334,6 +334,7 @@ cap or another container.
 | `WIREHUB_SETTINGS_KEY` | encrypts the secrets entered in Settings; it cannot live beside them |
 | `WIREHUB_SETTINGS_KEY_PREVIOUS` | the old key(s) while rotating it (comma separated) |
 | `WIREHUB_SETUP_CODE`, `WIREHUB_SETUP_PROMPT` | first-run setup, before there is an organisation (or a Settings page) |
+| `WIREHUB_DOCS_URL` | where the in-app help links (the `(?)` in the top bar, Settings, the command palette) point: by default the public docs, `https://formless63.github.io/wirehub/docs/`; set it to the base URL of a copy you host (the output of `node site/build.mjs <dir>`, under `docs/`) |
 | `WIREHUB_SUGGESTED_MODULES` | read only at first-run setup, before there is a Settings page; `/setup` itself lets you choose |
 | `WIREHUB_LOCAL_USER` | who a hub with sign-in off names; sign-in off is itself an install choice |
 | `DATABASE_ADMIN_URL`, `DATABASE_OWNER_URL`, `DATABASE_URL`, `DATABASE_RO_URL` | where the database is: needed to read anything |

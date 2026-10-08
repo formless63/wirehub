@@ -8,6 +8,8 @@
 
 import { Link, useNavigate } from '@tanstack/react-router';
 import { settingsRoute } from '../router.tsx';
+import { helpForSettingsSection } from '../help.ts';
+import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { InfoTip } from '../shell/InfoTip.tsx';
 import { SETTINGS_SECTIONS, sectionHelp, settingsSection } from '../settings-sections.ts';
 import './settings-sections.css';
@@ -85,6 +87,7 @@ const readAsDataUri = (file: File): Promise<string> =>
 
 export function SettingsRoute(): JSX.Element {
   const client = useQueryClient();
+  const docsBase = useDocsBase();
   const search = settingsRoute.useSearch();
   const selected = settingsSection(search.section) ?? 'documents';
   const currentSection = SETTINGS_SECTIONS.find((section) => section.id === selected)!;
@@ -190,7 +193,7 @@ export function SettingsRoute(): JSX.Element {
         <header className="settings-section-heading">
           <h2 className="text-[14px] font-semibold">
             {currentSection.label}
-            <InfoTip text={sectionHelp(currentSection)} topic="settings" />
+            <InfoTip text={sectionHelp(currentSection)} href={helpForSettingsSection(selected, docsBase)} />
           </h2>
         </header>
         <section hidden={selected !== 'documents'} aria-label="Document settings" data-settings-section="documents">

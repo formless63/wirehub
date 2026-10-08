@@ -1,4 +1,4 @@
-# The device resolver: "Which cable do I need?"
+# The device resolver: find a design
 
 Give WireHub two devices and the ports a cable joins, and it lists every way to connect them,
 ranked, each with its reasons, hazards and missing pieces. Pick one and it derives a design: the
@@ -207,7 +207,7 @@ a footprint no interface fits, a module, a script.
 
 ## In the app
 
-- **Which cable do I need?** (`/resolver`, the rail and the Cables toolbar): pick the two devices and
+- **Find a design** (`/resolver`, the rail and the Designs toolbar): pick the two devices and
   ports, read the ranked options with their reasons, hazards and missing pieces and the refused
   ones, pick a stock (the fitting ones first), a length, an id, and **Create design**. When nothing
   is complete, **Proposals** drafts boards and adapters to decline or start.
