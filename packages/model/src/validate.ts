@@ -5,6 +5,7 @@
  * `Issue`. `resolveTerminal` is the foundation every derived view uses.
  */
 
+import { humanizeIssue, terminalName } from './names.ts';
 import { designElectricalProblems, electricalIssues } from './electrical.ts';
 import {
   findComponent,
@@ -898,6 +899,10 @@ export function noteReferencesTerminal(
  * silence here.
  */
 export function validateDesign(design: CableDesign, db: Db): Issue[] {
+  return rawDesignIssues(design, db).map((item) => humanizeIssue(design, db, item));
+}
+
+function rawDesignIssues(design: CableDesign, db: Db): Issue[] {
   const issues: Issue[] = [];
 
   // production status: absent means active; anything else must be a known status
@@ -1166,7 +1171,7 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
       issues.push(
         issue(
           'screen-floating',
-          `${set === undefined ? `screen '${path}'` : `the bonded shield mass (${set.members.join(', ')})`} of segment '${segment.id}' is landed at end '${hasA ? 'a' : 'b'}' but not at end '${floating.end ?? ''}' — add a design note naming ${terminalKey(floating)} if this is deliberate`,
+          `${set === undefined ? `screen '${path}'` : `the bonded shield mass (${set.members.join(', ')})`} of segment '${segment.id}' is landed at end ${hasA ? 'A' : 'B'} but not at end ${floating.end?.toUpperCase() ?? ''} — add a design note if this is deliberate`,
           terminalKey(floating),
           'warning',
         ),
@@ -1183,13 +1188,26 @@ export function validateDesign(design: CableDesign, db: Db): Issue[] {
       const refB: TerminalRef = { ...refA, end: 'b' };
       const hasA = jointedKeys.has(terminalKey(refA));
       const hasB = jointedKeys.has(terminalKey(refB));
+      if (!hasA && !hasB) {
+        // floating at both ends: a spare, or a joint nobody has drawn yet
+        if (explained(refA) || explained(refB)) continue;
+        issues.push(
+          issue(
+            'floating-conductor',
+            `${terminalName(design, db, { ...refA, end: undefined })} is not connected at either end — connect it, or note it as a spare`,
+            terminalKey(refA),
+            'warning',
+          ),
+        );
+        continue;
+      }
       if (hasA === hasB) continue;
       const floating = hasA ? refB : refA;
       if (explained(floating)) continue;
       issues.push(
         issue(
           'floating-conductor-end',
-          `conductor '${entry.path}' of segment '${segment.id}' is connected at end '${hasA ? 'a' : 'b'}' but floating at end '${floating.end ?? ''}' — add a design note naming ${terminalKey(floating)} if this is deliberate`,
+          `${terminalName(design, db, { ...refA, end: undefined })} is connected at end ${hasA ? 'A' : 'B'} but floating at end ${floating.end?.toUpperCase() ?? ''} — add a design note if this is deliberate`,
           terminalKey(floating),
           'warning',
         ),

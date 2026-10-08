@@ -58,6 +58,7 @@ import {
   signalOf,
   signalOfLane,
   validateDesign,
+  wireElementName,
   vocabEntry,
   type SignalEntry,
   type TerminalTags,
@@ -1090,7 +1091,7 @@ export function planCable(state: WizardState): CablePlan {
 
         if (target === undefined) {
           unconnected.push({
-            what: `${line.label} (${line.path}) at the ${where}`,
+            what: `${line.label === line.path ? wireElementName(wire, line.path) : line.label} at the ${where}`,
             why: why ?? `nothing on ${end.label} matches it.`,
           });
           continue;

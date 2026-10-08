@@ -92,3 +92,32 @@ describe('the part lists', () => {
   });
 });
 
+
+describe('the review verdict', () => {
+  /** Walk to the review with de9-female at both ends and a Cat 5e stock none of whose pairs find a pin. */
+  function toReview(wire: string): void {
+    setup();
+    name();
+    next();
+    fireEvent.click(screen.getByLabelText(/A plug on its own/));
+    pick('de9-female');
+    next();
+    pick(wire);
+    next();
+    fireEvent.click(screen.getByLabelText(/A plug on its own/));
+    pick('de9-female');
+    next();
+    // the choices step, when there is one, is skipped as it is answered with nothing
+    while (screen.queryByRole('heading', { name: /Checks/ }) === null) next();
+  }
+
+  it('says what is floating, in names, and never "Nothing is wrong"', () => {
+    toReview('cat5e-utp');
+    const verdict = screen.getByTestId('wizard-verdict');
+    expect(verdict.textContent).toMatch(/things? to look at/);
+    expect(screen.queryByText(/Nothing is wrong/)).toBeNull();
+    const text = screen.getByRole('heading', { name: /Checks/ }).parentElement?.textContent ?? '';
+    expect(text).toContain('W1 pair 1 · blue is not connected at either end');
+    expect(text).not.toMatch(/pair-1\.a/);
+  });
+});

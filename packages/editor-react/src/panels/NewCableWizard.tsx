@@ -499,11 +499,12 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
               <section>
                 <h4>Checks</h4>
                 {plan.errors.length === 0 ? (
-                  <p className="cs-form-say">
-                    Nothing is wrong with this design
-                    {plan.warnings.length === 0
-                      ? '.'
-                      : `, but there ${plan.warnings.length === 1 ? 'is 1 thing' : `are ${plan.warnings.length} things`} to look at:`}
+                  <p className="cs-form-say" data-testid="wizard-verdict">
+                    {plan.warnings.length > 0
+                      ? `${plan.warnings.length === 1 ? '1 thing' : `${plan.warnings.length} things`} to look at:`
+                      : plan.design.joints.length === 0
+                        ? 'No connections yet.'
+                        : 'Nothing is wrong with this design.'}
                   </p>
                 ) : (
                   <ul className="cs-list">
