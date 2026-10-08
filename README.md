@@ -113,6 +113,7 @@ emails out of commits (`CONTRIBUTING.md`).
 
 ## Read next
 
+- **Documentation: <https://formless63.github.io/wirehub/docs/>** — quick start, your first design, concepts, and the reference below.
 - `SPEC.md` — the model and the plan; the single source of truth.
 - `docs/modules.md` — extension points, domain modules, and how a private module lives
   in its own repository.
