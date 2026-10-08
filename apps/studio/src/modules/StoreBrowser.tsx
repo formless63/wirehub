@@ -19,8 +19,10 @@ import { applyStoreInstall, listStore, noticeText, previewStoreInstall, reviewTe
 import { PlanView } from './PacksPanel.tsx';
 import type { CodePreviewView } from '../code-modules.browser.ts';
 import { CodeConsent } from './CodeConsent.tsx';
+import { useNotify } from '../notify.ts';
+import { Drawer } from '@wirehub/editor-react';
 
-const sentence = (a: PackAnswer): string => `${a.error ?? `That failed (HTTP ${a.status}).`}${a.hint === undefined ? '' : ` ${a.hint}`}`;
+const headline = (a: PackAnswer): string => a.error ?? `That failed (HTTP ${a.status}).`;
 const kb = (bytes: number): string => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(bytes < 10_240 ? 1 : 0)} KB`);
 
 interface Pending {
@@ -34,6 +36,8 @@ interface Pending {
   yanked?: { reason: string };
   publisher?: string;
   force: boolean;
+  /** a refusal that still shows the plan (it cannot be applied) */
+  refusal?: string;
   /** the code module the pack carries: shown for consent before Install */
   code?: CodePreviewView;
 }
@@ -49,7 +53,7 @@ export function StoreBrowser(): JSX.Element {
   const [kind, setKind] = useState('');
   // '' = every store
   const [storeUrl, setStoreUrl] = useState('');
-  const [message, setMessage] = useState<string | undefined>(undefined);
+  const notify = useNotify();
   const [pending, setPending] = useState<Pending | undefined>(undefined);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -63,7 +67,7 @@ export function StoreBrowser(): JSX.Element {
     const answer = await listStore();
     if (!answer.ok) {
       setPacks([]);
-      setMessage(sentence(answer));
+      notify.error(headline(answer), answer.hint);
       return;
     }
     setPacks((answer.body['packs'] as StorePackView[]) ?? []);
@@ -78,7 +82,7 @@ export function StoreBrowser(): JSX.Element {
       ...((answer.body['indexes'] as StoreIndexView[] | undefined) ?? []).filter((i) => i.hideUnreviewed === true).map((i) => `${i.label ?? i.url}: unreviewed versions are hidden.`),
       ...(answer.body['hideUnreviewed'] === true ? [`This hub shows only versions the store has reviewed${hidden > 0 ? ` (${hidden} pack${hidden === 1 ? '' : 's'} with none hidden)` : ''}.`] : []),
     ]);
-  }, []);
+  }, [notify]);
   useEffect(() => {
     void reload();
     void loadMe().then((me) => {
@@ -120,16 +124,14 @@ export function StoreBrowser(): JSX.Element {
 
   const preview = (pack: StorePackView, forced?: string): Promise<void> =>
     run(async () => {
-      setMessage(undefined);
       const answer = await previewStoreInstall({ index: pack.index, id: pack.id, ...(forced === undefined ? {} : { version: forced, force: true }) });
       const plan = answer.body['plan'] as PackPlan | undefined;
       const from = answer.body['from'] as { version: string; sha256: string; review?: StoreReviewView; yanked?: { reason: string }; publisher?: string } | undefined;
       const problems = (answer.body['problems'] as string[] | undefined) ?? [];
       if (plan === undefined || from === undefined) {
-        setMessage(`${sentence(answer)}${problems.length > 0 ? ` ${problems.join('; ')}` : ''}`);
+        notify.error(headline(answer), `${answer.hint ?? ''}${problems.length > 0 ? ` ${problems.join('; ')}` : ''}`.trim());
         return;
       }
-      if (!answer.ok) setMessage(sentence(answer));
       setAgreed(false);
       const code = answer.body['code'] as CodePreviewView | undefined;
       setPending({
@@ -144,6 +146,7 @@ export function StoreBrowser(): JSX.Element {
         ...(from.yanked === undefined ? {} : { yanked: from.yanked }),
         ...(from.publisher === undefined ? {} : { publisher: from.publisher }),
         force: forced !== undefined,
+        ...(answer.ok ? {} : { refusal: `${headline(answer)}${answer.hint === undefined ? '' : ` ${answer.hint}`}` }),
       });
     });
 
@@ -152,14 +155,18 @@ export function StoreBrowser(): JSX.Element {
       if (pending === undefined) return;
       const answer = await applyStoreInstall({ index: pending.pack.index, id: pending.pack.id, version: pending.version, force: pending.force }, pending.sha256, pending.plan.major === true, '/api', pending.code === undefined ? undefined : { code: pending.code.consent });
       if (!answer.ok) {
-        setMessage(sentence(answer));
+        notify.error(headline(answer), answer.hint);
         return;
       }
       setPending(undefined);
       const status = answer.body['moduleStatus'] as { state?: string; error?: string } | undefined;
       const codeNote = pending.code === undefined ? '' : status?.state === 'loaded' ? (pending.code.apply === 'live' ? ' Its code runs now.' : ' Its code runs now; its job queues start after Restart WireHub (Settings).') : ` Its code is not running: ${status?.error ?? 'see Settings, Code modules'}.`;
       const offersScheme = answer.body['offers'] !== undefined && (answer.body['offers'] as { partNumberScheme?: unknown }).partNumberScheme !== undefined;
-      setMessage(`${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.pack.id} ${pending.version}.${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`);
+      const description = `${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`.trim();
+      notify.success(`${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.pack.id} ${pending.version}.`, {
+        ...(description === '' ? {} : { description }),
+        view: pending.code === undefined ? { to: '/library' } : { to: '/settings', section: 'modules' },
+      });
       await reload();
     });
 
@@ -293,31 +300,39 @@ export function StoreBrowser(): JSX.Element {
       </ul>
         </div>
       ))}
-      {message === undefined ? null : <div role="status" className="mt-2">{message}</div>}
-      {pending === undefined ? null : (
-        <div className="mt-2 border border-line p-2" data-testid="store-pending">
-          <b>
-            {pending.kind === 'update' ? 'Update' : 'Install'} {pending.pack.id} {pending.version}
-          </b>
-          <div className="text-dim">Licence (as stated by the author): {pending.plan.pack.license}</div>
-          <div className="text-dim">
-            {pending.publisher === undefined ? 'Not signed by a publisher; pinned by the index.' : `Signature of publisher ${pending.publisher} verified.`} Review: {reviewText(pending.review)}.
-          </div>
-          {pending.yanked === undefined ? null : (
-            <div role="alert" className="text-err">
-              This version was yanked: {pending.yanked.reason}. You are installing it anyway.
+      <Drawer
+        open={pending !== undefined}
+        title={pending === undefined ? '' : `${pending.kind === 'update' ? 'Update' : 'Install'} ${pending.pack.id} ${pending.version}`}
+        onClose={() => setPending(undefined)}
+        testId="store-pending"
+        footer={pending === undefined ? undefined : (
+          <>
+            <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="cs-ui-btn is-primary">
+              {pending.kind === 'update' ? 'Update' : 'Install'}
+            </button>
+            <button type="button" onClick={() => setPending(undefined)} className="cs-ui-btn">
+              Cancel
+            </button>
+          </>
+        )}
+      >
+        {pending === undefined ? null : (
+          <div className="flex flex-col gap-1.5 text-[12px]">
+            {pending.refusal === undefined ? null : <div role="alert" className="text-err">{pending.refusal}</div>}
+            {pending.yanked === undefined ? null : (
+              <div role="alert" className="text-err">
+                This version was yanked: {pending.yanked.reason}. You are installing it anyway.
+              </div>
+            )}
+            <PlanView plan={pending.plan} />
+            <div className="text-dim">Licence (as stated by the author): {pending.plan.pack.license}</div>
+            <div className="text-dim">
+              {pending.publisher === undefined ? 'Not signed by a publisher; pinned by the index.' : `Signature of publisher ${pending.publisher} verified.`} Review: {reviewText(pending.review)}.
             </div>
-          )}
-          <PlanView plan={pending.plan} />
-          {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
-          <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="mr-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:opacity-50">
-            {pending.kind === 'update' ? 'Update' : 'Install'}
-          </button>
-          <button type="button" onClick={() => setPending(undefined)} className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">
-            Cancel
-          </button>
-        </div>
-      )}
+            {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
+          </div>
+        )}
+      </Drawer>
     </section>
   );
 }

@@ -12,13 +12,25 @@ import { join } from 'node:path';
 
 import { catalogWithPacksSource, createCatalog, installedAcross, readInstalledPacks } from '@wirehub/catalog';
 import { createRegistry } from '@wirehub/modules';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { toasts } from './toast-spy.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { PacksPanel } from '../src/modules/PacksPanel.tsx';
 import { StoreBrowser } from '../src/modules/StoreBrowser.tsx';
 import { STORE_URL, createTestStore, type TestStore } from './store-fixture.ts';
+
+vi.mock('sonner', async () => (await import('./toast-spy.ts')).sonnerMock);
+
+beforeEach(() => { toasts.length = 0; });
+
+/** the plan's counts show first; the record list opens on demand */
+async function showAllRecords(): Promise<string> {
+  const diff = await screen.findByTestId('pack-diff');
+  fireEvent.click(within(diff).getByRole('button', { name: 'Show all records' }));
+  return diff.textContent ?? '';
+}
 
 let root = '';
 let dir = '';
@@ -106,7 +118,7 @@ describe('Browse store', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Install…' }));
     expect((await screen.findByTestId('store-pending')).textContent).not.toContain('Alpha module');
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await screen.findByText('Installed alpha 1.0.0.');
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.0.0.'));
   });
 
   it('explains why a configured data-only store has no optional code modules', async () => {
@@ -133,10 +145,10 @@ describe('Browse store', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Install…' }));
     const pending = await screen.findByTestId('store-pending');
     expect(pending.textContent).toContain('Install alpha 1.0.0');
-    expect((await screen.findByTestId('pack-diff')).textContent).toContain('added components alpha-r');
+    expect(await showAllRecords()).toContain('added components alpha-r');
     expect(readInstalledPacks(packs).packs).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await screen.findByText('Installed alpha 1.0.0.');
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.0.0.'));
     expect(readInstalledPacks(packs).packs[0]).toMatchObject({ id: 'alpha', version: '1.0.0' });
     await waitFor(() => expect(row('alpha')?.textContent).toContain('installed 1.0.0'));
 
@@ -145,9 +157,9 @@ describe('Browse store', () => {
     render(<StoreBrowser />);
     const update = await screen.findByRole('button', { name: 'Update to 1.1.0…' });
     fireEvent.click(update);
-    expect((await screen.findByTestId('pack-diff')).textContent).toContain('added components alpha-r2');
+    expect(await showAllRecords()).toContain('added components alpha-r2');
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
-    await screen.findByText('Updated alpha 1.1.0.');
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Updated alpha 1.1.0.'));
     expect(readInstalledPacks(packs).packs[0]?.version).toBe('1.1.0');
   });
 
@@ -183,7 +195,7 @@ describe('Browse store', () => {
     expect(pending.textContent).toMatch(/This version was yanked: wrong value/);
     expect(pending.textContent).toMatch(/Signature of publisher tester verified/);
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await screen.findByText('Installed alpha 1.1.0.');
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.1.0.'));
     expect(readInstalledPacks(packs).packs[0]).toMatchObject({ version: '1.1.0', origin: { publisher: 'tester' } });
     await waitFor(() => expect(screen.getAllByRole('alert').map((a) => a.textContent).join(' ')).toMatch(/Installed: 1.1.0 was yanked by Test store: wrong value. Update to 1.0.0 suggested./));
 

@@ -12,7 +12,8 @@ import { join } from 'node:path';
 
 import { catalogWithPacksSource, createCatalog, installedAcross } from '@wirehub/catalog';
 import { createRegistry } from '@wirehub/modules';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { toasts } from './toast-spy.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -24,6 +25,17 @@ const bundle = (r: string) => ({
   manifest: { format: 1, id: 'panel', name: 'Panel', version: '1.0.0', license: 'CC0-1.0' },
   files: { 'components.json': [{ id: 'pn-r', label: `${r} resistor`, kind: 'resistor', value: r, terminals: [{ id: 'a' }, { id: 'b' }], src }] },
 });
+
+vi.mock('sonner', async () => (await import('./toast-spy.ts')).sonnerMock);
+
+beforeEach(() => { toasts.length = 0; });
+
+/** the plan's counts show first; the record list opens on demand */
+async function showAllRecords(): Promise<string> {
+  const diff = await screen.findByTestId('pack-diff');
+  fireEvent.click(within(diff).getByRole('button', { name: 'Show all records' }));
+  return diff.textContent ?? '';
+}
 
 let root = '';
 let dir = '';
@@ -73,9 +85,11 @@ describe('Install pack…', () => {
     fireEvent.change(screen.getByLabelText('Pack file'), { target: { files: [file] } });
     const pending = await screen.findByTestId('pack-pending');
     expect(pending.textContent).toContain('Install panel 1.0.0');
-    expect((await screen.findByTestId('pack-diff')).textContent).toContain('added components pn-r');
+    expect(await showAllRecords()).toContain('added components pn-r');
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await screen.findByText('Installed panel.json.');
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed panel.json.'));
+    expect(toasts.find((t) => t.title === 'Installed panel.json.')?.action?.label).toBe('View');
+    expect(document.querySelector('[role="status"]')).toBeNull();
     await screen.findByText(/panel/, { selector: 'b' });
     expect(createCatalog(catalogWithPacksSource(dir, packs)).loadDb().components.some((c) => c.id === 'pn-r')).toBe(true);
 
@@ -91,7 +105,7 @@ describe('Install pack…', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Disable…' }));
     await screen.findByText('1 records would be removed.');
     fireEvent.click(screen.getByRole('button', { name: 'Disable pack' }));
-    await screen.findByText('Disabled panel.');
+    await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Disabled panel.'));
     await waitFor(() => expect(screen.queryByText('No packs are installed.')).not.toBeNull());
   });
 
@@ -101,7 +115,7 @@ describe('Install pack…', () => {
     const bad = bundle('10 Ω');
     delete (bad.files['components.json'][0] as { src?: string }).src;
     fireEvent.change(screen.getByLabelText('Pack file'), { target: { files: [new File([JSON.stringify(bad)], 'bad.json')] } });
-    await screen.findByText(/has no src/);
+    await waitFor(() => expect(toasts.map((t) => `${t.title} ${t.description ?? ''}`).join(' ')).toMatch(/has no src/));
     expect(screen.queryByTestId('pack-pending')).toBeNull();
   });
 });

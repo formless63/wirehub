@@ -13,7 +13,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { codeModulesKey, fetchBoot, fetchCodeModules, pinKey, requestRestart, setCodeAllowed, setModuleEnabled, unpinKey, waitForRestart, type CodeModuleStatusView } from '../code-modules.browser.ts';
+import { codeModulesKey, fetchCodeModules, pinKey, setCodeAllowed, setModuleEnabled, unpinKey, type CodeModuleStatusView } from '../code-modules.browser.ts';
+import { RestartWireHub } from './RestartWireHub.tsx';
 import { useStudio } from '../studio-context.tsx';
 
 const STATE_TEXT: Record<CodeModuleStatusView['state'], string> = {
@@ -43,7 +44,6 @@ export function CodeModulesSettings(): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [key, setKey] = useState('');
   const [label, setLabel] = useState('');
-  const [restarting, setRestarting] = useState<'draining' | 'waiting' | 'gone' | undefined>(undefined);
 
   const refresh = (): Promise<void> => client.invalidateQueries({ queryKey: codeModulesKey });
   const act = async (work: () => Promise<{ ok: boolean; message?: string; hint?: string }>, done: string): Promise<void> => {
@@ -60,24 +60,6 @@ export function CodeModulesSettings(): JSX.Element {
       if (out.ok && enabled && out.value.apply === 'restart') toast.message(`${m.id} runs now; its job queues start after Restart WireHub.`);
       return out;
     }, `${m.id} is ${enabled ? 'on' : 'off'}. It applied at once.`);
-  const restart = async (): Promise<void> => {
-    const boot = await fetchBoot();
-    const before = boot.ok ? boot.value.bootId : '';
-    const out = await requestRestart();
-    if (!out.ok) {
-      toast.error(out.message, { description: out.hint });
-      return;
-    }
-    setRestarting('draining');
-    if (!out.value.supervised) toast.message('No supervisor is declared for this server: it stops, and comes back only if something restarts it.');
-    setRestarting('waiting');
-    const back = await waitForRestart(before);
-    if (back) {
-      // the new process may run another set of modules: start the page afresh
-      window.location.reload();
-    } else setRestarting('gone');
-  };
-
   return (
     <section className="mt-6 min-w-0 max-w-2xl border-t border-line pt-4 [overflow-wrap:anywhere]" data-testid="code-modules-settings">
       <h2 className="mb-1 text-[13px] font-semibold">Code modules</h2>
@@ -174,19 +156,8 @@ export function CodeModulesSettings(): JSX.Element {
             container's restart policy starts it again, and this page reconnects by itself.
             {view.supervised ? '' : ' This server does not declare a supervisor (WIREHUB_RESTART_SUPERVISED): it may not come back on its own.'}
           </p>
-          {!owner ? null : (
-            <button type="button" className="mt-1 rounded border border-line px-3 py-1" disabled={restarting !== undefined} onClick={() => void restart()}>
-              Restart WireHub
-            </button>
-          )}
+          {!owner ? null : <div className="mt-1"><RestartWireHub supervised={view.supervised} /></div>}
         </>
-      )}
-      {restarting === undefined ? null : (
-        <div role="alertdialog" aria-label="Restarting WireHub" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="restart-overlay">
-          <div className="rounded border border-line bg-panel p-4">
-            {restarting === 'gone' ? 'WireHub has not come back yet. Check the server, then reload this page.' : 'Restarting WireHub… this page reconnects by itself.'}
-          </div>
-        </div>
       )}
     </section>
   );

@@ -18,7 +18,7 @@ import { composeConnectors } from '@wirehub/model';
 import type { CableDesign, Db, MechanicalDefinition, PcbaDefinition } from '@wirehub/model';
 import { createCatalog, fsCatalogSource } from '@wirehub/catalog';
 import { createMemoryHistory } from '@tanstack/react-router';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -265,13 +265,18 @@ it('Home is a client navigation and asks before discarding a Library draft', asy
   render(<App router={router} />);
   await waitFor(() => expect(screen.getByTestId('library')).toBeTruthy());
   fireEvent.click(screen.getByRole('button', { name: 'Edit library draft' }));
-  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  // an in-app ConfirmDialog, not window.confirm
+  const native = vi.spyOn(window, 'confirm');
   fireEvent.click(screen.getByRole('link', { name: 'WireHub home' }));
-  await waitFor(() => expect(confirm).toHaveBeenCalled());
+  const dialog = await screen.findByTestId('confirm-dialog');
+  expect(dialog.textContent).toContain('Discard unsaved Library edits?');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
+  await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).toBeNull());
   expect(router.state.location.pathname).toBe('/library/connectors/de9-male');
-  confirm.mockReturnValue(true);
   fireEvent.click(screen.getByRole('link', { name: 'WireHub home' }));
+  fireEvent.click(await screen.findByTestId('confirm-dialog-ok'));
   await waitFor(() => expect(router.state.location.pathname).toBe('/cables'));
+  expect(native).not.toHaveBeenCalled();
 });
 
 it.each([['/resolver', 'Which cable do I need?'], ['/products', 'Products'], ['/history', 'History'], ['/part-numbers', 'Part numbers'], ['/settings', 'Hub settings'], ['/library/store', 'Store'], ['/sign-in', 'My account']])('shows the page title for %s', async (path, title) => {

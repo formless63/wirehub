@@ -36,6 +36,7 @@
 @import './board-journey.css';
 @import './board-components.css';
 @import './library-table.css';
+@import './ui/ui.css';
 
 @theme inline {
   --color-bg: var(--bg);

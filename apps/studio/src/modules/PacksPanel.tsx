@@ -33,6 +33,8 @@ import {
 } from '../packs.browser.ts';
 import type { CodePreviewView } from '../code-modules.browser.ts';
 import { CodeConsent } from './CodeConsent.tsx';
+import { useNotify, type ViewTarget } from '../notify.ts';
+import { Drawer } from '@wirehub/editor-react';
 
 const short = (value: unknown): string => {
   const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -40,12 +42,15 @@ const short = (value: unknown): string => {
 };
 
 function DiffView({ diff }: { diff: PackDiff }): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const total = diff.added.length + diff.changed.length + diff.removed.length;
   return (
     <div data-testid="pack-diff" className="mt-1">
-      <div>
-        {diff.added.length} added · {diff.changed.length} changed · {diff.removed.length} removed · {diff.unchanged} unchanged
+      <div className="flex flex-wrap gap-x-3" data-testid="pack-diff-counts">
+        <span>{diff.added.length} added</span><span>{diff.changed.length} changed</span><span>{diff.removed.length} removed</span><span className="text-faint">{diff.unchanged} unchanged</span>
       </div>
-      <ul className="ml-4 list-disc">
+      {total === 0 ? null : <button type="button" className="mt-1 text-dim underline" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide records' : 'Show all records'}</button>}
+      {!open ? null : <ul className="ml-4 mt-1 list-disc">
         {diff.added.map((r) => (
           <li key={`a-${r.file}-${r.id}`}>added {r.kind} {r.id}</li>
         ))}
@@ -58,7 +63,7 @@ function DiffView({ diff }: { diff: PackDiff }): JSX.Element {
         {diff.removed.map((r) => (
           <li key={`r-${r.file}-${r.id}`}>removed {r.kind} {r.id}</li>
         ))}
-      </ul>
+      </ul>}
     </div>
   );
 }
@@ -97,10 +102,11 @@ export function PlanView({ plan }: { plan: PackPlan }): JSX.Element {
 }
 
 const sentence = (a: PackAnswer): string => `${a.error ?? `That failed (HTTP ${a.status}).`}${a.hint === undefined ? '' : ` ${a.hint}`}`;
+const headline = (a: PackAnswer): string => a.error ?? `That failed (HTTP ${a.status}).`;
 
 export function PacksPanel(): JSX.Element {
   const [packs, setPacks] = useState<InstalledPackView[] | undefined>(undefined);
-  const [message, setMessage] = useState<string | undefined>(undefined);
+  const notify = useNotify();
   /** the pending action: an update or disable preview of one pack, or an install preview */
   const [pending, setPending] = useState<{ kind: 'update' | 'disable' | 'install'; id: string; plan: PackPlan; applicable: boolean; source?: PackSource; sha256?: string; code?: CodePreviewView } | undefined>(undefined);
   const [url, setUrl] = useState('');
@@ -116,33 +122,33 @@ export function PacksPanel(): JSX.Element {
   const reload = useCallback(async (): Promise<void> => {
     const answer = await listPacks();
     if (answer.ok) setPacks(answer.body['packs'] as InstalledPackView[]);
-    else setMessage(sentence(answer));
+    else notify.error(headline(answer), answer.hint);
     // the store's word on what is installed (yanked, revoked, flagged); best effort
     if (answer.ok && ((answer.body['packs'] as unknown[] | undefined) ?? []).length > 0) {
       const store = await listStore();
       setNotices(store.ok ? ((store.body['notices'] as StoreNotice[] | undefined) ?? []) : []);
     } else setNotices([]);
-  }, []);
+  }, [notify]);
   useEffect(() => {
     void reload();
     void loadMe().then((me) => setCanWrite(me.role !== 'viewer'));
   }, [reload]);
 
-  const finish = async (text: string): Promise<void> => {
+  const finish = async (title: string, description: string | undefined, view: ViewTarget): Promise<void> => {
     setPending(undefined);
-    setMessage(text);
+    notify.success(title, { ...(description === undefined || description === '' ? {} : { description }), view });
     await reload();
   };
 
   const showPlan = (answer: PackAnswer, kind: 'update' | 'disable' | 'install', id: string, source?: PackSource): void => {
     const plan = (answer.body['plan'] ?? answer.body) as PackPlan;
     if (!answer.ok && answer.body['plan'] === undefined && answer.body['problems'] === undefined) {
-      setMessage(sentence(answer));
+      notify.error(headline(answer), answer.hint);
       return;
     }
     const listed = answer.body['problems'] as string[] | undefined;
     const problems = listed !== undefined && listed.length > 0 ? listed : undefined;
-    setMessage(answer.ok ? undefined : `${sentence(answer)}${problems === undefined ? '' : ` ${problems.join('; ')}`}`);
+    if (!answer.ok) notify.error(headline(answer), `${answer.hint ?? ''}${problems === undefined ? '' : ` ${problems.join('; ')}`}`.trim());
     if (problems !== undefined) return;
     setAgreed(false);
     const code = answer.body['code'] as CodePreviewView | undefined;
@@ -175,7 +181,11 @@ export function PacksPanel(): JSX.Element {
       const status = answer.body['moduleStatus'] as { state?: string; error?: string; restartPending?: boolean } | undefined;
       const codeNote = pending.code === undefined ? '' : status?.state === 'loaded' ? (pending.code.apply === 'live' ? ' Its code runs now.' : ' Its code runs now; its job queues start after Restart WireHub (Settings).') : ` Its code is not running: ${status?.error ?? 'see Settings, Code modules'}.`;
       const offersScheme = answer.body['offers'] !== undefined && (answer.body['offers'] as { partNumberScheme?: unknown }).partNumberScheme !== undefined;
-      await finish(`${pending.kind === 'disable' ? `Disabled ${pending.id}.` : `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`}${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`);
+      await finish(
+        pending.kind === 'disable' ? `Disabled ${pending.id}.` : `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`,
+        `${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`.trim(),
+        pending.kind === 'disable' ? { to: '/modules' } : pending.code === undefined ? { to: '/library' } : { to: '/settings', section: 'modules' },
+      );
     });
 
   return (
@@ -233,7 +243,7 @@ export function PacksPanel(): JSX.Element {
                 try {
                   source = await sourceOfFile(file);
                 } catch {
-                  setMessage('That file is neither a zip nor a JSON pack bundle.');
+                  notify.error('That file is neither a zip nor a JSON pack bundle.');
                   return;
                 }
                 showPlan(await previewInstall(source, '/api', { trustKey }), 'install', file.name, source);
@@ -264,23 +274,29 @@ export function PacksPanel(): JSX.Element {
         </div>
       </div>}
 
-      {message === undefined ? null : <div role="status" className="mt-2">{message}</div>}
-      {pending === undefined ? null : (
-        <div className="mt-2 border border-line p-2" data-testid="pack-pending">
-          <b>
-            {pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable' : 'Install'} {pending.plan.pack.id}
-            {pending.plan.pack.to ?? pending.plan.pack.version ? ` ${pending.plan.pack.to ?? pending.plan.pack.version}` : ''}
-          </b>
-          <PlanView plan={pending.plan} />
-          {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
-          <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="mr-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:opacity-50">
-            {pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable pack' : 'Install'}
-          </button>
-          <button type="button" onClick={() => setPending(undefined)} className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">
-            Cancel
-          </button>
-        </div>
-      )}
+      <Drawer
+        open={pending !== undefined}
+        title={pending === undefined ? '' : `${pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable' : 'Install'} ${pending.plan.pack.id}${pending.plan.pack.to ?? pending.plan.pack.version ? ` ${pending.plan.pack.to ?? pending.plan.pack.version}` : ''}`}
+        onClose={() => setPending(undefined)}
+        testId="pack-pending"
+        footer={pending === undefined ? undefined : (
+          <>
+            <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="cs-ui-btn is-primary">
+              {pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable pack' : 'Install'}
+            </button>
+            <button type="button" onClick={() => setPending(undefined)} className="cs-ui-btn">
+              Cancel
+            </button>
+          </>
+        )}
+      >
+        {pending === undefined ? null : (
+          <>
+            <PlanView plan={pending.plan} />
+            {pending.code === undefined ? null : <CodeConsent code={pending.code} agreed={agreed} onAgree={setAgreed} />}
+          </>
+        )}
+      </Drawer>
     </section>
   );
 }
