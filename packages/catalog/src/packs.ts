@@ -28,10 +28,10 @@
  * local records first, a pack's appended in its own order.
  */
 
-import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { sha256Hex } from './sha256.ts';
 import { fsCatalogSource, type CatalogSource } from './source.ts';
 
 /** `wirehub-pack.json`. */
@@ -596,7 +596,7 @@ export function installedRecordOf(manifest: PackManifest, added: Record<string, 
   const record: InstalledPack = { id: manifest.id, version: manifest.version, license: manifest.license, added, ...(Object.keys(assets).length === 0 ? {} : { assets }), ...manifestOffers(manifest) };
   const m = manifest.module;
   if (m === undefined) return record;
-  const sha = (relative: string): string => createHash('sha256').update(readFileSync(join(packDir, relative))).digest('hex');
+  const sha = (relative: string): string => sha256Hex(readFileSync(join(packDir, relative)));
   record.module = {
     id: m.id,
     version: m.version,
@@ -620,7 +620,7 @@ export function assetSha(relative: string, bytes: Uint8Array | string): string {
       // not JSON after all: hashed as it is
     }
   }
-  return createHash('sha256').update(content).digest('hex');
+  return sha256Hex(content);
 }
 
 /** The depiction and art files a pack ships (`depictions/**`, JSON manifests included, and `art/**` images) → `assetSha`. */

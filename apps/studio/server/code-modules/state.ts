@@ -17,7 +17,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { normalStoreKey, writeFileReplacing } from '@wirehub/catalog';
+import { writeFileReplacing } from '@wirehub/catalog';
+import { normalStoreKey } from '@wirehub/catalog/src/server.ts';
 
 export const CODE_MODULES_DOC = 'data/settings/code-modules.json';
 /** relative to the catalog's `data/` directory */

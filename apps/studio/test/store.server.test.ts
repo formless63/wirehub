@@ -10,7 +10,8 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, wri
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { catalogWithPacksSource, createCatalog, dataPath, installedAcross, readInstalledPacks, storePublicKeyOf } from '@wirehub/catalog';
+import { catalogWithPacksSource, createCatalog, dataPath, installedAcross, readInstalledPacks } from '@wirehub/catalog';
+import { storePublicKeyOf } from '@wirehub/catalog/src/server.ts';
 import { createRegistry } from '@wirehub/modules';
 import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

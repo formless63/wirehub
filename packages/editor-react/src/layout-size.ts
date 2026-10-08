@@ -479,7 +479,7 @@ export function estimateNodeSize(data: EditorNodeData): NodeSize {
     return boardNodeSize({ ...data, board: data.board });
   }
   if (data.kind === 'segment' && data.wire !== undefined) return wireNodeSize(data.wire);
-  if (data.kind === 'connector' && data.art !== undefined && data.dock !== undefined) return connectorArtNodeSize({ ...data, art: data.art });
+  if (data.kind === 'connector' && data.art !== undefined && (data.dock !== undefined || data.face === true)) return connectorArtNodeSize({ ...data, art: data.art });
   const heading = nodeHeading(data);
   const body = bodySize(data);
   const base = NODE_BASE_WIDTH[data.kind];

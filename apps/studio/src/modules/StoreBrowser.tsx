@@ -12,7 +12,7 @@ import { AppLink } from '../shell/AppLink.tsx';
  * offered; an owner may install one anyway) and versions signed only by a revoked key.
  */
 
-import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { loadMe } from '../me.browser.ts';
 import { applyStoreInstall, listStore, noticeText, previewStoreInstall, reviewText, type PackAnswer, type PackPlan, type StoreIndexView, type StoreNotice, type StorePackView, type StoreReviewView } from '../packs.browser.ts';
@@ -42,13 +42,13 @@ interface Pending {
   code?: CodePreviewView;
 }
 
-export function StoreBrowser(): JSX.Element {
+export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: string; openPack?: string } = {}): JSX.Element {
   const [packs, setPacks] = useState<StorePackView[] | undefined>(undefined);
   const [indexes, setIndexes] = useState<StoreIndexView[]>([]);
   const [domains, setDomains] = useState<string[]>([]);
   const [disclaimer, setDisclaimer] = useState<string | undefined>(undefined);
   const [notes, setNotes] = useState<string[]>([]);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [domain, setDomain] = useState('');
   const [kind, setKind] = useState('');
   // '' = every store
@@ -149,6 +149,16 @@ export function StoreBrowser(): JSX.Element {
         ...(answer.ok ? {} : { refusal: `${headline(answer)}${answer.hint === undefined ? '' : ` ${answer.hint}`}` }),
       });
     });
+
+  // the editor's node creator links here with a pack id: open that pack's install drawer once, when the list is in
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (openPack === undefined || autoOpened.current || packs === undefined) return;
+    const pack = packs.find((p) => p.id === openPack && p.action !== 'current' && p.action !== 'unavailable');
+    autoOpened.current = true;
+    if (pack !== undefined) void preview(pack);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per arrival
+  }, [openPack, packs]);
 
   const confirm = (): Promise<void> =>
     run(async () => {

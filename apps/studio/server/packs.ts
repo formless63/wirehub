@@ -30,29 +30,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  applyPackDisable,
-  applyPackUpdate,
-  catalogWithPacksSource,
-  fsCatalogSource,
-  installPack,
-  installPackLayer,
-  installedAcross,
-  packFileProblems,
-  packSourceProblems,
-  planNewPack,
-  setInstalledPackOrigin,
-  setInstalledModuleTrust,
-  ownedRecords,
-  planPackDisable,
-  planPackUpdate,
-  readPackManifest,
-  type CatalogSource,
-  type InstalledPack,
-  type PackDisablePlan,
-  type PackInstallPreview,
-  type PackUpdatePlan,
-} from '@wirehub/catalog';
+import { applyPackDisable, applyPackUpdate, catalogWithPacksSource, fsCatalogSource, installPack, installPackLayer, installedAcross, packSourceProblems, planNewPack, setInstalledPackOrigin, setInstalledModuleTrust, ownedRecords, planPackDisable, planPackUpdate, readPackManifest, type CatalogSource, type InstalledPack, type PackDisablePlan, type PackInstallPreview, type PackUpdatePlan } from '@wirehub/catalog';
+import { packFileProblems } from '@wirehub/catalog/src/server.ts';
 import { packCodecProblems } from '@wirehub/catalog/src/codec/tree.ts';
 import { drawingArtProblems } from '@wirehub/docs';
 import type { CodeModuleManifest, ModuleRegistry } from '@wirehub/modules';

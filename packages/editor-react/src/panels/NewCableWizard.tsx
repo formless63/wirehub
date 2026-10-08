@@ -33,6 +33,7 @@ import { createWiredDesign, type CatalogChange, type LifecycleProblem } from '..
 import type { DesignSummary, PersistenceAdapter } from '../persistence.ts';
 import { describeIssue } from '../store.ts';
 import {
+  CONNECT_MODES,
   LENGTH_PRESETS,
   STEP_SAY,
   STEP_TITLES,
@@ -45,10 +46,12 @@ import {
   plugPrefixes,
   stepBlockers,
   wizardReducer,
+  type ConnectMode,
   type EndSide,
   type WizardState,
   type WizardStep,
 } from '../wizard.ts';
+import { SegmentedControl } from '../ui/index.ts';
 import { PreviewPane } from './Preview.tsx';
 
 export interface NewCableWizardProps {
@@ -457,6 +460,16 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
 
           {state.step === 'review' && plan !== undefined ? (
             <div className="cs-wizard-review">
+              <section className="cs-wizard-connect">
+                <h4 id="cs-wizard-connect-label">Connect</h4>
+                <SegmentedControl
+                  aria-label="Connect"
+                  value={state.connect}
+                  onValueChange={(mode) => dispatch({ type: 'set-connect', mode: mode as ConnectMode })}
+                  options={CONNECT_MODES.map((m) => ({ value: m.mode, label: m.label }))}
+                />
+              </section>
+
               <section>
                 <h4>What it will solder ({plan.lines.length})</h4>
                 {plan.lines.length === 0 ? (

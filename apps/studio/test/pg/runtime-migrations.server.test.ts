@@ -1,5 +1,6 @@
 import { createHash, generateKeyPairSync } from 'node:crypto';
-import { dataPath, signPackManifest, storePublicKeyOf, type InstalledPack, type PackManifest } from '@wirehub/catalog';
+import { dataPath, type InstalledPack, type PackManifest } from '@wirehub/catalog';
+import { signPackManifest, storePublicKeyOf } from '@wirehub/catalog/src/server.ts';
 import { createLiveRegistry, createRegistry, defineModule } from '@wirehub/modules';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { authenticatedMigrationModule, migrateInstalledModules } from '../../server/pg/runtime-migrations.ts';

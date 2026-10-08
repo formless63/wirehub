@@ -32,25 +32,8 @@
  * and no API token may write.
  */
 
-import {
-  STORE_DISCLAIMER,
-  STORE_SIGNATURE_SUFFIX,
-  compareVersions,
-  offeredVersion,
-  packFileProblems,
-  parseStoreIndex,
-  parseStorePublicKey,
-  publisherKeys,
-  reviewOf,
-  revokedKeysOf,
-  verifyPackSignature,
-  verifyStoreSignature,
-  versionVisible,
-  type InstalledPack,
-  type StoreIndex,
-  type StoreIndexVersion,
-  type StoreRevokedKey,
-} from '@wirehub/catalog';
+import { compareVersions, type InstalledPack } from '@wirehub/catalog';
+import { STORE_DISCLAIMER, STORE_SIGNATURE_SUFFIX, offeredVersion, packFileProblems, parseStoreIndex, parseStorePublicKey, publisherKeys, reviewOf, revokedKeysOf, verifyPackSignature, verifyStoreSignature, versionVisible, type StoreIndex, type StoreIndexVersion, type StoreRevokedKey } from '@wirehub/catalog/src/server.ts';
 import type { ModuleRegistry } from '@wirehub/modules';
 
 import type { ApiResponse } from './api.ts';

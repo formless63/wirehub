@@ -1,6 +1,7 @@
 /** Owner-only SQL loader. It reads signed data, never a runtime entry. */
 import { createHash } from 'node:crypto';
-import { verifyPackSignature, type InstalledPack } from '@wirehub/catalog';
+import { type InstalledPack } from '@wirehub/catalog';
+import { verifyPackSignature } from '@wirehub/catalog/src/server.ts';
 import { apiCompatibility, codeModuleManifestProblems } from '@wirehub/modules';
 import { blobObjectKey } from './keys.ts';
 import type { BlobStore } from '../blobs.ts';

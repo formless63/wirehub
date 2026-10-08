@@ -4,7 +4,7 @@
  * one named by the deployment and one added in Settings. Keys are generated in the tests.
  */
 
-import { storeKeyFingerprint } from '@wirehub/catalog';
+import { storeKeyFingerprint } from '@wirehub/catalog/src/server.ts';
 import { expect } from 'vitest';
 
 import type { StoreDeps } from '../server/store.ts';

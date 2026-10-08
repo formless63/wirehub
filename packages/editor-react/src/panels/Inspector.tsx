@@ -23,6 +23,9 @@ import {
   breakoutAt,
   elementPaths,
   connectorMountingOfInstance,
+  designInstances,
+  jointCompatibility,
+  parseTerminalKey,
   findComponent,
   findConnector,
   findInstance,
@@ -47,10 +50,10 @@ import {
   IconPlus,
   IconTrash,
 } from '@tabler/icons-react';
-import { Popover } from 'radix-ui';
-import { useEffect, useMemo, useState, type JSX } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { classes, useEditorApi } from '../context.ts';
+import { Combobox } from '../ui/Combobox.tsx';
 import {
   connectionForSelection,
   connectionsOfInstance,
@@ -194,144 +197,161 @@ function subtitlePart(design: CableDesign, db: Db, end: ConnectionEnd): string {
  * The add-joint comboboxes
  * ------------------------------------------------------------------ */
 
+/** A search-as-you-type pick over terminals (the ui `Combobox`): type to filter, Up/Down, Enter picks. */
 function TerminalCombobox({
+  id,
   placeholder,
   options,
   value,
   onChange,
 }: {
+  id: string;
   placeholder: string;
-  options: ResolvedTerminal[];
-  value: string | undefined;
+  options: readonly ResolvedTerminal[];
+  value: string | null;
   onChange: (terminal: string) => void;
 }): JSX.Element {
-  const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState('');
-  const matches = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
-    if (needle === '') return options;
-    return options.filter(
-      (option) =>
-        option.terminal.toLowerCase().includes(needle) ||
-        (option.label ?? '').toLowerCase().includes(needle),
-    );
-  }, [options, filter]);
-
+  const items = useMemo(
+    () => options.map((option) => ({ value: option.terminal, label: option.terminal, ...(option.label === undefined || option.label === option.terminal ? {} : { hint: option.label }) })),
+    [options],
+  );
   return (
-    <Popover.Root
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setFilter('');
-      }}
-    >
-      <Popover.Trigger asChild>
-        <button type="button" className="cs-conn-combo" disabled={options.length === 0}>
-          <span className={classes('cs-mono', value === undefined && 'cs-conn-combo-placeholder')}>
-            {value ?? placeholder}
-          </span>
-          <IconChevronDown size={11} />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content className="cs-popover cs-conn-combo-popover" sideOffset={4} align="start">
-          <input
-            className="cs-input"
-            placeholder={`filter ${placeholder}…`}
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            autoFocus
-          />
-          <ul className="cs-usage-list cs-conn-combo-list">
-            {matches.length === 0 ? (
-              <li className="cs-empty">none free</li>
-            ) : (
-              matches.map((option) => (
-                <li key={option.key}>
-                  <button
-                    type="button"
-                    className="cs-link"
-                    onClick={() => {
-                      onChange(option.terminal);
-                      setOpen(false);
-                      setFilter('');
-                    }}
-                  >
-                    <span className="cs-mono">{option.terminal}</span>
-                    {option.label === undefined ? null : (
-                      <span className="cs-conn-combo-label">{option.label}</span>
-                    )}
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+    <Combobox
+      id={id}
+      aria-label={placeholder}
+      placeholder={placeholder}
+      options={items}
+      value={value}
+      onValueChange={onChange}
+      disabled={options.length === 0}
+      emptyText="none free"
+      className="cs-conn-combo"
+    />
   );
 }
 
-function AddJointRow({ design, db, connection }: { design: CableDesign; db: Db; connection: Connection }): JSX.Element {
+/** Focus the element with this id once React has painted it (the combobox that just opened or was just filled). */
+function focusSoon(id: string): void {
+  requestAnimationFrame(() => document.getElementById(id)?.focus());
+}
+
+/**
+ * The free pads and conductors of a connection. `except` lets an edited row keep its own
+ * terminals in the lists, so the row's current value stays pickable.
+ */
+function useFreeTerminals(design: CableDesign, db: Db, connection: Connection): { pads: ResolvedTerminal[]; wires: ResolvedTerminal[]; usedPads: ReadonlySet<string>; usedWires: ReadonlySet<string> } {
+  const usedPads = useMemo(() => new Set(connectionRows(design, db, connection).map((row) => row.padId)), [design, db, connection]);
+  const usedWires = useMemo(() => new Set(connectionRows(design, db, connection).map((row) => row.wireId)), [design, db, connection]);
+  const pads = useMemo(() => terminalsOf(design, db, connection.a.instance).filter((t) => t.end === connection.a.end), [design, db, connection]);
+  const wires = useMemo(() => terminalsOf(design, db, connection.b.instance).filter((t) => t.end === connection.b.end), [design, db, connection]);
+  return { pads, wires, usedPads, usedWires };
+}
+
+/**
+ * Add a joint to this connection from the keyboard: focus the pad field, type, Enter; the conductor
+ * field takes the focus, type, Enter; the joint is made and the focus comes back to the pad field
+ * for the next one. Pad and conductor can be picked in either order, with the mouse as well.
+ */
+function AddJointRow({ design, db, connection, focusRequest, onFocusHandled, onLeave }: { design: CableDesign; db: Db; connection: Connection; focusRequest: boolean; onFocusHandled: () => void; onLeave: () => void }): JSX.Element {
   const { dispatch } = useEditorApi();
-  const [padChoice, setPadChoice] = useState<string | undefined>(undefined);
-  const [wireChoice, setWireChoice] = useState<string | undefined>(undefined);
+  const uid = useId();
+  const padId = `${uid}-pad`;
+  const wireId = `${uid}-conductor`;
+  const [padChoice, setPadChoice] = useState<string | null>(null);
+  const [wireChoice, setWireChoice] = useState<string | null>(null);
+  const free = useFreeTerminals(design, db, connection);
+  const padOptions = useMemo(() => free.pads.filter((t) => !free.usedPads.has(t.terminal)), [free]);
+  const wireOptions = useMemo(() => free.wires.filter((t) => !free.usedWires.has(t.terminal)), [free]);
 
-  const usedPadIds = useMemo(
-    () => new Set(connectionRows(design, db, connection).map((row) => row.padId)),
-    [design, db, connection],
-  );
-  const usedWireIds = useMemo(
-    () => new Set(connectionRows(design, db, connection).map((row) => row.wireId)),
-    [design, db, connection],
-  );
-  const padOptions = useMemo(
-    () =>
-      terminalsOf(design, db, connection.a.instance).filter(
-        (t) => t.end === connection.a.end && !usedPadIds.has(t.terminal),
-      ),
-    [design, db, connection, usedPadIds],
-  );
-  const wireOptions = useMemo(
-    () =>
-      terminalsOf(design, db, connection.b.instance).filter(
-        (t) => t.end === connection.b.end && !usedWireIds.has(t.terminal),
-      ),
-    [design, db, connection, usedWireIds],
-  );
+  useEffect(() => {
+    if (!focusRequest) return;
+    focusSoon(padId);
+    onFocusHandled();
+  }, [focusRequest, onFocusHandled, padId]);
 
-  const add = (): void => {
-    if (padChoice === undefined || wireChoice === undefined) return;
-    const a: TerminalRef = {
-      instance: connection.a.instance,
-      terminal: padChoice,
-      ...(connection.a.end === undefined ? {} : { end: connection.a.end }),
-    };
-    const b: TerminalRef = {
-      instance: connection.b.instance,
-      terminal: wireChoice,
-      ...(connection.b.end === undefined ? {} : { end: connection.b.end }),
-    };
+  const make = (pad: string, wire: string): void => {
+    const a: TerminalRef = { instance: connection.a.instance, terminal: pad, ...(connection.a.end === undefined ? {} : { end: connection.a.end }) };
+    const b: TerminalRef = { instance: connection.b.instance, terminal: wire, ...(connection.b.end === undefined ? {} : { end: connection.b.end }) };
     dispatch({ type: 'add-joint', a, b });
-    setPadChoice(undefined);
-    setWireChoice(undefined);
+    setPadChoice(null);
+    setWireChoice(null);
+    focusSoon(padId);
+  };
+  const pickPad = (terminal: string): void => {
+    if (wireChoice !== null) make(terminal, wireChoice);
+    else {
+      setPadChoice(terminal);
+      focusSoon(wireId);
+    }
+  };
+  const pickWire = (terminal: string): void => {
+    if (padChoice !== null) make(padChoice, terminal);
+    else {
+      setWireChoice(terminal);
+      focusSoon(padId);
+    }
   };
 
   return (
-    <div className="cs-conn-row cs-conn-add-row">
-      <TerminalCombobox placeholder="pad" options={padOptions} value={padChoice} onChange={setPadChoice} />
-      <span />
-      <TerminalCombobox placeholder="conductor" options={wireOptions} value={wireChoice} onChange={setWireChoice} />
-      <button
-        type="button"
-        className="cs-conn-icon-btn cs-conn-add-btn"
-        title="add joint"
-        aria-label="add joint"
-        disabled={padChoice === undefined || wireChoice === undefined}
-        onClick={add}
-      >
-        <IconPlus size={15} />
-      </button>
+    <div
+      className="cs-conn-add-row"
+      data-conn-add
+      onKeyDownCapture={(event) => {
+        // Escape steps back to the table, even from an open list
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          onLeave();
+        }
+      }}
+    >
+      <TerminalCombobox id={padId} placeholder="pad" options={padOptions} value={padChoice} onChange={pickPad} />
+      <TerminalCombobox id={wireId} placeholder="conductor" options={wireOptions} value={wireChoice} onChange={pickWire} />
+    </div>
+  );
+}
+
+/**
+ * A terminal with no joint yet: pick what to solder it to, from the keyboard. The list is every
+ * terminal of another part the compatibility rules allow, so one Enter makes the first joint and
+ * the connection's own table (and its add row) takes over.
+ */
+function ConnectTerminal({ design, db, from, focusRequest, onFocusHandled, onJoined }: { design: CableDesign; db: Db; from: TerminalRef; focusRequest: boolean; onFocusHandled: () => void; onJoined: () => void }): JSX.Element {
+  const { dispatch } = useEditorApi();
+  const id = useId();
+  const options = useMemo(() => {
+    const here = profileDesignTerminal(design, db, from);
+    if (here === undefined) return [];
+    const out: ResolvedTerminal[] = [];
+    for (const instance of designInstances(design)) {
+      if (instance.id === from.instance) continue;
+      for (const t of terminalsOf(design, db, instance.id)) {
+        const there = profileDesignTerminal(design, db, { instance: t.instance, terminal: t.terminal, ...(t.end === undefined ? {} : { end: t.end }) });
+        if (there !== undefined && jointCompatibility(here, there).ok) out.push(t);
+      }
+    }
+    return out;
+  }, [design, db, from]);
+  useEffect(() => {
+    if (!focusRequest) return;
+    focusSoon(id);
+    onFocusHandled();
+  }, [focusRequest, onFocusHandled, id]);
+  const items = useMemo(() => options.map((t) => ({ value: t.key, label: t.key, ...(t.label === undefined ? {} : { hint: t.label }) })), [options]);
+  return (
+    <div className="cs-conn-add-row cs-conn-connect-row" data-conn-add>
+      <Combobox
+        id={id}
+        aria-label={`connect ${terminalKey(from)} to`}
+        placeholder={`connect ${terminalKey(from)} to…`}
+        options={items}
+        value={null}
+        onValueChange={(key) => {
+          onJoined();
+          dispatch({ type: 'add-joint', a: from, b: parseTerminalKey(key) });
+        }}
+        emptyText="nothing compatible"
+        className="cs-conn-combo"
+      />
     </div>
   );
 }
@@ -392,14 +412,80 @@ function NoteCell({
   );
 }
 
+/**
+ * A joint whose ends are being edited: the pad and the conductor become search fields. The row's
+ * current terminal heads each list, so Enter keeps it and moves on; picking another re-lands that
+ * end (one undoable edit). Escape, or Enter on the conductor field, goes back to the row.
+ */
+function EditEndsRow({
+  row,
+  design,
+  db,
+  connection,
+  onMove,
+  onDone,
+}: {
+  row: ConnectionRow;
+  design: CableDesign;
+  db: Db;
+  connection: Connection;
+  onMove: (which: 'pad' | 'wire', terminal: string) => void;
+  onDone: () => void;
+}): JSX.Element {
+  const uid = useId();
+  const padField = `${uid}-pad`;
+  const wireField = `${uid}-wire`;
+  const free = useFreeTerminals(design, db, connection);
+  const withCurrent = (all: ResolvedTerminal[], used: ReadonlySet<string>, current: string): ResolvedTerminal[] => {
+    const mine = all.find((t) => t.terminal === current);
+    return [...(mine === undefined ? [] : [mine]), ...all.filter((t) => t.terminal !== current && !used.has(t.terminal))];
+  };
+  useEffect(() => focusSoon(padField), [padField]);
+  return (
+    <div
+      className="cs-conn-row is-editing"
+      data-conn-row={row.jointIndex}
+      onKeyDownCapture={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          onDone();
+        }
+      }}
+    >
+      <TerminalCombobox
+        id={padField}
+        placeholder="pad"
+        options={withCurrent(free.pads, free.usedPads, row.padId)}
+        value={row.padId}
+        onChange={(terminal) => {
+          if (terminal !== row.padId) onMove('pad', terminal);
+          focusSoon(wireField);
+        }}
+      />
+      <TerminalCombobox
+        id={wireField}
+        placeholder="conductor"
+        options={withCurrent(free.wires, free.usedWires, row.wireId)}
+        value={row.wireId}
+        onChange={(terminal) => {
+          if (terminal !== row.wireId) onMove('wire', terminal);
+          onDone();
+        }}
+      />
+    </div>
+  );
+}
+
 function Row({
   row,
   selected,
   editingNote,
   onSelect,
   onStartEdit,
+  onStartEditEnds,
   onCommitNote,
   onDelete,
+  onNavigate,
   indent,
 }: {
   row: ConnectionRow;
@@ -407,14 +493,44 @@ function Row({
   editingNote: boolean;
   onSelect: () => void;
   onStartEdit: () => void;
+  onStartEditEnds: () => void;
   onCommitNote: (value: string) => void;
   onDelete: () => void;
+  onNavigate: (from: HTMLElement, to: 'next' | 'previous' | 'first' | 'last') => void;
   indent?: boolean;
 }): JSX.Element {
   return (
     <div
       className={classes('cs-conn-row', selected && 'is-selected', indent === true && 'is-member')}
+      data-conn-row={row.jointIndex}
+      tabIndex={0}
+      aria-label={`${row.padId} to ${row.wireId}`}
+      aria-keyshortcuts="ArrowUp ArrowDown Enter Delete N"
       onClick={onSelect}
+      onFocus={(event) => {
+        if (event.target === event.currentTarget && !selected) onSelect();
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget || event.ctrlKey || event.metaKey || event.altKey) return;
+        const go = (to: 'next' | 'previous' | 'first' | 'last'): void => {
+          event.preventDefault();
+          onNavigate(event.currentTarget, to);
+        };
+        if (event.key === 'ArrowDown') go('next');
+        else if (event.key === 'ArrowUp') go('previous');
+        else if (event.key === 'Home') go('first');
+        else if (event.key === 'End') go('last');
+        else if (event.key === 'Delete' || event.key === 'Backspace') {
+          event.preventDefault();
+          onDelete();
+        } else if (event.key === 'Enter' || event.key === 'F2' || event.key === 'e') {
+          event.preventDefault();
+          onStartEditEnds();
+        } else if (event.key === 'n') {
+          event.preventDefault();
+          onStartEdit();
+        }
+      }}
     >
       <span className="cs-mono cs-conn-pad">{row.padId}</span>
       <span className="cs-mono cs-conn-side">{sideLabel(row.padSide)}</span>
@@ -429,6 +545,7 @@ function Row({
           className="cs-conn-icon-btn"
           title="edit note"
           aria-label={`edit note for ${row.padId}`}
+          tabIndex={-1}
           onClick={(event) => {
             event.stopPropagation();
             onStartEdit();
@@ -441,6 +558,7 @@ function Row({
           className="cs-conn-icon-btn"
           title="unsolder"
           aria-label={`unsolder ${row.padId}`}
+          tabIndex={-1}
           onClick={(event) => {
             event.stopPropagation();
             onDelete();
@@ -468,6 +586,7 @@ function GroupRow({
   onSelect,
   onDelete,
   onEdit,
+  onNavigate,
 }: {
   group: GroundGroup;
   /** the other pigtails at the same wire end, with the terminal each lands on */
@@ -478,6 +597,7 @@ function GroupRow({
   onSelect: () => void;
   onDelete: () => void;
   onEdit: (edit: PigtailEdit) => void;
+  onNavigate: (from: HTMLElement, to: 'next' | 'previous' | 'first' | 'last') => void;
 }): JSX.Element {
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const { pigtail } = group;
@@ -490,6 +610,23 @@ function GroupRow({
     <>
       <div
         className={classes('cs-conn-row', 'cs-conn-group', selected && 'is-selected')}
+        data-conn-row={group.rows[0]?.jointIndex}
+        tabIndex={0}
+        aria-label={`pigtail ${pigtail.id}`}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget || event.ctrlKey || event.metaKey || event.altKey) return;
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+            event.preventDefault();
+            onNavigate(event.currentTarget, event.key === 'ArrowDown' ? 'next' : event.key === 'ArrowUp' ? 'previous' : event.key === 'Home' ? 'first' : 'last');
+          } else if (event.key === 'Delete' || event.key === 'Backspace') {
+            event.preventDefault();
+            onDelete();
+          } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelect();
+            onToggle();
+          }
+        }}
         onClick={() => {
           onSelect();
           onToggle();
@@ -661,6 +798,7 @@ function PigtailBar({
 }): JSX.Element | null {
   const [ticked, setTicked] = useState<ReadonlySet<number>>(new Set());
   const [landingChoice, setLandingChoice] = useState<string | undefined>(undefined);
+  const landingId = useId();
   const end = connection.b.end;
   const segment = design.instances.segments.find((s) => s.id === connection.b.instance);
   const wire = segment === undefined ? undefined : findWire(db, segment.def);
@@ -684,7 +822,7 @@ function PigtailBar({
       <div className="cs-conn-row cs-conn-pigtail-bar">
         <span className="cs-conn-note">Ground connections at this end: {pigtails}</span>
         <span />
-        <TerminalCombobox placeholder="lands on" options={grounds} value={landingChoice} onChange={setLandingChoice} />
+        <TerminalCombobox id={`${landingId}-lands`} placeholder="lands on" options={grounds} value={landingChoice ?? null} onChange={setLandingChoice} />
         <button
           type="button"
           className="cs-conn-icon-btn"
@@ -781,17 +919,48 @@ function rotationFooter(design: CableDesign, nodes: readonly EditorNode[], conne
   );
 }
 
+const NOOP = (): void => undefined;
+
 export function ConnectionPanel({
   state,
   nodes,
+  focusRequest = false,
+  onFocusHandled = NOOP,
 }: {
   state: EditorState;
   nodes: readonly EditorNode[];
+  /** the host asks the keyboard to land here (Enter on the canvas): the add row's pad field, or the connect field of an unjointed pin */
+  focusRequest?: boolean;
+  onFocusHandled?: () => void;
 }): JSX.Element {
   const { dispatch } = useEditorApi();
   const { design, db } = state;
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(new Set());
   const [editingIndex, setEditingIndex] = useState<number | undefined>(undefined);
+  const [editingEnds, setEditingEnds] = useState<number | undefined>(undefined);
+  const tableRef = useRef<HTMLDivElement | null>(null);
+  const pendingFocus = useRef<{ row: number } | { add: true } | { joint: number } | undefined>(undefined);
+  // after an edit that rebuilt the table, put the keyboard back where it was working
+  useLayoutEffect(() => {
+    const wanted = pendingFocus.current;
+    if (wanted === undefined) return;
+    pendingFocus.current = undefined;
+    const table = tableRef.current;
+    if (table === null) return;
+    const rows = [...table.querySelectorAll<HTMLElement>('[data-conn-row]')];
+    const add = table.querySelector<HTMLElement>('[data-conn-add] input');
+    const target = 'joint' in wanted ? rows.find((el) => el.dataset['connRow'] === String(wanted.joint)) : 'row' in wanted ? rows[Math.min(wanted.row, rows.length - 1)] : add;
+    (target ?? add)?.focus();
+  });
+  const moveFocus = (from: HTMLElement, to: 'next' | 'previous' | 'first' | 'last'): void => {
+    const table = tableRef.current;
+    if (table === null) return;
+    const rows = [...table.querySelectorAll<HTMLElement>('[data-conn-row]')];
+    const at = rows.indexOf(from);
+    const target = to === 'first' ? rows[0] : to === 'last' ? rows[rows.length - 1] : rows[at + (to === 'next' ? 1 : -1)];
+    if (target !== undefined) target.focus();
+    else if (to === 'next') table.querySelector<HTMLElement>('[data-conn-add] input')?.focus();
+  };
 
   const connection = useMemo(
     () => connectionForSelection(design, state.selection),
@@ -822,6 +991,9 @@ export function ConnectionPanel({
           <p className="cs-empty">
             {floating === undefined ? 'select a connection' : `${floating} — nothing jointed`}
           </p>
+          {state.selection?.kind !== 'terminal' ? null : (
+            <ConnectTerminal design={design} db={db} from={state.selection.ref} focusRequest={focusRequest} onFocusHandled={onFocusHandled} onJoined={() => { pendingFocus.current = { add: true }; }} />
+          )}
         </div>
       </div>
     );
@@ -868,6 +1040,21 @@ export function ConnectionPanel({
     setEditingIndex(undefined);
     const trimmed = value.trim();
     dispatch({ type: 'update-joint', index: jointIndex, patch: { note: trimmed === '' ? undefined : trimmed } });
+    pendingFocus.current = { joint: jointIndex };
+  };
+
+  /** re-land one end of a joint on another terminal: one undoable edit */
+  const moveEnd = (row: ConnectionRow, which: 'pad' | 'wire', terminal: string): void => {
+    const ref = which === 'pad' ? row.pad : row.wire;
+    const joint = design.joints[row.jointIndex];
+    if (joint === undefined) return;
+    const side = terminalKey(joint.a) === terminalKey(ref) ? 'a' : 'b';
+    dispatch({ type: 'move-joint-ends', moves: [{ index: row.jointIndex, side, to: { ...ref, terminal } }] });
+  };
+  const entryIndexOf = (jointIndex: number): number => grouped.findIndex((entry) => ('kind' in entry ? entry.rows.some((r) => r.jointIndex === jointIndex) : entry.jointIndex === jointIndex));
+  const deleteJoint = (jointIndex: number): void => {
+    pendingFocus.current = { row: entryIndexOf(jointIndex) };
+    dispatch({ type: 'delete-joint', index: jointIndex });
   };
 
   return (
@@ -896,7 +1083,7 @@ export function ConnectionPanel({
         <span>CONDUCTOR</span>
         <span />
       </div>
-      <div className="cs-scroll cs-conn-scroll">
+      <div className="cs-scroll cs-conn-scroll" ref={tableRef}>
         {grouped.map((entry) =>
           'kind' in entry ? (
             <GroupRow
@@ -912,10 +1099,25 @@ export function ConnectionPanel({
                 const first = entry.rows[0];
                 if (first !== undefined) selectRow(first.jointIndex);
               }}
-              onDelete={() =>
-                dispatch({ type: 'delete-joints', indices: entry.rows.map((row) => row.jointIndex) })
-              }
+              onDelete={() => {
+                pendingFocus.current = { row: entryIndexOf(entry.rows[0]?.jointIndex ?? -1) };
+                dispatch({ type: 'delete-joints', indices: entry.rows.map((row) => row.jointIndex) });
+              }}
               onEdit={edit}
+              onNavigate={moveFocus}
+            />
+          ) : editingEnds === entry.jointIndex ? (
+            <EditEndsRow
+              key={entry.jointIndex}
+              row={entry}
+              design={design}
+              db={db}
+              connection={connection}
+              onMove={(which, terminal) => moveEnd(entry, which, terminal)}
+              onDone={() => {
+                setEditingEnds(undefined);
+                pendingFocus.current = { joint: entry.jointIndex };
+              }}
             />
           ) : (
             <Row
@@ -925,8 +1127,10 @@ export function ConnectionPanel({
               editingNote={editingIndex === entry.jointIndex}
               onSelect={() => selectRow(entry.jointIndex)}
               onStartEdit={() => setEditingIndex(entry.jointIndex)}
+              onStartEditEnds={() => setEditingEnds(entry.jointIndex)}
               onCommitNote={(value) => commitNote(entry.jointIndex, value)}
-              onDelete={() => dispatch({ type: 'delete-joint', index: entry.jointIndex })}
+              onDelete={() => deleteJoint(entry.jointIndex)}
+              onNavigate={moveFocus}
             />
           ),
         )}
@@ -938,7 +1142,17 @@ export function ConnectionPanel({
           pigtails={groups.length}
           onEdit={edit}
         />
-        <AddJointRow design={design} db={db} connection={connection} />
+        <AddJointRow
+          design={design}
+          db={db}
+          connection={connection}
+          focusRequest={focusRequest}
+          onFocusHandled={onFocusHandled}
+          onLeave={() => {
+            const rowsEls = tableRef.current?.querySelectorAll<HTMLElement>('[data-conn-row]');
+            rowsEls?.[rowsEls.length - 1]?.focus();
+          }}
+        />
         {/* the wire end of this connection: its breakout, or split it into one */}
         {[connection.a, connection.b]
           .filter((end) => end.end !== undefined && isSegmentInstance(design, end.instance))

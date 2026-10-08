@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createCatalog, dataPath, parseConnectorArt, type ConnectorArtRecord, fsCatalogSource, installPack, layeredCatalogSource, readPackManifest } from '@wirehub/catalog';
 import { deriveTestSpec, renderWireSpecSheet } from '@wirehub/docs';
-import { initialWizardState, planCable, readingsOfLabels, roleOfLabels } from '@wirehub/editor-react';
+import { backEdges, initialWizardState, planCable, readingsOfLabels, roleOfLabels } from '@wirehub/editor-react';
 import { connectorArt, crossSectionLayout, layoutSchematic, registerConnectorArt } from '@wirehub/layout';
 import { AV_VIDEO_PACK } from '@wirehub/module-av-video';
 import {
@@ -121,6 +121,8 @@ describe('the wizard, taught by the vocabulary', () => {
     expect(plan.choices).toEqual([]);
     expect(plan.unconnected).toEqual([]);
     expect(plan.design.joints.map(jointKey).sort()).toEqual(design('xlr-mic-cable').joints.map(jointKey).sort());
+    // and it opens with the plugs outside and the wire between them
+    expect(backEdges(plan.design, db)).toEqual([]);
   });
 });
 

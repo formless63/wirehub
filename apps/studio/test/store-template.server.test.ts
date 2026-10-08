@@ -11,7 +11,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { catalogWithPacksSource, createCatalog, dataPath, installedAcross, parseStoreIndex, storeKeyFingerprint } from '@wirehub/catalog';
+import { catalogWithPacksSource, createCatalog, dataPath, installedAcross } from '@wirehub/catalog';
+import { parseStoreIndex, storeKeyFingerprint } from '@wirehub/catalog/src/server.ts';
 import { createRegistry } from '@wirehub/modules';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 

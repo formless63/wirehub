@@ -399,10 +399,13 @@ export function ConnectorArtNode({
  * connect to.
  */
 export function ConnectorThumb({ art }: { art: ConnectorArt }): JSX.Element {
+  // a tall face keeps its shape: the box narrows to the drawing's width at the thumbnail's height
+  // rather than reserving a wide empty strip beside a sliver
+  const width = Math.max(14, Math.min(CONNECTOR_THUMB.width, Math.round((CONNECTOR_THUMB.height * art.width) / Math.max(art.height, 1))));
   return (
     <svg
       className="cs-conn-thumb"
-      width={CONNECTOR_THUMB.width}
+      width={width}
       height={CONNECTOR_THUMB.height}
       viewBox={`0 0 ${art.width} ${art.height}`}
       preserveAspectRatio="xMidYMid meet"
