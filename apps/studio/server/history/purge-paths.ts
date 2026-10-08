@@ -26,7 +26,7 @@ import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 
 /** The owner-only settings documents, as the mirror and the export lay them out, and as a repository rooted at `data/` would. */
-export const OWNER_ONLY_PATHS: readonly string[] = ['sign-in', 'notifications', 'integrations', 'webhooks'].flatMap((name) => [`data/settings/${name}.json`, `settings/${name}.json`]);
+export const OWNER_ONLY_PATHS: readonly string[] = ['sign-in', 'notifications', 'integrations', 'webhooks', 'modules'].flatMap((name) => [`data/settings/${name}.json`, `settings/${name}.json`]);
 
 export class PurgeError extends Error {}
 

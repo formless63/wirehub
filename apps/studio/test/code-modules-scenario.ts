@@ -143,7 +143,7 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   expect(future.body.error).toMatch(/module API 2\.0/);
   const newer = await call('api 1.9', 'POST', '/api/packs/install', { zip: b64(fixture.variant((_f, m) => (m.module.apiVersion = '1.9'))), trustKey });
   expect(newer.status).toBe(422);
-  expect(newer.body.error).toMatch(/newer than this hub's 1\.4/);
+  expect(newer.body.error).toMatch(/newer than this hub's 1\.5/);
   // a module that does more than it declared
   const sneaky = await call('undeclared point', 'POST', '/api/packs/install', { zip: b64(fixture.variant((_f, m) => (m.module.extensionPoints = m.module.extensionPoints.filter((p: string) => p !== 'routes')))), trustKey, apply: true, consent });
   expect(sneaky.status).toBe(409);
