@@ -44,8 +44,8 @@ describe('the module', () => {
   it('is a domain module with one pack, and a valid manifest entry', () => {
     const registry = createRegistry([avVideo]);
     expect(registry.domains().map((m) => m.id)).toEqual(['av-video']);
-    expect(registry.catalogPacks().map((p) => `${p.module}:${p.id}@${p.version}`)).toEqual(['av-video:av-video@0.2.0']);
-    expect(readPackManifest(packDir)).toMatchObject({ id: 'av-video', version: '0.2.0', license: 'CC0-1.0' });
+    expect(registry.catalogPacks().map((p) => `${p.module}:${p.id}@${p.version}`)).toEqual(['av-video:av-video@0.2.1']);
+    expect(readPackManifest(packDir)).toMatchObject({ id: 'av-video', version: '0.2.1', license: 'CC0-1.0' });
   });
 
   it('keeps video out of the base: no video signal or VGA record without the pack', () => {

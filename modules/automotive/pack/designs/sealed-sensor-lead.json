@@ -104,5 +104,9 @@
       }
     }
   ],
+  "notes": [
+    "Red is on cavity 1 and black on cavity 2 at both ends; cavity 3 is closed with a cavity plug at both ends so the housings stay sealed.",
+    "Fit a single-wire seal on every crimped contact before it is inserted."
+  ],
   "src": "synthetic example: a 2-core 0.5 mm² supply lead between two sealed 3-way housings; cavity 3 plugged at both ends"
 }

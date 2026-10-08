@@ -2,7 +2,7 @@
   "format": 1,
   "id": "pro-audio",
   "name": "Pro audio",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": {
     "id": "wirehub",
     "name": "WireHub bundled modules"

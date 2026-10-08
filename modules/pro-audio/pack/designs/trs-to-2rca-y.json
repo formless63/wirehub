@@ -252,5 +252,9 @@
       }
     }
   ],
+  "notes": [
+    "TRS tip is left, ring is right, sleeve is ground; the ground is common to both legs in the mould.",
+    "The spare core of each leg is not connected in the mould."
+  ],
   "src": "synthetic example: a stereo Y cable — one 3.5 mm TRS plug, a moulded breakout, and two RCA plugs, the same two-core stock on all three legs (the spare core of each leg is NC in the mould)"
 }
