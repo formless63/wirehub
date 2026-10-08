@@ -39,3 +39,10 @@ export { ConfirmDialog } from './ConfirmDialog.tsx';
 export type { ConfirmDialogProps } from './ConfirmDialog.tsx';
 export { Drawer } from './Drawer.tsx';
 export type { DrawerProps } from './Drawer.tsx';
+
+export { DataTable } from './DataTable.tsx';
+export type { DataColumn, DataSort, DataTableProps } from './DataTable.tsx';
+export { EmptyState, KeyValues, Page, PageBody, PageHeader, SidePanel, Toolbar } from './Page.tsx';
+export type { EmptyStateProps, PageHeaderProps, SidePanelProps, ToolbarProps } from './Page.tsx';
+export { FilterChip, FilterMenu } from './FilterChip.tsx';
+export type { FilterGroup } from './FilterChip.tsx';

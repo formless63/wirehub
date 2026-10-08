@@ -45,9 +45,6 @@
     "apps/studio/src/routes/CableRoute.tsx": {
       "raw-font-size": 5
     },
-    "apps/studio/src/routes/CablesRoute.tsx": {
-      "raw-font-size": 31
-    },
     "apps/studio/src/routes/CodeModulesSettings.tsx": {
       "raw-font-size": 1
     },
@@ -58,25 +55,11 @@
     "apps/studio/src/routes/EngineeringSettings.tsx": {
       "raw-font-size": 5
     },
-    "apps/studio/src/routes/HistoryRoute.tsx": {
-      "raw-font-size": 12,
-      "native-select": 1
-    },
-    "apps/studio/src/routes/JobsRoute.tsx": {
-      "raw-font-size": 2
-    },
     "apps/studio/src/routes/ModuleRoute.tsx": {
       "raw-font-size": 3
     },
     "apps/studio/src/routes/PartNumberSettings.tsx": {
       "raw-font-size": 2
-    },
-    "apps/studio/src/routes/PartNumbersRoute.tsx": {
-      "raw-font-size": 3
-    },
-    "apps/studio/src/routes/ProductsRoute.tsx": {
-      "raw-font-size": 7,
-      "native-select": 2
     },
     "apps/studio/src/routes/ResolverRecordForms.tsx": {
       "native-select": 1
@@ -111,9 +94,6 @@
     },
     "apps/studio/src/shell/BackupIndicator.tsx": {
       "raw-font-size": 3
-    },
-    "apps/studio/src/shell/EmptyState.tsx": {
-      "raw-font-size": 2
     },
     "apps/studio/src/shell/MobileNavSheet.tsx": {
       "raw-font-size": 1
@@ -172,7 +152,7 @@
       "raw-hex": 54
     },
     "packages/editor-react/src/library-table.css": {
-      "raw-font-size": 16
+      "raw-font-size": 8
     },
     "packages/editor-react/src/net-hover.tsx": {
       "raw-hex": 1

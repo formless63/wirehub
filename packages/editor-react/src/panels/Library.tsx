@@ -90,6 +90,7 @@ import {
 } from '../library.ts';
 import { libraryColumns, libraryRows, type LibraryTableContext } from '../library-table.ts';
 import { LibraryTable } from './LibraryTable.tsx';
+import { Tab, TabList, Tabs } from '../ui/Tabs.tsx';
 import { PropertiesGrid, RecordHead, SourceBlock, WhereUsed, type RecordAction } from './RecordOverview.tsx';
 import {
   LIBRARY_PANE_DEFAULT,
@@ -1264,30 +1265,28 @@ export function Library(props: LibraryProps): JSX.Element {
         </div>
       ) : null}
       <div className="cs-library-list" hidden={pane.collapsed || undefined}>
-        <nav className="cs-tabs cs-library-tabs" aria-label="parts library">
-          {LIBRARY_KINDS.map((entry) => (
-            <button
-              key={entry}
-              type="button"
-              className={classes(kind === entry && 'is-active')}
-              aria-pressed={kind === entry}
-              title={DEFINITION_BLURBS[entry]}
-              onClick={() => {
-                changeKind(entry);
-                // the kind switch is itself a "go to /library/$kind" — no
-                // second, stale "and clear the id" navigation behind it
-                close({ keepUrl: true });
-              }}
-            >
-              {DEFINITION_LABELS[entry]}
-            </button>
-          ))}
-          {(props.extraTabs ?? []).map((tab) => (
-            <button key={tab.id} type="button" aria-pressed={false} {...(tab.title === undefined ? {} : { title: tab.title })} onClick={tab.onSelect}>
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+        <Tabs
+          value={kind}
+          onValueChange={(next) => {
+            changeKind(next as LibraryKind);
+            // the kind switch is itself a "go to /library/$kind" — no
+            // second, stale "and clear the id" navigation behind it
+            close({ keepUrl: true });
+          }}
+        >
+          <TabList aria-label="parts library" className="cs-library-tabs">
+            {LIBRARY_KINDS.map((entry) => (
+              <Tab key={entry} value={entry} title={DEFINITION_BLURBS[entry]}>
+                {DEFINITION_LABELS[entry]}
+              </Tab>
+            ))}
+            {(props.extraTabs ?? []).map((tab) => (
+              <button key={tab.id} type="button" className="cs-ui-tab" {...(tab.title === undefined ? {} : { title: tab.title })} onClick={tab.onSelect}>
+                {tab.label}
+              </button>
+            ))}
+          </TabList>
+        </Tabs>
         {mode.kind === 'browse' ? null : listTools}
         {mode.kind === 'browse' && (definitions === undefined || status !== undefined || problem !== undefined) ? (
           <div className="cs-library-note">

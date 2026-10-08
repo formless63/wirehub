@@ -17,6 +17,7 @@ import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { contentETag } from '../server/etag.ts';
 import { NO_HISTORY, noHistorySource, type HistoryQuery, type HistorySource } from '../server/history/source.ts';
 import { DATABASE_HISTORY } from '../server/history/pg.ts';
+import { pickOption } from './ui-helpers.ts';
 import { RecordHistory } from '../src/history/HistoryPanel.tsx';
 import { known, type HistoryEntry } from '../src/history/types.ts';
 import { HistoryRoute } from '../src/routes/HistoryRoute.tsx';
@@ -119,7 +120,7 @@ describe('the History page', () => {
     render(<HistoryRoute />);
     await waitFor(() => expect(screen.getByTestId('history').querySelectorAll('[data-entry]').length).toBe(2));
     fireEvent.change(screen.getByTestId('history-person'), { target: { value: 'ali' } });
-    fireEvent.change(screen.getByTestId('history-kind'), { target: { value: 'design' } });
+    await pickOption('Kind', 'Designs');
     fireEvent.click(screen.getByRole('button', { name: 'Filter' }));
     await waitFor(() => expect(screen.getByTestId('history').querySelectorAll('[data-entry]').length).toBe(1));
     expect(stub.queries[stub.queries.length - 1]).toMatchObject({ person: 'ali', kind: 'design' });

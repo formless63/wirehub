@@ -221,7 +221,7 @@ describe('the cables list', () => {
       const row = cableLinks().find((link) => link.getAttribute('href') === `/cables/${id}`)!;
       expect(row.textContent).toContain(loadDesign(id).label);
     }
-    expect(screen.getByText('DESIGN')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Design' })).toBeTruthy();
   });
 
   it('keeps assembly labels visible in the phone cards too', async () => {
@@ -275,7 +275,7 @@ describe('the unsaved buffers', () => {
     backToCables();
     await waitFor(() => expect(cableLinks().length).toBe(2));
     const dirtyRow = cableLinks().find((link) => link.getAttribute('href') === `/cables/${first}`);
-    expect(dirtyRow?.querySelector('[title="Unsaved changes"]')).not.toBeNull();
+    expect(dirtyRow?.closest('tr')?.querySelector('[title="Unsaved changes"]')).not.toBeNull();
 
     const otherLink = cableLinks().find((link) => link.getAttribute('href') === `/cables/${other}`);
     fireEvent.click(otherLink as HTMLAnchorElement);
@@ -478,7 +478,7 @@ describe('the query-backed persistence adapter', () => {
     // the list query was invalidated by the save, not left to a stale copy
     await waitFor(() => expect(screen.getByText('saved via mutation')).toBeDefined());
     const row = cableLinks().find((link) => link.getAttribute('href') === `/cables/${first}`);
-    expect(row?.querySelector('[title="Unsaved changes"]')).toBeNull();
+    expect(row?.closest('tr')?.querySelector('[title="Unsaved changes"]')).toBeNull();
   });
 
   it('a rejected save toasts the first issue and leaves the draft dirty', async () => {
@@ -502,7 +502,7 @@ describe('the query-backed persistence adapter', () => {
     backToCables();
     await waitFor(() => expect(cableLinks().length).toBe(2));
     const row = cableLinks().find((link) => link.getAttribute('href') === `/cables/${first}`);
-    expect(row?.querySelector('[title="Unsaved changes"]')).not.toBeNull();
+    expect(row?.closest('tr')?.querySelector('[title="Unsaved changes"]')).not.toBeNull();
   });
 });
 

@@ -9,16 +9,17 @@
  * record as JSON. Every save is one change set and raises `product.changed`.
  */
 
-import { InfoTip } from '../shell/InfoTip.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 import type { LineupRow, ProductFamily } from '@wirehub/model';
+import { Button, Callout, Checkbox, Chip, DataTable, Field, Input, KeyValues, Page, PageBody, Select, SidePanel, Tab, TabList, TabPanel, Tabs, Textarea, Toolbar, type DataColumn } from '@wirehub/editor-react';
 
 import { cableListKey, dbKey } from '../queries.ts';
 import { EmptyState } from '../shell/EmptyState.tsx';
 import { RouteChip } from '../shell/RouteChip.tsx';
+import { RouteHeader } from '../shell/RouteHeader.tsx';
 import { useStudio } from '../studio-context.tsx';
 import {
   fetchLineup,
@@ -26,6 +27,7 @@ import {
   fetchProducts,
   lineupKey,
   mergeProducts,
+  type ProductView,
   nextVariantNumber,
   productKey,
   productsKey,
@@ -34,8 +36,6 @@ import {
   unwrap,
   type ProductsView,
 } from '../products.browser.ts';
-
-import { RouteTabs } from './RouteTabs.tsx';
 
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
 const EXAMPLE: ProductFamily = {
@@ -52,50 +52,47 @@ function money(row: Pick<LineupRow, 'cost' | 'currency'>): string {
   return `${row.cost.toFixed(2)}${row.currency === undefined ? '' : ` ${row.currency}`}`;
 }
 
+const lineupId = (r: LineupRow): string => `${r.product}/${r.variant}`;
+
+function lineupColumns(showProduct: boolean): DataColumn<LineupRow>[] {
+  return [
+    ...(showProduct
+      ? [{ id: 'product', header: 'Product', width: 150, sortValue: (r: LineupRow) => r.productLabel, cell: (r: LineupRow) => (
+          <Link to="/products/$id" params={{ id: r.product }} className="underline">
+            {r.productLabel}
+          </Link>
+        ) }]
+      : []),
+    { id: 'variant', header: 'Variant', width: 130, sortValue: (r) => r.variantLabel ?? r.variant, cell: (r) => r.variantLabel ?? r.variant },
+    { id: 'number', header: 'Number', width: 130, mono: true, sortValue: (r) => r.partNumber ?? '', cell: (r) => r.partNumber ?? '' },
+    { id: 'design', header: 'Design', width: 220, sortValue: (r) => r.designLabel ?? r.design, cell: (r) => (
+      <Link to="/cables/$id" params={{ id: r.design }} search={{ view: 'build' }} className="underline">
+        {r.designLabel ?? r.design}
+      </Link>
+    ) },
+    { id: 'length', header: 'Length', width: 90, numeric: true, sortValue: (r) => r.lengthMm ?? 0, cell: (r) => (r.lengthMm === undefined ? '' : `${r.lengthMm} mm`) },
+    { id: 'options', header: 'Options', width: 160, cell: (r) => Object.entries(r.options).map(([k, v]) => `${k}: ${v}`).join(', ') },
+    { id: 'released', header: 'Released', width: 100, sortValue: (r) => r.releasedRev ?? 0, cell: (r) => (r.releasedRev === undefined ? <span className="text-warn">none</span> : `Rev ${r.releasedRev}`) },
+    { id: 'cost', header: 'Cost', width: 100, numeric: true, sortValue: (r) => r.cost ?? 0, cell: (r) => money(r) },
+    { id: 'route', header: 'Route', width: 110, cell: (r) => <RouteChip route={r.route} maker={r.maker} /> },
+  ];
+}
+const LINEUP_ALL = lineupColumns(true);
+const LINEUP_ONE = lineupColumns(false);
+
 function LineupTable({ rows, showProduct }: { rows: LineupRow[]; showProduct: boolean }): JSX.Element {
   return (
-    <table className="w-full max-w-5xl text-left" data-testid="lineup">
-      <thead>
-        <tr className="text-faint">
-          {showProduct ? <th className="pr-3 font-normal">Product</th> : null}
-          <th className="pr-3 font-normal">Variant</th>
-          <th className="pr-3 font-normal">Number</th>
-          <th className="pr-3 font-normal">Design</th>
-          <th className="pr-3 font-normal">Length</th>
-          <th className="pr-3 font-normal">Options</th>
-          <th className="pr-3 font-normal">Released</th>
-          <th className="pr-3 font-normal">Cost</th>
-          <th className="pr-3 font-normal">Route</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={`${r.product}/${r.variant}`} data-variant={`${r.product}/${r.variant}`}>
-            {showProduct ? (
-              <td className="pr-3">
-                <Link to="/products/$id" params={{ id: r.product }} className="underline">
-                  {r.productLabel}
-                </Link>
-              </td>
-            ) : null}
-            <td className="pr-3">{r.variantLabel ?? r.variant}</td>
-            <td className="pr-3 font-mono">{r.partNumber ?? ''}</td>
-            <td className="pr-3">
-              <Link to="/cables/$id" params={{ id: r.design }} search={{ view: 'build' }} className="underline">
-                {r.designLabel ?? r.design}
-              </Link>
-            </td>
-            <td className="pr-3">{r.lengthMm === undefined ? '' : `${r.lengthMm} mm`}</td>
-            <td className="pr-3">{Object.entries(r.options).map(([k, v]) => `${k}: ${v}`).join(', ')}</td>
-            <td className="pr-3">{r.releasedRev === undefined ? <span className="text-warn">none</span> : `Rev ${r.releasedRev}`}</td>
-            <td className="pr-3">{money(r)}</td>
-            <td className="pr-3">
-              <RouteChip route={r.route} maker={r.maker} />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <DataTable
+      label="Lineup"
+      testId="lineup"
+      className={showProduct ? undefined : 'cs-ui-dt-inline'}
+      rows={rows}
+      columns={showProduct ? LINEUP_ALL : LINEUP_ONE}
+      getRowId={lineupId}
+      columnsKey={showProduct ? 'lineup' : 'variants'}
+      rowAttrs={(r) => ({ 'data-variant': lineupId(r) })}
+      empty={<EmptyState topic="products">No variants yet.</EmptyState>}
+    />
   );
 }
 
@@ -108,8 +105,10 @@ export function ProductsRoute(): JSX.Element {
   const query = useQuery({ queryKey: productsKey, queryFn: () => unwrap(fetchProducts()), retry: false });
   const lineup = useQuery({ queryKey: [...lineupKey, retired], queryFn: () => unwrap(fetchLineup(retired)), retry: false, enabled: tab === 'lineup' });
   const [editing, setEditing] = useState<string | undefined>(undefined);
+  const [selected, setSelected] = useState<string>();
   const navigate = useNavigate();
   const view = query.data;
+  const selectedProduct = view?.products.find((p) => p.id === selected);
 
   const create = async (): Promise<void> => {
     if (view === undefined || editing === undefined) return;
@@ -133,80 +132,104 @@ export function ProductsRoute(): JSX.Element {
     void navigate({ to: '/products/$id', params: { id: record.id } });
   };
 
+  const problemsOf = (p: ProductView) => (view?.issues ?? []).filter((i) => i.where?.startsWith(`products/${p.id}`));
+  const familyColumns = useMemo((): DataColumn<ProductView>[] => [
+    { id: 'product', header: 'Product', width: 240, sortValue: (p) => p.label, cell: (p) => (
+      <Link to="/products/$id" params={{ id: p.id }} className="font-semibold underline">
+        {p.label}
+      </Link>
+    ) },
+    { id: 'number', header: 'Number', width: 130, mono: true, sortValue: (p) => p.partNumber ?? '', cell: (p) => p.partNumber ?? '' },
+    { id: 'variants', header: 'Variants', width: 90, numeric: true, sortValue: (p) => p.variants.length, cell: (p) => String(p.variants.length) },
+    { id: 'aliases', header: 'Also known as', width: 200, cell: (p) => (p.aliases ?? []).join(', ') },
+    { id: 'origin', header: 'Origin', width: 130, cell: (p) => (p.origin === 'pack' ? `pack ${p.pack}` : '') },
+    { id: 'problems', header: 'Problems', width: 220, cell: (p) => {
+      const problems = problemsOf(p);
+      return problems.length === 0 ? '' : <span className={problems.some((i) => i.severity === 'error') ? 'text-err' : 'text-warn'}>{problems.length} {problems.length === 1 ? 'problem' : 'problems'}: {problems[0]!.message}</span>;
+    } },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [view]);
+
   return (
-    <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="products">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[14px] font-semibold">
-          Products
-          <InfoTip topic="products" text="The designs this hub sells, grouped: each family has its number, the names it is also known by, the options its builds differ on, and its variants, each documented by one design." />
-        </h1>
-        {readOnly ? null : <button type="button" className="cs-route-action cs-route-action-primary" disabled={view === undefined || editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty(EXAMPLE)); }}>New product…</button>}
-      </div>
-      <RouteTabs id="products" label="products" items={[{ id: 'families', label: 'Families' }, { id: 'lineup', label: 'Lineup' }]} value={tab} onChange={setTab} />
-      <div role="tabpanel" id={`products-panel-${tab}`} aria-labelledby={`products-tab-${tab}`}>
-      {tab === 'lineup' ? (
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-1">
-              <input type="checkbox" checked={retired} onChange={(e) => setRetired(e.target.checked)} /> include retired
-            </label>
-            <a className="underline" href={`/api/lineup${retired ? '?retired=1' : ''}`} download="lineup.json">
+    <Page testId="products">
+      <RouteHeader
+        title="Products"
+        count={view === undefined ? undefined : `${view.products.length} ${view.products.length === 1 ? 'product' : 'products'}`}
+        primary={readOnly ? undefined : <Button variant="primary" disabled={view === undefined || editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty(EXAMPLE)); }}>New product…</Button>}
+      />
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'families' | 'lineup')} className="flex min-h-0 flex-1 flex-col">
+        <TabList aria-label="products" className="px-4">
+          <Tab value="families">Families</Tab>
+          <Tab value="lineup">Lineup</Tab>
+        </TabList>
+        <TabPanel value="families" className="flex min-h-0 flex-1 flex-col">
+          <PageBody
+            panel={
+              selectedProduct === undefined ? undefined : (
+                <SidePanel
+                  title={selectedProduct.label}
+                  subtitle={selectedProduct.id}
+                  chips={selectedProduct.origin === 'pack' ? <Chip>{`pack ${selectedProduct.pack}`}</Chip> : undefined}
+                  onClose={() => setSelected(undefined)}
+                  label="Product details"
+                  footer={<Link to="/products/$id" params={{ id: selectedProduct.id }} className="cs-ui-btn is-primary no-underline">Open</Link>}
+                >
+                  <div className="flex flex-col gap-3">
+                    <KeyValues items={[['Number', selectedProduct.partNumber ?? '—'], ['Variants', String(selectedProduct.variants.length)], ['Also known as', (selectedProduct.aliases ?? []).join(', ') || '—']]} />
+                    {problemsOf(selectedProduct).map((i) => (
+                      <Callout key={`${i.where}:${i.message}`} tone={i.severity === 'error' ? 'err' : 'warn'}>{i.message}</Callout>
+                    ))}
+                  </div>
+                </SidePanel>
+              )
+            }
+          >
+            {view === undefined ? (
+              <div className="px-4 py-3 text-faint">{query.isError ? 'The products could not be read.' : 'Loading…'}</div>
+            ) : (
+              <>
+                {readOnly || editing === undefined ? null : (
+                  <div className="flex max-w-3xl flex-col gap-2 p-4">
+                    <Textarea mono rows={14} aria-label="Product record" value={editing} spellCheck={false} onChange={(e) => setEditing(e.target.value)} />
+                    <div className="flex gap-2">
+                      <Button variant="primary" onClick={() => void create()}>Save</Button>
+                      <Button onClick={() => setEditing(undefined)}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
+                <DataTable
+                  label="Product families"
+                  testId="product-list"
+                  rows={view.products}
+                  columns={familyColumns}
+                  getRowId={(p) => p.id}
+                  selectedId={selected}
+                  onSelect={(p) => setSelected(p.id)}
+                  onActivate={(p) => void navigate({ to: '/products/$id', params: { id: p.id } })}
+                  columnsKey="products"
+                  rowAttrs={(p) => ({ 'data-product': p.id })}
+                  empty={<EmptyState topic="products">No products yet.</EmptyState>}
+                />
+              </>
+            )}
+          </PageBody>
+        </TabPanel>
+        <TabPanel value="lineup" className="flex min-h-0 flex-1 flex-col">
+          <Toolbar label="Lineup options">
+            <Checkbox checked={retired} onCheckedChange={setRetired} label="Include retired" />
+            <a className="text-xs underline" href={`/api/lineup${retired ? '?retired=1' : ''}`} download="lineup.json">
               Download JSON
             </a>
-            <a className="underline" href={`/api/lineup.csv${retired ? '?retired=1' : ''}`} download="lineup.csv">
+            <a className="text-xs underline" href={`/api/lineup.csv${retired ? '?retired=1' : ''}`} download="lineup.csv">
               Download CSV
             </a>
-          </div>
-          {lineup.data === undefined ? <div className="text-faint">{lineup.isError ? 'The lineup could not be read.' : 'Loading…'}</div> : <LineupTable rows={lineup.data.rows} showProduct />}
-        </div>
-      ) : view === undefined ? (
-        <div className="text-faint">{query.isError ? 'The products could not be read.' : 'Loading…'}</div>
-      ) : (
-        <>
-          {view.products.length === 0 ? (
-            <EmptyState
-              topic="products"
-            >
-              No products yet.
-            </EmptyState>
-          ) : null}
-          <ul data-testid="product-list">
-            {view.products.map((p) => {
-              const problems = view.issues.filter((i) => i.where?.startsWith(`products/${p.id}`));
-              return (
-                <li key={p.id} className="my-1 border border-line p-2" data-product={p.id}>
-                  <Link to="/products/$id" params={{ id: p.id }} className="font-semibold underline">
-                    {p.label}
-                  </Link>{' '}
-                  {p.partNumber === undefined ? null : <code className="cs-mono">{p.partNumber}</code>} · {p.variants.length} variant{p.variants.length === 1 ? '' : 's'}
-                  {p.origin === 'pack' ? <span className="text-faint"> · from pack {p.pack}</span> : null}
-                  {(p.aliases ?? []).length === 0 ? null : <div className="text-faint">also: {(p.aliases ?? []).join(', ')}</div>}
-                  {problems.length === 0 ? null : (
-                    <div className={problems.some((i) => i.severity === 'error') ? 'text-err' : 'text-warn'}>
-                      {problems.length} problem{problems.length === 1 ? '' : 's'}: {problems[0]!.message}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {readOnly || editing === undefined ? null : (
-            <div className="mt-2 max-w-3xl">
-              <textarea className="h-64 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Product record" value={editing} spellCheck={false} onChange={(e) => setEditing(e.target.value)} />
-              <div className="mt-1 flex gap-2">
-                <button type="button" className="cs-route-action cs-route-action-primary" onClick={() => void create()}>
-                  Save
-                </button>
-                <button type="button" className="cs-route-action" onClick={() => setEditing(undefined)}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-      </div>
-    </div>
+          </Toolbar>
+          <PageBody>
+            {lineup.data === undefined ? <div className="px-4 py-3 text-faint">{lineup.isError ? 'The lineup could not be read.' : 'Loading…'}</div> : <LineupTable rows={lineup.data.rows} showProduct />}
+          </PageBody>
+        </TabPanel>
+      </Tabs>
+    </Page>
   );
 }
 
@@ -252,19 +275,17 @@ export function ProductRoute(): JSX.Element {
     toast.message(out.value.suggestion.explanation);
   };
 
-  if (page.isError) return <div className="p-4 text-err">There is no product called {id}.</div>;
-  if (product === undefined) return <div className="p-4 text-faint">Loading…</div>;
+  if (page.isError) return <Page><RouteHeader title="Product not found" /><PageBody padded><p className="text-err">There is no product called {id}.</p></PageBody></Page>;
+  if (product === undefined) return <Page><RouteHeader title="Products" /><PageBody padded><p className="text-faint">Loading…</p></PageBody></Page>;
+  const designOptions = studio.designs.map((d) => ({ value: d.id, label: d.label }));
   return (
-    <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="product-page">
-      <div className="mb-1 text-faint">
-        <Link to="/products" className="underline">
-          Products
-        </Link>{' '}
-        /
-      </div>
-      <h1 className="mb-1 text-[14px] font-semibold">
-        {product.label} {product.partNumber === undefined ? null : <code className="cs-mono">{product.partNumber}</code>}
-      </h1>
+    <Page testId="product-page">
+      <RouteHeader
+        title={product.label}
+        count={product.partNumber === undefined ? undefined : <code className="cs-mono">{product.partNumber}</code>}
+        secondary={<Link to="/products" className="cs-ui-btn no-underline">All products</Link>}
+      />
+      <PageBody padded>
       {(product.aliases ?? []).length === 0 ? null : <div className="text-faint">Also known as: {(product.aliases ?? []).join(', ')}</div>}
       {product.description === undefined ? null : <p className="max-w-2xl">{product.description}</p>}
       {page.data!.issues.length === 0 ? null : (
@@ -276,59 +297,44 @@ export function ProductRoute(): JSX.Element {
           ))}
         </ul>
       )}
-      <h2 className="mt-3 mb-1 text-[13px] font-semibold">Variants</h2>
+      <h2 className="mt-1 mb-1 text-md font-semibold">Variants</h2>
       <LineupTable rows={page.data!.rows} showProduct={false} />
       {readOnly ? null : (
         <div className="mt-3 flex max-w-4xl flex-col gap-3">
           {adding === undefined ? (
-            <button type="button" className="cs-route-action cs-route-action-primary self-start" onClick={() => setAdding({ design: '', id: '', partNumber: '', lengthMm: '', options: {} })}>
+            <Button variant="primary" className="self-start" onClick={() => setAdding({ design: '', id: '', partNumber: '', lengthMm: '', options: {} })}>
               Add a variant…
-            </button>
+            </Button>
           ) : (
-            <fieldset className="flex flex-wrap items-end gap-2 border border-line p-2" data-testid="add-variant">
+            <fieldset className="flex flex-wrap items-end gap-2 rounded-md border border-line p-2" data-testid="add-variant">
               <legend>New variant</legend>
-              <label className="flex flex-col">
-                <span className="text-faint">Design</span>
-                <select aria-label="Variant design" className="rounded border border-line-field bg-panel px-1 py-1" value={adding.design} onChange={(e) => setAdding({ ...adding, design: e.target.value, id: adding.id === '' ? e.target.value : adding.id })}>
-                  <option value="">Pick a design…</option>
-                  {studio.designs.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col">
-                <span className="text-faint">Variant id</span>
-                <input aria-label="Variant id" className="rounded border border-line-field bg-panel px-1 py-1" value={adding.id} onChange={(e) => setAdding({ ...adding, id: e.target.value })} />
-              </label>
-              <label className="flex flex-col">
-                <span className="text-faint">Number</span>
-                <input aria-label="Variant number" className="rounded border border-line-field bg-panel px-1 py-1 font-mono" value={adding.partNumber} onChange={(e) => setAdding({ ...adding, partNumber: e.target.value })} />
-              </label>
-              <button type="button" className="cs-route-action" onClick={() => void suggest()}>
-                Suggest
-              </button>
-              <label className="flex flex-col">
-                <span className="text-faint">Length, mm</span>
-                <input aria-label="Variant length" className="w-20 rounded border border-line-field bg-panel px-1 py-1" value={adding.lengthMm} onChange={(e) => setAdding({ ...adding, lengthMm: e.target.value })} />
-              </label>
+              <Field label="Design">
+                <Select aria-label="Variant design" className="w-56" placeholder="Pick a design…" value={adding.design === '' ? undefined : adding.design} options={designOptions} onValueChange={(v) => setAdding({ ...adding, design: v, id: adding.id === '' ? v : adding.id })} />
+              </Field>
+              <Field label="Variant id">
+                <Input aria-label="Variant id" value={adding.id} onChange={(e) => setAdding({ ...adding, id: e.target.value })} />
+              </Field>
+              <Field label="Number">
+                <Input mono aria-label="Variant number" value={adding.partNumber} onChange={(e) => setAdding({ ...adding, partNumber: e.target.value })} />
+              </Field>
+              <Button onClick={() => void suggest()}>Suggest</Button>
+              <Field label="Length, mm">
+                <Input aria-label="Variant length" className="w-20" value={adding.lengthMm} onChange={(e) => setAdding({ ...adding, lengthMm: e.target.value })} />
+              </Field>
               {(product.options ?? []).map((axis) => (
-                <label key={axis.id} className="flex flex-col">
-                  <span className="text-faint">{axis.label}</span>
-                  <select aria-label={`Variant ${axis.label}`} className="rounded border border-line-field bg-panel px-1 py-1" value={adding.options[axis.id] ?? ''} onChange={(e) => setAdding({ ...adding, options: { ...adding.options, [axis.id]: e.target.value } })}>
-                    <option value="">—</option>
-                    {axis.values.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <Field key={axis.id} label={axis.label}>
+                  <Select
+                    aria-label={`Variant ${axis.label}`}
+                    className="w-32"
+                    placeholder="—"
+                    value={adding.options[axis.id] === undefined || adding.options[axis.id] === '' ? undefined : adding.options[axis.id]}
+                    options={axis.values.map((v) => ({ value: v.id, label: v.label }))}
+                    onValueChange={(v) => setAdding({ ...adding, options: { ...adding.options, [axis.id]: v } })}
+                  />
+                </Field>
               ))}
-              <button
-                type="button"
-                className="cs-route-action cs-route-action-primary"
+              <Button
+                variant="primary"
                 disabled={adding.design === '' || adding.id === ''}
                 onClick={() => {
                   const length = Number(adding.lengthMm);
@@ -344,23 +350,17 @@ export function ProductRoute(): JSX.Element {
                 }}
               >
                 Add
-              </button>
-              <button type="button" className="cs-route-action" onClick={() => setAdding(undefined)}>
-                Cancel
-              </button>
+              </Button>
+              <Button onClick={() => setAdding(undefined)}>Cancel</Button>
             </fieldset>
           )}
           {others.length === 0 ? null : (
-            <fieldset className="flex flex-wrap items-center gap-2 border border-line p-2" data-testid="merge">
+            <fieldset className="flex flex-wrap items-center gap-3 rounded-md border border-line p-2" data-testid="merge">
               <legend>Merge other products into this one</legend>
               {others.map((p) => (
-                <label key={p.id} className="flex items-center gap-1">
-                  <input type="checkbox" checked={mergeFrom.includes(p.id)} onChange={(e) => setMergeFrom((m) => (e.target.checked ? [...m, p.id] : m.filter((x) => x !== p.id)))} /> {p.label}
-                </label>
+                <Checkbox key={p.id} checked={mergeFrom.includes(p.id)} onCheckedChange={(on) => setMergeFrom((m) => (on ? [...m, p.id] : m.filter((x) => x !== p.id)))} label={p.label} />
               ))}
-              <button
-                type="button"
-                className="cs-route-action"
+              <Button
                 disabled={mergeFrom.length === 0}
                 onClick={async () => {
                   const out = await mergeProducts(id, mergeFrom);
@@ -371,22 +371,18 @@ export function ProductRoute(): JSX.Element {
                 }}
               >
                 Merge
-              </button>
+              </Button>
             </fieldset>
           )}
           {product.variants.length < 2 ? null : (
-            <fieldset className="flex flex-wrap items-center gap-2 border border-line p-2" data-testid="split">
+            <fieldset className="flex flex-wrap items-center gap-3 rounded-md border border-line p-2" data-testid="split">
               <legend>Split variants off into a new product</legend>
               {product.variants.map((v) => (
-                <label key={v.id} className="flex items-center gap-1">
-                  <input type="checkbox" checked={splitPick.includes(v.id)} onChange={(e) => setSplitPick((m) => (e.target.checked ? [...m, v.id] : m.filter((x) => x !== v.id)))} /> {v.label ?? v.id}
-                </label>
+                <Checkbox key={v.id} checked={splitPick.includes(v.id)} onCheckedChange={(on) => setSplitPick((m) => (on ? [...m, v.id] : m.filter((x) => x !== v.id)))} label={v.label ?? v.id} />
               ))}
-              <input aria-label="New product id" placeholder="new id" className="rounded border border-line-field bg-panel px-1 py-1" value={splitTo.id} onChange={(e) => setSplitTo({ ...splitTo, id: e.target.value })} />
-              <input aria-label="New product name" placeholder="name" className="rounded border border-line-field bg-panel px-1 py-1" value={splitTo.label} onChange={(e) => setSplitTo({ ...splitTo, label: e.target.value })} />
-              <button
-                type="button"
-                className="cs-route-action"
+              <Input aria-label="New product id" placeholder="new id" className="w-36" value={splitTo.id} onChange={(e) => setSplitTo({ ...splitTo, id: e.target.value })} />
+              <Input aria-label="New product name" placeholder="name" className="w-44" value={splitTo.label} onChange={(e) => setSplitTo({ ...splitTo, label: e.target.value })} />
+              <Button
                 disabled={splitPick.length === 0 || splitTo.id === ''}
                 onClick={async () => {
                   const out = await splitProduct(id, splitPick, splitTo);
@@ -398,20 +394,19 @@ export function ProductRoute(): JSX.Element {
                 }}
               >
                 Split
-              </button>
+              </Button>
             </fieldset>
           )}
           {json === undefined ? (
-            <button type="button" className="cs-route-action self-start" onClick={() => setJson(pretty(product))}>
+            <Button className="self-start" onClick={() => setJson(pretty(product))}>
               Edit as JSON…
-            </button>
+            </Button>
           ) : (
-            <div>
-              <textarea className="h-64 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Product record" value={json} spellCheck={false} onChange={(e) => setJson(e.target.value)} />
-              <div className="mt-1 flex gap-2">
-                <button
-                  type="button"
-                  className="cs-route-action cs-route-action-primary"
+            <div className="flex flex-col gap-2">
+              <Textarea mono rows={14} aria-label="Product record" value={json} spellCheck={false} onChange={(e) => setJson(e.target.value)} />
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
                   onClick={() => {
                     try {
                       const next = JSON.parse(json) as ProductFamily;
@@ -422,15 +417,14 @@ export function ProductRoute(): JSX.Element {
                   }}
                 >
                   Save
-                </button>
-                <button type="button" className="cs-route-action" onClick={() => setJson(undefined)}>
-                  Cancel
-                </button>
+                </Button>
+                <Button onClick={() => setJson(undefined)}>Cancel</Button>
               </div>
             </div>
           )}
         </div>
       )}
-    </div>
+      </PageBody>
+    </Page>
   );
 }

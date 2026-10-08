@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { clearOfflineCache } from '../src/offline-cache.browser.ts';
 import { memoryWriteBackend } from './storage-contract/writes.ts';
+import { pickOption } from './ui-helpers.ts';
 
 const { App } = await import('../src/App.tsx');
 const { createStudioRouter } = await import('../src/router.tsx');
@@ -63,12 +64,12 @@ describe('products', () => {
     await screen.findByTestId('product-list');
     const families=screen.getByRole('tab',{name:'Families'}), lineup=screen.getByRole('tab',{name:'Lineup'});
     families.focus();fireEvent.keyDown(families,{key:'ArrowRight'});
-    expect(lineup.getAttribute('aria-selected')).toBe('true');expect(document.activeElement).toBe(lineup);
+    await vi.waitFor(() => expect(lineup.getAttribute('aria-selected')).toBe('true'));expect(document.activeElement).toBe(lineup);
     const panel=screen.getByRole('tabpanel');expect(panel.getAttribute('aria-labelledby')).toBe(lineup.id);
     const create=screen.getByRole('button',{name:'New product…'});
-    expect(create.classList.contains('cs-route-action-primary')).toBe(true);
+    expect(create.getAttribute('data-variant')).toBe('primary');
     fireEvent.click(create);
-    expect(families.getAttribute('aria-selected')).toBe('true');
+    await vi.waitFor(() => expect(screen.getByRole('tab',{name:'Families'}).getAttribute('aria-selected')).toBe('true'));
     expect(await screen.findByRole('textbox',{name:'Product record'})).toBeTruthy();
   });
 
@@ -78,7 +79,7 @@ describe('products', () => {
     const list = await screen.findByTestId('product-list');
     expect(list.textContent).toContain('DC leads');
     expect(list.textContent).toContain('CBL-00090-XX');
-    fireEvent.click(screen.getByRole('tab', { name: 'Lineup' }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Lineup' }), { button: 0 });
     const lineup = await screen.findByTestId('lineup');
     expect(within(lineup).getByText('CBL-00090-01')).toBeTruthy();
   });
@@ -87,7 +88,7 @@ describe('products', () => {
     await serve();
     mount('/cables');
     await screen.findByText('DC leads · Indicator lead');
-    expect(screen.getByText('PRODUCT')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: /Product/ })).toBeTruthy();
     fireEvent.change(screen.getByRole('textbox', { name: 'Filter designs' }), { target: { value: 'Power leads' } });
     await vi.waitFor(() => {
       const cables = document.querySelectorAll('a[href^="/cables/"]:not([data-testid="new-hub-strip"] a)');
@@ -117,10 +118,9 @@ describe('products', () => {
     const page = await screen.findByTestId('product-page');
     expect(page.textContent).toContain('CBL-00090-01');
     fireEvent.click(screen.getByRole('button', { name: 'Add a variant…' }));
-    await vi.waitFor(() => expect(within(screen.getByLabelText('Variant design')).getAllByRole('option').length).toBeGreaterThan(2));
-    fireEvent.change(screen.getByLabelText('Variant design'), { target: { value: 'dc-pigtail-lead' } });
+    await pickOption('Variant design', 'JST XH 2-pin → flying leads, DC pigtail lead');
     fireEvent.change(screen.getByLabelText('Variant number'), { target: { value: 'CBL-00090-02' } });
-    fireEvent.change(screen.getByLabelText('Variant Colour'), { target: { value: 'red' } });
+    await pickOption('Variant Colour', 'Red');
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     await vi.waitFor(async () => {
       const stored = (await handleWorkbenchRequest({ method: 'GET', path: '/api/products/dc-leads' }, deps)).body as { product: ProductFamily };
