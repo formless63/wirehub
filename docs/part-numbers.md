@@ -163,6 +163,24 @@ Packs panel and the store say so, and Settings, Part numbers lists the offer wit
 that shows how many numbers in use would not fit. An owner confirms the switch
 (`PUT … { "adoptFrom": "<pack id>" }`, in a signed-in session, not with an API token).
 
+## The bundled packs' ranges
+
+The starter catalog numbers its records below 1000 (`CON-00010`, `CBL-00001` to `CBL-00006`). Each
+bundled domain pack owns a block of 1000 in every prefix, so installing several packs never
+collides and a pack's sheets print no "no part number":
+
+| Pack | Range | Example |
+| --- | --- | --- |
+| starter (base) | 00001 to 00999 | `CBL-00001` |
+| PC & serial | 01001 to 01999 | `CON-01001`, `CBL-01001` (its DE-9 connectors reuse the starter bodies' `CON-00012` and `CON-00013`: same part, same number) |
+| Pro audio | 02001 to 02999 | `WIR-02001`, `CBL-02001` |
+| Automotive | 03001 to 03999 | `MEC-03001`, `CBL-03001` |
+| Networking | 04001 to 04999 | `SHL-04001`, `CBL-04001` |
+| AV / video | 05001 to 05999 | `CON-05001`, `CBL-05001` |
+
+Numbers run in file order within a prefix. Your own numbers should start at 10000 or above, or in a
+range you reserve in a declarative scheme.
+
 ## When it is code
 
 Keep a module's `partNumberScheme` for what a definition cannot say: a number that depends on a

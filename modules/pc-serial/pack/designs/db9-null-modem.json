@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "db9-null-modem",
   "label": "DE-9 RS-232 → DE-9 RS-232, null modem (3-wire, local handshake loopback)",
+  "productRef": "CBL-01001",
   "instances": {
     "connectors": [
       {

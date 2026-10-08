@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "usb-a-led-lead",
   "label": "USB-A → JST XH 2-pin, LED supply lead with series resistor",
+  "productRef": "CBL-01003",
   "instances": {
     "connectors": [
       {

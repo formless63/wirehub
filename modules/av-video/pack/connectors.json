@@ -2,6 +2,7 @@
   {
     "id": "hd15-male-vga",
     "label": "HD15 male, VGA pinout",
+    "partNumber": "CON-05001",
     "family": "hd15",
     "gender": "male",
     "construction": "solder-cup",
@@ -21,6 +22,7 @@
   {
     "id": "scart-male",
     "label": "SCART male plug, EN 50049 pinout",
+    "partNumber": "CON-05002",
     "family": "scart",
     "gender": "male",
     "construction": "solder-cup",
@@ -40,6 +42,7 @@
   {
     "id": "bnc-male",
     "label": "BNC male (coax plug)",
+    "partNumber": "CON-05003",
     "family": "bnc",
     "gender": "male",
     "construction": "solder-cup",

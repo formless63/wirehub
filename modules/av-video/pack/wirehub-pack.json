@@ -2,7 +2,7 @@
   "format": 1,
   "id": "av-video",
   "name": "AV / video",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": {
     "id": "wirehub",
     "name": "WireHub bundled modules"

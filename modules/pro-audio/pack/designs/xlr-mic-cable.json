@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "xlr-mic-cable",
   "label": "XLR female → XLR male, balanced microphone cable, 5 m",
+  "productRef": "CBL-02002",
   "instances": {
     "connectors": [
       {

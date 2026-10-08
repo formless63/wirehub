@@ -2,6 +2,7 @@
   {
     "id": "vga-3coax-4core",
     "label": "VGA cable, 3 × 75 Ω mini-coax + 4 cores, foil + drain",
+    "partNumber": "WIR-05001",
     "odMm": 8,
     "layOrder": {
       "arrangement": "6-around-1",

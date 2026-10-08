@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "rj45-patch-t568b",
   "label": "RJ45 → RJ45, Cat 5e patch cable, T568B straight-through",
+  "productRef": "CBL-04002",
   "instances": {
     "connectors": [
       {

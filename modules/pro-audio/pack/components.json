@@ -2,6 +2,7 @@
   {
     "id": "r-6k8",
     "label": "Resistor 6.8 kΩ, 0.25 W",
+    "partNumber": "CMP-02001",
     "kind": "resistor",
     "category": "resistor",
     "value": "6.8 kΩ",
@@ -29,6 +30,7 @@
   {
     "id": "r-68",
     "label": "Resistor 68 Ω, 0.25 W",
+    "partNumber": "CMP-02002",
     "kind": "resistor",
     "category": "resistor",
     "value": "68 Ω",

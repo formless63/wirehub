@@ -2,6 +2,7 @@
   {
     "id": "mic-2core-braid",
     "label": "Microphone cable, 2 × 0.22 mm², braid shield",
+    "partNumber": "WIR-02001",
     "odMm": 6,
     "colourCode": "balanced-mic",
     "layOrder": {
@@ -70,6 +71,7 @@
   {
     "id": "audio-stereo-2core",
     "label": "Stereo audio lead, 2 cores, overall spiral shield",
+    "partNumber": "WIR-02002",
     "odMm": 3,
     "colourCode": "rca-audio",
     "layOrder": {

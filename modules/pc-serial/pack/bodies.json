@@ -2,6 +2,7 @@
   {
     "id": "usb-a-plug",
     "label": "USB Type-A plug",
+    "partNumber": "CON-01001",
     "family": "usb-a",
     "gender": "male",
     "positions": [

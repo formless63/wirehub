@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "trs-to-2rca-y",
   "label": "3.5 mm TRS → moulded Y → 2× RCA, stereo splitter",
+  "productRef": "CBL-02001",
   "instances": {
     "connectors": [
       {

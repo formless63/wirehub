@@ -2,6 +2,7 @@
   {
     "id": "rj45-boot",
     "label": "RJ45 strain-relief boot",
+    "partNumber": "SHL-04001",
     "kind": "shell",
     "src": "generic snag-less RJ45 boot; synthetic example",
     "license": "CC0-1.0",

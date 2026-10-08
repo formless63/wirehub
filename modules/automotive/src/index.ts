@@ -15,11 +15,11 @@ export const AUTOMOTIVE_PACK = new URL(PACK_DIR, import.meta.url).href;
 export const automotive = defineModule({
   id: 'automotive',
   label: 'Automotive',
-  version: '0.3.0',
+  version: '0.4.0',
   license: 'MIT',
   setup: {
     kind: 'domain',
     description: 'Vehicle diagnostics and buses: CAN, K/L-line and J1850 signals, battery positive, and the OBD-II (J1962) connector.',
   },
-  catalogPacks: [{ id: 'automotive', label: 'Automotive', version: '0.3.0', root: AUTOMOTIVE_PACK, license: 'CC0-1.0' }],
+  catalogPacks: [{ id: 'automotive', label: 'Automotive', version: '0.4.0', root: AUTOMOTIVE_PACK, license: 'CC0-1.0' }],
 });

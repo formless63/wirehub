@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "sealed-sensor-lead",
   "label": "Sealed 3-way → sealed 3-way, 2-core sensor supply lead",
+  "productRef": "CBL-03001",
   "instances": {
     "connectors": [
       {
