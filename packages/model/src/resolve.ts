@@ -475,6 +475,17 @@ function pairBySignal(lib: ResolverLibrary, hazards: readonly HazardRule[], S: E
   return out;
 }
 
+/**
+ * Pair two sets of pins by what they carry — the resolver's own rule, for callers
+ * that already hold the pins (the new-design wizard pairing two chosen connectors):
+ * the lines, the ground and chassis positions of each end, and what is missing.
+ * No conditioning parts or hazards are considered.
+ */
+export function pairPins(lib: ResolverLibrary, source: readonly BoundPin[], destination: readonly BoundPin[]): { links: Link[]; grounds: { source: string[]; destination: string[] }; chassis: { source: string[]; destination: string[] }; missing: Finding[] } {
+  const out = pairBySignal(lib, [], { end: 'source', pins: [...source] }, { end: 'destination', pins: [...destination] });
+  return { links: out.links, grounds: out.grounds, chassis: out.chassis, missing: out.missing };
+}
+
 /** Pin for pin: every position both ends have, joined as it is. */
 function pairStraight(lib: ResolverLibrary, hazards: readonly HazardRule[], S: EndPins, D: EndPins, mated: boolean): Pairing {
   const out = emptyPairing();

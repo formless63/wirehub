@@ -121,3 +121,35 @@ describe('the review verdict', () => {
     expect(text).not.toMatch(/pair-1\.a/);
   });
 });
+
+describe('connecting the new design', () => {
+  function toReview(): void {
+    setup();
+    name();
+    next();
+    fireEvent.click(screen.getByLabelText(/A plug on its own/));
+    pick('de9-female');
+    next();
+    pick('shielded-2pair-24awg');
+    next();
+    fireEvent.click(screen.getByLabelText(/A plug on its own/));
+    pick('de9-male');
+    next();
+    while (screen.queryByRole('heading', { name: /Checks/ }) === null) next();
+  }
+
+  it('offers by signal, by colour and leave open on the review, with the preview following the choice', () => {
+    toReview();
+    const group = screen.getByRole('radiogroup', { name: 'Connect' });
+    const modes = [...group.querySelectorAll('[role="radio"]')].map((b) => b.textContent);
+    expect(modes).toEqual(['By signal', 'By colour', 'Leave open']);
+    const soldered = (): number => Number(/\((\d+)\)/.exec(screen.getByRole('heading', { name: /What it will solder/ }).textContent ?? '')?.[1]);
+    // this stock names no conductor, so by colour only the shield and drain find a ground; open joins nothing
+    const colour = (): number => (fireEvent.click(screen.getByRole('radio', { name: 'By colour' })), soldered());
+    const open = (): number => (fireEvent.click(screen.getByRole('radio', { name: 'Leave open' })), soldered());
+    const bySignal = (): number => (fireEvent.click(screen.getByRole('radio', { name: 'By signal' })), soldered());
+    const before = bySignal();
+    expect(colour()).toBeLessThanOrEqual(before);
+    expect(open()).toBe(0);
+  });
+});

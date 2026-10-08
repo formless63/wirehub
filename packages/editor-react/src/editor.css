@@ -4471,6 +4471,16 @@ fieldset.cs-lock-fence {
   margin-bottom: 4px;
 }
 
+.cs-wizard-connect {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cs-wizard-connect h4 {
+  margin: 0;
+}
+
 .cs-wizard-review .cs-list {
   max-height: 220px;
   overflow: auto;
@@ -4776,6 +4786,22 @@ fieldset.cs-lock-fence {
 
 .cs-editor .cs-conn-combo {
   display: flex;
+.cs-conn-connect-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cs-conn-row.is-editing {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  padding: 3px 12px;
+  cursor: default;
+}
+
+.cs-conn-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
   align-items: center;
   justify-content: space-between;
   gap: 4px;

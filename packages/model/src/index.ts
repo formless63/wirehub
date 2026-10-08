@@ -559,10 +559,10 @@ export type {
   ResolverLibrary,
   ResolverPolicy,
 } from './devices.ts';
-export { hazardsOf, levelConversions, optionOf, pinRelation, recipesFor, resolve, signalsPair } from './resolve.ts';
+export { hazardsOf, levelConversions, optionOf, pairPins, pinRelation, recipesFor, resolve, signalsPair } from './resolve.ts';
 export type { BoardUse, BoundEnd, CableOption, End, Finding, Link, OptionKind, RequirementUse, Resolution, ResolveQuery } from './resolve.ts';
-export { componentForPart, deriveCable, matingBody, matingConnector, plugsInto, stockNeeds, suggestStocks } from './derive-cable.ts';
-export type { DeriveCableOptions, DerivedCable } from './derive-cable.ts';
+export { componentForPart, deriveCable, diffPairs, matingBody, matingConnector, plugsInto, stockNeeds, stockShape, suggestStocks } from './derive-cable.ts';
+export type { DeriveCableOptions, DerivedCable, StockShape } from './derive-cable.ts';
 export { alignIds, derivedBody, isDeviceEnd, describeOverride, inferCableRecipe, recipeDrift, recipeIssues, recipeJointProposals, rederive, renameBody } from './cable-recipe.ts';
 export type { CableRecipe, RecipeEnd, RecipeDrift, RecipeInference } from './cable-recipe.ts';
 
