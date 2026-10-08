@@ -9,7 +9,6 @@ import { Link } from '@tanstack/react-router';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 
 import { EMPTY_PRIMARY, EmptyState } from '../shell/EmptyState.tsx';
-import { useStudio } from '../studio-context.tsx';
 import { fetchHubHistory, type HubHistoryQuery } from '../history.browser.ts';
 import { EntryDetail, EntrySummary } from '../history/HistoryPanel.tsx';
 import { HISTORY_KINDS, parseSubject, type HistoryCapabilities, type HistoryEntry, type HistoryKind } from '../history/types.ts';
@@ -39,7 +38,6 @@ function SubjectLink(props: { subject: string; label: string }): JSX.Element {
 }
 
 export function HistoryRoute(): JSX.Element {
-  const studio = useStudio();
   const [filters, setFilters] = useState<HubHistoryQuery>({});
   const [draft, setDraft] = useState<HubHistoryQuery>({});
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
@@ -141,9 +139,9 @@ export function HistoryRoute(): JSX.Element {
           <EmptyState
             topic="history"
             action={
-              <button type="button" className={EMPTY_PRIMARY} onClick={studio.openNewCableWizard}>
-                New design
-              </button>
+              <Link to="/cables" className={`${EMPTY_PRIMARY} inline-flex items-center`}>
+                Open designs
+              </Link>
             }
           >
             No changes yet. Saving a design or a part records it here.

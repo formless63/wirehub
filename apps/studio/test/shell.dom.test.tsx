@@ -191,11 +191,12 @@ function buildRouter(initialPath: string): ReturnType<typeof createStudioRouter>
   return createStudioRouter(createMemoryHistory({ initialEntries: [initialPath] }));
 }
 
-/** cables-list rows, excluding the rail's plain `/cables` link */
+/** cables-list rows, excluding the rail's plain `/cables` link and the New hub strip's */
 function cableLinks(): HTMLAnchorElement[] {
   return screen
     .getAllByRole('link')
     .filter((link): link is HTMLAnchorElement => link instanceof HTMLAnchorElement)
+    .filter((link) => link.closest('[data-testid="new-hub-strip"]') === null)
     .filter((link) => /^\/cables\/[^/]+$/.test(link.getAttribute('href') ?? ''));
 }
 

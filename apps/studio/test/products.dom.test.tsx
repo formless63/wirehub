@@ -90,7 +90,7 @@ describe('products', () => {
     expect(screen.getByText('PRODUCT')).toBeTruthy();
     fireEvent.change(screen.getByRole('textbox', { name: 'Filter cables' }), { target: { value: 'Power leads' } });
     await vi.waitFor(() => {
-      const cables = document.querySelectorAll('a[href^="/cables/"]');
+      const cables = document.querySelectorAll('a[href^="/cables/"]:not([data-testid="new-hub-strip"] a)');
       expect([...cables].map((a) => a.getAttribute('href'))).toEqual(['/cables/dc-led-lead']);
     });
     fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
