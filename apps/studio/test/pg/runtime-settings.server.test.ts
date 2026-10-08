@@ -261,13 +261,13 @@ describePg('runtime settings on Postgres', () => {
 
       // the history: an editor sees that the document changed, never what it held
       const list = (await a.call('GET', '/api/history?limit=5', undefined, EDITOR)).body;
-      const entry = list.entries.find((e: { touches: { label: string }[] }) => e.touches.some((t) => t.label.includes('settings/sign-in.json')));
+      const entry = list.entries.find((e: { touches: { label: string }[] }) => e.touches.some((t) => t.label === 'setting sign-in'));
       expect(entry, JSON.stringify(list.entries.map((e: { message: string }) => e.message))).toBeDefined();
       const asOwner = (await a.call('GET', `/api/history/entries/${entry.id}`)).body;
       expect(JSON.stringify(asOwner.records)).toContain('boss@example.com');
       const asEditor = (await a.call('GET', `/api/history/entries/${entry.id}`, undefined, EDITOR)).body;
       expect(JSON.stringify(asEditor)).not.toContain('boss@example.com');
-      expect(asEditor.records.find((r: { label: string }) => r.label.includes('sign-in.json'))).toMatchObject({ before: { known: false }, after: { known: false }, restorable: false });
+      expect(asEditor.records.find((r: { label: string }) => r.label.includes('sign-in'))).toMatchObject({ before: { known: false }, after: { known: false }, restorable: false });
 
       // the git mirror: a first run and a replayed change leave them out
       const { fsBlobStore } = await import('../../server/blobs.ts');

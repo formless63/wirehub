@@ -22,7 +22,7 @@ export const EXAMPLE_SCHEME = {
   template: '{level}{type}-{seq}-{variant}',
   segments: [
     { id: 'level', type: 'choice', label: 'Level', values: [{ value: '1', label: 'Part', kinds: ['connector', 'wire', 'component', 'shell', 'fastener', 'mechanical-other'] }, { value: '2', label: 'Assembly', kinds: ['pcba', 'design', 'kit'] }] },
-    { id: 'type', type: 'choice', label: 'Type', values: [{ value: 'C', label: 'Connector', kinds: ['connector', 'shell'] }, { value: 'W', label: 'Wire', kinds: ['wire'] }, { value: 'E', label: 'Component', kinds: ['component'] }, { value: 'H', label: 'Hardware', kinds: ['fastener', 'mechanical-other'] }, { value: 'B', label: 'Board', kinds: ['pcba'] }, { value: 'A', label: 'Cable assembly', kinds: ['design', 'kit'] }] },
+    { id: 'type', type: 'choice', label: 'Type', values: [{ value: 'C', label: 'Connector', kinds: ['connector', 'shell'] }, { value: 'W', label: 'Wire', kinds: ['wire'] }, { value: 'E', label: 'Component', kinds: ['component'] }, { value: 'H', label: 'Hardware', kinds: ['fastener', 'mechanical-other'] }, { value: 'B', label: 'Board', kinds: ['pcba'] }, { value: 'A', label: 'Assembly', kinds: ['design', 'kit'] }] },
     { id: 'seq', type: 'counter', label: 'Sequence', width: 6, per: ['level', 'type'], ranges: [{ from: 1, to: 999999 }] },
     { id: 'variant', type: 'variant', label: 'Variant', style: 'numeric', width: 2, first: '00', max: '99' },
   ],
