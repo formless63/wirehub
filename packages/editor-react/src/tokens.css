@@ -1,20 +1,77 @@
 /**
- * Semantic design tokens as CSS custom properties — mirrors `tokens.ts` (see
- * that file for provenance and the "keep both in sync by hand" note).
+ * Semantic design tokens as CSS custom properties: THE source of truth.
  *
- * Both `editor.css` (prefixed `cs:` utilities) and `apps/studio/src/studio.css`
- * (unprefixed utilities) `@import` this file and register the same variables
- * under Tailwind's `@theme inline`, so `bg-panel` / `cs:bg-panel`, `text-ink` /
- * `cs:text-ink`, etc. exist in both worlds and repaint together when the
- * `data-theme` attribute changes — there is exactly one copy of each colour.
+ * `tokens.ts` (SEMANTIC_TOKENS, CONDUCTOR_COLORS, SCALES) and `theme.css` (the Tailwind
+ * `@theme inline` map) are GENERATED from this file by `pnpm --filter @wirehub/editor-react
+ * gen:tokens` (scripts/gen-tokens.mjs); `test/tokens-drift.test.ts` fails when either is
+ * stale. Edit here, run the script, commit all three.
  *
- * Theme selection: `data-theme="light"` or `data-theme="dark"` on `<html>`.
- * The app (not the editor) owns the toggle and persists the choice — see
- * `apps/studio/src/theme.ts`. Until that attribute is attached (e.g. the
- * instant before the app's module runs), this file falls back to
- * `prefers-color-scheme` so there is no flash of the wrong palette.
+ * `editor.css` (prefixed `cs:` utilities) and `apps/studio/src/studio.css` (unprefixed
+ * utilities) both `@import` this file and `theme.css`, so `bg-panel` / `cs:bg-panel`,
+ * `text-ink` / `cs:text-ink`, `text-sm` / `cs:text-sm` exist in both worlds and repaint
+ * together when the `data-theme` attribute changes: one copy of each value.
+ *
+ * Theme selection: `data-theme="light"` or `data-theme="dark"` on `<html>`. The app (not
+ * the editor) owns the toggle and persists the choice (`apps/studio/src/theme.ts`). Until
+ * that attribute is attached this file falls back to `prefers-color-scheme`, so there is no
+ * flash of the wrong palette. The fallback block at the end must equal the light block
+ * (the drift test checks it).
+ *
+ * Rules (docs/design/prime-time-plan.md section 3.1): copper (`--accent`) only for the
+ * primary action, the current location and selection; blue (`--focus`) for the focus ring
+ * and information, never copper; status colours only for status; `--cond-*` only for
+ * conductors. Mono is for identifiers only.
  */
 
+/* Scales: theme-independent. 4 px space grid, six type steps, radii, control heights, motion. */
+:root {
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* type (--fs-*, mapped to text-* utilities; named apart from Tailwind's own --text-* so the two never shadow each other): 11 table headers, chips, kbd / 12 hints, secondary cells / 13 base / 14 titles / 16 page title / 20 headline */
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+
+  /* space: 4 px grid (Tailwind's `--spacing` unit) and the named steps 2/4/6/8/12/16/24/32 */
+  --space-unit: 4px;
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  /* radius (--r-*, mapped to rounded-*): 2 chips, 4 controls, 6 cards and menus, 8 dialogs and drawers */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+
+  /* control heights: 22 canvas toolbar and inline table, 26 default, 30 dialog and page primary */
+  --control-sm: 22px;
+  --control-md: 26px;
+  --control-lg: 30px;
+
+  /* motion: two durations, one easing; zero under prefers-reduced-motion */
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+  }
+}
+
+/* Palette. Dark is the default, written directly onto :root; light overrides it. */
 :root {
   /* Native menus and form controls must use the same palette as the app. */
   color-scheme: dark;
@@ -37,22 +94,38 @@
   --accent: #e39256;
   --accent-ink: #1c1008;
   --accent-soft: rgba(227, 146, 86, 0.14);
+  /* selected row and card: accent at 12 % */
+  --selected: rgba(227, 146, 86, 0.12);
+  /* focus ring and information: blue, never copper */
+  --focus: #7ea6db;
   /* brand (the WireHub logo): deep blue badge, warm copper node */
   --brand: #2e5e99;
   --brand-ink: #ffffff;
   --brand-copper: #e39256;
   --brand-wordmark: #e8edf3;
+  /* status (text on its -soft tint is AA, see test/contrast.test.ts) */
   --ok: #5fbf8a;
+  --ok-soft: rgba(95, 191, 138, 0.14);
   --warn: #d9a441;
-  --err: #ef6461;
+  --warn-soft: rgba(217, 164, 65, 0.14);
+  --err: #f0706d;
+  --err-soft: rgba(240, 112, 109, 0.14);
+  --err-ink: #1c0b0b;
+  --info: #7ea6db;
+  --info-soft: rgba(126, 166, 219, 0.14);
   --board: #5fbf8a;
+  --board-kind: #5fbf8a;
   --jacket: #26272b;
   --jacket-line: #46474d;
   --diel: #d8d3c6;
   --foil: #9aa3ad;
   --copper: #c98a5a;
   --scrim: rgba(0, 0, 0, 0.5);
-  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  /* three elevations: 1 hover and sticky, 2 popovers and menus, 3 dialogs and drawers */
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elev-2: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --elev-3: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --shadow: var(--elev-3);
   --conn-kind: #7ea6db;
   --wire-kind: #d2a85a;
   --comp-kind: #b38be0;
@@ -87,21 +160,33 @@
   --accent: #a4531c;
   --accent-ink: #ffffff;
   --accent-soft: rgba(164, 83, 28, 0.1);
+  --selected: rgba(164, 83, 28, 0.09);
+  --focus: #2f64b0;
   --brand: #1d3a5f;
   --brand-ink: #ffffff;
   --brand-copper: #c06a2b;
   --brand-wordmark: #1d3a5f;
-  --ok: #267a4c;
-  --warn: #946509;
-  --err: #c9403c;
+  --ok: #22714a;
+  --ok-soft: rgba(34, 113, 74, 0.08);
+  --warn: #8a5d08;
+  --warn-soft: rgba(138, 93, 8, 0.08);
+  --err: #b8352f;
+  --err-soft: rgba(184, 53, 47, 0.08);
+  --err-ink: #ffffff;
+  --info: #2f64b0;
+  --info-soft: rgba(47, 100, 176, 0.08);
   --board: #267a4c;
+  --board-kind: #2f8f5b;
   --jacket: #e6e4de;
   --jacket-line: #c2beb4;
   --diel: #fbfaf6;
   --foil: #8a939d;
   --copper: #b86f3c;
   --scrim: rgba(40, 36, 30, 0.28);
-  --shadow: 0 12px 32px rgba(40, 36, 30, 0.18);
+  --elev-1: 0 1px 2px rgba(40, 36, 30, 0.12);
+  --elev-2: 0 4px 12px rgba(40, 36, 30, 0.14);
+  --elev-3: 0 12px 32px rgba(40, 36, 30, 0.18);
+  --shadow: var(--elev-3);
   --conn-kind: #3f6fb0;
   --wire-kind: #a97f2c;
   --comp-kind: #8656c4;
@@ -110,8 +195,8 @@
   --cond-black: #232323;
 }
 
-/* the instant before `data-theme` is attached (no-JS, or before the app's
-   first paint) — mirrors `[data-theme='light']` above; kept in sync by hand */
+/* the instant before `data-theme` is attached (no-JS, or before the app's first paint):
+   a copy of the `[data-theme='light']` block above. test/tokens-drift.test.ts checks they match. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     color-scheme: light;
@@ -125,27 +210,39 @@
     --ink: #1b1a18;
     --dim: #5f5c55;
     --faint: #6f6b62;
-  --line-field: #8a867c;
+    --line-field: #8a867c;
     --canvas: #f2f1ed;
     --dot: #d7d4cc;
     --accent: #a4531c;
     --accent-ink: #ffffff;
     --accent-soft: rgba(164, 83, 28, 0.1);
+    --selected: rgba(164, 83, 28, 0.09);
+    --focus: #2f64b0;
     --brand: #1d3a5f;
     --brand-ink: #ffffff;
     --brand-copper: #c06a2b;
     --brand-wordmark: #1d3a5f;
-    --ok: #267a4c;
-    --warn: #946509;
-    --err: #c9403c;
+    --ok: #22714a;
+    --ok-soft: rgba(34, 113, 74, 0.08);
+    --warn: #8a5d08;
+    --warn-soft: rgba(138, 93, 8, 0.08);
+    --err: #b8352f;
+    --err-soft: rgba(184, 53, 47, 0.08);
+    --err-ink: #ffffff;
+    --info: #2f64b0;
+    --info-soft: rgba(47, 100, 176, 0.08);
     --board: #267a4c;
+    --board-kind: #2f8f5b;
     --jacket: #e6e4de;
     --jacket-line: #c2beb4;
     --diel: #fbfaf6;
     --foil: #8a939d;
     --copper: #b86f3c;
     --scrim: rgba(40, 36, 30, 0.28);
-    --shadow: 0 12px 32px rgba(40, 36, 30, 0.18);
+    --elev-1: 0 1px 2px rgba(40, 36, 30, 0.12);
+    --elev-2: 0 4px 12px rgba(40, 36, 30, 0.14);
+    --elev-3: 0 12px 32px rgba(40, 36, 30, 0.18);
+    --shadow: var(--elev-3);
     --conn-kind: #3f6fb0;
     --wire-kind: #a97f2c;
     --comp-kind: #8656c4;
