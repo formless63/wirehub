@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.6.0](https://github.com/formless63/wirehub/compare/v0.5.0...v0.6.0) (2026-10-08)
+
+
+### Features
+
+* add optional GitHub and Google authentication ([#18](https://github.com/formless63/wirehub/issues/18)) ([1bcd955](https://github.com/formless63/wirehub/commit/1bcd955dc866ae1a559295fe00e19f586319bde6))
+* module settings — modules declare secrets an owner enters in Settings ([418162e](https://github.com/formless63/wirehub/commit/418162e534f753b9d0091ef1271264364c58a955))
+* preserve source opacity and Library model materials ([ddfdc11](https://github.com/formless63/wirehub/commit/ddfdc11cc13093db85d53546b10fd9ecc9cff135))
+
+
+### Bug Fixes
+
+* clarify cable samples and restore Library controls and PCB views ([#14](https://github.com/formless63/wirehub/issues/14)) ([989053a](https://github.com/formless63/wirehub/commit/989053a2c3af460c8a0fbbdd5c4750c8a7c36af4))
+* **editor:** preserve paper proportions in narrow document previews ([#15](https://github.com/formless63/wirehub/issues/15)) ([a58743e](https://github.com/formless63/wirehub/commit/a58743edf70370690953c362f36b02a9a798aebc))
+* improve runtime settings instruction readability ([#19](https://github.com/formless63/wirehub/issues/19)) ([a0d83d8](https://github.com/formless63/wirehub/commit/a0d83d88ffabaad110cc80bd231c648f4ac523d0))
+* preserve STEP occurrence colors and PCB coatings ([#17](https://github.com/formless63/wirehub/issues/17)) ([705c228](https://github.com/formless63/wirehub/commit/705c2282d11672699f9c2eb640d3fbe643982112))
+* purge module settings from old mirror history; tests follow module API 1.5 ([52bdb11](https://github.com/formless63/wirehub/commit/52bdb116e48a86e3ea85934472bfc5d362870001))
+* recover Library artwork loads and preserve model cache compatibility ([#12](https://github.com/formless63/wirehub/issues/12)) ([e3c443f](https://github.com/formless63/wirehub/commit/e3c443f5fa8fdabbf6f924a7a1da5128910e1f11))
+* retain complete paper and cross-section preview bounds ([#16](https://github.com/formless63/wirehub/issues/16)) ([b233683](https://github.com/formless63/wirehub/commit/b23368362a2593ddef8e3ea4ace03e7490d7dd33))
+* **studio:** bound Store page height for scrolling ([#23](https://github.com/formless63/wirehub/issues/23)) ([a65fcc6](https://github.com/formless63/wirehub/commit/a65fcc68799fe329538b08a1d40fed6ca28e6820))
+* **studio:** preserve navigation health and readable Store text ([#22](https://github.com/formless63/wirehub/issues/22)) ([6eedfd9](https://github.com/formless63/wirehub/commit/6eedfd91ce2b4d3982343269bfa341b7d342c34b))
+* unify navigation, organize Settings and surface optional modules ([fd9f9e5](https://github.com/formless63/wirehub/commit/fd9f9e57094b35b896d146267ddfa6beb5efdd23))
+
 ## [0.5.0](https://github.com/formless63/wirehub/compare/v0.4.0...v0.5.0) (2026-10-07)
 
 
