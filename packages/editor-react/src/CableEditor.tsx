@@ -764,6 +764,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       deriveFlow(state.design, state.db, {
         positions: state.positions,
         depictions: state.depictions,
+        ...(state.faces === undefined ? {} : { faces: state.faces }),
         ...(selectedTerminalKey === undefined ? {} : { selectedTerminalKey }),
         ...(netKeys === undefined ? {} : { netKeys }),
         ...(state.selection?.kind === 'instance'
@@ -780,6 +781,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       state.db,
       state.positions,
       state.depictions,
+      state.faces,
       state.selection,
       selectedTerminalKey,
       netKeys,

@@ -59,6 +59,7 @@ import {
   dockSize,
   type ConnectorArt,
   type ConnectorArtLayout,
+  denseFace,
 } from './connector-art.ts';
 import { canvasView, mouldIds, mouldNodes, MOULD_KIND, rankView, type CanvasView, type MouldHoused, type MouldNodeData } from './moulds.ts';
 import {
@@ -220,6 +221,8 @@ export type ConnectorNodeData = {
    * list — an unknown family, or pins its family's drawing has no place for.
    */
   art?: ConnectorArtLayout;
+  /** shown as its face (`EditorState.faces`): `art` is then the face at its working size, and the node is the drawing */
+  face?: boolean;
   /**
    * The drawn face's exit fan (`connector-fan.ts`): the
    * slot each wired pin's lead runs to, drawing coordinates, by pin terminal.
@@ -585,6 +588,8 @@ export interface DeriveOptions {
   selectedJoints?: readonly number[];
   /** board artwork; without it every PCBA is drawn as its pin list */
   depictions?: DepictionSource | undefined;
+  /** connectors drawn as their face (instance ids): the node, and the room auto-arrange reserves, follow */
+  faces?: readonly string[] | undefined;
 }
 
 /** Every terminal key a joint lands on. */
@@ -608,6 +613,8 @@ interface RowContext {
   netKeys?: ReadonlySet<string> | undefined;
   /** joint indices currently selected (a bridge's `selected`) */
   selectedJoints: ReadonlySet<number>;
+  /** connectors shown as their face */
+  faces?: ReadonlySet<string> | undefined;
 }
 
 function makeRow(
@@ -738,7 +745,9 @@ function nodeDataOf(
         : board === undefined || boardData?.board === undefined
           ? undefined
           : dockOf(instance.id, board.id, boardData, boardData.board, mounts.get(instance.id)?.prefixes);
-    const layout = dock === undefined ? connectorArtLayout(instance.id, title, art) : undefined;
+    // shown as its face: the drawing, enlarged where its pins are too close for 16 px targets
+    const asFace = dock === undefined && context.faces?.has(instance.id) === true;
+    const layout = dock === undefined ? connectorArtLayout(instance.id, title, asFace ? denseFace(art) : art) : undefined;
     // a free face fans its wired pins out to their own exit slots
     const fan =
       layout === undefined
@@ -751,7 +760,7 @@ function nodeDataOf(
     const drawn: ConnectorNodeData = {
       ...data,
       ...(layout !== undefined
-        ? { art: layout, ...(fan === undefined ? {} : { fan }) }
+        ? { art: layout, ...(asFace ? { face: true } : {}), ...(fan === undefined ? {} : { fan }) }
         : { art: housedBy?.item.layout ?? dockedLayout(art, dockCaption(art, instance.id)), ...(dock === undefined ? {} : { dock }) }),
     };
     if (drawn.dock === undefined) entries.push({ id: instance.id, kind: 'connector', data: drawn });
@@ -1457,6 +1466,7 @@ function rowContextOf(design: CableDesign, db: Db, options: DeriveOptions): RowC
     used,
     bridgedOnly,
     selectedJoints: selectedJointsOf(options),
+    ...(options.faces === undefined ? {} : { faces: new Set(options.faces) }),
     selectedTerminalKey: options.selectedTerminalKey,
     netKeys: options.netKeys,
     depictions: options.depictions,
@@ -1619,9 +1629,10 @@ export function autoLayout(
   design: CableDesign,
   db: Db,
   depictions?: DepictionSource,
+  faces?: readonly string[],
 ): AutoLayout {
   const graph = graphOf(design, db);
-  const entries = nodeDataOf(design, db, graph.columns, rowContextOf(design, db, { depictions }));
+  const entries = nodeDataOf(design, db, graph.columns, rowContextOf(design, db, { depictions, faces }));
   let positions: Record<string, XY>;
   try {
     positions = arranged(design, db, entries);
@@ -1646,9 +1657,10 @@ export function vacantPosition(
   id: string,
   positions: Record<string, XY>,
   depictions?: DepictionSource,
+  faces?: readonly string[],
 ): XY {
   const graph = graphOf(design, db);
-  const entries = nodeDataOf(design, db, graph.columns, rowContextOf(design, db, { depictions }));
+  const entries = nodeDataOf(design, db, graph.columns, rowContextOf(design, db, { depictions, faces }));
   const sizes = sizesOf(entries);
   const docked = dockedIds(entries);
   const auto = packed(design, db, entries);

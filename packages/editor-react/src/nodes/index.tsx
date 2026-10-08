@@ -21,7 +21,7 @@
 import { parseTerminalKey } from '@wirehub/model';
 import { IconList, IconPlug } from '@tabler/icons-react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps, type NodeTypes, type Node } from '@xyflow/react';
-import { useMemo, useState, type CSSProperties, type JSX, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type CSSProperties, type JSX, type MouseEvent, type ReactNode } from 'react';
 
 import { classes, useEditorApi } from '../context.ts';
 import type {
@@ -102,8 +102,16 @@ export function ConnectorNode({
   data,
   selected,
 }: NodeProps<Node<ConnectorNodeData, 'connector'>>): JSX.Element {
-  const [face, setFace] = useState(false);
+  const { dispatch } = useEditorApi();
+  const face = data.face === true;
   const updateInternals = useUpdateNodeInternals();
+  // the node changes size and its handles move when the face toggles: tell React Flow once it has painted
+  const shown = useRef(face);
+  useEffect(() => {
+    if (shown.current === face) return;
+    shown.current = face;
+    updateInternals(id);
+  }, [face, id, updateInternals]);
   // docked on a board or housed in a mould: the drawing is the node (no header, no list)
   if (data.art !== undefined && data.dock !== undefined) {
     return <ConnectorArtNode data={data} layout={data.art} selected={selected === true} />;
@@ -119,10 +127,7 @@ export function ConnectorNode({
           aria-pressed="true"
           title="Back to the pin list"
           aria-label={`${data.instanceId} pin list`}
-          onClick={() => {
-            setFace(false);
-            requestAnimationFrame(() => updateInternals(id));
-          }}
+          onClick={() => dispatch({ type: 'set-face', id: data.instanceId, on: false })}
         >
           <IconList size={12} />
         </button>
@@ -146,8 +151,7 @@ export function ConnectorNode({
               aria-label={`${data.instanceId} face`}
               onClick={(event) => {
                 event.stopPropagation();
-                setFace(true);
-                requestAnimationFrame(() => updateInternals(id));
+                dispatch({ type: 'set-face', id: data.instanceId, on: true });
               }}
             >
               <IconPlug size={12} />
