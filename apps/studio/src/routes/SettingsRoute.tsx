@@ -7,6 +7,9 @@
  */
 
 import { Link, useNavigate } from '@tanstack/react-router';
+import { IconHelp } from '@tabler/icons-react';
+import { helpForSettingsSection } from '../help.ts';
+import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { settingsRoute } from '../router.tsx';
 import { SETTINGS_SECTIONS, settingsSection } from '../settings-sections.ts';
 import './settings-sections.css';
@@ -84,6 +87,7 @@ const readAsDataUri = (file: File): Promise<string> =>
 
 export function SettingsRoute(): JSX.Element {
   const client = useQueryClient();
+  const docsBase = useDocsBase();
   const search = settingsRoute.useSearch();
   const selected = settingsSection(search.section) ?? 'documents';
   const currentSection = SETTINGS_SECTIONS.find((section) => section.id === selected)!;
@@ -187,7 +191,10 @@ export function SettingsRoute(): JSX.Element {
       </nav>
       <div className="settings-content" ref={content}>
         <header className="settings-section-heading">
-          <h2 className="text-[14px] font-semibold">{currentSection.label}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[14px] font-semibold">{currentSection.label}</h2>
+            <a href={helpForSettingsSection(selected, docsBase)} target="_blank" rel="noreferrer" title={`Help: ${currentSection.label}`} aria-label={`Help: ${currentSection.label}`} data-testid="settings-help-link" className="flex h-5 w-5 items-center justify-center rounded-full text-dim hover:text-ink"><IconHelp size={14} /></a>
+          </div>
           <p className="text-dim">{currentSection.description}</p>
         </header>
         <section hidden={selected !== 'documents'} aria-label="Document settings" data-settings-section="documents">

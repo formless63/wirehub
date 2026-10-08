@@ -2,14 +2,16 @@
 
 import type { JSX, ReactNode } from 'react';
 
+import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { helpUrl, type HelpTopic } from '../help.ts';
 
 export function EmptyState({ children, action, topic, href }: { children: ReactNode; action?: ReactNode; topic: HelpTopic; href?: string }): JSX.Element {
+  const docsBase = useDocsBase();
   return (
     <div data-testid="empty-state" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-dim">
       <span>{children}</span>
       {action}
-      <a href={href ?? helpUrl(topic)} target="_blank" rel="noreferrer" className="text-dim underline hover:text-ink">
+      <a href={href ?? helpUrl(topic, docsBase)} target="_blank" rel="noreferrer" className="text-dim underline hover:text-ink">
         Learn more
       </a>
     </div>

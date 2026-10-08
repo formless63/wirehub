@@ -47,6 +47,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Dialog } from 'radix-ui';
 import { Command } from 'cmdk';
 import {
+  IconBook,
   IconCommand,
   IconCornerDownLeft,
   IconCpu,
@@ -64,6 +65,8 @@ import type { LibraryKind } from '@wirehub/editor-react';
 import type { CableListEntry } from '../cable-list.ts';
 import { matchedPartNumber, pnMatches } from '../pn-search.ts';
 import { cableListKey, loadCableList } from '../queries.ts';
+import { docsEntryLabel, loadDocsIndex, searchDocs, type DocsEntry } from '../docs-search.ts';
+import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { cableRoute, libraryItemRoute } from '../router.tsx';
 import { useStudio } from '../studio-context.tsx';
 import { formatShortcut } from './shortcuts.ts';
@@ -170,6 +173,8 @@ export function CommandPalette(): JSX.Element {
   const registry = useCommandRegistry();
   const commands = useCommands();
   const navigate = useNavigate();
+  const docsBase = useDocsBase();
+  const [docsIndex, setDocsIndex] = useState<readonly DocsEntry[]>([]);
 
   const [open, setOpen] = useState(false);
   const [rawQuery, setRawQuery] = useState('');
@@ -186,6 +191,11 @@ export function CommandPalette(): JSX.Element {
 
   useEffect(() => {
     if (open) setRawQuery('');
+  }, [open]);
+
+  // the docs index is its own chunk: fetched once, the first time the palette opens
+  useEffect(() => {
+    if (open) void loadDocsIndex().then(setDocsIndex, () => undefined);
   }, [open]);
 
   // the same live query as /cables — no build-time first paint
@@ -216,6 +226,8 @@ export function CommandPalette(): JSX.Element {
     if (isCommandMode) return [];
     return libraryEntries.filter((entry) => matches([entry.label, entry.id], commandQuery)).slice(0, MAX_ROWS_PER_GROUP);
   }, [libraryEntries, isCommandMode, commandQuery]);
+
+  const docsResults = useMemo<DocsEntry[]>(() => (isCommandMode || commandQuery.length < 2 ? [] : searchDocs(docsIndex, commandQuery)), [docsIndex, isCommandMode, commandQuery]);
 
   const actionResults = useMemo<AppCommand[]>(() => {
     return commands
@@ -256,6 +268,12 @@ export function CommandPalette(): JSX.Element {
       close();
       return;
     }
+    if (value.startsWith('docs:')) {
+      // the docs live on another site: always a new tab
+      window.open(docsBase + value.slice('docs:'.length), '_blank', 'noopener');
+      close();
+      return;
+    }
     if (value.startsWith('cmd:')) {
       registry.run(value.slice('cmd:'.length));
       close();
@@ -276,7 +294,7 @@ export function CommandPalette(): JSX.Element {
         >
           <Dialog.Title className="sr-only">Quick open</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Search cables, library definitions, and actions. Type &gt; for commands only.
+            Search designs, library definitions, docs, and actions. Type &gt; for commands only.
           </Dialog.Description>
           <Command shouldFilter={false} value={highlighted} onValueChange={setHighlighted} loop label="Quick open">
             <div className="flex h-[46px] items-center gap-2.5 border-b border-line px-3.5 text-faint">
@@ -334,6 +352,19 @@ export function CommandPalette(): JSX.Element {
                       />
                     </Command.Item>
                   ))}
+                </Command.Group>
+              ) : null}
+
+              {docsResults.length > 0 ? (
+                <Command.Group heading={<GroupHeading>Docs</GroupHeading>}>
+                  {docsResults.map((entry) => {
+                    const { label, meta } = docsEntryLabel(entry);
+                    return (
+                      <Command.Item key={entry.path} value={`docs:${entry.path}`} onSelect={handleSelect} className={ITEM_CLASS}>
+                        <ResultRow icon={IconBook} badgeClass="bg-info" label={label} meta={meta} />
+                      </Command.Item>
+                    );
+                  })}
                 </Command.Group>
               ) : null}
 

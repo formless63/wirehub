@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { clearOfflineCache } from '../src/offline-cache.browser.ts';
-import { DOCS_BASE, helpForPath, helpUrl } from '../src/help.ts';
+import { DEFAULT_DOCS_BASE, helpForPath, helpUrl } from '../src/help.ts';
 import { baseJobHandlers } from '../server/jobs/handlers.ts';
 import { createJobService, inlineJobRunner, memoryJobStore } from '../server/jobs/service.ts';
 import { DATABASE_HISTORY } from '../server/history/pg.ts';
@@ -48,12 +48,12 @@ afterEach(() => {
 });
 
 describe('the help map', () => {
-  it('points every route at the docs on GitHub, most specific first', () => {
-    expect(helpForPath('/products/x').url).toBe(`${DOCS_BASE}/products.md`);
+  it('points every route at the docs site, most specific first', () => {
+    expect(helpForPath('/products/x').url).toBe(`${DEFAULT_DOCS_BASE}reference/products/#in-the-app`);
     expect(helpForPath('/library/store').url).toBe(helpUrl('store'));
     expect(helpForPath('/settings/people').topic).toBe('people');
     expect(helpForPath('/nowhere').topic).toBeUndefined();
-    expect(helpUrl('designs')).toMatch(/^https:\/\/github\.com\/formless63\/wirehub\/blob\/main\//);
+    expect(helpUrl('designs')).toBe('https://formless63.github.io/wirehub/docs/first-design/');
   });
 });
 
@@ -91,6 +91,24 @@ describe('empty states', () => {
       expect(empty.querySelectorAll('button, a:not([href^="http"])').length, path).toBe(1);
       expect(empty.querySelector('a[href^="http"]')?.getAttribute('href'), path).toBe(helpUrl(topic));
       cleanup();
+    }
+  });
+});
+
+describe('a hub that hosts its own docs', () => {
+  it('WIREHUB_DOCS_URL moves every help link to that base, and a Settings section has a help link', async () => {
+    const before = process.env['WIREHUB_DOCS_URL'];
+    process.env['WIREHUB_DOCS_URL'] = 'https://docs.example.org/wh';
+    try {
+      serve();
+      expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/hub' }, deps)).body).toEqual({ welcomeDismissed: false, docsUrl: 'https://docs.example.org/wh' });
+      mount('/settings?section=rules');
+      const help = await screen.findByTestId('settings-help-link');
+      await waitFor(() => expect(help.getAttribute('href')).toBe('https://docs.example.org/wh/reference/validation-rules/'));
+      await waitFor(() => expect(screen.getByTestId('help-link').getAttribute('href')).toBe('https://docs.example.org/wh/reference/self-hosting/#settings'));
+    } finally {
+      if (before === undefined) delete process.env['WIREHUB_DOCS_URL'];
+      else process.env['WIREHUB_DOCS_URL'] = before;
     }
   });
 });
