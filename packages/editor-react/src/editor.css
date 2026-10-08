@@ -4775,17 +4775,17 @@ fieldset.cs-lock-fence {
 }
 
 .cs-conn-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
   min-height: 30px;
+  padding: 3px 12px;
+  border-bottom: 1px solid var(--cs-line);
   color: var(--faint);
   cursor: default;
 }
 
-.cs-conn-add-row:hover {
-  background: transparent;
-}
-
-.cs-editor .cs-conn-combo {
-  display: flex;
 .cs-conn-connect-row {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -4802,6 +4802,12 @@ fieldset.cs-lock-fence {
   outline-offset: -2px;
 }
 
+.cs-conn-add-row:hover {
+  background: transparent;
+}
+
+.cs-editor .cs-conn-combo {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 4px;
@@ -5067,7 +5073,7 @@ fieldset.cs-lock-fence {
   padding: 5px 10px;
   border-top: 1px solid var(--line);
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
 }
 
 .cs-picker-label {
@@ -6621,4 +6627,16 @@ fieldset.cs-lock-fence {
 
 .cs-node-head:has(.cs-conn-adorn) {
   padding-right: 88px;
+}
+
+/* the canvas respects reduced motion: no zoom, pan or hover animation (the tokens zero the shared durations) */
+@media (prefers-reduced-motion: reduce) {
+  .cs-editor .react-flow__viewport,
+  .cs-editor .react-flow__node,
+  .cs-editor .react-flow__edge,
+  .cs-editor .react-flow__minimap-mask,
+  .cs-editor .cs-canvas * {
+    transition: none !important;
+    animation: none !important;
+  }
 }

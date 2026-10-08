@@ -78,6 +78,7 @@ import { SEMANTIC_TOKENS, type SemanticTokens } from './tokens.ts';
 import type { DefinitionChange, DefinitionsAdapter } from './definitions.ts';
 import { terminalKeyOfHandle } from './board-art.ts';
 import { deriveFlow, type EditorEdgeData } from './derive.ts';
+import { prefersReducedMotion } from './motion.ts';
 import { LOD_ZOOM, cardSize, partsFlow, type CanvasDetail, type CardNodeData } from './lod.ts';
 import { estimateNodeSize } from './layout-size.ts';
 import { REPIN_GRIP_RADIUS, edgeTypes } from './edges.tsx';
@@ -609,6 +610,9 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   const [overlay, setOverlay] = useState<ArtworkOverlay>(EMPTY_OVERLAY);
   const [dock, setDock] = useState<DockTab>('preview');
   const [side, setSide] = useState<SideTab>('issues');
+  /** the keyboard is asked to land in the connection table (Enter on the canvas); the table clears it once it has */
+  const [connectFocus, setConnectFocus] = useState(false);
+  const connectFocusHandled = useCallback(() => setConnectFocus(false), []);
   // the Recipe tab where it means something: the design has a recipe, or the library has devices to infer one from
   const sideTabs: readonly SideTab[] = SIDE_TABS.filter((t) => t !== 'recipe' || state.design.recipe !== undefined || (state.db.devices ?? []).length > 0);
   const recipeDrift = useMemo(() => recipeDriftCount(state.design, state), [state.design, state.db]);
@@ -1182,7 +1186,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       }
       const box = el.getBoundingClientRect();
       const at = flow.screenToFlowPosition({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
-      void flow.setCenter(at.x, at.y, { zoom: Math.max(flow.getZoom(), 1), duration: 250 });
+      void flow.setCenter(at.x, at.y, { zoom: Math.max(flow.getZoom(), 1), duration: prefersReducedMotion() ? 0 : 250 });
     };
     requestAnimationFrame(() => centre(3));
   };
@@ -1464,6 +1468,19 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                   if (event.key === '/' && chrome === 'full') {
                     event.preventDefault();
                     setPinSearchOpen(true);
+                    return;
+                  }
+                  // Enter on a selected pin or joint: carry on in the inspector's connection table, by keyboard
+                  if (
+                    event.key === 'Enter' &&
+                    canEdit &&
+                    !(event.target as HTMLElement).closest('button, a, [role="button"]') &&
+                    (state.selection?.kind === 'terminal' || state.selection?.kind === 'joint' || state.selection?.kind === 'joints')
+                  ) {
+                    event.preventDefault();
+                    setSide('connection');
+                    setSideOpen(true);
+                    setConnectFocus(true);
                     return;
                   }
                   if (!canEdit || event.key !== 'Tab' || picker !== undefined) return;
@@ -1776,7 +1793,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                 </button>
               </nav>
               <fieldset className="cs-lock-fence" disabled={editLocked}>
-              {side === 'connection' ? <ConnectionPanel state={state} nodes={nodes} /> : null}
+              {side === 'connection' ? <ConnectionPanel state={state} nodes={nodes} focusRequest={connectFocus} onFocusHandled={connectFocusHandled} /> : null}
               {side === 'part' ? <PartPanel state={state} /> : null}
               {side === 'nets' ? <NetsPanel state={state} /> : null}
               {side === 'issues' ? <IssuesPanel state={state} depictions={depictions} /> : null}
