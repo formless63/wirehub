@@ -596,6 +596,9 @@ importers:
       react-resizable-panels:
         specifier: 4.13.2
         version: 4.13.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      sonner:
+        specifier: 2.0.8
+        version: 2.0.8(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       three:
         specifier: 0.186.1
         version: 0.186.1

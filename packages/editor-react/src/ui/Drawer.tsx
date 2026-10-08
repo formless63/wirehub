@@ -8,6 +8,9 @@ import { IconX } from '@tabler/icons-react';
 import { Dialog } from 'radix-ui';
 import type { JSX, ReactNode } from 'react';
 
+import { IconButton } from './Button.tsx';
+import { usePortalContainer } from './portal.ts';
+
 export interface DrawerProps {
   open: boolean;
   title: string;
@@ -22,9 +25,10 @@ export interface DrawerProps {
 }
 
 export function Drawer({ open, title, onClose, children, footer, width = 380, modal = false, testId }: DrawerProps): JSX.Element {
+  const container = usePortalContainer();
   return (
     <Dialog.Root open={open} modal={modal} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <Dialog.Portal>
+      <Dialog.Portal container={container}>
         {modal ? <Dialog.Overlay className="cs-ui-overlay" /> : null}
         <Dialog.Content
           className="cs-ui-drawer"
@@ -36,7 +40,7 @@ export function Drawer({ open, title, onClose, children, footer, width = 380, mo
           <header className="cs-ui-drawer-head">
             <Dialog.Title className="cs-ui-title">{title}</Dialog.Title>
             <Dialog.Close asChild>
-              <button type="button" className="cs-ui-icon-btn" aria-label="Close" title="Close"><IconX size={15} aria-hidden /></button>
+              <IconButton label="Close" size="xs" icon={<IconX size={15} aria-hidden />} />
             </Dialog.Close>
           </header>
           <div className="cs-ui-drawer-body">{children}</div>

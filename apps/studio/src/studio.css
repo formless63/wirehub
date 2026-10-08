@@ -8,52 +8,14 @@
  * `tokens.css` is owned by editor-react (the app depends on it, not the
  * reverse) and is the single source for every semantic colour in both
  * worlds — imported here unmodified, never redefined, so the shell and the
- * editor can never drift apart. `@theme inline` binds those custom
- * properties into Tailwind so `bg-panel` etc. exist as utilities; every
+ * editor can never drift apart. `theme.css` (generated from it) binds
+ * those custom properties into Tailwind so `bg-panel` etc. exist as utilities; every
  * hand-written rule below reads the same properties directly (`var(--bg)`, …).
  */
 
 @import 'tailwindcss';
 @import '@wirehub/editor-react/tokens.css';
-
-@theme inline {
-  --color-bg: var(--bg);
-  --color-rail: var(--rail);
-  --color-panel: var(--panel);
-  --color-raised: var(--raised);
-  --color-hover: var(--hover);
-  --color-line: var(--line);
-  --color-line2: var(--line2);
-  --color-line-field: var(--line-field);
-  --color-ink: var(--ink);
-  --color-dim: var(--dim);
-  --color-faint: var(--faint);
-  --color-canvas: var(--canvas);
-  --color-dot: var(--dot);
-  --color-accent: var(--accent);
-  --color-accent-ink: var(--accent-ink);
-  --color-accent-soft: var(--accent-soft);
-  --color-brand: var(--brand);
-  --color-brand-ink: var(--brand-ink);
-  --color-brand-copper: var(--brand-copper);
-  --color-brand-wordmark: var(--brand-wordmark);
-  --color-ok: var(--ok);
-  --color-warn: var(--warn);
-  --color-err: var(--err);
-  --color-board: var(--board);
-  --color-jacket: var(--jacket);
-  --color-jacket-line: var(--jacket-line);
-  --color-diel: var(--diel);
-  --color-foil: var(--foil);
-  --color-copper: var(--copper);
-  --color-scrim: var(--scrim);
-  --color-conn-kind: var(--conn-kind);
-  --color-wire-kind: var(--wire-kind);
-  --color-comp-kind: var(--comp-kind);
-
-  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-}
+@import '@wirehub/editor-react/theme.css';
 
 html,
 body,

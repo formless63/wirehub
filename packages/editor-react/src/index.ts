@@ -621,6 +621,5 @@ export { RevisionsSection } from './panels/RevisionsSection.tsx';
 export { compareSideId, parseCompareSide } from './revisions.ts';
 export type { CompareSide, RevisionSummary, RevisionsAdapter, RevisionsView, SaveRevisionInput } from './revisions.ts';
 export { SourcingFields, sourcingOfExtra, withExtraSourcing, withSourcing } from './panels/SourcingFields.tsx';
-export { ConfirmDialog, Drawer } from './ui/index.ts';
-export type { ConfirmDialogProps, DrawerProps } from './ui/index.ts';
+export * from './ui/index.ts';
 export type { DocumentReport } from './panels/Documents.tsx';

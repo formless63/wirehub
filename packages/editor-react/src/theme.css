@@ -1,0 +1,93 @@
+/* GENERATED from tokens.css by scripts/gen-tokens.mjs -- do not edit by hand.
+   Imported by editor.css (prefix cs) and apps/studio/src/studio.css (no prefix), so every
+   token is a utility in both worlds: bg-panel / cs:bg-panel, text-sm / cs:text-sm, ... */
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-rail: var(--rail);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-ink: var(--ink);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+  --color-line-field: var(--line-field);
+  --color-canvas: var(--canvas);
+  --color-dot: var(--dot);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-selected: var(--selected);
+  --color-focus: var(--focus);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-copper: var(--brand-copper);
+  --color-brand-wordmark: var(--brand-wordmark);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-err: var(--err);
+  --color-err-soft: var(--err-soft);
+  --color-err-ink: var(--err-ink);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-board: var(--board);
+  --color-board-kind: var(--board-kind);
+  --color-jacket: var(--jacket);
+  --color-jacket-line: var(--jacket-line);
+  --color-diel: var(--diel);
+  --color-foil: var(--foil);
+  --color-copper: var(--copper);
+  --color-scrim: var(--scrim);
+  --color-conn-kind: var(--conn-kind);
+  --color-wire-kind: var(--wire-kind);
+  --color-comp-kind: var(--comp-kind);
+  --color-cond-red: var(--cond-red);
+  --color-cond-green: var(--cond-green);
+  --color-cond-blue: var(--cond-blue);
+  --color-cond-yellow: var(--cond-yellow);
+  --color-cond-brown: var(--cond-brown);
+  --color-cond-purple: var(--cond-purple);
+  --color-cond-gnd: var(--cond-gnd);
+  --color-cond-white: var(--cond-white);
+  --color-cond-black: var(--cond-black);
+
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-2xs: var(--fs-2xs);
+  --text-xs: var(--fs-xs);
+  --text-sm: var(--fs-sm);
+  --text-md: var(--fs-md);
+  --text-lg: var(--fs-lg);
+  --text-xl: var(--fs-xl);
+
+  --spacing: var(--space-unit);
+
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  --shadow-sm: var(--elev-1);
+  --shadow-md: var(--elev-2);
+  --shadow-lg: var(--elev-3);
+
+  --default-transition-duration: var(--dur-fast);
+  --default-transition-timing-function: var(--ease);
+  --ease-standard: var(--ease);
+}
+
+/* control heights: h-control-sm 22, h-control-md 26, h-control-lg 30 */
+@utility h-control-sm {
+  height: var(--control-sm);
+}
+@utility h-control-md {
+  height: var(--control-md);
+}
+@utility h-control-lg {
+  height: var(--control-lg);
+}
