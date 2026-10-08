@@ -21,7 +21,7 @@ import {
 } from '@wirehub/catalog';
 import { pinSignal } from '@wirehub/catalog/src/tags/classify.ts';
 import { deriveTestSpec, renderWireSpecSheet } from '@wirehub/docs';
-import { initialWizardState, planCable, readingsOfLabels, roleOfLabels } from '@wirehub/editor-react';
+import { initialWizardState, planCable, readingsOfLabels, roleOfLabels, withoutColourWords } from '@wirehub/editor-react';
 import { connectorArt, crossSectionLayout, endFaceLayout, registerConnectorArt } from '@wirehub/layout';
 import { findWire, signalFromLabel, validateDb, validateDesign, type CableDesign, type Db, type Joint } from '@wirehub/model';
 import { createRegistry } from '@wirehub/modules';
@@ -160,5 +160,35 @@ describe('drawing the VGA parts', () => {
     const html = renderWireSpecSheet(vga, {});
     expect(renderWireSpecSheet(vga, {})).toBe(html);
     await expect(html).toMatchFileSnapshot('./__snapshots__/vga-3coax-4core.html');
+  });
+});
+
+describe('colour words are not signals', () => {
+  const networking = fileURLToPath(new URL('../../networking/pack/', import.meta.url));
+  const both: Db = createCatalog(
+    layeredCatalogSource([fsCatalogSource(dataPath(''), 'starter'), fsCatalogSource(packDir, 'av-video'), fsCatalogSource(networking, 'networking')]),
+  ).loadDb();
+
+  it('a DE-9 to RJ45 Cat 5e design never mentions video, whatever the pair colours', () => {
+    const plan = planCable({
+      ...initialWizardState(both, []),
+      label: 'Serial to RJ45',
+      id: 'serial-to-rj45',
+      src: 'module test',
+      source: { kind: 'connector', def: 'de9-female', plugs: {} },
+      destination: { kind: 'connector', def: 'rj45-plug-t568b', plugs: {} },
+      wireDef: 'cat5e-utp',
+      lengthText: '1800',
+    });
+    const said = JSON.stringify([plan.lines, plan.unconnected, plan.issues.map((i) => i.message), plan.choices]);
+    expect(said).not.toMatch(/video/i);
+  });
+
+  it('colour labels read as no signal, with the pack installed', () => {
+    for (const label of ['Pair 1 (blue)', 'Pair 3 (green)', 'Blue', 'white/blue']) {
+      expect(roleOfLabels(both, [withoutColourWords(both, label) ?? ''])?.role, label).toBeUndefined();
+    }
+    // a real signal word still reads
+    expect(roleOfLabels(both, ['Video B'])?.role).toBe('video-b');
   });
 });
