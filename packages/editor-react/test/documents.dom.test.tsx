@@ -40,21 +40,23 @@ function spyRender(): ReturnType<typeof vi.fn<Derive>> {
 }
 
 describe('<DocumentsPane>', () => {
+  // the preview is one sheet: the frame is exactly the paper wide, in CSS pixels (96 per inch)
   it.each([
-    ['A4', 'build-sheet', '210mm'],
-    ['letter', 'build-sheet', '215.9mm'],
-    ['A4', 'formboard', '297mm'],
-    ['letter', 'formboard', '279.4mm'],
-    ['A4', 'drawing', '792pt'],
-    ['letter', 'drawing', '792pt'],
-  ] as const)('preserves the %s %s paper viewport without changing the printable HTML', (paper, kind, width) => {
+    ['A4', 'build-sheet', '794px', '1123px'],
+    ['letter', 'build-sheet', '816px', '1056px'],
+    ['A4', 'formboard', '1123px', '794px'],
+    ['letter', 'formboard', '1056px', '816px'],
+    ['A4', 'drawing', '1123px', '794px'],
+    ['letter', 'drawing', '1056px', '816px'],
+  ] as const)('shows the %s %s as one sheet of its paper, without changing the printable HTML', (paper, kind, width, height) => {
     vi.useFakeTimers();
     const derive = spyRender();
     const { container } = render(<DocumentsPane design={design} db={db} paper={paper} debounceMs={10} render={derive} />);
     if (kind !== 'build-sheet') fireEvent.click(screen.getByRole('button', { name: kind === 'formboard' ? 'Formboard' : 'Drawing sheet' }));
     act(() => void vi.advanceTimersByTime(10));
     const frame = container.querySelector('iframe')!;
-    expect(frame.style.minWidth).toBe(width);
+    expect(frame.style.width).toBe(width);
+    expect(frame.style.height).toBe(height);
     expect(frame.getAttribute('srcdoc')).toBe(`<!doctype html><p>${kind}</p>`);
     expect(derive.mock.calls.at(-1)?.[3]).toMatchObject({ paper });
     const viewport = screen.getByRole('region', { name: 'Document preview' });
@@ -63,7 +65,45 @@ describe('<DocumentsPane>', () => {
     expect(document.activeElement).toBe(viewport);
   });
 
-  it('includes the measured native gutter and border without changing printed markup or oscillating', () => {
+  it('scales the whole sheet to the window (fit) or shows it at 100 %, keeping the paper’s proportion', () => {
+    vi.useFakeTimers();
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1500);
+    try {
+      const { container } = render(<DocumentsPane design={design} db={db} debounceMs={10} render={spyRender()} />);
+      act(() => void vi.advanceTimersByTime(10));
+      const paper = container.querySelector<HTMLElement>('.cs-doc-paper')!;
+      const frame = container.querySelector('iframe')!;
+      const fit = Number.parseFloat(paper.style.width);
+      // fit: the region less its padding, up to 1.5x; the frame keeps its paper size and is scaled as a whole
+      expect(fit).toBeCloseTo(Math.round(794 * Math.min(1.5, 1480 / 794)), 0);
+      expect(frame.style.width).toBe('794px');
+      expect(frame.style.transform).toMatch(/^scale\(1\.5/);
+      expect(Number.parseFloat(paper.style.height) / fit).toBeCloseTo(1123 / 794, 2);
+      fireEvent.click(screen.getByRole('button', { name: '100%' }));
+      expect(paper.style.width).toBe('794px');
+      expect(paper.style.height).toBe('1123px');
+      expect(frame.style.transform).toBe('scale(1)');
+      expect(screen.getByRole('button', { name: '100%' }).getAttribute('aria-pressed')).toBe('true');
+      fireEvent.click(screen.getByRole('button', { name: 'Fit' }));
+      expect(Number.parseFloat(paper.style.width)).toBe(fit);
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it('fits a narrow window down to a third of the sheet, never below', () => {
+    vi.useFakeTimers();
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(120);
+    try {
+      const { container } = render(<DocumentsPane design={design} db={db} debounceMs={10} render={spyRender()} />);
+      act(() => void vi.advanceTimersByTime(10));
+      expect(Number.parseFloat(container.querySelector<HTMLElement>('.cs-doc-paper')!.style.width)).toBe(Math.round(794 * 0.3));
+    } finally {
+      width.mockRestore();
+    }
+  });
+
+  it('measures the document and sizes the frame to it, observing it while it changes', () => {
     vi.useFakeTimers();
     let resize: (() => void) | undefined;
     const disconnect = vi.fn();
@@ -74,47 +114,24 @@ describe('<DocumentsPane>', () => {
     });
     try {
       const view = render(<DocumentsPane design={design} db={db} debounceMs={10} render={spyRender()} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Formboard' }));
       act(() => void vi.advanceTimersByTime(10));
       const frame = view.container.querySelector('iframe')!;
-      const page = frame.contentDocument!.documentElement;
-      Object.defineProperties(frame, { clientWidth: { value: 1121 }, offsetWidth: { value: 1123 } });
-      Object.defineProperty(frame.contentWindow!, 'innerWidth', { value: 1121 });
-      Object.defineProperty(page, 'clientWidth', { value: 1106, writable: true });
+      Object.defineProperty(frame.contentDocument!.documentElement, 'scrollHeight', { value: 3000, configurable: true });
       fireEvent.load(frame);
-      expect(Number.parseFloat(frame.style.minWidth.replace('calc(', ''))).toBeCloseTo(297 * 96 / 25.4 + 17, 2);
-      expect(frame.getAttribute('srcdoc')).toBe('<!doctype html><p>formboard</p>');
-      // A narrower scrollbar must not trigger a shrink/grow feedback loop.
-      Object.defineProperty(page, 'clientWidth', { value: 1121 });
+      expect(frame.style.height).toBe('3000px');
+      Object.defineProperty(frame.contentDocument!.documentElement, 'scrollHeight', { value: 2400, configurable: true });
       act(() => resize?.());
-      expect(Number.parseFloat(frame.style.minWidth.replace('calc(', ''))).toBeCloseTo(297 * 96 / 25.4 + 17, 2);
-      // A later native gutter change still reserves the complete physical page.
-      Object.defineProperty(page, 'clientWidth', { value: 1091 });
+      expect(frame.style.height).toBe('2400px');
+      // a short document is still a whole sheet
+      Object.defineProperty(frame.contentDocument!.documentElement, 'scrollHeight', { value: 300, configurable: true });
       act(() => resize?.());
-      expect(Number.parseFloat(frame.style.minWidth.replace('calc(', ''))).toBeCloseTo(297 * 96 / 25.4 + 32, 2);
+      expect(frame.style.height).toBe('1123px');
       view.unmount();
       expect(disconnect).toHaveBeenCalled();
-      act(() => resize?.());
     } finally {
       cleanup();
       vi.unstubAllGlobals();
     }
-  });
-
-  it.each([
-    [0, 0, 0, '210mm'],
-    [794, 794, 796, 210 * 96 / 25.4 + 2],
-  ] as const)('handles unmeasured and overlay-scrollbar frames (content %s)', (inner, client, outer, minimum) => {
-    vi.useFakeTimers();
-    const view = render(<DocumentsPane design={design} db={db} debounceMs={10} render={spyRender()} />);
-    act(() => void vi.advanceTimersByTime(10));
-    const frame = view.container.querySelector('iframe')!;
-    Object.defineProperties(frame, { clientWidth: { value: client }, offsetWidth: { value: outer } });
-    Object.defineProperty(frame.contentWindow!, 'innerWidth', { value: inner });
-    Object.defineProperty(frame.contentDocument!.documentElement, 'clientWidth', { value: inner });
-    fireEvent.load(frame);
-    if (typeof minimum === 'string') expect(frame.style.minWidth).toBe(minimum);
-    else expect(Number.parseFloat(frame.style.minWidth.replace('calc(', ''))).toBeCloseTo(minimum, 2);
   });
 
   it('opens a different document at its left edge while retaining pan during regeneration', () => {
@@ -142,7 +159,7 @@ describe('<DocumentsPane>', () => {
     act(() => void vi.advanceTimersByTime(10));
     fireEvent.change(screen.getByRole('combobox', { name: 'Paper' }), { target: { value: 'letter' } });
     act(() => void vi.advanceTimersByTime(10));
-    expect(container.querySelector('iframe')?.style.minWidth).toBe('215.9mm');
+    expect(container.querySelector('iframe')?.style.width).toBe('816px');
     expect(derive.mock.calls.at(-1)?.[3]).toMatchObject({ paper: 'letter' });
   });
 

@@ -36,8 +36,8 @@ describe('release helpers', () => {
     expect(defaultDocumentTarget({ revisions: [0, 1, 2], showing: { kind: 'rev', rev: 1 }, load })).toBe(1);
   });
 
-  it('stamps UNRELEASED before </body>', () => {
-    expect(withUnreleasedMark('<html><body><p>x</p></body></html>')).toMatch(/<p>x<\/p><div class="cs-unreleased-mark".*UNRELEASED.*<\/div><\/body>/);
+  it('stamps a document that did not carry its state, in the corner, before </body>', () => {
+    expect(withUnreleasedMark('<html><body><p>x</p></body></html>')).toMatch(/<p>x<\/p><div class="cs-state-stamp".*UNRELEASED.*<\/div><\/body>/);
   });
 });
 
@@ -66,7 +66,7 @@ describe('<DocumentsPane release>', () => {
     });
     expect(derive.mock.calls.at(-1)?.[1].label).toBe(design.label);
     expect(derive.mock.calls.at(-1)?.[3]?.document).toMatchObject({ revision: '—', status: 'UNRELEASED' });
-    const frame = document.querySelector('iframe');
-    expect(frame?.getAttribute('srcdoc')).toContain('cs-unreleased-mark');
+    // the sheets carry their own state in the title block and the corner stamp (`@wirehub/docs` frame): the pane hands every kind its state
+    expect(document.querySelector('iframe')?.getAttribute('srcdoc')).toContain('UNRELEASED');
   });
 });

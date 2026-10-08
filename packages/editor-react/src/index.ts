@@ -599,7 +599,7 @@ export { BuildEditor, duplicateBuild } from './panels/BuildEditor.tsx';
 export type { BuildEditorProps } from './panels/BuildEditor.tsx';
 export { PadMapArt } from './panels/PadMapArt.tsx';
 export type { ArtPad, PadMapArtProps, PadTone } from './panels/PadMapArt.tsx';
-export { defaultDocumentTarget, targetRevision, withUnreleasedMark } from './release.ts';
+export { defaultDocumentTarget, revisionTable, targetRevision, withUnreleasedMark } from './release.ts';
 export type { DocumentRelease, DocumentTarget, ReleaseShowing } from './release.ts';
 
 

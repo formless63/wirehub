@@ -7,7 +7,7 @@
  */
 
 import type { CableDesign } from '@wirehub/model';
-import type { DrawingMeta, SheetSettings } from '@wirehub/docs';
+import { PAPERS, PAPER_IDS, isPaperId, type DrawingMeta, type PaperId, type SheetSettings } from '@wirehub/docs';
 import type { JSX } from 'react';
 
 export interface SheetOptionsProps {
@@ -15,7 +15,7 @@ export interface SheetOptionsProps {
   meta: DrawingMeta;
   onMeta: (meta: DrawingMeta) => void;
   /** the host's paper when the sidecar names none */
-  defaultPaper: 'A4' | 'letter';
+  defaultPaper: PaperId;
   /** absent: the host cannot store them — they shape the preview and the print only */
   onSave?: () => void;
   dirty: boolean;
@@ -52,10 +52,13 @@ export function SheetOptions(props: SheetOptionsProps): JSX.Element {
         aria-label="Paper"
         title="Paper size"
         value={sheet.paper ?? props.defaultPaper}
-        onChange={(e) => set('paper', e.target.value === 'letter' ? 'letter' : e.target.value === props.defaultPaper ? undefined : 'A4')}
+        onChange={(e) => set('paper', isPaperId(e.target.value) && e.target.value !== props.defaultPaper ? e.target.value : undefined)}
       >
-        <option value="A4">A4</option>
-        <option value="letter">Letter</option>
+        {PAPER_IDS.map((id) => (
+          <option key={id} value={id}>
+            {PAPERS[id].label}
+          </option>
+        ))}
       </select>
       <input
         aria-label="Document number"

@@ -126,3 +126,13 @@ export async function loadVersionArt(id: string, file: DesignVersionFile): Promi
   const { missing: _missing, ...own } = out.value;
   return { own, covered, missing: [...missing] };
 }
+
+/** A saved revision as a row of the drawing's revision table: its note, the day it was saved and who saved it. */
+export function revisionRow(summary: VersionSummary): { rev: string; description: string; date: string; by: string } {
+  return {
+    rev: String(summary.rev),
+    description: summary.note.trim() === '' ? `Revision ${summary.rev}` : summary.note.trim(),
+    date: summary.savedAt.slice(0, 10).replace(/-/g, '.'),
+    by: summary.savedBy,
+  };
+}

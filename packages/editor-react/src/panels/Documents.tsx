@@ -21,7 +21,7 @@
  */
 
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
-import { BASE_EXPORTS, FORMBOARD_PAPER, SHEET_WIDTH, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, PAPER_IDS, PAPERS, effectivePaper, paperSize, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type PaperId, type TestParameters } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 import { IconDownload, IconMarkdown, IconPrinter, IconTools } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
@@ -56,8 +56,8 @@ import {
 } from '../documents.ts';
 import {
   defaultDocumentTarget,
+  revisionTable,
   targetRevision,
-  withUnreleasedMark,
   type DocumentRelease,
   type DocumentTarget,
 } from '../release.ts';
@@ -101,7 +101,7 @@ export interface DocumentsProps {
   saved?: CableDesign;
   /** `false` (default) abstract blocks · `true` the catalog tree (Node only) · a source */
   depictions?: boolean | DepictionSource;
-  paper?: 'A4' | 'letter';
+  paper?: PaperId;
   debounceMs?: number;
   /**
    * The derivation, injectable. The pane calls this and nothing else, so a host
@@ -484,13 +484,19 @@ export function DocumentsPane({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the sheet fields' content, not the draft's identity
     [sheetKey, docDesign.productRef],
   );
-  // Match the renderer's physical page rather than asking its print tables
-  // to reflow into the host's phone-width iframe. FORMBOARD_PAPER is landscape;
-  // the other sheets use its short side in portrait, and the drawing is ANSI A.
-  const previewPaper = sheetInput.paper ?? paper ?? 'A4';
-  const previewWidth = kind === 'drawing'
-    ? `${SHEET_WIDTH}pt`
-    : `${FORMBOARD_PAPER[previewPaper][kind === 'formboard' ? 'width' : 'height']}mm`;
+  // The preview is the sheet itself: the iframe is exactly one paper wide (the page the renderer
+  // prints on, in CSS pixels) and as tall as the document, scaled as a whole by the zoom. The
+  // drawing and the formboard are landscape, the other sheets portrait.
+  const previewPaper: PaperId = effectivePaper(sheetInput.paper ?? sidecar.draft.meta.sheet?.paper ?? paper);
+  const landscape = kind === 'drawing' || kind === 'formboard';
+  const paperPx = useMemo(() => {
+    const size = paperSize(previewPaper, landscape ? 'landscape' : 'portrait');
+    return { width: Math.round((size.width * 96) / 25.4), height: Math.round((size.height * 96) / 25.4) };
+  }, [previewPaper, landscape]);
+  // the state every sheet carries in its title block and corner stamp: the working copy is UNRELEASED,
+  // a saved revision RELEASED unless the sheet says otherwise
+  const stateText = unreleased ? 'UNRELEASED' : revisionFixed !== undefined ? (sidecar.draft.meta.sheet?.status ?? 'RELEASED') : sidecar.draft.meta.sheet?.status;
+  const revisions = useMemo(() => revisionTable(release, target), [release, target]);
   // tagged with the document it *is*, so switching sub-views never shows the
   // previous document under the new one's heading while the new one builds
   const [rendered, setRendered] = useState<{ kind: DocumentKind; result: DocumentResult }>();
@@ -507,31 +513,46 @@ export function DocumentsPane({
   );
   const frame = useRef<HTMLIFrameElement | null>(null);
   const places = useRef<FramePlaces>(new Map());
-  const [paperAllowance, setPaperAllowance] = useState(0);
+  const body = useRef<HTMLDivElement | null>(null);
+  const [zoomMode, setZoomMode] = useState<'fit' | '100'>('fit');
+  const [available, setAvailable] = useState(0);
+  const [sheetHeight, setSheetHeight] = useState(0);
   const frameObserver = useRef<ResizeObserver | null>(null);
   useEffect(() => () => {
     frameObserver.current?.disconnect();
     frameObserver.current = null;
   }, [design.id, kind]);
+  // the room the sheet has: the preview region's width, less its padding
+  useEffect(() => {
+    const element = body.current;
+    if (element === null) return;
+    const measure = (): void => setAvailable(Math.max(0, element.clientWidth - 20));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [design.id, kind, rendered?.kind === kind]);
+  /** the sheet fits the width up to 1.5x (a paper wider than that on a big screen stays a sheet, not a banner); 100% is CSS pixels */
+  const zoom = zoomMode === '100' || available === 0 ? 1 : Math.min(1.5, Math.max(0.3, available / paperPx.width));
   const loadedFrame = (element: HTMLIFrameElement): void => {
     if (frame.current !== element) return;
     frameObserver.current?.disconnect();
     const measure = (): void => {
       if (frame.current !== element) return;
-      const measured = frameAllowance(element);
-      // Retaining the largest observed allowance avoids a width change making
-      // a scrollbar disappear, removing its allowance and making it reappear.
-      setPaperAllowance(previous => Math.max(previous, measured));
+      const page = element.contentDocument?.documentElement;
+      if (page !== undefined) setSheetHeight(Math.max(page.scrollHeight, paperPx.height));
     };
     measure();
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(measure);
       frameObserver.current = observer;
-      observer.observe(element);
       const page = element.contentDocument?.documentElement;
       if (page !== undefined) observer.observe(page);
     }
-    keepFramePlace(element.contentWindow, places.current, `${design.id}|${kind}`);
+    // a regeneration reloads the frame: the reader stays where they were in this document
+    const place = places.current.get(`${design.id}|${kind}`);
+    if (place !== undefined && body.current !== null) body.current.scrollTo(place.x, place.y);
   };
 
   const empty = isEmptyDesign(docDesign);
@@ -562,8 +583,10 @@ export function DocumentsPane({
     const timer = setTimeout(() => {
       const result = render(kind, docDesign, docDb, {
           depictions: docDepictions,
-          ...(paper === undefined ? {} : { paper }),
+          paper: previewPaper,
           ...sheetInput,
+          ...(sheetKind || stateText === undefined ? {} : { document: { status: stateText } }),
+          ...(kind === 'drawing' && revisions !== undefined ? { revisions } : {}),
           ...(drawingInput === undefined ? {} : { drawing: drawingInput }),
           ...(pnInputs === undefined ? {} : { partNumbers: pnInputs }),
           ...(docFacts === undefined ? {} : { facts: docFacts }),
@@ -574,15 +597,12 @@ export function DocumentsPane({
           ...(kind === 'test-spec' && sidecar.draft.meta.test !== undefined ? { testParameters: sidecar.draft.meta.test } : {}),
           ...((kind === 'test-spec' || kind === 'build-sheet') && testDefaults !== undefined ? { testDefaults } : {}),
         });
-      setRendered({
-        kind,
-        result: unreleased && 'html' in result ? { html: withUnreleasedMark(result.html) } : result,
-      });
+      setRendered({ kind, result });
       setUpdating(false);
     }, debounceMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- target only matters as the revision number
-  }, [kind, docDesign, docDb, docDepictions, paper, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, boardScale, buildQty, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
+  }, [kind, docDesign, docDb, docDepictions, previewPaper, stateText, revisions, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, boardScale, buildQty, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
 
   const result = rendered?.kind === kind ? rendered.result : undefined;
   const html = result !== undefined && 'html' in result ? result.html : undefined;
@@ -830,6 +850,15 @@ export function DocumentsPane({
             </Popover.Portal>
           </Popover.Root>
         )}
+        {html === undefined ? null : (
+          <span className="cs-doc-zoom" role="group" aria-label="Zoom">
+            {([['fit', 'Fit'], ['100', '100%']] as const).map(([mode, label]) => (
+              <button key={mode} type="button" aria-pressed={zoomMode === mode} title={mode === 'fit' ? 'Fit the sheet to the width of the window' : 'Show the sheet at its screen size (100 %)'} onClick={() => setZoomMode(mode)}>
+                {label}
+              </button>
+            ))}
+          </span>
+        )}
         <button
           type="button"
           className="cs-print"
@@ -893,7 +922,7 @@ export function DocumentsPane({
           design={docDesign}
           meta={sidecar.draft.meta}
           onMeta={sidecar.setMeta}
-          defaultPaper={paper ?? 'A4'}
+          defaultPaper={effectivePaper(paper)}
           {...(revisionFixed === undefined ? {} : { revisionFixed })}
           {...(drawings === undefined ? {} : { onSave: () => void sidecar.save() })}
           {...(sidecar.status === undefined ? {} : { status: sidecar.status })}
@@ -946,7 +975,15 @@ export function DocumentsPane({
         </p>
       ) : null}
 
-      <div key={`${design.id}|${kind}`} className="cs-doc-body" role="region" aria-label="Document preview" tabIndex={html === undefined ? undefined : 0}>
+      <div
+        key={`${design.id}|${kind}`}
+        ref={body}
+        className="cs-doc-body"
+        role="region"
+        aria-label="Document preview"
+        tabIndex={html === undefined ? undefined : 0}
+        onScroll={(event) => places.current.set(`${design.id}|${kind}`, { x: event.currentTarget.scrollLeft, y: event.currentTarget.scrollTop })}
+      >
         {kind === 'json' ? (
           <JsonPane design={docDesign} />
         ) : pending ? (
@@ -971,16 +1008,23 @@ export function DocumentsPane({
           // script-free and self-contained by that package's own tests. The
           // sandbox keeps it that way — same-origin so Print can reach the
           // frame's window, modals so the print dialog may open, and no
-          // allow-scripts at all.
-          <iframe
-            ref={frame}
-            className="cs-doc-frame"
-            style={{ minWidth: paperAllowance === 0 ? previewWidth : `calc(${previewWidth} + ${paperAllowance}px)` }}
-            title={`${tabLabel} — ${docDesign.label}`}
-            sandbox="allow-same-origin allow-modals"
-            srcDoc={html}
-            onLoad={(event) => loadedFrame(event.currentTarget)}
-          />
+          // allow-scripts at all. The frame is one paper wide and the height of the document,
+          // scaled as a whole: the sheet keeps its proportion at any window width.
+          <div
+            className="cs-doc-paper"
+            data-zoom={zoomMode}
+            style={{ width: `${Math.round(paperPx.width * zoom)}px`, height: `${Math.round((sheetHeight || paperPx.height) * zoom)}px` }}
+          >
+            <iframe
+              ref={frame}
+              className="cs-doc-frame"
+              style={{ width: `${paperPx.width}px`, height: `${sheetHeight || paperPx.height}px`, transform: `scale(${zoom})` }}
+              title={`${tabLabel} — ${docDesign.label}`}
+              sandbox="allow-same-origin allow-modals"
+              srcDoc={html}
+              onLoad={(event) => loadedFrame(event.currentTarget)}
+            />
+          </div>
         )}
       </div>
 

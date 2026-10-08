@@ -43,10 +43,8 @@ describe('renderDocument', () => {
     for (const kind of DOCUMENT_KINDS) {
       const document = html(renderDocument(kind, design, db));
       expect(document.startsWith('<!doctype html>'), kind).toBe(true);
-      // the drawing sheet is the owner's ANSI A landscape format; the rest
-      // print on the caller's paper, A4 by default
-      // and the formboard is landscape A4 pages in millimetres
-      expect(document, kind).toContain(kind === 'drawing' ? '@page{size:11in 8.5in;margin:0}' : kind === 'formboard' ? '@page{size:297mm 210mm;margin:0}' : '@page{size:A4 portrait');
+      // the drawing and the formboard are landscape on the caller's paper, the other sheets portrait; A4 by default
+      expect(document, kind).toContain(kind === 'drawing' ? '@page{size:297mm 210mm;margin:0}' : kind === 'formboard' ? '@page{size:297mm 210mm;margin:0}' : '@page{size:210mm 297mm;margin:8mm');
       // nothing to fetch: an iframe with no network is still a correct sheet.
       // (`xmlns="http://www.w3.org/2000/svg"` is a namespace name, not a fetch)
       const clean = document.replace(/xmlns(:\w+)?="[^"]*"/g, '');
@@ -62,14 +60,17 @@ describe('renderDocument', () => {
 
     const spec = html(renderDocument('test-spec', design, db));
     expect(spec).toContain('CONTINUITY &amp; TEST SPEC');
-    expect(spec).toContain('cs-table--paths');
+    // a section with nothing in it is not printed: this design has no path through anything
+    expect(spec).toContain('cs-table--nets');
+    expect(spec).not.toContain('cs-table--paths');
+    expect(spec).not.toContain('through something');
     expect(spec).not.toContain('cs-bomtable');
   });
 
   it('prints the resolved PN (an owner-cited productRef) over a drawing PN that disagrees — as the Cables list does', () => {
     if (design.productRef === undefined) return;
     const bom = html(renderDocument('bom', design, db, { drawing: { meta: { partNumber: 'CBL-00102-36' } } }));
-    expect(bom).toContain(`<span class="cs-tb__pn">${design.productRef}</span>`);
+    expect(bom).toMatch(new RegExp(`data-frame-field="pn">${design.productRef}<`));
   });
 
   it('follows the draft, not the design on file', () => {
@@ -100,7 +101,7 @@ describe('renderDocument', () => {
   });
 
   it('honours the paper size', () => {
-    expect(html(renderDocument('bom', design, db, { paper: 'letter' }))).toContain('size:letter');
+    expect(html(renderDocument('bom', design, db, { paper: 'letter' }))).toContain('@page{size:215.9mm 279.4mm');
   });
 });
 
@@ -220,7 +221,7 @@ describe('sheet options', () => {
     const out = renderDocument('bom', design, db, sheetRenderOptions({ sheet: { number: 'DOC-9', status: 'DRAFT', stampDate: true, paper: 'letter' } }, design, today));
     expect('html' in out && out.html).toContain('DOC-9');
     expect('html' in out && out.html).toContain('2026.09.24');
-    expect('html' in out && out.html).toMatch(/size:\s*letter/i);
+    expect('html' in out && out.html).toContain('@page{size:215.9mm 279.4mm');
   });
 });
 

@@ -98,6 +98,23 @@ describe('Hub settings', () => {
     expect(sheet).not.toContain('FRACTIONAL');
   });
 
+  it('sets the paper and the title-block layout every sheet is printed with, from Settings › Documents', async () => {
+    mount();
+    fireEvent.change(await screen.findByLabelText('Paper'), { target: { value: 'A3' } });
+    fireEvent.change(screen.getByLabelText('Title block'), { target: { value: 'ansi' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(registeredTitleBlock().paper).toBe('A3'));
+    expect(registeredTitleBlock().titleBlock).toBe('ansi');
+    const { renderBomSheet, renderDrawingSheet } = await import('@wirehub/docs');
+    const { createCatalog, fsCatalogSource } = await import('@wirehub/catalog');
+    const catalog = createCatalog(fsCatalogSource(DATA, 'the catalog'));
+    const design = catalog.loadDesign('dc-led-lead');
+    // a sheet that names no paper takes the hub's; one that does keeps its own
+    expect(renderBomSheet(design, catalog.loadDb(), { depictions: false })).toContain('@page{size:297mm 420mm');
+    expect(renderBomSheet(design, catalog.loadDb(), { depictions: false, paper: 'letter' })).toContain('@page{size:215.9mm 279.4mm');
+    expect(renderDrawingSheet(design, catalog.loadDb())).toContain('viewBox="0 0 420 297"');
+  });
+
   it('a module\'s title-block art still wins over the setting', async () => {
     const off = registerDrawingArt({ titleBlock: { organisation: 'Module Org' } });
     try {
