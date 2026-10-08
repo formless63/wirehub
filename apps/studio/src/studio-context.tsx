@@ -158,6 +158,11 @@ export interface StudioApi {
 
 const StudioContext = createContext<StudioApi | undefined>(undefined);
 
+/** The studio, or `undefined` outside a provider (a panel mounted by a test or another host). */
+export function useOptionalStudio(): StudioApi | undefined {
+  return useContext(StudioContext);
+}
+
 export function useStudio(): StudioApi {
   const value = useContext(StudioContext);
   if (value === undefined) throw new Error('useStudio() must be used inside <StudioProvider>');

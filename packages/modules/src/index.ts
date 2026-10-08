@@ -388,11 +388,25 @@ export interface RevisionSourceContribution {
   list(input: { kind: string; id: string; record?: Record<string, unknown> }, db: Db): readonly ExternalRevision[] | Promise<readonly ExternalRevision[]>;
 }
 
+/**
+ * Where the host puts the way to a module's page (API 1.6). A module declares a place, not a
+ * navigation item: `library-import` (the Library's Import menu), `document-tools` (the Documents
+ * Tools menu), `settings` (the Modules page, beside the module's settings) or `extensions`
+ * (the Modules page's list of module pages; the default). `rail` asks for a left-rail item, which
+ * the host shows only when the owner has allowed that module (`railModules` in the deployment's
+ * manifest); otherwise it falls back to `extensions`.
+ */
+export type RoutePlacement = 'rail' | 'library-import' | 'document-tools' | 'settings' | 'extensions';
+
+export const ROUTE_PLACEMENTS: readonly RoutePlacement[] = ['rail', 'library-import', 'document-tools', 'settings', 'extensions'];
+
 export interface UiRouteContribution {
   /** path below `/m/<module id>/`: `status`, or `reports/summary` (static segments only) */
   path: string;
   label: string;
-  /** shown in the rail when set: a Tabler icon name (`IconPlug`) from the host's small set; unknown names fall back to a puzzle piece */
+  /** where the host lists the page (API 1.6); absent = `extensions`. An older module's `icon` no longer adds a rail item by itself. */
+  placement?: RoutePlacement;
+  /** the page's icon where the host shows one: a Tabler icon name (`IconPlug`) from the host's small set; unknown names fall back to a puzzle piece */
   icon?: string;
   /** a React component taking `RouteProps` */
   component: unknown;
@@ -674,6 +688,7 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
     const paths = new Set<string>();
     for (const route of m.routes ?? []) {
       if (!ROUTE_PATH.test(route.path)) problems.push(`module '${m.id}' UI route '${route.path}' must be lowercase kebab segments joined by '/'`);
+      if (route.placement !== undefined && !ROUTE_PLACEMENTS.includes(route.placement)) problems.push(`module '${m.id}' UI route '${route.path}' has an unknown placement '${String(route.placement)}'`);
       if (paths.has(route.path)) problems.push(`module '${m.id}' has two UI routes at '${route.path}'`);
       paths.add(route.path);
     }

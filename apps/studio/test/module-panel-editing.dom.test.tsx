@@ -30,10 +30,16 @@ const registry = createRegistry([defineModule({ id: 'synthetic-panel', label: 'S
 const extensions = editorExtensions(registry);
 const tree = (locked = false, selected = design, readOnly = false) => <EditSessionContext.Provider value={{ locked }}><CableEditor design={selected} db={db} readOnly={readOnly} extensions={extensions} /></EditSessionContext.Provider>;
 afterEach(() => { cleanup(); observed = undefined; });
+/** Documents frames module panels in a collapsed ModuleSlot: open it */
+async function openDocumentsSlot(): Promise<void> {
+  const toggle = await waitFor(() => { const found = document.querySelector('.cs-module-slot-toggle'); if (found === null) throw new Error('no slot yet'); return found; });
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+}
 
 describe('editable module panel host seam', () => {
   it('edits the working draft from Documents and rejects callbacks after leaving that view', async () => {
     const mounted = render(<CableEditor design={design} db={db} extensions={extensions} view="documents" />);
+    await openDocumentsSlot();
     await screen.findByRole('button', { name: 'Apply panel minutes' });
     expect(observed!.onChange).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Apply panel minutes' }));
@@ -93,6 +99,7 @@ describe('editable module panel host seam', () => {
   it('omits callbacks for printed revisions and for slot contexts without an editable design', async () => {
     const revision = { ...design, label: 'Saved revision' };
     render(<CableEditor design={design} db={db} extensions={extensions} view="documents" release={{ revisions: [1], showing: { kind: 'working', unreleased: true }, load: async () => ({ design: revision, db }) }} />);
+    await openDocumentsSlot();
     await waitFor(() => expect(screen.getByTestId('panel-label').textContent).toBe('Saved revision'));
     expect(observed!.readOnly).toBe(true); expect(observed!.onChange).toBeUndefined();
     cleanup();

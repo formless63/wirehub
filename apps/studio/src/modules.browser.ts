@@ -8,7 +8,10 @@
 import type { PartNumberScheme } from '@wirehub/model';
 import { createLiveRegistry, createRegistry, type LiveModuleRegistry, type WireHubModule } from '@wirehub/modules';
 
-import { modules } from '../modules.config.ts';
+import { modules, railModules } from '../modules.config.ts';
+
+/** The module ids the owner allows a rail item (`modules.config.ts`). */
+export const allowedRailModules: readonly string[] = railModules;
 
 /** The modules built into this image. */
 export const builtinModules: readonly WireHubModule[] = modules;

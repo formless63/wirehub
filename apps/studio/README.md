@@ -66,7 +66,7 @@ board import. See `../../docs/modules.md`.
 ## Importing boards
 
 A board (PCBA) comes in from the files its designer already has. Open
-**Board import** in the rail (`/m/board-import/boards`), and in this order:
+**Library › Import › Board import** (`/m/board-import/boards`), and in this order:
 
 1. **KiCad board.** Pick the `.kicad_pcb` (a `.net` netlist works too, without
    art). Fill in what the file does not say — the part number, the revision if

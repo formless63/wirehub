@@ -23,7 +23,8 @@
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
 import { BASE_EXPORTS, FORMBOARD_PAPER, SHEET_WIDTH, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
-import { IconDownload, IconMarkdown, IconPrinter } from '@tabler/icons-react';
+import { IconDownload, IconMarkdown, IconPrinter, IconTools } from '@tabler/icons-react';
+import { Popover } from 'radix-ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import type { AssetsAdapter } from '../assets.ts';
@@ -74,7 +75,16 @@ import { useEditLocked } from './edit-session.ts';
  */
 export const DOCUMENT_DEBOUNCE_MS = 600;
 
+/** What a document action tells the host (a toast in the studio); without a host callback the pane says it inline. */
+export interface DocumentReport {
+  kind: 'success' | 'error';
+  message: string;
+  detail?: string;
+}
+
 export interface DocumentsProps {
+  /** where saves, copies and exports report to: success, or an error with its detail */
+  onReport?: (report: DocumentReport) => void;
   /** host-added panels and exports (`extensions.ts`) */
   extensions?: EditorExtensions;
   /** a read-only view (passed on to the panels) */
@@ -139,7 +149,7 @@ function sameSidecar(a: DrawingSidecar, b: DrawingSidecar): boolean {
  * draft, saved on request. Kept in the pane — not in the editor store —
  * because none of it is part of the cable.
  */
-function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined) {
+function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined, report?: (report: DocumentReport) => void) {
   const [draft, setDraft] = useState<DrawingSidecar>(EMPTY_SIDECAR);
   const [saved, setSaved] = useState<DrawingSidecar>(EMPTY_SIDECAR);
   const [status, setStatus] = useState<string>();
@@ -252,12 +262,12 @@ function useDrawingSidecar(designId: string, adapter: DrawingAdapter | undefined
     setDraft(next);
     setConflict(undefined);
     setSaving(false);
-    setStatus(
-      effectiveBase === base
-        ? 'Saved beside the design.'
-        : 'Saved — merged with a change made on disk (a version save, most likely) first.',
-    );
-  }, [adapter, designId, draft, saved]);
+    const said = effectiveBase === base
+      ? 'Saved beside the design.'
+      : 'Saved — merged with a change made on disk (a version save, most likely) first.';
+    if (report === undefined) setStatus(said);
+    else report({ kind: 'success', message: 'Drawing details saved.', ...(effectiveBase === base ? {} : { detail: 'Merged with a change made on disk (a version save, most likely) first.' }) });
+  }, [adapter, designId, draft, saved, report]);
 
   /** "Use the server's value" for one conflicting field — Save then applies it. */
   const resolveField = useCallback(
@@ -365,8 +375,9 @@ export function DocumentsPane({
   extensions,
   readOnly = false,
   onChange,
+  onReport,
 }: DocumentsProps): JSX.Element {
-  const sidecar = useDrawingSidecar(design.id, drawings);
+  const sidecar = useDrawingSidecar(design.id, drawings, onReport);
   const testDefaults = testDefaultsProp ?? sidecar.orgDefaults;
   // someone else holds this cable's edit lock: the forms stay, disabled
   const editLocked = useEditLocked();
@@ -486,6 +497,14 @@ export function DocumentsPane({
   const [updating, setUpdating] = useState(true);
   const [printFailed, setPrintFailed] = useState(false);
   const [copyNote, setCopyNote] = useState<string>();
+  /** tell the host (a toast) or, without one, the inline note beside the toolbar */
+  const say = useCallback(
+    (kind: 'success' | 'error', message: string, detail?: string): void => {
+      if (onReport === undefined) setCopyNote(kind === 'success' && message === '' ? undefined : message);
+      else if (message !== '') onReport({ kind, message, ...(detail === undefined ? {} : { detail }) });
+    },
+    [onReport],
+  );
   const frame = useRef<HTMLIFrameElement | null>(null);
   const places = useRef<FramePlaces>(new Map());
   const [paperAllowance, setPaperAllowance] = useState(0);
@@ -581,11 +600,12 @@ export function DocumentsPane({
       ...(docDepictions === false ? {} : { depictions: docDepictions }),
     });
     if (markdown === undefined) {
-      setCopyNote('this document could not be built');
+      say('error', 'this document could not be built');
       return;
     }
-    setCopyNote((await copyText(markdown)) ? 'copied' : 'the browser refused the copy');
-  }, [kind, docDesign, docDb, sheetInput, drawingInput, pnInputs, docFacts, chosenVariation, buildQty, docDepictions]);
+    if (await copyText(markdown)) say('success', onReport === undefined ? 'copied' : `${kind === 'bom' ? 'BOM' : 'Continuity spec'} copied as markdown.`);
+    else say('error', 'the browser refused the copy');
+  }, [say, onReport, kind, docDesign, docDb, sheetInput, drawingInput, pnInputs, docFacts, chosenVariation, buildQty, docDepictions]);
   const runExporter = useCallback(
     async (exporter: ExtraExporter): Promise<void> => {
       try {
@@ -594,13 +614,16 @@ export function DocumentsPane({
           ...(testDefaults === undefined ? {} : { testDefaults }),
         };
         // an exporter that wants no test parameters is called as it always was
-        downloadOutput(await (Object.keys(context).length === 0 ? exporter.render(docDesign, docDb) : exporter.render(docDesign, docDb, context)));
-        setCopyNote(undefined);
+        const output = await (Object.keys(context).length === 0 ? exporter.render(docDesign, docDb) : exporter.render(docDesign, docDb, context));
+        downloadOutput(output);
+        say('success', onReport === undefined ? '' : `${exporter.label} downloaded.`, output.fileName);
       } catch (error) {
-        setCopyNote(`${exporter.label}: ${error instanceof Error ? error.message : String(error)}`);
+        const reason = error instanceof Error ? error.message : String(error);
+        if (onReport === undefined) setCopyNote(`${exporter.label}: ${reason}`);
+        else onReport({ kind: 'error', message: `${exporter.label} failed.`, detail: reason });
       }
     },
-    [docDesign, docDb, sidecar.draft.meta.test, testDefaults],
+    [say, onReport, docDesign, docDb, sidecar.draft.meta.test, testDefaults],
   );
   const downloadExport = useCallback(
     (id: string): void => {
@@ -622,13 +645,13 @@ export function DocumentsPane({
         ...(testDefaults === undefined ? {} : { testDefaults }),
       };
       const made = renderExport(id, docDesign, docDb, options);
-      if ('error' in made) setCopyNote(made.error);
+      if ('error' in made) say('error', made.error);
       else {
         downloadOutput(made.output);
-        setCopyNote(undefined);
+        say('success', onReport === undefined ? '' : 'Export downloaded.', made.output.fileName);
       }
     },
-    [sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, buildQty, target, revisionFixed, testDefaults],
+    [say, onReport, sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, buildQty, target, revisionFixed, testDefaults],
   );
   const tabLabel = kind === 'json' ? 'JSON' : DOCUMENT_LABELS[kind];
 
@@ -767,19 +790,46 @@ export function DocumentsPane({
             </optgroup>
           ))}
         </select>
-        {(extensions?.exporters ?? []).map((exporter) => (
-          <button
-            key={exporter.id}
-            type="button"
-            className="cs-print"
-            disabled={empty || pending}
-            data-exporter={exporter.id}
-            title={exporter.description ?? `Download ${exporter.label}`}
-            onClick={() => void runExporter(exporter)}
-          >
-            <IconDownload size={14} aria-hidden /> {exporter.label}
-          </button>
-        ))}
+        {(extensions?.exporters ?? []).length + (extensions?.toolLinks ?? []).length === 0 ? null : (
+          <Popover.Root>
+            <Popover.Trigger asChild>
+              <button type="button" className="cs-print" disabled={empty || pending} data-testid="documents-tools" title="Exports and actions added by installed modules">
+                <IconTools size={14} aria-hidden /> Tools
+              </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content className="cs-doc-tools" sideOffset={3} align="end">
+                <ul role="menu" aria-label="Module tools">
+                  {(extensions?.exporters ?? []).map((exporter) => (
+                    <li key={exporter.id} role="none">
+                      <Popover.Close asChild>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="cs-doc-tool"
+                          data-exporter={exporter.id}
+                          title={exporter.description ?? `Download ${exporter.label}`}
+                          onClick={() => void runExporter(exporter)}
+                        >
+                          <IconDownload size={13} aria-hidden /> {exporter.label}
+                        </button>
+                      </Popover.Close>
+                    </li>
+                  ))}
+                  {(extensions?.toolLinks ?? []).map((link) => (
+                    <li key={link.id} role="none">
+                      <Popover.Close asChild>
+                        <button type="button" role="menuitem" className="cs-doc-tool" data-tool-link={link.id} onClick={() => link.open()}>
+                          {link.label} →
+                        </button>
+                      </Popover.Close>
+                    </li>
+                  ))}
+                </ul>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+        )}
         <button
           type="button"
           className="cs-print"
@@ -794,12 +844,6 @@ export function DocumentsPane({
           <IconPrinter size={14} aria-hidden /> Print
         </button>
       </nav>
-
-      {extensions?.documents === undefined ? null : (
-        <div className="cs-extension-slot" data-slot="cable-documents">
-          {extensions.documents({ design: docDesign, db: docDb, readOnly: readOnly || editLocked || target !== 'working' && release !== undefined, ...(moduleEditable ? { onChange: moduleOnChange } : {}) })}
-        </div>
-      )}
 
       {!empty && sidecar.conflict === undefined && sidecar.error !== undefined ? (
         <div className="cs-drawing-conflict" role="alert">
@@ -939,6 +983,12 @@ export function DocumentsPane({
           />
         )}
       </div>
+
+      {extensions?.documents === undefined ? null : (
+        <div className="cs-extension-slot" data-slot="cable-documents">
+          {extensions.documents({ design: docDesign, db: docDb, readOnly: readOnly || editLocked || target !== 'working' && release !== undefined, ...(moduleEditable ? { onChange: moduleOnChange } : {}) })}
+        </div>
+      )}
     </div>
   );
 }

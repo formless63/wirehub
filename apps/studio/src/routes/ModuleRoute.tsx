@@ -3,7 +3,7 @@
  * and `/modules` — the deployment's modules and their `settings` panels.
  */
 
-import { useMatches } from '@tanstack/react-router';
+import { Link, useMatches } from '@tanstack/react-router';
 import type { ModuleRegistry, RouteProps } from '@wirehub/modules';
 import { useMemo, type ComponentType, type JSX } from 'react';
 
@@ -11,6 +11,8 @@ import { moduleApi } from '../modules/api.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { ModulePanels } from '../modules/slots.tsx';
 import { PacksPanel } from '../modules/PacksPanel.tsx';
+import { allowedRailModules } from '../modules.browser.ts';
+import { effectivePlacement } from '../modules/placement.ts';
 import { NotFoundView } from '../shell/NotFoundView.tsx';
 import { useStudio } from '../studio-context.tsx';
 
@@ -46,11 +48,22 @@ export function ModulesRoute(): JSX.Element {
       <PacksPanel />
       {registry.modules.map((m) => {
         const panels = registry.panels('settings').filter((p) => p.module === m.id);
+        // the pages a module declared for this list (`extensions`, `settings`; an unallowed `rail` falls back here)
+        const pages = registry.routes().filter((r) => r.module === m.id && ['extensions', 'settings'].includes(effectivePlacement(r, allowedRailModules)));
         return (
           <section key={m.id} className="mb-4 border-b border-line pb-3" data-module={m.id}>
             <h2 className="text-[13px] font-medium">
               {m.label} <span className="text-faint">{m.id} {m.version}{m.license === undefined ? '' : ` · ${m.license}`}</span>
             </h2>
+            {pages.length === 0 ? null : (
+              <nav aria-label={`${m.label} pages`} className="my-1 flex flex-wrap gap-2" data-testid={`module-pages-${m.id}`}>
+                {pages.map((page) => (
+                  <Link key={page.path} to="/m/$module/$" params={{ module: m.id, _splat: page.path }} className="rounded border border-line bg-panel px-2.5 py-1 hover:bg-hover">
+                    {page.label} →
+                  </Link>
+                ))}
+              </nav>
+            )}
             {panels.length === 0 ? null : <ModulePanels registry={onlyModule(registry, m.id)} slot="settings" context={{ db: studio.db, readOnly: false }} />}
           </section>
         );

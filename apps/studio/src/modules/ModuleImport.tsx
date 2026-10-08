@@ -13,9 +13,10 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import type { ModuleRegistry } from '@wirehub/modules';
-import { useRef, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 
 import { startImportJob, uploadImportJob } from '../jobs.browser.ts';
+import { useNotify } from '../notify.ts';
 import { designsKey } from '../queries.ts';
 import { ImportJob } from './ImportJob.tsx';
 
@@ -54,11 +55,13 @@ async function call(module: string, importer: string, body: unknown): Promise<{ 
   return { status: response.status, body: (await response.json().catch(() => ({}))) as { error?: string; hint?: string; proposal?: Proposal } };
 }
 
-export function ModuleImport({ registry, onImported }: { registry: ModuleRegistry; onImported: () => void }): JSX.Element | null {
+export function ModuleImport({ registry, onImported, expose }: { registry: ModuleRegistry; onImported: () => void; expose?: (open: () => void) => void }): JSX.Element | null {
   const input = useRef<HTMLInputElement | null>(null);
+  // the Library's Import menu opens the file picker from its own entry instead of a button here
+  useEffect(() => { expose?.(() => input.current?.click()); }, [expose]);
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<Pending>();
-  const [message, setMessage] = useState<string>();
+  const notify = useNotify();
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string>();
   const accepts = [...new Set(registry.importers().flatMap((i) => i.accepts))];
@@ -68,11 +71,10 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
     const matches = registry.importersFor(file.name);
     const importer = matches[0];
     if (importer === undefined) {
-      setMessage(`No importer takes ${file.name} (${accepts.join(', ')}).`);
+      notify.error(`No importer takes ${file.name}.`, `It takes ${accepts.join(', ')}.`);
       return;
     }
     setBusy(true);
-    setMessage(undefined);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       // raw bytes first (no base64, and room for a big file); a host that takes only JSON gets the base64 form
@@ -87,12 +89,12 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
       }
       // 501: no job runner here — the synchronous preview below; anything else is the importer's own refusal
       if (queued.status !== 501) {
-        setMessage(`${queued.error}${queued.hint === undefined ? '' : ` ${queued.hint}`}`);
+        notify.error(queued.error, queued.hint);
         return;
       }
       const base64 = base64Of();
       const out = await call(importer.module, importer.id, { fileName: file.name, base64 });
-      if (out.status >= 400 || out.body.proposal === undefined) setMessage(`${out.body.error ?? 'The import failed.'} ${out.body.hint ?? ''}`.trim());
+      if (out.status >= 400 || out.body.proposal === undefined) notify.error(out.body.error ?? 'The import failed.', out.body.hint);
       else setPending({ module: importer.module, importer: importer.id, importerLabel: importer.label, fileName: file.name, base64, proposal: out.body.proposal });
     } finally {
       setBusy(false);
@@ -105,11 +107,11 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
     try {
       const out = await call(pending.module, pending.importer, { fileName: pending.fileName, base64: pending.base64, accept: true });
       if (out.status >= 400) {
-        setMessage(`${out.body.error ?? 'The import failed.'} ${out.body.hint ?? ''}`.trim());
+        notify.error(out.body.error ?? 'The import failed.', out.body.hint);
         return;
       }
       setPending(undefined);
-      setMessage(`Imported ${pending.fileName}.`);
+      notify.success(`Imported ${pending.fileName}.`, { view: { to: '/library' } });
       onImported();
       void queryClient.invalidateQueries({ queryKey: designsKey });
     } finally {
@@ -133,13 +135,10 @@ export function ModuleImport({ registry, onImported }: { registry: ModuleRegistr
           if (file !== undefined) void pick(file);
         }}
       />
-      <button type="button" disabled={busy} title={`Import from a file (${accepts.join(', ')}) with a module's importer`} onClick={() => input.current?.click()}>
-        Import…
-      </button>
-      {message === undefined ? null : (
-        <span role="status" className="cs-count">
-          {message}
-        </span>
+      {expose !== undefined ? null : (
+        <button type="button" disabled={busy} title={`Import from a file (${accepts.join(', ')}) with a module's importer`} onClick={() => input.current?.click()}>
+          Import…
+        </button>
       )}
       {jobId === undefined ? null : <ImportJob id={jobId} onClose={() => setJobId(undefined)} onPublished={onImported} />}
       {pending === undefined || proposal === undefined ? null : (

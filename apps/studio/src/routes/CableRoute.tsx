@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CableEditor, type CatalogChange, type DocumentRelease, type EditorView } from '@wirehub/editor-react';
+import { CableEditor, type CatalogChange, type DocumentRelease, type DocumentReport, type EditorView } from '@wirehub/editor-react';
 import { versionDb } from '@wirehub/model';
 import { toast } from 'sonner';
 
@@ -99,9 +99,15 @@ export function CableRoute(): JSX.Element {
   const queryClient = useQueryClient();
   const chrome = useEditorChrome();
   const modules = useModules();
-  const extensions = useMemo(() => editorExtensions(modules), [modules]);
+  const openModuleRoute = useCallback((module: string, path: string): void => { void navigate({ to: '/m/$module/$', params: { module, _splat: path } }); }, [navigate]);
+  const extensions = useMemo(() => editorExtensions(modules, openModuleRoute), [modules, openModuleRoute]);
   // sub-assemblies: where the designs a cable places come from, and opening one in its own editor
   const assemblies = useMemo(() => workbenchAssemblies(), []);
+  // Documents' saves, copies and exports report as toasts, not as text beside the toolbar
+  const onDocumentReport = useCallback((report: DocumentReport): void => {
+    if (report.kind === 'success') toast.success(report.message, report.detail === undefined ? {} : { description: report.detail });
+    else toast.error(report.message, report.detail === undefined ? {} : { description: report.detail });
+  }, []);
   const openDesign = useCallback(
     (target: string): void => {
       void navigate({ to: '/cables/$id', params: { id: target }, search: { view: 'build' } });
@@ -277,6 +283,7 @@ export function CableRoute(): JSX.Element {
               {...(studio.partNumbers === undefined ? {} : { partNumbers: studio.partNumbers })}
               documentFacts={documentFacts}
               {...(extensions === undefined ? {} : { extensions })}
+              onDocumentReport={onDocumentReport}
               layout={studio.layout}
               view={editorViewOf(search.view)}
               onViewChange={onViewChange}
@@ -321,6 +328,7 @@ export function CableRoute(): JSX.Element {
       {...(stripPractice === undefined ? {} : { stripPractice })}
       {...(release === undefined ? {} : { release })}
       {...(extensions === undefined ? {} : { extensions })}
+      onDocumentReport={onDocumentReport}
       definitions={studio.definitions}
       onDefinitionsChange={studio.onDefinitionsChange}
       // artwork uploaded or re-anchored here is layered over `depictions` by

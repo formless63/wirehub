@@ -25,6 +25,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { clearOfflineCache } from '../src/offline-cache.browser.ts';
 import { memoryWriteBackend } from './storage-contract/writes.ts';
+import { toasts } from './toast-spy.ts';
+
+vi.mock('sonner', async () => (await import('./toast-spy.ts')).sonnerMock);
 
 const seen = vi.hoisted(() => ({ editor: undefined as Record<string, unknown> | undefined, library: undefined as Record<string, unknown> | undefined }));
 
@@ -55,7 +58,9 @@ vi.mock('@wirehub/editor-react', async (importOriginal) => {
       seen.library = props;
       const detail = props['detailExtras'] as ((r: { kind: string; id: string }) => unknown) | undefined;
       const actions = props['listActions'] as Record<string, unknown> | undefined;
-      return h('div', { 'data-testid': 'library' }, h('div', { 'data-testid': 'list-actions' }, actions?.['components'] as never), h('div', { 'data-testid': 'detail' }, detail?.({ kind: 'components', id: 'r-150' }) as never));
+      const moduleExtras = props['moduleExtras'] as ((r: { kind: string; id: string }) => unknown) | undefined;
+      // the real Library puts module panels after everything it shows for the record
+      return h('div', { 'data-testid': 'library' }, h('div', { 'data-testid': 'list-actions' }, actions?.['components'] as never), h('div', { 'data-testid': 'detail' }, detail?.({ kind: 'components', id: 'r-150' }) as never, moduleExtras?.({ kind: 'components', id: 'r-150' }) as never));
     },
   };
 });
@@ -85,6 +90,12 @@ function serve(): void {
   }) as unknown as typeof fetch;
 }
 
+/** module panels sit in a collapsed ModuleSlot: open the one inside `container` */
+const openSlot = (container: HTMLElement): void => {
+  const toggle = container.querySelector('.cs-module-slot-toggle');
+  if (toggle?.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
+};
+
 const queryClient = (): QueryClient => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
 const mount = (path: string, modules = registry) => render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [path] }))} queryClient={queryClient()} modules={modules} />);
 
@@ -94,6 +105,7 @@ beforeEach(() => {
   seen.library = undefined;
   serve();
   window.localStorage.clear();
+  toasts.length = 0;
 });
 afterEach(() => {
   cleanup();
@@ -106,6 +118,10 @@ describe('cable panels and exports', () => {
     mount('/cables/de9-crossover');
     await waitFor(() => expect(screen.getByTestId('open-id').textContent).toBe('de9-crossover'));
     expect(within(screen.getByTestId('inspector-slot')).getByTestId('example-inspector').textContent).toContain('No edits recorded yet');
+    // the Documents panel is framed (ModuleSlot) and collapsed until opened
+    expect(within(screen.getByTestId('documents-slot')).queryByTestId('example-documents')).toBeNull();
+    expect(screen.getByTestId('documents-slot').querySelector('[data-module-slot="cable-documents/example"]')?.textContent).toContain('module');
+    openSlot(screen.getByTestId('documents-slot'));
     const docs = within(screen.getByTestId('documents-slot')).getByTestId('example-documents');
     expect(docs.textContent).toMatch(/Example: \d+ joints/);
     // the panel called the module's own server route through the host's api helper
@@ -136,6 +152,7 @@ describe('cable panels and exports', () => {
     await waitFor(() => expect(screen.getByTestId('open-id').textContent).toBe('de9-crossover'));
     expect(screen.getByTestId('version-banner').textContent).toContain('Rev 0');
     expect(within(screen.getByTestId('inspector-slot')).getByTestId('example-inspector')).toBeTruthy();
+    openSlot(screen.getByTestId('documents-slot'));
     expect(within(screen.getByTestId('documents-slot')).getByTestId('example-documents').textContent).toMatch(/Example: \d+ joints/);
     // the editor is the revision's: read-only while it is locked
     expect(seen.editor?.['readOnly']).toBe(true);
@@ -154,6 +171,13 @@ describe('cable panels and exports', () => {
 describe('the Library', () => {
   it('mounts the library-detail panel for the open record', async () => {
     mount('/library/components/r-150');
+    // collapsed by default, after the record's own content
+    await screen.findByTestId('detail');
+    expect(screen.queryByTestId('example-library')).toBeNull();
+    const slot = screen.getByTestId('detail').querySelector('[data-module-slot="library-detail/example"]') as HTMLElement;
+    expect(slot).not.toBeNull();
+    expect(screen.getByTestId('detail').lastElementChild).toBe(slot);
+    openSlot(slot);
     const detail = await screen.findByTestId('example-library');
     expect(detail.textContent).toBe('Example: components/r-150');
   });
@@ -184,17 +208,15 @@ describe('the Library', () => {
     await act(async () => {
       fireEvent.change(input, { target: { files: [new File(['x'], 'parts.xyz')] } });
     });
-    expect((await screen.findByRole('status')).textContent).toContain('No importer takes parts.xyz');
+    await waitFor(() => expect(toasts.map((t) => t.title).join(' ')).toContain('No importer takes parts.xyz'));
   });
 
   it('shows no Import button (only Browse store) and no panels with no modules', async () => {
     mount('/library/components', EMPTY_REGISTRY);
     await screen.findByTestId('library');
-    // each kind's list actions: [Import… (a module importer's), Bulk CSV…, Browse store]
-    const actions = seen.library?.['listActions'] as Record<string, { props: { children: unknown[] } }>;
-    expect(actions['components']?.props.children[0]).toBeNull();
-    expect(actions['components']?.props.children[1]).toBeNull();
-    expect(actions['components']?.props.children[2]).not.toBeNull();
+    // each kind's list actions: [the Import menu (renders nothing without importers), Browse store]
+    expect(screen.queryByTestId('library-import-menu')).toBeNull();
+    expect(screen.getByTestId('browse-store')).toBeTruthy();
     // the record's History is the base's own; no module panel beside it
     const detail = await screen.findByTestId('detail');
     expect(within(detail).getByTestId('history-button')).toBeDefined();
@@ -203,9 +225,14 @@ describe('the Library', () => {
 });
 
 describe('module pages', () => {
-  it('puts a UI route in the rail and renders its component at /m/<module>/<path>', async () => {
+  it('keeps a UI route out of the rail, lists it on the Modules page and renders its component at /m/<module>/<path>', async () => {
     mount('/cables');
-    const link = await screen.findByRole('link', { name: 'Example status' });
+    await screen.findByRole('navigation', { name: 'sections' });
+    // no placement and no owner allowance: no rail item (the rail stays the hub's own)
+    expect(screen.queryByRole('link', { name: 'Example status' })).toBeNull();
+    cleanup();
+    mount('/modules');
+    const link = await screen.findByRole('link', { name: /Example status/ });
     expect(link.getAttribute('href')).toBe('/m/example/status');
     fireEvent.click(link);
     const page = await screen.findByTestId('example-page');

@@ -70,6 +70,22 @@ body,
 }
 
 
+/* ModuleSlot: the titled, collapsible frame module panels sit in on core pages */
+.cs-module-slot { margin: 8px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font-size: 12px; }
+.cs-module-slot-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-right: 6px; }
+.cs-module-slot-toggle { display: flex; flex: 1; align-items: center; gap: 6px; padding: 5px 8px; font: inherit; color: var(--ink); background: none; border: 0; cursor: pointer; text-align: left; }
+.cs-module-slot-toggle:hover { background: var(--hover); }
+.cs-module-slot-caret { color: var(--dim); transition: transform .12s; }
+.cs-module-slot-toggle[aria-expanded='true'] .cs-module-slot-caret { transform: rotate(90deg); }
+.cs-module-slot-title { font-weight: 600; }
+.cs-module-chip { padding: 0 5px; font-size: 10px; line-height: 15px; color: var(--dim); border: 1px solid var(--line2); border-radius: 8px; text-transform: lowercase; }
+.cs-module-slot-pin { display: inline-flex; padding: 3px; color: var(--faint); background: none; border: 0; border-radius: 4px; cursor: pointer; }
+.cs-module-slot-pin:hover, .cs-module-slot-pin[aria-pressed='true'] { color: var(--accent); }
+.cs-module-slot-body { padding: 0 8px 8px; border-top: 1px solid var(--line); }
+.cs-module-slot-body > .cs-module-panel { margin-block: 8px 0; }
+.cs-module-slot.is-unset { display: flex; align-items: center; gap: 6px; padding: 5px 8px; color: var(--dim); }
+.cs-module-slot-note { margin-left: 4px; }
+
 /* Runtime panels use native HTML controls. Give them a host baseline even
    outside the editor, without overriding a module's explicit styling. */
 .cs-module-panel {
