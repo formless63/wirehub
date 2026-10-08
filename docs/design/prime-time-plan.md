@@ -460,7 +460,7 @@ Goal: one look, one anatomy and one navigation; keyboard and contrast at AA.
 | | E5. Vector schematic and label PDFs through the browser engine (or the SVG-to-PDF path), inside `SheetFrame`. | S | E1 | `X-WireHub-PDF-Renderer` is not `raster` when an engine is set; text is selectable. |
 | | E4. Documents preview at paper size with zoom (fit width / 100 %); toolbar ≤ 2 rows. | S | P0-B2 | At 1920 the sheet keeps its proportion. |
 | **P1-F Copy and QA** | F1. A terminology file (`docs/design/terminology.md`): cable vs design, source *end* vs provenance ("Reference"), Extensions, pack, module. Rename the UI strings to match. | S | — | Wizard field is "Reference (where the data comes from)". **[OWNER] O-4** |
-| | F2. Re-shoot the full screenshot set (this plan's script) plus lock and conflict scenarios; file follow-ups. | S | all P1 | Updated `docs/design/screenshots/`. |
+| | F2. Re-shoot the full screenshot set (this plan's script) plus lock and conflict scenarios; file follow-ups. | S | all P1 | A refreshed screenshot set, kept outside the repository. |
 
 Lanes: **1** A then B (opus), **2** D (opus), **3** E then F (opus then sonnet), with C
 picked up by whichever lane frees first after B1.
