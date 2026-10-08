@@ -139,6 +139,8 @@ export type TerminalRow = {
   label?: string;
   role: TerminalRole;
   side: 'left' | 'right';
+  /** as the interface declares it, seen from the device that owns the port */
+  dir?: 'out' | 'in' | 'bidir' | 'passive';
   end?: 'a' | 'b';
   /** css paint for the swatch, when the terminal has an identifying colour */
   color?: string;
@@ -616,6 +618,7 @@ function makeRow(
     role: TerminalRole;
     side: 'left' | 'right';
     color?: string | undefined;
+    dir?: TerminalRow['dir'] | undefined;
   },
 ): TerminalRow {
   const key = terminalKey(ref);
@@ -631,7 +634,14 @@ function makeRow(
     ...(ref.end === undefined ? {} : { end: ref.end }),
     ...(fields.label === undefined ? {} : { label: fields.label }),
     ...(fields.color === undefined ? {} : { color: fields.color }),
+    ...(fields.dir === undefined ? {} : { dir: fields.dir }),
   };
+}
+
+/** The direction a connector's interface gives a pin, when it has an interface that says. */
+function pinDirection(db: Db, def: { interface?: string } | undefined, pin: string): TerminalRow['dir'] {
+  if (def?.interface === undefined) return undefined;
+  return (db.interfaces ?? []).find((iface) => iface.id === def.interface)?.pins[pin]?.dir;
 }
 
 /** One instance, drawn — everything a node needs except where it sits. */
@@ -711,6 +721,7 @@ function nodeDataOf(
           label: pin.label,
           role: 'pin',
           side: art === undefined ? side : facing,
+          dir: pinDirection(db, def, pin.id),
         }),
       ),
       ...(instance.role === undefined ? {} : { role: instance.role }),

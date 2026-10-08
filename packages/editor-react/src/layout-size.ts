@@ -265,6 +265,7 @@ function pinRowWidth(row: TerminalRow, padX: number): number {
   if (row.label !== undefined && row.label !== '') {
     width += BOX.rowGapX + textWidth(row.label, BOX.font);
   }
+  if (row.dir !== undefined) width += BOX.rowGapX + 16;
   return width;
 }
 
@@ -453,6 +454,9 @@ export function connectorArtLayout(instanceId: string, title: string, art: Conne
   };
 }
 
+/** The header thumbnail of a connector's face and its toggle (`.cs-conn-thumb`), in px. */
+export const CONNECTOR_THUMB = { width: 54, height: 22, toggle: 18 } as const;
+
 /** A connector drawn as itself: its dock, or header plus art area. */
 function connectorArtNodeSize(data: ConnectorNodeData & { art: ConnectorArtLayout }): NodeSize {
   if (data.dock !== undefined) return { width: data.art.width, height: data.art.height };
@@ -475,11 +479,13 @@ export function estimateNodeSize(data: EditorNodeData): NodeSize {
     return boardNodeSize({ ...data, board: data.board });
   }
   if (data.kind === 'segment' && data.wire !== undefined) return wireNodeSize(data.wire);
-  if (data.kind === 'connector' && data.art !== undefined) return connectorArtNodeSize({ ...data, art: data.art });
+  if (data.kind === 'connector' && data.art !== undefined && data.dock !== undefined) return connectorArtNodeSize({ ...data, art: data.art });
   const heading = nodeHeading(data);
   const body = bodySize(data);
   const base = NODE_BASE_WIDTH[data.kind];
-  const wanted = Math.max(base, headWidth(heading, data.instanceId), body.width);
+  // a connector's header also holds its face thumbnail and the face toggle
+  const thumb = data.kind === 'connector' && data.art !== undefined ? CONNECTOR_THUMB.width + CONNECTOR_THUMB.toggle + BOX.headGapX * 2 : 0;
+  const wanted = Math.max(base, headWidth(heading, data.instanceId) + thumb, body.width);
   return {
     width: Math.ceil(Math.min(wanted, base * WIDTH_HEADROOM) / 2) * 2,
     height: Math.ceil(BOX.border * 2 + headHeight(heading) + body.height + BOX.slack),

@@ -1248,11 +1248,27 @@
 /* ---------- handles ---------- */
 
 .cs-editor .react-flow__handle.cs-handle {
+  /* a 16 px target; the dot you see is the ::after */
+  width: 16px;
+  height: 16px;
+  border: 0;
+  background: transparent;
+  border-radius: 50%;
+}
+
+.cs-editor .react-flow__handle.cs-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
   width: 9px;
   height: 9px;
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
   border: 1.5px solid var(--line2);
-  background: var(--foil);
-  border-radius: 50%;
+  border-radius: inherit;
+  background: var(--handle-fill, var(--foil));
+  pointer-events: none;
 }
 
 .cs-editor .react-flow__handle.cs-handle-shield,
@@ -1260,13 +1276,78 @@
   border-radius: 2px;
 }
 
-.cs-editor .react-flow__handle.cs-handle:hover {
+.cs-editor .react-flow__handle.cs-handle:hover::after {
   border-color: var(--cs-accent);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
-.cs-row.is-used .cs-handle {
+.cs-row.is-used .cs-handle::after {
   border-color: var(--ink);
+}
+
+.cs-dir {
+  flex: none;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  color: var(--faint);
+}
+
+.cs-node-head {
+  position: relative;
+}
+
+.cs-conn-adorn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cs-conn-thumb {
+  flex: none;
+  pointer-events: none;
+}
+
+.cs-conn-thumb .cs-art-num {
+  display: none;
+}
+
+.cs-editor .cs-conn-face-toggle {
+  flex: none;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.cs-editor .cs-conn-face-toggle:hover,
+.cs-editor .cs-conn-face-toggle.is-on {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.cs-conn-faceview {
+  position: relative;
+}
+
+.cs-conn-faceview > .cs-conn-face-toggle {
+  position: absolute;
+  top: 6px;
+  right: 8px;
 }
 
 /* ---------- board node: the real board (board-art.ts, nodes/BoardNode.tsx) ---------- */
@@ -1789,13 +1870,13 @@ path.cs-art-t-dark {
 }
 
 .cs-editor .react-flow__handle.cs-pin-handle::before {
-  width: 9px;
-  height: 9px;
+  width: 16px;
+  height: 16px;
 }
 
 .cs-editor .react-flow__handle.cs-pin-handle.is-shell::before {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
 }
 
 .cs-editor .react-flow__handle.cs-pin-handle::after {
@@ -5965,6 +6046,8 @@ fieldset.cs-lock-fence {
   text-overflow: ellipsis;
 }
 .cs-mould-handle { width: 7px; height: 7px; background: var(--run, var(--ink)); }
+.cs-editor .react-flow__handle.cs-handle.cs-mould-handle { width: 7px; height: 7px; background: var(--run, var(--ink)); }
+.cs-editor .react-flow__handle.cs-handle.cs-mould-handle::after { display: none; }
 
 /* ------------------------------------------------------------------ *
  * Breakout inspector
@@ -6484,4 +6567,8 @@ fieldset.cs-lock-fence {
 .cs-doc-body:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+.cs-node-head:has(.cs-conn-adorn) {
+  padding-right: 88px;
 }

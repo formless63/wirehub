@@ -6,10 +6,13 @@
 
 import { parseTerminalKey } from '@wirehub/model';
 import { Handle, Position } from '@xyflow/react';
-import type { JSX, MouseEvent } from 'react';
+import type { CSSProperties, JSX, MouseEvent } from 'react';
 
 import { classes, useEditorApi } from '../context.ts';
 import type { TerminalRow } from '../derive.ts';
+
+const DIR_GLYPH = { out: 'out', in: 'in', bidir: 'i/o', passive: '·' } as const;
+const DIR_TITLE = { out: 'output', in: 'input', bidir: 'bidirectional', passive: 'passive' } as const;
 
 /**
  * @param nodeSelected the containing node is selected — one of the two ways
@@ -51,11 +54,16 @@ export function PinRow({ row, nodeSelected }: { row: TerminalRow; nodeSelected?:
         position={onLeft ? Position.Left : Position.Right}
         id={row.key}
         className={classes('cs-handle', `cs-handle-${row.role}`)}
-        style={row.color === undefined ? undefined : { background: row.color }}
+        style={row.color === undefined ? undefined : ({ '--handle-fill': row.color } as CSSProperties)}
       />
       <span className="cs-pin">{row.terminal}</span>
       {row.end === undefined ? null : <span className="cs-end">{row.end}</span>}
-      <span className="cs-label">{row.label ?? ''}</span>
+      <span className="cs-label">{row.label === row.terminal ? '' : (row.label ?? '')}</span>
+      {row.dir === undefined ? null : (
+        <span className="cs-dir" title={DIR_TITLE[row.dir]} data-dir={row.dir}>
+          {DIR_GLYPH[row.dir]}
+        </span>
+      )}
       {row.used ? null : (
         <button
           type="button"
