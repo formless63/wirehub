@@ -1,12 +1,15 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.11 (rev 6 was the first revision in the open base). **Phases A
+Status: **plan**, rev 6.12 (rev 6 was the first revision in the open base). **Phases A
 (schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
 C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.12** — Module settings (cs-nws, module API 1.5). Migration **0023**: `studio.settings_secret.name`
+  also admits `module.<module id>.<key>`, the secrets runtime modules declare (`specs/runtime-modules.md` §8).
+  No new table: they share the store, its encryption, RLS and key rotation.
 - **rev 6.11** — Part-number revision keys (cs-9ar). Migration **0022**: the `<part>` of
   `revisions/<part>/<revision>` also takes upper case (a part number).
 - **rev 6.10** — Revision model links (cs-s97). Migration **0021**: `studio.model_link.record_key`
@@ -1484,6 +1487,21 @@ ALTER TABLE studio.model_link DROP CONSTRAINT model_link_record_key_check;
 ALTER TABLE studio.model_link ADD CONSTRAINT model_link_record_key_check CHECK (
   record_key ~ '^(connectors|components|wires|pcbas|bodies|interfaces|mechanicals|kits)/[a-z0-9][a-z0-9._-]*$'
   OR record_key ~ '^revisions/[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$');
+```
+
+A module may declare settings, mostly credentials, that an owner enters in Settings (`specs/runtime-modules.md`
+§8). Its secrets are rows of the same store, named `module.<module id>.<key>`, so the name check widens:
+
+```sql ddl
+-- 0023_module_settings_secrets — secrets runtime modules declare (module API 1.5, cs-nws)
+-- A module's declared secret (a supplier's API key …) is a row of studio.settings_secret like
+-- every other Settings secret, named module.<module id>.<key>: same AES-256-GCM ciphertext under
+-- WIREHUB_SETTINGS_KEY, same org-scoped RLS, rotated with the rest. The name check admits that
+-- three-part form (a module id is kebab-case). No new table, policy or trigger.
+ALTER TABLE studio.settings_secret DROP CONSTRAINT settings_secret_name_check;
+ALTER TABLE studio.settings_secret ADD CONSTRAINT settings_secret_name_check CHECK (
+  name ~ '^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$'
+  OR name ~ '^module\.[a-z0-9]+(-[a-z0-9]+)*\.[a-z][A-Za-z0-9]*$');
 ```
 
 ---

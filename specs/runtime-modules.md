@@ -55,14 +55,15 @@ acme-erp-1.2.0/
 - **File paths** are `code/<module id>/(server|browser).mjs` and `code/<module id>/browser.css`,
   and explicit `code/<id>/migrations/NNNN_<module_id>_<name>.sql` pins; each at most 4 MiB, all of a pack's code 8 MiB. A `code/` file the
   `module` block does not name is refused.
-- **apiVersion** is `<major>.<minor>` of `MODULE_API_VERSION` (`@wirehub/modules`, now `1.4`;
+- **apiVersion** is `<major>.<minor>` of `MODULE_API_VERSION` (`@wirehub/modules`, now `1.5`;
   `1.0` was the build-time-only contract). A breaking change to the module contract bumps the
   major; anything added bumps the minor. A module is compatible when the major is equal and
   its minor is not newer than the hub's. Anything else is refused before a byte runs.
 - **Extension points** declared must cover what the module object contributes
   (`extensionPointsOf`); **permissions** must cover what it does (`permissionsOf`: `server-code`,
   `browser-code`, `routes`, `writes` (a route that takes the write lock, or an importer),
-  `jobs`, `sign-in`, `database-schema` for SQL, `env:<NAME>` for every variable it names). A module that does more than it
+  `jobs`, `sign-in`, `database-schema` for SQL, `env:<NAME>` for every variable it names, a declared
+  setting's `env` override included, §8). A module that does more than it
   declared is refused at load. Permissions are not a sandbox (a module is trusted code, §2):
   they make the consent step honest.
 - **SQL migrations (API 1.3):** build with explicit `--migrations-dir`, include sequential paths
@@ -256,3 +257,57 @@ Retained callbacks are invalidated by draft changes, edit locks, cable changes a
 The editor reducer also checks the expected draft before applying a panel replacement, so two
 queued edits cannot overwrite one another with an old snapshot. No domain-specific costing
 logic is part of this host seam (`docs/modules.md`, “Mounting details”).
+
+## 8. Module settings (module API 1.5, cs-nws)
+
+Owner principle: most settings belong in the UI; a redeploy is for install-level changes, and
+the environment stays as a locked override (`specs/runtime-settings.md` §1–2). A module's own
+credentials (a supplier's API key) are not install-level, so a module declares them and an owner
+enters them in Settings.
+
+- **Declare.** `WireHubModule.settings: ModuleSettingContribution[]` — `key` (camelCase, unique in
+  the module), `label`, `help?`, `kind?` (`secret`, the default; `text`; `bool`; `list` with
+  `options?`), `multiline?`, `required?`, `gates?` (the provider or feature it unlocks) and `env?`
+  (a variable that, set on the server, wins). `manifestProblems` checks the keys, kinds, options and
+  env names; `extensionPointsOf` reports `settings`; `permissionsOf` adds `env:<NAME>` for each
+  `env`. A bundle declaring `settings` needs `apiVersion` ≥ 1.5 (`codeModuleManifestProblems`); a
+  module without `settings` is unaffected and older bundles keep loading.
+- **Store.** Secrets go to the runtime settings' secret store (`studio.settings_secret`, migration
+  0023; `settings-secrets.json` on files) as `module.<id>.<key>`, AES-256-GCM under
+  `WIREHUB_SETTINGS_KEY` with the organisation and the name as additional data, rotated by
+  `rotateSecrets` with the rest. Other values, and when each secret was set, are the owner-only
+  catalog document `data/settings/modules.json` (`values` / `secrets` keyed `<id>.<key>`): in the
+  history and the owner's export, never in anyone else's, never in the git mirror, and refused in a
+  pack (`PACK_HOST_CONTROL_FILES`). Scope: **per organisation**, like every setting (the documents
+  and the secret store are the organisation's; the file backend has one).
+- **API** (`server/module-settings.ts`). `GET /api/settings/runtime` gains `modules`: per module
+  `{ module, title, editable, restricted?, etag, fields }`, each field its declaration plus `source`
+  (`server` | `settings` | `default`) and, for owners, `status` (`configured`, `server` — locked,
+  `missing` — required and unset, `unset`), a secret's `set` / `setAt` / `unreadable`, a plain
+  value's `value` / `saved`. `PUT /api/settings/modules/<id>` `{ values }` (If-Match on the
+  document) replaces the module's plain values; `PUT|DELETE /api/settings/modules/<id>/secrets/<key>`
+  sets or clears a secret outside the router, store first, then the document's marker as its own
+  change set without the body (a failed commit restores the old ciphertext). Owners only, in a
+  signed-in session (403 for editors, viewers and API tokens); a setting the environment sets is
+  refused (409); no settings key: 409 for a secret.
+- **Read.** Routes receive `request.settings` and job queues `context.settings`
+  (`ModuleSettings.get(key)`): the environment override, else the saved value, else `undefined`,
+  as text; only the module's own declared keys. Resolved at each call against the live registry and
+  the live `RuntimeSettings` (which keeps the decrypted secrets and the modules document, refreshed on
+  every catalog notification and by a save before it answers), so a change applies without a
+  restart in every studio process; a job of a module with settings refreshes before it runs, so the
+  worker never runs on a stale key. Module code never reads `process.env` for these.
+- **UI.** Settings → **Module settings**: a section per module with declared settings; secrets set,
+  replaced or cleared with their status shown, never their value; locked fields read-only with the
+  variable named; plain values saved with one button.
+- **Suppliers** (`modules/suppliers`, 0.2.0) is the first user: providers to enable and the Mouser,
+  DigiKey and LCSC credentials, each with its `WIREHUB_SUPPLIERS_*` variable as the locked override.
+- **Not yet:** "Adopt the server's values" (§2.1 of the runtime-settings spec) copies only the base's
+  own settings, not a module's.
+- **Tests.** `packages/modules/test/runtime.test.ts` (declaration, API version, permissions);
+  `apps/studio/test/module-settings.server.test.ts` and `test/pg/module-settings.server.test.ts`
+  run one scenario (`test/module-settings-scenario.ts`): declaration, encryption at rest bound to org
+  and name, never returned, env locked, permissions, a module's route and job reading a secret, a
+  live change (on Postgres seen by a second process), suppliers looking up with a key entered in
+  Settings against a stubbed provider; plus the 0023 name check, the change set without a body,
+  rotation, and no settings key. `test/module-settings.dom.test.tsx`: the page.

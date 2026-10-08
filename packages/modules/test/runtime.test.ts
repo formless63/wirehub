@@ -149,3 +149,66 @@ describe('built-ins with runtime modules', () => {
     expect(composed.registry.modules.map((m) => m.id)).toEqual(['house', 'acme']);
   });
 });
+
+describe('declared module settings (API 1.5)', () => {
+  const keyed = defineModule({
+    id: 'keyed',
+    label: 'Keyed',
+    version: '1.0.0',
+    settings: [
+      { key: 'apiKey', label: 'API key', required: true, gates: 'lookup', env: 'KEYED_API_KEY' },
+      { key: 'providers', label: 'Providers', kind: 'list', options: ['one', 'two'], env: 'KEYED_PROVIDERS' },
+      { key: 'note', label: 'Note', kind: 'text' },
+    ],
+  });
+  it('is its own extension point, and each env override is a permission', () => {
+    expect(extensionPointsOf(keyed)).toEqual(['settings']);
+    expect(permissionsOf(keyed)).toEqual(['server-code', 'env:KEYED_API_KEY', 'env:KEYED_PROVIDERS']);
+    expect(createRegistry([keyed]).module('keyed')?.settings?.map((s) => s.key)).toEqual(['apiKey', 'providers', 'note']);
+  });
+  it('refuses keys, kinds and env names the host cannot keep', () => {
+    const bad = defineModule({
+      id: 'bad',
+      label: 'Bad',
+      version: '1.0.0',
+      settings: [
+        { key: 'api-key', label: 'x' },
+        { key: 'dup', label: 'x', env: 'SAME' },
+        { key: 'dup', label: '', env: 'SAME' },
+        { key: 'file', label: 'x', env: 'KEY_FILE' },
+        { key: 'odd', label: 'x', kind: 'number' as never },
+        { key: 'opts', label: 'x', kind: 'text', options: ['a'] },
+      ],
+    });
+    expect(() => createRegistry([bad])).toThrow(/must be camelCase/);
+    const problems = (() => {
+      try {
+        createRegistry([bad]);
+        return [];
+      } catch (error) {
+        return (error as { problems: string[] }).problems;
+      }
+    })();
+    expect(problems).toEqual(expect.arrayContaining([
+      "module 'bad' setting 'api-key' must be camelCase letters and digits (at most 64)",
+      "module 'bad' has two settings with key 'dup'",
+      "module 'bad' setting 'dup' needs a label",
+      "module 'bad' setting 'file' env must be an upper-case variable name (not a _FILE)",
+      "module 'bad' setting 'odd' kind must be one of secret, text, bool, list",
+      "module 'bad' setting 'opts' options belong to a list of kebab-case words",
+      "module 'bad' names one environment variable for two settings",
+    ]));
+  });
+  it('needs API 1.5 in a bundle, and older modules keep loading', () => {
+    const block = { id: 'keyed', version: '1.0.0', label: 'Keyed', server: 'code/keyed/server.mjs', extensionPoints: ['settings'], permissions: ['server-code', 'env:KEYED_API_KEY', 'env:KEYED_PROVIDERS'] };
+    expect(codeModuleManifestProblems({ ...block, apiVersion: '1.4' })).toEqual(['declared module settings require module API 1.5 or newer']);
+    expect(codeModuleManifestProblems({ ...block, apiVersion: '1.5' })).toEqual([]);
+    expect(runtimeModuleProblems(keyed, { ...block, apiVersion: '1.5' })).toEqual([]);
+    expect(runtimeModuleProblems(keyed, { ...block, apiVersion: '1.5', permissions: ['server-code'] })).toEqual([
+      "it needs the permission 'env:KEYED_API_KEY', which its manifest does not declare",
+      "it needs the permission 'env:KEYED_PROVIDERS', which its manifest does not declare",
+    ]);
+    expect(apiCompatibility('1.4')).toEqual({ ok: true });
+    expect(runtimeModuleProblems(rule, manifest({ apiVersion: '1.4' }))).toEqual([]);
+  });
+});

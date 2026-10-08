@@ -123,7 +123,7 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   const trustKey = store.publisherPublicKey;
   const consent = { code: 'example@0.1.0' };
 
-  expect((await call('nothing installed', 'GET', '/api/code-modules')).body).toMatchObject({ apiVersion: '1.4', allowed: { env: true, settings: true, effective: true }, modules: [] });
+  expect((await call('nothing installed', 'GET', '/api/code-modules')).body).toMatchObject({ apiVersion: '1.5', allowed: { env: true, settings: true, effective: true }, modules: [] });
 
   // refused, nothing written: unsigned, untrusted, the wrong key, an editor, an API this hub does not run
   const unsigned = await call('unsigned', 'POST', '/api/packs/install', { zip: b64(fixture.variant(() => {}, { sign: false })), trustKey });
@@ -152,7 +152,7 @@ export async function codeModuleScenario(backend: CodeBackend): Promise<string[]
   // the preview: what the module may do, and the consent it needs
   const preview = await call('preview', 'POST', '/api/packs/install', { zip: b64(fixture.zip), trustKey });
   expect(preview.status, JSON.stringify(preview.body)).toBe(200);
-  expect(preview.body.code).toMatchObject({ module: { id: 'example', version: '0.1.0', apiVersion: '1.4' }, apply: 'live', consent: 'example@0.1.0', trust: { via: 'pinned', keys: [{ key: trustKey }] } });
+  expect(preview.body.code).toMatchObject({ module: { id: 'example', version: '0.1.0', apiVersion: '1.5' }, apply: 'live', consent: 'example@0.1.0', trust: { via: 'pinned', keys: [{ key: trustKey }] } });
   expect(preview.body.code.permissions).toEqual(['server-code', 'browser-code', 'routes', 'writes', 'jobs', 'sign-in']);
   expect(preview.body.code.warning).toMatch(/runs code in your hub/);
   const noConsent = await call('no consent', 'POST', '/api/packs/install', { zip: b64(fixture.zip), trustKey, apply: true });

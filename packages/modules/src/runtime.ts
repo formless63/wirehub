@@ -22,9 +22,11 @@ import { createRegistry, manifestProblems, type ModuleRegistry, type WireHubModu
 /**
  * The `@wirehub/modules` API a module is built against, `<major>.<minor>`.
  * `1.0` was the build-time-only contract; `1.1` adds runtime loading (nothing a
- * 1.0 module relies on changed); `1.2` adds `revisionSources`. A minor bump adds; a major bump breaks.
+ * 1.0 module relies on changed); `1.2` adds `revisionSources`; `1.3` module SQL migrations; `1.4` `PanelProps.onChange`;
+ * `1.5` declared module settings (`WireHubModule.settings`, read through `request.settings` /
+ * `context.settings`). A minor bump adds; a major bump breaks.
  */
-export const MODULE_API_VERSION = '1.4';
+export const MODULE_API_VERSION = '1.5';
 
 const API_VERSION = /^(\d+)\.(\d+)$/;
 
@@ -62,6 +64,7 @@ export const EXTENSION_POINTS = [
   'art',
   'bench',
   'migrations',
+  'settings',
 ] as const;
 
 export type ExtensionPoint = (typeof EXTENSION_POINTS)[number];
@@ -99,6 +102,7 @@ export function extensionPointsOf(m: WireHubModule): ExtensionPoint[] {
     art: m.art !== undefined && (some(m.art.connectors) || some(m.art.bodyLayouts) || m.art.drawing !== undefined),
     bench: m.bench !== undefined,
     migrations: m.migrations !== undefined,
+    settings: some(m.settings),
   };
   return EXTENSION_POINTS.filter((p) => used[p]);
 }
@@ -119,7 +123,8 @@ export function applyModeOf(points: readonly string[]): 'live' | 'restart' {
  * - `writes` — has a route that changes catalog data (takes the write lock)
  * - `jobs` — runs background jobs (its own queues)
  * - `sign-in` — adds a sign-in method
- * - `env:<NAME>` — reads the server environment variable NAME
+ * - `env:<NAME>` — reads the server environment variable NAME (also a declared
+ *   setting's `env` override, which the host reads on the module's behalf)
  */
 export const PERMISSIONS = ['server-code', 'browser-code', 'routes', 'writes', 'jobs', 'sign-in', 'database-schema'] as const;
 
@@ -138,6 +143,7 @@ export function permissionsOf(m: WireHubModule, options: { browser?: boolean } =
     if (some(integration.queues)) out.add('jobs');
     for (const name of integration.env ?? []) out.add(`env:${name}`);
   }
+  for (const setting of m.settings ?? []) if (setting.env !== undefined) out.add(`env:${setting.env}`);
   for (const provider of m.authProviders ?? []) {
     out.add('sign-in');
     for (const [key, value] of Object.entries(provider.config ?? {})) {
@@ -210,6 +216,7 @@ export function codeModuleManifestProblems(value: unknown): string[] {
     for (const p of points) if (!(EXTENSION_POINTS as readonly string[]).includes(p)) problems.push(`'${p}' is not an extension point`);
     for (const p of RUNTIME_REFUSED_POINTS) if (points.includes(p)) problems.push(`a module installed at runtime cannot use '${p}'`);
   }
+  if (Array.isArray(points) && points.includes('settings') && (typeof m['apiVersion'] !== 'string' || !/^1\.(?:[5-9]|[1-9]\d+)$/.test(m['apiVersion']))) problems.push('declared module settings require module API 1.5 or newer');
   const migrations = m['migrations'];
   if (Array.isArray(points) && points.includes('migrations')) {
     if (typeof m['apiVersion'] !== 'string' || !/^1\.(?:[3-9]|[1-9]\d+)$/.test(m['apiVersion'])) problems.push('SQL migrations require module API 1.3 or newer');

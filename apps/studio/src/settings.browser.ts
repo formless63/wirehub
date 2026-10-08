@@ -285,8 +285,45 @@ export interface RuntimeGroupView {
   fields: RuntimeFieldView[];
 }
 
+/** One field a module declares (`server/module-settings.ts`); a secret is never sent back, only whether it is set. */
+export interface ModuleFieldView {
+  key: string;
+  label: string;
+  help: string;
+  kind: 'secret' | 'text' | 'bool' | 'list';
+  secret?: true;
+  multiline?: true;
+  options?: string[];
+  required?: true;
+  /** the provider or feature it enables */
+  gates?: string;
+  /** the server variable that, when set, wins (shown locked) */
+  env?: string;
+  source: 'server' | 'settings' | 'default';
+  /** owners: configured, from the server (locked), missing (required and unset) or unset */
+  status?: 'configured' | 'server' | 'missing' | 'unset';
+  value?: RuntimeValue;
+  saved?: RuntimeValue;
+  set?: boolean;
+  unreadable?: true;
+  setAt?: string;
+}
+
+/** The settings one installed module declares (module API 1.5), in Settings → Module settings. */
+export interface ModuleSettingsView {
+  module: string;
+  title: string;
+  editable: boolean;
+  restricted?: true;
+  /** the ETag of the module settings document (shared by every module's section) */
+  etag: string;
+  fields: ModuleFieldView[];
+}
+
 export interface RuntimeSettingsView {
   groups: RuntimeGroupView[];
+  /** the settings installed modules declare; absent from an older server */
+  modules?: ModuleSettingsView[];
   /** `keyRing` (owners only): previous keys the server still reads with, and the stored secrets not yet under the current key */
   secrets: { available: boolean; note?: string; keyRing?: { previousKeys: number; stale: number; unreadable: number } };
   /** owners only: the settings the server's environment sets that Settings does not yet hold the same value for */
@@ -323,6 +360,14 @@ export const saveRuntimeGroup = (group: string, values: Record<string, RuntimeVa
 /** Set a secret (write-only), or clear it with `undefined`. */
 export const saveRuntimeSecret = (key: string, value: string | undefined, base = '/api'): Promise<Outcome<{ key: string; set: boolean }>> =>
   request<{ key: string; set: boolean }>(`${base}/settings/secrets/${encodeURIComponent(key)}`, value === undefined ? { method: 'DELETE' } : { method: 'PUT', body: { value } });
+
+/** Replace one module's non-secret settings (a key left out is unset). */
+export const saveModuleSettings = (module: string, values: Record<string, RuntimeValue>, etag: string, base = '/api'): Promise<Outcome<unknown>> =>
+  request<unknown>(`${base}/settings/modules/${encodeURIComponent(module)}`, { method: 'PUT', body: { values }, headers: { 'if-match': etag } });
+
+/** Set a module's secret (write-only), or clear it with `undefined`. */
+export const saveModuleSecret = (module: string, key: string, value: string | undefined, base = '/api'): Promise<Outcome<{ module: string; key: string; set: boolean }>> =>
+  request<{ module: string; key: string; set: boolean }>(`${base}/settings/modules/${encodeURIComponent(module)}/secrets/${encodeURIComponent(key)}`, value === undefined ? { method: 'DELETE' } : { method: 'PUT', body: { value } });
 
 export const runtimeSettingsQuery = {
   queryKey: runtimeSettingsKey,

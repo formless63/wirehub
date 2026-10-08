@@ -87,6 +87,7 @@ no environment variable, so there is nothing for the server to pin):
 | Part numbers (`docs/part-numbers.md`) | `data/part-numbers.json` | owner or editor; adopting a pack's offered scheme is an owner's confirmation | `/api/settings/part-numbers` |
 | Validation rules (`docs/validation-rules.md`) | `data/validation-rules.json` | owner or editor | `/api/rules` |
 | Webhooks (`docs/webhooks.md`) | `data/settings/webhooks.json` | owner (session only) | `/api/settings/webhooks` |
+| Module settings (`specs/runtime-modules.md` §8) | `data/settings/modules.json` | owner (session only) | `/api/settings/modules/<module>` |
 
 The first two are catalog records a data pack may also ship. The webhooks document is owner-only
 like the groups above (it is in `OWNER_ONLY_SETTINGS_PATHS`, so §2.2 applies to it), and a
@@ -140,6 +141,11 @@ outbound event webhook's signing secret (`webhook.wh<id>`, created with the subs
   (`WIREHUB_ROTATE_SETTINGS_KEY=1`, the old one retired into `settings_key_previous`) and drops the
   retired ones (`WIREHUB_DROP_PREVIOUS_SETTINGS_KEYS=1`). The operator's procedure is in
   `docs/self-hosting.md`, "Rotating the settings key".
+- **Module secrets (cs-nws, module API 1.5).** A runtime or built-in module may declare settings
+  (`WireHubModule.settings`); its secrets are rows of the same store named `module.<module id>.<key>`
+  (migration 0023 widens the name check), under the same cipher, additional data, key ring and
+  rotation, and its plain values and set-times are the owner-only document `data/settings/modules.json`
+  (`specs/runtime-modules.md` §8). Settings → Module settings is their page.
 - Backups: the ciphertext is in the database dump; the key is in the `secrets` volume. Keep a
   copy of `settings_key` with the restic password, or re-enter the secrets after a restore.
 
@@ -152,6 +158,9 @@ PUT    /api/settings/secrets/<key>      { value } — write-only
 DELETE /api/settings/secrets/<key>
 POST   /api/settings/adopt              copy the server's values into Settings (owner, signed in) → { adopted, skipped }
 POST   /api/settings/rotate-key         re-encrypt every stored secret under the current key (owner, signed in) → { total, rotated, current, skipped, unreadable, previousKeys }
+PUT    /api/settings/modules/<module>   { values } — a module's declared non-secret settings (owner, signed in; If-Match)
+PUT    /api/settings/modules/<module>/secrets/<key>   { value } — a module's declared secret, write-only
+DELETE /api/settings/modules/<module>/secrets/<key>
 ```
 
 ## 6. Live apply
@@ -172,3 +181,4 @@ fallback, and a save refreshes its own process before it answers. Then:
 | Model build window | read at each run; the worker re-schedules the nightly sweep |
 | Import size limit | read at each upload |
 | Backup alert age | read by the deep health check and the backup watch at each run |
+| Module settings | read by the module at each lookup (`request.settings.get`, `context.settings.get`); a job of a module that declares settings refreshes them first |

@@ -1,6 +1,6 @@
 {
   "name": "@wirehub/module-suppliers",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "license": "MIT",
   "private": true,
   "description": "Optional supplier quotes and procurement reports for WireHub",

@@ -206,6 +206,8 @@ export interface ServerRouteContribution {
     user?: { name: string; email?: string };
     /** this module's job queues (absent where the studio runs no jobs) */
     jobs?: ModuleJobs;
+    /** this module's declared settings (`WireHubModule.settings`, API 1.5; absent on an older host) */
+    settings?: ModuleSettings;
   }): Promise<{ status: number; body: unknown }>;
 }
 
@@ -220,6 +222,8 @@ export interface JobQueueContext {
   step(text: string): Promise<void>;
   /** the catalog as it is when the job starts (read only: catalog writes go through the module's routes and importers) */
   db(): Promise<Db>;
+  /** this module's declared settings (`WireHubModule.settings`, API 1.5; absent on an older host) */
+  settings?: ModuleSettings;
 }
 
 /**
@@ -256,6 +260,51 @@ export interface IntegrationContribution {
   routes?: readonly ServerRouteContribution[];
   /** job queues of this module (run by the worker; see `JobQueueContribution`) */
   queues?: readonly JobQueueContribution[];
+}
+
+/**
+ * A setting a module declares (API 1.5, `docs/modules.md`, "Module settings"): most often a
+ * credential (an API key, a client secret) an owner enters in Settings → Module settings instead
+ * of the deployment's environment. The host keeps a secret encrypted with the hub's settings
+ * key, write-only (it never goes back to a browser), per organisation; a non-secret value is
+ * kept in the owner-only document `data/settings/modules.json`. When `env` names a variable
+ * and the server's environment sets it, that value wins and the page shows it locked.
+ */
+export interface ModuleSettingContribution {
+  /** camelCase, unique within the module: `mouserKey` */
+  key: string;
+  label: string;
+  /** one or two sentences under the field */
+  help?: string;
+  /**
+   * `secret` (the default): encrypted, write-only; `text`: one line; `bool`: on or off;
+   * `list`: some of `options` (or free words without options)
+   */
+  kind?: 'secret' | 'text' | 'bool' | 'list';
+  /** a secret pasted as several lines (a PEM key) */
+  multiline?: boolean;
+  /** `list`: the words that may be chosen */
+  options?: readonly string[];
+  /** the module cannot do what `gates` names without it; Settings shows it as missing */
+  required?: boolean;
+  /** the provider or feature this setting enables or unlocks: `mouser` */
+  gates?: string;
+  /** an environment variable that sets it on the server and wins (`WIREHUB_SUPPLIERS_MOUSER_KEY`); it also reads `<NAME>_FILE` */
+  env?: string;
+}
+
+/**
+ * A module's view of its own declared settings, given to its routes (`request.settings`)
+ * and job queues (`context.settings`). Module server code reads its credentials here, never
+ * from `process.env`: the host resolves the environment override, the encrypted store and
+ * the saved values, and a change in Settings is seen by the next `get` (no restart).
+ */
+export interface ModuleSettings {
+  /**
+   * The value now in effect, as text (a list comma-separated, a flag `true`/`false`), or
+   * `undefined` when nothing sets it. Only this module's declared keys answer.
+   */
+  get(key: string): Promise<string | undefined>;
 }
 
 export type PanelSlot = 'cable-inspector' | 'cable-documents' | 'library-detail' | 'settings';
@@ -500,6 +549,8 @@ export interface WireHubModule {
   bench?: BenchContribution;
   /** SQL for the module's own tables on the Postgres backend */
   migrations?: ModuleMigrationsContribution;
+  /** settings (mostly credentials) an owner enters in Settings → Module settings (API 1.5) */
+  settings?: readonly ModuleSettingContribution[];
 }
 
 /** Identity helper so a module file type-checks its own literal. */
@@ -561,6 +612,9 @@ const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DERIVED_FILE = /^[a-z0-9][a-z0-9-]*\.(json|md)$/;
 const CRON_FIELD = /^[0-9*,/\-A-Za-z]+$/;
 const ROUTE_PATH = /^[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*$/;
+const SETTING_KEY = /^[a-z][A-Za-z0-9]{0,63}$/;
+const SETTING_ENV = /^[A-Z][A-Z0-9_]*$/;
+const SETTING_KINDS: readonly string[] = ['secret', 'text', 'bool', 'list'];
 
 /** Why a manifest is unusable — thrown by `createRegistry`, one sentence per problem. */
 export class ModuleManifestError extends Error {
@@ -634,6 +688,18 @@ export function manifestProblems(modules: readonly WireHubModule[]): string[] {
       if (sources.has(source.id)) problems.push(`module '${m.id}' has two revision sources with id '${source.id}'`);
       sources.add(source.id);
     }
+    const settingKeys = new Set<string>();
+    for (const setting of m.settings ?? []) {
+      if (typeof setting.key !== 'string' || !SETTING_KEY.test(setting.key)) problems.push(`module '${m.id}' setting '${String(setting.key)}' must be camelCase letters and digits (at most 64)`);
+      if (settingKeys.has(setting.key)) problems.push(`module '${m.id}' has two settings with key '${setting.key}'`);
+      settingKeys.add(setting.key);
+      if (typeof setting.label !== 'string' || setting.label.trim() === '') problems.push(`module '${m.id}' setting '${setting.key}' needs a label`);
+      if (setting.kind !== undefined && !SETTING_KINDS.includes(setting.kind)) problems.push(`module '${m.id}' setting '${setting.key}' kind must be one of ${SETTING_KINDS.join(', ')}`);
+      if (setting.env !== undefined && (!SETTING_ENV.test(setting.env) || setting.env.endsWith('_FILE'))) problems.push(`module '${m.id}' setting '${setting.key}' env must be an upper-case variable name (not a _FILE)`);
+      if (setting.options !== undefined && (setting.kind !== 'list' || !setting.options.every((o) => typeof o === 'string' && KEBAB.test(o)))) problems.push(`module '${m.id}' setting '${setting.key}' options belong to a list of kebab-case words`);
+    }
+    const settingEnvs = (m.settings ?? []).flatMap((s) => (s.env === undefined ? [] : [s.env]));
+    if (new Set(settingEnvs).size !== settingEnvs.length) problems.push(`module '${m.id}' names one environment variable for two settings`);
     const panels = new Set<string>();
     for (const panel of m.panels ?? []) {
       if (panels.has(panel.id)) problems.push(`module '${m.id}' has two panels with id '${panel.id}'`);

@@ -165,7 +165,12 @@ export const OWNER_ONLY_SETTINGS_PATHS: readonly string[] = [
   ...SETTING_GROUPS.filter((g) => g.role === 'owner').map((g) => g.path),
   // the outbound webhook subscriptions (`webhooks/subscriptions.ts`): URLs of outside systems, owner-only like the groups
   'data/settings/webhooks.json',
+  // the settings modules declare (`module-settings.ts`): their values and when each module secret was set
+  'data/settings/modules.json',
 ];
+
+/** The document of the settings modules declare (`module-settings.ts`): `<module>.<key>` values, and when each module secret was set. */
+export const MODULE_SETTINGS_PATH = 'data/settings/modules.json';
 
 /** Whether `path` (`data/settings/sign-in.json`, or the same without `data/`) is an owner-only settings document. */
 export const isOwnerOnlySettingsPath = (path: string): boolean => OWNER_ONLY_SETTINGS_PATHS.some((p) => path === p || p === `data/${path}`);
@@ -248,6 +253,10 @@ export interface RuntimeSettings {
   follow(events: EventHub | undefined): () => void;
   /** which secrets are stored, and whether they decrypt */
   secretStates(): Readonly<Record<string, SecretState>>;
+  /** a stored secret's plain text as of the last refresh (`module.<id>.<key>` for a module's; server code only, never an API answer) */
+  secret(name: string): string | undefined;
+  /** the module settings document (`MODULE_SETTINGS_PATH`) as of the last refresh */
+  moduleDoc(): SettingsDoc | undefined;
   /** what could not be applied, in words (a secret that does not decrypt, a sign-in that did not rebuild …) */
   problems(): readonly string[];
   /** add a reader's own problem (the live sign-in's) to `problems()` */
@@ -262,6 +271,8 @@ export function createRuntimeSettings(options: RuntimeSettingsOptions): RuntimeS
   let current: Env = options.env;
   let version = 0;
   let states: Record<string, SecretState> = {};
+  let secretValues: Record<string, string> = {};
+  let modules: SettingsDoc | undefined;
   let problems: string[] = [];
   const listeners = new Set<(env: Env) => void>();
   const sources: (() => string | undefined)[] = [];
@@ -279,6 +290,13 @@ export function createRuntimeSettings(options: RuntimeSettingsOptions): RuntimeS
         found.push(`${group.title}: the saved settings could not be read (${error instanceof Error ? error.message : String(error)}).`);
       }
     }
+    let nextModules: SettingsDoc | undefined;
+    try {
+      const raw = docs === undefined ? undefined : await docs.read(MODULE_SETTINGS_PATH);
+      nextModules = raw !== null && typeof raw === 'object' && !Array.isArray(raw) ? (raw as SettingsDoc) : undefined;
+    } catch (error) {
+      found.push(`Module settings: the saved settings could not be read (${error instanceof Error ? error.message : String(error)}).`);
+    }
     const plain: Record<string, string> = {};
     const nextStates: Record<string, SecretState> = {};
     const store = options.secrets();
@@ -293,7 +311,7 @@ export function createRuntimeSettings(options: RuntimeSettingsOptions): RuntimeS
         const value = options.cipher?.decrypt(options.org(), name, ciphertext);
         if (value === undefined) {
           nextStates[name] = 'unreadable';
-          const label = SETTING_FIELDS.find((f) => f.key === name)?.label ?? name;
+          const label = SETTING_FIELDS.find((f) => f.key === name)?.label ?? (name.startsWith('module.') ? `The module setting ${name.slice('module.'.length)}` : name);
           found.push(
             options.cipher === undefined
               ? `${label} is saved, but this server has no settings key (WIREHUB_SETTINGS_KEY) to read it with.`
@@ -307,6 +325,8 @@ export function createRuntimeSettings(options: RuntimeSettingsOptions): RuntimeS
     }
     const next = overlayEnv(options.env, read, plain);
     states = nextStates;
+    secretValues = plain;
+    modules = nextModules;
     if (problems.join('\n') !== found.join('\n')) for (const line of found) log(`[settings] ${line}`);
     problems = found;
     if (!sameEnv(next, current)) {
@@ -359,6 +379,8 @@ export function createRuntimeSettings(options: RuntimeSettingsOptions): RuntimeS
       });
     },
     secretStates: () => states,
+    secret: (name) => secretValues[name],
+    moduleDoc: () => modules,
     problems: () => [...problems, ...sources.map((source) => source()).filter((line): line is string => line !== undefined)],
     reportFrom(source) {
       sources.push(source);

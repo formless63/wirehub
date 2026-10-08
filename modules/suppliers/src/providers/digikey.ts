@@ -28,9 +28,9 @@ function productUrl(value: unknown): string | undefined {
 }
 
 export const digiKeyAdapter: SupplierAdapter = async (request, context) => {
-  const clientId = context.env.WIREHUB_SUPPLIERS_DIGIKEY_CLIENT_ID;
-  const secret = context.env.WIREHUB_SUPPLIERS_DIGIKEY_CLIENT_SECRET;
-  const account = context.env.WIREHUB_SUPPLIERS_DIGIKEY_ACCOUNT_ID;
+  const clientId = context.credentials.digikeyClientId;
+  const secret = context.credentials.digikeyClientSecret;
+  const account = context.credentials.digikeyAccountId;
   if (!clientId?.trim() || !secret?.trim() || !account?.trim()) throw new Error('DigiKey credentials are not configured.');
   try {
     const token = object(await jsonRequest('https://api.digikey.com/v1/oauth2/token', {

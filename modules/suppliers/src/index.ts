@@ -1,11 +1,13 @@
 /** Optional runtime module; installed and enabled explicitly by a deployment. */
 import { defineModule } from '@wirehub/modules';
 import { importQuote, requirementsCsv } from './logic.ts';
-import { supplierIntegration } from './server.ts';
+import { SUPPLIER_SETTINGS, supplierIntegration } from './server.ts';
 import { DocumentsPanel, LibraryPanel, ProcurementPage, SettingsPanel } from './ui.ts';
 
 export const suppliers = defineModule({
-  id: 'suppliers', label: 'Suppliers', version: '0.1.1', license: 'MIT',
+  id: 'suppliers', label: 'Suppliers', version: '0.2.0', license: 'MIT',
+  // provider credentials and which providers are on: entered by an owner in Settings → Module settings
+  settings: SUPPLIER_SETTINGS,
   integrations: [supplierIntegration],
   importers: [{ id: 'selected-quote', label: 'Selected supplier quote (review cost update)', accepts: ['.supplier-quote.json'], import: importQuote }],
   exporters: [{ id: 'requirements-csv', label: 'Procurement requirements (CSV)', description: 'Cable BOM purchasing quantities, without supplier refresh or automatic substitutions.', render: (design, db, options) => ({ mimeType: 'text/csv', fileName: `${design.id}-procurement.csv`, body: requirementsCsv(design, db, options?.['builds'] === undefined ? 1 : Number(options['builds'])) }) }],
