@@ -28,7 +28,8 @@ exports[`dc-led-lead > the CSV exports match their snapshots > continuity.json 1
   "version": 1,
   "design": {
     "id": "dc-led-lead",
-    "label": "Terminal block → JST XH 2-pin, LED supply lead with series resistor"
+    "label": "Terminal block → JST XH 2-pin, LED supply lead with series resistor",
+    "productRef": "CBL-00003"
   },
   "parameters": {
     "continuityOhmsMax": 5,
@@ -192,7 +193,8 @@ exports[`dc-pigtail-lead > the CSV exports match their snapshots > continuity.js
   "version": 1,
   "design": {
     "id": "dc-pigtail-lead",
-    "label": "JST XH 2-pin → flying leads, DC pigtail lead"
+    "label": "JST XH 2-pin → flying leads, DC pigtail lead",
+    "productRef": "CBL-00005"
   },
   "parameters": {
     "continuityOhmsMax": 5,
@@ -311,8 +313,8 @@ w1,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",black,core,black,j1.2,,,,3
 
 exports[`dc-y-from-leads > the CSV exports match their snapshots > bom.csv 1`] = `
 "section,part_number,description,quantity,unit,location,instances,variation_pn,notes
-Sub-assemblies,,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,first output,lead-1,,design dc-pigtail-lead · working copy (not frozen) · built to its own build sheet
-Sub-assemblies,,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,second output,lead-2,,design dc-pigtail-lead · working copy (not frozen) · built to its own build sheet
+Sub-assemblies,CBL-00005,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,first output,lead-1,,design dc-pigtail-lead · working copy (not frozen) · built to its own build sheet
+Sub-assemblies,CBL-00005,"JST XH 2-pin → flying leads, DC pigtail lead",1,ea,second output,lead-2,,design dc-pigtail-lead · working copy (not frozen) · built to its own build sheet
 Connectors,CON-00011,"Terminal block, 4-way, 5.08 mm",1,ea,supply terminal block,j1,,"4 pins · attaches: sub-assemblies lead-1, lead-2"
 "
 `;
@@ -337,7 +339,8 @@ exports[`dc-y-from-leads > the CSV exports match their snapshots > continuity.js
   "version": 1,
   "design": {
     "id": "dc-y-from-leads",
-    "label": "Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads"
+    "label": "Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads",
+    "productRef": "CBL-00006"
   },
   "parameters": {
     "continuityOhmsMax": 5,
@@ -526,7 +529,8 @@ exports[`dc-y-splitter > the CSV exports match their snapshots > continuity.json
   "version": 1,
   "design": {
     "id": "dc-y-splitter",
-    "label": "Terminal block → moulded Y → 2× JST XH, two-channel DC splitter"
+    "label": "Terminal block → moulded Y → 2× JST XH, two-channel DC splitter",
+    "productRef": "CBL-00004"
   },
   "parameters": {
     "continuityOhmsMax": 5,
@@ -786,7 +790,8 @@ exports[`de9-crossover > the CSV exports match their snapshots > continuity.json
   "version": 1,
   "design": {
     "id": "de9-crossover",
-    "label": "DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks"
+    "label": "DE-9 → DE-9, crossover lead (2 ↔ 3) with local loopbacks",
+    "productRef": "CBL-00001"
   },
   "parameters": {
     "continuityOhmsMax": 5,
@@ -1141,7 +1146,8 @@ exports[`de9-terminal-board > the CSV exports match their snapshots > continuity
   "version": 1,
   "design": {
     "id": "de9-terminal-board",
-    "label": "DE-9 → terminal adapter board, terminated pair"
+    "label": "DE-9 → terminal adapter board, terminated pair",
+    "productRef": "CBL-00002"
   },
   "parameters": {
     "continuityOhmsMax": 5,

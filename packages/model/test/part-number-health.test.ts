@@ -18,16 +18,25 @@ describe('part-number health on the starter catalog', () => {
     expect(validateDb(db).filter((i) => i.code === 'pn-duplicate')).toEqual([]);
   });
 
+  it('numbers every part and design of the starter', () => {
+    expect(partNumberReport(db, designs, {}).unnumbered).toEqual([]);
+  });
+
   it('lists the unnumbered parts and designs, each with a suggestion that does not repeat another', () => {
-    const report = partNumberReport(db, designs, {});
+    // the starter is fully numbered: strip a few numbers to see the report list them
+    const copy = clone();
+    delete copy.wires[0]!.partNumber;
+    delete copy.components[0]!.partNumber;
+    const bare = designs.map((d, i) => (i < 2 ? { ...d, productRef: undefined } : d)) as typeof designs;
+    const report = partNumberReport(copy, bare, {});
     const unnumbered = report.unnumbered;
     expect(unnumbered.length).toBeGreaterThan(0);
     const designRows = unnumbered.filter((u) => u.kind === 'design');
-    expect(designRows.map((u) => u.id).sort()).toEqual(designs.filter((d) => d.productRef === undefined).map((d) => d.id).sort());
+    expect(designRows.map((u) => u.id).sort()).toEqual(bare.filter((d) => d.productRef === undefined).map((d) => d.id).sort());
     const suggested = unnumbered.map((u) => u.suggestion!.pn);
     expect(new Set(suggested).size).toBe(suggested.length);
     // a part that has a number is not listed
-    expect(unnumbered.some((u) => u.where === 'wires/' + db.wires.find((w) => w.partNumber !== undefined)!.id)).toBe(false);
+    expect(unnumbered.some((u) => u.where === 'wires/' + copy.wires.find((w) => w.partNumber !== undefined)!.id)).toBe(false);
   });
 
   it('a drawing number counts for its design', () => {

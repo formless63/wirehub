@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "de9-terminal-board",
   "label": "DE-9 → terminal adapter board, terminated pair",
+  "productRef": "CBL-00002",
   "instances": {
     "connectors": [
       {
@@ -154,5 +155,5 @@
   "notes": [
     "w1:pair-2.b@b is cut back and insulated at the board — the supply on pin 6 is not used when JP1 terminates on the board."
   ],
-  "src": "synthetic example: a numbered DE-9 (pair on 3 and 8, common on 5, supply on 6) to a small terminal-block board carrying a jumper-selected 120 Ω termination; shield drained at both ends"
+  "src": "synthetic example: a numbered DE-9 (pair on 3 and 8, common on 5, supply on 6) to a small terminal-block board carrying a jumper-selected 120 Ω termination; shield drained at both ends; part number: synthetic example (CBL- prefix scheme)"
 }

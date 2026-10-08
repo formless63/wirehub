@@ -43,14 +43,23 @@ afterEach(() => {
 });
 
 describe('part-number report', () => {
-  it('lists the starter catalog\'s unnumbered cables and parts with a suggestion each, and no duplicates', async () => {
+  it('finds every starter cable and part numbered, and no duplicates', async () => {
     serve();
     mount();
     const unnumbered = await screen.findByTestId('pn-unnumbered');
-    expect(within(unnumbered).getAllByRole('row').length).toBeGreaterThan(2);
-    expect(within(unnumbered).getAllByText(/^[A-Z]+-\d+$/).length).toBeGreaterThan(0);
+    expect(unnumbered.textContent).toContain('Everything the scheme numbers has a number.');
     expect(screen.getByTestId('pn-duplicates').textContent).toContain('Every number names one part.');
     expect(screen.getByTestId('pn-disagreements').textContent).toContain('match');
+  });
+
+  it('lists a part without a number, with a suggestion', async () => {
+    serve((db) => {
+      delete db.wires.find((w) => w.partNumber !== undefined)!.partNumber;
+    });
+    mount();
+    const unnumbered = await screen.findByTestId('pn-unnumbered');
+    await vi.waitFor(() => expect(within(unnumbered).getAllByRole('row').length).toBeGreaterThan(1));
+    expect(within(unnumbered).getAllByText(/^[A-Z]+-\d+$/).length).toBeGreaterThan(0);
   });
 
   it('lists a number used twice, naming both places', async () => {

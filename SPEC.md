@@ -509,7 +509,7 @@ AGPL-3.0-only with the module exception.
 | components (4) | 150 Ω and 120 Ω resistors, 100 nF capacitor, red 5 mm LED |
 | mechanicals (6), kits (1) | DE-9 backshell, 4-40 jackscrews, moulded Y body, heat-shrink, an XH-series crimp socket contact and its hand crimp tool; a backshell kit |
 | PCBAs (1) | `pair-terminal-board`: cable pads to a 4-way terminal block with a jumper-selected 120 Ω termination across one pair |
-| designs (6) | `de9-crossover` (2 ↔ 3 crossed, loopbacks, a pigtail), `de9-terminal-board` (board + termination), `dc-led-lead` (inline resistor; a length-family drawing; crimp contacts in the JST XH housing), `dc-y-splitter` (breakout), `dc-pigtail-lead` (a JST XH lead with flying leads, made to be placed) and `dc-y-from-leads` (a Y built from two of them as sub-assemblies, schema v5) |
+| designs (6) | `de9-crossover` (2 ↔ 3 crossed, loopbacks, a pigtail), `de9-terminal-board` (board + termination), `dc-led-lead` (inline resistor; crimp contacts in the JST XH housing), `dc-y-splitter` (breakout), `dc-pigtail-lead` (a JST XH lead with flying leads, made to be placed) and `dc-y-from-leads` (a Y built from two of them as sub-assemblies, schema v5) |
 | vocab (19 lists) | signals (power, ground and the none kinds only — **no domain**), levels, lanes, colour codes, pad roles, families, genders, locations, materials, constructions, core kinds, colours, component kinds, conditioning, sources, manufacturers, connector constructions / mountings / sourcing |
 
 **Domain modules** (`modules/`, `docs/modules.md`) bring the vocabulary and records of one

@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "dc-pigtail-lead",
   "label": "JST XH 2-pin → flying leads, DC pigtail lead",
+  "productRef": "CBL-00005",
   "instances": {
     "connectors": [
       {
@@ -59,5 +60,5 @@
   "notes": [
     "Flying end: w1:red@b and w1:black@b are stripped and tinned, left free — the design that places this lead as a sub-assembly lands them."
   ],
-  "src": "synthetic example: a 300 mm 2 × 24 AWG lead with a 2-pin JST XH socket housing at one end and stripped, tinned flying leads at the other, made to be placed as a sub-assembly"
+  "src": "synthetic example: a 300 mm 2 × 24 AWG lead with a 2-pin JST XH socket housing at one end and stripped, tinned flying leads at the other, made to be placed as a sub-assembly; part number: synthetic example (CBL- prefix scheme)"
 }

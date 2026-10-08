@@ -76,7 +76,7 @@ export async function runDeclarativePackFlow({ call }: PackFlowHooks): Promise<v
   expect(rules.body.rules.map((r: any) => [r.id, r.origin, r.pack])).toEqual([['pack-no-bare-design', 'pack', 'rules-pack']]);
   const db = (await call('GET', '/api/db')).body as Db;
   expect(db.validationRules?.map((r) => r.id)).toEqual(['pack-no-bare-design']);
-  const design = (await call('GET', '/api/designs/de9-crossover')).body as CableDesign;
+  const { productRef: _numbered, ...design } = (await call('GET', '/api/designs/de9-crossover')).body as CableDesign;
   const issues = validateDesign(design, db).filter((i) => i.code === 'rule:pack-no-bare-design');
   expect(issues).toEqual([{ code: 'rule:pack-no-bare-design', severity: 'warning', message: 'de9-crossover has no product reference', where: 'de9-crossover' }]);
 

@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "dc-led-lead",
   "label": "Terminal block → JST XH 2-pin, LED supply lead with series resistor",
+  "productRef": "CBL-00003",
   "instances": {
     "connectors": [
       {
@@ -107,5 +108,5 @@
       }
     }
   ],
-  "src": "synthetic example: a 5 V supply from terminal block positions 1 (+) and 2 (0 V) through a 150 Ω series resistor, under heat-shrink, to a 2-pin JST XH LED module connector"
+  "src": "synthetic example: a 5 V supply from terminal block positions 1 (+) and 2 (0 V) through a 150 Ω series resistor, under heat-shrink, to a 2-pin JST XH LED module connector; part number: synthetic example (CBL- prefix scheme)"
 }

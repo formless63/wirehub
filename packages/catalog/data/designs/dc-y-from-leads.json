@@ -2,6 +2,7 @@
   "schemaVersion": 5,
   "id": "dc-y-from-leads",
   "label": "Terminal block → 2 × JST XH 2-pin, DC Y built from two pigtail leads",
+  "productRef": "CBL-00006",
   "instances": {
     "connectors": [
       {
@@ -70,5 +71,5 @@
       }
     }
   ],
-  "src": "synthetic example: two dc-pigtail-lead sub-assemblies whose flying leads share terminal block positions 1 (+V) and 2 (0 V) — a Y split built from reusable leads"
+  "src": "synthetic example: two dc-pigtail-lead sub-assemblies whose flying leads share terminal block positions 1 (+V) and 2 (0 V) — a Y split built from reusable leads; part number: synthetic example (CBL- prefix scheme)"
 }

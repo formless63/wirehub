@@ -181,10 +181,11 @@ describe('bounds and safety', () => {
 describe('inside validateDesign and validateDb', () => {
   it('a design rule is an issue of validateDesign, with its severity', () => {
     const r = rule({ id: 'tagged-needs-pn', severity: 'error', each: 'design', where: { contains: [{ path: 'tags' }, 'release'] }, require: { exists: { path: 'productRef' } }, message: '{id} is tagged release but has no product reference' });
-    const d = { ...design('de9-crossover'), tags: ['release'] };
+    const { productRef: _numbered, ...bare } = design('de9-crossover');
+    const d = { ...bare, tags: ['release'] };
     const issues = validateDesign(d, withRules([r])).filter((i) => i.code.startsWith('rule:'));
     expect(issues).toEqual([{ code: 'rule:tagged-needs-pn', severity: 'error', message: 'de9-crossover is tagged release but has no product reference', where: 'de9-crossover' }]);
-    expect(validateDesign(design('de9-crossover'), withRules([r])).filter((i) => i.code.startsWith('rule:'))).toEqual([]);
+    expect(validateDesign({ ...design('de9-crossover'), tags: ['release'] }, withRules([r])).filter((i) => i.code.startsWith('rule:'))).toEqual([]);
   });
 
   it('a library rule runs in validateDb over definitions', () => {

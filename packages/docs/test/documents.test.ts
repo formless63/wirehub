@@ -46,10 +46,11 @@ describe('the BOM against the numbering scheme', () => {
   });
 
   it('proposes a product number for a design that has none, from the scheme', () => {
-    const sheet = deriveBomSheet(loadDesign('dc-led-lead'), db, {
+    const { productRef: _numbered, ...bare } = loadDesign('dc-led-lead');
+    const sheet = deriveBomSheet(bare, db, {
       partNumbers: { scheme: DEFAULT_PART_NUMBER_SCHEME, known: knownPartNumbers(db, loadDesigns()) },
     });
-    expect(sheet.productProposal?.pn).toBe('CBL-00001');
+    expect(sheet.productProposal?.pn).toBe('CBL-00007');
   });
 
   it('the markdown BOM names the parts by part number', () => {

@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "dc-y-splitter",
   "label": "Terminal block → moulded Y → 2× JST XH, two-channel DC splitter",
+  "productRef": "CBL-00004",
   "instances": {
     "connectors": [
       {
@@ -293,5 +294,5 @@
   "notes": [
     "w1:foil@a and w1:drain@a are cut back at the terminal block — the screen is not used."
   ],
-  "src": "synthetic example: two DC channels from a 4-way terminal block on a shielded two-pair stem, split in a moulded Y onto two red/black legs, each to a 2-pin JST XH plug; the screen ends in the mould"
+  "src": "synthetic example: two DC channels from a 4-way terminal block on a shielded two-pair stem, split in a moulded Y onto two red/black legs, each to a 2-pin JST XH plug; the screen ends in the mould; part number: synthetic example (CBL- prefix scheme)"
 }

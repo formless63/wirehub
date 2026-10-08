@@ -117,7 +117,7 @@ describe('the lineup', () => {
     expect(rows.map((r) => [r.product, r.variant, r.partNumber, r.options['colour']])).toEqual([
       ['dc-leads', 'led', 'CBL-00090-01', 'Black'],
       ['dc-leads', 'pigtail', 'CBL-00090-02', 'Red'],
-      ['y-leads', 'y', undefined, undefined],
+      ['y-leads', 'y', 'CBL-00004', undefined],
     ]);
     expect(rows[0]).toMatchObject({ route: 'contract', maker: 'A contract maker', releasedRev: 2, cost: 1.25, currency: 'EUR' });
     expect(rows[1]!.lengthMm).toBe(300);

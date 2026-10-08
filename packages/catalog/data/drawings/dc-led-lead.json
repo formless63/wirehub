@@ -1,22 +1,5 @@
 {
   "title": "DC LED lead",
-  "partNumber": "CBL-00010-XX",
-  "revision": "A",
-  "lengths": [
-    {
-      "suffix": "-05",
-      "mm": 500
-    },
-    {
-      "suffix": "-10",
-      "mm": 1000
-    },
-    {
-      "suffix": "-20",
-      "mm": 2000
-    }
-  ],
-  "remarks": [
-    "Synthetic example: a length family — each length is its own part number."
-  ]
+  "partNumber": "CBL-00003",
+  "revision": "A"
 }

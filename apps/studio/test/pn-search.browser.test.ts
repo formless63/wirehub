@@ -28,9 +28,8 @@ describe('PN matching', () => {
 });
 
 describe('the starter cable list', () => {
-  it("finds the LED lead by its drawing's family PN and by a length's variation PN", () => {
-    expect(find('CBL-00010-XX')).toContain('dc-led-lead');
-    expect(find('CBL-00010-05')).toEqual(['dc-led-lead']);
+  it("finds the LED lead by its design's own PN", () => {
+    expect(find('CBL-00003')).toEqual(['dc-led-lead']);
   });
 
   it("finds cables by a part's PN", () => {
