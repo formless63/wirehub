@@ -20,6 +20,8 @@
 
 import { useState, useCallback, type JSX, type ReactNode } from 'react';
 
+import { useSetupMode } from '../setup-mode.ts';
+
 import { AppCommands } from '../commands/AppCommands.tsx';
 import { CommandPalette } from '../commands/CommandPalette.tsx';
 import { EditorCommands } from '../commands/EditorCommands.tsx';
@@ -33,6 +35,8 @@ import { TopBar } from './TopBar.tsx';
 export function Shell({ children }: { children: ReactNode }): JSX.Element {
   const [navOpen, setNavOpen] = useState(false);
   const closeNav = useCallback(() => setNavOpen(false), []);
+  // first-run setup stands alone: no rail, no top-bar status, no palette
+  if (useSetupMode()) return <main className="h-full bg-bg text-ink">{children}</main>;
   return (
     <EditorChromeProvider>
       <div className="flex h-full flex-col overflow-hidden bg-bg text-ink">

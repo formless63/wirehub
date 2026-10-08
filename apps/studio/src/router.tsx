@@ -39,6 +39,7 @@ import { HistoryRoute } from './routes/HistoryRoute.tsx';
 import { ResolverRoute } from './routes/ResolverRoute.tsx';
 import { ProductRoute, ProductsRoute } from './routes/ProductsRoute.tsx';
 import { setupNeeded } from './setup.browser.ts';
+import { setSetupMode } from './setup-mode.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
 const StoreRoute = lazyRouteComponent(() => import('./routes/StoreRoute.tsx'), 'StoreRoute');
@@ -294,7 +295,7 @@ export function parseSearchValue(text: string): unknown {
 export const parseStudioSearch = parseSearchWith(parseSearchValue);
 
 export function createStudioRouter(history?: RouterHistory): ReturnType<typeof createRouter> {
-  return createRouter({
+  const router = createRouter({
     routeTree,
     parseSearch: parseStudioSearch,
     ...(history === undefined ? {} : { history }),
@@ -302,6 +303,10 @@ export function createStudioRouter(history?: RouterHistory): ReturnType<typeof c
       <NotFoundView message="That page does not exist." backTo="/cables" backLabel="Back to Cables" />
     ),
   });
+  // first-run setup stands alone (`setup-mode.ts`): follow the location, including a redirect into it
+  setSetupMode(router.state.location.pathname === '/setup');
+  router.subscribe('onBeforeLoad', (event) => setSetupMode(event.toLocation.pathname === '/setup'));
+  return router as unknown as ReturnType<typeof createRouter>;
 }
 
 /** the singleton the real app boots with; tests build their own with a memory history */

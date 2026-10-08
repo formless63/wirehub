@@ -11,8 +11,9 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState, type JSX } from 'react';
+import { IconCheck, IconCopy } from '@tabler/icons-react';
 
 import { loadSetup, partNumbersChanged, pnExample, saveSetup, signInAdmin, slugOf, type SetupView } from '../setup.browser.ts';
 import { StudioMark } from '../shell/Wordmark.tsx';
@@ -36,6 +37,7 @@ export function SetupRoute(): JSX.Element {
   // part numbers: the offered prefixes, edited in place
   const [pnPrefixes, setPnPrefixes] = useState<Record<string, string>>({});
   const [pnDigits, setPnDigits] = useState(5);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -102,18 +104,28 @@ export function SetupRoute(): JSX.Element {
     void navigate({ to: '/cables' });
   };
 
+  const LEGEND = 'mb-2 text-[12px] font-semibold uppercase tracking-wide text-dim';
+  const FIELD = 'rounded border border-line-field bg-panel px-2 py-1 text-[13px] text-ink';
+  const create = view?.create;
+  const SETUP_COMMAND = 'docker compose logs wirehub | grep -A2 "setup code"';
+  const copyCommand = (): void => {
+    void navigator.clipboard?.writeText(SETUP_COMMAND).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
     <div className="h-full overflow-auto">
-      <div className="mx-auto flex max-w-[720px] flex-col gap-5 px-4 py-8">
+      <div className="mx-auto flex max-w-[720px] flex-col gap-4 px-4 py-6">
         <header className="flex items-center gap-3">
-          <StudioMark size={32} />
-          <div>
-            <h1 className="m-0 text-[18px] font-semibold text-ink">Set up WireHub</h1>
-            <p className="m-0 text-[13px] text-dim">
-              Pick the fields you build cables for. Each adds its signals, connectors and examples to the catalog. You can add
-              more later from this page; nothing here is required.
-            </p>
-          </div>
+          <StudioMark size={28} />
+          <h1 className="m-0 text-[18px] font-semibold text-ink">Set up WireHub</h1>
+          {view?.completed ? (
+            <Link to="/cables" className="ml-auto text-[12px] text-dim underline hover:text-ink">
+              Back to designs
+            </Link>
+          ) : null}
         </header>
 
         {problem === undefined ? null : (
@@ -126,137 +138,107 @@ export function SetupRoute(): JSX.Element {
           problem === undefined ? <p className="text-[13px] text-dim">Loading…</p> : null
         ) : (
           <>
-            {view.create === undefined ? null : (
+            {create === undefined ? null : (
               <>
-                {view.create.claim === true ? (
+                {create.claim === true ? (
                   <p className="m-0 text-[13px] text-dim">This hub's catalog came over from its file storage. Make its first admin to finish.</p>
                 ) : (
-                <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                  <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Organisation</legend>
-                  <label className="flex flex-col gap-1 text-[12px] text-dim">
-                    Name
-                    <input
-                      className="rounded border border-line bg-panel px-2 py-1 text-[13px] text-ink"
-                      value={orgName}
-                      disabled={busy}
-                      placeholder="Example Shop"
-                      onChange={(event) => {
-                        setOrgName(event.target.value);
-                        if (!slugEdited) setSlug(slugOf(event.target.value));
-                      }}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-[12px] text-dim">
-                    Short name (lowercase, used in addresses)
-                    <input
-                      className="w-[260px] rounded border border-line bg-panel px-2 py-1 font-mono text-[13px] text-ink"
-                      value={slug}
-                      disabled={busy}
-                      placeholder="example-shop"
-                      onChange={(event) => {
-                        setSlug(event.target.value);
-                        setSlugEdited(true);
-                      }}
-                    />
-                  </label>
-                </fieldset>
+                  <fieldset className="m-0 border-0 p-0">
+                    <legend className={LEGEND}>Organisation</legend>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className="flex flex-col gap-1 text-[12px] text-dim">
+                        Name
+                        <input
+                          className={FIELD}
+                          value={orgName}
+                          disabled={busy}
+                          placeholder="Example Shop"
+                          onChange={(event) => {
+                            setOrgName(event.target.value);
+                            if (!slugEdited) setSlug(slugOf(event.target.value));
+                          }}
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-[12px] text-dim">
+                        Short name (lowercase, used in addresses)
+                        <input
+                          className={`${FIELD} font-mono`}
+                          value={slug}
+                          disabled={busy}
+                          placeholder="example-shop"
+                          onChange={(event) => {
+                            setSlug(event.target.value);
+                            setSlugEdited(true);
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
                 )}
-                <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                  <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Admin</legend>
-                  {view.create.admin === 'none' ? (
-                    <p className="m-0 text-[12px] text-dim">
+                <fieldset className="m-0 border-0 p-0">
+                  <legend className={LEGEND}>Admin</legend>
+                  {create.admin === 'none' ? (
+                    <p className="m-0 mb-2 text-[12px] text-dim">
                       Sign-in is off (AUTH_ENABLED), so anyone who can reach this hub can edit. A name and email here only label your changes.
                     </p>
                   ) : null}
-                  {view.create.admin === 'oidc' ? (
-                    <p className="m-0 text-[12px] text-dim">You sign in with the identity provider; give the email it knows you by.</p>
-                  ) : null}
-                  <label className="flex flex-col gap-1 text-[12px] text-dim">
-                    Your name
-                    <input className="rounded border border-line-field bg-panel px-2 py-1 text-[13px] text-ink" value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
-                  </label>
-                  <label className="flex flex-col gap-1 text-[12px] text-dim">
-                    Email
-                    <input type="email" className="rounded border border-line-field bg-panel px-2 py-1 text-[13px] text-ink" value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
-                  </label>
-                  {view.create.admin === 'password' ? (
+                  {create.admin === 'oidc' ? <p className="m-0 mb-2 text-[12px] text-dim">You sign in with the identity provider; give the email it knows you by.</p> : null}
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <label className="flex flex-col gap-1 text-[12px] text-dim">
-                      Password ({view.create.minPassword} characters or more)
-                      <input type="password" className="rounded border border-line-field bg-panel px-2 py-1 text-[13px] text-ink" value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
+                      Your name
+                      <input className={FIELD} value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
                     </label>
-                  ) : null}
-                </fieldset>
-                {view.create.claim === true ? null : (
-                <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                  <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Catalog</legend>
-                  <label className="flex items-start gap-2 text-[13px] text-ink">
-                    <input type="radio" name="catalog" className="mt-1" checked={catalog === 'starter'} disabled={busy} onChange={() => setCatalog('starter')} />
-                    <span>
-                      Starter catalog <span className="text-[12px] text-dim">— example cables and the parts they use, to learn from</span>
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-2 text-[13px] text-ink">
-                    <input type="radio" name="catalog" className="mt-1" checked={catalog === 'empty'} disabled={busy} onChange={() => setCatalog('empty')} />
-                    <span>
-                      Empty catalog <span className="text-[12px] text-dim">— the base vocabulary only</span>
-                    </span>
-                  </label>
-                </fieldset>
-                )}
-                {view.create.claim === true || view.create.partNumbers === undefined ? null : view.create.partNumbers.scheme === 'module' ? (
-                  <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                    <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Part numbers</legend>
-                    <p className="m-0 text-[12px] text-dim">This build numbers parts with its own scheme, {view.create.partNumbers.label}. It is fixed.</p>
-                  </fieldset>
-                ) : (
-                  <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                    <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Part numbers</legend>
-                    <p className="m-0 text-[12px] text-dim">
-                      Each kind of part gets a prefix and a running number, like {pnExample(pnPrefixes.connector ?? 'CON', pnDigits)}. The defaults are fine; change them
-                      to match numbers you already use. A kind with no prefix is not numbered.
-                    </p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
-                      {view.create.partNumbers.kinds.map((kind) => (
-                        <label key={kind} className="flex flex-col gap-0.5 text-[12px] text-dim">
-                          {kind}
-                          <input
-                            className="rounded border border-line bg-panel px-2 py-1 font-mono text-[13px] uppercase text-ink"
-                            value={pnPrefixes[kind] ?? ''}
-                            disabled={busy}
-                            maxLength={8}
-                            aria-label={`Prefix for ${kind}`}
-                            onChange={(event) => setPnPrefixes({ ...pnPrefixes, [kind]: event.target.value.toUpperCase() })}
-                          />
-                        </label>
-                      ))}
-                    </div>
                     <label className="flex flex-col gap-1 text-[12px] text-dim">
-                      Digits
-                      <input
-                        type="number"
-                        min={1}
-                        max={12}
-                        className="w-[80px] rounded border border-line bg-panel px-2 py-1 font-mono text-[13px] text-ink"
-                        value={pnDigits}
-                        disabled={busy}
-                        onChange={(event) => setPnDigits(Number(event.target.value))}
-                      />
+                      Email
+                      <input type="email" className={FIELD} value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
                     </label>
-                  </fieldset>
-                )}
+                    {create.admin === 'password' ? (
+                      <label className="flex flex-col gap-1 text-[12px] text-dim sm:col-span-2">
+                        Password ({create.minPassword} characters or more)
+                        <input type="password" className={FIELD} value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
+                      </label>
+                    ) : null}
+                  </div>
+                </fieldset>
               </>
             )}
 
+            {view.codeRequired === true ? (
+              <fieldset className="m-0 border-0 p-0">
+                <legend className={LEGEND}>Setup code</legend>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-label="Setup code"
+                    className={`w-[220px] ${FIELD} font-mono text-[14px] tracking-wider`}
+                    placeholder="XXXX-XXXX-XXXX"
+                    value={code}
+                    disabled={busy}
+                    onChange={(event) => setCode(event.target.value)}
+                  />
+                  <span className="text-[12px] text-dim">Printed in the server log at start.</span>
+                  <button
+                    type="button"
+                    title="Copy the command that prints the setup code"
+                    className="flex items-center gap-1 rounded border border-line-field bg-raised px-2 py-1 text-[12px] text-ink hover:bg-hover"
+                    onClick={copyCommand}
+                  >
+                    {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
+                    {copied ? 'Copied' : 'Copy the command'}
+                  </button>
+                </div>
+              </fieldset>
+            ) : null}
+
             <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-              <legend className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-faint">Domain modules</legend>
+              <legend className={LEGEND}>Domains</legend>
               {view.domains.length === 0 ? (
                 <p className="text-[13px] text-dim">This build bundles no domain modules.</p>
               ) : (
                 view.domains.map((domain) => (
-                  <label
-                    key={domain.id}
-                    className="flex cursor-pointer items-start gap-3 rounded border border-line bg-panel px-3 py-2 hover:bg-hover"
-                  >
+                  <label key={domain.id} className="flex cursor-pointer items-start gap-3 rounded border border-line bg-panel px-3 py-2 hover:bg-hover">
                     <input
                       type="checkbox"
                       className="mt-1"
@@ -281,40 +263,67 @@ export function SetupRoute(): JSX.Element {
                   </label>
                 ))
               )}
+              {view.suggestions.length === 0 ? null : (
+                <p className="m-0 text-[12px] text-dim">
+                  Not yet available: {view.suggestions.map((s) => s.label).join(', ')}.
+                </p>
+              )}
             </fieldset>
 
-            {view.suggestions.length === 0 ? null : (
-              <section className="flex flex-col gap-1">
-                <h2 className="m-0 text-[12px] font-semibold uppercase tracking-wide text-faint">Other domains</h2>
-                <ul className="m-0 flex list-none flex-col gap-1 p-0">
-                  {view.suggestions.map((s) => (
-                    <li key={s.label} className="text-[12px] text-dim">
-                      <span className="font-semibold text-ink">{s.label}</span> — {s.description}
-                    </li>
-                  ))}
-                </ul>
-              </section>
+            {create === undefined || create.claim === true ? null : (
+              <details className="rounded border border-line bg-panel px-3 py-2">
+                <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-wide text-dim">Advanced</summary>
+                <div className="mt-3 flex flex-col gap-4">
+                  <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                    <legend className={LEGEND}>Catalog</legend>
+                    <label className="flex items-start gap-2 text-[13px] text-ink">
+                      <input type="radio" name="catalog" className="mt-1" checked={catalog === 'starter'} disabled={busy} onChange={() => setCatalog('starter')} />
+                      <span>
+                        Starter catalog <span className="text-[12px] text-dim">— example designs and the parts they use, to learn from</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-[13px] text-ink">
+                      <input type="radio" name="catalog" className="mt-1" checked={catalog === 'empty'} disabled={busy} onChange={() => setCatalog('empty')} />
+                      <span>
+                        Empty catalog <span className="text-[12px] text-dim">— the base vocabulary only</span>
+                      </span>
+                    </label>
+                  </fieldset>
+                  {create.partNumbers === undefined ? null : create.partNumbers.scheme === 'module' ? (
+                    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                      <legend className={LEGEND}>Part numbers</legend>
+                      <p className="m-0 text-[12px] text-dim">This build numbers parts with its own scheme, {create.partNumbers.label}. It is fixed.</p>
+                    </fieldset>
+                  ) : (
+                    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                      <legend className={LEGEND}>Part numbers</legend>
+                      <p className="m-0 text-[12px] text-dim">
+                        A prefix and a running number per kind, like {pnExample(pnPrefixes.connector ?? 'CON', pnDigits)}. A kind with no prefix is not numbered.
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+                        {create.partNumbers.kinds.map((kind) => (
+                          <label key={kind} className="flex flex-col gap-0.5 text-[12px] text-dim">
+                            {kind}
+                            <input
+                              className={`${FIELD} font-mono uppercase`}
+                              value={pnPrefixes[kind] ?? ''}
+                              disabled={busy}
+                              maxLength={8}
+                              aria-label={`Prefix for ${kind}`}
+                              onChange={(event) => setPnPrefixes({ ...pnPrefixes, [kind]: event.target.value.toUpperCase() })}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <label className="flex flex-col gap-1 text-[12px] text-dim">
+                        Digits
+                        <input type="number" min={1} max={12} className={`w-[80px] ${FIELD} font-mono`} value={pnDigits} disabled={busy} onChange={(event) => setPnDigits(Number(event.target.value))} />
+                      </label>
+                    </fieldset>
+                  )}
+                </div>
+              </details>
             )}
-
-            {view.codeRequired === true ? (
-              <label className="flex flex-col gap-1">
-                <span className="text-[12px] font-semibold uppercase tracking-wide text-faint">Setup code</span>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="w-[220px] rounded border border-line bg-panel px-2 py-1 font-mono text-[14px] tracking-wider text-ink"
-                  placeholder="XXXX-XXXX-XXXX"
-                  value={code}
-                  disabled={busy}
-                  onChange={(event) => setCode(event.target.value)}
-                />
-                <span className="text-[12px] text-dim">
-                  The server printed it to its log when it started: <code>docker compose logs wirehub</code>, or the wirehub
-                  container's logs in your Docker UI.
-                </span>
-              </label>
-            ) : null}
 
             <div className="flex items-center gap-3">
               <button
@@ -323,14 +332,14 @@ export function SetupRoute(): JSX.Element {
                 disabled={
                   busy ||
                   (view.codeRequired === true && code.trim() === '') ||
-                  (view.create !== undefined &&
-                    ((view.create.claim !== true && (orgName.trim() === '' || slug.trim() === '')) || (view.create.admin !== 'none' && (adminName.trim() === '' || adminEmail.trim() === '')) || (view.create.admin === 'password' && password.length < view.create.minPassword)))
+                  (create !== undefined &&
+                    ((create.claim !== true && (orgName.trim() === '' || slug.trim() === '')) || (create.admin !== 'none' && (adminName.trim() === '' || adminEmail.trim() === '')) || (create.admin === 'password' && password.length < create.minPassword)))
                 }
                 onClick={() => void submit()}
               >
                 {busy ? 'Setting up…' : view.completed ? 'Add the selected modules' : 'Finish setup'}
               </button>
-              <span className="text-[12px] text-faint">Selected: {picked.size === 0 ? 'none — the generic base only' : [...picked].join(', ')}</span>
+              <span className="text-[12px] text-dim">Selected: {picked.size === 0 ? 'none — the generic base only' : [...picked].join(', ')}</span>
             </div>
           </>
         )}

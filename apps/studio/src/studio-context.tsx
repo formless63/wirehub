@@ -62,6 +62,8 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 
+import { useSetupMode } from './setup-mode.ts';
+
 import { EMPTY_DB, type DesignId } from './catalog.browser.ts';
 import { loadPartNumberData, partNumbersKey } from './part-numbers.browser.ts';
 import { loadMe, meKey, type StudioUser } from './me.browser.ts';
@@ -258,12 +260,15 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
 
   // no bundled first paint: the list is the workbench's (or, when it cannot
   // be reached, the build-time copy flagged `offline`)
+  const settingUp = useSetupMode();
   const designsQuery = useQuery({
     queryKey: designsKey,
     queryFn: () => loadDesigns(rawPersistence),
+    // first-run setup probes nothing: there is nothing to list yet
+    enabled: !settingUp,
   });
   const designs = useMemo(() => designsQuery.data?.designs ?? [], [designsQuery.data]);
-  const apiOffline = designsQuery.data?.offline ?? false;
+  const apiOffline = !settingUp && (designsQuery.data?.offline ?? false);
 
   const dbQuery = useQuery({
     queryKey: dbKey,

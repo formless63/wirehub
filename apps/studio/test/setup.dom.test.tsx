@@ -106,6 +106,24 @@ describe('first-run setup', () => {
     await waitFor(() => expect(readSetup(packs)?.modules).toEqual(['pc-serial', 'pro-audio']));
   });
 
+  it('stands alone: no rail, no Offline chip, no workbench probe, and the setup code comes right after the admin', async () => {
+    serve(true, { code: 'ABCD-EFGH-JKMN' });
+    const inner = globalThis.fetch;
+    const asked: string[] = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      asked.push(String(input));
+      return inner(input, init);
+    }) as unknown as typeof fetch;
+    render(<App router={router('/setup')} />);
+    await screen.findByPlaceholderText('XXXX-XXXX-XXXX');
+    expect(screen.queryByText('Offline')).toBeNull();
+    expect(screen.queryByRole('navigation')).toBeNull();
+    expect(asked.filter((u) => /designs/.test(u))).toEqual([]);
+    const legends = [...document.querySelectorAll('legend')].map((l) => l.textContent);
+    expect(legends.indexOf('Setup code')).toBeLessThan(legends.indexOf('Domains'));
+    expect(screen.getByRole('button', { name: /Copy the command/ })).toBeDefined();
+  });
+
   it('does not bounce a hub that did not ask for the prompt', async () => {
     serve(false);
     const r = router('/');
