@@ -162,6 +162,11 @@ export const libraryIndexRoute = createRoute({
 export const libraryStoreRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library/store',
+  // `q` prefills the search; `pack` opens that pack's install drawer (the editor's node creator links here)
+  validateSearch: (search: Record<string, unknown>): { q?: string; pack?: string } => ({
+    ...(typeof search['q'] === 'string' && search['q'] !== '' ? { q: search['q'] } : {}),
+    ...(typeof search['pack'] === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(search['pack']) ? { pack: search['pack'] } : {}),
+  }),
   component: StoreRoute,
 });
 

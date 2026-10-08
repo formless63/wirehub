@@ -4940,7 +4940,7 @@ fieldset.cs-lock-fence {
 }
 
 .cs-picker {
-  width: 300px;
+  width: 340px;
   max-height: min(60vh, 480px);
   display: flex;
   flex-direction: column;
@@ -5032,6 +5032,17 @@ fieldset.cs-lock-fence {
 .cs-picker-icon-segment { background: var(--wire-kind); }
 .cs-picker-icon-component { background: var(--comp-kind); }
 .cs-picker-icon-pcba { background: var(--board); }
+.cs-picker-icon-store { background: var(--raised); color: var(--dim); border: 1px solid var(--line2); }
+
+.cs-picker-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 10.5px;
+}
 
 .cs-picker-label {
   flex: 1;

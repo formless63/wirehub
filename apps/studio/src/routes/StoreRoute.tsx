@@ -6,9 +6,11 @@
 import type { JSX } from 'react';
 import { Link } from '@tanstack/react-router';
 
+import { libraryStoreRoute } from '../router.tsx';
 import { StoreBrowser } from '../modules/StoreBrowser.tsx';
 
 export function StoreRoute(): JSX.Element {
+  const { q, pack } = libraryStoreRoute.useSearch();
   return (
     <div className="h-full min-h-0 min-w-0 overflow-auto">
       <div className="px-3 pt-2">
@@ -16,7 +18,7 @@ export function StoreRoute(): JSX.Element {
           ← Library
         </Link>
       </div>
-      <StoreBrowser />
+      <StoreBrowser {...(q === undefined ? {} : { initialQuery: q })} {...(pack === undefined ? {} : { openPack: pack })} />
     </div>
   );
 }

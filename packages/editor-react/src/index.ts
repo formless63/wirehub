@@ -454,7 +454,7 @@ export {
 } from './picker.ts';
 export type { CandidateTerminal, PickerDefinition, RankedTerminal } from './picker.ts';
 export { NodePicker } from './panels/NodePicker.tsx';
-export type { NodePickerProps } from './panels/NodePicker.tsx';
+export type { NodePickerProps, PartStoreMatch, PartStoreSource } from './panels/NodePicker.tsx';
 export { ConnectionPanel, PartPanel } from './panels/Inspector.tsx';
 export { IssuesPanel, NetsPanel, TracePanel } from './panels/Derived.tsx';
 export { JsonPane } from './panels/JsonPane.tsx';

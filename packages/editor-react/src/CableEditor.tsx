@@ -107,7 +107,7 @@ import type { AssetsAdapter } from './assets.ts';
 import type { DrawingAdapter } from './documents.ts';
 import type { DocumentRelease } from './release.ts';
 import { JsonPane } from './panels/JsonPane.tsx';
-import { NodePicker } from './panels/NodePicker.tsx';
+import { NodePicker, type PartStoreSource } from './panels/NodePicker.tsx';
 import { PART_MIME, Palette } from './panels/Palette.tsx';
 import { PreviewPane } from './panels/Preview.tsx';
 import { SchematicPane } from './panels/Schematic.tsx';
@@ -130,6 +130,8 @@ export interface CableEditorProps {
   design: CableDesign;
   /** the definition library */
   db: Db;
+  /** the host's store search, for the node picker's "From the store" row (it links to the install drawer) */
+  partStore?: PartStoreSource;
   /** called with every accepted design; never called for a rejected edit */
   onDesignChange?: (design: CableDesign) => void;
   /** the bench's strip steps (the host's wire library) — a segment's 3D view strips by them */
@@ -1809,6 +1811,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
             design={state.design}
             db={state.db}
             onClose={closePicker}
+            store={props.partStore}
             designs={props.assemblies === undefined && props.db.assemblies === undefined ? undefined : (props.designs ?? state.db.assemblies?.working)}
             {...(picker.anchor === undefined ? {} : { anchor: picker.anchor })}
           />
