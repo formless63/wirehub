@@ -6617,6 +6617,8 @@ fieldset.cs-lock-fence {
 .cs-doc-tools .cs-doc-tool:hover,
 .cs-doc-tools .cs-doc-tool:focus-visible {
   background: var(--hover);
+}
+
 .cs-node-head:has(.cs-conn-adorn) {
   padding-right: 88px;
 }
