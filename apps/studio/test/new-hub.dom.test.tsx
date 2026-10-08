@@ -103,7 +103,12 @@ describe('a hub that hosts its own docs', () => {
       serve();
       expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/hub' }, deps)).body).toEqual({ welcomeDismissed: false, docsUrl: 'https://docs.example.org/wh' });
       mount('/settings?section=rules');
-      const help = await screen.findByTestId('info-tip');
+      await screen.findByTestId('help-link');
+      const help = await waitFor(() => {
+        const tip = document.querySelector('.settings-section-heading a[data-testid="info-tip"]');
+        expect(tip).not.toBeNull();
+        return tip as HTMLElement;
+      });
       await waitFor(() => expect(help.getAttribute('href')).toBe('https://docs.example.org/wh/reference/validation-rules/'));
       await waitFor(() => expect(screen.getByTestId('help-link').getAttribute('href')).toBe('https://docs.example.org/wh/reference/self-hosting/#settings'));
     } finally {

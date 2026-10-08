@@ -37,7 +37,7 @@ A shop's numbering is a convention, so WireHub treats it as data. A **scheme** r
 
 ## The resolver
 
-The resolver answers "which cable do I need?". Pick two devices and the ports to join, and it lists every way to connect them, ranked, with reasons, hazards and missing pieces. Choosing one derives a design, and the design remembers its recipe so a later library change can re-derive it. See [Resolver](../reference/resolver/).
+The resolver, the **Find a design** page, takes two devices and the ports to join, and lists every way to connect them, ranked, with reasons, hazards and missing pieces. Choosing one derives a design, and the design remembers its recipe so a later library change can re-derive it. See [Resolver](../reference/resolver/).
 
 ## Products and rules
 
