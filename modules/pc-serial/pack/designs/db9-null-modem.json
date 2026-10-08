@@ -7,12 +7,12 @@
       {
         "id": "j1",
         "def": "de9-female-rs232",
-        "role": "end A"
+        "role": "first PC end"
       },
       {
         "id": "j2",
         "def": "de9-female-rs232",
-        "role": "end B"
+        "role": "second PC end"
       }
     ],
     "segments": [

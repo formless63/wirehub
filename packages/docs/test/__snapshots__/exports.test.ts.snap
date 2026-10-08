@@ -747,8 +747,8 @@ w3,WIR-00005,"DC power cable, 2 × 24 AWG, red/black",black,core,black,,,j3.2,,3
 
 exports[`de9-crossover > the CSV exports match their snapshots > bom.csv 1`] = `
 "section,part_number,description,quantity,unit,location,instances,variation_pn,notes
-Connectors,CON-00012,"DE-9 female, pins by number",1,ea,Source end · end A,j1,,10 pins · attaches: w1@a
-Connectors,CON-00012,"DE-9 female, pins by number",1,ea,Destination end · end B,j2,,10 pins · attaches: w1@b
+Connectors,CON-00012,"DE-9 female, pins by number",1,ea,Source end · PC end,j1,,10 pins · attaches: w1@a
+Connectors,CON-00012,"DE-9 female, pins by number",1,ea,Destination end · device end,j2,,10 pins · attaches: w1@b
 Wire,WIR-00002,"2-pair shielded data cable, 24 AWG, foil + drain",6,ft,wire run,w1,,Ø 5 mm
 Shells & hardware,SHL-00001,DE-9 metal backshell with strain relief,1,ea,Source end,m1,,attaches: j1
 Shells & hardware,SHL-00001,DE-9 metal backshell with strain relief,1,ea,Destination end,m3,,attaches: j2

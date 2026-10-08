@@ -7,12 +7,12 @@
       {
         "id": "j1",
         "def": "rj45-plug-t568b",
-        "role": "end A"
+        "role": "switch end"
       },
       {
         "id": "j2",
         "def": "rj45-plug-t568b",
-        "role": "end B"
+        "role": "device end"
       }
     ],
     "segments": [
