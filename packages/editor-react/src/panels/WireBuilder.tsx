@@ -172,7 +172,7 @@ function VendorDocs(props: {
         <span className="cs-count">{docs.length}</span>
         <span className="cs-wb-spacer" />
         {documents === undefined ? null : (
-          <button type="button" className="cs-small" onClick={open} title="Link one of the manufacturer's files held in the studio">
+          <button type="button" className="cs-small" onClick={open} title="Link one of the manufacturer's files held in WireHub">
             <IconPlus size={13} stroke={1.75} /> Link document…
           </button>
         )}
@@ -196,7 +196,7 @@ function VendorDocs(props: {
               type="button"
               className="cs-icon-btn cs-small"
               aria-label={`unlink ${doc.label}`}
-              title="Unlink (the file stays in the studio)"
+              title="Unlink (the file stays in WireHub)"
               onClick={() => props.onChange(removeVendorDoc(recipe, doc.asset))}
             >
               <IconTrash size={13} stroke={1.75} />

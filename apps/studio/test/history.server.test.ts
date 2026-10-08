@@ -133,7 +133,7 @@ describe('change history on the file backend (git)', () => {
       const caps = await source.capabilities();
       expect(caps.backend).toBe('none');
       expect(caps.restore).toBe(false);
-      expect(caps.note).toMatch(/WIREHUB_GIT_AUTOCOMMIT/);
+      expect(caps.note).toMatch(/git export/);
       expect((await source.list({ limit: 10 })).entries).toEqual([]);
     } finally {
       rmSync(plain, { recursive: true, force: true });

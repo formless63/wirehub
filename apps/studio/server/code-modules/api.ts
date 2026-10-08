@@ -99,7 +99,7 @@ export async function handleCodeModulesRequest(request: { method: string; path: 
         bootId: system.bootId,
         supervised: system.supervised,
         poll: '/api/system/boot',
-        ...(system.supervised ? {} : { hint: 'No supervisor is declared (WIREHUB_RESTART_SUPERVISED): the process exits, and comes back only if something restarts it.' }),
+        ...(system.supervised ? {} : { hint: 'No supervisor is declared: the process exits, and comes back only if something restarts it.' }),
       });
     }
     return refuse(404, 'There is no such address.', `This answers ${CODE_MODULE_ROUTES.join(', ')}.`);

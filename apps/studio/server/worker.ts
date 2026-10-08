@@ -34,7 +34,7 @@ const fatal = (line: string): never => {
 const refusal = environmentRefusal(process.env);
 if (refusal !== undefined) fatal(refusal);
 try {
-  if (backendFromEnv(process.env) !== 'pg') fatal('The worker runs with the database backend only (WIREHUB_BACKEND=pg); the file backend runs its jobs in the studio.');
+  if (backendFromEnv(process.env) !== 'pg') fatal('The worker runs with the database backend only (WIREHUB_BACKEND=pg); the file backend runs its jobs in WireHub.');
 } catch (error) {
   fatal(error instanceof Error ? error.message : String(error));
 }

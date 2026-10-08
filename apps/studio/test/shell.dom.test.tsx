@@ -387,12 +387,12 @@ describe('when the workbench is not there', () => {
       if (found === undefined) throw new Error('no Offline indicator yet');
       return found;
     });
-    expect(indicator.getAttribute('title')).toContain('could not reach the workbench');
+    expect(indicator.getAttribute('title')).toContain('could not reach the server');
     // the list says what it is showing: the last-fetched copy, read only
     expect((await screen.findByTestId('offline-banner')).textContent).toMatch(/offline copy from .* — read only/);
 
     // and a toast, once, for the same transition
-    await screen.findByText('Workbench unreachable');
+    await screen.findByText('Server unreachable');
 
     // the last copy is the fallback (the bundle carries no catalog data,
     //): the two designs the workbench last listed

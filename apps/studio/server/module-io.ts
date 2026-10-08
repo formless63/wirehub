@@ -153,7 +153,7 @@ export async function stageImportExtras(
   extras: ImportExtras,
 ): Promise<{ keptDepictions: string[] }> {
   if (extras.boardParts.length > 0) {
-    if (stores.docs === undefined) throw new ImportExtrasRefused('This studio does not keep catalog documents, so placed parts cannot be imported.');
+    if (stores.docs === undefined) throw new ImportExtrasRefused('This hub does not keep catalog documents, so placed parts cannot be imported.');
     const current = ((await stores.docs.read(BOARD_PARTS)) ?? {}) as { src?: string; boards?: BoardPartsEntry[] };
     const boards = [...(current.boards ?? [])];
     for (const entry of extras.boardParts) {
@@ -166,7 +166,7 @@ export async function stageImportExtras(
   const kept: string[] = [];
   if (extras.depictions.length === 0) return { keptDepictions: kept };
   const store = stores.depictions;
-  if (store === undefined) throw new ImportExtrasRefused('This studio does not keep artwork, so board art cannot be imported.');
+  if (store === undefined) throw new ImportExtrasRefused('This hub does not keep artwork, so board art cannot be imported.');
   const db = await stores.loadDb();
   for (const depiction of extras.depictions) {
     const existing = await store.readMeta(depiction.defId);

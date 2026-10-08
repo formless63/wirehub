@@ -13,6 +13,7 @@
  * records are read-only here; saving one under its id keeps this hub's own version.
  */
 
+import { InfoTip } from '../shell/InfoTip.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type JSX } from 'react';
@@ -335,8 +336,10 @@ function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
   };
   return (
     <section className="border-t border-line pt-2" data-testid="resolver-proposals">
-      <h2 className="mb-1 text-[13px] font-semibold">Proposals</h2>
-      <p className="mb-1 max-w-2xl text-faint">Nothing connects these completely. A board or adapter could; each draft lists its pads, its parts and what nobody has stated yet.</p>
+      <h2 className="mb-1 text-[13px] font-semibold">
+        Proposals
+        <InfoTip topic="resolver" text="Nothing connects these completely. A board or adapter could; each draft lists its pads, its parts and what nobody has stated yet." />
+      </h2>
       <label className="flex items-center gap-1 text-faint">
         <input type="checkbox" checked={showDeclined} onChange={(e) => setShowDeclined(e.target.checked)} /> show declined
       </label>
@@ -561,10 +564,10 @@ function ResolverLibrary(): JSX.Element {
   };
   return (
     <div>
-      <p className="max-w-2xl text-faint">
-        What the resolver knows: devices and their ports, the recipes that condition a line, the hazards it refuses or warns about, and the order it ranks options in. All data; a pack can ship
-        every one of them.
-      </p>
+      <div className="text-faint">
+        Devices, recipes, hazards and ranking
+        <InfoTip topic="resolver" text="What the resolver knows: devices and their ports, the recipes that condition a line, the hazards it refuses or warns about, and the order it ranks options in. All data; a pack can ship every one of them." />
+      </div>
       {view.issues.length === 0 ? null : (
         <ul role="alert" className="mt-2 text-err">
           {view.issues.slice(0, 12).map((i) => (

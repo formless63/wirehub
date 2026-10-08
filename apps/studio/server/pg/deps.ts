@@ -164,7 +164,7 @@ export async function checkDatabase(db: Db, orgId: string | undefined): Promise<
   if (orgId === undefined) return;
   const schema = await inOrg(db, orgId, async (tx) => (await sql<{ schema_version: number }>`SELECT schema_version FROM studio.catalog_head`.execute(tx)).rows[0]?.schema_version);
   if (schema !== undefined && schema > CURRENT_SCHEMA_VERSION) {
-    throw new PgConfigError(`The catalog is at design schema ${schema}; this studio reads up to ${CURRENT_SCHEMA_VERSION}. Upgrade the studio.`);
+    throw new PgConfigError(`The catalog is at design schema ${schema}; this hub reads up to ${CURRENT_SCHEMA_VERSION}. Upgrade WireHub.`);
   }
 }
 
@@ -221,7 +221,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
     if (orgId === undefined && config.org !== undefined) throw new PgConfigError(`${redactUrl(config.url)} has no org '${config.org}'.`);
     // no org at all: first-run setup; several and none named: refuse
     if (orgId === undefined && (await orgCount(handle.db)) > 0) {
-      throw new PgConfigError(`${redactUrl(config.url)} holds more than one org; set WIREHUB_ORG to the one this studio serves.`);
+      throw new PgConfigError(`${redactUrl(config.url)} holds more than one org; set WIREHUB_ORG to the one this hub serves.`);
     }
     await checkDatabase(handle.db, orgId);
     const deps = {} as WorkbenchDeps;
@@ -255,7 +255,7 @@ export async function openPgBackend(env: Record<string, string | undefined>, opt
         jobMode === 'worker'
           ? bossJobRunner(() => {
               // a job submitted while the backend closes must not open a queue connection nobody will stop
-              if (closing) return Promise.reject(new Error('the studio is shutting down'));
+              if (closing) return Promise.reject(new Error('WireHub is shutting down'));
               return (boss ??= startBoss(config.url, 'studio', undefined, moduleJobKinds(real.modules)));
             }, () => id)
           : inlineJobRunner(store, () => pgJobHandlers({ deps: real, db: handle.db, orgId: id, cache, ...(options.blobs === undefined ? {} : { blobs: options.blobs }), env, liveEnv, notify }), undefined, (job) => real.webhooks?.jobFinished(job));

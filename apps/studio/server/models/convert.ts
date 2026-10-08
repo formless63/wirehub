@@ -130,12 +130,12 @@ export async function convertModel(
   if (bytes.byteLength === 0) throw new ModelRefusal('That file is empty.', 'Pick the model file again.');
   if (bytes.byteLength > MAX_MODEL_BYTES) {
     throw new ModelRefusal(
-      `That model is ${(bytes.byteLength / 1048576).toFixed(1)} MB; the studio takes up to ${MAX_MODEL_BYTES / 1048576} MB.`,
+      `That model is ${(bytes.byteLength / 1048576).toFixed(1)} MB; WireHub takes up to ${MAX_MODEL_BYTES / 1048576} MB.`,
       'Export a lighter version (fewer bodies, or STL at a coarser resolution).',
     );
   }
   const format = sniffModel(bytes);
-  if (format === undefined) throw new ModelRefusal('That is not an STL, STEP or GLB file.', 'The studio reads .stl, .step/.stp and .glb models.');
+  if (format === undefined) throw new ModelRefusal('That is not an STL, STEP or GLB file.', 'WireHub reads .stl, .step/.stp and .glb models.');
   if (!EXTENSIONS[format].test(name)) {
     throw new ModelRefusal(`${name} holds ${format.toUpperCase()} data, but its name says otherwise.`, `Rename it to end in .${format === 'step' ? 'step' : format} and try again.`);
   }
@@ -165,7 +165,7 @@ export async function convertModel(
 export async function convertAssembly(plan: AssemblyPlan, name: string, options: { maxTriangles?: number; boardArt?: BoardArt; boardTextureProfile?: BoardTextureProfile } = {}): Promise<ConvertedModel> {
   const bytes = plan.models.reduce((n, m) => n + m.bytes.byteLength, 0);
   if (bytes > MAX_MODEL_BYTES * 2) {
-    throw new ModelRefusal(`${name}'s models add up to ${(bytes / 1048576).toFixed(1)} MB, more than the studio converts at once.`, 'Leave the heaviest part models out.');
+    throw new ModelRefusal(`${name}'s models add up to ${(bytes / 1048576).toFixed(1)} MB, more than WireHub converts at once.`, 'Leave the heaviest part models out.');
   }
   return serial(() => convertStepInChild(new Uint8Array(0), name, options.maxTriangles ?? MAX_MODEL_TRIANGLES, plan, options.boardArt, options.boardTextureProfile));
 }
@@ -219,13 +219,13 @@ function convertStepInChild(bytes: Uint8Array, name: string, maxTriangles: numbe
       peak = Math.max(peak, mb);
       if (mb > STEP_RSS_LIMIT_MB) {
         refuse(
-          `${name} needed more than ${STEP_RSS_LIMIT_MB} MB to convert, so the studio stopped.`,
+          `${name} needed more than ${STEP_RSS_LIMIT_MB} MB to convert, so WireHub stopped.`,
           'Export a lighter STEP (fewer bodies, or without the component models), or export STL/GLB from the CAD tool instead.',
         );
       }
     }, 100);
     const timer = setTimeout(
-      () => refuse(`${name} took longer than ${STEP_TIMEOUT_MS / 1000} s to convert, so the studio stopped.`, 'Export a lighter STEP, or STL/GLB from the CAD tool instead.'),
+      () => refuse(`${name} took longer than ${STEP_TIMEOUT_MS / 1000} s to convert, so WireHub stopped.`, 'Export a lighter STEP, or STL/GLB from the CAD tool instead.'),
       STEP_TIMEOUT_MS,
     );
     child.on('message', (answer: ChildAnswer) => {

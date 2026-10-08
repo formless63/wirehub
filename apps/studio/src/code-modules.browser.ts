@@ -201,7 +201,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     if (!response.ok) return { ok: false, status: response.status, message: typeof parsed['error'] === 'string' ? parsed['error'] : `That failed (HTTP ${response.status}).`, ...(typeof parsed['hint'] === 'string' ? { hint: parsed['hint'] } : {}) };
     return { ok: true, value: parsed as T };
   } catch (error) {
-    return { ok: false, status: 0, message: 'The studio could not reach the server.', hint: error instanceof Error ? error.message : String(error) };
+    return { ok: false, status: 0, message: 'WireHub could not reach the server.', hint: error instanceof Error ? error.message : String(error) };
   }
 }
 

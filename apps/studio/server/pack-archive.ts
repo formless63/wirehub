@@ -311,7 +311,7 @@ function readZipRaw(bytes: Uint8Array): PackFiles {
       } catch {
         throw new PackArchiveError(`'${name}' in the zip cannot be unpacked.`);
       }
-    } else throw new PackArchiveError(`'${name}' in the zip uses a compression method this studio cannot read.`);
+    } else throw new PackArchiveError(`'${name}' in the zip uses a compression method this hub cannot read.`);
     if (data.length !== size) throw new PackArchiveError(`'${name}' in the zip does not match its recorded size.`);
     out.set(path, data);
   }
@@ -371,7 +371,7 @@ export interface ReadPack {
 
 /** What a stranger handed us: zip bytes, or JSON text holding a bundle. */
 export function readPackBytes(bytes: Uint8Array): ReadPack {
-  if (bytes.length > MAX_PACK_BYTES) throw new PackArchiveError('That pack is larger than this studio accepts.', 413);
+  if (bytes.length > MAX_PACK_BYTES) throw new PackArchiveError('That pack is larger than this hub accepts.', 413);
   let raw: PackFiles;
   let format: 'zip' | 'bundle';
   if (isZip(bytes)) {
@@ -450,7 +450,7 @@ async function checkedUrl(raw: string, lookup: (host: string) => Promise<string[
   const host = url.hostname.replace(/^\[|\]$/g, '');
   const addresses = isIP(host) !== 0 ? [host] : await lookup(host).catch(() => []);
   if (addresses.length === 0) throw new PackArchiveError(`Could not find ${host}.`, 502);
-  if (addresses.some(isPrivateAddress)) throw new PackArchiveError('That address is on a private network; this studio only fetches public https addresses.');
+  if (addresses.some(isPrivateAddress)) throw new PackArchiveError('That address is on a private network; this hub only fetches public https addresses.');
   return url;
 }
 
@@ -477,7 +477,7 @@ export async function fetchPack(raw: string, options: FetchPackOptions = {}): Pr
     }
     if (!response.ok) throw new PackArchiveError(`The server answered ${response.status}.`, 502);
     const declared = Number(response.headers.get('content-length'));
-    if (Number.isFinite(declared) && declared > max) throw new PackArchiveError('That pack is larger than this studio accepts.', 413);
+    if (Number.isFinite(declared) && declared > max) throw new PackArchiveError('That pack is larger than this hub accepts.', 413);
     const chunks: Uint8Array[] = [];
     let size = 0;
     try {
@@ -489,7 +489,7 @@ export async function fetchPack(raw: string, options: FetchPackOptions = {}): Pr
         size += value.length;
         if (size > max) {
           await reader.cancel();
-          throw new PackArchiveError('That pack is larger than this studio accepts.', 413);
+          throw new PackArchiveError('That pack is larger than this hub accepts.', 413);
         }
         chunks.push(value);
       }

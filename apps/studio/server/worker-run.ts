@@ -167,7 +167,7 @@ export async function startWorker(options: WorkerOptions = {}, stopping: () => b
     }
     const stopControl = events.subscribe((event) => {
       if (event.type === 'control' && event.action === 'restart') {
-        log('restart requested by the studio (Settings, Restart WireHub)');
+        log('restart requested by WireHub (Settings, Restart WireHub)');
         options.onRestart?.();
       }
     });

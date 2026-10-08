@@ -457,7 +457,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
       {studio.apiOffline ? (
         <span
           role="status"
-          title="The studio could not reach the workbench. Showing the designs this page was built with — retries on every navigation."
+          title="WireHub could not reach the server. Showing the designs this page was built with — retries on every navigation."
           className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-raised px-2 text-[11px] font-medium text-warn"
         >
           <IconPlugOff size={13} />

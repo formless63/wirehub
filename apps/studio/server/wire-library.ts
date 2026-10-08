@@ -265,7 +265,7 @@ export async function handleWireLibraryRequest(
   if (parts[0] !== 'api' || parts[1] !== 'wire-library') return undefined;
   const store = deps.wireLibrary;
   if (store === undefined) {
-    return fail(501, 'This studio does not keep a wire parts library.', 'The stocks still load; building one from parts needs the studio server.');
+    return fail(501, 'This hub does not keep a wire parts library.', 'The stocks still load; building one from parts needs a full WireHub server.');
   }
   const [, , section, id, ...rest] = parts;
   if (rest.length > 0) return undefined;

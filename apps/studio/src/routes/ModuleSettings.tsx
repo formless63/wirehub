@@ -29,7 +29,7 @@ function Status({ field }: { field: ModuleFieldView }): JSX.Element {
   const gate = field.gates === undefined ? '' : ` for ${field.gates}`;
   const text =
     field.status === 'server'
-      ? `set by the server (${field.env ?? ''}), locked`
+      ? 'set by the server, locked'
       : field.unreadable === true
         ? 'saved, but this server cannot decrypt it: enter it again'
         : field.status === 'configured'
@@ -197,10 +197,6 @@ export function ModuleSettings(): JSX.Element {
   const sections = query.data.modules ?? [];
   return (
     <div className="flex max-w-xl flex-col gap-8" data-testid="module-settings">
-      <p className="text-dim">
-        Credentials and options the installed modules ask for. Secrets are kept encrypted with the hub&rsquo;s settings key and never shown again; a change applies at once, with no
-        restart. A value the server&rsquo;s environment sets wins and is shown locked (docs/self-hosting.md, &ldquo;What lives where&rdquo;).
-      </p>
       {query.data.secrets.available ? null : <div className="text-dim">{query.data.secrets.note}</div>}
       {sections.length === 0 ? <div className="text-faint">No installed module declares settings.</div> : null}
       {sections.map((section) => (

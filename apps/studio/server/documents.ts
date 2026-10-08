@@ -115,7 +115,7 @@ async function load(deps: DocumentDeps, id: string, rev: string | null): Promise
     // a design placing sub-assemblies reads them from the design library
     return { design: working, db: await withDesignLibrary(deps, working, live), drawing, ...(photo === undefined ? {} : { photo }), target: keepsRevisions ? 'working' : undefined };
   }
-  if (deps.versions === undefined) return fail(501, 'This studio does not keep saved revisions.', 'Leave out ?rev= to render the working copy.');
+  if (deps.versions === undefined) return fail(501, 'This hub does not keep saved revisions.', 'Leave out ?rev= to render the working copy.');
   let number: number;
   if (rev === 'latest') {
     const all = await deps.versions.revisions(id);
@@ -296,7 +296,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     };
   }
   if (head !== 'designs' || id === undefined || (section !== 'documents' && section !== 'exports')) return undefined;
-  if (rest.length > 0 || name === undefined) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${DOCUMENT_ROUTES.join('; ')}.`);
+  if (rest.length > 0 || name === undefined) return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${DOCUMENT_ROUTES.join('; ')}.`);
   if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
   if (!isDesignId(id)) return fail(400, `${JSON.stringify(id)} cannot be used as a design id.`);
 

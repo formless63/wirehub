@@ -97,12 +97,12 @@ async function preview(body: unknown, deps: WorkbenchDeps): Promise<ApiResponse>
 }
 
 export async function handleRulesRequest(method: string, parts: string[], body: unknown, deps: WorkbenchDeps, ifMatch: string | undefined): Promise<ApiResponse> {
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Validation rules are stored with the catalog.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Validation rules are stored with the catalog.');
   if (parts.length === 3 && parts[2] === 'preview') {
     if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
     return preview(body, deps);
   }
-  if (parts.length !== 2) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${RULES_ROUTES.join('; ')}.`);
+  if (parts.length !== 2) return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${RULES_ROUTES.join('; ')}.`);
   const local = await localRules(deps);
   const etag = contentETag(local.length === 0 ? null : local);
   if (method === 'GET') return { status: 200, body: await view(deps, local), headers: { ETag: etag } };

@@ -1018,7 +1018,7 @@ export function ArtworkDetailPane(props: DetailProps): JSX.Element {
   if (loadProblem !== undefined) {
     return (
       <div className="cs-artwork-detail">
-        <Problem message="The studio could not read this definition's artwork." hint={loadProblem} />
+        <Problem message="WireHub could not read this definition's artwork." hint={loadProblem} />
       </div>
     );
   }

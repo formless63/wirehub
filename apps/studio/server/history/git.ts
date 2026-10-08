@@ -17,6 +17,7 @@ import {
   definitionNoun,
   definitionSubject,
   known,
+  otherLabel,
   restorableParts,
   subjectKey,
   subjectLabel,
@@ -36,7 +37,7 @@ import { noHistorySource } from './source.ts';
 
 export const GIT_HISTORY: HistoryCapabilities = {
   backend: 'git',
-  note: 'History is the git log of the catalog. Saves are recorded as commits only while the git export is on (WIREHUB_GIT_AUTOCOMMIT=true); edits made with it off are not in the log.',
+  note: 'History is the git log of the catalog. Saves are recorded as commits only while the git export is on; edits made with it off are not in the log.',
   perRecord: true,
   diff: true,
   restore: true,
@@ -109,8 +110,8 @@ function touchOfPath(path: string, status: string): HistoryTouch {
   if (m !== null) return { subject: `vocab:${m[1]}`, label: `list ${m[1]}`, kind: 'vocab', op, part: 'record' };
   m = /^builds\/([^/]+)\.json$/.exec(path);
   if (m !== null) return { subject: `build:${m[1]}`, label: `build ${m[1]}`, kind: 'builds', op, part: 'record' };
-  if (['wire-parts.json', 'wire-recipes.json', 'models.json'].includes(path)) return { subject: `other:${path}`, label: path, kind: 'library', op };
-  return { subject: `other:${path}`, label: path, kind: 'other', op };
+  if (['wire-parts.json', 'wire-recipes.json', 'models.json'].includes(path)) return { subject: `other:${path}`, label: otherLabel('catalog-file', path), kind: 'library', op };
+  return { subject: `other:${path}`, label: otherLabel('catalog-file', path), kind: 'other', op };
 }
 
 /** The files a subject's parts live in. */

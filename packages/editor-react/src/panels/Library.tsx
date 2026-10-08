@@ -1156,7 +1156,7 @@ export function Library(props: LibraryProps): JSX.Element {
             disabled={definitions === undefined || busy}
             title={
               definitions === undefined
-                ? 'This studio cannot change the parts library'
+                ? 'This hub cannot change the parts library'
                 : `Add a ${DEFINITION_NOUNS[kind]}`
             }
             onClick={() => openNew()}
@@ -1292,8 +1292,8 @@ export function Library(props: LibraryProps): JSX.Element {
         {mode.kind === 'browse' && (definitions === undefined || status !== undefined || problem !== undefined) ? (
           <div className="cs-library-note">
             {definitions === undefined ? (
-              <p className="cs-doc-note" title="Definition editing needs a host that stores the catalog files — the studio’s own server does.">
-                This studio can show the library but not change it.
+              <p className="cs-doc-note" title="Definition editing needs a host that stores the catalog files — WireHub’s own server does.">
+                This hub can show the library but not change it.
               </p>
             ) : null}
             {status === undefined ? null : <p className="cs-doc-note">{status}</p>}
@@ -1738,7 +1738,7 @@ export function Library(props: LibraryProps): JSX.Element {
                 </p>
               ) : (
                 <p className="cs-modal-say">
-                  Nothing in the catalog refers to it, so no design is affected. The studio checks
+                  Nothing in the catalog refers to it, so no design is affected. WireHub checks
                   again before it deletes anything.
                 </p>
               )}

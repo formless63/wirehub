@@ -44,8 +44,8 @@ interface ApiError {
 function unreachable<T>(error: unknown): ArtworkOutcome<T> {
   return {
     ok: false,
-    message: 'The studio could not reach the workbench.',
-    hint: `Nothing was changed. The workbench runs inside the studio's dev server — start it with \`pnpm --filter studio dev\` and try again. (${
+    message: 'WireHub could not reach the server.',
+    hint: `Nothing was changed. Start the dev server and try again. (${
       error instanceof Error ? error.message : String(error)
     })`,
   };
@@ -55,7 +55,7 @@ function refusal<T>(status: number, payload: unknown): ArtworkOutcome<T> {
   const body = (payload ?? {}) as ApiError;
   return {
     ok: false,
-    message: body.error ?? `The workbench refused that (HTTP ${status}).`,
+    message: body.error ?? `The server refused that (HTTP ${status}).`,
     ...(body.hint === undefined ? {} : { hint: body.hint }),
     ...(body.issues === undefined ? {} : { issues: body.issues }),
     ...(body.guidance === undefined ? {} : { guidance: body.guidance }),
@@ -86,8 +86,8 @@ async function json<T>(
       ? unreachable(error)
       : {
           ok: false,
-          message: 'The workbench answered with something the studio could not read.',
-          hint: `Nothing was changed. Check the terminal running the studio. (HTTP ${response.status})`,
+          message: 'The server answered with something WireHub could not read.',
+          hint: `Nothing was changed. Check the terminal running WireHub. (HTTP ${response.status})`,
         };
   }
   return response.ok ? { ok: true, value: payload as T } : refusal(response.status, payload);

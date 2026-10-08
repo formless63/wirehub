@@ -51,9 +51,9 @@ function queryOf(params: URLSearchParams): ResolveQuery | undefined {
 }
 
 export async function handleProposalsRequest(method: string, parts: string[], path: string, body: unknown, deps: WorkbenchDeps, user: StudioUser | undefined): Promise<ApiResponse> {
-  if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.');
+  if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.');
   const action = parts[2];
-  if (parts.length > 3) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${PROPOSAL_ROUTES.join('; ')}.`);
+  if (parts.length > 3) return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${PROPOSAL_ROUTES.join('; ')}.`);
   const list = await decisions(deps);
 
   if (action === undefined && method === 'GET') {
@@ -116,5 +116,5 @@ export async function handleProposalsRequest(method: string, parts: string[], pa
     const answer = await put({ key, state: 'accepted', ...(reason === undefined ? {} : { reason }), by: who, at, pcba: id, proposal });
     return { ...answer, status: 201, body: { ...(answer.body as object), pcba: created.body } };
   }
-  return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${PROPOSAL_ROUTES.join('; ')}.`);
+  return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${PROPOSAL_ROUTES.join('; ')}.`);
 }

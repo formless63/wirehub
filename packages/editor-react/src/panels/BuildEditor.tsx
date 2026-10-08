@@ -171,7 +171,7 @@ export function duplicateBuild(file: BoardBuilds, from: BoardBuild | undefined, 
     key,
     idSuffix: `-${key}`,
     build: `${from.build} (copy)`,
-    src: `${from.src} — duplicated from build '${from.key}' in the studio; restate what differs.`,
+    src: `${from.src} — duplicated from build '${from.key}' in WireHub; restate what differs.`,
   };
 }
 
@@ -476,7 +476,7 @@ export function BuildEditor(props: BuildEditorProps): JSX.Element {
                 onClick={() =>
                   setBuild({
                     ...build,
-                    capability: { paths: [...(build.capability?.paths ?? []), { from: '', to: '', in: { signal: '' }, conditioning: [] }], src: build.capability?.src ?? 'Set in the studio build editor.' },
+                    capability: { paths: [...(build.capability?.paths ?? []), { from: '', to: '', in: { signal: '' }, conditioning: [] }], src: build.capability?.src ?? 'Set in WireHub build editor.' },
                   })
                 }
               >
@@ -494,7 +494,7 @@ export function BuildEditor(props: BuildEditorProps): JSX.Element {
               issueAt={at(build.key)}
               picked={pickedPath}
               onPick={setPickedPath}
-              onChange={(paths) => setBuild({ ...build, capability: { paths, src: build.capability?.src ?? 'Set in the studio build editor.' } })}
+              onChange={(paths) => setBuild({ ...build, capability: { paths, src: build.capability?.src ?? 'Set in WireHub build editor.' } })}
             />
           </Section>
 

@@ -34,7 +34,7 @@ function escapeHtml(value: string): string {
 }
 
 export function magicLinkMessage(from: string, to: string, link: string, minutes: number): MailMessage {
-  const subject = 'Sign in to the studio';
+  const subject = 'Sign in to WireHub';
   const text = `Open this link to sign in (valid for ${minutes} minutes, once):\n\n${link}\n\nIf you did not ask for it, ignore this mail.\n`;
   const html = `<p>Open this link to sign in (valid for ${minutes} minutes, once):</p>
 <p><a href="${escapeHtml(link)}">Sign in</a></p>

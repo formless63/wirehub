@@ -178,7 +178,7 @@ async function lineup(deps: WorkbenchDeps, csv: boolean, retired: boolean): Prom
 export async function handleProductsRequest(method: string, parts: string[], path: string, body: unknown, deps: WorkbenchDeps, ifMatch: string | undefined): Promise<ApiResponse> {
   const params = new URLSearchParams(path.split('?')[1] ?? '');
   if (parts[1] === 'lineup' || parts[1] === 'lineup.csv') {
-    if (parts.length !== 2) return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${PRODUCT_ROUTES.join('; ')}.`);
+    if (parts.length !== 2) return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${PRODUCT_ROUTES.join('; ')}.`);
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     return lineup(deps, parts[1] === 'lineup.csv', params.get('retired') === '1');
   }
@@ -190,7 +190,7 @@ export async function handleProductsRequest(method: string, parts: string[], pat
       return { status: 200, body: v.body, headers: { ETag: v.etag } };
     }
     if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
-    if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.', 'Products are stored with the catalog.');
+    if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Products are stored with the catalog.');
     const local = await localProducts(deps);
     const guard = checkIfMatch(ifMatch, contentETag(local.length === 0 ? null : local), 'products', 'products');
     if (guard !== undefined) return guard;
@@ -218,7 +218,7 @@ export async function handleProductsRequest(method: string, parts: string[], pat
   }
   if ((action === 'merge' || action === 'split') && parts.length === 4) {
     if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
-    if (deps.docs === undefined) return fail(501, 'This studio does not keep catalog documents by path.');
+    if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.');
     const before = (await deps.loadDb()).products ?? [];
     const request = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
     if (action === 'merge') {
@@ -235,5 +235,5 @@ export async function handleProductsRequest(method: string, parts: string[], pat
     if (!split.ok) return fail(422, `Not split: ${split.reason}.`);
     return store(deps, split.products, before, 'split');
   }
-  return fail(404, `${parts.join('/')} is not part of the workbench API.`, `Try ${PRODUCT_ROUTES.join('; ')}.`);
+  return fail(404, `${parts.join('/')} is not part of the server API.`, `Try ${PRODUCT_ROUTES.join('; ')}.`);
 }

@@ -750,9 +750,9 @@ export async function handleVersionRequest(
   if (head !== 'designs' || section !== 'versions' || id === undefined) return undefined;
   if (!isDesignId(id)) return fail(400, `${JSON.stringify(id)} cannot be used as a design id.`);
   const store = deps.versions;
-  if (store === undefined) return fail(501, 'This studio does not keep design versions.', 'The working copy still saves as usual.');
+  if (store === undefined) return fail(501, 'This hub does not keep design versions.', 'The working copy still saves as usual.');
   if (!await deps.designs.has(id)) return fail(404, `There is no design called '${id}'.`, 'Pick one from the cable list.');
-  if (rest.length > 0) return fail(404, `${parts.join('/')} is not part of the workbench API.`);
+  if (rest.length > 0) return fail(404, `${parts.join('/')} is not part of the server API.`);
 
   if (first === undefined) {
     if (method === 'GET') return ok(await listing(deps, store, id));
@@ -762,7 +762,7 @@ export async function handleVersionRequest(
 
   if (first === 'drafts') {
     const n = parseNumber(second);
-    if (n === undefined || third !== 'restore') return fail(404, `${parts.join('/')} is not part of the workbench API.`);
+    if (n === undefined || third !== 'restore') return fail(404, `${parts.join('/')} is not part of the server API.`);
     if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers POST.');
     const draft = await store.readDraft(id, n);
     if (draft === undefined) return fail(404, `'${id}' has no kept draft ${n}.`);
@@ -797,7 +797,7 @@ export async function handleVersionRequest(
     if (method === 'PUT') return await editLocked(deps, store, file, body, user);
     return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
   }
-  if (third !== undefined) return fail(404, `${parts.join('/')} is not part of the workbench API.`);
+  if (third !== undefined) return fail(404, `${parts.join('/')} is not part of the server API.`);
   if (second === 'artwork') {
     if (method !== 'GET') return fail(405, `${method} is not something this address accepts.`, 'It answers GET.');
     return ok(await readVersionArtwork(store, file));
@@ -812,5 +812,5 @@ export async function handleVersionRequest(
     }
     return await replaceWorking(deps, store, id, file.design, rev, `replaced by a new version from Rev ${rev}`, user);
   }
-  return fail(404, `${parts.join('/')} is not part of the workbench API.`);
+  return fail(404, `${parts.join('/')} is not part of the server API.`);
 }
