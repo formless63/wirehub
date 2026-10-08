@@ -1577,6 +1577,13 @@ function elkGraphOf(original: CableDesign, db: Db, entries: readonly NodeEntry[]
     seen.add(pair);
     edges.push({ id: `joint${index}`, source, target });
   });
+  // a part nothing is soldered to has no joint to carry its place: the column constraint is its edge
+  const jointed = new Set(design.joints.flatMap((joint) => [own(joint.a.instance), own(joint.b.instance)]));
+  for (const [u, v] of ranks.constraints) {
+    if (jointed.has(u) && jointed.has(v)) continue;
+    if (!(entries.some((entry) => entry.id === u) && entries.some((entry) => entry.id === v))) continue;
+    if (!jointed.has(u) || !jointed.has(v)) edges.push({ id: `rank:${u}:${v}`, source: u, target: v });
+  }
   const drawn = new Set(entries.map((entry) => entry.id));
   const order = ranks.order.filter((id) => drawn.has(id) && !alias.has(id));
   const nodes: ElkNodeSpec[] = order.map((id) => {

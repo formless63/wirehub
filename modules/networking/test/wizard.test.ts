@@ -6,7 +6,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { createCatalog, dataPath, fsCatalogSource, layeredCatalogSource } from '@wirehub/catalog';
-import { initialWizardState, planCable, type WizardState } from '@wirehub/editor-react';
+import { autoLayout, backEdges, initialWizardState, planCable, type WizardState } from '@wirehub/editor-react';
 import { describe, expect, it } from 'vitest';
 
 import { NETWORKING_PACK } from '../src/index.ts';
@@ -61,5 +61,13 @@ describe('an RJ45 patch cable, connected by signal', () => {
     const open = planCable(patch({ connect: 'open' }));
     expect(open.design.joints).toEqual([]);
     expect(open.design.instances.connectors.map((c) => c.id)).toEqual(['j1', 'j2']);
+  });
+
+  it('opens with no back-edges: the plugs outside, the wire between them', () => {
+    const plan = planCable(patch());
+    expect(backEdges(plan.design, db)).toEqual([]);
+    const { positions } = autoLayout(plan.design, db);
+    expect(positions['j1']!.x).toBeLessThan(positions['w1']!.x);
+    expect(positions['w1']!.x).toBeLessThan(positions['j2']!.x);
   });
 });

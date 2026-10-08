@@ -7,7 +7,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { createCatalog, dataPath, fsCatalogSource, layeredCatalogSource } from '@wirehub/catalog';
-import { initialWizardState, planCable, type WizardState } from '@wirehub/editor-react';
+import { backEdges, initialWizardState, planCable, type WizardState } from '@wirehub/editor-react';
 import { describe, expect, it } from 'vitest';
 
 import { PC_SERIAL_PACK } from '../src/index.ts';
@@ -58,5 +58,9 @@ describe('a DE-9 RS-232 lead, connected by signal', () => {
   it('says which lines the stock could not carry', () => {
     const plan = planCable(lead);
     expect((plan.design.notes ?? []).some((n) => n.startsWith('Not carried'))).toBe(true);
+  });
+
+  it('opens with no back-edges', () => {
+    expect(backEdges(planCable(lead).design, db)).toEqual([]);
   });
 });

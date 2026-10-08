@@ -326,6 +326,8 @@ export {
   jointedKeys,
   segmentFlips,
 } from './derive.ts';
+export { backEdges } from './layout-check.ts';
+export type { BackEdge } from './layout-check.ts';
 /* Breakouts: port columns, stubs, ground bundles and their pigtails, face turns. */
 export {
   BREAKOUT_LAYOUT,

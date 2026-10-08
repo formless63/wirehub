@@ -238,6 +238,26 @@ export function designRanks(
     const nearest = Math.min(...successors.map((v) => rank.get(v) ?? 0));
     rank.set(id, Math.max(rank.get(id) ?? 0, nearest - 1));
   }
+  // parts nothing is soldered to yet (a design opened with its ends left open) flank the main
+  // wire instead of piling onto it: the ends of a cable stand on the outside, the wire between
+  if (main !== undefined) {
+    const middle = rank.get(main) ?? 0;
+    const loose = ids.filter((id) => !isSegment(id) && jointCount(id) === 0 && kinds.get(id) !== 'component');
+    let onLeft = ids.filter((id) => !loose.includes(id) && (rank.get(id) ?? 0) < middle).length;
+    let onRight = ids.filter((id) => !loose.includes(id) && (rank.get(id) ?? 0) > middle).length;
+    for (const id of loose) {
+      // end `a` (the first listed) goes left, the next right, whichever side has fewer
+      if (onLeft <= onRight) {
+        rank.set(id, middle - 1);
+        left(id, main);
+        onLeft += 1;
+      } else {
+        rank.set(id, middle + 1);
+        left(main, id);
+        onRight += 1;
+      }
+    }
+  }
   const least = Math.min(0, ...[...rank.values()]);
   for (const id of ids) columns[id] = (rank.get(id) ?? 0) - least;
 
