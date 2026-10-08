@@ -8,7 +8,7 @@ import type { JSX } from 'react';
 import { helpUrl, type HelpTopic } from '../help.ts';
 
 export function InfoTip({ text, topic, label = 'More about this' }: { text: string; topic?: HelpTopic; label?: string }): JSX.Element {
-  const className = 'ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line align-middle text-[10px] font-semibold leading-none text-dim no-underline hover:text-ink';
+  const className = 'ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line align-middle text-2xs font-semibold leading-none text-dim no-underline hover:text-ink';
   const tip = topic === undefined ? text : `${text} Select to learn more.`;
   if (topic === undefined) {
     return (
