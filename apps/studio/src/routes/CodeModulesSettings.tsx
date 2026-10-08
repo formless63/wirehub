@@ -86,7 +86,7 @@ export function CodeModulesSettings(): JSX.Element {
             />
             <span className="font-medium">Allow code modules</span>
           </label>
-          {view.allowed.env ? null : <div className="text-warn">Turned off by the server (WIREHUB_ALLOW_CODE_MODULES=false): no code module runs, whatever is set here.</div>}
+          {view.allowed.env ? null : <div className="text-warn">Turned off by the server: no code module runs, whatever is set here.</div>}
           <div className="mt-1 text-faint">Built in: {view.builtins.join(', ') || 'none'} · module API {view.apiVersion}</div>
 
           <h3 className="mt-3 font-medium">Installed</h3>
@@ -154,7 +154,7 @@ export function CodeModulesSettings(): JSX.Element {
           <p className="text-faint">
             Finishes changes only a fresh start applies (a module's job queues). WireHub stops taking requests, lets the ones in flight finish, closes cleanly and exits; the
             container's restart policy starts it again, and this page reconnects by itself.
-            {view.supervised ? '' : ' This server does not declare a supervisor (WIREHUB_RESTART_SUPERVISED): it may not come back on its own.'}
+            {view.supervised ? '' : ' This server does not declare a supervisor: it may not come back on its own.'}
           </p>
           {!owner ? null : <div className="mt-1"><RestartWireHub supervised={view.supervised} /></div>}
         </>

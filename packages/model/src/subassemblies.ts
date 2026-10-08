@@ -30,6 +30,7 @@
  * Pure and deterministic, like the rest of the model.
  */
 
+import { endName } from './names.ts';
 import {
   findConnector,
   findWire,
@@ -285,7 +286,7 @@ export function subassemblyPorts(design: CableDesign, db: Db, stack: readonly st
       if (endsTouched.has(group) || pigtailsAt(segment, end).length > 0) continue;
       for (const path of segmentElectricalPaths(wire, segment)) {
         const ref: TerminalRef = { instance: segment.id, terminal: path, end };
-        ports.push({ id: subassemblyPortId(ref), kind: 'lead', ref, group, groupLabel: `${segment.label ?? segment.id} end ${end} (flying)`, label: labelOfPath(wire, path) });
+        ports.push({ id: subassemblyPortId(ref), kind: 'lead', ref, group, groupLabel: `${segment.label ?? segment.id} ${endName(end)} (flying)`, label: labelOfPath(wire, path) });
       }
     }
   }

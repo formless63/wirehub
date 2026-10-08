@@ -152,7 +152,7 @@ describe('the studio adapter over the studio API', () => {
     const result = await adapter.list();
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.message).toContain('could not reach the workbench');
+    expect(result.message).toContain('could not reach the server');
     expect(result.hint).toContain('dev');
   });
 });

@@ -46,7 +46,7 @@ export function crossSiteRefusal(headers: WriteHeaders): GuardRefusal | undefine
   const refuse = (): GuardRefusal => ({
     status: 403,
     body: {
-      error: 'The studio only accepts changes from its own pages.',
+      error: 'WireHub only accepts changes from its own pages.',
       hint: 'Nothing was changed. This request came from another site.',
     },
   });
@@ -74,7 +74,7 @@ export function contentTypeRefusal(method: string, contentType: string | undefin
   return {
     status: 415,
     body: {
-      error: `The studio does not accept ${type === '' ? 'a body with no type' : `'${type}'`} here.`,
+      error: `WireHub does not accept ${type === '' ? 'a body with no type' : `'${type}'`} here.`,
       hint: `Nothing was changed. Send it as ${allowed.join(' or ')}.`,
     },
   };
@@ -84,7 +84,7 @@ export function tooLargeRefusal(limit: number): GuardRefusal {
   return {
     status: 413,
     body: {
-      error: `That is larger than the studio accepts (${Math.round(limit / (1024 * 1024))} MB).`,
+      error: `That is larger than WireHub accepts (${Math.round(limit / (1024 * 1024))} MB).`,
       hint: 'Nothing was changed.',
     },
   };

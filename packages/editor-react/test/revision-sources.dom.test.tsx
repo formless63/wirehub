@@ -21,7 +21,7 @@ it('shows a readable source revision and keeps its full citation available behin
   };
   render(<RevisionsSection kind="pcbas" id="synthetic-board" revisions={adapter} readOnly />);
   expect(await screen.findByText(/Moved the header/)).toBeTruthy();
-  const summary = screen.getByText('Source');
+  const summary = screen.getByText('Reference');
   const details = summary.closest('details')!;
   expect(details.open).toBe(false);
   expect(details.textContent).toContain('complete provenance');

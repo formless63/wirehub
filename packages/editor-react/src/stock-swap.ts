@@ -40,8 +40,7 @@ import {
   type Element,
   type Joint,
   type TerminalRef,
-  type WireDefinition,
-} from '@wirehub/model';
+  type WireDefinition, endName } from '@wirehub/model';
 
 export interface StockSwapResult {
   design: CableDesign;
@@ -239,7 +238,7 @@ function openPigtails(
     if (pigtail.members === undefined && firstMassOnly) {
       if (seenMass.has(side.end)) {
         lost.push(
-          `the shield mass's extra ground connection at end ${side.end} (pigtail ${pigtail.id} → ${other.instance} ${other.terminal}) — every screen now lands on the first one; review the grounds`,
+          `the shield mass's extra ground connection at the ${endName(side.end)} (pigtail ${pigtail.id} → ${other.instance} ${other.terminal}) — every screen now lands on the first one; review the grounds`,
         );
         continue;
       }

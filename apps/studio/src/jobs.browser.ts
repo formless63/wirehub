@@ -67,7 +67,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<Jo
     }
     return { ok: true, status: response.status, value: parsed as T };
   } catch {
-    return { ok: false, status: 0, error: 'The studio could not be reached.' };
+    return { ok: false, status: 0, error: 'WireHub could not be reached.' };
   }
 }
 

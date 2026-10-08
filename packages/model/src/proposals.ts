@@ -164,7 +164,7 @@ function draft(lib: ResolverLibrary, resolution: Resolution, finding: Finding, i
           ...dst.map((p) => ({ id: padOf(`destination:${p.position}`), nodes: [padOf(`destination:${p.position}`), `U1.b${p.position}`] })),
           { id: 'GND', nodes: ['GND', 'U1.gnd'] },
         ],
-        open: [`a converter between ${sig(src)} and ${sig(dst)}; then describe it as an adapter device (docs/resolver.md) so the resolver offers it`],
+        open: [`a converter between ${sig(src)} and ${sig(dst)}; then describe it as an adapter device so the resolver offers it`],
       };
     }
     default:

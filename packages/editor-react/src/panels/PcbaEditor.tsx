@@ -223,7 +223,7 @@ export function PcbaEditor(props: PcbaEditorProps): JSX.Element {
           />
           <Field
             label="KiCad project"
-            say="Reference only — the studio does not read it."
+            say="Reference only — WireHub does not read it."
             value={draft.kicadProject}
             onChange={(value) => set('kicadProject', value)}
             placeholder="schematic file name"

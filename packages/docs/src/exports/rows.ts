@@ -57,8 +57,8 @@ export function bomTable(design: CableDesign, db: Db, options: ExportOptions = {
   // the summary rows: a total is a row of its own, never folded into a part's
   const summary = (what: string, amount: number | '', note: string): (string | number)[] => [what, '', note, '', '', '', '', '', '', '', amount, cost.currency ?? ''];
   if (cost.labour !== undefined) rows.push(summary('Labour', cost.labour.cost ?? '', `${cost.labour.minutes} min${cost.labour.ratePerHour === undefined ? ', no rate set' : ` at ${cost.labour.ratePerHour} per hour`}`));
-  rows.push(summary('Total', cost.total, `one cable${cost.unpriced.length === 0 ? '' : `; ${cost.unpriced.length} unpriced line(s) not included`}`));
-  if (cost.buildQty > 1) rows.push(summary(`Total x ${cost.buildQty}`, cost.buildTotal, `${cost.buildQty} cables`));
+  rows.push(summary('Total', cost.total, `one unit${cost.unpriced.length === 0 ? '' : `; ${cost.unpriced.length} unpriced line(s) not included`}`));
+  if (cost.buildQty > 1) rows.push(summary(`Total x ${cost.buildQty}`, cost.buildTotal, `${cost.buildQty} units`));
   return { name: 'BOM', headers: [...BOM_HEADERS, ...BOM_COST_HEADERS], rows };
 }
 

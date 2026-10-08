@@ -289,7 +289,7 @@ export async function createStudioAuth(config: AuthConfigEnabled, overrides: Stu
             console.error(`[auth] magic link to ${email} not sent: ${(error as Error).message}`);
             throw new APIError('BAD_GATEWAY', {
               code: 'MAIL_NOT_SENT',
-              message: 'The studio could not send the sign-in mail. Try again later, or sign in another way.',
+              message: 'WireHub could not send the sign-in mail. Try again later, or sign in another way.',
             });
           }
         },

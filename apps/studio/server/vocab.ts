@@ -120,8 +120,8 @@ function introduced(before: Issue[], after: Issue[]): Issue[] {
 function noVocab(): ApiResponse {
   return fail(
     501,
-    'This studio is not set up to change the controlled lists.',
-    'The lists can still be read from the library. Adding entries needs a host that stores the catalog files — the studio server does.',
+    'This hub is not set up to change the controlled lists.',
+    'The lists can still be read from the library. Adding entries needs a host that stores the catalog files — the WireHub server does.',
   );
 }
 

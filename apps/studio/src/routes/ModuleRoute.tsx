@@ -25,7 +25,7 @@ export function ModuleRoute(): JSX.Element {
   const path = (params._splat ?? '').replace(/\/+$/, '');
   const found = registry.routes().find((r) => r.module === module && r.path === path);
   const api = useMemo(() => moduleApi(module), [module]);
-  if (found === undefined) return <NotFoundView message="No module page lives at that address." backTo="/cables" backLabel="Back to Cables" />;
+  if (found === undefined) return <NotFoundView message="No module page lives at that address." backTo="/cables" backLabel="Back to Designs" />;
   const Page = found.component as ComponentType<RouteProps>;
   return (
     <div className="cs-module-route h-full min-h-0 overflow-auto p-4" data-module={module} data-route={path}>

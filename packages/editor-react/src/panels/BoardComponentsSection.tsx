@@ -71,7 +71,7 @@ export function BoardComponentsSection(props: BoardComponentsSectionProps): JSX.
         </button>
         <span
           className="cs-rev-count"
-          title="Bought with the populated board: the cable BOM lists the PCBA once, never these parts. From the board's .kicad_pcb, fabrication BOM and CPLs (data/board-parts.json)."
+          title="Bought with the populated board: the design BOM lists the PCBA once, never these parts. From the board's .kicad_pcb, fabrication BOM and CPLs (data/board-parts.json)."
         >
           {entry.board} {entry.revision}
           {buildName === undefined ? '' : ` · ${buildName}`} · {fitted} fitted · {rows.length} part{rows.length === 1 ? '' : 's'}

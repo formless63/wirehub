@@ -109,13 +109,13 @@ export function EditorCommands(): null {
       },
       {
         id: 'editor.rename',
-        title: 'Rename this cable',
+        title: 'Rename this design',
         keywords: ['id', 'label'],
         run: () => handle.openLifecycle('rename'),
       },
       {
         id: 'editor.duplicate',
-        title: 'Duplicate this cable',
+        title: 'Duplicate this design',
         keywords: ['copy', 'save as'],
         run: () => handle.openLifecycle('duplicate'),
       },
@@ -127,13 +127,13 @@ export function EditorCommands(): null {
       },
       {
         id: 'editor.makeVariant',
-        title: 'Make variant: copy this cable onto another wire stock…',
+        title: 'Make variant: copy this design onto another wire stock…',
         keywords: ['variant', 'stock', 'wire', 'swap', 'copy'],
         run: () => handle.openLifecycle('variant'),
       },
       {
         id: 'editor.delete',
-        title: 'Delete this cable',
+        title: 'Delete this design',
         keywords: ['remove'],
         run: () => handle.openLifecycle('delete'),
       },

@@ -9,6 +9,7 @@
  * record as JSON. Every save is one change set and raises `product.changed`.
  */
 
+import { InfoTip } from '../shell/InfoTip.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useMemo, useState, type JSX } from 'react';
@@ -16,7 +17,7 @@ import { toast } from 'sonner';
 import type { LineupRow, ProductFamily } from '@wirehub/model';
 
 import { cableListKey, dbKey } from '../queries.ts';
-import { EMPTY_PRIMARY, EmptyState } from '../shell/EmptyState.tsx';
+import { EmptyState } from '../shell/EmptyState.tsx';
 import { RouteChip } from '../shell/RouteChip.tsx';
 import { useStudio } from '../studio-context.tsx';
 import {
@@ -135,12 +136,12 @@ export function ProductsRoute(): JSX.Element {
   return (
     <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="products">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[14px] font-semibold">Products</h1>
+        <h1 className="text-[14px] font-semibold">
+          Products
+          <InfoTip topic="products" text="The designs this hub sells, grouped: each family has its number, the names it is also known by, the options its builds differ on, and its variants, each documented by one design." />
+        </h1>
         {readOnly ? null : <button type="button" className="cs-route-action cs-route-action-primary" disabled={view === undefined || editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty(EXAMPLE)); }}>New product…</button>}
       </div>
-      <p className="mb-2 max-w-2xl text-dim">
-        The designs this hub sells, grouped: each family has its number, the names it is also known by, the options its builds differ on, and its variants — each documented by one design.
-      </p>
       <RouteTabs id="products" label="products" items={[{ id: 'families', label: 'Families' }, { id: 'lineup', label: 'Lineup' }]} value={tab} onChange={setTab} />
       <div role="tabpanel" id={`products-panel-${tab}`} aria-labelledby={`products-tab-${tab}`}>
       {tab === 'lineup' ? (
@@ -165,7 +166,6 @@ export function ProductsRoute(): JSX.Element {
           {view.products.length === 0 ? (
             <EmptyState
               topic="products"
-              action={readOnly ? undefined : <button type="button" className={EMPTY_PRIMARY} disabled={editing !== undefined} onClick={() => { setTab('families'); setEditing(pretty(EXAMPLE)); }}>New product…</button>}
             >
               No products yet.
             </EmptyState>

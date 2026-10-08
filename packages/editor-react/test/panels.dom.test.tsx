@@ -164,7 +164,7 @@ describe('label text in the inspector (cs-5k1.20)', () => {
     fireEvent.change(run, { target: { value: 'FEED-1' } });
     fireEvent.blur(run);
     expect(dispatch).toHaveBeenCalledWith({ type: 'update-instance', id: seg, patch: { label: 'FEED-1' } });
-    const endA = screen.getByLabelText('end A text');
+    const endA = screen.getByLabelText('Source end text');
     fireEvent.change(endA, { target: { value: 'FEED-1 | to AMP' } });
     fireEvent.blur(endA);
     expect(dispatch).toHaveBeenCalledWith({ type: 'update-instance', id: seg, patch: { endLabels: { a: ['FEED-1', 'to AMP'] } } });

@@ -281,7 +281,7 @@ async function adoptable(deps: WorkbenchDeps, settings: RuntimeSettings): Promis
   return out;
 }
 
-const noSettings = (): ApiResponse => fail(501, 'This studio keeps no runtime settings.', 'They are set on the server, in its environment.');
+const noSettings = (): ApiResponse => fail(501, 'This hub keeps no runtime settings.', 'They are set on the server, in its environment.');
 
 /** `GET /api/settings/runtime`, `PUT /api/settings/runtime/<group>`: in the unit of work, like the other settings. */
 export async function handleRuntimeSettingsRequest(method: string, parts: string[], body: unknown, deps: WorkbenchDeps, ifMatch: string | undefined, user: StudioUser | undefined): Promise<ApiResponse | undefined> {

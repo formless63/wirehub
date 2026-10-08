@@ -48,7 +48,7 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
   const commitSourcing = (next: Sourcing): void => {
     const was = sourcingOfDesign();
     if (JSON.stringify(withSourcing({}, next)) === JSON.stringify(withSourcing({}, was))) return;
-    dispatch({ type: 'apply-design', design: withSourcing(state.design, next), description: next.route === was.route ? 'changed how the cable is sourced' : `set the route to ${next.route ?? 'not stated'}` });
+    dispatch({ type: 'apply-design', design: withSourcing(state.design, next), description: next.route === was.route ? 'changed how the design is sourced' : `set the route to ${next.route ?? 'not stated'}` });
   };
 
   return (
@@ -139,7 +139,7 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
             onBlur={() => dispatch({ type: 'set-tags', tags: tagText.split(',') })}
           />
         </label>
-        <label className="cs-field" title="Hand labour to build one cable, in minutes. The BOM prices it at the hub's labour rate (engineering settings).">
+        <label className="cs-field" title="Hand labour to build one design, in minutes. The BOM prices it at the hub's labour rate (engineering settings).">
           <span>Build labour (min)</span>
           <input
             className="cs-input cs-mono"
@@ -158,7 +158,7 @@ export function NotesPanel({ state }: { state: EditorState }): JSX.Element {
             }}
           />
         </label>
-        {/* how the cable is sourced: the route commits at once, the names when focus leaves the block */}
+        {/* how the design is sourced: the route commits at once, the names when focus leaves the block */}
         <div
           className="cs-sourcing"
           onBlur={(event) => {

@@ -33,8 +33,8 @@ export function AppCommands(): null {
     const list: AppCommand[] = [
       {
         id: 'nav.cables',
-        title: 'Go to Cables',
-        keywords: ['cable list', 'home'],
+        title: 'Go to Designs',
+        keywords: ['design list', 'home'],
         run: () => void navigate({ to: '/cables' }),
       },
       {
@@ -69,7 +69,7 @@ export function AppCommands(): null {
       },
       {
         id: 'file.newCable',
-        title: 'New cable',
+        title: 'New design',
         keywords: ['create', 'wizard'],
         run: studio.openNewCableWizard,
       },

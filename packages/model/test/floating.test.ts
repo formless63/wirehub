@@ -32,7 +32,7 @@ describe('conductors floating at both ends', () => {
     expect(found[0]).toMatchObject({
       severity: 'warning',
       where: 'w1:pair-1.a@a',
-      whereLabel: 'W1 pair 1 · blue (end A)',
+      whereLabel: 'W1 pair 1 · blue (source end)',
     });
     expect(found.map((i) => i.message)[0]).toBe(
       'W1 pair 1 · blue is not connected at either end — connect it, or note it as a spare',
@@ -50,7 +50,7 @@ describe('conductors floating at both ends', () => {
     design.joints = [{ a: { instance: pin, terminal: '1' }, b: { instance: 'w1', terminal: 'pair-1.a', end: 'a' } }];
     const issues = warnings(validateDesign(design, db));
     expect(issues.filter((i) => i.code === 'floating-conductor-end').map((i) => i.message)).toEqual([
-      expect.stringContaining('W1 pair 1 · blue is connected at end A but floating at end B'),
+      expect.stringContaining('W1 pair 1 · blue is connected at the source end but floating at the destination end'),
     ]);
     expect(floating(design)).toHaveLength(7);
   });

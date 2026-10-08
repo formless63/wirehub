@@ -134,7 +134,7 @@ function isLockPath(path: string): boolean {
 export async function handleLockRequest(request: EditLockRequest, deps: EditLockDeps): Promise<ApiResponse | undefined> {
   if (!isLockPath(request.path)) return undefined;
   const store = deps.locks;
-  if (store === undefined) return fail(501, 'This studio does not keep edit locks.', 'Edits still save; the version check stops a stale save.');
+  if (store === undefined) return fail(501, 'This hub does not keep edit locks.', 'Edits still save; the version check stops a stale save.');
   const now = (deps.clock ?? Date.now)();
   const method = request.method.toUpperCase();
   const action = (request.path.split('?')[0] ?? '').split('/').filter((p) => p !== '')[2];
@@ -207,7 +207,7 @@ export async function handleLockRequest(request: EditLockRequest, deps: EditLock
       );
     }
     default:
-      return fail(404, `${request.path} is not part of the workbench API.`, `Try one of: ${LOCK_ROUTES.join('; ')}.`);
+      return fail(404, `${request.path} is not part of the server API.`, `Try one of: ${LOCK_ROUTES.join('; ')}.`);
   }
 }
 

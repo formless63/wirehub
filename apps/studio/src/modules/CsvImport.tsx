@@ -106,7 +106,7 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
       let queued = await uploadImportJob('csv-library', importer, name, bytes);
       if (!queued.ok && (queued.status === 415 || queued.status === 405)) queued = await startImportJob('csv-library', importer, name, toBase64(bytes));
       if (!queued.ok) {
-        setMessage(queued.status === 501 ? 'This studio runs no import jobs. Download the mapped file and use Import… instead.' : `${queued.error}${queued.hint === undefined ? '' : ` ${queued.hint}`}`);
+        setMessage(queued.status === 501 ? 'This hub runs no import jobs. Download the mapped file and use Import… instead.' : `${queued.error}${queued.hint === undefined ? '' : ` ${queued.hint}`}`);
         return;
       }
       setJobId(queued.value.job.id);
@@ -156,7 +156,7 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
               </select>
             </label>
             <label>
-              Source for rows without one{' '}
+              Reference for rows without one{' '}
               <input aria-label="Batch source" value={batchSrc} onChange={(e) => setBatchSrc(e.target.value)} placeholder="e.g. supplier catalog 2026" className="w-56 rounded border border-line-field bg-panel px-1" />
             </label>
             <label title="A row for an id the library has changes that record (blank cells keep what it has) instead of being skipped; the dry run shows each change">

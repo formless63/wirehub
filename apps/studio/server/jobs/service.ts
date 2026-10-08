@@ -48,7 +48,7 @@ export function createJobService(options: JobServiceOptions): JobService {
       return kindsNow();
     },
     async enqueue(kind, request, by, enqueueOptions) {
-      if (!kindsNow().includes(kind)) throw new Error(`this studio does not run '${kind}' jobs`);
+      if (!kindsNow().includes(kind)) throw new Error(`this hub does not run '${kind}' jobs`);
       const job = await store.create(kind, request, requesterOf(by));
       await runner.submit(job, enqueueOptions);
       return job;

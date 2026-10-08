@@ -276,7 +276,7 @@ export function CommandPalette(): JSX.Element {
         >
           <Dialog.Title className="sr-only">Quick open</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Search cables, library definitions, and actions. Type &gt; for commands only.
+            Search designs, library definitions, and actions. Type &gt; for commands only.
           </Dialog.Description>
           <Command shouldFilter={false} value={highlighted} onValueChange={setHighlighted} loop label="Quick open">
             <div className="flex h-[46px] items-center gap-2.5 border-b border-line px-3.5 text-faint">
@@ -296,7 +296,7 @@ export function CommandPalette(): JSX.Element {
               </Command.Empty>
 
               {cableResults.length > 0 ? (
-                <Command.Group heading={<GroupHeading>Cables</GroupHeading>}>
+                <Command.Group heading={<GroupHeading>Designs</GroupHeading>}>
                   {cableResults.map((entry) => (
                     <Command.Item
                       key={entry.id}

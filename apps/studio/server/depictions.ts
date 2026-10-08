@@ -481,7 +481,7 @@ export function readUploadBody(
     const parts = parseMultipart(raw, boundary);
     if (parts === undefined) {
       return no(
-        'The studio could not read that upload.',
+        'WireHub could not read that upload.',
         'Nothing was written. Try the file picker instead of dragging, or reload the page and retry.',
       );
     }
@@ -504,14 +504,14 @@ export function readUploadBody(
     body = JSON.parse(new TextDecoder().decode(raw));
   } catch {
     return no(
-      'The studio could not read what was sent with that upload.',
+      'WireHub could not read what was sent with that upload.',
       'Send the file as a form upload, or as JSON with { "fileName": …, "data": "<base64>" }.',
     );
   }
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return no(
       'That upload is not a file.',
-      'Send JSON with { "fileName": …, "data": "<base64>" }, or use the studio\'s upload box.',
+      'Send JSON with { "fileName": …, "data": "<base64>" }, or use WireHub\'s upload box.',
     );
   }
   const record = body as Record<string, unknown>;
@@ -765,7 +765,7 @@ async function readAsset(deps: DepictionDeps, defId: string, view: string): Prom
  * command line, and provenance that lies is worse than provenance that is thin.
  */
 const STUDIO_VOICE: ImportVoice = {
-  importer: "the studio's Artwork tab",
+  importer: "WireHub's Artwork tab",
   widthOption: 'the "real width in millimetres" field',
   srcOption: 'the "where does this come from?" field',
   scaleGuidance: [
@@ -805,7 +805,7 @@ async function uploadDepiction(
   if (sourceKind !== undefined && sourceKind !== '' && !(SOURCE_KINDS as readonly string[]).includes(sourceKind)) {
     return fail(
       400,
-      `'${sourceKind}' is not a kind of source this studio knows.`,
+      `'${sourceKind}' is not a kind of source this hub knows.`,
       `Nothing was written. Pick one of: ${SOURCE_KINDS.join(', ')}.`,
     );
   }
@@ -938,7 +938,7 @@ function readAnchorBody(
     value = JSON.parse(new TextDecoder().decode(raw ?? new Uint8Array()));
   } catch {
     return no(
-      'The studio could not read that anchor list.',
+      'WireHub could not read that anchor list.',
       'Nothing was written. Reload the Artwork tab and place the anchors again.',
     );
   }
@@ -1130,7 +1130,7 @@ async function saveAnchors(
       read.body.src ??
       (typeof existing['src'] === 'string' && existing['src'] !== ''
         ? existing['src']
-        : `Depiction manifest for ${defId}; anchors placed on the ${anchorFrame} artwork in the studio's Artwork tab.`),
+        : `Depiction manifest for ${defId}; anchors placed on the ${anchorFrame} artwork in WireHub's Artwork tab.`),
   };
 
   const parsed = parseDepictionMeta(candidate, `depictions/${defId}`);
@@ -1201,7 +1201,7 @@ async function saveEntryGuides(
   try {
     body = JSON.parse(new TextDecoder().decode(request.raw ?? new Uint8Array()));
   } catch {
-    return fail(400, 'The studio could not read those guides.', 'Nothing was written.');
+    return fail(400, 'WireHub could not read those guides.', 'Nothing was written.');
   }
   const raw = typeof body === 'object' && body !== null ? (body as Record<string, unknown>)['entryGuides'] : undefined;
   const issues: Issue[] = [];
@@ -1236,7 +1236,7 @@ async function saveEntryGuides(
         old.side === guide.side &&
         JSON.stringify([old.pads, old.from, old.to]) === JSON.stringify([guide.pads, guide.from, guide.to]),
     );
-    return same ? guide : { ...guide, src: `Set by hand in the studio's Library guide editor on ${today}.` };
+    return same ? guide : { ...guide, src: `Set by hand in WireHub's Library guide editor on ${today}.` };
   });
   const value = stamped.length === 0 ? undefined : stamped;
   await deps.store.writeBoardMap(defId, withKeyBefore(map, 'entryGuides', value, 'src'));
@@ -1299,7 +1299,7 @@ async function routeDepictionRequest(
   const parts = path.split('/').filter((part) => part !== '').map(decodeSegment);
   const [, head, defId, action, ...rest] = parts;
   if (parts[0] !== 'api' || head !== 'depictions') {
-    return fail(404, `${path} is not part of the workbench API.`, `Try one of: ${DEPICTION_ROUTES.join('; ')}.`);
+    return fail(404, `${path} is not part of the server API.`, `Try one of: ${DEPICTION_ROUTES.join('; ')}.`);
   }
 
   if (defId === undefined) {
@@ -1317,7 +1317,7 @@ async function routeDepictionRequest(
     return await readDepictionDetail(deps, defId);
   }
   if (rest.length > 0) {
-    return fail(404, `${path} is not part of the workbench API.`, `Try one of: ${DEPICTION_ROUTES.join('; ')}.`);
+    return fail(404, `${path} is not part of the server API.`, `Try one of: ${DEPICTION_ROUTES.join('; ')}.`);
   }
 
   if (action === 'entry-guides') {
@@ -1366,7 +1366,7 @@ function readBytes(req: IncomingMessage): Promise<Uint8Array> {
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
       if (size > MAX_UPLOAD_BYTES) {
-        reject(new Error('that file is larger than the workbench will accept (24 MB)'));
+        reject(new Error('that file is larger than the server will accept (24 MB)'));
         req.destroy();
         return;
       }
@@ -1427,7 +1427,7 @@ export function depictionMiddleware(
         }
       } catch (error) {
         sendJson(413, {
-          error: 'The studio could not read that upload.',
+          error: 'WireHub could not read that upload.',
           hint: `Nothing was changed. (${(error as Error).message})`,
         });
         return;
@@ -1455,8 +1455,8 @@ export function depictionMiddleware(
         sendJson(response.status, response.body);
       } catch (error) {
         sendJson(500, {
-          error: 'The workbench hit an unexpected problem and stopped before changing anything.',
-          hint: `Check the terminal running the studio for details. (${(error as Error).message})`,
+          error: 'The server hit an unexpected problem and stopped before changing anything.',
+          hint: `Check the terminal running WireHub for details. (${(error as Error).message})`,
         });
       }
     })();

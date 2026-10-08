@@ -22,7 +22,7 @@
  * randomness; identical input gives identical bytes.
  */
 
-import { breakoutAt, findComponent, findConnector, findMechanical, findPcba, findWire, flattenSubassemblies, hasSubassemblies, type CableDesign, type Db, type SegmentInstance } from '@wirehub/model';
+import { breakoutAt, findComponent, findConnector, findMechanical, findPcba, findWire, flattenSubassemblies, hasSubassemblies, type CableDesign, type Db, type SegmentInstance, endName } from '@wirehub/model';
 
 import { brandFontFaces, brandStack } from './drawing/brand-font.ts';
 import { PAPER_IDS, frameGeometry, frameSpecFor, frameSvgGroup, paperSize, plexFontFaceCss, type PaperId, type SheetFrameSpec } from './frame/index.ts';
@@ -272,7 +272,7 @@ export function deriveFormboard(given: CableDesign, givenDb: Db, options: Formbo
       const here = breakoutAt(design, id, end);
       if (here === undefined) {
         termini.push({ segment: id, end, at: { ...at }, angleDeg: outward, joined: joinedAt(design, db, id, end) });
-        pegSpots.push({ at: { ...at }, kind: 'end', note: `${id} end ${end.toUpperCase()}` });
+        pegSpots.push({ at: { ...at }, kind: 'end', note: `${id} ${endName(end)}` });
       } else if (end === other(fromEnd)) {
         const mouldInstance = here.breakout.mould === undefined ? undefined : (design.instances.mechanical ?? []).find((m) => m.id === here.breakout.mould);
         const mouldLabel = mouldInstance === undefined ? undefined : findMechanical(db, mouldInstance.def)?.label;

@@ -296,7 +296,7 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
             onChange={(e) => set('cutaway', e.target.value === 'drawn' ? 'drawn' : undefined)}
           >
             <option value="art">Hand-drawn art (where there is some)</option>
-            <option value="drawn">Generated from the cable spec</option>
+            <option value="drawn">Generated from the design spec</option>
           </select>
           <small>Stocks with no hand-drawn art always use the generated one.</small>
         </label>

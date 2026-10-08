@@ -34,7 +34,7 @@ function Status({ field }: { field: ModuleFieldView }): JSX.Element {
   const gate = field.gates === undefined ? '' : ` for ${field.gates}`;
   const text =
     field.status === 'server'
-      ? `set by the server (${field.env ?? ''}), locked`
+      ? 'set by the server, locked'
       : field.unreadable === true
         ? 'saved, but this server cannot decrypt it: enter it again'
         : field.status === 'configured'

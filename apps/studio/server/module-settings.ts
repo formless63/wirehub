@@ -228,7 +228,7 @@ function modulePath(path: string): { module: string; key?: string } | undefined 
 
 export const isModuleSecretPath = (path: string): boolean => modulePath(path)?.key !== undefined;
 
-const noSettings = (): ApiResponse => fail(501, 'This studio keeps no runtime settings.', 'They are set on the server, in its environment.');
+const noSettings = (): ApiResponse => fail(501, 'This hub keeps no runtime settings.', 'They are set on the server, in its environment.');
 
 /**
  * `PUT /api/settings/modules/<module>` `{ values }` (If-Match: the section's ETag): the
@@ -312,7 +312,7 @@ export async function handleModuleSecret(
   if (store === undefined) return fail(503, 'This hub has no secret store yet.', 'Finish first-run setup first.');
   const cipher = settings.cipher;
   if (method === 'PUT' && cipher === undefined) {
-    return fail(409, 'This server has no settings key (WIREHUB_SETTINGS_KEY), so it cannot keep a secret entered here.', setting.env === undefined ? 'Give the server a settings key (the compose stack generates one).' : `Set ${setting.env} on the server instead, or give the server a settings key (the compose stack generates one).`);
+    return fail(409, 'This server has no settings key, so it cannot keep a secret entered here.', setting.env === undefined ? 'Give the server a settings key (the compose stack generates one).' : `Set it on the server instead, or give the server a settings key (the compose stack generates one).`);
   }
   let value: string | undefined;
   if (method === 'PUT') {

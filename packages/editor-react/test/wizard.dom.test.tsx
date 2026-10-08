@@ -44,7 +44,7 @@ const next = (): void => {
 function name(id = 'wizard-cable'): void {
   fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Wizard cable' } });
   fireEvent.change(screen.getByLabelText(/^Id/), { target: { value: id } });
-  fireEvent.change(screen.getByLabelText(/^Source/), { target: { value: 'unit test' } });
+  fireEvent.change(screen.getByLabelText(/^Reference/), { target: { value: 'unit test' } });
 }
 
 /** Pick a part out of the searchable list by its id. */
@@ -55,9 +55,10 @@ function pick(id: string): void {
 describe('the first step', () => {
   it('will not go on without a name, an id and a source, and says so in sentences', () => {
     setup();
+    fireEvent.change(screen.getByLabelText(/^Reference/), { target: { value: '' } });
     next();
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('Give the cable a name');
+    expect(alert.textContent).toContain('Give the design a name');
     expect(alert.textContent).toContain('where this information comes from');
     // still on step one
     expect(screen.getByRole('heading', { level: 3 }).textContent).toContain('called');
@@ -69,13 +70,13 @@ describe('the first step', () => {
     expect((screen.getByLabelText(/^Id/) as HTMLInputElement).value).toBe('mixer-main-stage');
   });
 
-  it('refuses an id another cable already has', () => {
+  it('refuses an id another design already has', () => {
     setup();
     fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'x' } });
     fireEvent.change(screen.getByLabelText(/^Id/), {
       target: { value: 'de9-crossover' },
     });
-    fireEvent.change(screen.getByLabelText(/^Source/), { target: { value: 'x' } });
+    fireEvent.change(screen.getByLabelText(/^Reference/), { target: { value: 'x' } });
     next();
     expect(screen.getByRole('alert').textContent).toContain('already exists');
   });

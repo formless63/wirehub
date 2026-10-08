@@ -186,7 +186,7 @@ export function RevisionsSection(props: {
                     {r.savedAt === undefined ? null : <span className="cs-small"> · {day(r.savedAt)}</span>}
                     {r.note === undefined || r.note === '' ? null : <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.note}</p>}
                     <details>
-                      <summary>Source</summary>
+                      <summary>Reference</summary>
                       <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.src}</p>
                     </details>
                   </li>

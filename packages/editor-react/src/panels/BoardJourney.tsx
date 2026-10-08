@@ -154,7 +154,7 @@ export function starterBuilds(def: PcbaDefinition, siblings: readonly PcbaDefini
       key: n === 0 ? 'as-designed' : `build-${n + 1}`,
       idSuffix: s.id.startsWith(`${def.partNumber.toLowerCase()}-${def.revision.toLowerCase()}`) ? s.id.slice(`${def.partNumber.toLowerCase()}-${def.revision.toLowerCase()}`.length) : '',
       build: s.build ?? 'as-designed',
-      src: `Started in the studio from the imported definition ${s.id} (${s.build ?? 'as-designed'}); population as the importer made it.`,
+      src: `Started in WireHub from the imported definition ${s.id} (${s.build ?? 'as-designed'}); population as the importer made it.`,
     })),
   };
 }
@@ -301,7 +301,7 @@ export function useBoardJourney(args: BoardJourneyArgs): BoardJourney | undefine
 
   const saveTag = async (terminal: string, patch: { role?: string | null; signal?: SignalRef | null }, allBuilds: boolean): Promise<string | undefined> => {
     const vocab = args.vocab;
-    if (vocab === undefined) return 'This studio cannot save tags.';
+    if (vocab === undefined) return 'This hub cannot save tags.';
     const targets = (allBuilds ? siblings : [def]).filter((d) => d.terminals.some((t) => t.id === terminal));
     setTagOverlay((o) => ({ ...o, [terminal]: { ...o[terminal], ...patch } }));
     for (const target of targets) {
@@ -439,7 +439,7 @@ export function BoardJourneyStep(props: { journey: BoardJourney; tab: 'import' |
 
 function SaveBar(props: { journey: BoardJourney; what: string }): JSX.Element | null {
   const { journey } = props;
-  if (journey.host.builds === undefined) return <p className="cs-bj-hint">This studio cannot save build files.</p>;
+  if (journey.host.builds === undefined) return <p className="cs-bj-hint">This hub cannot save build files.</p>;
   return (
     <div className="cs-bj-savebar">
       <span className="cs-mono cs-dim" title="The build file this board reads">

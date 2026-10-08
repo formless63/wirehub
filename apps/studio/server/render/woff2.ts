@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const cache = new Map<string, Uint8Array>();
 
 export function decompressWoff2(bytes: Uint8Array, maxBytes: number): Uint8Array {
-  if (bytes.length < 48 || new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(16) > maxBytes) throw new Error('The WOFF2 font unpacks to more than this studio accepts.');
+  if (bytes.length < 48 || new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(16) > maxBytes) throw new Error('The WOFF2 font unpacks to more than this hub accepts.');
   const key = createHash('sha256').update(bytes).digest('hex');
   const cached = cache.get(key);
   if (cached !== undefined && cached.length <= maxBytes) return cached.slice();
