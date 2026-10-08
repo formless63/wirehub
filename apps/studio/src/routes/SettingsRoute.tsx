@@ -14,6 +14,7 @@ import './settings-sections.css';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
+import { Select } from '@wirehub/editor-react';
 import { PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
 
 import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
@@ -217,20 +218,26 @@ export function SettingsRoute(): JSX.Element {
             </label>
           ))}
           <div className="flex gap-3">
-            <label className="flex flex-1 flex-col gap-0.5" title="The paper every document prints on unless a design or a download asks for another. The drawing, formboard, labels and schematic keep their own orientation.">
+            <div className="flex flex-1 flex-col gap-0.5" title="The paper every document prints on unless a design or a download asks for another. The drawing, formboard, labels and schematic keep their own orientation.">
               <span className="font-medium">Paper</span>
-              <select className="rounded border border-line bg-panel px-2 py-1" aria-label="Paper" value={draft.paper} disabled={readOnly} onChange={(e) => setDraft({ ...draft, paper: e.target.value as Draft['paper'] })}>
-                <option value="">A4 (default)</option>
-                {PAPER_IDS.filter((id) => id !== 'A4').map((id) => <option key={id} value={id}>{PAPERS[id].label}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-1 flex-col gap-0.5" title="The title-block layout of every sheet: ISO 7200 (a block at the bottom right) or ANSI (a full-width block). By default the paper decides: ISO for the A sizes, ANSI for Letter and the larger American sizes.">
+              <Select
+                aria-label="Paper"
+                value={draft.paper === '' ? 'default' : draft.paper}
+                disabled={readOnly}
+                onValueChange={(value) => setDraft({ ...draft, paper: value === 'default' ? '' : (value as PaperId) })}
+                options={[{ value: 'default', label: 'A4 (default)' }, ...PAPER_IDS.filter((id) => id !== 'A4').map((id) => ({ value: id, label: PAPERS[id].label }))]}
+              />
+            </div>
+            <div className="flex flex-1 flex-col gap-0.5" title="The title-block layout of every sheet: ISO 7200 (a block at the bottom right) or ANSI (a full-width block). By default the paper decides: ISO for the A sizes, ANSI for Letter and the larger American sizes.">
               <span className="font-medium">Title block</span>
-              <select className="rounded border border-line bg-panel px-2 py-1" aria-label="Title block" value={draft.titleBlock} disabled={readOnly} onChange={(e) => setDraft({ ...draft, titleBlock: e.target.value as Draft['titleBlock'] })}>
-                <option value="">Follow the paper</option>
-                {TITLE_BLOCK_STANDARDS.map((id) => <option key={id} value={id}>{TITLE_BLOCKS[id].label}</option>)}
-              </select>
-            </label>
+              <Select
+                aria-label="Title block"
+                value={draft.titleBlock === '' ? 'default' : draft.titleBlock}
+                disabled={readOnly}
+                onValueChange={(value) => setDraft({ ...draft, titleBlock: value === 'default' ? '' : (value as TitleBlockStandard) })}
+                options={[{ value: 'default', label: 'Follow the paper' }, ...TITLE_BLOCK_STANDARDS.map((id) => ({ value: id, label: TITLE_BLOCKS[id].label }))]}
+              />
+            </div>
           </div>
           <fieldset className="flex flex-col gap-1 border-0 p-0">
             <legend className="font-medium">Drawing general note</legend>

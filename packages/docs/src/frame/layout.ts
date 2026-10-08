@@ -56,7 +56,7 @@ export interface SheetFrameSpec {
   title: string;
   pn?: string;
   rev?: string;
-  /** `RELEASED`, `UNRELEASED · awaiting approval`, … */
+  /** `RELEASED`, `UNAPPROVED · awaiting approval`, … */
   state?: string;
   drawn?: string;
   checked?: string;

@@ -99,9 +99,18 @@ describe('Hub settings', () => {
   });
 
   it('sets the paper and the title-block layout every sheet is printed with, from Settings › Documents', async () => {
+    // the pieces of the platform Radix pokes that jsdom lacks
+    vi.stubGlobal('ResizeObserver', class { observe(): void {} unobserve(): void {} disconnect(): void {} });
+    Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => undefined, releasePointerCapture: () => undefined, scrollIntoView: () => undefined });
+    const choose = async (name: string, option: string | RegExp): Promise<void> => {
+      const trigger = await screen.findByRole('combobox', { name });
+      trigger.focus();
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+      fireEvent.click(await screen.findByRole('option', { name: option }));
+    };
     mount();
-    fireEvent.change(await screen.findByLabelText('Paper'), { target: { value: 'A3' } });
-    fireEvent.change(screen.getByLabelText('Title block'), { target: { value: 'ansi' } });
+    await choose('Paper', 'A3');
+    await choose('Title block', /ANSI/);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(registeredTitleBlock().paper).toBe('A3'));
     expect(registeredTitleBlock().titleBlock).toBe('ansi');
@@ -113,6 +122,7 @@ describe('Hub settings', () => {
     expect(renderBomSheet(design, catalog.loadDb(), { depictions: false })).toContain('@page{size:297mm 420mm');
     expect(renderBomSheet(design, catalog.loadDb(), { depictions: false, paper: 'letter' })).toContain('@page{size:215.9mm 279.4mm');
     expect(renderDrawingSheet(design, catalog.loadDb())).toContain('viewBox="0 0 420 297"');
+    vi.unstubAllGlobals();
   });
 
   it('a module\'s title-block art still wins over the setting', async () => {

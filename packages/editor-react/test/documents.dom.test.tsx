@@ -79,12 +79,12 @@ describe('<DocumentsPane>', () => {
       expect(frame.style.width).toBe('794px');
       expect(frame.style.transform).toMatch(/^scale\(1\.5/);
       expect(Number.parseFloat(paper.style.height) / fit).toBeCloseTo(1123 / 794, 2);
-      fireEvent.click(screen.getByRole('button', { name: '100%' }));
+      fireEvent.click(screen.getByRole('radio', { name: /100 %/ }));
       expect(paper.style.width).toBe('794px');
       expect(paper.style.height).toBe('1123px');
       expect(frame.style.transform).toBe('scale(1)');
-      expect(screen.getByRole('button', { name: '100%' }).getAttribute('aria-pressed')).toBe('true');
-      fireEvent.click(screen.getByRole('button', { name: 'Fit' }));
+      expect(screen.getByRole('radio', { name: /100 %/ }).getAttribute('aria-checked')).toBe('true');
+      fireEvent.click(screen.getByRole('radio', { name: /Fit/ }));
       expect(Number.parseFloat(paper.style.width)).toBe(fit);
     } finally {
       width.mockRestore();

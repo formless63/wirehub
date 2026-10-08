@@ -137,6 +137,7 @@ describe('frame geometry', () => {
   it('stamps the states that are not released, and only those', () => {
     expect(stampOf('UNRELEASED')).toBe('UNRELEASED');
     expect(stampOf('UNRELEASED · awaiting approval')).toBe('UNRELEASED');
+    expect(stampOf('UNAPPROVED · not approved')).toBe('UNAPPROVED');
     expect(stampOf('draft')).toBe('DRAFT');
     expect(stampOf('RELEASED · approved by AB 2026-10-01')).toBeUndefined();
     expect(stampOf(undefined)).toBeUndefined();

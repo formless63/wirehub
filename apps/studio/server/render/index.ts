@@ -209,7 +209,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
   }
   const meta = request.drawing ?? {};
   const sheet = sheetRenderOptions(meta, design, () => request.today ?? '');
-  // one state for every sheet: the sidecar's (RELEASED, UNRELEASED · awaiting approval …), else the working copy's
+  // one state for every sheet: the sidecar's (RELEASED, UNAPPROVED · awaiting approval …), else the working copy's
   const state = sheet.document?.status ?? (request.unreleased === true ? (request.unreleasedLabel ?? 'UNRELEASED') : undefined);
   const identity = state === undefined ? sheet.document : { ...(sheet.document ?? {}), status: state };
   // the paper: asked for, else the sheet's own, else the hub's setting (registered with the branding), else A4
@@ -398,7 +398,7 @@ export function releaseMeta(meta: DrawingMeta, target: 'working' | number | unde
   if (approval !== undefined && target !== 'working') {
     // approvals on: only an approved version is RELEASED, and it names its approver
     const a = approval.approval;
-    status = a?.state === 'approved' ? `RELEASED · approved by ${a.by} ${a.at.slice(0, 10)}` : `UNRELEASED · ${a?.state === 'submitted' ? 'awaiting approval' : a?.state === 'rejected' ? 'rejected' : 'not approved'}`;
+    status = a?.state === 'approved' ? `RELEASED · approved by ${a.by} ${a.at.slice(0, 10)}` : `UNAPPROVED · ${a?.state === 'submitted' ? 'awaiting approval' : a?.state === 'rejected' ? 'rejected' : 'not approved'}`;
   }
   const sheet = { ...rest, status };
   return { ...meta, revision: target === 'working' ? '—' : String(target), sheet };

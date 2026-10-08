@@ -62,6 +62,7 @@ import {
   type DocumentTarget,
 } from '../release.ts';
 import type { PartNumberData } from '../part-numbers.ts';
+import { SegmentedControl } from '../ui/index.ts';
 import { DrawingForm, drawingDate } from './DrawingForm.tsx';
 import { SheetOptions } from './SheetOptions.tsx';
 import { TestParametersRow } from './TestParametersRow.tsx';
@@ -851,13 +852,16 @@ export function DocumentsPane({
           </Popover.Root>
         )}
         {html === undefined ? null : (
-          <span className="cs-doc-zoom" role="group" aria-label="Zoom">
-            {([['fit', 'Fit'], ['100', '100%']] as const).map(([mode, label]) => (
-              <button key={mode} type="button" aria-pressed={zoomMode === mode} title={mode === 'fit' ? 'Fit the sheet to the width of the window' : 'Show the sheet at its screen size (100 %)'} onClick={() => setZoomMode(mode)}>
-                {label}
-              </button>
-            ))}
-          </span>
+          <SegmentedControl
+            aria-label="Zoom"
+            size="sm"
+            value={zoomMode}
+            onValueChange={(next) => setZoomMode(next === '100' ? '100' : 'fit')}
+            options={[
+              { value: 'fit', label: 'Fit', 'aria-label': 'Fit the sheet to the width of the window' },
+              { value: '100', label: '100%', 'aria-label': 'Show the sheet at 100 %' },
+            ]}
+          />
         )}
         <button
           type="button"
