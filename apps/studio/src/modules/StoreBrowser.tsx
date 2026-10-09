@@ -228,7 +228,7 @@ export function StoreBrowser(): JSX.Element {
       {groups.map((g) => (
         <div key={g.index.url} data-store-group={g.index.url}>
           {groups.length < 2 && indexes.filter((i) => i.ok).length < 2 ? null : (
-            <h3 className="mt-3 text-[12.5px] font-medium">
+            <h3 className="mt-3 text-sm font-medium">
               {nameOf(g.index)} <span className="text-dim">{g.index.source === 'user' ? 'added here' : 'set by the server'} · {g.packs.length} item{g.packs.length === 1 ? '' : 's'}</span>
             </h3>
           )}
@@ -317,7 +317,7 @@ export function StoreBrowser(): JSX.Element {
         )}
       >
         {pending === undefined ? null : (
-          <div className="flex flex-col gap-1.5 text-[12px]">
+          <div className="flex flex-col gap-1.5 text-xs">
             {pending.refusal === undefined ? null : <div role="alert" className="text-err">{pending.refusal}</div>}
             {pending.yanked === undefined ? null : (
               <div role="alert" className="text-err">

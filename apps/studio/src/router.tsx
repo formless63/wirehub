@@ -252,7 +252,14 @@ export const accountRoute = createRoute({
     typeof search['error'] === 'string' && /^[A-Z0-9_]{1,60}$/i.test(search['error']) ? { error: search['error'] } : {},
   component: AccountRoute,
 });
-export const peopleRoute = createRoute({ getParentRoute: () => rootRoute, path: '/settings/people', component: AccountRoute });
+/** People moved under Settings; the old address redirects */
+export const peopleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/people',
+  beforeLoad: () => {
+    throw redirect({ to: '/settings', search: { section: 'people' } });
+  },
+});
 export const tokensRoute = createRoute({ getParentRoute: () => rootRoute, path: '/account/tokens', component: AccountRoute });
 
 /**

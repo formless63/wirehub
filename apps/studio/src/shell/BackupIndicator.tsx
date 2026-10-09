@@ -81,7 +81,7 @@ export function BackupDetails({ status, now }: { status: BackupStatus; now: Date
           type="button"
           disabled={retrying}
           onClick={() => void retry()}
-          className="h-7 self-start rounded-md border border-line2 bg-raised px-2.5 text-[12px] font-medium text-ink hover:bg-hover disabled:opacity-50"
+          className="h-7 self-start rounded-md border border-line2 bg-raised px-2.5 text-xs font-medium text-ink hover:bg-hover disabled:opacity-50"
         >
           {retrying ? 'Retrying…' : 'Retry now'}
         </button>
@@ -105,7 +105,7 @@ export function BackupIndicator(props: { now?: () => Date; compact?: boolean }):
           data-tone={tone}
           title={text}
           aria-label={text}
-          className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 text-[11.5px] hover:text-ink ${
+          className={`flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 text-xs hover:text-ink ${
             tone === 'error' ? 'font-medium text-err' : tone === 'off' ? 'text-faint' : 'text-dim'
           }`}
         >
@@ -119,7 +119,7 @@ export function BackupIndicator(props: { now?: () => Date; compact?: boolean }):
           align="end"
           sideOffset={6}
           aria-label="Backup details"
-          className="z-50 w-80 max-w-[calc(100vw-32px)] rounded-md border border-line2 bg-panel p-3 text-[12px] text-ink shadow-[var(--shadow)]"
+          className="z-50 w-80 max-w-[calc(100vw-32px)] rounded-md border border-line2 bg-panel p-3 text-xs text-ink shadow-[var(--shadow)]"
         >
           <BackupDetails status={status} now={now} />
         </Popover.Content>

@@ -12,7 +12,7 @@ import { initialsOf } from '../me.browser.ts';
 import { useLockClient, useLockSnapshot } from './lock-context.tsx';
 
 const AVATAR =
-  'mt-1 flex h-[26px] w-[26px] items-center justify-center rounded-full border border-line2 bg-raised text-[11px] font-semibold text-dim';
+  'mt-1 flex h-[26px] w-[26px] items-center justify-center rounded-full border border-line2 bg-raised text-2xs font-semibold text-dim';
 
 export function LockNameAvatar({ user, who, signedIn }: { user: string; who: string; signedIn: boolean }): JSX.Element {
   const client = useLockClient();
@@ -69,9 +69,9 @@ export function LockNameAvatar({ user, who, signedIn }: { user: string; who: str
             onKeyDown={(event) => {
               if (event.key === 'Escape') setOpen(false);
             }}
-            className="h-7 min-w-0 flex-1 rounded border border-line2 bg-raised px-2 text-[12px] text-ink outline-none focus:border-accent"
+            className="h-7 min-w-0 flex-1 rounded border border-line2 bg-raised px-2 text-xs text-ink outline-none focus:border-accent"
           />
-          <button type="submit" className="h-7 rounded border border-line2 bg-raised px-2 text-[12px] text-ink hover:bg-hover">
+          <button type="submit" className="h-7 rounded border border-line2 bg-raised px-2 text-xs text-ink hover:bg-hover">
             Save
           </button>
         </form>

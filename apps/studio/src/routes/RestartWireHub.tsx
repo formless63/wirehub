@@ -4,7 +4,7 @@
  * for a moment and reloads (the new process may run another set of modules).
  */
 
-import { ConfirmDialog } from '@wirehub/editor-react';
+import { Button, ConfirmDialog } from '@wirehub/editor-react';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
@@ -51,9 +51,9 @@ export function RestartWireHub({ supervised, disabled }: { supervised: boolean; 
 
   return (
     <>
-      <button type="button" className="rounded border border-line px-3 py-1" disabled={disabled === true || phase.name !== 'idle'} onClick={() => setPhase({ name: 'confirm' })}>
+      <Button type="button" disabled={disabled === true || phase.name !== 'idle'} onClick={() => setPhase({ name: 'confirm' })}>
         Restart WireHub
-      </button>
+      </Button>
       <ConfirmDialog
         open={phase.name === 'confirm'}
         title="Restart WireHub?"
@@ -66,13 +66,13 @@ export function RestartWireHub({ supervised, disabled }: { supervised: boolean; 
       </ConfirmDialog>
       {phase.name === 'working' || phase.name === 'back' || phase.name === 'gone' ? (
         <div role="alertdialog" aria-label="Restarting WireHub" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="restart-overlay" data-phase={phase.name}>
-          <div className="rounded border border-line bg-panel px-4 py-3 text-[12.5px]">
+          <div className="rounded border border-line bg-panel px-4 py-3 text-sm">
             {phase.name === 'working' ? `Restarting WireHub… ${elapsed} s` : null}
             {phase.name === 'back' ? `Restarting WireHub… reconnected in ${phase.seconds} s` : null}
             {phase.name === 'gone' ? (
               <>
                 WireHub has not come back yet. Check the server, then{' '}
-                <button type="button" className="underline" onClick={() => window.location.reload()}>reload this page</button>.
+                <Button type="button" onClick={() => window.location.reload()} variant="ghost" size="xs">reload this page</Button>.
               </>
             ) : null}
           </div>

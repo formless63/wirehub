@@ -13,7 +13,7 @@ import { clockTime } from './lock-context.tsx';
 import type { LostLock } from './lock-client.ts';
 import type { LockView } from './records.ts';
 
-const BAR = 'flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b bg-raised px-3 py-1 text-[12px]';
+const BAR = 'flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b bg-raised px-3 py-1 text-xs';
 
 export type EditLockBannerState =
   /** someone else holds it: read-only here */

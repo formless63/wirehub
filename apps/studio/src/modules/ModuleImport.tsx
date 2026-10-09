@@ -142,7 +142,7 @@ export function ModuleImport({ registry, onImported, expose }: { registry: Modul
       )}
       {jobId === undefined ? null : <ImportJob id={jobId} onClose={() => setJobId(undefined)} onPublished={onImported} />}
       {pending === undefined || proposal === undefined ? null : (
-        <div role="dialog" aria-label="Review import" className="cs-import-dialog fixed inset-x-3 top-16 z-50 mx-auto flex max-w-md flex-col gap-1.5 rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
+        <div role="dialog" aria-label="Review import" className="cs-import-dialog fixed inset-x-3 top-16 z-50 mx-auto flex max-w-md flex-col gap-1.5 rounded-md border border-line bg-panel p-3 text-xs text-ink shadow-lg">
           <strong>
             {pending.importerLabel}: {pending.fileName}
           </strong>

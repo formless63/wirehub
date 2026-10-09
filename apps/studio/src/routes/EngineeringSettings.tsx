@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 
 import { engineeringKey, engineeringQuery, saveEngineering, type EngineeringView } from '../settings.browser.ts';
 import { useStudio } from '../studio-context.tsx';
+import { Button, Input } from '@wirehub/editor-react';
 
 interface Draft {
   test: Record<string, string>;
@@ -103,12 +104,12 @@ export function EngineeringSettings(): JSX.Element {
       <span className="flex flex-wrap items-center gap-2">
         {label}
         {locked ? (
-          <span className="rounded border border-line px-1 text-[11px] text-faint" title="The server sets this; it wins over Settings.">
+          <span className="rounded border border-line px-1 text-2xs text-faint" title="The server sets this; it wins over Settings.">
             set by the server
           </span>
         ) : null}
       </span>
-      <input className="w-28 shrink-0 rounded border border-line-field bg-panel px-2 py-1" aria-label={label} value={value} disabled={readOnly || locked} inputMode="decimal" placeholder={placeholder} onChange={(e) => set(e.target.value)} />
+      <Input aria-label={label} value={value} disabled={readOnly || locked} inputMode="decimal" placeholder={placeholder} onChange={(e) => set(e.target.value)} className="w-28 shrink-0" />
     </label>
   );
 
@@ -123,7 +124,7 @@ export function EngineeringSettings(): JSX.Element {
       }}
     >
       <section className="flex flex-col gap-1.5">
-        <h2 className="text-[13px] font-semibold">Testing</h2>
+        <h2 className="text-sm font-semibold">Testing</h2>
         <p className="text-faint">
           Default continuity test parameters for every design; a design's own values still win. Empty keeps the built-in value
           {fromEnv === undefined ? '' : '. A parameter the server sets wins and is read-only here'}.
@@ -140,7 +141,7 @@ export function EngineeringSettings(): JSX.Element {
       </section>
 
       <section className="flex flex-col gap-1.5">
-        <h2 className="text-[13px] font-semibold">Electrical rules</h2>
+        <h2 className="text-sm font-semibold">Electrical rules</h2>
         <p className="text-faint">Warnings on a design that declares currents: conductor gauge, contact rating, voltage drop. Nothing is checked where the current, area, length or rating is not declared.</p>
         <label className="flex items-center gap-2">
           <input type="checkbox" aria-label="Electrical rules on" checked={draft.rules.enabled} disabled={readOnly} onChange={(e) => setDraft({ ...draft, rules: { ...draft.rules, enabled: e.target.checked } })} />
@@ -153,7 +154,7 @@ export function EngineeringSettings(): JSX.Element {
       </section>
 
       <section className="flex flex-col gap-1.5">
-        <h2 className="text-[13px] font-semibold">Costing</h2>
+        <h2 className="text-sm font-semibold">Costing</h2>
         <p className="text-faint">
           The currency prices are read in when a part's price names none, and the BOM total is printed in. The labour rate prices each design's labour minutes. A BOM shows cost only where parts are priced.
         </p>
@@ -162,7 +163,7 @@ export function EngineeringSettings(): JSX.Element {
       </section>
 
       <section className="flex flex-col gap-1.5">
-        <h2 className="text-[13px] font-semibold">Release approvals</h2>
+        <h2 className="text-sm font-semibold">Release approvals</h2>
         <p className="text-faint">When on, a saved version is submitted for approval and approved or rejected with a comment; the approved version is the released one, and documents say who approved it.</p>
         <label className="flex items-center gap-2">
           <input type="checkbox" aria-label="Approvals on" checked={draft.approvals.enabled} disabled={readOnly} onChange={(e) => setDraft({ ...draft, approvals: { ...draft.approvals, enabled: e.target.checked } })} />
@@ -175,9 +176,9 @@ export function EngineeringSettings(): JSX.Element {
       </section>
 
       <div>
-        <button type="submit" disabled={readOnly || busy} className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50">
+        <Button type="submit" disabled={readOnly || busy} variant="primary">
           {busy ? 'Saving…' : 'Save engineering settings'}
-        </button>
+        </Button>
       </div>
     </form>
   );

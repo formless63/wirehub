@@ -21,7 +21,7 @@ export function StatusChip(props: { status: DesignStatus | undefined }): JSX.Ele
     <span
       title={TITLES[status]}
       data-status={status}
-      className={`shrink-0 rounded-sm border px-1 font-mono text-[9.5px] leading-[14px] tracking-wide uppercase ${
+      className={`shrink-0 rounded-sm border px-1 font-mono text-2xs leading-[14px] tracking-wide uppercase ${
         status === 'development'
           ? 'border-accent text-accent'
           : status === 'retired'

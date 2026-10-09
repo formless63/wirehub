@@ -168,7 +168,7 @@ export function App({
           unstyled: true,
           classNames: {
             toast:
-              'flex items-start gap-2 rounded-md border border-line bg-panel px-3 py-2.5 text-[12px] text-ink shadow-lg',
+              'flex items-start gap-2 rounded-md border border-line bg-panel px-3 py-2.5 text-xs text-ink shadow-lg',
             title: 'font-medium leading-snug',
             description: 'text-dim leading-snug',
             success: 'border-l-2 border-l-ok',

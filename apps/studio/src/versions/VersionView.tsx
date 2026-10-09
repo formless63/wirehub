@@ -170,7 +170,7 @@ export function VersionView(props: {
 
   if (error !== undefined) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-[12.5px] text-dim">
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-dim">
         <span>{error}</span>
         <button type="button" className={PLAIN_BUTTON} onClick={toWorking}>
           <IconArrowLeft size={13} /> Working copy
@@ -179,7 +179,7 @@ export function VersionView(props: {
     );
   }
   if (file === undefined || db === undefined || artReady !== editorKey) {
-    return <div className="flex h-full items-center justify-center text-[12.5px] text-faint">Loading Rev {rev}…</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-faint">Loading Rev {rev}…</div>;
   }
 
   const dirtyStudio = studio.dirtyIds.includes(id);
@@ -189,12 +189,12 @@ export function VersionView(props: {
     <div className="flex h-full min-h-0 flex-col">
       <div
         data-testid="version-banner"
-        className={`flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-1 text-[12px] ${
+        className={`flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-1 text-xs ${
           locked ? 'border-line bg-accent-soft' : 'border-warn bg-raised'
         }`}
       >
         {locked ? <IconLock size={14} className="shrink-0 text-accent" /> : <IconLockOpen size={14} className="shrink-0 text-warn" />}
-        <span className="shrink-0 font-mono text-[12px] font-semibold">Rev {rev}</span>
+        <span className="shrink-0 font-mono text-xs font-semibold">Rev {rev}</span>
         {locked ? (
           <span className="flex min-w-0 flex-1 items-center gap-1.5 text-dim">
             <span className="shrink-0">{shortTime(file.savedAt)}</span>
@@ -205,7 +205,7 @@ export function VersionView(props: {
             {listing?.working.approvals !== true ? null : (
               <span
                 data-testid="approval-badge"
-                className={`shrink-0 rounded-sm px-1.5 text-[11px] font-semibold ${file.approval?.state === 'approved' ? 'bg-accent-soft text-ok' : file.approval?.state === 'rejected' ? 'text-err' : 'text-warn'}`}
+                className={`shrink-0 rounded-sm px-1.5 text-2xs font-semibold ${file.approval?.state === 'approved' ? 'bg-accent-soft text-ok' : file.approval?.state === 'rejected' ? 'text-err' : 'text-warn'}`}
                 title={file.approval === undefined ? 'Not submitted for approval' : `${file.approval.state} by ${file.approval.by}: ${file.approval.comment}`}
               >
                 {file.approval === undefined ? 'draft' : file.approval.state === 'approved' ? `approved by ${file.approval.by}` : file.approval.state}
@@ -219,7 +219,7 @@ export function VersionView(props: {
         )}
         {artChanged.length === 0 ? null : (
           <span
-            className="flex shrink-0 items-center gap-1 text-[11px] text-warn"
+            className="flex shrink-0 items-center gap-1 text-2xs text-warn"
             title={`The Library's artwork changed since Rev ${rev} was saved: ${artChanged.join(', ')} — this revision draws its own saved copy`}
           >
             <IconPhotoExclamation size={13} /> artwork changed since
@@ -227,7 +227,7 @@ export function VersionView(props: {
         )}
         {art === undefined || art.missing.length === 0 ? null : (
           <span
-            className="flex shrink-0 items-center gap-1 text-[11px] text-err"
+            className="flex shrink-0 items-center gap-1 text-2xs text-err"
             title={`The saved artwork of ${art.missing.join(', ')} could not be read back — those parts draw today's artwork`}
           >
             <IconPhotoExclamation size={13} /> saved artwork missing
@@ -282,7 +282,7 @@ export function VersionView(props: {
           </form>
         ) : mode.kind === 'branch' ? (
           <span className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
-            <span className="text-[12px]">Replace the working copy with Rev {rev}?</span>
+            <span className="text-xs">Replace the working copy with Rev {rev}?</span>
             <button type="button" className={PLAIN_BUTTON} onClick={() => setMode({ kind: 'idle' })}>
               Cancel
             </button>
@@ -324,7 +324,7 @@ export function VersionView(props: {
           </span>
         ) : (
           <span className="flex shrink-0 items-center gap-1.5">
-            {edited === undefined ? <span className="text-[11px] text-faint">no edits</span> : <span className="text-[11px] text-warn">edited</span>}
+            {edited === undefined ? <span className="text-2xs text-faint">no edits</span> : <span className="text-2xs text-warn">edited</span>}
             <button type="button" className={PRIMARY_BUTTON} disabled={busy} onClick={() => void onSaveLock()} title={edited === undefined ? 'Lock again without changes' : 'Save the edit to this revision and lock it again'}>
               <IconLock size={13} /> {edited === undefined ? 'Lock' : 'Save & lock'}
             </button>

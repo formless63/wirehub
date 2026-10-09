@@ -28,7 +28,7 @@ export function MobileNavSheet({ open, onClose }: { open: boolean; onClose: () =
     <button type="button" tabIndex={-1} aria-label="Close navigation" onClick={onClose} className="absolute inset-0 border-0 bg-black/45 p-0" />
     <nav aria-label="Mobile sections" className="absolute inset-y-0 left-0 flex w-64 max-w-[85vw] flex-col border-r border-line bg-panel p-2 shadow-[var(--shadow)]">
       <div className="flex shrink-0 items-center justify-between px-1.5 py-1.5">
-        <Link to="/cables" onClick={onClose} aria-label="WireHub home mobile"><Wordmark className="text-[13px]" /></Link>
+        <Link to="/cables" onClick={onClose} aria-label="WireHub home mobile"><Wordmark className="text-sm" /></Link>
         <button ref={close} type="button" aria-label="Close" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-md border border-line2 bg-raised text-dim"><IconX size={16} /></button>
       </div>
       <div className="min-h-0 grow overflow-y-auto"><NavItems onNavigate={onClose} /></div>

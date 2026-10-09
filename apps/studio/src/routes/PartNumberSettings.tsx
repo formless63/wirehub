@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { previewPnScheme, pnSettingsKey, pnSettingsQuery, savePnSettings, type PnPreview, type PnSchemeOffer } from '../settings.browser.ts';
 import { draftObject, SchemeEditor } from './DeclarativeEditors.tsx';
 import { useStudio } from '../studio-context.tsx';
+import { Button, Input, Textarea } from '@wirehub/editor-react';
 
 /** the generic example (docs/part-numbers.md): <Level><Type>-NNNNNN-VV */
 export const EXAMPLE_SCHEME = {
@@ -124,7 +125,7 @@ export function PartNumberSettings(): JSX.Element {
 
   return (
     <section ref={editor} className="mt-6 max-w-xl border-t border-line pt-3" data-testid="pn-settings">
-      <h2 className="mb-1 text-[13px] font-semibold">
+      <h2 className="mb-1 text-sm font-semibold">
         Part numbers
         <InfoTip topic="part-numbers" text="How this hub numbers parts and designs. Edit declarative segments in the form, or use advanced JSON: fields with allowed values per record kind, zero-padded counters with ranges (several spans, numbers never issued, a range per set of combinations), a variant suffix, separators, a validation regex. Saving never rewrites an existing number. Exotic cases stay a code scheme in a module." />
       </h2>
@@ -142,28 +143,28 @@ export function PartNumberSettings(): JSX.Element {
           <details className="mt-2"><summary>Advanced scheme JSON</summary>
             <label className="flex flex-col gap-0.5">
               <span className="font-medium">Definition</span>
-              <textarea className="h-64 rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Scheme definition" value={text} disabled={readOnly} spellCheck={false} onChange={(e) => setText(e.target.value)} />
+              <Textarea aria-label="Scheme definition" value={text} disabled={readOnly} spellCheck={false} onChange={(e) => setText(e.target.value)} mono />
             </label>
           </details>
           <label className="mt-2 flex flex-col gap-0.5">
             <span className="font-medium">Sample numbers to check</span>
-            <input className="rounded border border-line-field bg-panel px-2 py-1" aria-label="Sample numbers" placeholder="1C-000001-00  CON-00001" value={samples} onChange={(e) => setSamples(e.target.value)} />
+            <Input aria-label="Sample numbers" placeholder="1C-000001-00  CON-00001" value={samples} onChange={(e) => setSamples(e.target.value)} />
           </label>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" className="rounded border border-line px-3 py-1" disabled={busy} onClick={() => void check()}>
+            <Button type="button" disabled={busy} onClick={() => void check()}>
               Check
-            </button>
+            </Button>
             {readOnly ? null : (
               <>
-                <button type="button" className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50" disabled={busy} onClick={() => { const s = parse(); if (s !== undefined) void save(s); }}>
+                <Button type="button" disabled={busy} variant="primary" onClick={() => { const s = parse(); if (s !== undefined) void save(s); }}>
                   Save scheme
-                </button>
-                <button type="button" className="rounded border border-line px-3 py-1" disabled={busy} onClick={() => setText(pretty(EXAMPLE_SCHEME))}>
+                </Button>
+                <Button type="button" disabled={busy} onClick={() => setText(pretty(EXAMPLE_SCHEME))}>
                   Insert the generic example
-                </button>
-                <button type="button" className="rounded border border-line px-3 py-1" disabled={busy || view.config === null} onClick={() => void save(null)}>
+                </Button>
+                <Button type="button" disabled={busy || view.config === null} onClick={() => void save(null)}>
                   Back to the default
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -208,9 +209,9 @@ export function PartNumberSettings(): JSX.Element {
                   <b>{o.pack}</b> {o.version} offers <code>{shapeOf(o.scheme)}</code>. Installing a pack never switches the scheme.
                   {o.problems.length > 0 ? <div role="alert" className="text-err">It cannot be used: {o.problems[0]}</div> : null}
                   {readOnly || o.problems.length > 0 ? null : (
-                    <button type="button" className="ml-2 underline" disabled={busy} onClick={() => void review(o)}>
+                    <Button type="button" disabled={busy} onClick={() => void review(o)} variant="ghost" size="xs" className="ml-2">
                       Review…
-                    </button>
+                    </Button>
                   )}
                 </div>
               ))}
@@ -220,15 +221,15 @@ export function PartNumberSettings(): JSX.Element {
                     Switch to the scheme from <b>{reviewing.offer.pack}</b>? Of {reviewing.preview.impact?.numbered ?? 0} numbers in use, {reviewing.preview.impact?.notInScheme ?? 0} do not fit it; they are kept as they are, and the health page lists them.
                   </div>
                   {isOwner ? (
-                    <button type="button" className="mt-1 rounded border border-line bg-accent px-3 py-1 text-accent-ink" disabled={busy} onClick={() => void adopt(reviewing.offer)}>
+                    <Button type="button" disabled={busy} onClick={() => void adopt(reviewing.offer)} variant="primary" className="mt-1">
                       Confirm: switch the numbering scheme
-                    </button>
+                    </Button>
                   ) : (
                     <div className="text-faint">An owner confirms this switch.</div>
                   )}
-                  <button type="button" className="ml-2 underline" onClick={() => setReviewing(undefined)}>
+                  <Button type="button" onClick={() => setReviewing(undefined)} variant="ghost" size="xs" className="ml-2">
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

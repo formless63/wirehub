@@ -19,9 +19,9 @@ import { fieldDiff, preview, type FieldChange } from './diff.ts';
 import type { HistoryCapabilities, HistoryEntry, HistoryEntryDetail, RecordDiff, RestoreAnswer } from './types.ts';
 
 const BUTTON =
-  'flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-raised px-2.5 text-[12px] text-ink hover:bg-hover disabled:cursor-default disabled:opacity-50';
+  'flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-raised px-2.5 text-xs text-ink hover:bg-hover disabled:cursor-default disabled:opacity-50';
 const PRIMARY =
-  'flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-accent px-2.5 text-[12px] font-semibold text-accent-ink disabled:cursor-default disabled:bg-raised disabled:text-faint';
+  'flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-accent px-2.5 text-xs font-semibold text-accent-ink disabled:cursor-default disabled:bg-raised disabled:text-faint';
 
 /** One entry's head line: who, when, what it said, and what it touched. */
 export function EntrySummary(props: { entry: HistoryEntry; showTouches?: boolean }): JSX.Element {
@@ -29,29 +29,29 @@ export function EntrySummary(props: { entry: HistoryEntry; showTouches?: boolean
   const who = entry.by.email === undefined ? entry.by.name : `${entry.by.name} <${entry.by.email}>`;
   return (
     <div className="min-w-0">
-      <div className="flex flex-wrap items-center gap-x-1.5 text-[11.5px]">
+      <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
         <span className="font-medium text-ink" title={who}>
           {entry.by.name}
         </span>
         <span className="text-faint" title={entry.at}>
           {historyTime(entry.at)}
         </span>
-        {entry.source !== 'studio' && entry.source !== 'git' ? <span className="rounded bg-raised px-1 font-mono text-[10px] uppercase text-dim">{entry.source}</span> : null}
-        {entry.version === undefined ? null : <span className="font-mono text-[10px] text-faint">v{entry.version}</span>}
+        {entry.source !== 'studio' && entry.source !== 'git' ? <span className="rounded bg-raised px-1 font-mono text-2xs uppercase text-dim">{entry.source}</span> : null}
+        {entry.version === undefined ? null : <span className="font-mono text-2xs text-faint">v{entry.version}</span>}
       </div>
-      <div className="truncate text-[12px] text-dim" title={entry.body === undefined ? entry.message : `${entry.message}\n\n${entry.body}`}>
+      <div className="truncate text-xs text-dim" title={entry.body === undefined ? entry.message : `${entry.message}\n\n${entry.body}`}>
         {entry.message}
       </div>
       {props.showTouches === false || entry.touches.length === 0 ? null : (
         <ul className="m-0 mt-0.5 flex list-none flex-wrap gap-1 p-0" data-testid="history-touches">
           {entry.touches.map((t, i) => (
-            <li key={`${t.subject}:${t.part ?? ''}:${i}`} className="rounded border border-line px-1 text-[10.5px] text-dim" title={t.fields === undefined ? t.label : `${t.label}: ${t.fields.join(', ')}`}>
+            <li key={`${t.subject}:${t.part ?? ''}:${i}`} className="rounded border border-line px-1 text-2xs text-dim" title={t.fields === undefined ? t.label : `${t.label}: ${t.fields.join(', ')}`}>
               {t.op === 'delete' ? '− ' : ''}
               {t.label}
               {t.fields === undefined || t.fields.length === 0 ? '' : ` · ${t.fields.join(', ')}`}
             </li>
           ))}
-          {entry.more === undefined ? null : <li className="text-[10.5px] text-faint">+{entry.more} more</li>}
+          {entry.more === undefined ? null : <li className="text-2xs text-faint">+{entry.more} more</li>}
         </ul>
       )}
     </div>
@@ -70,13 +70,13 @@ export function RecordDiffView(props: { diff: RecordDiff }): JSX.Element {
     [diff],
   );
   let body: JSX.Element;
-  if (diff.op === 'binary') body = <p className="m-0 text-[11.5px] text-faint">A file changed; there are no fields to compare.</p>;
-  else if (!diff.before.known && diff.after.known) body = <p className="m-0 text-[11.5px] text-faint">Its earlier state was not recorded, so there is nothing to compare against.</p>;
-  else if (!diff.after.known) body = <p className="m-0 text-[11.5px] text-faint">This state was not recorded.</p>;
-  else if (changes.length === 0) body = <p className="m-0 text-[11.5px] text-faint">No differences.</p>;
+  if (diff.op === 'binary') body = <p className="m-0 text-xs text-faint">A file changed; there are no fields to compare.</p>;
+  else if (!diff.before.known && diff.after.known) body = <p className="m-0 text-xs text-faint">Its earlier state was not recorded, so there is nothing to compare against.</p>;
+  else if (!diff.after.known) body = <p className="m-0 text-xs text-faint">This state was not recorded.</p>;
+  else if (changes.length === 0) body = <p className="m-0 text-xs text-faint">No differences.</p>;
   else {
     body = (
-      <ul className="m-0 max-h-[320px] list-none overflow-y-auto p-0 font-mono text-[11px] leading-[17px]" data-testid="history-diff">
+      <ul className="m-0 max-h-[320px] list-none overflow-y-auto p-0 font-mono text-2xs leading-[17px]" data-testid="history-diff">
         {changes.map((c, i) => (
           <li key={`${c.path}:${i}`} className={`px-1 ${changeClass(c)}`}>
             <span className="text-ink">{c.path}</span>{' '}
@@ -98,9 +98,9 @@ export function RecordDiffView(props: { diff: RecordDiff }): JSX.Element {
   }
   return (
     <div className="rounded border border-line bg-bg px-2 py-1" data-subject={diff.subject} data-part={diff.part}>
-      <div className="mb-0.5 flex items-center gap-1.5 text-[11.5px]">
+      <div className="mb-0.5 flex items-center gap-1.5 text-xs">
         <span className="font-medium text-ink">{diff.label}</span>
-        <span className="font-mono text-[10px] uppercase text-dim">{diff.op === 'binary' ? 'changed' : diff.op}</span>
+        <span className="font-mono text-2xs uppercase text-dim">{diff.op === 'binary' ? 'changed' : diff.op}</span>
       </div>
       {body}
     </div>
@@ -153,19 +153,19 @@ export function EntryDetail(props: {
     props.onRestored?.(out.value);
   }
 
-  if (error !== undefined) return <p className="m-0 text-[12px] text-err">{error}</p>;
-  if (detail === undefined) return <p className="m-0 text-[12px] text-faint">Loading…</p>;
+  if (error !== undefined) return <p className="m-0 text-xs text-err">{error}</p>;
+  if (detail === undefined) return <p className="m-0 text-xs text-faint">Loading…</p>;
   const canRestore = props.subject !== undefined && detail.capabilities.restore && detail.current !== undefined;
   return (
     <div className="space-y-1.5" data-testid="history-entry">
-      {detail.entry.body === undefined ? null : <pre className="m-0 max-h-[120px] overflow-auto whitespace-pre-wrap text-[11px] text-dim">{detail.entry.body}</pre>}
-      {detail.records.length === 0 ? <p className="m-0 text-[11.5px] text-faint">{props.subject === undefined ? 'Nothing to compare in this change.' : 'This change did not change this record.'}</p> : null}
+      {detail.entry.body === undefined ? null : <pre className="m-0 max-h-[120px] overflow-auto whitespace-pre-wrap text-2xs text-dim">{detail.entry.body}</pre>}
+      {detail.records.length === 0 ? <p className="m-0 text-xs text-faint">{props.subject === undefined ? 'Nothing to compare in this change.' : 'This change did not change this record.'}</p> : null}
       {detail.records.map((r, i) => (
         <RecordDiffView key={`${r.subject}:${r.part}:${i}`} diff={r} />
       ))}
       {canRestore ? (
         confirming ? (
-          <div className="flex flex-wrap items-center gap-1.5 rounded border border-warn bg-bg px-2 py-1.5 text-[11.5px]">
+          <div className="flex flex-wrap items-center gap-1.5 rounded border border-warn bg-bg px-2 py-1.5 text-xs">
             <span className="min-w-0 flex-1">Restore {props.subjectLabel ?? props.subject} to its state right after this change? It is saved as a new change.</span>
             <button type="button" className={PRIMARY} disabled={busy} onClick={() => void onRestore()} data-testid="history-restore-confirm">
               Restore
@@ -223,13 +223,13 @@ export function RecordHistory(props: { subject: string; label: string; restoreBl
 
   return (
     <div className="space-y-1" data-testid="record-history">
-      {error !== undefined ? <p className="m-0 text-[12px] text-err">{error}</p> : null}
+      {error !== undefined ? <p className="m-0 text-xs text-err">{error}</p> : null}
       {capabilities === undefined ? null : (
-        <p className="m-0 text-[11px] text-faint" data-testid="history-capabilities" data-backend={capabilities.backend}>
+        <p className="m-0 text-2xs text-faint" data-testid="history-capabilities" data-backend={capabilities.backend}>
           {capabilities.note}
         </p>
       )}
-      {!loading && error === undefined && entries.length === 0 && capabilities?.backend !== 'none' ? <p className="m-0 text-[12px] text-faint">No changes recorded for this record.</p> : null}
+      {!loading && error === undefined && entries.length === 0 && capabilities?.backend !== 'none' ? <p className="m-0 text-xs text-faint">No changes recorded for this record.</p> : null}
       <ol className="m-0 list-none space-y-1 p-0">
         {entries.map((entry) => (
           <li key={entry.id} className={`rounded border px-2 py-1 ${open === entry.id ? 'border-accent' : 'border-line'} bg-bg`} data-entry={entry.id}>
@@ -272,8 +272,8 @@ export function HistoryDrawer(props: { subject: string; label: string; open: boo
         <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-[440px] max-w-full flex-col border-l border-line2 bg-panel text-ink shadow-[var(--shadow)]" aria-describedby={undefined}>
           <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
             <IconHistory size={16} className="text-dim" />
-            <Dialog.Title className="m-0 text-[13px] font-semibold">History</Dialog.Title>
-            <span className="min-w-0 truncate text-[11.5px] text-faint" title={props.subject}>
+            <Dialog.Title className="m-0 text-sm font-semibold">History</Dialog.Title>
+            <span className="min-w-0 truncate text-xs text-faint" title={props.subject}>
               {props.label}
             </span>
             <span className="grow" />

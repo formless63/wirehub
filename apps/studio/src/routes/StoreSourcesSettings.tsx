@@ -24,6 +24,7 @@ import {
   type StoreSourceView,
 } from '../settings.browser.ts';
 import { useStudio } from '../studio-context.tsx';
+import { Button, Input } from '@wirehub/editor-react';
 
 const OFFICIAL_TEXT = {
   trusted: 'signed: its key is built in and its packs are listed under Browse store',
@@ -118,8 +119,8 @@ export function StoreSourcesSettings(): JSX.Element {
   const input = 'min-w-0 max-w-full rounded border border-line bg-panel px-2 py-1.5';
 
   return (
-    <section className="mt-6 min-w-0 max-w-xl text-[12.5px] [overflow-wrap:anywhere]" data-testid="store-sources">
-      <h2 className="mb-1 text-[13px] font-semibold">Store sources</h2>
+    <section className="mt-6 min-w-0 max-w-xl text-sm [overflow-wrap:anywhere]" data-testid="store-sources">
+      <h2 className="mb-1 text-sm font-semibold">Store sources</h2>
       <p className="mb-2 text-faint">
         <a className="underline" href={helpUrl('store')} target="_blank" rel="noreferrer">Run your own store</a>
       </p>
@@ -153,24 +154,24 @@ export function StoreSourcesSettings(): JSX.Element {
                 <div className="text-faint">Key {s.keyId} · fingerprint {s.fingerprint}</div>
                 {checks[s.url] === undefined ? null : <div role="status">{checks[s.url]}</div>}
                 <div className="mt-1 flex flex-wrap gap-3">
-                  <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void recheck(s)}>
+                  <Button type="button" disabled={busy} onClick={() => void recheck(s)}>
                     Re-check now
-                  </button>
+                  </Button>
                   {s.readOnly || readOnly || !view.allowUserSources ? null : (
                     <>
-                      <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void change(s, { enabled: !s.enabled }, s.enabled ? 'Disabled.' : 'Enabled.')}>
+                      <Button type="button" disabled={busy} onClick={() => void change(s, { enabled: !s.enabled }, s.enabled ? 'Disabled.' : 'Enabled.')}>
                         {s.enabled ? 'Disable' : 'Enable'}
-                      </button>
+                      </Button>
                       <label className="flex items-center gap-1">
                         <input type="checkbox" aria-label={`Hide unreviewed versions from ${s.label ?? s.url}`} checked={s.hideUnreviewed === true} disabled={busy} onChange={(e) => void change(s, { hideUnreviewed: e.target.checked }, 'Review policy saved.')} />
                         Hide unreviewed versions
                       </label>
-                      <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => setRenaming({ url: s.url, label: s.label ?? '' })}>
+                      <Button type="button" disabled={busy} onClick={() => setRenaming({ url: s.url, label: s.label ?? '' })}>
                         Rename
-                      </button>
-                      <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void change(s, null, 'Removed. Packs installed from it stay installed.')}>
+                      </Button>
+                      <Button type="button" disabled={busy} onClick={() => void change(s, null, 'Removed. Packs installed from it stay installed.')}>
                         Remove
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>
@@ -182,13 +183,13 @@ export function StoreSourcesSettings(): JSX.Element {
                       void change(s, renaming.label.trim() === '' ? { label: undefined as never } : { label: renaming.label.trim() }, 'Renamed.').then(() => setRenaming(undefined));
                     }}
                   >
-                    <input className={input} aria-label="Store label" maxLength={80} value={renaming.label} onChange={(e) => setRenaming({ url: s.url, label: e.target.value })} />
-                    <button type="submit" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy}>
+                    <Input className={input} aria-label="Store label" maxLength={80} value={renaming.label} onChange={(e) => setRenaming({ url: s.url, label: e.target.value })} />
+                    <Button type="submit" disabled={busy}>
                       Save label
-                    </button>
-                    <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" onClick={() => setRenaming(undefined)}>
+                    </Button>
+                    <Button type="button" onClick={() => setRenaming(undefined)}>
                       Cancel
-                    </button>
+                    </Button>
                   </form>
                 )}
               </li>
@@ -206,16 +207,16 @@ export function StoreSourcesSettings(): JSX.Element {
               <b>Add a store</b>
               <label className="flex flex-col gap-0.5">
                 <span>Store index URL (https)</span>
-                <input className={input} aria-label="Store index URL" placeholder="https://example.org/store/index.json" value={url} onChange={edited(setUrl)} />
+                <Input className={input} aria-label="Store index URL" placeholder="https://example.org/store/index.json" value={url} onChange={edited(setUrl)} />
               </label>
               <label className="flex flex-col gap-0.5">
                 <span>Store public key (minisign, RW…)</span>
-                <input className={input} aria-label="Store public key" placeholder="RW…" value={key} onChange={edited(setKey)} />
+                <Input className={input} aria-label="Store public key" placeholder="RW…" value={key} onChange={edited(setKey)} />
               </label>
               <div>
-                <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy || url.trim() === ''} onClick={() => void fetchKey()}>
+                <Button type="button" disabled={busy || url.trim() === ''} onClick={() => void fetchKey()}>
                   Fetch key from the store&apos;s wirehub-store.pub
-                </button>
+                </Button>
               </div>
               {keyNote === undefined ? null : (
                 <div role="note" className="text-faint" data-testid="store-key-note">
@@ -223,9 +224,9 @@ export function StoreSourcesSettings(): JSX.Element {
                 </div>
               )}
               <div>
-                <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy || url.trim() === '' || key.trim() === ''} onClick={() => void check()}>
+                <Button type="button" disabled={busy || url.trim() === '' || key.trim() === ''} onClick={() => void check()}>
                   Check store
-                </button>
+                </Button>
               </div>
               {preview === undefined ? null : (
                 <div className="border border-line p-2" data-testid="store-preview">
@@ -246,14 +247,14 @@ export function StoreSourcesSettings(): JSX.Element {
                   </label>
                   <label className="mt-1 flex flex-col gap-0.5">
                     <span>Label (optional)</span>
-                    <input className={input} aria-label="Label" maxLength={80} placeholder={preview.store.name} value={label} onChange={(e) => setLabel(e.target.value)} />
+                    <Input className={input} aria-label="Label" maxLength={80} placeholder={preview.store.name} value={label} onChange={(e) => setLabel(e.target.value)} />
                   </label>
                 </div>
               )}
               <div>
-                <button type="submit" disabled={busy || preview === undefined || !confirmed || preview.alreadyConfigured === true} className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50">
+                <Button type="submit" disabled={busy || preview === undefined || !confirmed || preview.alreadyConfigured === true} variant="primary">
                   Add store
-                </button>
+                </Button>
               </div>
             </form>
           )}

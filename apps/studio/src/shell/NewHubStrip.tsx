@@ -18,7 +18,7 @@ export function NewHubStrip({ firstDesign, onNewDesign }: { firstDesign: string 
   const hub = useQuery({ queryKey: hubKey, queryFn: () => fetchHub(), retry: false, staleTime: Infinity });
   if (hub.data === undefined || hub.data.welcomeDismissed) return null;
   return (
-    <div role="region" aria-label="New hub" data-testid="new-hub-strip" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-accent-soft px-4 py-1.5 text-[12.5px]">
+    <div role="region" aria-label="New hub" data-testid="new-hub-strip" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-accent-soft px-4 py-1.5 text-sm">
       <strong className="font-semibold text-ink">New hub</strong>
       <span className="text-dim">Start with</span>
       {firstDesign === undefined ? null : (
@@ -26,7 +26,7 @@ export function NewHubStrip({ firstDesign, onNewDesign }: { firstDesign: string 
           open an example
         </Link>
       )}
-      <button type="button" className={`min-h-0! border-0! bg-transparent! p-0! text-[12.5px] ${STEP}`} onClick={onNewDesign}>
+      <button type="button" className={`min-h-0! border-0! bg-transparent! p-0! text-sm ${STEP}`} onClick={onNewDesign}>
         make a design
       </button>
       <Link to="/library" className={STEP}>

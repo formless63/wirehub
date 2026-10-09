@@ -60,7 +60,7 @@ export function UsedInPanel({ id }: { id: string }): JSX.Element | null {
   return (
     <div
       data-testid="used-in"
-      className="flex min-h-8 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-raised px-3 py-1 text-[12px] text-dim"
+      className="flex min-h-8 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-raised px-3 py-1 text-xs text-dim"
     >
       <span className="font-medium text-ink">Used in</span>
       {use.designs.map((d) => (
@@ -70,7 +70,7 @@ export function UsedInPanel({ id }: { id: string }): JSX.Element | null {
           params={{ id: d.id }}
           search={{ view: 'build' }}
           title={`${d.label} — as ${d.instances.join(', ')}`}
-          className="rounded-sm border border-line2 px-1.5 font-mono text-[11px] text-ink no-underline hover:bg-hover"
+          className="rounded-sm border border-line2 px-1.5 font-mono text-2xs text-ink no-underline hover:bg-hover"
         >
           {d.id}
         </Link>
@@ -82,7 +82,7 @@ export function UsedInPanel({ id }: { id: string }): JSX.Element | null {
           params={{ id: v.design }}
           search={{ view: 'build', rev: String(v.rev) }}
           title={`saved Rev ${v.rev} of ${v.design} — as ${v.instances.join(', ')}${v.pinned === undefined ? '' : `, pinned to Rev ${v.pinned}`}`}
-          className="rounded-sm border border-dashed border-line2 px-1.5 font-mono text-[11px] text-dim no-underline hover:bg-hover"
+          className="rounded-sm border border-dashed border-line2 px-1.5 font-mono text-2xs text-dim no-underline hover:bg-hover"
         >
           {v.design} Rev {v.rev}
         </Link>
@@ -261,7 +261,7 @@ export function CableRoute(): JSX.Element {
         <div
           role="status"
           data-testid="offline-banner"
-          className="flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-warn bg-raised px-3 py-1 text-[12px]"
+          className="flex min-h-9 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-warn bg-raised px-3 py-1 text-xs"
         >
           <span className="min-w-0 flex-1 truncate text-warn" title={studio.loadError}>
             {copy === undefined ? `Could not load ${id}` : `Offline copy from ${offlineCopyFrom()} — read only`}
@@ -297,7 +297,7 @@ export function CableRoute(): JSX.Element {
 
   if (studio.cableId !== id || studio.design === undefined || studio.stored === undefined || artReady !== id || !studio.dbReady) {
     // still loading — `openCable` above is already in flight
-    return <div className="flex h-full items-center justify-center text-[12.5px] text-faint">Loading…</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-faint">Loading…</div>;
   }
 
   // edit locks: the cable, its drawing and its documents are one record

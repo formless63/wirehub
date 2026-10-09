@@ -43,8 +43,8 @@ export function ModulesRoute(): JSX.Element {
   const registry = useModules();
   const studio = useStudio();
   return (
-    <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]">
-      <h1 className="mb-3 text-[14px] font-semibold">Modules</h1>
+    <div className="h-full min-h-0 overflow-auto p-4 text-sm">
+      <h1 className="mb-3 text-md font-semibold">Modules</h1>
       <PacksPanel />
       {registry.modules.map((m) => {
         const panels = registry.panels('settings').filter((p) => p.module === m.id);
@@ -52,7 +52,7 @@ export function ModulesRoute(): JSX.Element {
         const pages = registry.routes().filter((r) => r.module === m.id && ['extensions', 'settings'].includes(effectivePlacement(r, allowedRailModules)));
         return (
           <section key={m.id} className="mb-4 border-b border-line pb-3" data-module={m.id}>
-            <h2 className="text-[13px] font-medium">
+            <h2 className="text-sm font-medium">
               {m.label} <span className="text-faint">{m.id} {m.version}{m.license === undefined ? '' : ` · ${m.license}`}</span>
             </h2>
             {pages.length === 0 ? null : (

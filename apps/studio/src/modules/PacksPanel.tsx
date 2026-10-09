@@ -190,7 +190,7 @@ export function PacksPanel(): JSX.Element {
 
   return (
     <section className="mb-4 min-w-0 border-b border-line pb-3 [overflow-wrap:anywhere]" data-testid="packs-panel">
-      <h2 className="text-[13px] font-medium">Catalog packs</h2>
+      <h2 className="text-sm font-medium">Catalog packs</h2>
       <p className="mb-2 text-faint">Installed catalog data and uploads. A pack may also carry a signed code module; its preview asks for owner consent before code can run.</p>
       <div className="mb-3 flex flex-wrap gap-2">
         <AppLink to="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse store</AppLink>

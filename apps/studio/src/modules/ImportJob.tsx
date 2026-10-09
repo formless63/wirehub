@@ -110,7 +110,7 @@ export function ImportJob({ id, onClose, onPublished }: { id: string; onClose: (
   };
 
   return (
-    <div role="dialog" aria-label="Import job" className="cs-import-dialog fixed inset-x-3 top-16 z-50 mx-auto flex max-h-[80vh] max-w-lg flex-col gap-1.5 overflow-auto rounded-md border border-line bg-panel p-3 text-[12px] text-ink shadow-lg">
+    <div role="dialog" aria-label="Import job" className="cs-import-dialog fixed inset-x-3 top-16 z-50 mx-auto flex max-h-[80vh] max-w-lg flex-col gap-1.5 overflow-auto rounded-md border border-line bg-panel p-3 text-xs text-ink shadow-lg">
       {query.isError ? (
         <div role="alert">{query.error instanceof Error ? query.error.message : 'That job could not be read.'}</div>
       ) : job === undefined ? (

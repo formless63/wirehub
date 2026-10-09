@@ -15,7 +15,7 @@ export function RouteChip(props: { route: PartRoute | undefined; maker?: string 
     <span
       title={`${ROUTE_LABELS[props.route]}${props.maker === undefined ? '' : `: ${props.maker}`}`}
       data-route={props.route}
-      className="shrink-0 rounded-sm border border-line2 px-1 font-mono text-[9.5px] leading-[14px] tracking-wide text-dim uppercase"
+      className="shrink-0 rounded-sm border border-line2 px-1 font-mono text-2xs leading-[14px] tracking-wide text-dim uppercase"
     >
       {SHORT[props.route]}
     </span>

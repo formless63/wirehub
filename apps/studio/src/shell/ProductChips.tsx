@@ -14,7 +14,7 @@ export function ProductChips({ products }: { products: readonly ProductMembershi
           to="/products/$id"
           params={{ id: p.product }}
           title={`${p.productLabel} · ${p.variantLabel}`}
-          className="max-w-40 truncate rounded-sm border border-line2 px-1 text-[11px] leading-[16px] text-dim hover:text-ink"
+          className="max-w-40 truncate rounded-sm border border-line2 px-1 text-2xs leading-[16px] text-dim hover:text-ink"
         >
           {p.productLabel} · {p.variantLabel}
         </Link>

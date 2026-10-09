@@ -61,7 +61,7 @@ const VIEWS: readonly { key: CableView; label: string }[] = [
 ];
 
 const MENU_CONTENT =
-  'z-50 min-w-[180px] rounded-md border border-line2 bg-panel py-1 text-[12.5px] text-ink shadow-[var(--shadow)]';
+  'z-50 min-w-[180px] rounded-md border border-line2 bg-panel py-1 text-sm text-ink shadow-[var(--shadow)]';
 const MENU_ITEM =
   'flex cursor-pointer items-center gap-2 px-2.5 py-1.5 outline-none data-[highlighted]:bg-hover data-[disabled]:cursor-default data-[disabled]:text-faint data-[disabled]:opacity-60';
 const MENU_ITEM_DANGER = 'text-err data-[highlighted]:bg-hover';
@@ -138,11 +138,11 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
       <Link to="/cables" aria-label="WireHub home" title="Designs" className="cs-home-mark flex h-11 shrink-0 items-center justify-center border-r border-line max-sm:border-r-0">
         <StudioMark />
       </Link>
-      <Link to="/cables" aria-label="WireHub home wordmark" title="Designs" className="max-sm:hidden"><Wordmark className="text-[15px]" /></Link>
+      <Link to="/cables" aria-label="WireHub home wordmark" title="Designs" className="max-sm:hidden"><Wordmark className="text-lg" /></Link>
       <span className="h-[18px] w-px shrink-0 bg-line2 max-sm:hidden" aria-hidden="true" />
 
       {cableId !== undefined ? (
-        <nav aria-label="breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 text-[12.5px]">
+        <nav aria-label="breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
           {/* the crumb is the first thing to go once space is tight — the
               title itself gets priority */}
           <Link to="/cables" className="shrink-0 text-dim no-underline hover:text-ink max-[1300px]:hidden max-sm:hidden">
@@ -247,7 +247,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
         </nav>
       ) : (
         <>
-          <span data-testid="section-title" className="truncate text-[12.5px] font-medium text-ink">
+          <span data-testid="section-title" className="truncate text-sm font-medium text-ink">
             {moduleTitle ?? pageTitle(pathname)}
           </span>
         </>
@@ -274,8 +274,8 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
               }
               className={
                 search.view === key
-                  ? 'h-[22px] rounded border border-line2 bg-panel px-2.5 text-[11.5px] font-semibold text-ink'
-                  : 'h-[22px] rounded border border-transparent bg-transparent px-2.5 text-[11.5px] font-normal text-dim'
+                  ? 'h-[22px] rounded border border-line2 bg-panel px-2.5 text-xs font-semibold text-ink'
+                  : 'h-[22px] rounded border border-transparent bg-transparent px-2.5 text-xs font-normal text-dim'
               }
             >
               {viewLabel}
@@ -292,7 +292,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
           <DropdownMenu.Trigger asChild>
             <button
               type="button"
-              className="hidden h-7 shrink-0 items-center gap-1 rounded-md border border-line2 bg-raised px-2 text-[11.5px] font-medium text-ink max-sm:flex"
+              className="hidden h-7 shrink-0 items-center gap-1 rounded-md border border-line2 bg-raised px-2 text-xs font-medium text-ink max-sm:flex"
             >
               {VIEWS.find((v) => v.key === search.view)?.label ?? 'Build'}
               <IconChevronDown size={12} />
@@ -331,15 +331,15 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
           // stays icon-only (its full form returns on the Cables/Library
           // pages, where nothing competes with it)
           cableId === undefined
-            ? 'flex h-7 w-[200px] shrink-0 items-center gap-2 rounded-md border border-line2 bg-bg px-2 text-[12.5px] text-faint max-sm:w-7 max-sm:justify-center max-sm:px-0'
-            : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line2 bg-bg px-0 text-[12.5px] text-faint'
+            ? 'flex h-7 w-[200px] shrink-0 items-center gap-2 rounded-md border border-line2 bg-bg px-2 text-sm text-faint max-sm:w-7 max-sm:justify-center max-sm:px-0'
+            : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line2 bg-bg px-0 text-sm text-faint'
         }
       >
         <IconSearch size={14} />
         {cableId !== undefined ? null : (
           <>
             <span className="grow text-left max-sm:hidden">Search</span>
-            <kbd className="rounded border border-line2 px-1.5 font-mono text-[10.5px] text-faint max-sm:hidden">
+            <kbd className="rounded border border-line2 px-1.5 font-mono text-2xs text-faint max-sm:hidden">
               Ctrl K
             </kbd>
           </>
@@ -374,11 +374,11 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
             disabled={!workspaceReady || !chromeState.dirty || chromeState.saving}
             title={chromeState.dirty ? 'Save — Ctrl S' : 'Nothing has changed since the last save'}
             onClick={() => handle?.save()}
-            className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-accent px-2.5 text-[12.5px] font-semibold text-accent-ink disabled:cursor-default disabled:bg-raised disabled:text-faint max-sm:w-7 max-sm:justify-center max-sm:px-0"
+            className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-accent px-2.5 text-sm font-semibold text-accent-ink disabled:cursor-default disabled:bg-raised disabled:text-faint max-sm:w-7 max-sm:justify-center max-sm:px-0"
           >
             <span className="max-sm:hidden">{chromeState.saving ? 'Saving…' : 'Save'}</span>
             <span className="hidden max-sm:inline">{chromeState.saving ? '…' : 'S'}</span>
-            <kbd className="rounded border border-current/30 px-1 font-mono text-[10px] font-normal opacity-80 max-sm:hidden">
+            <kbd className="rounded border border-current/30 px-1 font-mono text-2xs font-normal opacity-80 max-sm:hidden">
               Ctrl S
             </kbd>
           </button>
@@ -456,7 +456,7 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
         <span
           role="status"
           title="WireHub could not reach the server. Showing the designs this page was built with — retries on every navigation."
-          className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-raised px-2 text-[11px] font-medium text-warn"
+          className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-raised px-2 text-2xs font-medium text-warn"
         >
           <IconPlugOff size={13} />
           Offline

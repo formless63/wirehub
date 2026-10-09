@@ -1,6 +1,9 @@
 /** Form views over the JSON draft. Patches preserve fields the form does not understand. */
 import { useEffect, useState, type JSX } from 'react';
 import { MAX_SEGMENTS, PN_KINDS, RULE_SUBJECTS } from '@wirehub/model';
+import { Button, Input, Select as UiSelect, Textarea } from '@wirehub/editor-react';
+
+const NONE = '__none__';
 
 type ObjectValue = Record<string, unknown>;
 export const objectValue = (value: unknown): ObjectValue | undefined => typeof value === 'object' && value !== null && !Array.isArray(value) ? value as ObjectValue : undefined;
@@ -8,7 +11,7 @@ export function draftObject(text: string): ObjectValue | undefined {
   try { return objectValue(JSON.parse(text)); } catch { return undefined; }
 }
 const inputClass = 'min-w-0 rounded border border-line bg-panel px-1.5 py-1';
-const buttonClass = 'rounded border border-line px-2 py-0.5 text-[11px]';
+const buttonClass = 'rounded border border-line px-2 py-0.5 text-2xs';
 const strings = (value: unknown): string => Array.isArray(value) ? value.join(', ') : '';
 const list = (text: string): string[] => text.split(',').map((x) => x.trim()).filter(Boolean);
 function patch(value: ObjectValue, key: string, next: unknown): ObjectValue {
@@ -19,13 +22,13 @@ function patch(value: ObjectValue, key: string, next: unknown): ObjectValue {
 function Text({ label, value, onChange, type = 'text' }: { label: string; value: unknown; onChange: (value: string) => void; type?: string }): JSX.Element {
   return <label className="flex min-w-0 flex-col gap-0.5">
     <span>{label}</span>
-    <input aria-label={label} className={inputClass} type={type} value={typeof value === 'string' || typeof value === 'number' ? value : ''} onChange={(e) => onChange(e.target.value)} />
+    <Input aria-label={label} className={inputClass} type={type} value={typeof value === 'string' || typeof value === 'number' ? value : ''} onChange={(e) => onChange(e.target.value)} />
   </label>;
 }
 function Select({ label, value, options, onChange, labels = {} }: { label: string; value: string; options: readonly string[]; onChange: (value: string) => void; labels?: Readonly<Record<string, string>> }): JSX.Element {
   return <label className="flex min-w-0 flex-col gap-0.5">
     <span>{label}</span>
-    <select aria-label={label} className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>{options.includes(value) ? null : <option value={value}>{value || 'Choose…'}</option>}{options.map((x) => <option key={x} value={x}>{labels[x] ?? x}</option>)}</select>
+    <UiSelect aria-label={label} value={value === '' ? NONE : value} options={[...(options.includes(value) ? [] : [{ value: value === '' ? NONE : value, label: value || 'Choose…' }]), ...options.map((x) => ({ value: x, label: labels[x] ?? x }))]} onValueChange={(v) => onChange(v === NONE ? '' : v)} />
   </label>;
 }
 function JsonValue({ label, value, onChange }: { label: string; value: unknown; onChange: (value: unknown) => void }): JSX.Element {
@@ -37,7 +40,7 @@ function JsonValue({ label, value, onChange }: { label: string; value: unknown; 
   if (canonical === '') return <p className="text-faint">This draft is too deeply nested for the form. Edit the whole definition in advanced JSON.</p>;
   return <label className="flex flex-col gap-0.5">
     <span>{label}</span>
-    <textarea aria-label={label} data-invalid-json={invalid ? "true" : undefined} className={`${inputClass} h-24 font-mono text-[11px]`} value={text} onChange={(e) => { setText(e.target.value); try { onChange(JSON.parse(e.target.value)); setInvalid(false); } catch { setInvalid(true); } }} />{invalid ? <span role="alert" className="text-err">Invalid JSON. The last valid value is kept; correct this draft before saving.</span> : null}</label>;
+    <Textarea aria-label={label} data-invalid-json={invalid ? "true" : undefined} className={`${inputClass} h-24 font-mono text-2xs`} value={text} onChange={(e) => { setText(e.target.value); try { onChange(JSON.parse(e.target.value)); setInvalid(false); } catch { setInvalid(true); } }} />{invalid ? <span role="alert" className="text-err">Invalid JSON. The last valid value is kept; correct this draft before saving.</span> : null}</label>;
 }
 
 export function SchemeEditor({ value, onChange, disabled }: { value: ObjectValue; onChange: (next: ObjectValue) => void; disabled: boolean }): JSX.Element | null {
@@ -72,10 +75,10 @@ export function SchemeEditor({ value, onChange, disabled }: { value: ObjectValue
               <Text label={`${prefix} value ${i + 1}`} value={choice['value']} onChange={(x) => update('value', x)} />
               <Text label={`${prefix} value ${i + 1} name`} value={choice['label']} onChange={(x) => update('label', x || undefined)} />
               <Text label={`${prefix} value ${i + 1} kinds`} value={strings(choice['kinds'])} onChange={(x) => update('kinds', x.trim() ? list(x) : undefined)} />
-              <button className={buttonClass} type="button" onClick={() => set('values', choices.filter((_, at) => at !== i))}>Remove value {i + 1}</button>
+              <Button className={buttonClass} type="button" onClick={() => set('values', choices.filter((_, at) => at !== i))}>Remove value {i + 1}</Button>
             </div>;
           })}
-          <button className={buttonClass} type="button" disabled={Array.isArray(segment['values']) && segment['values'].length >= 200} onClick={() => set('values', [...(Array.isArray(segment['values']) ? segment['values'] : []), { value: 'NEW' }])}>Add value to {String(segment['id'])}</button>
+          <Button className={buttonClass} type="button" disabled={Array.isArray(segment['values']) && segment['values'].length >= 200} onClick={() => set('values', [...(Array.isArray(segment['values']) ? segment['values'] : []), { value: 'NEW' }])}>Add value to {String(segment['id'])}</Button>
           <Text label={`${prefix} default value`} value={segment['default']} onChange={(x) => set('default', x || undefined)} />
           <p className="text-faint">Kinds (comma separated; empty means any): {PN_KINDS.join(', ')}.</p>
         </> : <>
@@ -96,10 +99,10 @@ export function SchemeEditor({ value, onChange, disabled }: { value: ObjectValue
                   <summary>Advanced range (matches, spans, exclusions)</summary>
                   <JsonValue label={`${prefix} range ${i + 1} JSON`} value={range} onChange={(x) => set('ranges', ranges.map((r, at) => at === i ? x : r))} />
                 </details>
-                <button className={buttonClass} type="button" onClick={() => set('ranges', ranges.filter((_, at) => at !== i))}>Remove range {i + 1}</button>
+                <Button className={buttonClass} type="button" onClick={() => set('ranges', ranges.filter((_, at) => at !== i))}>Remove range {i + 1}</Button>
               </div>;
             })}
-            <button className={buttonClass} type="button" disabled={Array.isArray(segment['ranges']) && segment['ranges'].length >= 100} onClick={() => set('ranges', [...(Array.isArray(segment['ranges']) ? segment['ranges'] : []), { from: 1, to: 999 }])}>Add range to {String(segment['id'])}</button>
+            <Button className={buttonClass} type="button" disabled={Array.isArray(segment['ranges']) && segment['ranges'].length >= 100} onClick={() => set('ranges', [...(Array.isArray(segment['ranges']) ? segment['ranges'] : []), { from: 1, to: 999 }])}>Add range to {String(segment['id'])}</Button>
           </> : <>
             <Select label={`${prefix} style`} value={String(segment['style'])} options={['numeric', 'alpha']} onChange={(x) => set('style', x)} />
             <div className="grid grid-cols-2 gap-1">
@@ -111,15 +114,15 @@ export function SchemeEditor({ value, onChange, disabled }: { value: ObjectValue
               <input type="checkbox" aria-label={`${prefix} optional`} checked={segment['optional'] === true} onChange={(e) => set('optional', e.target.checked)} />Optional in template</label>
           </>}
         </>}
-        <button className={buttonClass} type="button" onClick={() => onChange({ ...value, segments: segments.filter((_, i) => i !== index), template: String(value['template'] ?? '').split(`{${String(segment['id'])}}`).join('') })}>Remove {prefix.toLowerCase()}</button>
+        <Button className={buttonClass} type="button" onClick={() => onChange({ ...value, segments: segments.filter((_, i) => i !== index), template: String(value['template'] ?? '').split(`{${String(segment['id'])}}`).join('') })}>Remove {prefix.toLowerCase()}</Button>
       </fieldset>;
     })}
-    <div className="flex gap-1">{['choice', 'counter', 'variant'].map((type) => <button type="button" key={type} className={buttonClass} disabled={segments.length >= MAX_SEGMENTS} onClick={() => {
+    <div className="flex gap-1">{['choice', 'counter', 'variant'].map((type) => <Button type="button" key={type} className={buttonClass} disabled={segments.length >= MAX_SEGMENTS} onClick={() => {
       let id = `${type}-${segments.length + 1}`;
       while (segments.some((s) => objectValue(s)?.['id'] === id)) id += '-new';
       const segment = type === 'choice' ? { id, type, values: [{ value: 'A' }] } : type === 'counter' ? { id, type, width: 5 } : { id, type, width: 2, style: 'numeric' };
       onChange({ ...value, template: `${String(value['template'] ?? '')}{${id}}`, segments: [...segments, segment] });
-    }}>Add {type} segment</button>)}</div>
+    }}>Add {type} segment</Button>)}</div>
   </fieldset>;
 }
 
@@ -159,9 +162,9 @@ function OperandEditor({ value, onChange, label, depth }: { value: unknown; onCh
 function SelectorEditor({ value, onChange, label, depth, aggregate = false }: { value: ObjectValue; onChange: (next: ObjectValue) => void; label: string; depth: number; aggregate?: boolean }): JSX.Element {
   return <div className="space-y-1">
     <Text label={`${label} list field`} value={value['in']} onChange={(x) => onChange(patch(value, 'in', x))} />{aggregate ? <Text label={`${label} item field`} value={value['field']} onChange={(x) => onChange(patch(value, 'field', x))} /> : null}
-    {value['where'] === undefined ? <button type="button" className={buttonClass} onClick={() => onChange(patch(value, 'where', { exists: { path: 'id' } }))}>Filter {label.toLowerCase()} items</button> : <>
+    {value['where'] === undefined ? <Button type="button" className={buttonClass} onClick={() => onChange(patch(value, 'where', { exists: { path: 'id' } }))}>Filter {label.toLowerCase()} items</Button> : <>
     <ConditionEditor value={value['where']} onChange={(x) => onChange(patch(value, 'where', x))} label={`${label} item filter`} depth={depth + 1} />
-    <button type="button" className={buttonClass} onClick={() => onChange(patch(value, 'where', undefined))}>Remove {label.toLowerCase()} item filter</button>
+    <Button type="button" className={buttonClass} onClick={() => onChange(patch(value, 'where', undefined))}>Remove {label.toLowerCase()} item filter</Button>
   </>}
   </div>;
 }
@@ -176,9 +179,9 @@ export function ConditionEditor({ value, onChange, label, depth = 0 }: { value: 
     {op === 'all' || op === 'any' ? <>
       {(Array.isArray(body) ? body : []).slice(0, 20).map((child: unknown, i: number) => <div key={i}>
         <ConditionEditor value={child} label={`${label} condition ${i + 1}`} depth={depth + 1} onChange={(x) => onChange({ ...obj, [op]: (body as unknown[]).map((c, at) => at === i ? x : c) })} />
-        <button type="button" className={buttonClass} onClick={() => onChange({ ...obj, [op]: (body as unknown[]).filter((_, at) => at !== i) })}>Remove {label.toLowerCase()} condition {i + 1}</button>
+        <Button type="button" className={buttonClass} onClick={() => onChange({ ...obj, [op]: (body as unknown[]).filter((_, at) => at !== i) })}>Remove {label.toLowerCase()} condition {i + 1}</Button>
       </div>)}
-      <button type="button" className={buttonClass} disabled={Array.isArray(body) && body.length >= 20} onClick={() => onChange({ ...obj, [op]: [...(Array.isArray(body) ? body : []), { exists: { path: 'id' } }] })}>Add {label.toLowerCase()} condition</button>
+      <Button type="button" className={buttonClass} disabled={Array.isArray(body) && body.length >= 20} onClick={() => onChange({ ...obj, [op]: [...(Array.isArray(body) ? body : []), { exists: { path: 'id' } }] })}>Add {label.toLowerCase()} condition</Button>
       {Array.isArray(body) && body.length > 20 ? <p className="text-faint">Remaining conditions are preserved in advanced JSON.</p> : null}
     </> : op === 'not' ? <ConditionEditor value={body} label={`${label} negated`} depth={depth + 1} onChange={(x) => onChange({ ...obj, not: x })} /> : quantifiers.includes(op) ? <SelectorEditor value={objectValue(body) ?? {}} onChange={(x) => onChange({ ...obj, [op]: x })} label={label} depth={depth + 1} /> : comparisons.includes(op) ? <div className="grid grid-cols-2 gap-2">{[0, 1].map((i) => <OperandEditor key={i} label={`${label} ${i === 0 ? 'left' : 'right'}`} depth={depth + 1} value={Array.isArray(body) ? body[i] : undefined} onChange={(x) => onChange({ ...obj, [op]: [i === 0 ? x : (body as unknown[])?.[0], i === 1 ? x : (body as unknown[])?.[1]] })} />)}</div> : <OperandEditor value={body} label={`${label} operand`} depth={depth + 1} onChange={(x) => onChange({ ...obj, [op]: x })} />}
   </fieldset>;
@@ -193,9 +196,9 @@ export function RuleEditor({ value, onChange }: { value: ObjectValue; onChange: 
     </div>
     <Text label="Rule message" value={value['message']} onChange={(x) => onChange(patch(value, 'message', x))} />
     <Text label="Rule source" value={value['src']} onChange={(x) => onChange(patch(value, 'src', x))} />
-    {value['where'] === undefined ? <button type="button" className={buttonClass} onClick={() => onChange(patch(value, 'where', { exists: { path: 'id' } }))}>Add subject filter</button> : <>
+    {value['where'] === undefined ? <Button type="button" className={buttonClass} onClick={() => onChange(patch(value, 'where', { exists: { path: 'id' } }))}>Add subject filter</Button> : <>
     <ConditionEditor label="Applies when" value={value['where']} onChange={(x) => onChange(patch(value, 'where', x))} />
-    <button type="button" className={buttonClass} onClick={() => onChange(patch(value, 'where', undefined))}>Apply to every subject</button>
+    <Button type="button" className={buttonClass} onClick={() => onChange(patch(value, 'where', undefined))}>Apply to every subject</Button>
   </>}
     <ConditionEditor label="Require" value={value['require']} onChange={(x) => onChange(patch(value, 'require', x))} />
   </div>;
