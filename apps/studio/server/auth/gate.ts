@@ -354,7 +354,7 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
       // the whole catalog in one answer is for owners and editors (plan §7.6)
       if (person?.role === 'viewer' && path === '/api/export') return json(403, { error: 'The catalog export is for owners and editors.', hint: 'Ask an owner for the editor role.' });
       // a viewer reads; every write needs an editor or an owner (plan §4.5)
-      if (person?.role === 'viewer' && WRITE_METHODS.has(c.req.method) && !path.startsWith('/api/locks') && !path.startsWith(TOKENS_PATH)) {
+      if (person?.role === 'viewer' && WRITE_METHODS.has(c.req.method) && !path.startsWith('/api/locks') && path !== '/api/me/prefs' && !path.startsWith(TOKENS_PATH)) {
         return json(403, { error: `${user.email} can view this hub but not change it.`, hint: 'Nothing was changed. Ask an owner for the editor role.' });
       }
       if (path === INVITATIONS_PATH || path.startsWith(`${INVITATIONS_PATH}/`)) return invitationsRoute(c, people, person, config().baseURL);

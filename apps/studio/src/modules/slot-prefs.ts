@@ -1,34 +1,40 @@
 /**
  * Which module slots a person keeps open: "pin open" on a ModuleSlot, remembered per user.
  *
- * Storage: this browser's `localStorage`, one key per signed-in user
- * (`wirehub:module-slot-pins:<user>`), because the hub has no per-user preference store yet
- * (documented in `docs/modules.md`, "Module slots"). It follows the browser, not the account;
- * an unreadable or blocked store just means every slot starts collapsed.
+ * Stored with the person's other UI preferences (`prefs.browser.ts`): on the hub, per account, with
+ * this browser's `localStorage` as the offline fallback. Pins made before that, under
+ * `wirehub:module-slot-pins:<user>`, are still read and move to the new key at the next change.
  */
 
-const PREFIX = 'wirehub:module-slot-pins:';
+import { usePref } from '@wirehub/editor-react';
 
-const keyOf = (user: string): string => `${PREFIX}${user}`;
+const LEGACY = 'wirehub:module-slot-pins:';
+const KEY = 'slot-pins';
 
-/** the slots `user` pinned open, as `<slot>/<module>` */
-export function readPins(user: string): Set<string> {
+const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+/** the slots `user` pinned in this browser before pins moved to the account, as `<slot>/<module>` */
+export function legacyPins(user: string): string[] {
   try {
-    const raw = window.localStorage.getItem(keyOf(user));
+    const raw = window.localStorage.getItem(`${LEGACY}${user}`);
     const parsed: unknown = raw === null ? [] : JSON.parse(raw);
-    return new Set(Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []);
+    return isStrings(parsed) ? parsed : [];
   } catch {
-    return new Set();
+    return [];
   }
 }
 
-export function writePin(user: string, slotKey: string, pinned: boolean): void {
-  try {
-    const pins = readPins(user);
-    if (pinned) pins.add(slotKey);
-    else pins.delete(slotKey);
-    window.localStorage.setItem(keyOf(user), JSON.stringify([...pins].sort()));
-  } catch {
-    // best effort: the slot still opens for this page view
-  }
+/** the pinned slots (`<slot>/<module>`) and a function that pins or unpins one */
+export function useSlotPins(user: string): [ReadonlySet<string>, (slotKey: string, pinned: boolean) => void] {
+  const [stored, setStored] = usePref<string[] | undefined>(KEY, undefined, (v): v is string[] | undefined => isStrings(v));
+  const pins = stored ?? legacyPins(user);
+  return [
+    new Set(pins),
+    (slotKey, pinned) => {
+      const next = new Set(pins);
+      if (pinned) next.add(slotKey);
+      else next.delete(slotKey);
+      setStored([...next].sort());
+    },
+  ];
 }

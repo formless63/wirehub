@@ -22,8 +22,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 
 import { IconButton } from './Button.tsx';
+import { Skeleton } from './Feedback.tsx';
 import { cx } from './cx.ts';
 import { Popover } from './Overlays.tsx';
+import { usePref } from './prefs.ts';
 
 export interface DataColumn<T> {
   id: string;
@@ -70,6 +72,8 @@ export interface DataTableProps<T> {
   columnsKey?: string;
   /** show only the fixed columns (a detail pane is open beside the table) */
   compact?: boolean;
+  /** the rows are on their way: skeleton rows with the table's own columns instead of an empty message, so nothing jumps when they arrive */
+  loading?: boolean;
   /** what an empty table says */
   empty?: ReactNode;
   rowClassName?: (row: T) => string | undefined;
@@ -91,28 +95,7 @@ export interface DataTableProps<T> {
 const features = tableFeatures({ rowSortingFeature, columnVisibilityFeature, sortedRowModel: createSortedRowModel() });
 type Features = typeof features;
 
-function storageKey(key: string): string {
-  return `wirehub:cols:${key}`;
-}
-function loadHidden(key: string | undefined): string[] | undefined {
-  if (key === undefined) return undefined;
-  try {
-    const raw = globalThis.localStorage?.getItem(storageKey(key));
-    if (raw === null || raw === undefined) return undefined;
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : undefined;
-  } catch {
-    return undefined;
-  }
-}
-function saveHidden(key: string | undefined, hidden: string[]): void {
-  if (key === undefined) return;
-  try {
-    globalThis.localStorage?.setItem(storageKey(key), JSON.stringify(hidden));
-  } catch {
-    /* private mode: the choice lasts for the session */
-  }
-}
+const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
 function useNarrow(): boolean {
   const query = '(max-width: 639px)';
@@ -176,7 +159,9 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
     props.onSortChange?.(first === undefined ? undefined : { id: first.id, dir: first.desc ? 'desc' : 'asc' });
   };
 
-  const [hidden, setHidden] = useState<string[]>(() => loadHidden(props.columnsKey) ?? columns.filter((c) => c.defaultHidden === true).map((c) => c.id));
+  const defaultHidden = useMemo(() => columns.filter((c) => c.defaultHidden === true).map((c) => c.id), [columns]);
+  // the person's column choice: kept with their other preferences (`prefs.ts`), so it follows the account
+  const [hidden, setHidden] = usePref<string[]>(props.columnsKey === undefined ? undefined : `cols.${props.columnsKey}`, defaultHidden, isStrings);
   const visibility = useMemo(() => {
     const out: Record<string, boolean> = {};
     for (const c of columns) out[c.id] = compact ? c.fixed === true : c.fixed === true || !hidden.includes(c.id);
@@ -287,7 +272,6 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
   const toggleColumn = (id: string): void => {
     const next = hidden.includes(id) ? hidden.filter((h) => h !== id) : [...hidden, id];
     setHidden(next);
-    saveHidden(props.columnsKey, next);
   };
   const hideable = columns.filter((c) => c.fixed !== true);
   const menu = props.noColumnMenu === true || compact || hideable.length === 0 ? null : (
@@ -315,7 +299,7 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
 
   return (
     <div ref={setScroll} className={cx('cs-ui-dt', props.className)} data-testid={props.testId} data-compact={compact || undefined}>
-      <table className="cs-ui-dt-table" aria-label={props.label} aria-rowcount={modelRows.length} style={minWidth === undefined ? undefined : { minWidth }}>
+      <table className="cs-ui-dt-table" aria-label={props.label} aria-busy={props.loading === true ? true : undefined} aria-rowcount={modelRows.length} style={minWidth === undefined ? undefined : { minWidth }}>
         {useCard ? null : (
           <>
             <colgroup>
@@ -356,7 +340,22 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
           </>
         )}
         <tbody>
-          {modelRows.length === 0 ? (
+          {props.loading === true && modelRows.length === 0
+            ? Array.from({ length: 6 }, (_, i) => (
+                <tr key={`sk-${i}`} className="cs-ui-dt-row cs-ui-dt-skeleton" aria-hidden="true" data-skeleton-row>
+                  {useCard ? (
+                    <td className="cs-ui-dt-card"><Skeleton width="70%" /></td>
+                  ) : (
+                    shown.map((c, n) => (
+                      <td key={c.id} data-col={c.id} className={cx(c.numeric === true && 'is-num')}>
+                        <Skeleton width={`${[72, 56, 40, 64, 48][(i + n) % 5]}%`} />
+                      </td>
+                    ))
+                  )}
+                </tr>
+              ))
+            : null}
+          {modelRows.length === 0 && props.loading !== true ? (
             <tr className="cs-ui-dt-empty">
               <td colSpan={Math.max(1, colCount)}>{props.empty ?? 'Nothing here yet.'}</td>
             </tr>

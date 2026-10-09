@@ -80,9 +80,10 @@ function lineupColumns(showProduct: boolean): DataColumn<LineupRow>[] {
 const LINEUP_ALL = lineupColumns(true);
 const LINEUP_ONE = lineupColumns(false);
 
-function LineupTable({ rows, showProduct }: { rows: LineupRow[]; showProduct: boolean }): JSX.Element {
+function LineupTable({ rows, showProduct, loading }: { rows: LineupRow[]; showProduct: boolean; loading?: boolean }): JSX.Element {
   return (
     <DataTable
+      loading={loading === true}
       label="Lineup"
       testId="lineup"
       className={showProduct ? undefined : 'cs-ui-dt-inline'}
@@ -184,11 +185,11 @@ export function ProductsRoute(): JSX.Element {
               )
             }
           >
-            {view === undefined ? (
-              <div className="px-4 py-3 text-faint">{query.isError ? 'The products could not be read.' : 'Loading…'}</div>
+            {view === undefined && query.isError ? (
+              <div className="px-4 py-3 text-faint">The products could not be read.</div>
             ) : (
               <>
-                {readOnly || editing === undefined ? null : (
+                {view === undefined || readOnly || editing === undefined ? null : (
                   <div className="flex max-w-3xl flex-col gap-2 p-4">
                     <Textarea mono rows={14} aria-label="Product record" value={editing} spellCheck={false} onChange={(e) => setEditing(e.target.value)} />
                     <div className="flex gap-2">
@@ -198,9 +199,10 @@ export function ProductsRoute(): JSX.Element {
                   </div>
                 )}
                 <DataTable
+                  loading={view === undefined}
                   label="Product families"
                   testId="product-list"
-                  rows={view.products}
+                  rows={view?.products ?? []}
                   columns={familyColumns}
                   getRowId={(p) => p.id}
                   selectedId={selected}
@@ -225,7 +227,7 @@ export function ProductsRoute(): JSX.Element {
             </a>
           </Toolbar>
           <PageBody>
-            {lineup.data === undefined ? <div className="px-4 py-3 text-faint">{lineup.isError ? 'The lineup could not be read.' : 'Loading…'}</div> : <LineupTable rows={lineup.data.rows} showProduct />}
+            {lineup.data === undefined && lineup.isError ? <div className="px-4 py-3 text-faint">The lineup could not be read.</div> : <LineupTable rows={lineup.data?.rows ?? []} showProduct loading={lineup.data === undefined} />}
           </PageBody>
         </TabPanel>
       </Tabs>

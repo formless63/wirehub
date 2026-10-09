@@ -135,10 +135,11 @@ export function TopBar(props: { onOpenNav?: () => void }): JSX.Element {
       >
         <IconMenu2 size={18} />
       </button>
-      <Link to="/cables" aria-label="WireHub home" title="Designs" className="cs-home-mark flex h-11 shrink-0 items-center justify-center border-r border-line max-sm:border-r-0">
+      {/* one mark: the wordmark from the sm breakpoint up, the square mark where there is no room for it */}
+      <Link to="/cables" aria-label="WireHub home" title="Designs" className="cs-home-mark hidden h-11 shrink-0 items-center justify-center max-sm:flex">
         <StudioMark />
       </Link>
-      <Link to="/cables" aria-label="WireHub home wordmark" title="Designs" className="max-sm:hidden"><Wordmark className="text-lg" /></Link>
+      <Link to="/cables" aria-label="WireHub home wordmark" title="Designs" className="ml-3 max-sm:hidden"><Wordmark className="text-lg" /></Link>
       <span className="h-[18px] w-px shrink-0 bg-line2 max-sm:hidden" aria-hidden="true" />
 
       {cableId !== undefined ? (

@@ -173,3 +173,18 @@ describe('the official index with a publisher', () => {
     expect(() => run('official', '--out', join(unsigned, 'dist'), '--meta', meta, '--modules', join(unsigned, 'modules'))).toThrow();
   }, 60_000);
 });
+
+describe('the social card', () => {
+  it('is a deterministic 1200x630 PNG, and every page points at it with OpenGraph and Twitter tags', () => {
+    const png = files.get('social.png');
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    expect(png.readUInt32BE(16)).toBe(1200);
+    expect(png.readUInt32BE(20)).toBe(630);
+    expect(buildSite(root).find(([path]) => path === 'social.png')[1].equals(png)).toBe(true);
+    for (const [path, html] of pages) {
+      expect(html, path).toContain('<meta property="og:image" content="https://formless63.github.io/wirehub/social.png">');
+      expect(html, path).toContain('<meta name="twitter:card" content="summary_large_image">');
+      expect(html, path).toMatch(/<meta property="og:title" content="[^"]+">/);
+    }
+  });
+});

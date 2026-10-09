@@ -53,11 +53,17 @@ describe('ModuleSlot', () => {
     const slot = await screen.findByLabelText('Plain module (module)');
     fireEvent.click(within(slot).getByRole('button', { name: 'Pin open Plain module' }));
     expect(screen.getByTestId('form-plain')).toBeTruthy();
-    expect(JSON.parse(window.localStorage.getItem('wirehub:module-slot-pins:local') ?? '[]')).toEqual(['library-detail/plain']);
+    expect(JSON.parse(window.localStorage.getItem('wirehub:prefs:local') ?? '{}').values['slot-pins']).toEqual(['library-detail/plain']);
     first.unmount();
     mountSlot(settings('configured'));
     expect(await screen.findByTestId('form-plain')).toBeTruthy();
     expect(screen.queryByTestId('form-keyed')).toBeNull();
+  });
+
+  it('still honours a pin an earlier version kept in this browser', async () => {
+    window.localStorage.setItem('wirehub:module-slot-pins:local', JSON.stringify(['library-detail/plain']));
+    mountSlot(settings('configured'));
+    expect(await screen.findByTestId('form-plain')).toBeTruthy();
   });
 
   it('shows one "not set up" line, linking to Module settings, instead of the form when required settings are missing', async () => {

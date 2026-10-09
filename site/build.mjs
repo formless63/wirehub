@@ -21,6 +21,8 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { Resvg } from '@resvg/resvg-js';
+
 import { buildDocsSite, docsAssets, docsIndexJson, themeScript } from './docs.mjs';
 
 const site = dirname(fileURLToPath(import.meta.url));
@@ -69,6 +71,33 @@ export const NAV = [
   { id: 'docs', label: 'Docs', path: 'docs/' },
 ];
 
+export const SITE_URL = 'https://formless63.github.io/wirehub/';
+export const SOCIAL_IMAGE = `${SITE_URL}social.png`;
+export const TAGLINE = 'Cable assemblies as canonical definitions: schematics, build sheets, BOMs and continuity specs derived from one model.';
+
+/** The description and the OpenGraph / Twitter card tags: the same card (social.png) for every page. */
+export function socialMeta(title, description = TAGLINE) {
+  const d = escapeHtml(description);
+  return `<meta name="description" content="${d}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="WireHub">
+<meta property="og:title" content="${escapeHtml(title)}">
+<meta property="og:description" content="${d}">
+<meta property="og:image" content="${SOCIAL_IMAGE}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="WireHub">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(title)}">
+<meta name="twitter:description" content="${d}">
+<meta name="twitter:image" content="${SOCIAL_IMAGE}">`;
+}
+
+/** The social card, rendered from brand/wirehub-social.svg (no text in it, so the same bytes on every machine). */
+export function socialCardPng(repoRoot = root) {
+  return new Resvg(read(repoRoot, 'brand/wirehub-social.svg'), { fitTo: { mode: 'width', value: 1200 } }).render().asPng();
+}
+
 const logoSvg = (repoRoot) => read(repoRoot, 'brand/wirehub-logo.svg').replace(/<\?xml[^>]*>\s*/, '');
 const favicon = (repoRoot) => `data:image/svg+xml,${encodeURIComponent(read(repoRoot, 'brand/wirehub-mark.svg'))}`;
 
@@ -90,7 +119,7 @@ export const STORE_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-
 export const GENERATOR_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'";
 
 /** A page in the shell. `body` is trusted HTML. */
-function page({ repoRoot, title, csp, css, depth, current, body, script = '' }) {
+function page({ repoRoot, title, csp, css, depth, current, body, script = '', description }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -99,6 +128,7 @@ function page({ repoRoot, title, csp, css, depth, current, body, script = '' }) 
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <title>${escapeHtml(title)}</title>
+${socialMeta(title, description)}
 <link rel="icon" href="${favicon(repoRoot)}">
 <style>${css}</style>
 </head>
@@ -182,6 +212,7 @@ export function buildPage(repoRoot = root) {
   const script = `"use strict";\nconst TEMPLATES = ${data};\n${asScript(generate)}\n${asScript(app)}`;
   return html
     .replace('/*STYLE*/', () => css)
+    .replace('<!--SOCIAL-->', () => socialMeta('WireHub config generator', 'A compose.yaml and an optional .env for a self-hosted WireHub, made in your browser. Nothing is sent anywhere.'))
     .replace('<!--SHELL-->', () => renderHeader({ repoRoot, depth: 1, current: 'generator' }))
     .replace('<!--FOOT-->', () => FOOT)
     .replace('/*FAVICON*/', () => `data:image/svg+xml,${encodeURIComponent(mark)}`)
@@ -190,7 +221,7 @@ export function buildPage(repoRoot = root) {
 
 /** The shell the docs pages share with the rest of the site. */
 function docsShell(repoRoot) {
-  return { favicon: favicon(repoRoot), header: (depth) => renderHeader({ repoRoot, depth, current: 'docs' }), footer: FOOT };
+  return { favicon: favicon(repoRoot), social: socialMeta, header: (depth) => renderHeader({ repoRoot, depth, current: 'docs' }), footer: FOOT };
 }
 
 /** Everything under /docs/ (relative to it): pages, assets, the search index. */
@@ -206,6 +237,7 @@ export function buildSite(repoRoot = root) {
     ['generator/index.html', buildPage(repoRoot)],
     ...buildDocsFiles(repoRoot).map(([path, contents]) => [`docs/${path}`, contents]),
     ['store/index.html', buildStorePage({ repoRoot })],
+    ['social.png', socialCardPng(repoRoot)],
     ['.nojekyll', ''],
   ];
 }

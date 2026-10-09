@@ -37,11 +37,39 @@ function toExternal(o: NotifyOptions | undefined, fallbackDuration?: number): Ex
   return out;
 }
 
+/** how long an Undo stays on offer */
+export const UNDO_MS = 10_000;
+
 export const notify = {
   success: (message: string, o?: NotifyOptions) => toast.success(message, toExternal(o)),
   info: (message: string, o?: NotifyOptions) => toast.info(message, toExternal(o)),
   warn: (message: string, o?: NotifyOptions) => toast.warning(message, toExternal(o)),
   error: (message: string, o?: NotifyOptions) => toast.error(message, toExternal(o, Infinity)),
-  /** a change already applied, with an Undo that has 8 s to be pressed */
-  undoable: (message: string, undo: () => void, o?: Omit<NotifyOptions, 'action'>) => toast(message, toExternal({ ...o, action: { label: 'Undo', onClick: undo } }, 8000)),
+  /** a change already applied, with an Undo that has 10 s to be pressed (`UNDO_MS`) */
+  undoable: (message: string, undo: () => void, o?: Omit<NotifyOptions, 'action'>) => toast(message, toExternal({ ...o, action: { label: 'Undo', onClick: undo } }, UNDO_MS)),
+  /**
+   * A change that is not applied yet: `commit` runs when the toast has been on screen for 10 s (or is
+   * dismissed), unless Undo is pressed first, and then it never runs. For what cannot be put back once
+   * done (a pack's records, a secret). A page closed or reloaded in the window just leaves things as they were.
+   */
+  deferred: (message: string, commit: () => void | Promise<void>, o?: Omit<NotifyOptions, 'action'> & { onUndo?: () => void }) => {
+    let settled = false;
+    const run = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      void commit();
+    };
+    const timer = setTimeout(run, o?.duration ?? UNDO_MS);
+    const { onUndo, ...rest } = o ?? {};
+    return toast(message, {
+      ...toExternal({ ...rest, action: { label: 'Undo', onClick: () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        onUndo?.();
+      } } }, UNDO_MS),
+      onDismiss: run,
+    });
+  },
 };

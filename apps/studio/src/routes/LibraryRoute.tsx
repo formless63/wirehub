@@ -162,6 +162,7 @@ export function LibraryRoute(): JSX.Element {
       <Library
         rowMarker={(rowKind, id) => <LockMarker record={definitionRecord(rowKind, id)} />}
         db={studio.db}
+        loading={!studio.dbReady}
         definitions={phone ? undefined : studio.definitions}
         viewOnly={phone}
         onDefinitionsChange={studio.onDefinitionsChange}

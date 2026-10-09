@@ -91,9 +91,7 @@ import {
 import { libraryColumns, libraryRows, type LibraryTableContext } from '../library-table.ts';
 import { LibraryTable } from './LibraryTable.tsx';
 import { Tab, TabList, Tabs } from '../ui/Tabs.tsx';
-import { Button } from '../ui/Button.tsx';
-import { Input } from '../ui/Field.tsx';
-import { Dialog } from '../ui/Overlays.tsx';
+import { Button, Dialog, Field, Input, notify } from '../ui/index.ts';
 import { PropertiesGrid, RecordHead, SourceBlock, WhereUsed, type RecordAction } from './RecordOverview.tsx';
 import {
   LIBRARY_PANE_DEFAULT,
@@ -138,6 +136,8 @@ export interface LibraryProps {
   /** a read-only look on purpose (a phone): no "can't change" note and no "New" button */
   viewOnly?: boolean;
   /** the library changed — the host reloads its db and hands a new one down */
+  /** the host has not answered with the catalog yet: the table shows skeleton rows, not "nothing here" */
+  loading?: boolean;
   onDefinitionsChange?: (change: DefinitionChange) => void;
   /** the cutaway's renderer, injectable for tests */
   renderCutaway?: CrossSectionRenderer;
@@ -566,8 +566,6 @@ export function Library(props: LibraryProps): JSX.Element {
   const [comparePick, setComparePick] = useState<string[] | undefined>(undefined);
   useEffect(() => setComparePick(undefined), [kind]);
   const [mode, setMode] = useState<Mode>({ kind: 'browse' });
-  /** "Fork to edit" asking for the id of the copy */
-  const [forkAsk, setForkAsk] = useState<{ id: string; value: string } | undefined>(undefined);
   const [list, setList] = useState<DefinitionList>(() => fromDb(props.db, kind));
   const [draft, setDraft] = useState<DefinitionDraft | undefined>(undefined);
   /** the record as stored — the Revert target and the dirty baseline */
@@ -578,6 +576,8 @@ export function Library(props: LibraryProps): JSX.Element {
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [advanced, setAdvanced] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  /** the Fork to edit dialog: the source id and the id typed for the copy */
+  const [forkAsk, setForkAsk] = useState<{ id: string; newId: string } | undefined>(undefined);
   const [detailTab, setDetailTab] = useState<DetailTab>('definition');
   const [wireLib, setWireLib] = useState<WireLibrary | undefined>(undefined);
   const [wireNew, setWireNew] = useState<WireRecipe | undefined>(undefined);
@@ -1033,6 +1033,17 @@ export function Library(props: LibraryProps): JSX.Element {
     ...db.pcbas,
     ...(db.mechanicals ?? []),
   ].map((record) => record.id);
+  const submitFork = (): void => {
+    const ask = forkAsk;
+    if (ask === undefined || ask.newId.trim() === '' || definitions?.fork === undefined) return;
+    const fork = definitions.fork.bind(definitions);
+    setForkAsk(undefined);
+    void run(async () => {
+      const outcome = await fork(kind, ask.id, ask.newId.trim());
+      if (!outcome.ok) return { ok: false, problem: { message: outcome.message, ...(outcome.hint === undefined ? {} : { hint: outcome.hint }), details: (outcome.issues ?? []).map((issue) => describeIssue(issue)) } };
+      return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Forked ${ask.id} as ${outcome.value.id}` };
+    });
+  };
   /** the record head's actions: Edit, New variant / Duplicate, Compare */
   const recordActions: RecordAction[] = [];
   if (mode.kind === 'edit') {
@@ -1051,7 +1062,9 @@ export function Library(props: LibraryProps): JSX.Element {
         title: `Copy this record under a new id of your own (it remembers it came from ${packOrigin.pack} ${packOrigin.version})`,
         primary: true,
         disabled: busy,
-        onClick: () => setForkAsk({ id, value: `${id}-local` }),
+        onClick: () => {
+          setForkAsk({ id, newId: `${id}-local` });
+        },
       });
     } else if (kind === 'connectors' && baseline !== undefined && definitions !== undefined) {
       const source = baseline as ConnectorDefinition;
@@ -1069,16 +1082,6 @@ export function Library(props: LibraryProps): JSX.Element {
       recordActions.push({ id: 'compare', label: 'Compare', title: 'Open this part in the compare view', onClick: () => props.onCompare?.(`${kind}/${id}`) });
     }
   }
-  const doFork = (id: string, asked: string): void => {
-    const fork = definitions?.fork?.bind(definitions);
-    setForkAsk(undefined);
-    if (fork === undefined) return;
-    void run(async () => {
-      const outcome = await fork(kind, id, asked);
-      if (!outcome.ok) return { ok: false, problem: { message: outcome.message, ...(outcome.hint === undefined ? {} : { hint: outcome.hint }), details: (outcome.issues ?? []).map((issue) => describeIssue(issue)) } };
-      return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Forked ${id} as ${outcome.value.id}` };
-    });
-  };
   const wireDetail =
     wireRecipe === undefined || wireLib === undefined || wireAdapter === undefined ? null : (
       <>
@@ -1309,12 +1312,10 @@ export function Library(props: LibraryProps): JSX.Element {
             {problem === undefined ? null : <Problem problem={problem} />}
           </div>
         ) : null}
-        {list.kind !== kind ? (
-          <p className="cs-empty">Reading the library…</p>
-        ) : (
           <LibraryTable
             kind={kind}
-            rows={tableRows}
+            loading={list.kind !== kind || props.loading === true}
+            rows={list.kind !== kind ? [] : tableRows}
             columns={columns}
             query={query}
             compact={mode.kind !== 'browse'}
@@ -1353,7 +1354,6 @@ export function Library(props: LibraryProps): JSX.Element {
             onCount={onTableCount}
             {...(mode.kind === 'browse' ? { lead: listTools } : {})}
           />
-        )}
       </div>
       {pane.collapsed ? (
         <span className="cs-library-split" aria-hidden="true" />
@@ -1733,6 +1733,28 @@ export function Library(props: LibraryProps): JSX.Element {
           </>
         )}
 
+        <Dialog
+          open={forkAsk !== undefined}
+          onOpenChange={(next) => { if (!next) setForkAsk(undefined); }}
+          title="Fork to edit"
+          size="sm"
+          testId="fork-dialog"
+          footer={
+            <>
+              <Button onClick={() => setForkAsk(undefined)}>Cancel</Button>
+              <Button variant="primary" disabled={forkAsk === undefined || forkAsk.newId.trim() === ''} onClick={submitFork} data-testid="fork-dialog-ok">Fork</Button>
+            </>
+          }
+        >
+          <Field label="Id for your copy" hint="Lowercase words joined by hyphens">
+            <Input
+              value={forkAsk?.newId ?? ''}
+              onChange={(e) => setForkAsk((ask) => (ask === undefined ? ask : { ...ask, newId: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitFork(); } }}
+            />
+          </Field>
+        </Dialog>
+
         {confirming && mode.kind === 'edit' ? (
           <div className="cs-modal" role="dialog" aria-modal="true" aria-label="Delete this definition">
             <div className="cs-modal-card">
@@ -1768,9 +1790,31 @@ export function Library(props: LibraryProps): JSX.Element {
                   type="button"
                   className="cs-destructive"
                   disabled={busy}
-                  onClick={() =>
-                    void run(() => deleteDefinition(definitions!, kind, mode.id, mode.id))
-                  }
+                  onClick={() => {
+                    const gone = baseline;
+                    const adapter = definitions!;
+                    const deletedKind = kind;
+                    void run(async () => {
+                      const result = await deleteDefinition(adapter, deletedKind, mode.id, mode.id);
+                      // the row leaves the list now, not after the refresh
+                      if (result.ok) setList((current) => (current.kind === deletedKind ? { ...current, records: current.records.filter((r) => r.id !== mode.id) } : current));
+                      // the record, as it was, goes back when Undo is pressed within the window
+                      if (result.ok && gone !== undefined) {
+                        notify.undoable(`Deleted ${gone.label === '' ? gone.id : gone.label}`, () => {
+                          void createDefinition(adapter, deletedKind, gone).then(async (back) => {
+                            if (!back.ok) {
+                              notify.error(`Could not restore ${gone.id}`, { description: back.problem.message });
+                              return;
+                            }
+                            props.onDefinitionsChange?.(back.change);
+                            await refresh(deletedKind);
+                            notify.success(`Restored ${gone.id}`);
+                          });
+                        });
+                      }
+                      return result;
+                    });
+                  }}
                 >
                   {busy ? 'Deleting…' : `Delete ${mode.id}`}
                 </button>
@@ -1779,33 +1823,6 @@ export function Library(props: LibraryProps): JSX.Element {
           </div>
         ) : null}
       </div>
-      {forkAsk === undefined || definitions?.fork === undefined ? null : (
-        <Dialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setForkAsk(undefined);
-          }}
-          title="Fork to edit"
-          description="Id for your copy: lowercase words joined by hyphens."
-          footer={
-            <>
-              <Button onClick={() => setForkAsk(undefined)}>Cancel</Button>
-              <Button variant="primary" disabled={forkAsk.value.trim() === ''} onClick={() => doFork(forkAsk.id, forkAsk.value.trim())}>
-                Fork
-              </Button>
-            </>
-          }
-        >
-          <Input
-            aria-label="Id for your copy"
-            value={forkAsk.value}
-            onChange={(e) => setForkAsk({ ...forkAsk, value: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && forkAsk.value.trim() !== '') doFork(forkAsk.id, forkAsk.value.trim());
-            }}
-          />
-        </Dialog>
-      )}
     </div>
   );
 }

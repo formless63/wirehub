@@ -30,6 +30,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useNodesInitialized,
   useReactFlow,
   useStore,
   useUpdateNodeInternals,
@@ -725,10 +726,32 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   // once the user has actually moved something. See `remember.ts`.
   useRememberedPositions(props.layout, state.design.id, state.positions);
 
+  // A design opens already fitted: the canvas stays hidden (still laid out, so the nodes are measured)
+  // until the first fit-to-view has been applied, so the parts never show at zoom 1 and then jump.
+  // The timer is the way out for a design with nothing to measure.
+  const [fitted, setFitted] = useState(false);
+  const nodesInitialized = useNodesInitialized();
   useEffect(() => {
+    setFitted(false);
     const frame = requestAnimationFrame(() => void flow.fitView({ padding: 0.15 }));
-    return () => cancelAnimationFrame(frame);
+    const reveal = setTimeout(() => setFitted(true), 700);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(reveal);
+    };
   }, [state.design.id, flow]);
+  useEffect(() => {
+    if (fitted || !nodesInitialized) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      void flow.fitView({ padding: 0.15 });
+      second = requestAnimationFrame(() => setFitted(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [fitted, nodesInitialized, flow]);
 
   // Ctrl+Z / ⌘Z, Ctrl+Shift+Z / ⌘⇧Z, and Ctrl+Y for the Windows hand.
   // `chrome="host"` skips this: the host's own command registry owns Ctrl+Z/
@@ -1648,6 +1671,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                 <ReactFlow
                   nodes={flowNodes}
                   edges={flowEdges}
+                  {...(fitted ? {} : { style: { visibility: 'hidden' as const } })}
                   nodesConnectable={canEdit && detail === 'pins'}
                   nodeTypes={nodeTypes}
                   edgeTypes={edgeTypes}

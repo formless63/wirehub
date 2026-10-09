@@ -507,9 +507,10 @@ for it), and `onClose` returns to the Library. A module's own view is where a bo
 puts each module's panels in one `ModuleSlot` frame: titled with the module's name and a "module"
 chip, collapsible, **after** the page's own content and **collapsed by default**. The host, not the
 module, declares the order (`MODULE_SLOT_ORDER` in `apps/studio/src/modules/slots.tsx`; modules it
-does not name follow in manifest order). A person can pin a slot open; the pin is remembered per
-user in this browser's `localStorage` (`wirehub:module-slot-pins:<user>`), because the hub has no
-per-user preference store yet. A module that declares `required` settings that are still empty
+does not name follow in manifest order). A person can pin a slot open; the pin is kept with the
+person's other UI preferences (theme, table column choices) on the hub, per account
+(`GET`/`PUT /api/me/prefs`; viewers store their own too), with this browser's `localStorage` as the
+offline fallback. A module that declares `required` settings that are still empty
 shows one line, "<Module> is not set up · Set up →", linking to Settings › Module settings, instead
 of its form. Panels are not mounted while collapsed, so a panel should not rely on running
 side effects before it is opened. A module's exporters are listed in the Documents toolbar's

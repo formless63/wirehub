@@ -438,6 +438,7 @@ export function CablesRoute(): JSX.Element {
         }
       >
         <DataTable
+          loading={listQuery.data === undefined && !listQuery.isError}
           label="Designs"
           testId="cable-list"
           rows={filtered}

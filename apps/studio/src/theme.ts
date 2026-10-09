@@ -11,7 +11,7 @@ const STORAGE_KEY = 'wirehub:theme';
 
 export type Theme = 'light' | 'dark';
 
-function isTheme(value: unknown): value is Theme {
+export function isTheme(value: unknown): value is Theme {
   return value === 'light' || value === 'dark';
 }
 

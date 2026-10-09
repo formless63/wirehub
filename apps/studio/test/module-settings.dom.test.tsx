@@ -12,6 +12,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { notify } from '@wirehub/editor-react';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { memoryEventHub } from '../server/events.ts';
@@ -81,7 +82,17 @@ describe('Module settings', () => {
     fireEvent.click(within(again).getByRole('button', { name: 'Replace' }));
     await waitFor(async () => expect(await read('keyed-probe', 'apiKey')).toBe('the-replacement-key'));
     await waitFor(() => expect(within(screen.getByTestId('module-secret-keyed-probe-apiKey')).getByRole('button', { name: 'Clear' })).toBeTruthy());
+    // Clear waits out an Undo window: pressing Undo keeps the secret, letting it close clears it
+    const deferred = vi.spyOn(notify, 'deferred').mockImplementation((() => 'toast') as never);
     fireEvent.click(within(screen.getByTestId('module-secret-keyed-probe-apiKey')).getByRole('button', { name: 'Clear' }));
+    expect(deferred).toHaveBeenCalledTimes(1);
+    expect(await read('keyed-probe', 'apiKey')).toBe('the-replacement-key');
+    (deferred.mock.calls[0]![2] as { onUndo: () => void }).onUndo();
+    await waitFor(() => expect(within(screen.getByTestId('module-secret-keyed-probe-apiKey')).getByRole('button', { name: 'Clear' })).toBeTruthy());
+    expect(await read('keyed-probe', 'apiKey')).toBe('the-replacement-key');
+    fireEvent.click(within(screen.getByTestId('module-secret-keyed-probe-apiKey')).getByRole('button', { name: 'Clear' }));
+    await (deferred.mock.calls[1]![1] as () => Promise<void>)();
+    deferred.mockRestore();
     await waitFor(async () => expect(await read('keyed-probe', 'apiKey')).toBeUndefined());
     await waitFor(() => expect(within(screen.getByTestId('module-secret-keyed-probe-apiKey')).getByText('missing: required for lookups')).toBeTruthy());
 

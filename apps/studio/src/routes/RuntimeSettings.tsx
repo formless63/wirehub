@@ -11,7 +11,7 @@ import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { adoptServerValues, rotateSettingsKey, engineeringKey, runtimeSettingsKey, runtimeSettingsQuery, saveRuntimeGroup, saveRuntimeSecret, type RuntimeFieldView, type RuntimeGroupView, type RuntimeValue } from '../settings.browser.ts';
-import { Button, Input, Select, Textarea } from '@wirehub/editor-react';
+import { Button, HelpTip, Input, Select, Textarea } from '@wirehub/editor-react';
 
 const DEFAULT = '__default__';
 
@@ -163,10 +163,10 @@ function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: R
         void save();
       }}
     >
-      <h2 className="text-sm font-semibold">{group.title}</h2>
-      <p className="text-dim">
-        {group.intro} {group.applies}
-      </p>
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+        {group.title}
+        <HelpTip label={`About ${group.title}`}>{group.intro} {group.applies}</HelpTip>
+      </h2>
       {group.restricted === true ? (
         <div className="text-dim">Shown to owners: only an owner sees and changes these settings.</div>
       ) : (

@@ -1,12 +1,15 @@
 # Spec — Postgres backend, blob store, and the self-hosted install
 
-Status: **plan**, rev 6.12 (rev 6 was the first revision in the open base). **Phases A
+Status: **plan**, rev 6.13 (rev 6 was the first revision in the open base). **Phases A
 (schema and read path), B (write path, blobs, API clients), S (self-hosted install) and
 C (worker and jobs) are built** (§11); D and E are plan. v0.1.0 shipped without the worker. The storage seam it plugs into is `storage-seam.md`. The execution
 rules for agents building it are `postgres-backend-EXECUTION.md`.
 
 ## Changelog
 
+- **rev 6.13** — Per-person UI preferences (cs-74m4). Migration **0024**: `studio.user_pref`, one JSON
+  object per person (module slot pins, theme, table column choices), org-scoped under RLS, no audit
+  trigger. Not a catalog table: no change set, history, export or git mirror reads it.
 - **rev 6.12** — Module settings (cs-nws, module API 1.5). Migration **0023**: `studio.settings_secret.name`
   also admits `module.<module id>.<key>`, the secrets runtime modules declare (`specs/runtime-modules.md` §8).
   No new table: they share the store, its encryption, RLS and key rotation.
@@ -1502,6 +1505,29 @@ ALTER TABLE studio.settings_secret DROP CONSTRAINT settings_secret_name_check;
 ALTER TABLE studio.settings_secret ADD CONSTRAINT settings_secret_name_check CHECK (
   name ~ '^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$'
   OR name ~ '^module\.[a-z0-9]+(-[a-z0-9]+)*\.[a-z][A-Za-z0-9]*$');
+```
+
+Per-person UI preferences (`GET`/`PUT /api/me/prefs`): the browser's slot pins, theme and table column choices, kept
+per account so they follow the person across browsers. Not catalog data.
+
+```sql ddl
+-- 0024_user_prefs — per-person UI preferences (cs-74m4)
+-- One row per person: the preferences the browser shows (module slot pins, theme, table
+-- column choices) as one JSON object. Not a catalog table: no change set, export or git
+-- mirror reads it, and it has no audit trigger. `user_key` is `email:<address>` for a
+-- signed-in person, `local:<name>` when there is no login.
+CREATE TABLE studio.user_pref (
+  org_id      uuid NOT NULL REFERENCES studio.org,
+  user_key    text NOT NULL CHECK (length(user_key) BETWEEN 1 AND 320),
+  prefs       jsonb NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(prefs) = 'object' AND pg_column_size(prefs) <= 65536),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, user_key)
+);
+ALTER TABLE studio.user_pref ENABLE ROW LEVEL SECURITY;
+ALTER TABLE studio.user_pref FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON studio.user_pref USING (org_id = studio.current_org()) WITH CHECK (org_id = studio.current_org());
+GRANT SELECT, INSERT, UPDATE, DELETE ON studio.user_pref TO studio_app;
+GRANT SELECT ON studio.user_pref TO studio_ro;
 ```
 
 ---

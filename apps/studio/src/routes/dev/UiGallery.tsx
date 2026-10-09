@@ -7,9 +7,9 @@
 
 import { IconBolt, IconCopy, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react';
 import {
-  Badge, BeamArt, Button, Callout, Checkbox, Chip, Combobox, ConfirmDialog, Dialog, Drawer, Field, FileDrop, IconButton, Input, Kbd, Menu, NumberInput,
-  Popover, PortalContainerContext, RadioGroup, SegmentedControl, Select, Skeleton, StatusDot, Switch, Tab, TabList, TabPanel, Tabs, Textarea, Tooltip, notify,
-  type ControlSize,
+  Badge, BeamArt, Button, Callout, Checkbox, Chip, Combobox, ConfirmDialog, DataTable, Dialog, Drawer, EmptyState, Field, FileDrop, FilterMenu, HelpTip, IconButton, Input, Kbd, KeyValues, Menu, NumberInput,
+  PageHeader, Popover, PortalContainerContext, RadioGroup, SegmentedControl, Select, SidePanel, Skeleton, StatusDot, Switch, Tab, TabList, TabPanel, Tabs, Textarea, Toolbar, Tooltip, notify,
+  type ControlSize, type DataColumn,
 } from '@wirehub/editor-react';
 import { useState, type JSX, type ReactNode } from 'react';
 
@@ -32,6 +32,74 @@ function Row({ title, children }: { title: string; children: ReactNode }): JSX.E
       <h3 style={{ margin: 0, fontSize: 'var(--fs-xs)', fontWeight: 500, color: 'var(--dim)', paddingTop: 5 }}>{title}</h3>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, minWidth: 0 }}>{children}</div>
     </section>
+  );
+}
+
+interface DemoRow {
+  id: string;
+  name: string;
+  gauge: string;
+  length: number;
+  status: 'active' | 'draft';
+}
+const DEMO_ROWS: DemoRow[] = [
+  { id: 'xlr-mic-5m', name: 'XLR mic cable, 5 m', gauge: '24 AWG', length: 5000, status: 'active' },
+  { id: 'db9-crossover', name: 'DB-9 null-modem', gauge: '26 AWG', length: 1800, status: 'active' },
+  { id: 'jst-led-lead', name: 'JST XH LED lead', gauge: '28 AWG', length: 300, status: 'draft' },
+  { id: 'rj45-patch', name: 'RJ45 patch lead', gauge: '24 AWG', length: 2000, status: 'active' },
+];
+const DEMO_COLUMNS: DataColumn<DemoRow>[] = [
+  { id: 'name', header: 'Name', fixed: true, sortValue: (r) => r.name, cell: (r) => r.name, width: 180 },
+  { id: 'id', header: 'Id', mono: true, cell: (r) => r.id, width: 120 },
+  { id: 'gauge', header: 'Wire', sortValue: (r) => r.gauge, cell: (r) => r.gauge },
+  { id: 'length', header: 'Length (mm)', numeric: true, sortValue: (r) => r.length, cell: (r) => r.length },
+  { id: 'status', header: 'Status', sortValue: (r) => r.status, cell: (r) => <Chip tone={r.status === 'active' ? 'ok' : 'neutral'}>{r.status}</Chip> },
+];
+
+function PageSampler(): JSX.Element {
+  const [selected, setSelected] = useState<string | undefined>('db9-crossover');
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<string[]>([]);
+  const [wire, setWire] = useState<string[]>([]);
+  const row = DEMO_ROWS.find((r) => r.id === selected);
+  const shown = DEMO_ROWS.filter((r) => (status.length === 0 || status.includes(r.status)) && (wire.length === 0 || wire.includes(r.gauge)));
+  return (
+    <div style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 'var(--r-md)', overflow: 'hidden', background: 'var(--bg)' }}>
+      <PageHeader
+        title="Designs"
+        count={`${shown.length} designs`}
+        help={<HelpTip label="About designs">A design is one buildable assembly.</HelpTip>}
+        secondary={<Button size="sm" onClick={() => { setLoading(true); setTimeout(() => setLoading(false), 1500); }}>Show loading</Button>}
+        primary={<Button size="sm" variant="primary" icon={<IconPlus size={14} aria-hidden />}>New design</Button>}
+      />
+      <Toolbar label="Design filters">
+        <FilterMenu
+          groups={[
+            { label: 'Status', options: ['active', 'draft'], selected: status, onChange: setStatus },
+            { label: 'Wire', options: ['24 AWG', '26 AWG', '28 AWG'], selected: wire, onChange: setWire },
+          ]}
+        />
+      </Toolbar>
+      <div style={{ display: 'flex', minHeight: 260 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <DataTable
+            label="Demo designs"
+            loading={loading}
+            rows={shown}
+            columns={DEMO_COLUMNS}
+            getRowId={(r) => r.id}
+            selectedId={selected}
+            onSelect={(r) => setSelected(r.id)}
+            empty={<EmptyState action={<Button size="xs" onClick={() => { setStatus([]); setWire([]); }}>Clear filters</Button>}>No design matches these filters.</EmptyState>}
+          />
+        </div>
+        {row === undefined ? null : (
+          <SidePanel title={row.name} subtitle={row.id} chips={<Chip tone={row.status === 'active' ? 'ok' : 'neutral'}>{row.status}</Chip>} onClose={() => setSelected(undefined)} label="Design details" footer={<Button size="sm" variant="primary">Open</Button>}>
+            <KeyValues items={[['Wire', row.gauge], ['Length', `${row.length} mm`]]} />
+          </SidePanel>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -179,11 +247,10 @@ function Sampler(): JSX.Element {
         <div style={{ width: '100%' }}><FileDrop accept=".step,.stp,.glb" hint=".step, .stp or .glb" onFiles={(f) => notify.info(`Got ${f[0]?.name ?? ''}`)} onReject={() => notify.warn('That file type is not accepted')} aria-label="Upload a model" /></div>
       </Row>
       <Row title="Empty state">
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: '100%', padding: 16 }}>
-          <BeamArt />
-          <div style={{ fontSize: 'var(--fs-md)', fontWeight: 600 }}>No designs yet</div>
-          <Button variant="primary" icon={<IconPlus size={14} aria-hidden />}>New design</Button>
-        </div>
+        <EmptyState icon={<BeamArt />} action={<Button variant="primary" icon={<IconPlus size={14} aria-hidden />}>New design</Button>}>No designs yet. A design is one buildable assembly.</EmptyState>
+      </Row>
+      <Row title="Page anatomy">
+        <PageSampler />
       </Row>
     </div>
   );

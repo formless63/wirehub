@@ -29,7 +29,7 @@ export { Dialog, Menu, Popover } from './Overlays.tsx';
 export type { DialogProps, MenuEntry, MenuProps, PopoverProps } from './Overlays.tsx';
 export { Callout, Skeleton } from './Feedback.tsx';
 export type { CalloutProps, CalloutTone } from './Feedback.tsx';
-export { WireHubToaster, notify } from './Toast.tsx';
+export { UNDO_MS, WireHubToaster, notify } from './Toast.tsx';
 export type { NotifyOptions } from './Toast.tsx';
 export { FileDrop } from './FileDrop.tsx';
 export type { FileDropProps } from './FileDrop.tsx';
@@ -46,3 +46,6 @@ export { EmptyState, KeyValues, Page, PageBody, PageHeader, SidePanel, Toolbar }
 export type { EmptyStateProps, PageHeaderProps, SidePanelProps, ToolbarProps } from './Page.tsx';
 export { FilterChip, FilterMenu } from './FilterChip.tsx';
 export type { FilterGroup } from './FilterChip.tsx';
+
+export { localPrefsBackend, readPref, setPrefsBackend, usePref, writePref } from './prefs.ts';
+export type { PrefsBackend } from './prefs.ts';
