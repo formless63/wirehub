@@ -6,11 +6,15 @@
 import type { JSX } from 'react';
 
 import { helpUrl, type HelpTopic } from '../help.ts';
+import { useDocsBase } from '../hooks/useDocsBase.ts';
 
-export function InfoTip({ text, topic, label = 'More about this' }: { text: string; topic?: HelpTopic; label?: string }): JSX.Element {
+/** `href` names a docs page directly (a Settings section's); `topic` goes through the help map. */
+export function InfoTip({ text, topic, href, label = 'More about this' }: { text: string; topic?: HelpTopic; href?: string; label?: string }): JSX.Element {
+  const docsBase = useDocsBase();
   const className = 'ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line align-middle text-2xs font-semibold leading-none text-dim no-underline hover:text-ink';
-  const tip = topic === undefined ? text : `${text} Select to learn more.`;
-  if (topic === undefined) {
+  const linked = topic !== undefined || href !== undefined;
+  const tip = !linked ? text : `${text} Select to learn more.`;
+  if (!linked) {
     return (
       <span role="note" tabIndex={0} title={tip} aria-label={`${label}: ${text}`} data-testid="info-tip" className={className}>
         ?
@@ -18,7 +22,7 @@ export function InfoTip({ text, topic, label = 'More about this' }: { text: stri
     );
   }
   return (
-    <a href={helpUrl(topic)} target="_blank" rel="noreferrer" title={tip} aria-label={`${label}: ${text}`} data-testid="info-tip" className={className}>
+    <a href={href ?? helpUrl(topic as HelpTopic, docsBase)} target="_blank" rel="noreferrer" title={tip} aria-label={`${label}: ${text}`} data-testid="info-tip" className={className}>
       ?
     </a>
   );

@@ -2,11 +2,12 @@
 //
 //   /                 home
 //   /generator/       the config generator
-//   /docs/            the documentation placeholder
+//   /docs/            the documentation (docs.mjs: a Markdown build; guide + reference, search, styled with the app's tokens)
 //   /store/index.html the human-browsable module store (reads the store's own index.json)
 //
 //   node site/build.mjs [outDir]
 //   node site/build.mjs store-page <out.html> [--name <store name>]   (the page alone, for third-party stores)
+//   node site/build.mjs docs-index <out.json>   (the titles-and-headings index the app's command palette ships)
 //
 // Every page carries the shared shell (header, nav, footer) and is one self-contained file.
 // The generator embeds, at build time, the repository's compose.yaml (the template
@@ -19,6 +20,8 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { buildDocsSite, docsAssets, docsIndexJson, themeScript } from './docs.mjs';
 
 const site = dirname(fileURLToPath(import.meta.url));
 const root = join(site, '..');
@@ -135,28 +138,11 @@ docker compose logs wirehub        # the first-run setup code</code></pre>
   <ul class="linklist">
     <li><a href="generator/">Config generator</a>: pick options, get a ready <code>compose.yaml</code> and <code>.env</code>. It runs in your browser and sends nothing.</li>
     <li><a href="store/">Module store</a>: the official catalog packs, and how to add a store to your hub.</li>
-    <li><a href="docs/">Docs</a>: a placeholder until 1.0, with pointers to what exists.</li>
+    <li><a href="docs/">Docs</a>: quick start, your first design, the concepts, and the reference.</li>
     <li><a href="${REPO}">Source on GitHub</a>.</li>
   </ul>
 </main>`;
   return page({ repoRoot, title: 'WireHub', csp: PROSE_CSP, css, depth: 0, current: 'home', body });
-}
-
-export function buildDocs(repoRoot = root) {
-  const css = `${read(repoRoot, 'site/src/base.css')}\n${read(repoRoot, 'site/src/shell.css')}`;
-  const gh = (path) => `${REPO}/blob/main/${path}`;
-  const body = `<main class="prose">
-  <h1>Docs</h1>
-  <p class="note">Full documentation comes with 1.0. Until then, these are the documents that exist, on GitHub.</p>
-  <ul class="linklist">
-    <li><a href="${gh('README.md')}">README</a>: what WireHub is, how to run it, how to develop it.</li>
-    <li><a href="${gh('docs/self-hosting.md')}">docs/self-hosting.md</a>: install, the compose stack, secrets, storage, backups.</li>
-    <li><a href="${gh('docs/store-hosting.md')}">docs/store-hosting.md</a>: run your own module store from a GitHub template.</li>
-    <li><a href="${gh('docs/modules.md')}">docs/modules.md</a>: extension points, domain modules, private modules.</li>
-    <li><a href="${REPO}/tree/main/.agents/skills">Agent skills</a>: instructions for coding agents that write modules, packs and catalog data.</li>
-  </ul>
-</main>`;
-  return page({ repoRoot, title: 'WireHub docs', csp: PROSE_CSP, css, depth: 1, current: 'docs', body });
 }
 
 /**
@@ -202,12 +188,23 @@ export function buildPage(repoRoot = root) {
     .replace('/*SCRIPT*/', () => script.replace(/<\/script/gi, '<\\/script'));
 }
 
+/** The shell the docs pages share with the rest of the site. */
+function docsShell(repoRoot) {
+  return { favicon: favicon(repoRoot), header: (depth) => renderHeader({ repoRoot, depth, current: 'docs' }), footer: FOOT };
+}
+
+/** Everything under /docs/ (relative to it): pages, assets, the search index. */
+export function buildDocsFiles(repoRoot = root) {
+  const { files } = buildDocsSite({ repoRoot, shell: docsShell(repoRoot) });
+  return [...files, ...docsAssets(repoRoot), ['assets/theme.js', themeScript()]];
+}
+
 /** Every file of the site, as [path, contents]. */
 export function buildSite(repoRoot = root) {
   return [
     ['index.html', buildHome(repoRoot)],
     ['generator/index.html', buildPage(repoRoot)],
-    ['docs/index.html', buildDocs(repoRoot)],
+    ...buildDocsFiles(repoRoot).map(([path, contents]) => [`docs/${path}`, contents]),
     ['store/index.html', buildStorePage({ repoRoot })],
     ['.nojekyll', ''],
   ];
@@ -225,6 +222,8 @@ if (isMain) {
   if (args[0] === 'store-page') {
     const nameAt = args.indexOf('--name');
     write(args[1], buildStorePage({ shell: 'plain', name: nameAt > 0 ? args[nameAt + 1] : 'Module store' }));
+  } else if (args[0] === 'docs-index') {
+    write(args[1], docsIndexJson(root, docsShell(root)));
   } else {
     const out = args[0] ?? join(site, 'dist');
     for (const [path, contents] of buildSite()) write(join(out, path), contents);

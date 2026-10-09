@@ -9,12 +9,14 @@ import { Link } from '@tanstack/react-router';
 import type { JSX } from 'react';
 
 import { helpUrl } from '../help.ts';
-import { dismissWelcome, fetchHub, hubKey } from '../hub-settings.browser.ts';
+import { useDocsBase } from '../hooks/useDocsBase.ts';
+import { dismissWelcome, fetchHub, hubKey, type HubSettings } from '../hub-settings.browser.ts';
 
 const STEP = 'text-ink underline decoration-line-field underline-offset-2 hover:decoration-accent';
 
 export function NewHubStrip({ firstDesign, onNewDesign }: { firstDesign: string | undefined; onNewDesign: () => void }): JSX.Element | null {
   const client = useQueryClient();
+  const docsBase = useDocsBase();
   const hub = useQuery({ queryKey: hubKey, queryFn: () => fetchHub(), retry: false, staleTime: Infinity });
   if (hub.data === undefined || hub.data.welcomeDismissed) return null;
   return (
@@ -38,7 +40,7 @@ export function NewHubStrip({ firstDesign, onNewDesign }: { firstDesign: string 
       <Link to="/modules" className={STEP}>
         add a module
       </Link>
-      <a href={helpUrl('designs')} target="_blank" rel="noreferrer" className="text-dim underline">
+      <a href={helpUrl('designs', docsBase)} target="_blank" rel="noreferrer" className="text-dim underline">
         Docs
       </a>
       <button
@@ -47,7 +49,7 @@ export function NewHubStrip({ firstDesign, onNewDesign }: { firstDesign: string 
         title="Dismiss for everyone on this hub"
         className="ml-auto flex h-6 w-6 items-center justify-center rounded border-0 bg-transparent text-dim hover:text-ink"
         onClick={() => {
-          client.setQueryData(hubKey, { welcomeDismissed: true });
+          client.setQueryData(hubKey, (old: HubSettings | undefined) => ({ ...old, welcomeDismissed: true }));
           void dismissWelcome();
         }}
       >

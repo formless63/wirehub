@@ -11,6 +11,8 @@ export const hubKey = ['settings', 'hub'] as const;
 
 export interface HubSettings {
   welcomeDismissed: boolean;
+  /** where this hub's help links point, when its operator hosts the docs (`WIREHUB_DOCS_URL`); absent: the public site */
+  docsUrl?: string;
 }
 
 const LOCAL = 'wirehub:welcome-dismissed';
@@ -33,7 +35,8 @@ function writeLocal(): void {
 
 export async function fetchHub(base = '/api'): Promise<HubSettings> {
   const out: Outcome<HubSettings> = await request<HubSettings>(`${base}/settings/hub`, { method: 'GET' });
-  return { welcomeDismissed: (out.ok && out.value.welcomeDismissed) || readLocal() };
+  const docsUrl = out.ok ? out.value.docsUrl : undefined;
+  return { welcomeDismissed: (out.ok && out.value.welcomeDismissed) || readLocal(), ...(docsUrl === undefined ? {} : { docsUrl }) };
 }
 
 /** Dismiss the strip for the whole hub; where the hub refuses, for this browser only. */
