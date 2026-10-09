@@ -1,12 +1,52 @@
 <p align="center">
-  <img src="brand/wirehub-header.svg" alt="WireHub — cable assemblies as canonical definitions" width="100%">
+  <img src="brand/wirehub-header.svg" alt="WireHub: cable assemblies as canonical definitions" width="100%">
 </p>
 
 # WireHub
 
-WireHub captures the cable assemblies you build as canonical definitions, and
-derives everything else from them: wiring schematics, build sheets, BOMs,
-continuity test specs, drawings and wire specs.
+Capture the cable assemblies you build as one canonical definition, and get everything else
+derived from it: schematic, build sheet, BOM, continuity spec and drawing. Self-hosted,
+free software, deterministic output.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.webp">
+    <img src="docs/assets/hero-light.webp" alt="The WireHub canvas: an RJ45 patch lead drawn as two plugs and a Cat 5e segment, with the selected joint open in the inspector" width="900">
+  </picture>
+</p>
+
+<p align="center">
+  <b><a href="https://formless63.github.io/wirehub/docs/">Documentation</a></b> ·
+  <a href="https://formless63.github.io/wirehub/docs/quick-start/">Quick start</a> ·
+  <a href="https://formless63.github.io/wirehub/generator/">Config generator</a> ·
+  <a href="https://formless63.github.io/wirehub/store/">Module store</a>
+</p>
+
+## See it work
+
+From a new design to a build sheet, about twenty seconds: the wizard wires what the catalog
+states unambiguously, the canvas lets you change any joint, and every document follows.
+
+<p align="center">
+  <img src="docs/assets/wirehub-demo.gif" alt="Screen recording: the New design wizard, wiring a joint on the canvas, then the build sheet" width="760">
+</p>
+
+## What you get
+
+Every document is derived from the one definition, so they always agree.
+
+<table>
+  <tr>
+    <td width="25%" valign="top"><img src="docs/assets/doc-schematic.webp" alt="Schematic of an XLR microphone cable with its cross-section"><br><sub><b>Schematic</b><br>laid out for you, with a legend and cross-section</sub></td>
+    <td width="25%" valign="top"><img src="docs/assets/doc-build-sheet.webp" alt="Build sheet: parts to pull and the cut list"><br><sub><b>Build sheet</b><br>the bench flow, one stage per step</sub></td>
+    <td width="25%" valign="top"><img src="docs/assets/doc-continuity-spec.webp" alt="Continuity spec: test parameters and the nets to probe"><br><sub><b>Continuity spec</b><br>what must connect, what must stay isolated</sub></td>
+    <td width="25%" valign="top"><img src="docs/assets/doc-drawing-sheet.webp" alt="Drawing sheet with bill of materials and title block"><br><sub><b>Drawing sheet</b><br>BOM, outline and title block on a framed sheet</sub></td>
+  </tr>
+</table>
+
+Plus a BOM, formboard, wire labels, CSV and XLSX exports, and WireViz import and export.
+
+## What is in it
 
 - **A hierarchical wire model.** A stock is a tree: cables hold pairs, coax and cores,
   which hold conductors, shields and insulation. Bonded screens, drains, pigtails and
@@ -36,7 +76,7 @@ docker compose up -d
 docker compose logs wirehub        # the first-run setup code
 ```
 
-Open <http://localhost:5183/setup> and enter the setup code. In a Docker UI
+Open <http://localhost:5183/setup>, enter the setup code and finish the short form; you land on a list of example designs to open. In a Docker UI
 (Portainer, Komodo, Dockhand …), paste
 [`compose.yaml`](https://raw.githubusercontent.com/formless63/wirehub/main/compose.yaml)
 as a stack, deploy, and read the code from the `wirehub` container's logs.
@@ -53,10 +93,6 @@ applies without a redeploy.
 **Config generator: <https://formless63.github.io/wirehub/generator/>** — pick your
 options and get a ready `compose.yaml` and `.env`. It runs entirely in your
 browser and sends nothing anywhere.
-
-> The first release, v0.1.0, ships with the Postgres backend; until then the
-> image is not published and you build it yourself (`docs/self-hosting.md`,
-> "Development").
 
 **First-run setup** lists the bundled domain modules whose signals, connectors
 and example cables you can add — **PC & serial** (RS-232, RS-485, USB),
@@ -125,6 +161,8 @@ emails out of commits (`CONTRIBUTING.md`).
 - `specs/postgres-backend.md` — the database backend (Phase A built).
 - `docs/boundaries.md` — what this base was split from, and what it left out.
 
+Contributing: `CONTRIBUTING.md` · Security: `SECURITY.md` · Conduct: `CODE_OF_CONDUCT.md`
+
 ## Licence
 
 WireHub is free software under the **GNU Affero General Public License v3.0 only**
@@ -149,5 +187,3 @@ package's `license` field are the record (`SPDX: AGPL-3.0-only WITH
 AdditionRef-WireHub-Module-Exception-1.0`, `packages/modules`: `MIT`; `packages/catalog`: `AGPL-3.0-only AND CC0-1.0`, the code and
 its data; bundled modules: `MIT`, their packs `CC0-1.0`). This summary is
 not legal advice; the licence texts govern.
-
-Contributing: `CONTRIBUTING.md` · Security: `SECURITY.md` · Conduct: `CODE_OF_CONDUCT.md`

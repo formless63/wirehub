@@ -22,7 +22,7 @@ A one-shot `bootstrap` service generates every secret into a `secrets` volume th
 
 To change the public URL, the port, backups, or to use your own PostgreSQL or S3, put the choices in a `.env` beside `compose.yaml`. The [config generator](../../generator/) writes both files from a few choices. It runs in your browser and sends nothing.
 
-![PLACEHOLDER screenshot: the config generator with the options panel and the generated compose.yaml](placeholder)
+![The config generator: the address and database options on the left and the generated compose.yaml on the right](media/guide-generator.webp)
 
 ## First-run setup
 
@@ -34,7 +34,7 @@ Open `http://localhost:5183/setup`. Until setup is finished, nothing else on the
 4. The **catalog**: the starter catalog (a few example designs and the generic parts they use), or an empty one.
 5. The **domain modules** to add: PC and serial, Networking, Pro audio, AV and video, Automotive. None is ticked unless your deployment suggested some, and you can add more later.
 
-![PLACEHOLDER screenshot: the first-run setup page with the setup code field](placeholder)
+![The first-run setup page with the organisation, admin account, setup code and domain packs filled in](media/guide-setup.webp)
 
 Finishing signs you in and opens the app on the designs list.
 

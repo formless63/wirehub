@@ -10,7 +10,7 @@ import { webcrypto } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { buildSite, buildStorePage } from '../build.mjs';
+import { buildSite, buildStorePage, webpSize } from '../build.mjs';
 import { DEFAULTS, generateCompose } from '../src/generate.js';
 import { formatSize, keyFingerprint, parsePublicKey, resolveUrl, reviewLabel, signatureStatus, yankedNotice } from '../src/store.js';
 import { storeKeyFingerprint } from '../../packages/catalog/src/store-index.ts';
@@ -43,7 +43,7 @@ describe('the built site', () => {
   it('makes no external request from any page but the store', () => {
     for (const [path, html] of pages) {
       // the docs read their own stylesheet, script and search index (CSP 'self'); every other page is one self-contained file
-      if (path.startsWith('docs/')) continue;
+      if (path.startsWith('docs/') || path === 'index.html') continue;
       expect(html, path).not.toMatch(/<script[^>]+src=|<link[^>]+rel="?stylesheet|@import/i);
       if (path !== 'store/index.html') expect(csp(html), path).not.toContain('connect-src \'self\'');
     }
@@ -63,6 +63,55 @@ describe('the built site', () => {
     expect(home).toContain('docker compose up -d');
     expect(home).toContain('/setup');
     expect(home).toContain('href="generator/"');
+    expect(home).toContain('href="docs/quick-start/"');
+  });
+
+  it('shows the product on home: a hero (light and dark) and the four documents, every image shipped', () => {
+    const home = String(files.get('index.html'));
+    expect(home).toContain('srcset="assets/media/hero-dark.webp"');
+    expect(home).toContain('<h1 id="hero-title">');
+    const srcs = [...home.matchAll(/(?:src|srcset)="(assets\/media\/[^"]+)"/g)].map((m) => m[1]);
+    expect(srcs.length).toBeGreaterThanOrEqual(6);
+    for (const src of srcs) expect(files.has(src), src).toBe(true);
+    for (const m of home.matchAll(/<img [^>]*>/g)) {
+      expect(m[0], 'alt text').toMatch(/alt="[^"]{12,}"/);
+      expect(m[0], 'a reserved box').toMatch(/width="\d+" height="\d+"/);
+    }
+    expect(home).toContain('class="skip"');
+  });
+
+  it('styles home from the app tokens and the shared chrome, with the app fonts, and a CSP that allows only its own files', () => {
+    const home = String(files.get('index.html'));
+    expect(csp(home)).toContain("font-src 'self'");
+    expect(csp(home)).toContain("img-src 'self' data:");
+    expect(csp(home)).not.toMatch(/script-src/);
+    expect(home).toContain('href="assets/home.css"');
+    const css = String(files.get('assets/home.css'));
+    expect(css).toContain(readFileSync(join(root, 'packages/editor-react/src/tokens.css'), 'utf8'));
+    expect(css).toContain(readFileSync(join(root, 'site/src/chrome.css'), 'utf8'));
+    expect(css).toContain("font-family:'IBM Plex Sans'");
+    for (const m of css.matchAll(/url\((fonts\/[^)]+)\)/g)) expect(files.has(`assets/${m[1]}`), m[1]).toBe(true);
+    // the home page's own rules carry no copied hex colour
+    expect(readFileSync(join(root, 'site/src/home.css'), 'utf8').match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
+  });
+
+  it('has a README whose images exist and weigh at most 1.5 MB together', () => {
+    const readme = readFileSync(join(root, 'README.md'), 'utf8');
+    const refs = [...new Set([...readme.matchAll(/(?:src|srcset)="(docs\/assets\/[^"]+)"/g)].map((m) => m[1]))];
+    expect(refs.length).toBeGreaterThanOrEqual(7);
+    let bytes = 0;
+    for (const ref of refs) {
+      expect(existsSync(join(root, ref)), ref).toBe(true);
+      bytes += readFileSync(join(root, ref)).length;
+    }
+    expect(bytes).toBeLessThanOrEqual(1_500_000);
+    expect(readme).not.toMatch(/v0\.1\.0/);
+  });
+
+  it('keeps the README and site images small', () => {
+    const total = [...files].filter(([path]) => path.startsWith('assets/media/')).reduce((sum, [, data]) => sum + data.length, 0);
+    expect(total).toBeLessThan(1_000_000);
+    expect(webpSize(files.get('assets/media/hero-light.webp'))).toEqual({ width: 1200, height: 660 });
   });
 });
 

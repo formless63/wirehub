@@ -67,7 +67,7 @@ describe('the docs site', () => {
     expect(css).toContain("font-family:'IBM Plex Sans'");
     for (const [path] of docsAssets(root).filter(([p]) => p.endsWith('.woff2'))) expect(docs.has(path), path).toBe(true);
     // no copied hex palette in the docs' own rules
-    const own = readFileSync(join(root, 'site/src/docs.css'), 'utf8').replace(/\[data-theme='(dark|light)'\] \.site-head[^\n]*\n/g, '');
+    const own = ['docs', 'chrome'].map((f) => readFileSync(join(root, `site/src/${f}.css`), 'utf8')).join('\n').replace(/\[data-theme='(dark|light)'\] \.site-head[^\n]*\n/g, '');
     expect(own.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
   });
 
@@ -119,11 +119,21 @@ describe('the docs site', () => {
     expect(find('webhook').some((u) => u.startsWith('reference/webhooks/'))).toBe(true);
   });
 
-  it('marks screenshot and GIF placeholders clearly', () => {
-    const first = html('first-design/index.html');
-    expect(first).toContain('data-placeholder="gif"');
-    expect(first).toContain('Screenshot to come');
-    expect(first).not.toContain('placeholder)');
+  it('shows real images in the guide, none of them a placeholder, each one shipped with the site', () => {
+    const site = new Map(buildSite(root));
+    let seen = 0;
+    for (const [path, page] of pages) {
+      const source = String(page);
+      expect(source, path).not.toContain('data-placeholder');
+      for (const m of source.matchAll(/<img src="([^"]*)" alt="([^"]*)"/g)) {
+        seen += 1;
+        expect(m[2].length, `${path}: alt of ${m[1]}`).toBeGreaterThan(20);
+        const target = posix.normalize(posix.join(posix.dirname(`docs/${path}`), m[1]));
+        expect(site.has(target), `${path}: ${m[1]}`).toBe(true);
+      }
+    }
+    expect(seen).toBeGreaterThanOrEqual(5);
+    expect(html('first-design/index.html')).toContain('assets/media/guide-wizard.gif');
   });
 
   it('slugs headings the way GitHub does, so links written for GitHub keep working', () => {

@@ -4,10 +4,6 @@ WireHub runs from **one file**, `compose.yaml`. You do not need to clone the
 repository, write a `.env` or generate a secret: the stack does that itself
 on first start.
 
-> **The first release (v0.1.0) is not tagged yet.** The image
-> `ghcr.io/formless63/wirehub:0.1.0` that `compose.yaml` names is published
-> when it is. Until then, build the image yourself ("Development" below).
-
 ## Install
 
 ### With a terminal
