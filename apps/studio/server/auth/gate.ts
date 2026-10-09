@@ -259,7 +259,7 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
   // read at each request: the sign-in methods may change in Settings (`liveStudioAuth`)
   const config = (): StudioAuth['config'] => auth.config;
 
-  app.on(['GET', 'POST'], [AUTH_BASE_PATH, `${AUTH_BASE_PATH}/*`], (c) => {
+  app.on(['GET', 'POST'], [AUTH_BASE_PATH, `${AUTH_BASE_PATH}/*`], async (c) => {
     // a sign-in, sign-up or sign-out only from the studio's own pages (the API's cross-site rule)
     const crossSite = crossSiteRefusal({
       method: c.req.method,
@@ -268,7 +268,7 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
       host: c.req.header('x-forwarded-host') ?? c.req.header('host') ?? new URL(c.req.url).host,
     });
     if (crossSite !== undefined) return json(crossSite.status, crossSite.body);
-    return auth.handler(c.req.raw).then(throttledAuthResponse);
+    return throttledAuthResponse(await auth.handler(c.req.raw));
   });
 
   app.get(SIGN_IN_PATH, async (c, next) => {
