@@ -78,8 +78,8 @@ export interface CutawayProps {
 
 /** Paint for a legend swatch — the same the drawing uses (render-svg's
  * `ringPaint`: shield metal, jacket ink, else the core's own colour). */
-const SHIELD_METAL = '#a7aeb5';
-const PLAIN_INSULATION = '#e9edf1';
+const SHIELD_METAL = 'var(--art-shield-metal)';
+const PLAIN_INSULATION = 'var(--art-plain-insulation)';
 
 function swatchPaint(entry: CrossSectionKeyEntry): string {
   if (entry.kind === 'shield') return SHIELD_METAL;

@@ -69,7 +69,7 @@ export function netHoverCss(index: NetHoverIndex, netId: string, scope = '.cs-ca
     `${scope} [data-lead] { opacity: 0.18; transition: opacity 80ms; }`,
     `${leads.join(',\n')} { opacity: 1; }`,
     `${leads.map((lead) => `${lead} .cs-lead-line`).join(',\n')} { stroke-width: 2.2px; }`,
-    `${terminals.join(',\n')} { outline: 2px solid var(--cs-accent, #e39256); outline-offset: 1px; box-shadow: 0 0 0 4px var(--accent-soft, rgba(227,146,86,.25)); }`,
+    `${terminals.join(',\n')} { outline: 2px solid var(--cs-accent, var(--brand-copper)); outline-offset: 1px; box-shadow: 0 0 0 4px var(--accent-soft, rgba(227,146,86,.25)); }`,
     rows.length === 0 ? '' : `${rows.join(',\n')} { background: var(--accent-soft, rgba(226,138,80,.18)); }`,
   ]
     .filter((rule) => rule !== '')

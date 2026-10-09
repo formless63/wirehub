@@ -48,6 +48,7 @@ import { HistoryButton } from '../history/HistoryPanel.tsx';
 import { definitionNoun } from '../history/types.ts';
 import { helpForLibraryKind } from '../help.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
+import { useIsNarrow } from '../hooks/useIsNarrow.ts';
 import { CompareHost } from '../modules/CompareHost.tsx';
 
 const KIND_FROM_URL: Readonly<Record<string, LibraryKind>> = {
@@ -79,6 +80,7 @@ function kindOfUrl(value: string | undefined): LibraryKind {
 
 export function LibraryRoute(): JSX.Element {
   const docsBase = useDocsBase();
+  const phone = useIsNarrow();
   const studio = useStudio();
   const modules = useModules();
   const navigate = useNavigate();
@@ -160,7 +162,8 @@ export function LibraryRoute(): JSX.Element {
       <Library
         rowMarker={(rowKind, id) => <LockMarker record={definitionRecord(rowKind, id)} />}
         db={studio.db}
-        definitions={studio.definitions}
+        definitions={phone ? undefined : studio.definitions}
+        viewOnly={phone}
         onDefinitionsChange={studio.onDefinitionsChange}
         vocab={studio.vocab}
         onVocabChange={studio.onDefinitionsChange}
@@ -176,7 +179,7 @@ export function LibraryRoute(): JSX.Element {
         onSelectId={onSelectId}
         onOpenRecord={onOpenRecord}
         boardJourney={boardJourney}
-        listActions={listActions}
+        listActions={phone ? undefined : listActions}
         onCompare={(a, b) => setCompare({ a, ...(b === undefined ? {} : { b }) })}
         compareKinds={LIBRARY_KINDS}
         moduleExtras={(record: { kind: LibraryKind; id: string }) =>
@@ -185,9 +188,11 @@ export function LibraryRoute(): JSX.Element {
         detailExtras={(record: { kind: LibraryKind; id: string }) => (
           <>
             {/* the record's change history: who changed what, and restore an earlier state */}
+            {phone ? null : (
             <div className="cs-row" data-testid="library-history">
               <HistoryButton subject={definitionRecord(record.kind, record.id)} label={`${definitionNoun(record.kind)} ${record.id}`} onRestored={studio.onDefinitionsChange} />
             </div>
+            )}
             {/* the record's saved revisions: where each is used, compare, save the next (docs/revisions.md) */}
             {isRevisionKind(record.kind) ? (
               <RevisionsSection
@@ -197,7 +202,7 @@ export function LibraryRoute(): JSX.Element {
                 revisions={revisions}
                 artwork={studio.artwork}
                 models={models}
-                readOnly={studio.me?.role === 'viewer'}
+                readOnly={phone || studio.me?.role === 'viewer'}
                 onCompare={(a, b) => setCompare({ a, ...(b === undefined ? {} : { b }) })}
                 onChanged={() => studio.onDefinitionsChange()}
               />

@@ -80,7 +80,7 @@ export interface DataTableProps<T> {
   /** fixed row height in px; needed by `virtualize` */
   rowHeight?: number;
   virtualize?: boolean;
-  /** replaces the cells with one stacked card below 640 px */
+  /** replaces the cells with one stacked card below 640 px (without one, the first column becomes the title and the others stack as label and value) */
   card?: (row: T) => ReactNode;
   /** hide the column-menu button */
   noColumnMenu?: boolean;
@@ -129,12 +129,40 @@ function useNarrow(): boolean {
   return narrow;
 }
 
+function blank(node: ReactNode): boolean {
+  return node === null || node === undefined || node === false || node === '';
+}
+
+/** the phone card when the host gave none: the first column is the title, the rest stack as label and value */
+function AutoCard<T>({ row, columns }: { row: T; columns: readonly DataColumn<T>[] }): JSX.Element {
+  const [first, ...rest] = columns;
+  const fields = rest.map((c) => ({ c, node: c.cell(row) })).filter((f) => !blank(f.node));
+  const actions = fields.filter((f) => f.c.header === '' || f.c.hideHeader === true);
+  const data = fields.filter((f) => !(f.c.header === '' || f.c.hideHeader === true));
+  return (
+    <div className="cs-ui-dt-autocard">
+      <div className="cs-ui-dt-autocard-title">{first === undefined ? null : first.cell(row)}</div>
+      {data.length === 0 ? null : (
+        <dl className="cs-ui-dt-autocard-fields">
+          {data.map(({ c, node }) => (
+            <div key={c.id} data-col={c.id}>
+              <dt>{c.header}</dt>
+              <dd className={cx(c.mono === true && 'is-mono')}>{node}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {actions.length === 0 ? null : <div className="cs-ui-dt-autocard-actions">{actions.map(({ c, node }) => <span key={c.id}>{node}</span>)}</div>}
+    </div>
+  );
+}
+
 export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Element {
   const { rows, columns, getRowId, selectedId, onSelect, onActivate, compact = false, rowHeight = 30 } = props;
   const controlled = props.onSortChange !== undefined;
   const manual = props.manualSort === true;
   const narrow = useNarrow();
-  const useCard = narrow && props.card !== undefined;
+  const useCard = narrow;
 
   const [innerSort, setInnerSort] = useState<SortingState>([]);
   const sorting: SortingState = controlled ? (props.sort === undefined ? [] : [{ id: props.sort.id, desc: props.sort.dir === 'desc' }]) : innerSort;
@@ -368,7 +396,7 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
                 onKeyDown={(event) => onRowKey(event, item.index, original, id)}
               >
                 {useCard ? (
-                  <td className="cs-ui-dt-card">{props.card?.(original)}</td>
+                  <td className="cs-ui-dt-card">{props.card === undefined ? <AutoCard row={original} columns={shown} /> : props.card(original)}</td>
                 ) : (
                   shown.map((c) => (
                     <td key={c.id} data-col={c.id} className={cx(c.numeric === true && 'is-num', c.mono === true && 'is-mono')}>

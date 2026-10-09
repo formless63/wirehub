@@ -757,7 +757,7 @@ export function WireBuilder(props: WireBuilderProps): JSX.Element {
                 {recipe.cores.map((core) => (
                   <tr key={core.id}>
                     <td>
-                      <span className="cs-wb-chip" style={{ background: `var(--cond-${core.colour}, #999)` }} aria-hidden="true" />
+                      <span className="cs-wb-chip" style={{ background: `var(--cond-${core.colour}, var(--cond-gnd))` }} aria-hidden="true" />
                       <VocabPick
                         list="colours"
                         ariaLabel={`${core.id} colour`}
@@ -949,7 +949,7 @@ export function WireBuilder(props: WireBuilderProps): JSX.Element {
                   return (
                     <li key={id}>
                       <span className="cs-wb-num">{index + 1}</span>
-                      <span className="cs-wb-chip" style={{ background: `var(--cond-${core?.colour ?? 'gnd'}, #999)` }} aria-hidden="true" />
+                      <span className="cs-wb-chip" style={{ background: `var(--cond-${core?.colour ?? 'gnd'}, var(--cond-gnd))` }} aria-hidden="true" />
                       {core?.colour ?? id}
                     </li>
                   );

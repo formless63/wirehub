@@ -301,13 +301,14 @@ describe('a record from an installed pack', () => {
       },
       fork,
     };
-    vi.spyOn(window, 'prompt').mockReturnValue(`${target.id}-mine`);
     const selected: (string | undefined)[] = [];
     render(<Library db={db} definitions={adapter} kind="components" selectedId={target.id} onSelectId={(id) => selected.push(id)} />);
     await screen.findByText(/From pack demo 1\.0\.0 — read-only/);
     // the form is disabled
     expect(document.querySelector('fieldset[disabled]')).not.toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: 'Fork to edit' }));
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Id for your copy' }), { target: { value: `${target.id}-mine` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Fork' }));
     await waitFor(() => expect(fork).toHaveBeenCalledWith('components', target.id, `${target.id}-mine`));
     await waitFor(() => expect(selected).toContain(`${target.id}-mine`));
   });

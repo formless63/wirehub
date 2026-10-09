@@ -37,6 +37,8 @@ import { fetchDesignUse, withAssemblyLibrary, workbenchAssemblies } from '../per
 import { listStore, type StorePackView } from '../packs.browser.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { editorExtensions } from '../modules/slots.tsx';
+import { useIsNarrow } from '../hooks/useIsNarrow.ts';
+import { PhoneDesignSummary } from './PhoneDesignSummary.tsx';
 
 function editorViewOf(routeView: CableView): EditorView {
   if (routeView === 'documents') return 'documents';
@@ -100,6 +102,7 @@ export function CableRoute(): JSX.Element {
   const queryClient = useQueryClient();
   const chrome = useEditorChrome();
   const modules = useModules();
+  const phone = useIsNarrow();
   const openModuleRoute = useCallback((module: string, path: string): void => { void navigate({ to: '/m/$module/$', params: { module, _splat: path } }); }, [navigate]);
   const extensions = useMemo(() => editorExtensions(modules, openModuleRoute), [modules, openModuleRoute]);
   // sub-assemblies: where the designs a cable places come from, and opening one in its own editor
@@ -324,6 +327,9 @@ export function CableRoute(): JSX.Element {
     <h1 className="cs-ui-sr">{studio.design.label}</h1>
     <UsedInPanel id={id} />
     <div className="min-h-0 flex-1">
+    {phone && search.view === 'build' ? (
+      <PhoneDesignSummary design={studio.design} db={studio.db} id={id} />
+    ) : (
     <CableEditor
       key={id}
       ref={chrome.setHandle}
@@ -365,7 +371,9 @@ export function CableRoute(): JSX.Element {
       view={editorViewOf(search.view)}
       onViewChange={onViewChange}
       onStatusChange={studio.setEditorStatus}
+      {...(phone ? { readOnly: true } : {})}
     />
+    )}
     </div>
     </div>
     </EditLockScope>

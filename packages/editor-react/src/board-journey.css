@@ -32,7 +32,7 @@
 
 .cs-padart-face figcaption {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--faint);
@@ -100,7 +100,7 @@
 
 .cs-padart-label {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   fill: var(--pad);
   paint-order: stroke;
@@ -157,7 +157,7 @@
   width: 17px;
   height: 17px;
   border-radius: 50%;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
   background: var(--raised);
   border: 1px solid var(--line2);
@@ -175,7 +175,7 @@
 }
 
 .cs-bj-note {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
   color: var(--faint);
   white-space: nowrap;
@@ -220,7 +220,7 @@
   gap: 10px;
   padding: 10px 0 24px;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
 }
 
 .cs-bj-toolbar,
@@ -256,13 +256,13 @@
 }
 
 .cs-bj-keys {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
 }
 
 .cs-bj-keys kbd {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   padding: 0 3px;
   border: 1px solid var(--line2);
   border-radius: 3px;
@@ -274,13 +274,13 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--dim);
 }
 
 .cs-bj-h {
   margin: 4px 0 0;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -290,7 +290,7 @@
 .cs-bj-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-bj-table th,
@@ -303,7 +303,7 @@
 
 .cs-bj-table thead th {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 400;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -342,7 +342,7 @@
 
 .cs-bj-bad {
   color: var(--err);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 p.cs-bj-bad {
@@ -355,7 +355,7 @@ p.cs-bj-bad {
   align-items: center;
   gap: 4px 8px;
   margin: 2px 0 0;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--warn);
 }
 
@@ -394,7 +394,7 @@ p.cs-bj-bad {
 }
 
 .cs-bj-card > header strong {
-  font-size: 14px;
+  font-size: var(--fs-md);
 }
 
 .cs-bj-padtable tbody tr {
@@ -422,7 +422,7 @@ p.cs-bj-bad {
 }
 
 .cs-bj-text > span {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
 }
 
@@ -430,7 +430,7 @@ p.cs-bj-bad {
 .cs-bj-text select,
 .cs-bj-text textarea {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--ink);
   background: var(--bg);
   border: 1px solid var(--line-field);
@@ -504,7 +504,7 @@ p.cs-bj-bad {
   height: 15px;
   padding: 0 3px;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
   color: var(--bg);
   background: var(--warn);
@@ -573,7 +573,7 @@ p.cs-bj-bad {
 .cs-bj-section > header h4 {
   margin: 0;
   flex: 1;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
@@ -604,7 +604,7 @@ p.cs-bj-bad {
   padding: 0 8px;
   background: var(--bg);
   color: var(--dim);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
 }
 
 .cs-editor .cs-bj-seg button + button {
@@ -643,7 +643,7 @@ p.cs-bj-bad {
 }
 
 .cs-bj-rules .cs-chip {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   padding: 0 6px;
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
 }
@@ -655,7 +655,7 @@ p.cs-bj-bad {
   margin: 6px 0 0;
   padding: 3px 7px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-bj-rule.is-ok {
@@ -680,7 +680,7 @@ p.cs-bj-bad {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-bj-partrow.is-omitted > .cs-mono {
@@ -697,7 +697,7 @@ p.cs-bj-bad {
   background: transparent;
   border-style: dashed;
   color: var(--dim);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
 }
 
 .cs-bj-paths {
@@ -766,7 +766,7 @@ p.cs-bj-bad {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
 }
 
@@ -775,7 +775,7 @@ p.cs-bj-bad {
 }
 
 .cs-bj-lbl {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
   text-transform: uppercase;
   color: var(--faint);
@@ -787,7 +787,7 @@ p.cs-bj-bad {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   padding: 1px 4px 1px 7px;
 }
 
@@ -814,7 +814,7 @@ p.cs-bj-bad {
   border-radius: 999px;
   color: var(--accent);
   background: transparent;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   padding: 1px 7px;
 }
 
@@ -834,7 +834,7 @@ p.cs-bj-bad {
 
 .cs-bj-board > summary {
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 
@@ -851,7 +851,7 @@ p.cs-bj-bad {
   display: flex;
   gap: 10px;
   margin: 0;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
 }
 
@@ -909,7 +909,7 @@ p.cs-bj-bad {
 
 .cs-bj-part text {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   text-anchor: middle;
   fill: var(--ink);
@@ -930,7 +930,7 @@ p.cs-bj-bad {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-bj-issues li {
@@ -951,7 +951,7 @@ p.cs-bj-bad {
 }
 
 .cs-bj-issues .cs-mono {
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   opacity: 0.8;
 }
 

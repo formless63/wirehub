@@ -142,6 +142,60 @@
   --cond-gnd: #8a8f96;
   --cond-white: #e9e7e2;
   --cond-black: #0a0a0b;
+  /* paper and print: surfaces that stay white in both themes (documents, drawings, the artwork stage) and the ink on them */
+  --paper: #ffffff;
+  --paper-2: #f6f7f8;
+  --paper-3: #eceff2;
+  --paper-dim: #6b7280;
+  --paper-ink: #1b2129;
+  --paper-ink-2: #16191d;
+  /* pad handles and trace highlight on the canvas */
+  --pad-ring: #f2f1ed;
+  --pad-ink: #1b1a18;
+  --trace: #c2602a;
+  /* the physical colours of the part illustrations (board parts, pin 1 marks): the same in both themes */
+  --art-chip-body-fill: #1c1c1c;
+  --art-chip-body-stroke: #050505;
+  --art-chip-end-fill: #c7ccd2;
+  --art-chip-end-stroke: #9aa0a8;
+  --art-diode-band-fill: #e6e8ea;
+  --art-diode-body-fill: #17181a;
+  --art-diode-body-stroke: #050505;
+  --art-elec-body-fill: #46484c;
+  --art-elec-body-stroke: #202224;
+  --art-elec-stripe-fill: #d8dadd;
+  --art-ic-body-fill: #1c1c1c;
+  --art-ic-body-stroke: #050505;
+  --art-ic-lead-fill: #c7ccd2;
+  --art-ic-lead-stroke: #9aa0a8;
+  --art-jumper-blob-fill: #d7dade;
+  --art-jumper-blob-stroke: #9aa0a8;
+  --art-jumper-pad-fill: #c3a765;
+  --art-jumper-pad-stroke: #8a763f;
+  --art-led-body-fill: #17181a;
+  --art-led-body-stroke: #050505;
+  --art-led-dome-fill: #e2894a;
+  --art-marking: #f2f2f2;
+  --art-mlcc-body-fill: #b9905a;
+  --art-mlcc-body-stroke: #8a6a3e;
+  --art-mlcc-end-fill: #c7ccd2;
+  --art-mlcc-end-stroke: #9aa0a8;
+  --art-pin1: #e7e7ea;
+  --art-shield-metal: #a7aeb5;
+  --art-plain-insulation: #e9edf1;
+  --art-pin1-stroke: #8a8f96;
+  --art-tant-band-fill: #241d15;
+  --art-tant-body-fill: #e2a13a;
+  --art-tant-body-stroke: #a8741f;
+  /* canvas type: the node text layout-size.ts measures, in px as layout units; change both together (the six steps above are for everything else) */
+  --fs-canvas-5: 5px;
+  --fs-canvas-7-5: 7.5px;
+  --fs-canvas-8: 8px;
+  --fs-canvas-9: 9px;
+  --fs-canvas-9-5: 9.5px;
+  --fs-canvas-10: 10px;
+  --fs-canvas-10-5: 10.5px;
+  --fs-canvas-11-5: 11.5px;
 }
 
 [data-theme='light'] {
