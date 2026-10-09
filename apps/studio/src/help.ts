@@ -86,9 +86,8 @@ const SETTINGS_PAGES: Readonly<Record<string, string>> = {
   authentication: 'reference/self-hosting/#github-and-google-sign-in',
   runtime: 'reference/self-hosting/#settings',
   webhooks: 'reference/webhooks/',
-  stores: 'reference/catalog-store/#store-sources-adding-stores-in-the-app',
+  people: 'quick-start/#invite-people',
   'module-settings': 'reference/modules/#module-settings-module-api-15',
-  modules: 'reference/modules/#runtime-code-modules',
 };
 
 /** Every target the map can return, relative to the docs base (the docs test resolves each in the built site). */
