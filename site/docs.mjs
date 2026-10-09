@@ -237,7 +237,7 @@ function layout({ repoRoot, title, description, depth, pages, current, bodyHtml,
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="${DOCS_CSP}">
-<meta name="description" content="${esc(description)}">
+${shell.social === undefined ? `<meta name="description" content="${esc(description)}">` : shell.social(title, description)}
 <title>${esc(title)}</title>
 <link rel="icon" href="${shell.favicon}">
 <link rel="stylesheet" href="${up}assets/docs.css">

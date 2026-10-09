@@ -168,9 +168,9 @@ body,
 .cs-avatar:focus-visible, .cs-avatar-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .cs-navigation-account { flex-shrink: 0; padding: 5px 4px 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .cs-mobile-nav-item { display: flex; align-items: center; gap: 10px; margin: 3px 0; padding: 10px; border-radius: 5px; color: var(--ink); text-decoration: none; }
-.cs-home-mark { width: 76px; }
+.cs-home-mark { width: 30px; }
 :is(.cs-nav-item, .cs-mobile-nav-item, .cs-home-mark, header a):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-@media (max-width:639px) { .cs-navigation-rail { display:none; } .cs-home-mark { width: 30px; } }
+@media (max-width:639px) { .cs-navigation-rail { display:none; } }
 
 /* Native route actions should retain button affordances outside the editor. */
 main :where(button.underline) { padding: 5px 9px; min-height: 28px; border: 1px solid var(--line2); border-radius: 4px; background: var(--raised); color: var(--ink); text-decoration: none; cursor: pointer; }

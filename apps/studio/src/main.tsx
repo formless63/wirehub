@@ -25,12 +25,14 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App.tsx';
 import { applyTheme, initialTheme } from './theme.ts';
+import { applyFavicon } from './favicon.ts';
 import { browserLockClient } from './locks/lock-client.ts';
 
 // applied before the first paint, so there is no flash of the wrong theme
 // while React boots — App's own state picks up the same value (`initialTheme`
 // is deterministic) and keeps it in sync from then on
 applyTheme(initialTheme());
+applyFavicon(import.meta.env.DEV);
 
 // edit locks: one client per page load — held tokens
 // ride along on every write, leases are renewed and given back on tab close

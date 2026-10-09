@@ -22,6 +22,12 @@ png(mark, 180, 'apps/studio/public/apple-touch-icon.png');
 png(mark, 192, 'apps/studio/public/icon-192.png');
 png(mark, 512, 'apps/studio/public/icon-512.png');
 writeFileSync(join(root, 'apps/studio/public/favicon.svg'), mark);
+// the development build's favicon: the mark with a copper dot, so a dev tab is never mistaken for a real hub
+const dev = brand('wirehub-mark-dev.svg');
+png(dev, 32, 'apps/studio/public/favicon-dev-32.png');
+writeFileSync(join(root, 'apps/studio/public/favicon-dev.svg'), dev);
+// the social card (OpenGraph / Twitter, and the repository's social preview upload)
+png(brand('wirehub-social.svg'), 1200, 'brand/wirehub-social.png');
 if (process.argv.includes('--preview')) {
   png(brand('wirehub-logo.svg'), 966, 'brand/.preview-logo.png');
   png(brand('wirehub-logo-dark.svg'), 966, 'brand/.preview-logo-dark.png');
