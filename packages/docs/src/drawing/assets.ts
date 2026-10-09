@@ -17,6 +17,7 @@ import type { DepictionSource } from '@wirehub/layout';
 
 import type { PaperId, TitleBlockStandard } from '../frame/paper.ts';
 import type { FaceArt } from './faces.ts';
+import { BUILTIN_LABEL_TEMPLATES, labelTemplateProblems, type LabelTemplate } from '../exports/label-templates.ts';
 
 /** A cutaway as an SVG document and its frame size. */
 export interface CutawayArt {
@@ -59,6 +60,10 @@ export interface TitleBlockText {
   labelQr?: boolean;
   /** the QR's URL pattern, `{pn}` `{rev}` `{design}` `{label}`; unset = the part number and revision as text */
   labelQrUrl?: string;
+  /** the tape label template (`exports/label-templates.ts`, a built-in or a registered id); unset = the default */
+  labelTemplate?: string;
+  /** the P-touch printer written into `.lbx` files (`exports/lbx.ts` `LBX_PRINTERS` id); unset = generic */
+  labelPrinter?: string;
 }
 
 export interface DrawingArt {
@@ -70,6 +75,8 @@ export interface DrawingArt {
   cutaways?: Readonly<Record<string, CutawayArt>>;
   logo?: LogoArt;
   titleBlock?: TitleBlockText;
+  /** tape label templates by id (`exports/label-templates.ts`); the earliest registration to define an id wins */
+  labelTemplates?: Readonly<Record<string, LabelTemplate>>;
   /** the typeface the documents are set in (the first registration to set one wins) */
   font?: BrandFont;
   /**
@@ -157,7 +164,7 @@ export function registeredTitleBlock(): TitleBlockText {
   const blocks = registered.map((art) => art.titleBlock).filter((t): t is TitleBlockText => t !== undefined);
   const notes = blocks.find((t) => t.notes !== undefined)?.notes;
   const tolerances = blocks.find((t) => t.tolerances !== undefined)?.tolerances;
-  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer' | 'filePrefix' | 'paper' | 'titleBlock' | 'labelPreset' | 'labelQr' | 'labelQrUrl'>(key: K): Partial<Record<K, NonNullable<TitleBlockText[K]>>> => {
+  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer' | 'filePrefix' | 'paper' | 'titleBlock' | 'labelPreset' | 'labelQr' | 'labelQrUrl' | 'labelTemplate' | 'labelPrinter'>(key: K): Partial<Record<K, NonNullable<TitleBlockText[K]>>> => {
     const found = blocks.find((t) => t[key] !== undefined && t[key] !== '')?.[key];
     return found === undefined ? {} : ({ [key]: found } as Record<K, NonNullable<TitleBlockText[K]>>);
   };
@@ -175,7 +182,23 @@ export function registeredTitleBlock(): TitleBlockText {
     ...first('labelPreset'),
     ...first('labelQr'),
     ...first('labelQrUrl'),
+    ...first('labelTemplate'),
+    ...first('labelPrinter'),
   };
+}
+
+/** A registered tape label template (the earliest registration to define the id), else a built-in. */
+export function registeredLabelTemplate(id: string): LabelTemplate | undefined {
+  for (const art of registered) if (art.labelTemplates?.[id] !== undefined) return art.labelTemplates[id];
+  return BUILTIN_LABEL_TEMPLATES[id];
+}
+
+/** Every tape label template in force, by id: registered ones first, then the built-ins. */
+export function registeredLabelTemplates(): Record<string, LabelTemplate> {
+  const out: Record<string, LabelTemplate> = {};
+  for (const art of registered) for (const [id, t] of Object.entries(art.labelTemplates ?? {})) if (out[id] === undefined) out[id] = t;
+  for (const [id, t] of Object.entries(BUILTIN_LABEL_TEMPLATES)) if (out[id] === undefined) out[id] = t;
+  return out;
 }
 
 /** The depiction sources registered for the sheet, layered in registration order. */
@@ -204,6 +227,10 @@ export function drawingArtProblems(raw: unknown): string[] {
   for (const [id, f] of Object.entries(art.plugs ?? {})) face('plug', id, f);
   for (const [id, c] of Object.entries(art.cutaways ?? {})) {
     if (typeof c?.svg !== 'string' || typeof c.width !== 'number' || typeof c.height !== 'number') problems.push(`cutaway '${id}' needs svg, width and height`);
+  }
+  if (art.labelTemplates !== undefined) {
+    if (typeof art.labelTemplates !== 'object' || art.labelTemplates === null || Array.isArray(art.labelTemplates)) problems.push('labelTemplates is an object keyed by template id');
+    else for (const [id, t] of Object.entries(art.labelTemplates)) problems.push(...labelTemplateProblems(id, t));
   }
   if (art.titleBlock?.notes !== undefined && art.titleBlock.notes.length !== 3) problems.push('title block notes are three lines');
   if (art.font !== undefined) {

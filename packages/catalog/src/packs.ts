@@ -452,7 +452,7 @@ export function mergeCatalogFile(relative: string, texts: string[]): string {
 /** The pad table beside the board records: pads per board, per terminal (`PcbaPadTable`). A pack may ship one. */
 export const PCBA_PADS_FILE = 'pcba-pads.json';
 
-/** The drawing art a hub or a pack supplies as data: `{ faces, plugs, cutaways }` by connector or wire id (`DrawingArt`, `@wirehub/docs`). */
+/** The drawing art a hub or a pack supplies as data: `{ faces, plugs, cutaways, labelTemplates }` by connector, wire or template id (`DrawingArt`, `@wirehub/docs`). */
 export const DRAWING_ART_FILE = 'drawing-art.json';
 
 /**
@@ -461,7 +461,7 @@ export const DRAWING_ART_FILE = 'drawing-art.json';
  * layer key by key, and the pack lifecycle treats each key as a record the pack owns (id `<key>`, or
  * `<section>/<key>` when the file has several sections), so an update replaces them and a disable removes them.
  */
-export const KEYED_FILES: Readonly<Record<string, readonly string[]>> = { [PCBA_PADS_FILE]: ['boards'], [DRAWING_ART_FILE]: ['faces', 'plugs', 'cutaways'] };
+export const KEYED_FILES: Readonly<Record<string, readonly string[]>> = { [PCBA_PADS_FILE]: ['boards'], [DRAWING_ART_FILE]: ['faces', 'plugs', 'cutaways', 'labelTemplates'] };
 
 /** The record id of one key of a keyed file. */
 export const keyedId = (file: string, section: string, key: string): string => ((KEYED_FILES[file] ?? []).length === 1 ? key : `${section}/${key}`);

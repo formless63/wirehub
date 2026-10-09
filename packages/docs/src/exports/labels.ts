@@ -18,6 +18,7 @@ import { PLEX_MONO_STACK, PLEX_SANS_STACK, fitText, frameFontStyle, frameGeometr
 import { registeredTitleBlock } from '../drawing/assets.ts';
 import { LABEL_PRESETS, defaultLabelPreset, labelPresetOf, type LabelPreset } from './label-presets.ts';
 import { qrPayload, qrSvg } from './qr.ts';
+import { tapeLabelSvg, type TapeContent } from './tape-label.ts';
 import { PAPERS } from '../frame/paper.ts';
 import type { Table } from './table.ts';
 
@@ -198,6 +199,10 @@ export interface LabelSheetOptions {
   page?: number;
   /** copies of each label (a label is printed twice to flag both sides of a wire) */
   copies?: number;
+  /** tape labels: a label template id (`label-templates.ts`); default: the hub's setting, else the built-in */
+  template?: string;
+  /** `.lbx`: the P-touch printer written into the file (`lbx.ts` `LBX_PRINTERS` id); default: the hub's setting, else generic */
+  printer?: string;
 }
 
 const n3 = (v: number): string => String(Math.round(v * 1000) / 1000);
@@ -229,6 +234,8 @@ export function labelSheetPages(count: number, options: LabelSheetOptions = {}):
  */
 export function labelSheetSvg(labels: readonly WireLabel[], options: LabelSheetOptions = {}): string {
   const layout = layoutOf(options);
+  const tapePreset = options.layout === undefined ? labelPresetFor(options) : undefined;
+  if (tapePreset?.kind === 'tape') return tapeSheetSvg(labels, tapePreset, options);
   const copies = Math.max(1, Math.floor(options.copies ?? 1));
   const all = labels.flatMap((l) => Array.from({ length: copies }, () => l));
   const perPage = layout.columns * layout.rows;
@@ -287,4 +294,30 @@ export function labelSheetSvg(labels: readonly WireLabel[], options: LabelSheetO
   }
   out.push('</svg>');
   return out.join('');
+}
+
+/** A tape preset's page: one label, the page being the label at its own length. */
+function tapeSheetSvg(labels: readonly WireLabel[], preset: LabelPreset, options: LabelSheetOptions): string {
+  const copies = Math.max(1, Math.floor(options.copies ?? 1));
+  const all = labels.flatMap((l) => Array.from({ length: copies }, () => l));
+  const pages = Math.max(1, all.length);
+  const page = Math.min(Math.max(1, Math.floor(options.page ?? 1)), pages);
+  const label = all[page - 1];
+  if (label === undefined) return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n3(preset.layout.pageWidth)} ${n3(preset.layout.pageHeight)}" width="${n3(preset.layout.pageWidth)}mm" height="${n3(preset.layout.pageHeight)}mm" data-page="1" data-pages="1"/>`;
+  return tapeLabelSvg(label, preset, tapeContent(options), { page, pages });
+}
+
+/** What a tape label carries besides its own lines: the part number and revision, the QR and the template. */
+export function tapeContent(options: LabelSheetOptions): TapeContent {
+  const pn = options.pn ?? options.frame?.pn;
+  const rev = options.rev ?? options.frame?.rev;
+  const qrUrl = options.qrUrl ?? registeredTitleBlock().labelQrUrl;
+  return {
+    ...(pn === undefined ? {} : { pn }),
+    ...(rev === undefined ? {} : { rev }),
+    ...(options.design === undefined ? {} : { design: options.design }),
+    qr: options.qr ?? registeredTitleBlock().labelQr === true,
+    ...(qrUrl === undefined ? {} : { qrUrl }),
+    ...(options.template === undefined ? {} : { template: options.template }),
+  };
 }

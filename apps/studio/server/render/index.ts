@@ -44,6 +44,7 @@ import {
   formboardSvgPages,
   labelSheetPages,
   labelSheetSvg,
+  lbxExport,
   renderBomMarkdown,
   renderBomSheet,
   renderBuildSheet,
@@ -66,12 +67,12 @@ import type { DepictionSource } from '@wirehub/render-svg';
 import type { PdfEngine } from './browser-pdf.ts';
 import { framedPagesToPdf, framedPagesToSvg, framedTextPages } from './framed-text.ts';
 import { pagesToPdf, type PdfPage } from './pdf.ts';
-import { svgToPdfPage } from './raster.ts';
+import { svgToPdfPage, svgToPng } from './raster.ts';
 import { svgToVectorPdfPage } from './vector.ts';
 
 export const DOCUMENT_KINDS = ['schematic', 'build-sheet', 'bom', 'test-spec', 'drawing', 'labels', 'formboard'] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
-export const DOCUMENT_FORMATS = ['html', 'svg', 'pdf', 'csv'] as const;
+export const DOCUMENT_FORMATS = ['html', 'svg', 'pdf', 'csv', 'png', 'lbx'] as const;
 export type DocumentFormat = (typeof DOCUMENT_FORMATS)[number];
 
 const FORMATS: Readonly<Record<DocumentKind, readonly DocumentFormat[]>> = {
@@ -80,7 +81,7 @@ const FORMATS: Readonly<Record<DocumentKind, readonly DocumentFormat[]>> = {
   bom: ['html', 'svg', 'pdf', 'csv'],
   'test-spec': ['html', 'svg', 'pdf', 'csv'],
   drawing: ['html', 'svg', 'pdf'],
-  labels: ['svg', 'pdf', 'csv'],
+  labels: ['svg', 'pdf', 'csv', 'png', 'lbx'],
   formboard: ['html', 'svg', 'pdf'],
 };
 
@@ -127,6 +128,9 @@ export interface DocumentRequest {
   /** label sheet: the label stock (`label-presets.ts`) and whether each label carries a QR code; absent: the hub's settings */
   labelPreset?: string;
   labelQr?: boolean;
+  /** tape labels: a label template id, and the P-touch printer written into an `.lbx`; absent: the hub's settings */
+  labelTemplate?: string;
+  labelPrinter?: string;
   /** formboard: paper millimetres per board millimetre (1 = 1:1); page is then a tile, 1-based, and absent is the overview */
   scale?: number;
   /** cables in the build, for the BOM's quantity breaks */
@@ -192,6 +196,8 @@ const MIME: Readonly<Record<DocumentFormat, string>> = {
   svg: 'image/svg+xml',
   pdf: 'application/pdf',
   csv: 'text/csv; charset=utf-8',
+  png: 'image/png',
+  lbx: 'application/octet-stream',
 };
 
 const refuse = (status: number, error: string, hint: string): DocumentResult => ({ ok: false, status, error, hint });
@@ -232,6 +238,8 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     ...(request.copies === undefined ? {} : { copies: request.copies }),
     ...(request.labelPreset === undefined ? {} : { preset: request.labelPreset }),
     ...(request.labelQr === undefined ? {} : { qr: request.labelQr }),
+    ...(request.labelTemplate === undefined ? {} : { template: request.labelTemplate }),
+    ...(request.labelPrinter === undefined ? {} : { printer: request.labelPrinter }),
     ...(request.buildQty === undefined ? {} : { buildQty: request.buildQty }),
     ...(request.explode === true ? { explode: true } : {}),
     depictions: request.depictions ?? true,
@@ -353,8 +361,18 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
         });
       }
       case 'labels': {
+        if (format === 'lbx') {
+          const made = withBranding(request.branding, () => lbxExport(deriveLabels(design, db), { ...options, frame: frameOf('LABELS', 'portrait', 'strip'), design: design.id }, stem(request), request.revisionNumber));
+          return { ok: true, output: { mimeType: made.mimeType, fileName: made.fileName, body: made.body } };
+        }
         const pages = labelPages();
-        if (format === 'svg') return out(pages[request.page === undefined ? 0 : Math.min(request.page, pages.length) - 1] as string);
+        if (format === 'svg' || format === 'png') {
+          const svg = pages[request.page === undefined ? 0 : Math.min(request.page, pages.length) - 1] as string;
+          if (format === 'svg') return out(svg);
+          // 12 px per mm (about 300 dpi), the label's own width in pixels
+          const mm = sizeOfSvg(svg);
+          return out(await svgToPng(svg, Math.max(1, Math.round(mm.width * 12))), 'png');
+        }
         const rendered: PdfPage[] = [];
         for (const svg of pages) {
           const size = sizeOfSvg(svg);

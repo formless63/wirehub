@@ -15,10 +15,10 @@ import { DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentKind } from
 export class RenderCliError extends Error {}
 
 export const RENDER_USAGE = [
-  'usage: pnpm --filter studio render <design> <what> [--format svg|pdf|csv|html] [--rev <n>|latest] [--out <dir>|-]',
-  '                                    [--paper A4|A3|letter|…] [--variation <suffix>] [--page <n>] [--copies <n>] [--scale <ratio>] [--preset <label-stock>] [--qr 1]',
+  'usage: pnpm --filter studio render <design> <what> [--format svg|pdf|csv|html|png|lbx] [--rev <n>|latest] [--out <dir>|-]',
+  '                                    [--paper A4|A3|letter|…] [--variation <suffix>] [--page <n>] [--copies <n>] [--scale <ratio>] [--preset <label-stock>] [--qr 1] [--template <id>] [--printer <id>]',
   '  <what>  schematic | build-sheet | bom | test-spec | drawing | labels | formboard   (a document, in --format; default per document)',
-  '          bom.csv | wire-list.csv | cut-list.csv | crimp-list.csv | production.xlsx | continuity.csv | continuity.json | labels.csv | labels.svg   (an export)',
+  '          bom.csv | wire-list.csv | cut-list.csv | crimp-list.csv | production.xlsx | continuity.csv | continuity.json | labels.csv | labels.svg | labels.lbx   (an export)',
   '          all   every document in its default format, plus pdf of each',
   '          wire-spec   the spec sheet of a wire stock: <design> is the stock id; --format html|svg|pdf (default html)',
   '  Local by default (the catalog this checkout or WIREHUB_BACKEND points at); with WIREHUB_API_URL and WIREHUB_API_TOKEN set, the studio over HTTP.',
@@ -42,7 +42,7 @@ export function parseRenderArgs(argv: readonly string[]): RenderArgs {
       const eq = arg.indexOf('=');
       const name = eq < 0 ? arg.slice(2) : arg.slice(2, eq);
       const value = eq < 0 ? argv[(i += 1)] : arg.slice(eq + 1);
-      if (!['format', 'rev', 'out', 'paper', 'variation', 'page', 'copies', 'scale', 'preset', 'qr'].includes(name)) throw new RenderCliError(`--${name} is not an option.\n${RENDER_USAGE}`);
+      if (!['format', 'rev', 'out', 'paper', 'variation', 'page', 'copies', 'scale', 'preset', 'qr', 'template', 'printer'].includes(name)) throw new RenderCliError(`--${name} is not an option.\n${RENDER_USAGE}`);
       if (value === undefined) throw new RenderCliError(`--${name} needs a value.`);
       flags.set(name, value);
     } else positionals.push(arg);
@@ -52,7 +52,7 @@ export function parseRenderArgs(argv: readonly string[]): RenderArgs {
   const format = flags.get('format');
   if (format !== undefined && !(DOCUMENT_FORMATS as readonly string[]).includes(format)) throw new RenderCliError(`--format must be one of ${DOCUMENT_FORMATS.join(', ')}.`);
   const query: Record<string, string> = {};
-  for (const name of ['paper', 'variation', 'page', 'copies', 'scale', 'preset', 'qr'] as const) {
+  for (const name of ['paper', 'variation', 'page', 'copies', 'scale', 'preset', 'qr', 'template', 'printer'] as const) {
     const value = flags.get(name);
     if (value !== undefined) query[name] = value;
   }

@@ -18,7 +18,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 import { Button, Checkbox, Field, Input, Page, Select, Textarea } from '@wirehub/editor-react';
-import { LABEL_PRESETS, PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
+import { BUILTIN_LABEL_TEMPLATES, LABEL_PRESETS, LBX_PRINTERS, PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
 
 import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
 import { EngineeringSettings } from './EngineeringSettings.tsx';
@@ -46,6 +46,8 @@ type Draft = Record<(typeof FIELDS)[number]['key'], string> & {
   paper: PaperId | '';
   titleBlock: TitleBlockStandard | '';
   labelPreset: string;
+  labelTemplate: string;
+  labelPrinter: string;
   labelQr: boolean;
   notes: [string, string, string];
   tolerances: [string, string][];
@@ -65,6 +67,8 @@ const draftOf = (view: BrandingView | undefined): Draft => ({
   paper: view?.paper ?? '',
   titleBlock: view?.titleBlock ?? '',
   labelPreset: view?.labelPreset ?? '',
+  labelTemplate: view?.labelTemplate ?? '',
+  labelPrinter: view?.labelPrinter ?? '',
   labelQr: view?.labelQr === true,
   labelQrUrl: view?.labelQrUrl ?? '',
   notes: [view?.notes?.[0] ?? '', view?.notes?.[1] ?? '', view?.notes?.[2] ?? ''],
@@ -271,6 +275,28 @@ export function SettingsRoute(): JSX.Element {
               <input type="checkbox" aria-label="QR code on labels" checked={draft.labelQr} disabled={readOnly} onChange={(e) => setDraft({ ...draft, labelQr: e.target.checked })} />
               <span className="font-medium">QR code on labels</span>
             </label>
+          </div>
+          <div className="flex items-end gap-3">
+            <div className="flex flex-1 flex-col gap-0.5" title="How a tape label is laid out (P-touch tapes): a built-in layout, or one from this hub's drawing art or an installed pack.">
+              <span className="font-medium">Tape label layout</span>
+              <Select
+                aria-label="Tape label layout"
+                value={draft.labelTemplate === '' ? 'default' : draft.labelTemplate}
+                disabled={readOnly}
+                onValueChange={(value) => setDraft({ ...draft, labelTemplate: value === 'default' ? '' : value })}
+                options={[{ value: 'default', label: 'Built-in' }, ...Object.entries({ ...BUILTIN_LABEL_TEMPLATES, ...((query.data?.art as { labelTemplates?: Record<string, { label?: string }> } | undefined)?.labelTemplates ?? {}) }).map(([id, t]) => ({ value: id, label: t.label ?? id }))]}
+              />
+            </div>
+            <div className="flex flex-1 flex-col gap-0.5" title="The printer named in P-touch Editor (.lbx) files.">
+              <span className="font-medium">Tape printer</span>
+              <Select
+                aria-label="Tape printer"
+                value={draft.labelPrinter === '' ? 'default' : draft.labelPrinter}
+                disabled={readOnly}
+                onValueChange={(value) => setDraft({ ...draft, labelPrinter: value === 'default' ? '' : value })}
+                options={[{ value: 'default', label: 'Any P-touch printer' }, ...LBX_PRINTERS.filter((p) => p.id !== 'generic').map((p) => ({ value: p.id, label: p.label }))]}
+              />
+            </div>
           </div>
           <fieldset className="flex flex-col gap-1 border-0 p-0">
             <legend className="font-medium">Drawing general note</legend>

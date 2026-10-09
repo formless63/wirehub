@@ -214,7 +214,7 @@ export function createCatalog(source: CatalogSource) {
       ...(rules === undefined ? {} : { rules }),
       ...(Array.isArray(validationRules) && validationRules.length > 0 ? { validationRules } : {}),
       ...(Array.isArray(benchRules) && benchRules.length > 0 ? { benchRules } : {}),
-      ...(typeof drawingArt === 'object' && drawingArt !== null && !Array.isArray(drawingArt) && (drawingArt.faces !== undefined || drawingArt.plugs !== undefined || drawingArt.cutaways !== undefined) ? { drawingArt } : {}),
+      ...(typeof drawingArt === 'object' && drawingArt !== null && !Array.isArray(drawingArt) && (drawingArt.faces !== undefined || drawingArt.plugs !== undefined || drawingArt.cutaways !== undefined || drawingArt.labelTemplates !== undefined) ? { drawingArt } : {}),
       connectors: loadConnectors(),
       wires: loadWires(),
       components: loadComponents(),
