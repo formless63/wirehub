@@ -74,10 +74,10 @@ Kept in `data/tags/instance-slots.json`; design files are never rewritten by the
 | channel 2 leg | segment | 1 | `leg` |
 | channel 2 plug | connector | 1 | — (unclassified) |
 | device connector | connector | 1 | — (unclassified) |
-| end A | connector | 1 | — (unclassified) |
-| end B | connector | 1 | — (unclassified) |
+| device end | connector | 1 | — (unclassified) |
 | LED module connector | connector | 1 | — (unclassified) |
 | line connector | connector | 1 | — (unclassified) |
+| PC end | connector | 1 | — (unclassified) |
 | stem | segment | 1 | — (unclassified) |
 | supply terminal block | connector | 3 | — (unclassified) |
 

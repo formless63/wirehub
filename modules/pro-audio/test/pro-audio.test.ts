@@ -52,7 +52,7 @@ describe('the module', () => {
   it('is an optional domain module, unticked at setup, with one CC0 pack', () => {
     expect(createRegistry([proAudio]).domains().map((m) => m.id)).toEqual(['pro-audio']);
     expect(proAudio.setup).not.toHaveProperty('suggested');
-    expect(readPackManifest(packDir)).toMatchObject({ id: 'pro-audio', version: '0.3.1', license: 'CC0-1.0' });
+    expect(readPackManifest(packDir)).toMatchObject({ id: 'pro-audio', version: '0.3.2', license: 'CC0-1.0' });
   });
 
   it('keeps audio out of the base: no audio signal, lane or connector without the pack', () => {

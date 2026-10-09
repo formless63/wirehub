@@ -28,5 +28,5 @@ export const networking = defineModule({
     kind: 'domain',
     description: 'Ethernet: MDI pair signals, the RJ45 plug wired T568A or T568B, a straight patch cable and a crossover.',
   },
-  catalogPacks: [{ id: 'networking', label: 'Networking', version: '0.2.1', root: NETWORKING_PACK, license: 'CC0-1.0' }],
+  catalogPacks: [{ id: 'networking', label: 'Networking', version: '0.2.2', root: NETWORKING_PACK, license: 'CC0-1.0' }],
 });

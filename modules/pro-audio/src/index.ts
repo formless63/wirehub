@@ -29,12 +29,12 @@ export const PRO_AUDIO_PACK = new URL(PACK_DIR, import.meta.url).href;
 export const proAudio = defineModule({
   id: 'pro-audio',
   label: 'Pro audio',
-  version: '0.3.1',
+  version: '0.3.2',
   license: 'MIT',
   setup: {
     kind: 'domain',
     description: 'Balanced and unbalanced audio: XLR3, RCA and 3.5 mm TRS connectors, microphone and stereo stocks, an XLR microphone cable and a TRS-to-2×RCA Y lead.',
   },
   art: { connectors: [rcaPlugArt, rcaJackArt, trsPlugArt, trsJackArt] },
-  catalogPacks: [{ id: 'pro-audio', label: 'Pro audio', version: '0.3.1', root: PRO_AUDIO_PACK, license: 'CC0-1.0' }],
+  catalogPacks: [{ id: 'pro-audio', label: 'Pro audio', version: '0.3.2', root: PRO_AUDIO_PACK, license: 'CC0-1.0' }],
 });

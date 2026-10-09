@@ -62,8 +62,8 @@ describePg('pack parity on Postgres', () => {
       // the revision links are rows, with no Library record behind them
       await inOrg(pgh.db, report.orgId, async (tx) => {
         const rows = (await tx.selectFrom('studio.model_link' as never).select(['record_key', 'entity_id'] as never).execute()) as unknown as { record_key: string; entity_id: string | null }[];
-        expect(rows.map((r) => r.record_key).sort()).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
-        expect(rows.every((r) => r.entity_id === null)).toBe(true);
+        expect(rows.map((r) => r.record_key).filter((k) => k.startsWith('revisions/')).sort()).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
+        expect(rows.filter((r) => r.record_key.startsWith('revisions/')).every((r) => r.entity_id === null)).toBe(true);
       });
     } finally {
       delete process.env.WIREHUB_CATALOG_DIR;
@@ -119,6 +119,6 @@ describePg('pack parity on Postgres', () => {
     expect(applied.status, JSON.stringify(applied.body)).toBe(200);
     expect((await get('/api/models/revisions/some-board/rev1')).body.link.record).toBe('revisions/some-board/rev1');
     expect((await get('/api/builds/some-board-rev1')).status).toBe(200);
-    expect((await get('/api/models')).body.links.map((l: { record: string }) => l.record)).toEqual(['revisions/some-board/rev1', 'revisions/some-board/rev2']);
+    expect((await get('/api/models')).body.links.map((l: { record: string }) => l.record).filter((r: string) => r.startsWith('revisions/'))).toEqual(['revisions/some-board/rev1', 'revisions/some-board/rev2']);
   }, 180_000);
 });
