@@ -15,6 +15,9 @@ export const BENCH_STYLESHEET = `@layer wirehub.docs{
 .cs-stage__h{font-size:12pt;font-weight:700;margin:0}
 .cs-stage__sub{color:var(--cs-muted);font-size:8pt}
 .cs-cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm;align-items:start}
+.cs-endtop{grid-template-columns:minmax(0,112mm) minmax(0,1fr)}
+.cs-endtop__strip .cs-bench-strip{width:100%;max-width:112mm;margin:0}
+.cs-endtop--solo{grid-template-columns:minmax(0,1fr)}
 .cs-block{margin:0 0 3mm;break-inside:avoid}
 .cs-block__h{font-size:7.2pt;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;margin:0 0 1.2mm;color:#000}
 .cs-steps{margin:0;padding:0;list-style:none;counter-reset:cs-step}

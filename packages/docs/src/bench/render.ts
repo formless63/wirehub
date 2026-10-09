@@ -229,7 +229,10 @@ function endPage(
   const trunkStrips = end.segmentEnds.filter((se) => se.segment === trunkId).map(stripOf).join('');
   const otherStrips = end.segmentEnds.filter((se) => se.segment !== trunkId).map(stripOf).join('');
   const before = endSteps(end, db, other);
-  parts.push(`<div class="cs-cols"><div>${trunkStrips}</div><div>${block('Before soldering', stepsHtml(before))}${bridgesHtml(end)}${componentsHtml(end)}<!--side-->${otherStrips}</div></div>`);
+  // the strip sits at its natural width, anchored to the left; the right column carries what belongs beside it, and when
+  // there is nothing to put there the strip takes the row at a larger, still capped, size (cs-ld1m)
+  const beside = `${block('Before soldering', stepsHtml(before))}${bridgesHtml(end)}${componentsHtml(end)}${otherStrips}`;
+  parts.push(`<div class="cs-cols cs-endtop<!--solo-->" data-endtop><div class="cs-endtop__strip">${trunkStrips}</div><div>${block('Before soldering', stepsHtml(before))}${bridgesHtml(end)}${componentsHtml(end)}<!--side-->${otherStrips}</div></div>`);
   const colsAt = parts.length - 1;
   const pinned: Landing[] = [];
 
@@ -286,7 +289,7 @@ function endPage(
     const crimp = crimpTableHtml(design, db, term.instance);
     if (crimp !== '') parts.push(block(`Crimp — ${term.instance} ${term.label}`, crimp));
   }
-  parts[colsAt] = (parts[colsAt] ?? '').replace('<!--side-->', pinned.length === 0 ? '' : block('Plugs and pins', landingList(pinned, true)));
+  parts[colsAt] = (parts[colsAt] ?? '').replace('<!--solo-->', beside === '' && pinned.length === 0 ? ' cs-endtop--solo' : '').replace('<!--side-->', pinned.length === 0 ? '' : block('Plugs and pins', landingList(pinned, true)));
   if (listed.length > 0) parts.push(block(listed.length === end.terminations.reduce((c, t) => c + t.landings.length, 0) ? 'Landings' : 'Also at this end', landingList(listed)));
   return parts.join('');
 }
