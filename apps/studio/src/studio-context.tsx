@@ -61,7 +61,7 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
-import { usePref } from '@wirehub/editor-react';
+import { notify, usePref } from '@wirehub/editor-react';
 
 import { useSetupMode } from './setup-mode.ts';
 
@@ -78,6 +78,7 @@ import { workbenchAssets, workbenchDrawings, workbenchPersistence } from './pers
 import { cableListKey, dbKey, designKey, designsKey, loadDb, loadDesign, loadDesigns } from './queries.ts';
 import { applyTheme, initialTheme, isTheme, persistTheme, watchSystemTheme, type Theme } from './theme.ts';
 import { hydratePrefs } from './prefs.browser.ts';
+import { captureDesign, restoreDesign } from './design-undo.ts';
 
 export interface StudioApi {
   theme: Theme;
@@ -383,17 +384,32 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
 
   const removeMutation = useMutation({
     mutationFn: async (args: { id: string; confirm: string }): Promise<Outcome<{ id: string }>> => {
+      // what is about to go, kept for Undo: the design and its drawing details (a deleted design has no released
+      // revision, and an upload is never removed, so these two are all there was)
+      const before = await captureDesign(rawPersistence, workbenchDrawings(), args.id);
       const outcome = await rawPersistence.remove(args.id, args.confirm);
       if (outcome.ok) {
         queryClient.removeQueries({ queryKey: designKey(args.id) });
         // awaited so a caller reading the cache right after (CableRoute's
         // delete handler, picking what to open next) sees the fresh list
         await invalidateDesignLists();
+        if (before !== undefined) {
+          const gone = before.design;
+          notify.undoable(`Deleted ${gone.label === '' ? gone.id : gone.label}`, () => {
+            void (async () => {
+              const back = await restoreDesign(before, rawPersistence, workbenchDrawings());
+              if (!back.ok) {
+                notify.error(`Could not restore ${gone.id}`, { description: back.message });
+                return;
+              }
+              queryClient.setQueryData(designKey(gone.id), { design: back.value });
+              await invalidateDesignLists();
+              notify.success(`Restored ${back.value.label === '' ? back.value.id : back.value.label}`);
+            })();
+          });
+        }
       }
       return outcome;
-    },
-    onSuccess: (outcome, variables) => {
-      if (outcome.ok) toast.success(`Deleted ${variables.id}`);
     },
   });
 

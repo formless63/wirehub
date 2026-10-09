@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { catalogWithPacksSource, createCatalog, installedAcross } from '@wirehub/catalog';
 import { createRegistry } from '@wirehub/modules';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { toasts } from './toast-spy.ts';
+import { sonnerMock, toasts } from './toast-spy.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
@@ -104,8 +104,24 @@ describe('Install pack…', () => {
     writeFileSync(join(dir, 'kits.json'), `${JSON.stringify(kits, null, 2)}\n`);
     fireEvent.click(screen.getByRole('button', { name: 'Disable…' }));
     await screen.findByText('1 records would be removed.');
+    const has = () => createCatalog(catalogWithPacksSource(dir, packs)).loadDb().components.some((c) => c.id === 'pn-r');
     fireEvent.click(screen.getByRole('button', { name: 'Disable pack' }));
     await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Disabled panel.'));
+    // the pack looks gone at once, but nothing is removed until the Undo window closes
+    expect(toasts.find((t) => t.title === 'Disabled panel.')?.action?.label).toBe('Undo');
+    expect(screen.queryByText(/panel/, { selector: 'b' })).toBeNull();
+    expect(has()).toBe(true);
+    // Undo: the pack is back, and was never touched
+    toasts.find((t) => t.title === 'Disabled panel.')!.action!.onClick();
+    await screen.findByText(/panel/, { selector: 'b' });
+    expect(has()).toBe(true);
+    // disable again and let the window close (the toast being dismissed ends it early)
+    fireEvent.click(screen.getByRole('button', { name: 'Disable…' }));
+    await screen.findByText('1 records would be removed.');
+    fireEvent.click(screen.getByRole('button', { name: 'Disable pack' }));
+    const last = sonnerMock.toast.mock.calls.at(-1) as unknown as [string, { onDismiss: () => void }];
+    last[1].onDismiss();
+    await waitFor(() => expect(has()).toBe(false));
     await waitFor(() => expect(screen.queryByText('No packs are installed.')).not.toBeNull());
   });
 

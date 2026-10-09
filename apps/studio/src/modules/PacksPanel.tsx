@@ -34,7 +34,9 @@ import {
 import type { CodePreviewView } from '../code-modules.browser.ts';
 import { CodeConsent } from './CodeConsent.tsx';
 import { useNotify, type ViewTarget } from '../notify.ts';
-import { Button, Drawer, Input } from '@wirehub/editor-react';
+import { Button, Drawer, Input, notify as toastKit } from '@wirehub/editor-react';
+
+const toastDeferred = toastKit.deferred;
 
 const short = (value: unknown): string => {
   const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -164,16 +166,40 @@ export function PacksPanel(): JSX.Element {
     }
   };
 
+  /** packs whose Disable is waiting out its Undo window: shown as already gone */
+  const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
+  const leave = (id: string, going: boolean): void =>
+    setLeaving((current) => {
+      const next = new Set(current);
+      if (going) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  /** Disable cannot be put back (its records are removed), so it waits ten seconds, with Undo, before it happens */
+  const disableWithUndo = (id: string): void => {
+    setPending(undefined);
+    leave(id, true);
+    toastDeferred(`Disabled ${id}.`, async () => {
+      const answer = await disablePack(id);
+      leave(id, false);
+      if (!answer.ok) notify.error(headline(answer), answer.hint);
+      await reload();
+    }, { onUndo: () => leave(id, false) });
+  };
+
   const applyPending = (): Promise<void> =>
     run(async () => {
       if (pending === undefined) return;
+      if (pending.kind === 'disable') {
+        disableWithUndo(pending.id);
+        return;
+      }
       const major = pending.plan.major === true;
       const answer =
         pending.kind === 'update'
           ? await applyUpdate(pending.id, major)
-          : pending.kind === 'disable'
-            ? await disablePack(pending.id)
-            : await applyInstall(pending.source as PackSource, pending.sha256 ?? '', major, '/api', { trustKey, ...(pending.code === undefined ? {} : { consent: { code: pending.code.consent } }) });
+          : await applyInstall(pending.source as PackSource, pending.sha256 ?? '', major, '/api', { trustKey, ...(pending.code === undefined ? {} : { consent: { code: pending.code.consent } }) });
       if (!answer.ok) {
         showPlan(answer, pending.kind, pending.id, pending.source);
         return;
@@ -182,9 +208,9 @@ export function PacksPanel(): JSX.Element {
       const codeNote = pending.code === undefined ? '' : status?.state === 'loaded' ? (pending.code.apply === 'live' ? ' Its code runs now.' : ' Its code runs now; its job queues start after Restart WireHub (Settings).') : ` Its code is not running: ${status?.error ?? 'see Settings, Code modules'}.`;
       const offersScheme = answer.body['offers'] !== undefined && (answer.body['offers'] as { partNumberScheme?: unknown }).partNumberScheme !== undefined;
       await finish(
-        pending.kind === 'disable' ? `Disabled ${pending.id}.` : `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`,
+        `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`,
         `${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`.trim(),
-        pending.kind === 'disable' ? { to: '/extensions', tab: 'installed' } : pending.code === undefined ? { to: '/library' } : { to: '/extensions', tab: 'installed' },
+        pending.code === undefined ? { to: '/library' } : { to: '/extensions', tab: 'installed' },
       );
     });
 
@@ -193,7 +219,7 @@ export function PacksPanel(): JSX.Element {
       <h2 className="text-md font-semibold">Catalog packs</h2>
       {packs === undefined ? <div className="text-faint">Loading…</div> : packs.length === 0 ? <div className="text-faint">No packs are installed.</div> : null}
       <ul>
-        {(packs ?? []).map((p) => (
+        {(packs ?? []).filter((p) => !leaving.has(p.id)).map((p) => (
           <li key={p.id} className="my-1" data-pack={p.id}>
             <b>{p.id}</b> {p.version} · {p.license} · {p.records} records
             {notices

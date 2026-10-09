@@ -29,7 +29,7 @@ export { Dialog, Menu, Popover } from './Overlays.tsx';
 export type { DialogProps, MenuEntry, MenuProps, PopoverProps } from './Overlays.tsx';
 export { Callout, Skeleton } from './Feedback.tsx';
 export type { CalloutProps, CalloutTone } from './Feedback.tsx';
-export { WireHubToaster, notify } from './Toast.tsx';
+export { UNDO_MS, WireHubToaster, notify } from './Toast.tsx';
 export type { NotifyOptions } from './Toast.tsx';
 export { FileDrop } from './FileDrop.tsx';
 export type { FileDropProps } from './FileDrop.tsx';

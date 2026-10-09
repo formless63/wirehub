@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
-import { Button, Callout, Checkbox, Chip, Field, HelpTip, Input, Select, Textarea } from '@wirehub/editor-react';
+import { Button, Callout, Checkbox, Chip, Field, HelpTip, Input, Select, Textarea, notify } from '@wirehub/editor-react';
 
 import { runtimeSettingsKey, runtimeSettingsQuery, saveModuleSecret, saveModuleSettings, type ModuleFieldView, type ModuleSettingsView, type RuntimeValue } from '../settings.browser.ts';
 
@@ -53,7 +53,8 @@ function SecretField({ module, field, editable, available, onSaved }: { module: 
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const locked = field.source === 'server';
-  const save = async (next: string | undefined): Promise<void> => {
+  const [clearing, setClearing] = useState(false);
+  const save = async (next: string | undefined, announce = true): Promise<void> => {
     setBusy(true);
     const out = await saveModuleSecret(module, field.key, next);
     setBusy(false);
@@ -62,7 +63,7 @@ function SecretField({ module, field, editable, available, onSaved }: { module: 
       return;
     }
     setValue('');
-    toast.success(next === undefined ? `${field.label} cleared.` : `${field.label} saved. It is kept encrypted and never shown again.`);
+    if (announce) toast.success(`${field.label} saved. It is kept encrypted and never shown again.`);
     onSaved();
   };
   const placeholder = field.set === true ? 'Enter a new value to replace it' : undefined;
@@ -80,8 +81,18 @@ function SecretField({ module, field, editable, available, onSaved }: { module: 
               {field.set === true ? 'Replace' : 'Set'}
             </Button>
             {field.set === true ? (
-              <Button disabled={busy} onClick={() => void save(undefined)}>
-                Clear
+              <Button
+                disabled={busy || clearing}
+                onClick={() => {
+                  // a cleared secret cannot be read back, so it is cleared once the Undo window has closed
+                  setClearing(true);
+                  notify.deferred(`${field.label} cleared.`, async () => {
+                    await save(undefined, false);
+                    setClearing(false);
+                  }, { onUndo: () => setClearing(false) });
+                }}
+              >
+                {clearing ? 'Clearing…' : 'Clear'}
               </Button>
             ) : null}
           </div>

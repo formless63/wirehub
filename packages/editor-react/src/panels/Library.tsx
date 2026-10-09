@@ -91,7 +91,7 @@ import {
 import { libraryColumns, libraryRows, type LibraryTableContext } from '../library-table.ts';
 import { LibraryTable } from './LibraryTable.tsx';
 import { Tab, TabList, Tabs } from '../ui/Tabs.tsx';
-import { Button, Dialog, Field, Input } from '../ui/index.ts';
+import { Button, Dialog, Field, Input, notify } from '../ui/index.ts';
 import { PropertiesGrid, RecordHead, SourceBlock, WhereUsed, type RecordAction } from './RecordOverview.tsx';
 import {
   LIBRARY_PANE_DEFAULT,
@@ -1788,9 +1788,29 @@ export function Library(props: LibraryProps): JSX.Element {
                   type="button"
                   className="cs-destructive"
                   disabled={busy}
-                  onClick={() =>
-                    void run(() => deleteDefinition(definitions!, kind, mode.id, mode.id))
-                  }
+                  onClick={() => {
+                    const gone = baseline;
+                    const adapter = definitions!;
+                    const deletedKind = kind;
+                    void run(async () => {
+                      const result = await deleteDefinition(adapter, deletedKind, mode.id, mode.id);
+                      // the record, as it was, goes back when Undo is pressed within the window
+                      if (result.ok && gone !== undefined) {
+                        notify.undoable(`Deleted ${gone.label === '' ? gone.id : gone.label}`, () => {
+                          void createDefinition(adapter, deletedKind, gone).then(async (back) => {
+                            if (!back.ok) {
+                              notify.error(`Could not restore ${gone.id}`, { description: back.problem.message });
+                              return;
+                            }
+                            props.onDefinitionsChange?.(back.change);
+                            await refresh(deletedKind);
+                            notify.success(`Restored ${gone.id}`);
+                          });
+                        });
+                      }
+                      return result;
+                    });
+                  }}
                 >
                   {busy ? 'Deleting…' : `Delete ${mode.id}`}
                 </button>

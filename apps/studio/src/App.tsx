@@ -38,13 +38,13 @@
 import { QueryClient, QueryClientProvider, QueryObserver, useQueryClient } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useState, useSyncExternalStore, type JSX } from 'react';
-import { registerBodyLayouts, setCommitHook } from '@wirehub/editor-react';
+import { WireHubToaster, registerBodyLayouts, setCommitHook } from '@wirehub/editor-react';
 import { registerDrawingArt } from '@wirehub/docs';
 import { installBranding, installModuleArt } from '../module-art.ts';
 import { brandingQuery } from './settings.browser.ts';
 import { browserDepictions } from './depictions.browser.ts';
 import type { ModuleRegistry } from '@wirehub/modules';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
 
 import { CommandRegistryProvider } from './commands/registry.tsx';
 import { router as defaultRouter, type StudioRouter } from './router.tsx';
@@ -162,22 +162,7 @@ export function App({
         </CommandRegistryProvider>
       </StudioProvider>
       </LockClientContext.Provider>
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          unstyled: true,
-          classNames: {
-            toast:
-              'flex items-start gap-2 rounded-md border border-line bg-panel px-3 py-2.5 text-xs text-ink shadow-lg',
-            title: 'font-medium leading-snug',
-            description: 'text-dim leading-snug',
-            success: 'border-l-2 border-l-ok',
-            error: 'border-l-2 border-l-err',
-            warning: 'border-l-2 border-l-warn',
-            closeButton: 'border-line2 bg-raised text-dim',
-          },
-        }}
-      />
+      <WireHubToaster />
     </QueryClientProvider>
     </ModulesContext.Provider>
   );

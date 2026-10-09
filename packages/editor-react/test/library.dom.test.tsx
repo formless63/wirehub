@@ -27,6 +27,7 @@ import {
 import { pcbaDraftOf, wireFormOf, type WireDraft } from '../src/library.ts';
 import { copperPathGroups } from '../src/panels/PcbaEditor.tsx';
 import type { ArtworkAdapter, ArtworkDetail, DepictionMeta } from '../src/artwork.ts';
+import { notify } from '../src/ui/index.ts';
 import { diskDepictions, loadDbFromDisk, loadDepictionMetaFromDisk, loadDesignFromDisk } from './fixture.ts';
 import { memoryDefinitions } from './memory-definitions.ts';
 
@@ -314,6 +315,26 @@ describe('a record from an installed pack', () => {
     await waitFor(() => expect(fork).toHaveBeenCalledWith('components', target.id, `${target.id}-mine`));
     await waitFor(() => expect(selected).toContain(`${target.id}-mine`));
   });
+});
+
+it('a deleted part comes back when Undo is pressed', async () => {
+  const h = host();
+  let id: string | undefined;
+  for (const c of db.components) {
+    const usage = await h.usage('components', c.id);
+    if (usage.ok && usage.value.count === 0) { id = c.id; break; }
+  }
+  expect(id).toBeDefined();
+  const undoable = vi.spyOn(notify, 'undoable').mockImplementation((() => 'toast') as never);
+  render(<Library db={db} definitions={h} kind="components" selectedId={id!} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Delete…' }));
+  fireEvent.click(await screen.findByRole('button', { name: `Delete ${id}` }));
+  await waitFor(() => expect(h.stored.get('components')!.some((r) => r.id === id)).toBe(false));
+  await waitFor(() => expect(undoable).toHaveBeenCalled());
+  expect(undoable.mock.calls[0]![0]).toMatch(/^Deleted /);
+  undoable.mock.calls[0]![1]();
+  await waitFor(() => expect(h.stored.get('components')!.some((r) => r.id === id)).toBe(true));
+  undoable.mockRestore();
 });
 
 it('an empty list says so once, offers New, and links to the docs when the host gives a link', async () => {
