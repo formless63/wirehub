@@ -35,6 +35,7 @@ import {
   type WireDefinition,
 } from './model.ts';
 import { isElectricalElement, resolveElementPath } from './paths.ts';
+import { signalOfLane } from './signal-words.ts';
 import { vocabEntry, type ColourCodeEntry, type SignalEntry, type SignalKind, type SignalRef } from './vocab.ts';
 
 /** The vocab tags of one terminal. */
@@ -61,6 +62,26 @@ function laneOfConductor(db: Db, wire: WireDefinition, path: string, element: El
   const code = colourCodeOf(db, wire);
   if (code === undefined || element.color === undefined) return undefined;
   return vocabEntry<ColourCodeEntry>(db.vocab, 'colour-codes', code)?.lanes?.[element.color];
+}
+
+/** A conductor label that says it is unused: `spare`, `spare 2`, `NC`, `n/c`, `unused`, `not connected`. */
+const UNUSED_LABEL = /^\s*(spare|unused|nc|n\/c|no connection|not connected)\b/i;
+
+/**
+ * Does the wire stock itself mark this conductor as a spare or no-connect?
+ * The stock says so by the conductor's lane (its `lane` override, the tag
+ * table, or the colour code) being `spare` or `nc` — or a lane whose signal is
+ * `nc` — or by its own label (`Spare`, `NC`). Such a conductor is explained
+ * the way a design note explains one: left unconnected on purpose.
+ */
+export function stockMarksUnused(db: Db, wire: WireDefinition, path: string): boolean {
+  const element = resolveElementPath(wire.structure, path);
+  if (element === undefined || element.kind !== 'conductor') return false;
+  if (element.label !== undefined && UNUSED_LABEL.test(element.label)) return true;
+  const lane = laneOfConductor(db, wire, path, element);
+  if (lane === undefined) return false;
+  if (lane === 'spare' || lane === 'nc') return true;
+  return signalOfLane(db.vocab, lane) === 'nc';
 }
 
 /** The core group a shield path sits in, and that core's conductor. */

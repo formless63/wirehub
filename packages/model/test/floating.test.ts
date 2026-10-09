@@ -55,6 +55,49 @@ describe('conductors floating at both ends', () => {
     expect(floating(design)).toHaveLength(7);
   });
 
+  /** the db with `cat5e-utp`'s conductor at `path` edited by `edit` (a generic stock marking) */
+  function withStock(path: string, edit: (el: Record<string, unknown>) => void): Db {
+    const wires = structuredClone(db.wires);
+    const walk = (nodes: any[], prefix: string): void => {
+      for (const n of nodes) {
+        const p = prefix === '' ? n.id : `${prefix}.${n.id}`;
+        if (p === path) edit(n);
+        if (Array.isArray(n.children)) walk(n.children, p);
+      }
+    };
+    const wire = wires.find((w) => w.id === 'cat5e-utp') as any;
+    walk(wire.structure.children, '');
+    return { ...db, wires };
+  }
+
+  it('are explained by a stock that marks the conductor as a spare (lane override)', () => {
+    const marked = withStock('pair-1.a', (el) => { el.lane = 'spare'; });
+    const found = warnings(validateDesign(bare(), marked)).filter((i) => i.code === 'floating-conductor');
+    expect(found).toHaveLength(7);
+    expect(found.map((i) => i.where)).not.toContain('w1:pair-1.a@a');
+  });
+
+  it('are explained by a stock label that says spare or NC, and by the tag table', () => {
+    const labelled = withStock('pair-1.a', (el) => { el.label = 'Spare 1'; });
+    expect(warnings(validateDesign(bare(), labelled)).filter((i) => i.code === 'floating-conductor')).toHaveLength(7);
+    const tagged: Db = { ...db, tags: { ...db.tags, wires: { 'cat5e-utp': { lanes: { 'pair-1.a': 'nc', 'pair-1.b': 'spare' } } } } as never };
+    expect(warnings(validateDesign(bare(), tagged)).filter((i) => i.code === 'floating-conductor')).toHaveLength(6);
+  });
+
+  it('still warn for conductors the stock does not mark', () => {
+    const marked = withStock('pair-1.a', (el) => { el.lane = 'data-tx'; });
+    expect(warnings(validateDesign(bare(), marked)).filter((i) => i.code === 'floating-conductor')).toHaveLength(8);
+  });
+
+  it('a stock-marked conductor jointed at one end only is explained at the other', () => {
+    const marked = withStock('pair-1.a', (el) => { el.lane = 'nc'; });
+    const design = bare();
+    const pin = design.instances.connectors[0]!.id;
+    design.joints = [{ a: { instance: pin, terminal: '1' }, b: { instance: 'w1', terminal: 'pair-1.a', end: 'a' } }];
+    expect(warnings(validateDesign(design, marked)).filter((i) => i.code === 'floating-conductor-end')).toHaveLength(0);
+    expect(warnings(validateDesign(design, db)).filter((i) => i.code === 'floating-conductor-end')).toHaveLength(1);
+  });
+
   it('never leak a raw terminal key into a sentence', () => {
     for (const issue of validateDesign(bare(), db)) expect(issue.message).not.toMatch(/\bw1:/);
   });

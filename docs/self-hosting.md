@@ -404,6 +404,14 @@ and `WIREHUB_TRUST_PROXY=1` (so rate limits count real clients). Opened by its
 LAN address without a proxy, sign-in still works: the studio trusts the
 address a request was made to.
 
+Sign-in is throttled to 3 attempts per 10 seconds per client address (other
+account endpoints 100 per 10 seconds), in production. A throttled request gets
+HTTP 429 with a `Retry-After` header (seconds) and "Too many attempts, try again
+in N s"; a script should wait that long, not retry in a loop. Without
+`WIREHUB_TRUST_PROXY` behind a proxy, every client shares one address and so
+one budget. Bad API tokens have their own budget: 10 refusals a minute, then
+15 minutes of refusals.
+
 **Scripts and agents** use the same API with a personal API token (the key
 icon in the rail; `/account/tokens`): a token acts as the person who made it,
 with the scopes they chose, for 1 to 90 days, and is shown once.

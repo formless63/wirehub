@@ -83,6 +83,47 @@ describe('paper', () => {
   });
 });
 
+describe('a very long design title in the title cell', () => {
+  /** titles sized from the cell: about 1.3 lines (needs the second line, is never cut), 6 lines of words, and one unbroken word 3 lines wide */
+  const CASES = ['medium', 'very-long', 'unbroken'] as const;
+  const build = (kind: (typeof CASES)[number], wide: number, base: number): string => {
+    let title = kind === 'unbroken' ? 'X' : 'Cable';
+    const target = wide * (kind === 'medium' ? 1.3 : kind === 'very-long' ? 6 : 3);
+    while (plexWidth(title, base, 'semi') < target) title += kind === 'unbroken' ? 'X' : ' assembly with balanced pigtails';
+    return title;
+  };
+  for (const paper of PAPER_IDS) {
+    for (const standard of TITLE_BLOCK_STANDARDS) {
+      for (const variant of ['full', 'strip'] as const) {
+        it(`${paper} ${standard} ${variant}: wraps to a second line, shrinks to a floor, then ellipsizes; never leaves its cell`, () => {
+          for (const sample of CASES) {
+            const base = variant === 'strip' ? FRAME_METRICS.stripValuePt : FRAME_METRICS.titlePt;
+            const probe = frameGeometry(spec({ paper, standard, variant, title: 'x' })).titleCells.find((c) => c.field === 'title') as FrameCell;
+            const title = build(sample, (probe.w - probe.inset - FRAME_METRICS.cellX) / PT_MM, base);
+            const geo = frameGeometry(spec({ paper, standard, variant, title }));
+            const cell = geo.titleCells.find((c) => c.field === 'title') as FrameCell;
+            const room = cell.w - cell.inset - FRAME_METRICS.cellX;
+            expect(cell.value.lines.length).toBeLessThanOrEqual(2);
+            for (const line of cell.value.lines) expect(plexWidth(line, cell.value.size, cell.value.kind) * PT_MM).toBeLessThanOrEqual(room + 1e-6);
+            // the floor: 80 % of the size that fits two lines, never below 4 pt
+            expect(cell.value.size).toBeGreaterThanOrEqual(4);
+            // vertically: under the caption, above the cell's bottom edge
+            const pitch = cell.value.size * PT_MM * 1.18;
+            const top = cell.h - 1.2 - (cell.value.lines.length - 1) * pitch - pitch * 0.8;
+            expect(top).toBeGreaterThanOrEqual(cell.captionPt * PT_MM + 0.7 - 1e-6);
+            if (sample !== 'medium') expect(cell.value.lines.at(-1)).toMatch(/…$/);
+            else {
+              // fits in two lines: nothing is cut
+              expect(cell.value.lines.join(' ')).toBe(title);
+              expect(cell.value.lines.length).toBe(2);
+            }
+          }
+        });
+      }
+    }
+  }
+});
+
 describe('frame geometry', () => {
   for (const paper of PAPER_IDS) {
     for (const orientation of ['portrait', 'landscape'] as const) {
