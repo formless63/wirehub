@@ -22,7 +22,7 @@ export function NotFoundView({
 }: NotFoundViewProps): JSX.Element {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-dim">
-      <p className="text-sm">{message}</p>
+      <h1 className="m-0 text-sm font-normal">{message}</h1>
       <Link to={backTo} className="text-xs text-accent no-underline hover:underline">
         {backLabel}
       </Link>

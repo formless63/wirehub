@@ -11,6 +11,7 @@ export function TabList({ className, ...props }: ComponentPropsWithoutRef<typeof
   return <RTabs.List {...props} className={cx('cs-ui-tablist', className)} />;
 }
 export function Tab({ className, ...props }: ComponentPropsWithoutRef<typeof RTabs.Trigger>): JSX.Element {
+  // a tab with no TabPanel (the page below it is the panel) must not point at a panel that is not there
   return <RTabs.Trigger {...props} className={cx('cs-ui-tab', className)} />;
 }
 export function TabPanel({ className, ...props }: ComponentPropsWithoutRef<typeof RTabs.Content>): JSX.Element {

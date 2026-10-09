@@ -161,6 +161,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: 6.0.5
         version: 6.0.5(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.1))
+      axe-core:
+        specifier: 4.14.0
+        version: 4.14.0
       jsdom:
         specifier: 30.0.1
         version: 30.0.1(@noble/hashes@2.4.0)
@@ -2250,6 +2253,10 @@ packages:
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
     engines: {node: '>=12'}
+
+  axe-core@4.14.0:
+    resolution: {integrity: sha512-9WTZxEjsZ7b13TH8JPmbV2z8CHbl80/2hm3XPEG4JgNdQLK81IBRXmSxHfMAOkSqQeRxT/0dwNDz2GOm3zzpcQ==}
+    engines: {node: '>=4'}
 
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
@@ -4566,6 +4573,8 @@ snapshots:
       dequal: 2.0.3
 
   assertion-error@2.0.1: {}
+
+  axe-core@4.14.0: {}
 
   base64-js@1.5.1: {}
 

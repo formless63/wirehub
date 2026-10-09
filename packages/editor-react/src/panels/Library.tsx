@@ -1276,7 +1276,7 @@ export function Library(props: LibraryProps): JSX.Element {
         >
           <TabList aria-label="parts library" className="cs-library-tabs">
             {LIBRARY_KINDS.map((entry) => (
-              <Tab key={entry} value={entry} title={DEFINITION_BLURBS[entry]}>
+              <Tab key={entry} value={entry} title={DEFINITION_BLURBS[entry]} aria-controls={undefined}>
                 {DEFINITION_LABELS[entry]}
               </Tab>
             ))}

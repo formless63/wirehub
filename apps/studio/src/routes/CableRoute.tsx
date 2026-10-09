@@ -274,6 +274,7 @@ export function CableRoute(): JSX.Element {
     const copy = studio.offlineCopy;
     return (
       <div className="flex h-full min-h-0 flex-col">
+        <h1 className="cs-ui-sr">{copy?.label ?? id}</h1>
         <div
           role="status"
           data-testid="offline-banner"
@@ -313,13 +314,14 @@ export function CableRoute(): JSX.Element {
 
   if (studio.cableId !== id || studio.design === undefined || studio.stored === undefined || artReady !== id || !studio.dbReady) {
     // still loading — `openCable` above is already in flight
-    return <div className="flex h-full items-center justify-center text-sm text-faint">Loading…</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-faint"><h1 className="cs-ui-sr">{id}</h1>Loading…</div>;
   }
 
   // edit locks: the cable, its drawing and its documents are one record
   return (
     <EditLockScope record={designRecord(id)}>
     <div className="flex h-full min-h-0 flex-col">
+    <h1 className="cs-ui-sr">{studio.design.label}</h1>
     <UsedInPanel id={id} />
     <div className="min-h-0 flex-1">
     <CableEditor

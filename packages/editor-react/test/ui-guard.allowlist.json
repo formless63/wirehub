@@ -10,12 +10,6 @@
     "apps/studio/src/modules/CsvImport.tsx": {
       "native-select": 2
     },
-    "apps/studio/src/modules/PacksPanel.tsx": {
-      "confirm-prompt": 1
-    },
-    "apps/studio/src/modules/StoreBrowser.tsx": {
-      "confirm-prompt": 1
-    },
     "apps/studio/src/versions/VersionsPanel.tsx": {
       "native-select": 1
     },

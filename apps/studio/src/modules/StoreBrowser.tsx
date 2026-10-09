@@ -159,7 +159,7 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per arrival
   }, [openPack, packs]);
 
-  const confirm = (): Promise<void> =>
+  const applyPending = (): Promise<void> =>
     run(async () => {
       if (pending === undefined) return;
       const answer = await applyStoreInstall({ index: pending.pack.index, id: pending.pack.id, version: pending.version, force: pending.force }, pending.sha256, pending.plan.major === true, '/api', pending.code === undefined ? undefined : { code: pending.code.consent });
@@ -313,7 +313,7 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
         testId="store-pending"
         footer={pending === undefined ? undefined : (
           <>
-            <Button variant="primary" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()}>
+            <Button variant="primary" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void applyPending()}>
               {pending.kind === 'update' ? 'Update' : 'Install'}
             </Button>
             <Button onClick={() => setPending(undefined)}>Cancel</Button>

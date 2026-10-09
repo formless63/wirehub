@@ -18,9 +18,14 @@
  * touches the ≥640px layout.
  */
 
-import { useState, useCallback, type JSX, type ReactNode } from 'react';
+import { useMatches } from '@tanstack/react-router';
+import { useState, useCallback, useEffect, type JSX, type ReactNode } from 'react';
 
 import { useSetupMode } from '../setup-mode.ts';
+import { useModules } from '../modules/ModulesContext.tsx';
+import { cableRoute } from '../router.tsx';
+import { useStudio } from '../studio-context.tsx';
+import { pageTitle } from './navigation.ts';
 
 import { AppCommands } from '../commands/AppCommands.tsx';
 import { CommandPalette } from '../commands/CommandPalette.tsx';
@@ -32,20 +37,52 @@ import { Rail } from './Rail.tsx';
 import { StatusBar } from './StatusBar.tsx';
 import { TopBar } from './TopBar.tsx';
 
+/** The tab title names the page (and the open design): `Designs · WireHub`. */
+function useDocumentTitle(): void {
+  const matches = useMatches();
+  const studio = useStudio();
+  const modules = useModules();
+  const pathname = matches[matches.length - 1]?.pathname ?? '/';
+  const cableMatch = matches.find((match) => match.routeId === cableRoute.id);
+  const cableId = cableMatch === undefined ? undefined : (cableMatch.params as { id: string }).id;
+  const moduleTitle = modules.routes().find((route) => pathname === `/m/${route.module}/${route.path}`)?.label;
+  const design = cableId !== undefined && studio.cableId === cableId ? (studio.design?.label ?? studio.offlineCopy?.label) : undefined;
+  const title = cableId !== undefined ? (design ?? cableId) : (moduleTitle ?? pageTitle(pathname));
+  useEffect(() => {
+    document.title = title === 'WireHub' ? 'WireHub' : `${title} · WireHub`;
+  }, [title]);
+}
+
+/** First stop for the keyboard: jumps past the rail and top bar to the page. */
+function SkipLink(): JSX.Element {
+  return (
+    <a href="#main" className="cs-ui-skip" onClick={(event) => {
+      event.preventDefault();
+      const main = document.getElementById('main');
+      main?.focus();
+      main?.scrollIntoView?.({ block: 'start' });
+    }}>
+      Skip to content
+    </a>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }): JSX.Element {
+  useDocumentTitle();
   const [navOpen, setNavOpen] = useState(false);
   const closeNav = useCallback(() => setNavOpen(false), []);
   // first-run setup stands alone: no rail, no top-bar status, no palette
-  if (useSetupMode()) return <main className="h-full bg-bg text-ink">{children}</main>;
+  if (useSetupMode()) return <main id="main" tabIndex={-1} className="h-full bg-bg text-ink">{children}</main>;
   return (
     <EditorChromeProvider>
       <div className="flex h-full flex-col overflow-hidden bg-bg text-ink">
+        <SkipLink />
         <AppCommands />
         <EditorCommands />
         <TopBar onOpenNav={() => setNavOpen(true)} />
         <div className="flex min-h-0 grow">
           <Rail />
-          <main className="min-w-0 grow overflow-hidden">{children}</main>
+          <main id="main" tabIndex={-1} className="min-w-0 grow overflow-hidden outline-none">{children}</main>
         </div>
         <StatusBar />
         <CommandPalette />

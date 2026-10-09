@@ -6648,3 +6648,6 @@ fieldset.cs-lock-fence {
     animation: none !important;
   }
 }
+
+/* the tablist inside the inspector's nav: layout passes through to the nav */
+.cs-conn-tablist { display: contents; }

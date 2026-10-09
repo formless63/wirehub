@@ -164,7 +164,7 @@ export function PacksPanel(): JSX.Element {
     }
   };
 
-  const confirm = (): Promise<void> =>
+  const applyPending = (): Promise<void> =>
     run(async () => {
       if (pending === undefined) return;
       const major = pending.plan.major === true;
@@ -273,7 +273,7 @@ export function PacksPanel(): JSX.Element {
         testId="pack-pending"
         footer={pending === undefined ? undefined : (
           <>
-            <Button variant="primary" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()}>
+            <Button variant="primary" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void applyPending()}>
               {pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable pack' : 'Install'}
             </Button>
             <Button onClick={() => setPending(undefined)}>Cancel</Button>
