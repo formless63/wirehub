@@ -160,6 +160,7 @@ export function HistoryRoute(): JSX.Element {
       >
         {capabilities?.backend === 'none' ? null : (
           <DataTable
+            loading={loading && entries.length === 0}
             label="Changes"
             rows={entries}
             columns={COLUMNS}
@@ -169,9 +170,7 @@ export function HistoryRoute(): JSX.Element {
             columnsKey="history"
             rowAttrs={(e) => ({ 'data-entry': e.id })}
             empty={
-              loading ? (
-                <div className="px-4 py-3 text-faint">Loading…</div>
-              ) : error !== undefined ? null : filtered ? (
+              error !== undefined ? null : filtered ? (
                 <div className="px-4 py-3 text-faint">No changes match.</div>
               ) : (
                 <EmptyState

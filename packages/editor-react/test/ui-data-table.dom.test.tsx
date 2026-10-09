@@ -46,6 +46,26 @@ function Harness({ onActivate }: { onActivate?: (r: Row) => void }) {
 
 const names = (): string[] => within(screen.getByRole('table', { name: 'Parts' })).getAllByRole('row').slice(1).map((r) => r.querySelector('td')?.textContent ?? '');
 
+describe('DataTable loading and column prefs', () => {
+  it('shows skeleton rows with the real columns while loading, never the empty message, then the rows', () => {
+    const { rerender } = render(<DataTable label="Parts" loading rows={[]} columns={COLUMNS} getRowId={(r) => r.id} empty={<EmptyState>No parts.</EmptyState>} />);
+    const table = screen.getByRole('table', { name: 'Parts' });
+    expect(table.getAttribute('aria-busy')).toBe('true');
+    expect(table.querySelectorAll('[data-skeleton-row]').length).toBeGreaterThan(3);
+    expect(screen.queryByText('No parts.')).toBeNull();
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Name', 'Qty', 'Note']);
+    rerender(<DataTable label="Parts" rows={ROWS} columns={COLUMNS} getRowId={(r) => r.id} />);
+    expect(table.querySelectorAll('[data-skeleton-row]').length).toBe(0);
+    expect(table.getAttribute('aria-busy')).toBeNull();
+  });
+
+  it('keeps the column choice with the other preferences (and reads an earlier one from this browser)', () => {
+    localStorage.setItem('wirehub:cols:legacy', JSON.stringify(['note']));
+    render(<DataTable label="Parts" rows={ROWS} columns={COLUMNS} getRowId={(r) => r.id} columnsKey="legacy" />);
+    expect(within(screen.getByRole('table', { name: 'Parts' })).queryByRole('columnheader', { name: 'Note' })).toBeNull();
+  });
+});
+
 describe('DataTable', () => {
   it('has one heading, a named table and one tab stop', () => {
     render(<Harness />);

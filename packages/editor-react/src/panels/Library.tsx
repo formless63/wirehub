@@ -134,6 +134,8 @@ export interface LibraryProps {
   /** how this host stores definitions; without one the Library is read-only */
   definitions?: DefinitionsAdapter;
   /** the library changed — the host reloads its db and hands a new one down */
+  /** the host has not answered with the catalog yet: the table shows skeleton rows, not "nothing here" */
+  loading?: boolean;
   onDefinitionsChange?: (change: DefinitionChange) => void;
   /** the cutaway's renderer, injectable for tests */
   renderCutaway?: CrossSectionRenderer;
@@ -1307,12 +1309,10 @@ export function Library(props: LibraryProps): JSX.Element {
             {problem === undefined ? null : <Problem problem={problem} />}
           </div>
         ) : null}
-        {list.kind !== kind ? (
-          <p className="cs-empty">Reading the library…</p>
-        ) : (
           <LibraryTable
             kind={kind}
-            rows={tableRows}
+            loading={list.kind !== kind || props.loading === true}
+            rows={list.kind !== kind ? [] : tableRows}
             columns={columns}
             query={query}
             compact={mode.kind !== 'browse'}
@@ -1351,7 +1351,6 @@ export function Library(props: LibraryProps): JSX.Element {
             onCount={onTableCount}
             {...(mode.kind === 'browse' ? { lead: listTools } : {})}
           />
-        )}
       </div>
       {pane.collapsed ? (
         <span className="cs-library-split" aria-hidden="true" />
@@ -1794,6 +1793,8 @@ export function Library(props: LibraryProps): JSX.Element {
                     const deletedKind = kind;
                     void run(async () => {
                       const result = await deleteDefinition(adapter, deletedKind, mode.id, mode.id);
+                      // the row leaves the list now, not after the refresh
+                      if (result.ok) setList((current) => (current.kind === deletedKind ? { ...current, records: current.records.filter((r) => r.id !== mode.id) } : current));
                       // the record, as it was, goes back when Undo is pressed within the window
                       if (result.ok && gone !== undefined) {
                         notify.undoable(`Deleted ${gone.label === '' ? gone.id : gone.label}`, () => {

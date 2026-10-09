@@ -46,6 +46,12 @@ describe('the /dev/ui gallery', () => {
       expect(within(panel).getByRole('combobox', { name: 'Gauge' })).toBeTruthy();
       expect(within(panel).getByRole('switch', { name: 'Autosave' })).toBeTruthy();
       expect(within(panel).getAllByRole('tab').length).toBeGreaterThan(1);
+      // page anatomy: header, filters, a data table with a selected row and its side panel, an empty state
+      expect(within(panel).getByRole('heading', { level: 1, name: 'Designs' })).toBeTruthy();
+      expect(within(panel).getByRole('button', { name: /Filters/ })).toBeTruthy();
+      expect(within(panel).getByRole('table', { name: 'Demo designs' })).toBeTruthy();
+      expect(within(panel).getByRole('region', { name: 'Design details' })).toBeTruthy();
+      expect(within(panel).getAllByTestId('empty-state').length).toBeGreaterThan(0);
     }
   });
 });

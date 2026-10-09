@@ -84,10 +84,9 @@ export function JobsRoute(): JSX.Element {
           )
         }
       >
-        {data === undefined ? (
-          query.isError ? null : <div className="px-4 py-3 text-faint">Loading…</div>
-        ) : (
+        {query.isError && data === undefined ? null : (
           <DataTable
+            loading={data === undefined}
             label="Jobs"
             rows={jobs}
             columns={columns}

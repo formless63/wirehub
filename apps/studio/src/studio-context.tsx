@@ -75,7 +75,7 @@ import { workbenchDefinitions } from './definitions.browser.ts';
 import { workbenchVocab } from './vocab.browser.ts';
 import { localLayoutStore } from './layout.browser.ts';
 import { workbenchAssets, workbenchDrawings, workbenchPersistence } from './persistence.browser.ts';
-import { cableListKey, dbKey, designKey, designsKey, loadDb, loadDesign, loadDesigns } from './queries.ts';
+import { cableListKey, dbKey, designKey, designsKey, dropDesignFromLists, loadDb, loadDesign, loadDesigns } from './queries.ts';
 import { applyTheme, initialTheme, isTheme, persistTheme, watchSystemTheme, type Theme } from './theme.ts';
 import { hydratePrefs } from './prefs.browser.ts';
 import { captureDesign, restoreDesign } from './design-undo.ts';
@@ -387,7 +387,9 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
       // what is about to go, kept for Undo: the design and its drawing details (a deleted design has no released
       // revision, and an upload is never removed, so these two are all there was)
       const before = await captureDesign(rawPersistence, workbenchDrawings(), args.id);
-      const outcome = await rawPersistence.remove(args.id, args.confirm);
+      const putBack = dropDesignFromLists(queryClient, args.id);
+      const outcome = await rawPersistence.remove(args.id, args.confirm).catch((error: unknown): Outcome<{ id: string }> => ({ ok: false, message: error instanceof Error ? error.message : String(error) }));
+      if (!outcome.ok) putBack();
       if (outcome.ok) {
         queryClient.removeQueries({ queryKey: designKey(args.id) });
         // awaited so a caller reading the cache right after (CableRoute's

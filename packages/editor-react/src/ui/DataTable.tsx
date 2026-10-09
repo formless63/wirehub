@@ -22,6 +22,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 
 import { IconButton } from './Button.tsx';
+import { Skeleton } from './Feedback.tsx';
 import { cx } from './cx.ts';
 import { Popover } from './Overlays.tsx';
 import { usePref } from './prefs.ts';
@@ -71,6 +72,8 @@ export interface DataTableProps<T> {
   columnsKey?: string;
   /** show only the fixed columns (a detail pane is open beside the table) */
   compact?: boolean;
+  /** the rows are on their way: skeleton rows with the table's own columns instead of an empty message, so nothing jumps when they arrive */
+  loading?: boolean;
   /** what an empty table says */
   empty?: ReactNode;
   rowClassName?: (row: T) => string | undefined;
@@ -268,7 +271,7 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
 
   return (
     <div ref={setScroll} className={cx('cs-ui-dt', props.className)} data-testid={props.testId} data-compact={compact || undefined}>
-      <table className="cs-ui-dt-table" aria-label={props.label} aria-rowcount={modelRows.length} style={minWidth === undefined ? undefined : { minWidth }}>
+      <table className="cs-ui-dt-table" aria-label={props.label} aria-busy={props.loading === true ? true : undefined} aria-rowcount={modelRows.length} style={minWidth === undefined ? undefined : { minWidth }}>
         {useCard ? null : (
           <>
             <colgroup>
@@ -309,7 +312,22 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
           </>
         )}
         <tbody>
-          {modelRows.length === 0 ? (
+          {props.loading === true && modelRows.length === 0
+            ? Array.from({ length: 6 }, (_, i) => (
+                <tr key={`sk-${i}`} className="cs-ui-dt-row cs-ui-dt-skeleton" aria-hidden="true" data-skeleton-row>
+                  {useCard ? (
+                    <td className="cs-ui-dt-card"><Skeleton width="70%" /></td>
+                  ) : (
+                    shown.map((c, n) => (
+                      <td key={c.id} data-col={c.id} className={cx(c.numeric === true && 'is-num')}>
+                        <Skeleton width={`${[72, 56, 40, 64, 48][(i + n) % 5]}%`} />
+                      </td>
+                    ))
+                  )}
+                </tr>
+              ))
+            : null}
+          {modelRows.length === 0 && props.loading !== true ? (
             <tr className="cs-ui-dt-empty">
               <td colSpan={Math.max(1, colCount)}>{props.empty ?? 'Nothing here yet.'}</td>
             </tr>

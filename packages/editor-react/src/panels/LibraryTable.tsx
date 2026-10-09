@@ -37,6 +37,8 @@ export interface LibraryTableProps {
   rowMarker?: (id: string) => ReactNode;
   /** the Compare pick-two mode: a checkbox per row */
   pick?: { ids: readonly string[]; toggle: (id: string) => void };
+  /** rows still arriving: skeleton rows instead of the empty note */
+  loading?: boolean;
   /** what an empty table says */
   empty: ReactNode;
   /** rows shown / total, reported up for the count */
@@ -141,6 +143,7 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
       )}
       <DataTable
         key={kind}
+        loading={props.loading === true}
         label={`${kind} table`}
         rows={shownRows}
         columns={tableColumns}

@@ -17,6 +17,7 @@
 
 import type { CableDesign, Db } from '@wirehub/model';
 import type { DesignSummary, PersistenceAdapter } from '@wirehub/editor-react';
+import type { QueryClient } from '@tanstack/react-query';
 
 import { EMPTY_DB } from './catalog.browser.ts';
 import type { CableListEntry } from './cable-list.ts';
@@ -105,4 +106,19 @@ export async function loadDb(): Promise<DbQueryData> {
     return { db: fresh, live: true };
   }
   return { db: (await recall<Db>('db'))?.value ?? EMPTY_DB, live: false };
+}
+
+/**
+ * An optimistic delete: the design leaves both lists at once, before the server has answered.
+ * Returns the function that puts them back, for a delete the server refused.
+ */
+export function dropDesignFromLists(client: QueryClient, id: string): () => void {
+  const designs = client.getQueryData<DesignsQueryData>(designsKey);
+  const cables = client.getQueryData<CableListQueryData>(cableListKey);
+  if (designs !== undefined) client.setQueryData<DesignsQueryData>(designsKey, { ...designs, designs: designs.designs.filter((d) => d.id !== id) });
+  if (cables !== undefined) client.setQueryData<CableListQueryData>(cableListKey, { ...cables, entries: cables.entries.filter((e) => e.id !== id) });
+  return () => {
+    if (designs !== undefined) client.setQueryData(designsKey, designs);
+    if (cables !== undefined) client.setQueryData(cableListKey, cables);
+  };
 }
