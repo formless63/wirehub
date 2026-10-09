@@ -258,8 +258,9 @@ async function wireSpec(method: string, id: string, query: URLSearchParams, deps
   if (wire === undefined) return fail(404, `There is no wire stock called '${id}'.`, 'Pick one from GET /api/definitions/wires.');
   const asked = query.get('format') ?? 'html';
   if (!isWireSpecFormat(asked)) return fail(400, `'${asked}' is not a format for a spec sheet.`, `Formats: ${WIRE_SPEC_FORMATS.join(', ')}.`);
-  const paper = query.get('paper');
-  if (paper !== null && paper !== 'A4' && paper !== 'letter') return fail(400, `paper must be A4 or letter, not '${paper}'.`);
+  const paperAsked = query.get('paper');
+  const paper = paperAsked === null || paperAsked === '' ? null : parsePaper(paperAsked);
+  if (paperAsked !== null && paperAsked !== '' && paper === undefined) return fail(400, `paper must be one of ${PAPER_IDS.join(', ')}, not '${paperAsked}'.`);
   const library = await deps.wireLibrary?.read();
   const recipe = library?.recipes.find((r) => r.id === id);
   const manufacturers = db.vocab?.['manufacturers']?.entries;
@@ -274,7 +275,7 @@ async function wireSpec(method: string, id: string, query: URLSearchParams, deps
       ...(recipe === undefined ? {} : { recipe }),
       ...(library === undefined ? {} : { parts: library.parts }),
       ...(manufacturers === undefined ? {} : { manufacturers }),
-      ...(paper === null ? {} : { paper: paper as 'A4' | 'letter' }),
+      ...(paper === null || paper === undefined ? {} : { paper }),
     };
     if (asked === 'pdf') {
       // the sheet printed by the browser engine, when there is one; else the headless pages

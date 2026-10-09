@@ -138,6 +138,7 @@ export {
   WIRE_SPEC_FILE_PREFIX,
   wireSpecScale,
   WIRE_SPEC_STYLESHEET,
+  wireSpecFrame,
 } from './wire-spec.ts';
 export type { WireSpecOptions } from './wire-spec.ts';
 

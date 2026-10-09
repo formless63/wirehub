@@ -64,11 +64,10 @@ import type { CableDesign, Db, KnownPartNumber, PartNumberScheme } from '@wirehu
 import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { PdfEngine } from './browser-pdf.ts';
-import { layoutMarkdown, PAPER } from './layout.ts';
+import { framedPagesToPdf, framedPagesToSvg, framedTextPages } from './framed-text.ts';
 import { pagesToPdf, type PdfPage } from './pdf.ts';
 import { svgToPdfPage } from './raster.ts';
 import { svgToVectorPdfPage } from './vector.ts';
-import { pagesToSvg } from './svg.ts';
 
 export const DOCUMENT_KINDS = ['schematic', 'build-sheet', 'bom', 'test-spec', 'drawing', 'labels', 'formboard'] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
@@ -369,9 +368,10 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
               : testSpecToMarkdown(deriveTestSpec(design, db, { continuityOhmsMax: parameters.continuityOhmsMax }), parameters),
         );
         return withBranding(request.branding, () => {
-          const size = PAPER[paper === 'letter' ? 'letter' : 'A4'];
-          const pages = layoutMarkdown(markdown, { paper: size, footer: `${design.id} ${kind}${request.revisionNumber === undefined ? '' : ` rev ${request.revisionNumber}`}` });
-          return format === 'svg' ? out(pagesToSvg(pages)) : out(pagesToPdf(pages.map((page): PdfPage => ({ kind: 'ops', page })), titleOf(request)), 'pdf', 'text-layout');
+          // the text on the sheet frame: the full title block first, the strip and "n of N" after (cs-dcuk)
+          const what = kind === 'build-sheet' ? 'BENCH BUILD SHEET' : kind === 'bom' ? 'BILL OF MATERIALS' : 'CONTINUITY & TEST SPEC';
+          const pages = framedTextPages(markdown, frameOf(what, 'portrait', 'full'));
+          return format === 'svg' ? out(framedPagesToSvg(pages)) : out(pagesToPdf(framedPagesToPdf(pages), titleOf(request)), 'pdf', 'text-layout');
         });
       }
     }

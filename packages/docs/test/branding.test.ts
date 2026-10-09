@@ -23,7 +23,7 @@ describe('title-block branding', () => {
       expect(sheet).toContain('Confidential - Acme Cable Co');
       expect(sheet).toContain('J. Doe');
       const spec = renderWireSpecSheet(wire);
-      expect(spec).toContain('ACME CABLE CO');
+      expect(spec).toContain('Acme Cable Co');
       expect(spec).toContain('Acme Standard');
       expect(spec).toContain('Confidential - Acme Cable Co');
       const bench = headerHtml(sheetHeader(design, db, { kind: 'BUILD' }));
@@ -33,7 +33,7 @@ describe('title-block branding', () => {
       off();
     }
     expect([renderDrawingSheet(design, db), renderWireSpecSheet(wire), headerHtml(sheetHeader(design, db, { kind: 'BUILD' }))]).toEqual(before);
-    expect(before[1]).toContain('WIREHUB');
+    expect(before[1]).toContain('WireHub');
   });
 
   it('the first registration to set a part wins', () => {

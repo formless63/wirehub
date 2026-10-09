@@ -228,7 +228,7 @@ describe('the documents route', () => {
     const res = await get(`/api/definitions/wires/${wire.id}/wire-spec?format=pdf&paper=letter`, hubDeps({ pdfEngine: engine }));
     expect(res.headers?.['X-WireHub-PDF-Renderer']).toBe('browser');
     expect(res.headers?.['Content-Disposition']).toMatch(/filename="WSS_.*\.pdf"/);
-    expect(engine.sent.at(-1)).toMatch(/@page\{size:letter portrait/i);
+    expect(engine.sent.at(-1)).toMatch(/@page\{size:215\.9mm 279\.4mm/i);
     const plain = await get(`/api/definitions/wires/${wire.id}/wire-spec?format=pdf`, hubDeps());
     expect(plain.headers?.['X-WireHub-PDF-Renderer']).toBe('text-layout');
     expect(plain.headers?.['X-WireHub-PDF-Fallback']).toMatch(/WIREHUB_PDF_ENGINE_URL/);

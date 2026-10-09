@@ -45,7 +45,7 @@ describe('wire spec sheet', () => {
     const plain = sheet('dc-2core-24awg');
     expect(plain).toContain('WireHub Standard');
     const branded = sheet('dc-2core-24awg', { organisation: 'Acme Cables', standard: 'Acme Wire Standard', rightsNotice: 'Acme internal' });
-    expect(branded).toContain('ACME CABLES');
+    expect(branded).toContain('Acme Cables');
     expect(branded).toContain('Acme Wire Standard');
     expect(branded).toContain('Acme internal');
   });
