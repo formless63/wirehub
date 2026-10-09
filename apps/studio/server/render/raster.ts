@@ -2,8 +2,8 @@
  * SVG to pixels, and pixels to PDF pages: the headless path for the documents
  * that are drawings already (the schematic, the drawing sheet, the label
  * sheet). Node only: it loads `@resvg/resvg-js`, the SVG rasteriser the Library's 3D
- * board textures already use, with the two Liberation Sans faces the sheets are
- * set in (`packages/docs/fonts`) and no system fonts, so the output does not
+ * board textures already use, with the two Liberation Sans faces and the four IBM Plex subsets the sheets are
+ * set in (`packages/docs/fonts`, `frame/plex.generated.ts`) and no system fonts, so the output does not
  * depend on the machine.
  */
 
@@ -16,6 +16,7 @@ import { join } from 'node:path';
 
 import type { BrandFont } from '@wirehub/docs';
 
+import { plexTrueTypeBytes } from './fonts.ts';
 import type { PdfPage } from './pdf.ts';
 
 const FONT_FILES = ['LiberationSans-Regular.ttf', 'LiberationSans-Bold.ttf'].map((name) => fileURLToPath(new URL(`../../../../packages/docs/fonts/${name}`, import.meta.url)));
@@ -41,6 +42,23 @@ function brandForRaster(svg: string, brand: BrandFont | undefined): { svg: strin
   return { svg: svg.split("'CS Brand'").join(`'${family}'`), files };
 }
 
+/**
+ * The IBM Plex subsets the sheet frame is set in, unpacked from the embedded WOFF2 to TrueType and
+ * written once (named by hash) for the rasteriser, which reads font files, not `@font-face`.
+ */
+let plexFiles: string[] | undefined;
+function plexFontFiles(): string[] {
+  if (plexFiles !== undefined && plexFiles.every((f) => existsSync(f))) return plexFiles;
+  const dir = join(tmpdir(), 'wirehub-plex-fonts');
+  mkdirSync(dir, { recursive: true });
+  plexFiles = plexTrueTypeBytes().map(({ bytes }) => {
+    const path = join(dir, `${createHash('sha256').update(bytes).digest('hex')}.ttf`);
+    if (!existsSync(path)) writeFileSync(path, bytes);
+    return path;
+  });
+  return plexFiles;
+}
+
 export interface RasterPage {
   /** the hub's own typeface, when branding set one (the sheet names it `CS Brand`) */
   brand?: BrandFont;
@@ -58,7 +76,7 @@ export async function svgToPdfPage(page: RasterPage): Promise<PdfPage> {
   const margin = page.margin ?? 0;
   const dpi = page.dpi ?? 200;
   const branded = brandForRaster(page.svg, page.brand);
-  const fontFiles = [...FONT_FILES, ...branded.files];
+  const fontFiles = [...FONT_FILES, ...plexFontFiles(), ...branded.files];
   const probe = new Resvg(branded.svg, { font: { fontFiles, loadSystemFonts: false, defaultFontFamily: 'Liberation Sans' } });
   const aspect = probe.width / probe.height;
   const boxW = page.width - 2 * margin;
@@ -99,7 +117,7 @@ export async function svgToPng(svg: string, widthPx: number): Promise<Uint8Array
   const { Resvg } = await import('@resvg/resvg-js');
   let resvg: InstanceType<typeof Resvg>;
   try {
-    resvg = new Resvg(svg, { fitTo: { mode: 'width', value: widthPx }, font: { fontFiles: FONT_FILES, loadSystemFonts: false, defaultFontFamily: 'Liberation Sans' } });
+    resvg = new Resvg(svg, { fitTo: { mode: 'width', value: widthPx }, font: { fontFiles: [...FONT_FILES, ...plexFontFiles()], loadSystemFonts: false, defaultFontFamily: 'Liberation Sans' } });
   } catch (error) {
     throw new Error(`That SVG could not be drawn: ${error instanceof Error ? error.message : String(error)}`);
   }

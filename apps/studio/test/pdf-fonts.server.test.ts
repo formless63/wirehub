@@ -89,8 +89,12 @@ describe('the formboard PDF', () => {
   it('embeds Liberation Sans as TrueType subsets, with a map back to text', () => {
     expect(text).toMatch(/\/BaseFont \/[A-Z]{6}\+LiberationSans /);
     expect(text).toMatch(/\/BaseFont \/[A-Z]{6}\+LiberationSans-Bold /);
-    expect(text.match(/\/FontFile2 \d+ 0 R/g)).toHaveLength(2);
-    expect(text.match(/\/ToUnicode \d+ 0 R/g)).toHaveLength(2);
+    // …and the sheet frame's text in the embedded IBM Plex subsets, not Liberation (cs-mn9h)
+    expect(text).toMatch(/\/BaseFont \/[A-Z]{6}\+IBMPlexSans /);
+    expect(text).toMatch(/\/BaseFont \/[A-Z]{6}\+IBMPlexMono/);
+    const files = text.match(/\/FontFile2 \d+ 0 R/g)!.length;
+    expect(files).toBeGreaterThanOrEqual(4);
+    expect(text.match(/\/ToUnicode \d+ 0 R/g)).toHaveLength(files);
     // every page that has text draws it with the embedded faces, never the standard Helvetica
     for (const page of pages) {
       expect(page.content).toContain('/E1 ');

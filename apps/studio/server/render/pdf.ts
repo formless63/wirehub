@@ -9,7 +9,7 @@ import { deflateSync } from 'node:zlib';
 
 import { registeredBrandFont } from '@wirehub/docs';
 
-import { pdfFont, liberation, type Face, type PdfFont } from './fonts.ts';
+import { FACES, FACE_RESOURCE, faceName, pdfFont, liberation, type Face, type PdfFont } from './fonts.ts';
 import { winAnsiByte, type Op, type Page } from './layout.ts';
 
 export type PdfPage =
@@ -20,7 +20,7 @@ export type PdfPage =
       height: number;
       content: string;
       alphas: { key: string; ca: number; CA: number }[];
-      /** the glyphs the page's text uses (`/E1` regular, `/E2` bold): embedded once for the document, subset to these */
+      /** the glyphs the page's text uses (`/E1` regular, `/E2` bold, `/E3`..`/E6` the Plex faces): embedded once for the document, subset to these */
       glyphs: { face: Face; gid: number; cp: number }[];
       /** the font each face was set in (absent: the bundled Liberation Sans) */
       fonts?: Partial<Record<Face, PdfFont>>;
@@ -72,7 +72,7 @@ const hex4 = (v: number): string => v.toString(16).toUpperCase().padStart(4, '0'
 
 /** Six capital letters from the glyph set: a subset font's name prefix, the same for the same glyphs. */
 function subsetTag(face: Face, gids: readonly number[]): string {
-  let h = face === 'bold' ? 0x811c9dc5 : 0x01000193;
+  let h = face === 'regular' ? 0x01000193 : face === 'bold' ? 0x811c9dc5 : (0x811c9dc5 + Math.imul(FACES.indexOf(face), 0x9e3779b1)) >>> 0;
   for (const g of gids) h = Math.imul(h ^ g, 0x01000193) >>> 0;
   let tag = '';
   for (let i = 0; i < 6; i += 1) {
@@ -129,22 +129,22 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
   // the vector pages' text: one subset of each Liberation Sans face, shared by every page
-  const used: Record<Face, Map<number, number>> = { regular: new Map(), bold: new Map() };
+  const used = Object.fromEntries(FACES.map((f) => [f, new Map<number, number>()])) as Record<Face, Map<number, number>>;
   for (const p of pages) if (p.kind === 'vector') for (const g of p.glyphs) if (!used[g.face].has(g.gid)) used[g.face].set(g.gid, g.cp);
   const embedded: Partial<Record<Face, number>> = {};
-  for (const face of ['regular', 'bold'] as const) {
+  for (const face of FACES) {
     const gids = [...used[face].keys()].sort((a, b) => a - b);
     if (gids.length === 0) continue;
     const chosen = pages.flatMap((p) => (p.kind === 'vector' ? [p.fonts?.[face]] : [])).find((f) => f !== undefined);
-    const font = chosen?.font ?? liberation(face);
+    const font = chosen?.font ?? (face === 'regular' || face === 'bold' ? liberation(face) : pdfFont(face).font);
     const program = font.subset(gids);
     const packed = deflateSync(program);
-    const name = `${subsetTag(face, gids)}+${chosen?.name ?? 'LiberationSans'}${face === 'bold' ? '-Bold' : ''}`;
+    const name = `${subsetTag(face, gids)}+${faceName(face, chosen?.name)}`;
     const fileNo = add(packed);
     contentDict.set(fileNo, `<< /Filter /FlateDecode /Length ${packed.length} /Length1 ${program.length}${font.outline === 'cff' ? ' /Subtype /OpenType' : ''} >>`);
     const d = font.descriptor;
     const descriptorNo = add(
-      `<< /Type /FontDescriptor /FontName /${name} /Flags 32 /FontBBox [${d.bbox.join(' ')}] /ItalicAngle ${n(d.italicAngle)} /Ascent ${d.ascent} /Descent ${d.descent} /CapHeight ${Math.round(d.capHeight)} /StemV ${face === 'bold' ? 140 : 80} /${font.outline === 'cff' ? 'FontFile3' : 'FontFile2'} ${fileNo} 0 R >>`,
+      `<< /Type /FontDescriptor /FontName /${name} /Flags 32 /FontBBox [${d.bbox.join(' ')}] /ItalicAngle ${n(d.italicAngle)} /Ascent ${d.ascent} /Descent ${d.descent} /CapHeight ${Math.round(d.capHeight)} /StemV ${face === 'bold' || face === 'plexSemi' || face === 'plexMonoMedium' ? 140 : 80} /${font.outline === 'cff' ? 'FontFile3' : 'FontFile2'} ${fileNo} 0 R >>`,
     );
     const widths = gids.map((g) => `${g} [${Math.round((font.advance(g) * 1000) / font.unitsPerEm)}]`).join(' ');
     const cidNo = add(
@@ -168,7 +168,7 @@ export function pagesToPdf(pages: readonly PdfPage[], title: string): Uint8Array
     if (p.kind === 'ops') {
       stream = deflateSync(Buffer.from(content(p.page).content, 'latin1'));
     } else if (p.kind === 'vector') {
-      resources = `/Font << /F1 4 0 R /F2 5 0 R${embedded.regular === undefined ? '' : ` /E1 ${embedded.regular} 0 R`}${embedded.bold === undefined ? '' : ` /E2 ${embedded.bold} 0 R`} >>`;
+      resources = `/Font << /F1 4 0 R /F2 5 0 R${FACES.map((f) => (embedded[f] === undefined ? '' : ` /${FACE_RESOURCE[f]} ${embedded[f]} 0 R`)).join('')} >>`;
       if (p.alphas.length > 0) resources += ` /ExtGState << ${p.alphas.map((a) => `/${a.key} << /ca ${n(a.ca)} /CA ${n(a.CA)} >>`).join(' ')} >>`;
       stream = deflateSync(Buffer.from(p.content, 'latin1'));
     } else {

@@ -99,3 +99,8 @@ export function plexFontFaceCss(): string {
     .map((f) => `@font-face{font-family:'${f.family}';font-style:normal;font-weight:${f.weight};src:url(data:font/woff2;base64,${f.woff2}) format('woff2')}`)
     .join('');
 }
+
+/** The four embedded faces as data (family, weight, base64 WOFF2), for a renderer that cannot read `@font-face` (the PDF writer, the rasteriser). */
+export function plexFaces(): Readonly<Record<PlexKind, { family: string; weight: number; woff2: string }>> {
+  return { sans: FACES.sans, semi: FACES.semi, mono: FACES.mono, monoMedium: FACES.monoMedium };
+}
