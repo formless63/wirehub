@@ -81,7 +81,7 @@ describe('products', () => {
     expect(list.textContent).toContain('CBL-00090-XX');
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Lineup' }), { button: 0 });
     const lineup = await screen.findByTestId('lineup');
-    expect(within(lineup).getByText('CBL-00090-01')).toBeTruthy();
+    expect(await within(lineup).findByText('CBL-00090-01')).toBeTruthy();
   });
 
   it('shows membership in the list and header and searches aliases in Quick open', async () => {

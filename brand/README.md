@@ -6,6 +6,8 @@
 | `wirehub-logo-dark.svg` | the logo for dark backgrounds, fixed colours (for `<picture>` sources) |
 | `wirehub-mark.svg` | the square mark: favicon, app icon, avatar |
 | `wirehub-header.svg` | the README header (its own dark card, so it reads on any page) |
+| `wirehub-mark-dev.svg` | the mark with a copper dot: the favicon of a development build (`pnpm dev`) |
+| `wirehub-social.svg` | the 1200x630 social card (OpenGraph / Twitter); no text, so it renders identically everywhere. The Pages site renders it to `social.png` at build; `brand:icons` also writes `brand/wirehub-social.png` for the repository's social preview upload |
 
 The app's icons (`apps/studio/public/`) are rendered from `wirehub-mark.svg` by
 `pnpm --filter studio brand:icons`.
