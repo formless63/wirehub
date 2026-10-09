@@ -1,0 +1,65 @@
+{
+  "src": "Library 3D model links. A parametric link has no stored model: its `parametric` spec (a shape and its dimensions in millimetres) is drawn by the viewer, the same way every time. Each link's own `src` cites where the dimensions came from; values marked inferred are typical envelopes, not a standard's figures.",
+  "links": [
+    {
+      "record": "bodies/rj45-8p8c-plug",
+      "asset": "parametric-1d7c8d9bde488ca5",
+      "name": "RJ45 plug (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric RJ45 (8P8C) plug: 11.68 mm wide, 8 contacts at 1.02 mm pitch (IEC 60603-7); height, length, latch and boot sizes are a typical plug envelope (inferred)",
+      "parametric": {
+        "shape": "rj45",
+        "gender": "male",
+        "pins": 8,
+        "params": {
+          "widthMm": 11.68,
+          "heightMm": 8.1,
+          "lengthMm": 19,
+          "latchHeightMm": 4,
+          "contactPitchMm": 1.02,
+          "bootLengthMm": 22
+        }
+      }
+    },
+    {
+      "record": "connectors/rj45-plug-t568a",
+      "asset": "parametric-1d7c8d9bde488ca5",
+      "name": "RJ45 plug (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric RJ45 (8P8C) plug: 11.68 mm wide, 8 contacts at 1.02 mm pitch (IEC 60603-7); height, length, latch and boot sizes are a typical plug envelope (inferred)",
+      "parametric": {
+        "shape": "rj45",
+        "gender": "male",
+        "pins": 8,
+        "params": {
+          "widthMm": 11.68,
+          "heightMm": 8.1,
+          "lengthMm": 19,
+          "latchHeightMm": 4,
+          "contactPitchMm": 1.02,
+          "bootLengthMm": 22
+        }
+      }
+    },
+    {
+      "record": "connectors/rj45-plug-t568b",
+      "asset": "parametric-1d7c8d9bde488ca5",
+      "name": "RJ45 plug (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric RJ45 (8P8C) plug: 11.68 mm wide, 8 contacts at 1.02 mm pitch (IEC 60603-7); height, length, latch and boot sizes are a typical plug envelope (inferred)",
+      "parametric": {
+        "shape": "rj45",
+        "gender": "male",
+        "pins": 8,
+        "params": {
+          "widthMm": 11.68,
+          "heightMm": 8.1,
+          "lengthMm": 19,
+          "latchHeightMm": 4,
+          "contactPitchMm": 1.02,
+          "bootLengthMm": 22
+        }
+      }
+    }
+  ]
+}

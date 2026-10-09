@@ -7,7 +7,8 @@
  * `/api/models/:kind/:id` to `definition:<kind>:<id>`).
  */
 
-import type { ModelLinkView, ModelsAdapter, ModelUploadStats, Outcome, StoredModel } from '@wirehub/editor-react';
+import { isParametricAssetId, type ParametricSpec } from '@wirehub/model';
+import { parametricModelFile, type ModelLinkView, type ModelsAdapter, type ModelUploadStats, type Outcome, type StoredModel } from '@wirehub/editor-react';
 
 import { request } from './persistence.browser.ts';
 
@@ -35,6 +36,11 @@ async function write<T>(send: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
 
 export function workbenchModels(base = '/api'): ModelsAdapter {
   const versions = new Map<string, string>();
+  // parametric models have no stored bytes: remember each spec seen, so the compare view can ask for it by id
+  const specs = new Map<string, ParametricSpec>();
+  const noteSpec = (link: ModelLinkView | null): void => {
+    if (link?.parametric !== undefined) specs.set(link.asset, link.parametric);
+  };
   const key = (kind: string, id: string): string => `${kind}/${id}`;
   const url = (kind: string, id: string, action?: string): string =>
     `${base}/models/${encodeURIComponent(kind)}/${encodeURIComponent(id)}${action === undefined ? '' : `/${action}`}`;
@@ -53,9 +59,14 @@ export function workbenchModels(base = '/api'): ModelsAdapter {
       const result = await request<{ link: ModelLinkView | null; built?: boolean }>(url(kind, id), { method: 'GET' }, remember(key(kind, id)));
       if (!result.ok) return result;
       const { link, built } = result.value;
+      noteSpec(link);
       return { ok: true, value: link === null ? null : { ...link, ...(built === undefined ? {} : { built }) } };
     },
-    list: () => request<{ links: ModelLinkView[]; models: StoredModel[] }>(`${base}/models`),
+    async list() {
+      const result = await request<{ links: ModelLinkView[]; models: StoredModel[] }>(`${base}/models`);
+      if (result.ok) result.value.links.forEach(noteSpec);
+      return result;
+    },
     async attach(kind, id, asset) {
       const k = key(kind, id);
       const result = await write(() => request<{ link: ModelLinkView }>(url(kind, id), { method: 'PUT', body: { asset }, headers: ifMatch(k) }, remember(k)));
@@ -78,6 +89,10 @@ export function workbenchModels(base = '/api'): ModelsAdapter {
       return result.ok ? { ok: true, value: null } : result;
     },
     async fetchModel(asset): Promise<Outcome<{ bytes: ArrayBuffer; mime: string }>> {
+      if (isParametricAssetId(asset)) {
+        const spec = specs.get(asset);
+        return spec === undefined ? { ok: false, message: 'That parametric model is not known here; reload the page.' } : { ok: true, value: parametricModelFile(spec) };
+      }
       if (!/^[0-9a-f]{64}$/.test(asset)) return { ok: false, message: 'That is not a stored model id.' };
       try {
         const response = await fetch(`${base}/assets/${asset}`);

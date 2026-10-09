@@ -19,6 +19,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type JSX, ty
 
 import type { ArtworkAdapter, ArtworkView } from '../artwork.ts';
 import { classes } from '../context.ts';
+import { parametricModelFile } from '../parametric-model.ts';
 import { isModelFileName, MODEL_ACCEPT, MODEL_SOURCE_LABEL, type ModelLinkView, type ModelsAdapter, type ModelSourceKind, type StoredModel } from '../models.ts';
 import { useEditLocked, useEditSession } from './edit-session.ts';
 
@@ -140,6 +141,15 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     let live = true;
     setModel(undefined);
     setModelError(undefined);
+    if (link.parametric !== undefined) {
+      // drawn from its dimensions: nothing to fetch
+      try {
+        setModel(parametricModelFile(link.parametric));
+      } catch (error) {
+        setModelError(error instanceof Error ? error.message : 'The 3D model could not be drawn.');
+      }
+      return;
+    }
     void models.fetchModel(link.asset).then((outcome) => {
       if (!live) return;
       if (outcome.ok) setModel(outcome.value);
