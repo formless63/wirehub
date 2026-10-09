@@ -1,33 +1,29 @@
 /**
- * One Library kind as a real table: PN · Name · the
- * kind's key columns · Used · Status · Flags — sortable headers, filter
- * chips for the facet columns, a column menu remembered per viewer, and the
- * cable list's look (30px rows, small caps header, mono PN). Below 640px each
- * row is a card: PN and name first, the rest as a facts line.
+ * One Library kind as a `DataTable`: PN · Name · the kind's key columns · Used · Status · Flags —
+ * sortable headers, filter chips for the facet columns, and a column menu remembered per viewer.
+ * Below 640px each row is a card: PN and name first, the rest as a facts line.
  *
- * Everything it computes is `library-table.ts`; this file only draws it.
+ * Everything it computes is `library-table.ts`; this file only wires it to the table.
  * `compact` (a record is open beside it) keeps PN and Name only.
  */
 
-import { IconArrowDown, IconArrowUp, IconCheck, IconChevronDown, IconColumns3 } from '@tabler/icons-react';
-import { Popover } from 'radix-ui';
-import { useEffect, useMemo, useState, type JSX, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
 
 import { classes } from '../context.ts';
 import type { LibraryKind } from '../definitions.ts';
 import {
   facetOptions,
   filterRows,
-  loadColumnPrefs,
-  saveColumnPrefs,
   sortRows,
-  toggleColumn,
-  visibleColumns,
-  type ColumnPrefs,
   type LibraryColumn,
   type LibraryRow,
   type LibrarySort,
 } from '../library-table.ts';
+import { Button } from '../ui/Button.tsx';
+import { Checkbox } from '../ui/Controls.tsx';
+import { DataTable, type DataColumn, type DataSort } from '../ui/DataTable.tsx';
+import { FilterChip } from '../ui/FilterChip.tsx';
+import { Toolbar } from '../ui/Page.tsx';
 
 export interface LibraryTableProps {
   kind: LibraryKind;
@@ -47,76 +43,6 @@ export interface LibraryTableProps {
   onCount?: (shown: number, total: number) => void;
   /** the host's own tools at the start of the filter bar (search, New …) */
   lead?: ReactNode;
-}
-
-function FacetChip(props: { label: string; options: string[]; selected: string[]; onChange: (next: string[]) => void }): JSX.Element {
-  const active = props.selected.length > 0;
-  return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <button type="button" className={classes('cs-lt-chip', active && 'is-active')} title={`Filter by ${props.label.toLowerCase()}`}>
-          {props.label}
-          {active ? <strong>{props.selected.length === 1 ? props.selected[0] : props.selected.length}</strong> : null}
-          <IconChevronDown size={12} />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content className="cs-popover cs-lt-menu" align="start" sideOffset={4} aria-label={`${props.label} filter`}>
-          {props.options.map((option) => {
-            const on = props.selected.includes(option);
-            return (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={on}
-                className="cs-lt-menu-row"
-                onClick={() => props.onChange(on ? props.selected.filter((v) => v !== option) : [...props.selected, option])}
-              >
-                <span className="cs-lt-box">{on ? <IconCheck size={11} /> : null}</span>
-                {option}
-              </button>
-            );
-          })}
-          {active ? (
-            <button type="button" className="cs-lt-menu-row cs-lt-clear" onClick={() => props.onChange([])}>
-              Clear
-            </button>
-          ) : null}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-}
-
-function ColumnMenu(props: { columns: readonly LibraryColumn[]; prefs: ColumnPrefs; onChange: (next: ColumnPrefs) => void }): JSX.Element {
-  const shown = new Set(visibleColumns(props.columns, props.prefs).map((c) => c.id));
-  return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <button type="button" className="cs-icon-btn cs-lt-columns" aria-label="Columns" title="Show or hide columns — remembered in this browser">
-          <IconColumns3 size={15} stroke={1.75} />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content className="cs-popover cs-lt-menu" align="end" sideOffset={4} aria-label="columns">
-          {props.columns
-            .filter((c) => c.fixed !== true)
-            .map((column) => (
-              <button
-                key={column.id}
-                type="button"
-                aria-pressed={shown.has(column.id)}
-                className="cs-lt-menu-row"
-                onClick={() => props.onChange(toggleColumn(props.prefs, column))}
-              >
-                <span className="cs-lt-box">{shown.has(column.id) ? <IconCheck size={11} /> : null}</span>
-                {column.header}
-              </button>
-            ))}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  );
 }
 
 function Cell({ row, column, marker }: { row: LibraryRow; column: LibraryColumn; marker?: ReactNode }): JSX.Element {
@@ -148,127 +74,102 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
   const { kind, rows, columns, query } = props;
   const [sort, setSort] = useState<LibrarySort | undefined>(undefined);
   const [facets, setFacets] = useState<Record<string, string[]>>({});
-  const [prefs, setPrefs] = useState<ColumnPrefs>(() => loadColumnPrefs(kind));
-  // a new kind: its own remembered columns, and no sort or filter carried over
+  // a new kind: no sort or filter carried over (the table below is keyed by kind, so its columns reset too)
   useEffect(() => {
-    setPrefs(loadColumnPrefs(kind));
     setSort(undefined);
     setFacets({});
   }, [kind]);
-  const changePrefs = (next: ColumnPrefs): void => {
-    setPrefs(next);
-    saveColumnPrefs(kind, next);
-  };
 
-  const shownColumns = useMemo(() => {
-    const visible = visibleColumns(columns, prefs);
-    return props.compact === true ? visible.filter((c) => c.fixed === true) : visible;
-  }, [columns, prefs, props.compact]);
   const facetColumns = columns.filter((c) => c.facet === true);
   const shownRows = useMemo(() => sortRows(filterRows(rows, query, facets), sort), [rows, query, facets, sort]);
   const onCount = props.onCount;
   useEffect(() => onCount?.(shownRows.length, rows.length), [onCount, shownRows.length, rows.length]);
-
-  const toggleSort = (column: string): void => {
-    setSort((current) =>
-      current?.column !== column ? { column, dir: 'asc' } : current.dir === 'asc' ? { column, dir: 'desc' } : undefined,
-    );
-  };
-  const onKey = (event: KeyboardEvent<HTMLTableRowElement>, id: string): void => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      props.onSelect(id);
-    }
-  };
-  const minWidth = shownColumns.reduce((sum, c) => sum + c.width, 0) + (props.pick === undefined ? 0 : 28);
   const anyFacet = Object.values(facets).some((v) => v.length > 0);
+
+  const pick = props.pick;
+  const marker = props.rowMarker;
+  const tableColumns = useMemo((): DataColumn<LibraryRow>[] => {
+    const own: DataColumn<LibraryRow>[] = columns.map((column) => ({
+      id: column.id,
+      header: column.header,
+      ...(column.title === undefined ? {} : { title: column.title }),
+      width: column.width,
+      ...(column.fixed === true ? { fixed: true } : {}),
+      ...(column.hiddenByDefault === true ? { defaultHidden: true } : {}),
+      ...(column.numeric === true ? { numeric: true } : {}),
+      ...(column.mono === true ? { mono: true } : {}),
+      cell: (row) => <Cell row={row} column={column} marker={marker?.(row.id)} />,
+    }));
+    if (pick === undefined) return own;
+    return [
+      {
+        id: 'pick',
+        header: 'Pick for compare',
+        hideHeader: true,
+        fixed: true,
+        width: 28,
+        cell: (row) => <Checkbox aria-label={`compare ${row.label}`} checked={pick.ids.includes(row.id)} onCheckedChange={() => pick.toggle(row.id)} />,
+      },
+      ...own,
+    ];
+  }, [columns, pick, marker]);
+
+  const dataSort: DataSort | undefined = sort === undefined ? undefined : { id: sort.column, dir: sort.dir };
+  const facetChips = facetColumns.map((column) => {
+    const options = facetOptions(rows, column.id);
+    if (options.length < 2 && (facets[column.id] ?? []).length === 0) return null;
+    return (
+      <FilterChip
+        key={column.id}
+        group={{ label: column.header, options, selected: facets[column.id] ?? [], onChange: (next) => setFacets((current) => ({ ...current, [column.id]: next })) }}
+      />
+    );
+  });
 
   return (
     <div className={classes('cs-lt', props.compact === true && 'is-compact')}>
       {props.compact === true ? null : (
-        <div className="cs-lt-bar" role="toolbar" aria-label="filters">
+        <Toolbar label="filters">
           {props.lead}
-          {facetColumns.map((column) => {
-            const options = facetOptions(rows, column.id);
-            if (options.length < 2 && (facets[column.id] ?? []).length === 0) return null;
-            return (
-              <FacetChip
-                key={column.id}
-                label={column.header}
-                options={options}
-                selected={facets[column.id] ?? []}
-                onChange={(next) => setFacets((current) => ({ ...current, [column.id]: next }))}
-              />
-            );
-          })}
+          {facetChips}
           {anyFacet ? (
-            <button type="button" className="cs-lt-chip cs-lt-reset" onClick={() => setFacets({})}>
+            <Button variant="ghost" size="xs" onClick={() => setFacets({})}>
               Reset
-            </button>
+            </Button>
           ) : null}
-          <ColumnMenu columns={columns} prefs={prefs} onChange={changePrefs} />
-        </div>
+        </Toolbar>
       )}
-      <div className="cs-lt-scroll cs-scroll">
-        <table className="cs-lt-table" style={{ minWidth: props.compact === true ? undefined : `${minWidth}px` }} aria-label={`${kind} table`}>
-          <colgroup>
-            {props.pick === undefined ? null : <col style={{ width: '28px' }} />}
-            {shownColumns.map((c) => (
-              <col key={c.id} style={{ width: c.id === 'name' ? undefined : `${c.width}px` }} />
-            ))}
-          </colgroup>
-          <thead>
-            <tr>
-              {props.pick === undefined ? null : <th aria-label="pick" />}
-              {shownColumns.map((column) => {
-                const sorted = sort?.column === column.id ? sort.dir : undefined;
-                return (
-                  <th
-                    key={column.id}
-                    data-col={column.id}
-                    className={classes(column.numeric === true && 'is-num')}
-                    aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'}
-                  >
-                    <button type="button" className="cs-lt-sort" title={column.title ?? `Sort by ${column.header.toLowerCase()}`} onClick={() => toggleSort(column.id)}>
-                      {column.header}
-                      {sorted === 'asc' ? <IconArrowUp size={11} /> : sorted === 'desc' ? <IconArrowDown size={11} /> : null}
-                    </button>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {shownRows.length === 0 ? (
-              <tr className="cs-lt-empty">
-                <td colSpan={shownColumns.length + (props.pick === undefined ? 0 : 1)}>{props.empty}</td>
-              </tr>
-            ) : null}
-            {shownRows.map((row) => (
-              <tr
-                key={row.id}
-                data-id={row.id}
-                tabIndex={0}
-                aria-selected={props.selectedId === row.id}
-                className={classes(props.selectedId === row.id && 'is-active', row.readOnly && 'is-readonly', row.old && 'is-old')}
-                onClick={() => props.onSelect(row.id)}
-                onKeyDown={(event) => onKey(event, row.id)}
-              >
-                {props.pick === undefined ? null : (
-                  <td className="cs-lt-pick" onClick={(event) => event.stopPropagation()}>
-                    <input type="checkbox" aria-label={`compare ${row.label}`} checked={props.pick.ids.includes(row.id)} onChange={() => props.pick?.toggle(row.id)} />
-                  </td>
-                )}
-                {shownColumns.map((column) => (
-                  <td key={column.id} data-col={column.id} data-label={column.header} className={classes(column.mono === true && 'is-mono', column.numeric === true && 'is-num')}>
-                    <Cell row={row} column={column} marker={props.rowMarker?.(row.id)} />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        key={kind}
+        label={`${kind} table`}
+        rows={shownRows}
+        columns={tableColumns}
+        getRowId={(row) => row.id}
+        selectedId={props.selectedId}
+        onSelect={(row) => props.onSelect(row.id)}
+        sort={dataSort}
+        manualSort
+        onSortChange={(next) => setSort(next === undefined ? undefined : { column: next.id, dir: next.dir })}
+        columnsKey={`library-${kind}`}
+        compact={props.compact === true}
+        rowAttrs={(row) => ({ 'data-id': row.id })}
+        rowClassName={(row) => classes(row.readOnly && 'is-readonly', row.old && 'is-muted')}
+        empty={<div className="cs-lt-empty-note">{props.empty}</div>}
+        card={(row) => (
+          <div className="cs-lt-card">
+            <span className="cs-lt-card-head">
+              <span className="cs-lt-mono">{row.cells['pn']?.text || '—'}</span>
+              <strong>{row.label}</strong>
+            </span>
+            <span className="cs-lt-card-facts">
+              {columns
+                .filter((c) => c.fixed !== true && c.id !== 'flags' && (row.cells[c.id]?.text ?? '') !== '')
+                .map((c) => row.cells[c.id]?.text)
+                .join(' · ')}
+            </span>
+          </div>
+        )}
+      />
     </div>
   );
 }

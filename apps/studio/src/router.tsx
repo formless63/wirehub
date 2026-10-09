@@ -29,7 +29,8 @@ import { NotFoundView } from './shell/NotFoundView.tsx';
 import { CablesRoute } from './routes/CablesRoute.tsx';
 import { CableRoute } from './routes/CableRoute.tsx';
 import { SetupRoute } from './routes/SetupRoute.tsx';
-import { ModuleRoute, ModulesRoute } from './routes/ModuleRoute.tsx';
+import { ModuleRoute } from './routes/ModuleRoute.tsx';
+import { ExtensionsRoute } from './routes/ExtensionsRoute.tsx';
 import { JobsRoute } from './routes/JobsRoute.tsx';
 import { settingsSection, type SettingsSection } from './settings-sections.ts';
 import { AccountRoute } from './routes/AccountRoute.tsx';
@@ -42,7 +43,6 @@ import { setupNeeded } from './setup.browser.ts';
 import { setSetupMode } from './setup-mode.ts';
 // the Library page loads on first visit, not with the main chunk
 const LibraryRoute = lazyRouteComponent(() => import('./routes/LibraryRoute.tsx'), 'LibraryRoute');
-const StoreRoute = lazyRouteComponent(() => import('./routes/StoreRoute.tsx'), 'StoreRoute');
 
 /** The workspace content a cable's URL can ask for; `build` is the default. */
 export type CableView = 'build' | 'schematic' | 'documents';
@@ -158,16 +158,30 @@ export const libraryIndexRoute = createRoute({
   },
 });
 
-/** `/library/store`: Browse store — packs from the trusted store indexes (a static path, so it wins over `$kind`) */
+/** `/library/store` moved to Extensions › Browse; `q` and `pack` (the editor's node creator links here) carry over */
 export const libraryStoreRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library/store',
-  // `q` prefills the search; `pack` opens that pack's install drawer (the editor's node creator links here)
   validateSearch: (search: Record<string, unknown>): { q?: string; pack?: string } => ({
     ...(typeof search['q'] === 'string' && search['q'] !== '' ? { q: search['q'] } : {}),
     ...(typeof search['pack'] === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(search['pack']) ? { pack: search['pack'] } : {}),
   }),
-  component: StoreRoute,
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: '/extensions', search: { tab: 'browse', ...(search.q === undefined ? {} : { q: search.q }), ...(search.pack === undefined ? {} : { pack: search.pack }) } });
+  },
+});
+
+export type ExtensionsSearch = { tab?: 'browse' | 'installed' | 'sources'; q?: string; pack?: string };
+/** `/extensions`: Browse, Installed and Sources — Store, Modules, Code modules and Catalog stores in one place */
+export const extensionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/extensions',
+  validateSearch: (search: Record<string, unknown>): ExtensionsSearch => ({
+    ...(search['tab'] === 'browse' || search['tab'] === 'installed' || search['tab'] === 'sources' ? { tab: search['tab'] } : {}),
+    ...(typeof search['q'] === 'string' && search['q'] !== '' ? { q: search['q'] } : {}),
+    ...(typeof search['pack'] === 'string' && /^[a-z0-9][a-z0-9-]*$/.test(search['pack']) ? { pack: search['pack'] } : {}),
+  }),
+  component: ExtensionsRoute,
 });
 
 export const libraryKindRoute = createRoute({
@@ -189,11 +203,13 @@ export const moduleRoute = createRoute({
   component: ModuleRoute,
 });
 
-/** `/modules`: the deployment's modules and their settings panels */
+/** `/modules` is now Extensions › Installed */
 export const modulesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/modules',
-  component: ModulesRoute,
+  beforeLoad: () => {
+    throw redirect({ to: '/extensions', search: { tab: 'installed' } });
+  },
 });
 
 /** `/jobs`: recent jobs (imports to review and publish, model builds) and the worker's heartbeat */
@@ -207,9 +223,15 @@ export const jobsRoute = createRoute({
 export const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
-  validateSearch: (search: Record<string, unknown>): { section?: SettingsSection } => {
+  validateSearch: (search: Record<string, unknown>): { section?: SettingsSection | 'stores' | 'modules' } => {
+    // Catalog stores and Code modules moved to Extensions; their old addresses redirect (below)
+    if (search['section'] === 'stores' || search['section'] === 'modules') return { section: search['section'] };
     const section = settingsSection(search['section']);
     return section === undefined ? {} : { section };
+  },
+  beforeLoad: ({ search }) => {
+    if (search.section === 'stores') throw redirect({ to: '/extensions', search: { tab: 'sources' } });
+    if (search.section === 'modules') throw redirect({ to: '/extensions', search: { tab: 'installed' } });
   },
   component: SettingsRoute,
 });
@@ -257,7 +279,14 @@ export const accountRoute = createRoute({
     typeof search['error'] === 'string' && /^[A-Z0-9_]{1,60}$/i.test(search['error']) ? { error: search['error'] } : {},
   component: AccountRoute,
 });
-export const peopleRoute = createRoute({ getParentRoute: () => rootRoute, path: '/settings/people', component: AccountRoute });
+/** People moved under Settings; the old address redirects */
+export const peopleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/people',
+  beforeLoad: () => {
+    throw redirect({ to: '/settings', search: { section: 'people' } });
+  },
+});
 export const tokensRoute = createRoute({ getParentRoute: () => rootRoute, path: '/account/tokens', component: AccountRoute });
 
 /**
@@ -279,6 +308,7 @@ const routeTree = rootRoute.addChildren([
   cableRoute,
   libraryIndexRoute,
   libraryStoreRoute,
+  extensionsRoute,
   libraryKindRoute,
   libraryItemRoute,
   moduleRoute,

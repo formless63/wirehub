@@ -72,7 +72,7 @@ describe('<LibraryTable> over the starter connectors', () => {
     expect(document.querySelector('th[data-col="name"]')?.getAttribute('aria-sort')).toBe('descending');
     expect(names()).toEqual([...asc].reverse());
     fireEvent.click(name);
-    expect(document.querySelector('th[data-col="name"]')?.getAttribute('aria-sort')).toBe('none');
+    expect(document.querySelector('th[data-col="name"]')?.getAttribute('aria-sort')).toBeNull();
     expect(ids()).toEqual(stored);
   });
 
@@ -88,7 +88,7 @@ describe('<LibraryTable> over the starter connectors', () => {
     table();
     fireEvent.click(screen.getByTitle('Filter by family'));
     const menu = await screen.findByLabelText('Family filter');
-    fireEvent.click(within(menu).getByRole('button', { name: /terminal-block|Terminal block/i }));
+    fireEvent.click(within(menu).getByRole('checkbox', { name: /terminal-block|Terminal block/i }));
     expect(ids()).toEqual(['terminal-block-4']);
     expect(screen.getByTitle('Filter by family').textContent).toMatch(/terminal/i);
 
@@ -136,11 +136,11 @@ describe('<LibraryTable> over the starter connectors', () => {
     table();
     expect(document.querySelector('th[data-col="gender"]')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Columns' }));
-    const menu = screen.getByLabelText('columns');
-    fireEvent.click(within(menu).getByRole('button', { name: 'Gender' }));
+    const menu = screen.getByRole('group', { name: 'Show columns' });
+    fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: 'Gender' }));
     expect(document.querySelector('th[data-col="gender"]')).toBeNull();
     // Name and PN are always there
-    expect(within(menu).queryByRole('button', { name: 'Name' })).toBeNull();
+    expect(within(menu).queryByRole('menuitemcheckbox', { name: 'Name' })).toBeNull();
     cleanup();
     table();
     expect(document.querySelector('th[data-col="gender"]')).toBeNull();
@@ -149,7 +149,7 @@ describe('<LibraryTable> over the starter connectors', () => {
   it('turns on a column that is off by default', () => {
     table();
     fireEvent.click(screen.getByRole('button', { name: 'Columns' }));
-    fireEvent.click(within(screen.getByLabelText('columns')).getByRole('button', { name: 'Id' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Show columns' })).getByRole('menuitemcheckbox', { name: 'Id' }));
     expect(document.querySelector('th[data-col="id"]')).not.toBeNull();
     expect(document.querySelector('tr[data-id="jst-xh-2-dc"] td[data-col="id"]')?.textContent).toBe('jst-xh-2-dc');
   });
@@ -166,7 +166,7 @@ describe('<LibraryTable> over the starter connectors', () => {
     const { onSelect } = table({ pick: { ids: ['de9-male'], toggle } });
     const boxes = screen.getAllByRole('checkbox');
     expect(boxes.length).toBe(4);
-    expect((screen.getByRole('checkbox', { name: /compare .*male/i, checked: true }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole('checkbox', { name: /compare .*male/i, checked: true })).toBeTruthy();
     fireEvent.click(boxes[0]!);
     expect(toggle).toHaveBeenCalledOnce();
     expect(onSelect).not.toHaveBeenCalled();

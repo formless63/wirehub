@@ -1,6 +1,7 @@
 /** Field editors patch the same JSON draft used by advanced editing; unshown fields survive. */
 import { useState, type JSX } from 'react';
 import { signalKinds, type ConditioningRecipe, type Db, type DevicePort, type DeviceProfile, type PinBinding, type PinOffer, type RecipePart, type RecipeSignal } from '@wirehub/model';
+import { Button, DataTable, Input, Select } from '@wirehub/editor-react';
 
 const inputClass = 'rounded border border-line bg-panel px-1 py-1';
 const buttonClass = 'underline';
@@ -18,14 +19,12 @@ const nextId = (prefix: string, ids: string[]): string => {
 };
 
 function Text({ label, value, onChange }: { label: string; value?: string; onChange: (value: string) => void }): JSX.Element {
-  return <label className="flex flex-col gap-1"><span className="text-faint">{label}</span><input className={inputClass} aria-label={label} value={value ?? ''} onChange={(e) => onChange(e.target.value)} /></label>;
+  return <label className="flex flex-col gap-1"><span className="text-faint">{label}</span><Input className={inputClass} aria-label={label} value={value ?? ''} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 function Choice({ label, value, options, empty = 'Not stated', onChange }: { label: string; value?: string; options: { id: string; label: string }[]; empty?: string; onChange: (value: string) => void }): JSX.Element {
-  return <label className="flex flex-col gap-1"><span className="text-faint">{label}</span><select className={inputClass} aria-label={label} value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
-    <option value="">{empty}</option>
-    {value && !options.some((o) => o.id === value) ? <option value={value}>{value}</option> : null}
-    {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-  </select></label>;
+  const NONE = '__none__';
+  const all = [{ value: NONE, label: empty }, ...(value && !options.some((o) => o.id === value) ? [{ value, label: value }] : []), ...options.map((o) => ({ value: o.id, label: o.label }))];
+  return <label className="flex flex-col gap-1"><span className="text-faint">{label}</span><Select aria-label={label} value={value === undefined || value === '' ? NONE : value} options={all} onValueChange={(v) => onChange(v === NONE ? '' : v)} /></label>;
 }
 const words = (ids: readonly string[]) => ids.map((id) => ({ id, label: id }));
 
@@ -51,28 +50,48 @@ function PortForm({ port, index, db, onChange, onRemove }: { port: DevicePort; i
       <Choice label={`${prefix} role`} value={port.role} options={words(['source', 'sink', 'both'])} onChange={(v) => onChange(patch(port, 'role', v))} />
     </div>
     <p className="my-2 text-faint">Pins inherit the interface. Editing a cell adds an override; Reset restores inheritance. Requirements and other facts remain available in Advanced JSON.</p>
-    <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr><th>Position</th><th>Signal</th><th>Direction</th><th>Level</th><th>Needs</th><th /></tr></thead><tbody>
-      {positions.map((position) => {
-        const binding = port.pins?.[position];
-        const declared = iface?.pins[position]?.signal;
-        const inherited = typeof declared === 'string' ? declared : undefined;
-        const offer = binding === 'nc' ? undefined : binding;
-        const base: PinOffer = offer ?? { signal: inherited ?? '' };
-        const name = `${prefix} pin ${position}`;
-        return <tr key={position}>
-          <td className="pr-2">{position}</td>
-          <td className="p-1"><Choice label={`${name} signal`} value={binding === 'nc' ? '__nc__' : offer?.signal} empty={`Inherited${inherited ? ` (${inherited})` : ''}`} options={[{ id: '__nc__', label: 'Unconnected' }, ...vocab(db, 'signals')]} onChange={(signal) => setPin(position, signal === '' ? undefined : signal === '__nc__' ? 'nc' : { ...base, signal })} /></td>
-          <td className="p-1">{binding === 'nc' ? '—' : <Choice label={`${name} direction`} value={offer?.dir} options={words(['out', 'in', 'bidir', 'passive'])} onChange={(v) => setPin(position, patch(base, 'dir', v))} />}</td>
-          <td className="p-1">{binding === 'nc' ? '—' : <Choice label={`${name} level`} value={offer?.level} options={vocab(db, 'levels')} onChange={(v) => setPin(position, patch(base, 'level', v))} />}</td>
-          <td className="p-1">{binding === 'nc' ? '—' : <Choice label={`${name} add conditioning`} options={vocab(db, 'conditioning')} empty={offer?.needs?.join(', ') || 'None'} onChange={(v) => { if (v) setPin(position, { ...base, needs: [...new Set([...(base.needs ?? []), v])] }); }} />}{offer?.needs?.map((need) => <button className="mr-1 underline" type="button" key={need} aria-label={`${name} remove ${need}`} onClick={() => setPin(position, { ...base, needs: base.needs?.filter((n) => n !== need) })}>{need} ×</button>)}</td>
-          <td><button type="button" className={buttonClass} disabled={binding === undefined} onClick={() => setPin(position, undefined)}>Reset</button></td>
-        </tr>;
-      })}
-    </tbody></table></div>
+    <DataTable
+      label={`${prefix} pins`}
+      className="cs-ui-dt-inline"
+      noColumnMenu
+      rows={positions.map((position) => ({ position }))}
+      getRowId={(r) => r.position}
+      columns={[
+        { id: 'position', header: 'Position', width: 70, cell: (r) => r.position },
+        { id: 'signal', header: 'Signal', width: 170, cell: (r) => {
+          const binding = port.pins?.[r.position];
+          const declared = iface?.pins[r.position]?.signal;
+          const inherited = typeof declared === 'string' ? declared : undefined;
+          const offer = binding === 'nc' ? undefined : binding;
+          const base: PinOffer = offer ?? { signal: inherited ?? '' };
+          return <Choice label={`${prefix} pin ${r.position} signal`} value={binding === 'nc' ? '__nc__' : offer?.signal} empty={`Inherited${inherited ? ` (${inherited})` : ''}`} options={[{ id: '__nc__', label: 'Unconnected' }, ...vocab(db, 'signals')]} onChange={(signal) => setPin(r.position, signal === '' ? undefined : signal === '__nc__' ? 'nc' : { ...base, signal })} />;
+        } },
+        { id: 'dir', header: 'Direction', width: 130, cell: (r) => {
+          const binding = port.pins?.[r.position];
+          const offer = binding === 'nc' ? undefined : binding;
+          const base: PinOffer = offer ?? { signal: (typeof iface?.pins[r.position]?.signal === 'string' ? iface.pins[r.position]!.signal as string : '') };
+          return binding === 'nc' ? '—' : <Choice label={`${prefix} pin ${r.position} direction`} value={offer?.dir} options={words(['out', 'in', 'bidir', 'passive'])} onChange={(v) => setPin(r.position, patch(base, 'dir', v))} />;
+        } },
+        { id: 'level', header: 'Level', width: 130, cell: (r) => {
+          const binding = port.pins?.[r.position];
+          const offer = binding === 'nc' ? undefined : binding;
+          const base: PinOffer = offer ?? { signal: (typeof iface?.pins[r.position]?.signal === 'string' ? iface.pins[r.position]!.signal as string : '') };
+          return binding === 'nc' ? '—' : <Choice label={`${prefix} pin ${r.position} level`} value={offer?.level} options={vocab(db, 'levels')} onChange={(v) => setPin(r.position, patch(base, 'level', v))} />;
+        } },
+        { id: 'needs', header: 'Needs', width: 220, cell: (r) => {
+          const binding = port.pins?.[r.position];
+          const offer = binding === 'nc' ? undefined : binding;
+          const base: PinOffer = offer ?? { signal: (typeof iface?.pins[r.position]?.signal === 'string' ? iface.pins[r.position]!.signal as string : '') };
+          const name = `${prefix} pin ${r.position}`;
+          return <>{binding === 'nc' ? '—' : <Choice label={`${name} add conditioning`} options={vocab(db, 'conditioning')} empty={offer?.needs?.join(', ') || 'None'} onChange={(v) => { if (v) setPin(r.position, { ...base, needs: [...new Set([...(base.needs ?? []), v])] }); }} />}{offer?.needs?.map((need) => <Button type="button" key={need} variant="ghost" size="xs" className="mr-1" aria-label={`${name} remove ${need}`} onClick={() => setPin(r.position, { ...base, needs: base.needs?.filter((n) => n !== need) })}>{need} ×</Button>)}</>;
+        } },
+        { id: 'reset', header: 'Reset', hideHeader: true, fixed: true, width: 70, cell: (r) => <Button type="button" className={buttonClass} disabled={port.pins?.[r.position] === undefined} onClick={() => setPin(r.position, undefined)}>Reset</Button> },
+      ]}
+    />
     <div className="mt-2 flex items-end gap-2">
       <Text label={`${prefix} new position`} value={newPosition} onChange={setNewPosition} />
-      <button type="button" className={buttonClass} disabled={!newPosition.trim() || positions.includes(newPosition.trim())} onClick={() => { setPin(newPosition.trim(), { signal: '' }); setNewPosition(''); }}>Add pin</button>
-      <button type="button" className={buttonClass} onClick={onRemove}>Remove {prefix.toLowerCase()}</button>
+      <Button type="button" className={buttonClass} disabled={!newPosition.trim() || positions.includes(newPosition.trim())} onClick={() => { setPin(newPosition.trim(), { signal: '' }); setNewPosition(''); }}>Add pin</Button>
+      <Button type="button" className={buttonClass} onClick={onRemove}>Remove {prefix.toLowerCase()}</Button>
     </div>
   </fieldset>;
 }
@@ -88,7 +107,7 @@ export function DeviceForm({ record, db, onChange }: { record: DeviceProfile; db
       <Text label="Device source" value={record.src} onChange={(src) => onChange({ ...record, src })} />
     </div>
     {record.ports.map((port, index) => <PortForm key={index} port={port} index={index} db={db} onChange={(p) => onChange({ ...record, ports: record.ports.map((old, i) => i === index ? p : old) })} onRemove={() => onChange({ ...record, ports: record.ports.filter((_, i) => i !== index) })} />)}
-    <button type="button" className={buttonClass} onClick={() => onChange({ ...record, ports: [...record.ports, { id: nextId('port', record.ports.map((p) => p.id)), pins: {} }] })}>Add port</button>
+    <Button type="button" className={buttonClass} onClick={() => onChange({ ...record, ports: [...record.ports, { id: nextId('port', record.ports.map((p) => p.id)), pins: {} }] })}>Add port</Button>
   </div>;
 }
 
@@ -117,8 +136,8 @@ export function RecipeForm({ record, db, onChange }: { record: ConditioningRecip
       <Choice label={`Part ${index + 1} kind`} value={part.kind} options={vocab(db, 'component-kinds')} onChange={(v) => setPart(index, patch(part, 'kind', v))} />
       <Text label={`Part ${index + 1} value`} value={part.value} onChange={(v) => setPart(index, patch(part, 'value', v))} />
       <Choice label={`Part ${index + 1} placement`} value={part.placement} options={words(['series', 'shunt', 'across'])} onChange={(v) => setPart(index, patch(part, 'placement', v))} />
-    </div><button type="button" className={buttonClass} onClick={() => onChange({ ...record, parts: record.parts.filter((_, i) => i !== index) })}>Remove part {index + 1}</button></fieldset>)}
-    <button type="button" className={buttonClass} onClick={() => onChange({ ...record, parts: [...record.parts, { placement: 'series' }] })}>Add part</button>
+    </div><Button type="button" className={buttonClass} onClick={() => onChange({ ...record, parts: record.parts.filter((_, i) => i !== index) })}>Remove part {index + 1}</Button></fieldset>)}
+    <Button type="button" className={buttonClass} onClick={() => onChange({ ...record, parts: [...record.parts, { placement: 'series' }] })}>Add part</Button>
   </div>;
 }
 

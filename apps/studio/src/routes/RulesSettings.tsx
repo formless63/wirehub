@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { previewRule, rulesKey, rulesQuery, saveRules, type RulePreview, type RuleView } from '../settings.browser.ts';
 import { draftObject, RuleEditor } from './DeclarativeEditors.tsx';
 import { useStudio } from '../studio-context.tsx';
+import { Button, Select, Textarea } from '@wirehub/editor-react';
 
 /** examples: the four rule shapes the docs describe (docs/validation-rules.md); generic data only */
 export const RULE_EXAMPLES: { label: string; rule: Record<string, unknown> }[] = [
@@ -162,7 +163,7 @@ export function RulesSettings(): JSX.Element {
 
   return (
     <section ref={editor} className="mt-6 max-w-2xl border-t border-line pt-3" data-testid="rules-settings">
-      <h2 className="mb-1 text-[13px] font-semibold">Validation rules</h2>
+      <h2 className="mb-1 text-sm font-semibold">Validation rules</h2>
       <p className="mb-2 max-w-xl text-faint">
         Checks written as data: what each rule is about, which of those it applies to, what must hold, a severity and a message. They run with the built-in checks, so they show in each design’s issues panel, and an error blocks a save. No code runs; complex cases stay code rules in a module.
       </p>
@@ -181,16 +182,16 @@ export function RulesSettings(): JSX.Element {
                 {r.problems.length > 0 ? <div role="alert" className="text-err">Cannot be used: {r.problems[0]}</div> : null}
                 {readOnly ? null : (
                   <div className="mt-1 flex gap-3">
-                    <button type="button" className="underline" onClick={() => setEditing({ text: pretty(strip(r)), replaces: r.id })}>
+                    <Button type="button" variant="ghost" size="xs" onClick={() => setEditing({ text: pretty(strip(r)), replaces: r.id })}>
                       {r.origin === 'pack' ? 'Override…' : 'Edit…'}
-                    </button>
-                    <button type="button" className="underline" disabled={busy} onClick={() => void toggle(r)}>
+                    </Button>
+                    <Button type="button" disabled={busy} onClick={() => void toggle(r)} variant="ghost" size="xs">
                       {r.enabled === false ? 'Turn on' : 'Turn off'}
-                    </button>
+                    </Button>
                     {r.origin === 'local' ? (
-                      <button type="button" className="underline" disabled={busy} onClick={() => void remove(r)}>
+                      <Button type="button" disabled={busy} onClick={() => void remove(r)} variant="ghost" size="xs">
                         Remove
-                      </button>
+                      </Button>
                     ) : null}
                   </div>
                 )}
@@ -199,40 +200,35 @@ export function RulesSettings(): JSX.Element {
           </ul>
           {readOnly ? null : (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <select
+              <Select
                 aria-label="New rule from an example"
-                className="rounded border border-line bg-panel px-1 py-1"
-                value=""
-                onChange={(e) => {
-                  const example = RULE_EXAMPLES[Number(e.target.value)];
+                className="w-64"
+                placeholder="New rule from an example…"
+                value={undefined}
+                options={RULE_EXAMPLES.map((x, i) => ({ value: String(i), label: x.label }))}
+                onValueChange={(value) => {
+                  const example = RULE_EXAMPLES[Number(value)];
                   if (example !== undefined) setEditing({ text: pretty(example.rule) });
                 }}
-              >
-                <option value="">New rule from an example…</option>
-                {RULE_EXAMPLES.map((x, i) => (
-                  <option key={x.label} value={i}>
-                    {x.label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           )}
           {editing === undefined ? null : (
             <div className="mt-2" data-testid="rule-editor">
               {draftObject(editing.text) === undefined ? <p className="text-faint">Correct the advanced JSON to use the form.</p> : <RuleEditor value={draftObject(editing.text)!} onChange={(next) => { setEditing({ ...editing, text: pretty(next) }); setResult(undefined); }} />}
               <details className="mt-2"><summary>Advanced rule JSON</summary>
-                <textarea className="h-64 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Rule definition" value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
+                <Textarea aria-label="Rule definition" value={editing.text} spellCheck={false} mono className="w-full" onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
               </details>
               <div className="mt-1 flex gap-2">
-                <button type="button" className="rounded border border-line px-3 py-1" disabled={busy} onClick={() => void test()}>
+                <Button type="button" disabled={busy} onClick={() => void test()}>
                   Test on my designs
-                </button>
-                <button type="button" className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50" disabled={busy} onClick={() => void saveEdit()}>
+                </Button>
+                <Button type="button" disabled={busy} onClick={() => void saveEdit()} variant="primary">
                   Save rule
-                </button>
-                <button type="button" className="underline" onClick={() => { setEditing(undefined); setResult(undefined); }}>
+                </Button>
+                <Button type="button" variant="ghost" size="xs" onClick={() => { setEditing(undefined); setResult(undefined); }}>
                   Cancel
-                </button>
+                </Button>
               </div>
               {result === undefined ? null : result.ok ? (
                 <div className="mt-1" data-testid="rule-test">

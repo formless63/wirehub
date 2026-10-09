@@ -23,6 +23,7 @@ import {
   type WebhookSubscriptionView,
 } from '../settings.browser.ts';
 import { useStudio } from '../studio-context.tsx';
+import { Button, Input } from '@wirehub/editor-react';
 
 type Draft = { id?: string; label: string; url: string; events: string[]; enabled: boolean };
 
@@ -93,7 +94,7 @@ export function WebhookSettings(): JSX.Element | null {
 
   return (
     <section className="mt-6 max-w-2xl border-t border-line pt-3" data-testid="webhook-settings">
-      <h2 className="mb-1 text-[13px] font-semibold">
+      <h2 className="mb-1 text-sm font-semibold">
         Webhooks
         <InfoTip text="Tell an outside system (an ERP, a chat channel, a script) when something happens: a signed JSON event with ids, links, the actor and a short diff. The receiver then fetches what it needs through the API with a token. Failed deliveries are retried with a growing wait. These are separate from the alert webhook under Notifications, which reports the hub’s own problems." topic="settings" />
       </h2>
@@ -111,23 +112,23 @@ export function WebhookSettings(): JSX.Element | null {
                 <div className="text-faint break-all">{s.url}</div>
                 <div className="text-faint">{s.events.join(', ')}</div>
                 <div className="mt-1 flex flex-wrap gap-3">
-                  <button type="button" className="underline" onClick={() => setEditing(draftOf(s))}>
+                  <Button type="button" onClick={() => setEditing(draftOf(s))} variant="ghost" size="xs">
                     Edit…
-                  </button>
-                  <button type="button" className="underline" disabled={busy || !view.secrets.available} onClick={() => void makeSecret(s.id)}>
+                  </Button>
+                  <Button type="button" disabled={busy || !view.secrets.available} onClick={() => void makeSecret(s.id)} variant="ghost" size="xs">
                     {s.secret === 'set' ? 'New secret…' : 'Make a secret'}
-                  </button>
+                  </Button>
                   {s.secret === 'unset' ? null : (
-                    <button type="button" className="underline" disabled={busy} onClick={() => void clearWebhookSecret(s.id).then(() => client.invalidateQueries({ queryKey: webhooksKey }))}>
+                    <Button type="button" disabled={busy} variant="ghost" size="xs" onClick={() => void clearWebhookSecret(s.id).then(() => client.invalidateQueries({ queryKey: webhooksKey }))}>
                       Clear secret
-                    </button>
+                    </Button>
                   )}
-                  <button type="button" className="underline" disabled={busy || s.secret !== 'set'} onClick={() => void send(s.id)}>
+                  <Button type="button" disabled={busy || s.secret !== 'set'} onClick={() => void send(s.id)} variant="ghost" size="xs">
                     Send a test
-                  </button>
-                  <button type="button" className="underline" disabled={busy} onClick={() => void persist(view.subscriptions.filter((x) => x.id !== s.id).map(draftOf), 'Webhook removed.')}>
+                  </Button>
+                  <Button type="button" disabled={busy} onClick={() => void persist(view.subscriptions.filter((x) => x.id !== s.id).map(draftOf), 'Webhook removed.')} variant="ghost" size="xs">
                     Remove
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}
@@ -138,23 +139,23 @@ export function WebhookSettings(): JSX.Element | null {
               <div className="text-faint">
                 Each delivery carries <code>{view.signature.header}: {view.signature.scheme}</code>. It is kept encrypted here and cannot be shown again.
               </div>
-              <button type="button" className="underline" onClick={() => setShown(undefined)}>
+              <Button type="button" onClick={() => setShown(undefined)} variant="ghost" size="xs">
                 I have copied it
-              </button>
+              </Button>
             </div>
           )}
-          <button type="button" className="mt-2 rounded border border-line px-3 py-1" disabled={view.subscriptions.length >= view.limits.subscriptions} onClick={() => setEditing(blank())}>
+          <Button type="button" disabled={view.subscriptions.length >= view.limits.subscriptions} onClick={() => setEditing(blank())} className="mt-2">
             Add a webhook…
-          </button>
+          </Button>
           {editing === undefined ? null : (
             <div className="mt-2 border border-line p-2" data-testid="webhook-editor">
               <label className="flex flex-col gap-0.5">
                 <span className="font-medium">Name (optional)</span>
-                <input className="rounded border border-line-field bg-panel px-2 py-1" aria-label="Webhook name" value={editing.label} maxLength={80} onChange={(e) => setEditing({ ...editing, label: e.target.value })} />
+                <Input aria-label="Webhook name" value={editing.label} maxLength={80} onChange={(e) => setEditing({ ...editing, label: e.target.value })} />
               </label>
               <label className="mt-1 flex flex-col gap-0.5">
                 <span className="font-medium">URL</span>
-                <input className="rounded border border-line-field bg-panel px-2 py-1" aria-label="Webhook URL" placeholder="https://erp.example.com/hooks/wirehub" value={editing.url} onChange={(e) => setEditing({ ...editing, url: e.target.value })} />
+                <Input aria-label="Webhook URL" placeholder="https://erp.example.com/hooks/wirehub" value={editing.url} onChange={(e) => setEditing({ ...editing, url: e.target.value })} />
               </label>
               <fieldset className="mt-1 border-0 p-0">
                 <legend className="font-medium">Events</legend>
@@ -172,12 +173,12 @@ export function WebhookSettings(): JSX.Element | null {
                 On
               </label>
               <div className="mt-2 flex gap-2">
-                <button type="button" className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50" disabled={busy} onClick={() => void save()}>
+                <Button type="button" disabled={busy} onClick={() => void save()} variant="primary">
                   Save webhook
-                </button>
-                <button type="button" className="underline" onClick={() => setEditing(undefined)}>
+                </Button>
+                <Button type="button" onClick={() => setEditing(undefined)} variant="ghost" size="xs">
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -192,9 +193,9 @@ export function WebhookSettings(): JSX.Element | null {
                 {d.redeliveredFrom === undefined ? '' : ' · redelivery'}
                 {d.error === undefined ? null : <span className="text-faint"> — {d.error}</span>}
                 {d.state === 'delivered' || d.state === 'failed' ? (
-                  <button type="button" className="ml-2 underline" onClick={() => void redeliverWebhook(d.id).then((out) => (out.ok ? (toast.success('Queued again.'), client.invalidateQueries({ queryKey: webhookDeliveriesKey })) : say(out)))}>
+                  <Button type="button" variant="ghost" size="xs" className="ml-2" onClick={() => void redeliverWebhook(d.id).then((out) => (out.ok ? (toast.success('Queued again.'), client.invalidateQueries({ queryKey: webhookDeliveriesKey })) : say(out)))}>
                     Redeliver
-                  </button>
+                  </Button>
                 ) : null}
               </li>
             ))}

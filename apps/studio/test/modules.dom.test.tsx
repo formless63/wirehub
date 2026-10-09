@@ -231,7 +231,7 @@ describe('module pages', () => {
     // no placement and no owner allowance: no rail item (the rail stays the hub's own)
     expect(screen.queryByRole('link', { name: 'Example status' })).toBeNull();
     cleanup();
-    mount('/modules');
+    mount('/extensions?tab=installed');
     const link = await screen.findByRole('link', { name: /Example status/ });
     expect(link.getAttribute('href')).toBe('/m/example/status');
     fireEvent.click(link);
@@ -247,7 +247,7 @@ describe('module pages', () => {
   });
 
   it('lists the modules and their settings panels at /modules', async () => {
-    mount('/modules');
+    mount('/extensions?tab=installed');
     expect(await screen.findByTestId('example-settings')).toBeTruthy();
     expect(screen.getByText(/Example module \(reference implementation/)).toBeTruthy();
   });

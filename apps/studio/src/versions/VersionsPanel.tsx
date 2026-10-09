@@ -87,7 +87,7 @@ function Compare(props: { id: string; listing: VersionListing; from: Side; to: S
       aria-label={label}
       value={String(value)}
       onChange={(event) => on(event.target.value === 'working' ? 'working' : Number(event.target.value))}
-      className="h-6 rounded border border-line2 bg-bg px-1 text-[11.5px] text-ink"
+      className="h-6 rounded border border-line2 bg-bg px-1 text-xs text-ink"
     >
       {options.map((option) => (
         <option key={String(option)} value={String(option)}>
@@ -98,7 +98,7 @@ function Compare(props: { id: string; listing: VersionListing; from: Side; to: S
   );
   return (
     <section className="border-t border-line px-3 py-2">
-      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-faint uppercase">
+      <div className="mb-1 flex items-center gap-1.5 text-2xs font-semibold tracking-wide text-faint uppercase">
         <IconArrowsDiff size={13} /> Compare
         <span className="grow" />
         {select(props.from, props.onFrom, 'Compare from')}
@@ -106,7 +106,7 @@ function Compare(props: { id: string; listing: VersionListing; from: Side; to: S
         {select(props.to, props.onTo, 'Compare to')}
       </div>
       {lines === undefined ? (
-        <p className="m-0 text-[12px] text-faint">loading…</p>
+        <p className="m-0 text-xs text-faint">loading…</p>
       ) : (
         <DiffList lines={lines} empty={`${sideLabel(props.from)} and ${sideLabel(props.to)} are the same.`} />
       )}
@@ -184,8 +184,8 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
         >
           <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
             <IconHistory size={16} className="text-dim" />
-            <Dialog.Title className="m-0 text-[13px] font-semibold">Versions</Dialog.Title>
-            <span className="min-w-0 truncate text-[11.5px] text-faint" title={id}>
+            <Dialog.Title className="m-0 text-sm font-semibold">Versions</Dialog.Title>
+            <span className="min-w-0 truncate text-xs text-faint" title={id}>
               {id}
             </span>
             <span className="grow" />
@@ -197,28 +197,28 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {error !== undefined ? <p className="m-0 px-3 py-3 text-[12px] text-err">{error}</p> : null}
-            {listing === undefined && error === undefined ? <p className="m-0 px-3 py-3 text-[12px] text-faint">loading…</p> : null}
+            {error !== undefined ? <p className="m-0 px-3 py-3 text-xs text-err">{error}</p> : null}
+            {listing === undefined && error === undefined ? <p className="m-0 px-3 py-3 text-xs text-faint">loading…</p> : null}
 
             {working === undefined ? null : (
               <section className="px-3 py-2.5" data-testid="working-copy">
-                <div className="mb-1.5 flex items-center gap-1.5 text-[12.5px]">
+                <div className="mb-1.5 flex items-center gap-1.5 text-sm">
                   <span className="font-medium">Working copy</span>
                   {working.basedOnRev === undefined ? null : (
-                    <span className="text-[11.5px] text-faint" title="The saved revision this working copy descends from">
+                    <span className="text-xs text-faint" title="The saved revision this working copy descends from">
                       from Rev {working.basedOnRev}
                     </span>
                   )}
                   <span className="grow" />
                   {working.unreleased ? (
                     <span
-                      className="rounded-sm border border-warn px-1 font-mono text-[9.5px] leading-[14px] tracking-wide text-warn uppercase"
+                      className="rounded-sm border border-warn px-1 font-mono text-2xs leading-[14px] tracking-wide text-warn uppercase"
                       title="The working copy differs from its saved revision — printing it marks it UNRELEASED"
                     >
                       unreleased
                     </span>
                   ) : (
-                    <span className="rounded-sm border border-line2 px-1 font-mono text-[9.5px] leading-[14px] text-dim uppercase" title="Identical to its saved revision">
+                    <span className="rounded-sm border border-line2 px-1 font-mono text-2xs leading-[14px] text-dim uppercase" title="Identical to its saved revision">
                       = Rev {working.basedOnRev}
                     </span>
                   )}
@@ -254,7 +254,7 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
                 {[...listing.revisions].reverse().map((summary) => (
                   <div key={summary.rev} className="px-3 py-1.5 hover:bg-hover/40">
                     <div className="flex items-center gap-1.5">
-                      <span className="shrink-0 rounded-sm bg-raised px-1.5 font-mono text-[11px] font-semibold leading-[18px] text-ink">
+                      <span className="shrink-0 rounded-sm bg-raised px-1.5 font-mono text-2xs font-semibold leading-[18px] text-ink">
                         Rev {summary.rev}
                       </span>
                       {summary.locked ? (
@@ -262,11 +262,11 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
                       ) : (
                         <IconLockOpen size={12} className="shrink-0 text-warn" aria-label="Unlocked" />
                       )}
-                      <span className="min-w-0 flex-1 truncate text-[12.5px]" title={summary.note}>
+                      <span className="min-w-0 flex-1 truncate text-sm" title={summary.note}>
                         {summary.note}
                       </span>
                       {listing.working.approvals !== true ? null : (
-                        <span className={`shrink-0 text-[11px] ${summary.approval?.state === 'approved' ? 'text-ok' : summary.approval?.state === 'rejected' ? 'text-err' : 'text-warn'}`} title={summary.approval === undefined ? 'Not submitted for approval' : `${summary.approval.by}: ${summary.approval.comment}`}>
+                        <span className={`shrink-0 text-2xs ${summary.approval?.state === 'approved' ? 'text-ok' : summary.approval?.state === 'rejected' ? 'text-err' : 'text-warn'}`} title={summary.approval === undefined ? 'Not submitted for approval' : `${summary.approval.by}: ${summary.approval.comment}`}>
                           {summary.approval === undefined ? 'draft' : summary.approval.state === 'approved' ? `approved · ${summary.approval.by}` : summary.approval.state}
                         </span>
                       )}
@@ -301,7 +301,7 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
                         <IconHistory size={14} />
                       </RowButton>
                     </div>
-                    <div className="mt-0.5 pl-0.5 text-[11px] text-faint">
+                    <div className="mt-0.5 pl-0.5 text-2xs text-faint">
                       {shortTime(summary.savedAt)} · {summary.savedBy}
                       {summary.edits === 0 ? '' : ` · ${summary.edits} edit${summary.edits === 1 ? '' : 's'} since`}
                     </div>
@@ -315,7 +315,7 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
                       />
                     ) : null}
                     {historyOf === summary.rev ? (
-                      <div className="mt-1">{historyFile === undefined ? <p className="m-0 text-[12px] text-faint">loading…</p> : <HistoryList history={historyFile} />}</div>
+                      <div className="mt-1">{historyFile === undefined ? <p className="m-0 text-xs text-faint">loading…</p> : <HistoryList history={historyFile} />}</div>
                     ) : null}
                   </div>
                 ))}
@@ -335,11 +335,11 @@ export function VersionsPanel(props: { id: string; open: boolean; onOpenChange: 
 
             {listing === undefined || listing.drafts.length === 0 ? null : (
               <section className="border-t border-line px-3 py-2" data-testid="kept-drafts">
-                <div className="mb-1 text-[11px] font-semibold tracking-wide text-faint uppercase">Kept drafts</div>
+                <div className="mb-1 text-2xs font-semibold tracking-wide text-faint uppercase">Kept drafts</div>
                 {[...listing.drafts].reverse().map((draft) => (
                   <div key={draft.n} className="py-1">
-                    <div className="flex items-center gap-1.5 text-[12px]">
-                      <span className="font-mono text-[11px] text-dim">#{draft.n}</span>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="font-mono text-2xs text-dim">#{draft.n}</span>
                       <span className="min-w-0 flex-1 truncate" title={draft.reason}>
                         {draft.basedOnRev === undefined ? 'unreleased' : `from Rev ${draft.basedOnRev}`} · {shortTime(draft.savedAt)} · {draft.savedBy}
                       </span>
@@ -378,7 +378,7 @@ function useSideHistory(id: string, rev: number | undefined): VersionHistoryEntr
 
 function ConfirmStrip(props: { text: string; action: string; busy: boolean; onCancel: () => void; onConfirm: () => void }): JSX.Element {
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 rounded-md border border-warn/60 bg-bg px-2 py-1.5 text-[12px]" role="alertdialog">
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 rounded-md border border-warn/60 bg-bg px-2 py-1.5 text-xs" role="alertdialog">
       <span className="min-w-0 flex-1">{props.text}</span>
       <button type="button" className={PLAIN_BUTTON} onClick={props.onCancel}>
         Cancel

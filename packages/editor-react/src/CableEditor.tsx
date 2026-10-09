@@ -1765,7 +1765,8 @@ const CableEditorInner = forwardRef(function CableEditorInner(
             />
 
             <div className={classes('cs-side', sideOpen && 'is-open')}>
-              <nav className="cs-conn-tabs" role="tablist" aria-label="connection inspector">
+              <nav className="cs-conn-tabs" aria-label="inspector">
+                <div role="tablist" aria-label="connection inspector" className="cs-conn-tablist">
                 {sideTabs.map((tab) => (
                   <button
                     key={tab}
@@ -1782,6 +1783,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                     {tab === 'recipe' && recipeDrift > 0 ? <span className="cs-conn-tab-badge">{recipeDrift}</span> : null}
                   </button>
                 ))}
+                </div>
                 {/* portrait phone widths only — `.cs-side-close` is
                     `display: none` outside that media query */}
                 <button

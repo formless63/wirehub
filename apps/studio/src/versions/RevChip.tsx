@@ -14,7 +14,7 @@ export function RevChip(props: { rev: number | undefined; unreleased: boolean | 
     <span
       title={props.unreleased ? `Rev ${props.rev} saved — the working copy has unreleased changes` : `Rev ${props.rev} — the working copy matches it`}
       data-testid="rev-chip"
-      className={`flex shrink-0 items-center gap-0.5 rounded-sm border px-1 font-mono text-[9.5px] leading-[14px] ${
+      className={`flex shrink-0 items-center gap-0.5 rounded-sm border px-1 font-mono text-2xs leading-[14px] ${
         props.unreleased ? 'border-warn text-warn' : 'border-line2 text-dim'
       }`}
     >

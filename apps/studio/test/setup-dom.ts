@@ -37,3 +37,13 @@ globalThis.ResizeObserver ??= NoopResizeObserver;
  * at the test timeout.
  */
 configure({ asyncUtilTimeout: 10_000 });
+
+/** The bits of the platform Radix pokes (Select, Popover) that jsdom lacks. */
+if (typeof Element !== 'undefined') {
+  Object.assign(Element.prototype, {
+    hasPointerCapture: Element.prototype.hasPointerCapture ?? (() => false),
+    setPointerCapture: Element.prototype.setPointerCapture ?? (() => undefined),
+    releasePointerCapture: Element.prototype.releasePointerCapture ?? (() => undefined),
+    scrollIntoView: Element.prototype.scrollIntoView ?? (() => undefined),
+  });
+}

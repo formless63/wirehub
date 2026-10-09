@@ -45,14 +45,27 @@ afterEach(() => {
 const mount = (path: string) => render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [path] }))} queryClient={new QueryClient({ defaultOptions: { queries: { retry: false } } })} modules={registry} />);
 
 describe('the rail', () => {
-  it('has at most 9 destinations with every official extension installed, and no module item', async () => {
+  it('groups the rail: Work, Activity, then Extensions and Settings, with at most 8 items plus the avatar', async () => {
     mount('/cables');
     const rail = await screen.findByRole('navigation', { name: 'sections' });
     await waitFor(() => expect(rail.querySelector('.cs-navigation-links a')).not.toBeNull());
-    const destinations = [...rail.querySelectorAll('.cs-navigation-links a')];
-    expect(destinations.length).toBeLessThanOrEqual(9);
-    expect(destinations.map((a) => a.getAttribute('href'))).not.toContain('/m/board-import/boards');
+    const names = (label: string): string[] => [...rail.querySelectorAll(`[role="group"][aria-label="${label}"] a`)].map((a) => a.getAttribute('aria-label') ?? '');
+    expect(names('Work')).toEqual(['Designs', 'Library', 'Find a design', 'Products']);
+    expect(names('Activity')).toEqual(['History', 'Jobs']);
+    expect(names('Hub')).toEqual(['Extensions', 'Settings']);
+    const destinations = [...rail.querySelectorAll('a')];
+    expect(destinations.length).toBeLessThanOrEqual(8);
     expect(destinations.map((a) => a.getAttribute('href')).some((href) => href?.startsWith('/m/'))).toBe(false);
+    // People and API tokens are not rail items
+    expect(destinations.map((a) => a.getAttribute('href'))).not.toContain('/settings/people');
+  });
+
+  it('opens the avatar menu with My account, API tokens, Theme and Sign out', async () => {
+    mount('/cables');
+    const avatar = await screen.findByRole('button', { name: /Account menu/ });
+    fireEvent.pointerDown(avatar, { button: 0, ctrlKey: false });
+    const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
+    expect(items).toEqual(['My account', 'API tokens', expect.stringMatching(/theme/i), 'Sign out']);
   });
 
   it('puts Board import in the Library Import menu', async () => {

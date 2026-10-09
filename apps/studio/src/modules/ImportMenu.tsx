@@ -16,6 +16,7 @@ import { ConnectionsImport } from './ConnectionsImport.tsx';
 import { CsvImport } from './CsvImport.tsx';
 import { ModuleImport } from './ModuleImport.tsx';
 import { routesIn } from './placement.ts';
+import { Button } from '@wirehub/editor-react';
 
 export function ImportMenu({ registry, onImported }: { registry: ModuleRegistry; onImported: () => void }): JSX.Element | null {
   const navigate = useNavigate();
@@ -35,9 +36,9 @@ export function ImportMenu({ registry, onImported }: { registry: ModuleRegistry;
       {hasConnections ? <ConnectionsImport onImported={onImported} expose={exposeConnections} /> : null}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <button type="button" className="cs-small cs-action-link" data-testid="library-import-menu" title="Bring records in: a file, a spreadsheet, a connection list or a board">
+          <Button type="button" data-testid="library-import-menu" title="Bring records in: a file, a spreadsheet, a connection list or a board" className="cs-small cs-action-link">
             <IconUpload size={13} aria-hidden /> Import <IconChevronDown size={11} aria-hidden />
-          </button>
+          </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className="cs-menu" sideOffset={3} align="start">

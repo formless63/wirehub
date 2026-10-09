@@ -1,165 +1,17 @@
 {
   "_doc": "Violations of the UI guard (packages/editor-react/test/ui-guard.test.ts) that exist today. This list may only shrink: lower a count when you fix a violation (UI_GUARD_UPDATE=1 pnpm --filter @wirehub/editor-react test -- ui-guard does it), never raise one.",
   "files": {
-    "apps/studio/src/App.tsx": {
-      "raw-font-size": 1
-    },
     "apps/studio/src/commands/CommandPalette.tsx": {
       "raw-font-size": 7
     },
-    "apps/studio/src/history/HistoryPanel.tsx": {
-      "raw-font-size": 25
-    },
-    "apps/studio/src/locks/EditLockBanner.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/locks/LockMarker.tsx": {
-      "raw-font-size": 2
-    },
-    "apps/studio/src/locks/LockNameAvatar.tsx": {
-      "raw-font-size": 3
-    },
     "apps/studio/src/modules/ConnectionsImport.tsx": {
-      "raw-font-size": 1,
       "native-select": 2
     },
     "apps/studio/src/modules/CsvImport.tsx": {
-      "raw-font-size": 1,
       "native-select": 2
-    },
-    "apps/studio/src/modules/ImportJob.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/modules/ModuleImport.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/modules/PacksPanel.tsx": {
-      "raw-font-size": 1,
-      "confirm-prompt": 1
-    },
-    "apps/studio/src/modules/StoreBrowser.tsx": {
-      "raw-font-size": 2,
-      "native-select": 3,
-      "confirm-prompt": 1
-    },
-    "apps/studio/src/routes/CableRoute.tsx": {
-      "raw-font-size": 5
-    },
-    "apps/studio/src/routes/CablesRoute.tsx": {
-      "raw-font-size": 31
-    },
-    "apps/studio/src/routes/CodeModulesSettings.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/routes/DeclarativeEditors.tsx": {
-      "raw-font-size": 2,
-      "native-select": 1
-    },
-    "apps/studio/src/routes/EngineeringSettings.tsx": {
-      "raw-font-size": 5
-    },
-    "apps/studio/src/routes/HistoryRoute.tsx": {
-      "raw-font-size": 12,
-      "native-select": 1
-    },
-    "apps/studio/src/routes/JobsRoute.tsx": {
-      "raw-font-size": 2
-    },
-    "apps/studio/src/routes/ModuleRoute.tsx": {
-      "raw-font-size": 3
-    },
-    "apps/studio/src/routes/PartNumberSettings.tsx": {
-      "raw-font-size": 2
-    },
-    "apps/studio/src/routes/PartNumbersRoute.tsx": {
-      "raw-font-size": 3
-    },
-    "apps/studio/src/routes/ProductsRoute.tsx": {
-      "raw-font-size": 7,
-      "native-select": 2
-    },
-    "apps/studio/src/routes/ResolverRecordForms.tsx": {
-      "native-select": 1
-    },
-    "apps/studio/src/routes/ResolverRoute.tsx": {
-      "raw-font-size": 10,
-      "native-select": 3
-    },
-    "apps/studio/src/routes/RestartWireHub.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/routes/RulesSettings.tsx": {
-      "raw-font-size": 2,
-      "native-select": 1
-    },
-    "apps/studio/src/routes/RuntimeSettings.tsx": {
-      "raw-font-size": 4,
-      "native-select": 2
-    },
-    "apps/studio/src/routes/SettingsRoute.tsx": {
-      "raw-font-size": 4,
-      "native-select": 2
-    },
-    "apps/studio/src/routes/SetupRoute.tsx": {
-      "raw-font-size": 35
-    },
-    "apps/studio/src/routes/StoreSourcesSettings.tsx": {
-      "raw-font-size": 2
-    },
-    "apps/studio/src/routes/WebhookSettings.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/shell/BackupIndicator.tsx": {
-      "raw-font-size": 3
-    },
-    "apps/studio/src/shell/EmptyState.tsx": {
-      "raw-font-size": 2
-    },
-    "apps/studio/src/shell/MobileNavSheet.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/shell/NewHubStrip.tsx": {
-      "raw-font-size": 2
-    },
-    "apps/studio/src/shell/NotFoundView.tsx": {
-      "raw-font-size": 2
-    },
-    "apps/studio/src/shell/ProductChips.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/shell/Rail.tsx": {
-      "raw-font-size": 4
-    },
-    "apps/studio/src/shell/RouteChip.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/shell/StatusBar.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/shell/StatusChip.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/shell/TopBar.tsx": {
-      "raw-font-size": 13
-    },
-    "apps/studio/src/studio.css": {
-      "raw-font-size": 4
-    },
-    "apps/studio/src/versions/ReleaseChip.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/versions/RevChip.tsx": {
-      "raw-font-size": 1
-    },
-    "apps/studio/src/versions/shared.tsx": {
-      "raw-font-size": 8
     },
     "apps/studio/src/versions/VersionsPanel.tsx": {
-      "raw-font-size": 20,
       "native-select": 1
-    },
-    "apps/studio/src/versions/VersionView.tsx": {
-      "raw-font-size": 10
     },
     "packages/editor-react/src/board-components.css": {
       "raw-font-size": 2
@@ -172,7 +24,7 @@
       "raw-hex": 54
     },
     "packages/editor-react/src/library-table.css": {
-      "raw-font-size": 16
+      "raw-font-size": 8
     },
     "packages/editor-react/src/net-hover.tsx": {
       "raw-hex": 1

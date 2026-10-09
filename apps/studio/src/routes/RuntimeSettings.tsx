@@ -11,6 +11,9 @@ import { useEffect, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 
 import { adoptServerValues, rotateSettingsKey, engineeringKey, runtimeSettingsKey, runtimeSettingsQuery, saveRuntimeGroup, saveRuntimeSecret, type RuntimeFieldView, type RuntimeGroupView, type RuntimeValue } from '../settings.browser.ts';
+import { Button, Input, Select, Textarea } from '@wirehub/editor-react';
+
+const DEFAULT = '__default__';
 
 type Draft = Record<string, Record<string, string | boolean>>;
 
@@ -40,7 +43,7 @@ function valuesOf(group: RuntimeGroupView, draft: Record<string, string | boolea
 
 function ServerBadge({ field }: { field: RuntimeFieldView }): JSX.Element {
   return (
-    <span className="rounded border border-line px-1 text-[11px] text-faint" title={`The server's ${field.env} sets this; it wins over Settings.`}>
+    <span className="rounded border border-line px-1 text-2xs text-faint" title={`The server's ${field.env} sets this; it wins over Settings.`}>
       set by the server ({field.env})
     </span>
   );
@@ -72,17 +75,17 @@ function SecretField({ field, group, available, onSaved }: { field: RuntimeField
       {editable ? (
         <div className="flex gap-2">
           {field.kind === 'multiline' ? (
-            <textarea className="min-h-16 flex-1 rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} />
+            <Textarea aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="off" spellCheck={false} mono className="min-h-16 flex-1" />
           ) : (
-            <input className="flex-1 rounded border border-line-field bg-panel px-2 py-1" type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" />
+            <Input type="password" aria-label={field.label} value={value} placeholder={field.set === true ? 'Enter a new value to replace it' : field.placeholder} onChange={(e) => setValue(e.target.value)} autoComplete="new-password" className="flex-1" />
           )}
-          <button type="button" className="rounded border border-line px-2 py-1 disabled:opacity-50" disabled={busy || value.trim() === ''} onClick={() => void save(value)}>
+          <Button type="button" disabled={busy || value.trim() === ''} onClick={() => void save(value)}>
             Set
-          </button>
+          </Button>
           {field.set === true ? (
-            <button type="button" className="rounded border border-line px-2 py-1 disabled:opacity-50" disabled={busy} onClick={() => void save(undefined)}>
+            <Button type="button" disabled={busy} onClick={() => void save(undefined)}>
               Clear
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}
@@ -97,25 +100,27 @@ function Field({ field, value, disabled, set }: { field: RuntimeFieldView; value
   const placeholder = field.placeholder ?? (field.defaultText === undefined ? undefined : `default: ${field.defaultText}`);
   const control =
     field.kind === 'bool' ? (
-      <select className="w-fit max-w-full rounded border border-line-field bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={shown === true ? 'on' : shown === false ? 'off' : ''} onChange={(e) => set(e.target.value === 'on' ? true : e.target.value === 'off' ? false : '')}>
-        <option value="">{`Default${field.defaultText === undefined ? '' : ` (${field.defaultText})`}`}</option>
-        <option value="on">On</option>
-        <option value="off">Off</option>
-      </select>
+      <Select
+        className="w-fit max-w-full"
+        aria-label={field.label}
+        disabled={disabled || locked}
+        value={shown === true ? 'on' : shown === false ? 'off' : DEFAULT}
+        options={[{ value: DEFAULT, label: `Default${field.defaultText === undefined ? '' : ` (${field.defaultText})`}` }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]}
+        onValueChange={(v) => set(v === 'on' ? true : v === 'off' ? false : '')}
+      />
     ) : field.kind === 'enum' ? (
-      <select className="w-48 rounded border border-line-field bg-panel px-2 py-1" aria-label={field.label} disabled={disabled || locked} value={String(shown)} onChange={(e) => set(e.target.value)}>
-        <option value="">{`Default${field.defaultText === undefined ? '' : ` (${field.defaultText})`}`}</option>
-        {(field.options ?? []).map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+      <Select
+        className="w-48"
+        aria-label={field.label}
+        disabled={disabled || locked}
+        value={String(shown) === '' ? DEFAULT : String(shown)}
+        options={[{ value: DEFAULT, label: `Default${field.defaultText === undefined ? '' : ` (${field.defaultText})`}` }, ...(field.options ?? []).map((o) => ({ value: o, label: o }))]}
+        onValueChange={(v) => set(v === DEFAULT ? '' : v)}
+      />
     ) : field.kind === 'multiline' ? (
-      <textarea className="min-h-16 rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11px]" aria-label={field.label} disabled={disabled || locked} value={String(shown)} placeholder={placeholder} onChange={(e) => set(e.target.value)} spellCheck={false} />
+      <Textarea aria-label={field.label} disabled={disabled || locked} value={String(shown)} placeholder={placeholder} onChange={(e) => set(e.target.value)} spellCheck={false} mono className="min-h-16" />
     ) : (
-      <input
-        className="rounded border border-line bg-panel px-2 py-1"
+      <Input
         aria-label={field.label}
         disabled={disabled || locked}
         value={String(shown)}
@@ -158,7 +163,7 @@ function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: R
         void save();
       }}
     >
-      <h2 className="text-[13px] font-semibold">{group.title}</h2>
+      <h2 className="text-sm font-semibold">{group.title}</h2>
       <p className="text-dim">
         {group.intro} {group.applies}
       </p>
@@ -177,9 +182,9 @@ function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: R
             <div className="text-dim">{group.role === 'owner' ? 'An owner changes these settings.' : 'Your role can view these settings but not change them.'}</div>
           ) : plain.some((f) => f.source !== 'server') ? (
             <div>
-              <button type="submit" disabled={busy} className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50">
+              <Button type="submit" disabled={busy} variant="primary">
                 {busy ? 'Saving…' : `Save ${group.title.toLowerCase()}`}
-              </button>
+              </Button>
             </div>
           ) : null}
         </>
@@ -210,9 +215,9 @@ function AdoptServerValues({ items, onDone }: { items: { key: string; env: strin
         Adopting copies them into Settings (secrets into the encrypted store), so you can then delete the variables from your deployment and nothing changes. While a variable is set it still wins.
       </span>
       <div>
-        <button type="button" className="rounded border border-line px-3 py-1 disabled:opacity-50" disabled={busy} onClick={() => void adopt()}>
+        <Button type="button" disabled={busy} onClick={() => void adopt()}>
           {busy ? 'Adopting…' : 'Adopt the server’s values'}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -245,9 +250,9 @@ function RotateKey({ keyRing, onDone }: { keyRing: { previousKeys: number; stale
         {keyRing.unreadable > 0 ? ` ${keyRing.unreadable} secret${keyRing.unreadable === 1 ? '' : 's'} cannot be read with any key and must be entered again.` : ''}
       </span>
       <div>
-        <button type="button" className="rounded border border-line px-3 py-1 disabled:opacity-50" disabled={busy || (keyRing.stale === 0 && keyRing.previousKeys === 0)} onClick={() => void rotate()}>
+        <Button type="button" disabled={busy || (keyRing.stale === 0 && keyRing.previousKeys === 0)} onClick={() => void rotate()}>
           {busy ? 'Re-encrypting…' : 'Rotate key'}
-        </button>
+        </Button>
       </div>
     </div>
   );

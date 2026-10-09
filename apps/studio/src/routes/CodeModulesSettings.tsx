@@ -1,4 +1,3 @@
-import { AppLink } from '../shell/AppLink.tsx';
 /**
  * The code-module half of `/settings` (`specs/runtime-modules.md`): the code
  * modules installed here and what became of each (loaded, off, failed with its
@@ -16,6 +15,7 @@ import { toast } from 'sonner';
 import { codeModulesKey, fetchCodeModules, pinKey, setCodeAllowed, setModuleEnabled, unpinKey, type CodeModuleStatusView } from '../code-modules.browser.ts';
 import { RestartWireHub } from './RestartWireHub.tsx';
 import { useStudio } from '../studio-context.tsx';
+import { Button, Input } from '@wirehub/editor-react';
 
 const STATE_TEXT: Record<CodeModuleStatusView['state'], string> = {
   loaded: 'running',
@@ -61,15 +61,8 @@ export function CodeModulesSettings(): JSX.Element {
       return out;
     }, `${m.id} is ${enabled ? 'on' : 'off'}. It applied at once.`);
   return (
-    <section className="mt-6 min-w-0 max-w-2xl border-t border-line pt-4 [overflow-wrap:anywhere]" data-testid="code-modules-settings">
-      <h2 className="mb-1 text-[13px] font-semibold">Code modules</h2>
-      <p className="mb-2 text-faint">
-        Control installed code modules here. Built-in modules ship with this image and always run; optional runtime modules are installed separately. Only owners install, turn on or off, or restart.
-      </p>
-      <div className="mb-3 flex flex-wrap gap-2">
-        <AppLink to="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</AppLink>
-        <AppLink to="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Install from a file or URL</AppLink>
-      </div>
+    <section className="cs-ext-section" data-testid="code-modules-settings">
+      <h2 className="text-md font-semibold">Code modules</h2>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The code modules could not be read.'}</div> : null}
       {query.data === null ? <div className="text-faint">This server does not run code modules.</div> : null}
       {view === undefined ? (
@@ -104,9 +97,9 @@ export function CodeModulesSettings(): JSX.Element {
                   {m.enabledBy === undefined ? '' : ` Last changed by ${m.enabledBy}.`}
                 </div>
                 {!owner ? null : (
-                  <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void toggle(m, !m.enabled || m.state === 'failed')}>
+                  <Button type="button" disabled={busy} onClick={() => void toggle(m, !m.enabled || m.state === 'failed')}>
                     {m.enabled && m.state !== 'failed' ? 'Turn off' : m.state === 'failed' ? 'Try again' : 'Turn on'}
-                  </button>
+                  </Button>
                 )}
               </li>
             ))}
@@ -119,20 +112,19 @@ export function CodeModulesSettings(): JSX.Element {
               <li key={k.key} data-pinned-key={k.keyId}>
                 {k.label ?? 'Key'} · id {k.keyId} · fingerprint <code>{k.fingerprint}</code>
                 {!owner ? null : (
-                  <button type="button" className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void act(() => unpinKey(k.keyId), 'The key is no longer trusted for uploads.')}>
+                  <Button type="button" disabled={busy} onClick={() => void act(() => unpinKey(k.keyId), 'The key is no longer trusted for uploads.')} className="ml-2">
                     Remove
-                  </button>
+                  </Button>
                 )}
               </li>
             ))}
           </ul>
           {!owner ? null : (
             <div className="mt-1 flex flex-wrap gap-2">
-              <input className="w-96 max-w-full min-w-0 rounded border border-line-field bg-panel px-2 py-1" aria-label="Publisher public key" placeholder="RW…" value={key} onChange={(e) => setKey(e.target.value)} />
-              <input className="w-40 max-w-full min-w-0 rounded border border-line-field bg-panel px-2 py-1" aria-label="Key label" placeholder="Publisher name" value={label} onChange={(e) => setLabel(e.target.value)} />
-              <button
+              <Input aria-label="Publisher public key" placeholder="RW…" value={key} onChange={(e) => setKey(e.target.value)} className="w-96 max-w-full min-w-0" />
+              <Input aria-label="Key label" placeholder="Publisher name" value={label} onChange={(e) => setLabel(e.target.value)} className="w-40 max-w-full min-w-0" />
+              <Button
                 type="button"
-                className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50"
                 disabled={busy || key.trim() === ''}
                 onClick={() =>
                   void act(async () => {
@@ -146,7 +138,7 @@ export function CodeModulesSettings(): JSX.Element {
                 }
               >
                 Trust key
-              </button>
+              </Button>
             </div>
           )}
 

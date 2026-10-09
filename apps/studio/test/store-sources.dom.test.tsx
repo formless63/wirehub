@@ -73,7 +73,7 @@ const mount = (path: string) =>
 
 describe('Settings: store sources', () => {
   it('shows the server store read-only, then adds a store after fetching its key and confirming the fingerprint', async () => {
-    mount('/settings?section=stores');
+    mount('/extensions?tab=sources');
     const section = await screen.findByTestId('store-sources');
     await waitFor(() => expect(within(section).getByTestId('store-official').textContent).toMatch(/not enabled/));
     const env = await waitFor(() => section.querySelector(`[data-store-source="${STORE_URL}"]`) as HTMLElement);
@@ -137,7 +137,7 @@ describe('Browse store with several stores', () => {
     const group = document.querySelector(`[data-store-group="${OTHER_URL}"]`) as HTMLElement;
     expect(group.textContent).toContain('Friends');
     expect(group.textContent).toContain('added here');
-    fireEvent.change(screen.getByLabelText('Store'), { target: { value: OTHER_URL } });
+    fireEvent.click(screen.getByRole('radio', { name: /Friends/ }));
     await waitFor(() => expect(document.querySelector('[data-store-pack="alpha"]')).toBeNull());
     cleanup();
 

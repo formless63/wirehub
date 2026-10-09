@@ -17,7 +17,7 @@ import './settings-sections.css';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
-import { Select } from '@wirehub/editor-react';
+import { Button, Checkbox, Field, Input, Page, Select, Textarea } from '@wirehub/editor-react';
 import { LABEL_PRESETS, PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
 
 import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
@@ -27,9 +27,11 @@ import { RulesSettings } from './RulesSettings.tsx';
 import { ModuleSettings } from './ModuleSettings.tsx';
 import { RuntimeSettings } from './RuntimeSettings.tsx';
 import { WebhookSettings } from './WebhookSettings.tsx';
-import { StoreSourcesSettings } from './StoreSourcesSettings.tsx';
-import { CodeModulesSettings } from './CodeModulesSettings.tsx';
 import { useStudio } from '../studio-context.tsx';
+import { RouteHeader } from '../shell/RouteHeader.tsx';
+import { AccountFrame } from './AccountRoute.tsx';
+
+const NO_FACE = '__none__';
 
 const FIELDS = [
   { key: 'organisation', label: 'Organisation name', hint: 'Printed on the wire spec and the bench sheets.' },
@@ -102,6 +104,9 @@ export function SettingsRoute(): JSX.Element {
   useEffect(() => { if (content.current !== null) content.current.scrollTop = 0; }, [selected]);
   const { me } = useStudio();
   const readOnly = me?.role === 'viewer';
+  // People (the hub's accounts) is a section of Settings for an owner of a hub with accounts
+  const peopleAvailable = me?.source === 'session' && me.instance?.accounts === true && me.role === 'owner';
+  const visibleSections = SETTINGS_SECTIONS.filter((section) => section.id !== 'people' || peopleAvailable);
   const query = useQuery(brandingQuery);
   const [draft, setDraft] = useState<Draft>(draftOf(undefined));
   /** undefined: keep the stored logo; null: remove it; a data URI: replace it */
@@ -179,25 +184,29 @@ export function SettingsRoute(): JSX.Element {
   };
 
   return (
-    <div className="settings-layout text-[12.5px]" data-testid="settings">
+    <Page testId="settings">
+      <RouteHeader title="Settings" />
+      <div className="settings-layout text-sm">
       <nav className="settings-navigation" aria-label="Settings sections">
-        <h1 className="text-[14px] font-semibold">Hub settings</h1>
-        <label className="settings-mobile-navigation">
-          <span>Section</span>
-          <select aria-label="Settings section" value={selected} onChange={(event) => {
-            const section = settingsSection(event.target.value);
-            if (section !== undefined) void navigate({ search: { section } });
-          }}>
-            {SETTINGS_SECTIONS.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
-          </select>
-        </label>
+        <div className="settings-mobile-navigation">
+          <Select
+            aria-label="Settings section"
+            className="w-full"
+            value={selected}
+            options={visibleSections.map((section) => ({ value: section.id, label: section.label }))}
+            onValueChange={(value) => {
+              const section = settingsSection(value);
+              if (section !== undefined) void navigate({ search: { section } });
+            }}
+          />
+        </div>
         <div className="settings-section-links">
-          {SETTINGS_SECTIONS.map((section) => <Link key={section.id} to="/settings" search={{ section: section.id }} aria-current={selected === section.id ? 'page' : undefined}>{section.label}</Link>)}
+          {visibleSections.map((section) => <Link key={section.id} to="/settings" search={{ section: section.id }} aria-current={selected === section.id ? 'page' : undefined}>{section.label}</Link>)}
         </div>
       </nav>
       <div className="settings-content" ref={content}>
         <header className="settings-section-heading">
-          <h2 className="text-[14px] font-semibold">
+          <h2 className="text-md font-semibold">
             {currentSection.label}
             <InfoTip text={sectionHelp(currentSection)} href={helpForSettingsSection(selected, docsBase)} />
           </h2>
@@ -208,25 +217,22 @@ export function SettingsRoute(): JSX.Element {
         query.isError ? null : <div className="text-faint">Loading…</div>
       ) : (
         <form
-          className="flex max-w-xl flex-col gap-3"
+          className="flex max-w-[640px] flex-col gap-3"
           onSubmit={(e) => {
             e.preventDefault();
             void save();
           }}
         >
           {FIELDS.map((f) => (
-            <label key={f.key} className="flex flex-col gap-0.5">
-              <span className="font-medium">{f.label}</span>
-              <input
-                className="rounded border border-line bg-panel px-2 py-1"
+            <Field key={f.key} label={f.label} hint={f.hint}>
+              <Input
                 aria-label={f.label}
                 value={draft[f.key]}
                 disabled={readOnly}
                 maxLength={f.key === 'rights' ? 160 : f.key === 'filePrefix' ? 16 : f.key === 'labelQrUrl' ? 200 : 80}
                 onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
               />
-              <span className="text-faint">{f.hint}</span>
-            </label>
+            </Field>
           ))}
           <div className="flex gap-3">
             <div className="flex flex-1 flex-col gap-0.5" title="The paper every document prints on unless a design or a download asks for another. The drawing, formboard, labels and schematic keep their own orientation.">
@@ -269,9 +275,8 @@ export function SettingsRoute(): JSX.Element {
           <fieldset className="flex flex-col gap-1 border-0 p-0">
             <legend className="font-medium">Drawing general note</legend>
             {DEFAULT_NOTES.map((placeholder, i) => (
-              <input
+              <Input
                 key={placeholder}
-                className="rounded border border-line bg-panel px-2 py-1"
                 aria-label={`General note line ${i + 1}`}
                 placeholder={placeholder}
                 value={draft.notes[i]}
@@ -286,8 +291,8 @@ export function SettingsRoute(): JSX.Element {
             <legend className="font-medium">Drawing tolerances</legend>
             {DEFAULT_TOLERANCES.map(([labelHint, valueHint], i) => (
               <div key={i} className="flex gap-2">
-                <input
-                  className="w-32 rounded border border-line bg-panel px-2 py-1"
+                <Input
+                  className="w-32"
                   aria-label={`Tolerance ${i + 1} label`}
                   placeholder={labelHint}
                   value={draft.tolerances[i]?.[0] ?? ''}
@@ -295,8 +300,8 @@ export function SettingsRoute(): JSX.Element {
                   maxLength={12}
                   onChange={(e) => setDraft({ ...draft, tolerances: draft.tolerances.map((row, j) => (j === i ? [e.target.value, row[1]] : row)) as Draft['tolerances'] })}
                 />
-                <input
-                  className="w-28 rounded border border-line bg-panel px-2 py-1"
+                <Input
+                  className="w-28"
                   aria-label={`Tolerance ${i + 1} value`}
                   placeholder={valueHint}
                   value={draft.tolerances[i]?.[1] ?? ''}
@@ -306,18 +311,18 @@ export function SettingsRoute(): JSX.Element {
                 />
               </div>
             ))}
-            <span className="text-faint">Up to five rows, printed in the title block. Leave all empty to keep the generic table. A per-profile override comes with drawing standards (cs-ml3).</span>
+            <span className="text-faint">Up to five rows, printed in the title block. Leave all empty to keep the generic table.</span>
           </fieldset>
           <div className="flex flex-col gap-1">
             <span className="font-medium">Title-block logo</span>
-            {shown === undefined ? <span className="text-faint">No logo.</span> : <img src={shown} alt="Logo preview" className="max-h-16 max-w-48 self-start border border-line bg-white p-1" />}
+            {shown === undefined ? <span className="text-faint">No logo.</span> : <img src={shown} alt="Logo preview" className="max-h-16 max-w-48 self-start rounded-sm border border-line bg-white p-1" />}
             {readOnly ? null : (
               <div className="flex items-center gap-3">
                 <input type="file" accept="image/png,image/svg+xml" aria-label="Logo file" onChange={(e) => void pick(e.target.files?.[0])} />
                 {shown === undefined ? null : (
-                  <button type="button" className="underline" onClick={() => setLogo(null)}>
+                  <Button variant="ghost" size="xs" onClick={() => setLogo(null)}>
                     Remove
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
@@ -327,24 +332,26 @@ export function SettingsRoute(): JSX.Element {
             <legend className="font-medium">Typeface</legend>
             <span className="text-faint">The font the drawings, the HTML sheets and the PDFs are set in. Empty keeps the standard sans. It is stored with the hub and travels inline in each document.</span>
             {(['regular', 'bold'] as const).map((slot) => (
-              <label key={slot} className="flex items-center gap-2">
+              <div key={slot} className="flex items-center gap-2">
                 <span className="w-14">{slot === 'regular' ? 'Regular' : 'Bold'}</span>
-                <select
-                  className="rounded border border-line bg-panel px-2 py-1"
+                <Select
+                  className="min-w-64"
                   aria-label={`${slot === 'regular' ? 'Regular' : 'Bold'} typeface`}
-                  value={face[slot]}
+                  value={face[slot] === '' ? NO_FACE : face[slot]}
                   disabled={readOnly}
-                  onChange={(e) => setFace({ ...face, [slot]: e.target.value, ...(slot === 'regular' && e.target.value === '' ? { bold: '' } : {}) })}
-                >
-                  <option value="">{slot === 'regular' ? 'Standard sans' : 'None (the bundled bold)'}</option>
-                  {(fonts.data?.fonts ?? []).map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.family}
-                      {f.subfamily === undefined ? '' : ` ${f.subfamily}`} ({f.format}, {f.source === 'pack' ? `pack ${f.pack ?? ''}` : 'uploaded'})
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  onValueChange={(value) => {
+                    const id = value === NO_FACE ? '' : value;
+                    setFace({ ...face, [slot]: id, ...(slot === 'regular' && id === '' ? { bold: '' } : {}) });
+                  }}
+                  options={[
+                    { value: NO_FACE, label: slot === 'regular' ? 'Standard sans' : 'None (the bundled bold)' },
+                    ...(fonts.data?.fonts ?? []).map((f) => ({
+                      value: f.id,
+                      label: `${f.family}${f.subfamily === undefined ? '' : ` ${f.subfamily}`} (${f.format}, ${f.source === 'pack' ? `pack ${f.pack ?? ''}` : 'uploaded'})`,
+                    })),
+                  ]}
+                />
+              </div>
             ))}
             {(fonts.data?.fonts ?? []).filter((f) => f.id === face.regular || f.id === face.bold).map((f) => (
               <span key={f.id} className="text-faint">
@@ -353,7 +360,7 @@ export function SettingsRoute(): JSX.Element {
               </span>
             ))}
             {readOnly ? null : (
-              <div className="mt-1 flex flex-col gap-1 rounded border border-line p-2">
+              <div className="mt-1 flex flex-col gap-1 rounded-md border border-line p-2">
                 <span className="font-medium">Upload a font</span>
                 <input
                   type="file"
@@ -361,14 +368,16 @@ export function SettingsRoute(): JSX.Element {
                   aria-label="Font file"
                   onChange={(e) => setUpload({ ...upload, file: e.target.files?.[0] })}
                 />
-                <label className="flex items-start gap-2">
-                  <input type="checkbox" aria-label="I hold a licence for this font" checked={upload.licence} onChange={(e) => setUpload({ ...upload, licence: e.target.checked })} />
-                  <span>I hold a licence that lets this font be embedded in the documents this hub generates (PDF, HTML sheets and drawings).</span>
-                </label>
+                <Checkbox
+                  aria-label="I hold a licence for this font"
+                  checked={upload.licence}
+                  onCheckedChange={(on) => setUpload({ ...upload, licence: on })}
+                  label="I hold a licence that lets this font be embedded in the documents this hub generates (PDF, HTML sheets and drawings)."
+                />
                 <div>
-                  <button type="button" className="rounded border border-line px-2 py-0.5 disabled:opacity-50" disabled={upload.file === undefined || !upload.licence || upload.busy} onClick={() => void sendFont()}>
+                  <Button disabled={upload.file === undefined || !upload.licence} loading={upload.busy} onClick={() => void sendFont()}>
                     {upload.busy ? 'Uploading\u2026' : 'Upload font'}
-                  </button>
+                  </Button>
                 </div>
                 <span className="text-faint">TrueType, OpenType or WOFF2, up to {Math.round((fonts.data?.limits.bytes ?? 1536 * 1024) / 1024)} KiB, static (not a variable font). A font is kept as a file of the hub; fonts a data pack ships under fonts/ are offered here too.</span>
               </div>
@@ -381,8 +390,9 @@ export function SettingsRoute(): JSX.Element {
               {['faces', 'plugs', 'cutaways'].map((k) => `${Object.keys((query.data?.art as Record<string, Record<string, unknown>> | undefined)?.[k] ?? {}).length} ${k}`).join(', ')}
               {' '}(this hub&rsquo;s and its packs&rsquo;). Empty keeps the generated art; a cutaway&rsquo;s SVG is cleaned of scripts and external references when it is saved.
             </span>
-            <textarea
-              className="min-h-24 rounded border border-line bg-panel px-2 py-1 font-mono text-[11.5px]"
+            <Textarea
+              mono
+              className="min-h-24"
               aria-label="Drawing art (JSON)"
               placeholder='{ "cutaways": { "wire-stock-id": { "svg": "<svg …/>", "width": 525, "height": 131 } } }'
               value={art}
@@ -393,9 +403,9 @@ export function SettingsRoute(): JSX.Element {
           </fieldset>
           {readOnly ? <div className="text-faint">Your role can view these settings but not change them.</div> : null}
           <div>
-            <button type="submit" disabled={readOnly || busy} className="rounded border border-line bg-accent px-3 py-1 text-accent-ink disabled:opacity-50">
+            <Button type="submit" variant="primary" disabled={readOnly} loading={busy}>
               {busy ? 'Saving…' : 'Save'}
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -404,12 +414,12 @@ export function SettingsRoute(): JSX.Element {
         <section hidden={selected !== 'numbering'} aria-label="Part numbering settings" data-settings-section="numbering"><PartNumberSettings /></section>
         <section hidden={selected !== 'rules'} aria-label="Validation rule settings" data-settings-section="rules"><RulesSettings /></section>
         <section hidden={selected !== 'authentication'} aria-label="Authentication settings" data-settings-section="authentication"><RuntimeSettings section="authentication" /></section>
+        {peopleAvailable ? <section hidden={selected !== 'people'} aria-label="People" data-settings-section="people">{selected === 'people' ? <AccountFrame path="/settings/people" title="People of this hub" /> : null}</section> : null}
         <section hidden={selected !== 'runtime'} aria-label="Runtime settings" data-settings-section="runtime"><RuntimeSettings section="runtime" /></section>
         <section hidden={selected !== 'webhooks'} aria-label="Webhook settings" data-settings-section="webhooks"><WebhookSettings /></section>
-        <section hidden={selected !== 'stores'} aria-label="Catalog store settings" data-settings-section="stores"><StoreSourcesSettings /></section>
         <section hidden={selected !== 'module-settings'} aria-label="Module settings" data-settings-section="module-settings"><ModuleSettings /></section>
-        <section hidden={selected !== 'modules'} aria-label="Code module settings" data-settings-section="modules"><CodeModulesSettings /></section>
       </div>
-    </div>
+      </div>
+    </Page>
   );
 }

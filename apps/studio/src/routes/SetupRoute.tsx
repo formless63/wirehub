@@ -17,6 +17,7 @@ import { IconCheck, IconCopy } from '@tabler/icons-react';
 
 import { loadSetup, partNumbersChanged, pnExample, saveSetup, signInAdmin, slugOf, type SetupView } from '../setup.browser.ts';
 import { StudioMark } from '../shell/Wordmark.tsx';
+import { Button, Input } from '@wirehub/editor-react';
 
 export function SetupRoute(): JSX.Element {
   const navigate = useNavigate();
@@ -104,8 +105,8 @@ export function SetupRoute(): JSX.Element {
     void navigate({ to: '/cables' });
   };
 
-  const LEGEND = 'mb-2 text-[12px] font-semibold uppercase tracking-wide text-dim';
-  const FIELD = 'rounded border border-line-field bg-panel px-2 py-1 text-[13px] text-ink';
+  const LEGEND = 'mb-2 text-xs font-semibold uppercase tracking-wide text-dim';
+  const FIELD = 'rounded border border-line-field bg-panel px-2 py-1 text-sm text-ink';
   const create = view?.create;
   const SETUP_COMMAND = 'docker compose logs wirehub | grep -A2 "setup code"';
   const copyCommand = (): void => {
@@ -120,35 +121,35 @@ export function SetupRoute(): JSX.Element {
       <div className="mx-auto flex max-w-[720px] flex-col gap-4 px-4 py-6">
         <header className="flex items-center gap-3">
           <StudioMark size={28} />
-          <h1 className="m-0 text-[18px] font-semibold text-ink">Set up WireHub</h1>
+          <h1 className="m-0 text-xl font-semibold text-ink">Set up WireHub</h1>
           {view?.completed ? (
-            <Link to="/cables" className="ml-auto text-[12px] text-dim underline hover:text-ink">
+            <Link to="/cables" className="ml-auto text-xs text-dim underline hover:text-ink">
               Back to designs
             </Link>
           ) : null}
         </header>
 
         {problem === undefined ? null : (
-          <p role="alert" className="m-0 rounded border border-err px-3 py-2 text-[13px] text-err">
+          <p role="alert" className="m-0 rounded border border-err px-3 py-2 text-sm text-err">
             {problem}
           </p>
         )}
 
         {view === undefined ? (
-          problem === undefined ? <p className="text-[13px] text-dim">Loading…</p> : null
+          problem === undefined ? <p className="text-sm text-dim">Loading…</p> : null
         ) : (
           <>
             {create === undefined ? null : (
               <>
                 {create.claim === true ? (
-                  <p className="m-0 text-[13px] text-dim">This hub's catalog came over from its file storage. Make its first admin to finish.</p>
+                  <p className="m-0 text-sm text-dim">This hub's catalog came over from its file storage. Make its first admin to finish.</p>
                 ) : (
                   <fieldset className="m-0 border-0 p-0">
                     <legend className={LEGEND}>Organisation</legend>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <label className="flex flex-col gap-1 text-[12px] text-dim">
+                      <label className="flex flex-col gap-1 text-xs text-dim">
                         Name
-                        <input
+                        <Input
                           className={FIELD}
                           value={orgName}
                           disabled={busy}
@@ -159,9 +160,9 @@ export function SetupRoute(): JSX.Element {
                           }}
                         />
                       </label>
-                      <label className="flex flex-col gap-1 text-[12px] text-dim">
+                      <label className="flex flex-col gap-1 text-xs text-dim">
                         Short name (lowercase, used in addresses)
-                        <input
+                        <Input
                           className={`${FIELD} font-mono`}
                           value={slug}
                           disabled={busy}
@@ -178,24 +179,24 @@ export function SetupRoute(): JSX.Element {
                 <fieldset className="m-0 border-0 p-0">
                   <legend className={LEGEND}>Admin</legend>
                   {create.admin === 'none' ? (
-                    <p className="m-0 mb-2 text-[12px] text-dim">
+                    <p className="m-0 mb-2 text-xs text-dim">
                       Sign-in is off (AUTH_ENABLED), so anyone who can reach this hub can edit. A name and email here only label your changes.
                     </p>
                   ) : null}
-                  {create.admin === 'oidc' ? <p className="m-0 mb-2 text-[12px] text-dim">You sign in with the identity provider; give the email it knows you by.</p> : null}
+                  {create.admin === 'oidc' ? <p className="m-0 mb-2 text-xs text-dim">You sign in with the identity provider; give the email it knows you by.</p> : null}
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <label className="flex flex-col gap-1 text-[12px] text-dim">
+                    <label className="flex flex-col gap-1 text-xs text-dim">
                       Your name
-                      <input className={FIELD} value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
+                      <Input className={FIELD} value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
                     </label>
-                    <label className="flex flex-col gap-1 text-[12px] text-dim">
+                    <label className="flex flex-col gap-1 text-xs text-dim">
                       Email
-                      <input type="email" className={FIELD} value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
+                      <Input type="email" className={FIELD} value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
                     </label>
                     {create.admin === 'password' ? (
-                      <label className="flex flex-col gap-1 text-[12px] text-dim sm:col-span-2">
+                      <label className="flex flex-col gap-1 text-xs text-dim sm:col-span-2">
                         Password ({create.minPassword} characters or more)
-                        <input type="password" className={FIELD} value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
+                        <Input type="password" className={FIELD} value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
                       </label>
                     ) : null}
                   </div>
@@ -207,27 +208,26 @@ export function SetupRoute(): JSX.Element {
               <fieldset className="m-0 border-0 p-0">
                 <legend className={LEGEND}>Setup code</legend>
                 <div className="flex flex-wrap items-center gap-2">
-                  <input
+                  <Input
                     type="text"
                     autoComplete="off"
                     spellCheck={false}
                     aria-label="Setup code"
-                    className={`w-[220px] ${FIELD} font-mono text-[14px] tracking-wider`}
+                    className={`w-[220px] ${FIELD} font-mono text-md tracking-wider`}
                     placeholder="XXXX-XXXX-XXXX"
                     value={code}
                     disabled={busy}
                     onChange={(event) => setCode(event.target.value)}
                   />
-                  <span className="text-[12px] text-dim">Printed in the server log at start.</span>
-                  <button
+                  <span className="text-xs text-dim">Printed in the server log at start.</span>
+                  <Button
                     type="button"
                     title="Copy the command that prints the setup code"
-                    className="flex items-center gap-1 rounded border border-line-field bg-raised px-2 py-1 text-[12px] text-ink hover:bg-hover"
-                    onClick={copyCommand}
+                    onClick={copyCommand} className="flex items-center gap-1"
                   >
                     {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
                     {copied ? 'Copied' : 'Copy the command'}
-                  </button>
+                  </Button>
                 </div>
               </fieldset>
             ) : null}
@@ -235,7 +235,7 @@ export function SetupRoute(): JSX.Element {
             <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
               <legend className={LEGEND}>Domains</legend>
               {view.domains.length === 0 ? (
-                <p className="text-[13px] text-dim">This build bundles no domain modules.</p>
+                <p className="text-sm text-dim">This build bundles no domain modules.</p>
               ) : (
                 view.domains.map((domain) => (
                   <label key={domain.id} className="flex cursor-pointer items-start gap-3 rounded border border-line bg-panel px-3 py-2 hover:bg-hover">
@@ -248,15 +248,15 @@ export function SetupRoute(): JSX.Element {
                       aria-describedby={`setup-${domain.id}`}
                     />
                     <span className="flex flex-col gap-0.5">
-                      <span className="text-[13px] font-semibold text-ink">
+                      <span className="text-sm font-semibold text-ink">
                         {domain.label}
-                        {domain.enabled ? <span className="ml-2 text-[11px] font-normal text-ok">enabled</span> : null}
-                        {!domain.enabled && domain.suggested ? <span className="ml-2 text-[11px] font-normal text-faint">suggested</span> : null}
+                        {domain.enabled ? <span className="ml-2 text-2xs font-normal text-ok">enabled</span> : null}
+                        {!domain.enabled && domain.suggested ? <span className="ml-2 text-2xs font-normal text-faint">suggested</span> : null}
                       </span>
-                      <span id={`setup-${domain.id}`} className="text-[12px] text-dim">
+                      <span id={`setup-${domain.id}`} className="text-xs text-dim">
                         {domain.description}
                       </span>
-                      <span className="text-[11px] text-faint">
+                      <span className="text-2xs text-faint">
                         {domain.packs.map((p) => `${p.label} pack ${p.version}${p.license === undefined ? '' : `, ${p.license}`}`).join(' · ')}
                       </span>
                     </span>
@@ -264,7 +264,7 @@ export function SetupRoute(): JSX.Element {
                 ))
               )}
               {view.suggestions.length === 0 ? null : (
-                <p className="m-0 text-[12px] text-dim">
+                <p className="m-0 text-xs text-dim">
                   Not yet available: {view.suggestions.map((s) => s.label).join(', ')}.
                 </p>
               )}
@@ -272,39 +272,39 @@ export function SetupRoute(): JSX.Element {
 
             {create === undefined || create.claim === true ? null : (
               <details className="rounded border border-line bg-panel px-3 py-2">
-                <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-wide text-dim">Advanced</summary>
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-dim">Advanced</summary>
                 <div className="mt-3 flex flex-col gap-4">
                   <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
                     <legend className={LEGEND}>Catalog</legend>
-                    <label className="flex items-start gap-2 text-[13px] text-ink">
+                    <label className="flex items-start gap-2 text-sm text-ink">
                       <input type="radio" name="catalog" className="mt-1" checked={catalog === 'starter'} disabled={busy} onChange={() => setCatalog('starter')} />
                       <span>
-                        Starter catalog <span className="text-[12px] text-dim">— example designs and the parts they use, to learn from</span>
+                        Starter catalog <span className="text-xs text-dim">— example designs and the parts they use, to learn from</span>
                       </span>
                     </label>
-                    <label className="flex items-start gap-2 text-[13px] text-ink">
+                    <label className="flex items-start gap-2 text-sm text-ink">
                       <input type="radio" name="catalog" className="mt-1" checked={catalog === 'empty'} disabled={busy} onChange={() => setCatalog('empty')} />
                       <span>
-                        Empty catalog <span className="text-[12px] text-dim">— the base vocabulary only</span>
+                        Empty catalog <span className="text-xs text-dim">— the base vocabulary only</span>
                       </span>
                     </label>
                   </fieldset>
                   {create.partNumbers === undefined ? null : create.partNumbers.scheme === 'module' ? (
                     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
                       <legend className={LEGEND}>Part numbers</legend>
-                      <p className="m-0 text-[12px] text-dim">This build numbers parts with its own scheme, {create.partNumbers.label}. It is fixed.</p>
+                      <p className="m-0 text-xs text-dim">This build numbers parts with its own scheme, {create.partNumbers.label}. It is fixed.</p>
                     </fieldset>
                   ) : (
                     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
                       <legend className={LEGEND}>Part numbers</legend>
-                      <p className="m-0 text-[12px] text-dim">
+                      <p className="m-0 text-xs text-dim">
                         A prefix and a running number per kind, like {pnExample(pnPrefixes.connector ?? 'CON', pnDigits)}. A kind with no prefix is not numbered.
                       </p>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
                         {create.partNumbers.kinds.map((kind) => (
-                          <label key={kind} className="flex flex-col gap-0.5 text-[12px] text-dim">
+                          <label key={kind} className="flex flex-col gap-0.5 text-xs text-dim">
                             {kind}
-                            <input
+                            <Input
                               className={`${FIELD} font-mono uppercase`}
                               value={pnPrefixes[kind] ?? ''}
                               disabled={busy}
@@ -315,9 +315,9 @@ export function SetupRoute(): JSX.Element {
                           </label>
                         ))}
                       </div>
-                      <label className="flex flex-col gap-1 text-[12px] text-dim">
+                      <label className="flex flex-col gap-1 text-xs text-dim">
                         Digits
-                        <input type="number" min={1} max={12} className={`w-[80px] ${FIELD} font-mono`} value={pnDigits} disabled={busy} onChange={(event) => setPnDigits(Number(event.target.value))} />
+                        <Input type="number" min={1} max={12} className={`w-[80px] ${FIELD} font-mono`} value={pnDigits} disabled={busy} onChange={(event) => setPnDigits(Number(event.target.value))} />
                       </label>
                     </fieldset>
                   )}
@@ -326,20 +326,19 @@ export function SetupRoute(): JSX.Element {
             )}
 
             <div className="flex items-center gap-3">
-              <button
+              <Button
                 type="button"
-                className="rounded bg-accent px-4 py-1.5 text-[13px] font-semibold text-accent-ink disabled:opacity-60"
                 disabled={
                   busy ||
                   (view.codeRequired === true && code.trim() === '') ||
                   (create !== undefined &&
                     ((create.claim !== true && (orgName.trim() === '' || slug.trim() === '')) || (create.admin !== 'none' && (adminName.trim() === '' || adminEmail.trim() === '')) || (create.admin === 'password' && password.length < create.minPassword)))
                 }
-                onClick={() => void submit()}
+                onClick={() => void submit()} variant="primary"
               >
                 {busy ? 'Setting up…' : view.completed ? 'Add the selected modules' : 'Finish setup'}
-              </button>
-              <span className="text-[12px] text-dim">Selected: {picked.size === 0 ? 'none — the generic base only' : [...picked].join(', ')}</span>
+              </Button>
+              <span className="text-xs text-dim">Selected: {picked.size === 0 ? 'none — the generic base only' : [...picked].join(', ')}</span>
             </div>
           </>
         )}

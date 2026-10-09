@@ -61,10 +61,10 @@ export function useVersionFile(id: string, rev: number | undefined): {
 /** Diff lines (`diffLines`), coloured by their sign. */
 export function DiffList(props: { lines: string[]; empty?: string }): JSX.Element {
   if (props.lines.length === 0) {
-    return <p className="m-0 px-1 py-1 text-[12px] text-faint">{props.empty ?? 'No differences.'}</p>;
+    return <p className="m-0 px-1 py-1 text-xs text-faint">{props.empty ?? 'No differences.'}</p>;
   }
   return (
-    <ul className="m-0 max-h-[300px] list-none overflow-y-auto p-0 font-mono text-[11.5px] leading-[18px]" data-testid="version-diff">
+    <ul className="m-0 max-h-[300px] list-none overflow-y-auto p-0 font-mono text-xs leading-[18px]" data-testid="version-diff">
       {props.lines.map((line, index) => (
         <li
           key={`${index}:${line}`}
@@ -90,12 +90,12 @@ const ACTION_LABEL: Record<VersionHistoryEntry['action'], string> = {
 
 export function HistoryList(props: { history: VersionHistoryEntry[] }): JSX.Element {
   return (
-    <ol className="m-0 list-none space-y-1 p-0 text-[11.5px]" data-testid="version-history">
+    <ol className="m-0 list-none space-y-1 p-0 text-xs" data-testid="version-history">
       {props.history.map((entry, index) => (
         <li key={`${index}:${entry.at}`} className="rounded border border-line bg-bg px-2 py-1">
           <div className="flex flex-wrap items-center gap-x-1.5">
             <span
-              className={`font-mono text-[10px] uppercase ${
+              className={`font-mono text-2xs uppercase ${
                 entry.action === 'unlock' || entry.action === 'edit' ? 'text-warn' : 'text-dim'
               }`}
             >
@@ -131,7 +131,7 @@ export function RowButton(props: {
       aria-label={props.title}
       disabled={props.disabled}
       onClick={props.onClick}
-      className={`flex h-6 min-w-6 shrink-0 items-center justify-center gap-1 rounded border border-transparent bg-transparent px-1 text-[11.5px] hover:border-line2 hover:bg-hover disabled:cursor-default disabled:opacity-40 disabled:hover:border-transparent disabled:hover:bg-transparent ${
+      className={`flex h-6 min-w-6 shrink-0 items-center justify-center gap-1 rounded border border-transparent bg-transparent px-1 text-xs hover:border-line2 hover:bg-hover disabled:cursor-default disabled:opacity-40 disabled:hover:border-transparent disabled:hover:bg-transparent ${
         props.tone === 'accent' ? 'text-accent' : props.tone === 'warn' ? 'text-warn' : 'text-dim hover:text-ink'
       }`}
     >
@@ -141,8 +141,8 @@ export function RowButton(props: {
 }
 
 export const TEXT_INPUT =
-  'h-7 min-w-0 flex-1 rounded-md border border-line2 bg-bg px-2 text-[12.5px] text-ink outline-none placeholder:text-faint focus:border-accent';
+  'h-7 min-w-0 flex-1 rounded-md border border-line2 bg-bg px-2 text-sm text-ink outline-none placeholder:text-faint focus:border-accent';
 export const PRIMARY_BUTTON =
-  'flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-accent px-2.5 text-[12px] font-semibold text-accent-ink disabled:cursor-default disabled:bg-raised disabled:text-faint';
+  'flex h-7 shrink-0 items-center gap-1.5 rounded-md border-0 bg-accent px-2.5 text-xs font-semibold text-accent-ink disabled:cursor-default disabled:bg-raised disabled:text-faint';
 export const PLAIN_BUTTON =
-  'flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-raised px-2.5 text-[12px] text-ink hover:bg-hover disabled:cursor-default disabled:opacity-50';
+  'flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-line2 bg-raised px-2.5 text-xs text-ink hover:bg-hover disabled:cursor-default disabled:opacity-50';

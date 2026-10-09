@@ -6,7 +6,9 @@
  * drawings through the deployment's `PartNumberScheme`; nothing is stored.
  */
 
+import { DataTable, Page, PageBody, Toolbar, type DataColumn } from '@wirehub/editor-react';
 import { InfoTip } from '../shell/InfoTip.tsx';
+import { RouteHeader } from '../shell/RouteHeader.tsx';
 import { Link } from '@tanstack/react-router';
 import { useMemo, type JSX } from 'react';
 import { partNumberReport } from '@wirehub/model';
@@ -47,8 +49,8 @@ function Place({ where }: { where: string }): JSX.Element {
 
 function Section(props: { title: string; count: number; empty: string; children: JSX.Element | null; testId: string }): JSX.Element {
   return (
-    <section className="mb-5" data-testid={props.testId}>
-      <h2 className="mb-1 text-[13px] font-semibold">
+    <section className="mb-5" data-testid={props.testId} aria-labelledby={`${props.testId}-h`}>
+      <h2 id={`${props.testId}-h`} className="mb-1 text-md font-semibold">
         {props.title} <span className="font-normal text-faint">({props.count})</span>
       </h2>
       {props.count === 0 ? <p className="text-faint">{props.empty}</p> : props.children}
@@ -56,18 +58,28 @@ function Section(props: { title: string; count: number; empty: string; children:
   );
 }
 
+type Unnumbered = ReturnType<typeof partNumberReport>['unnumbered'][number];
+const UNNUMBERED_COLUMNS: DataColumn<Unnumbered>[] = [
+  { id: 'what', header: 'What', width: 280, cell: (u) => <><Place where={u.where} /> <span className="text-faint">{u.label}</span></>, sortValue: (u) => u.where },
+  { id: 'kind', header: 'Kind', width: 110, cell: (u) => u.kind, sortValue: (u) => u.kind },
+  { id: 'suggested', header: 'Suggested', width: 150, mono: true, cell: (u) => (u.suggestion === undefined ? '' : <span title={u.suggestion.explanation}>{u.suggestion.pn}</span>), sortValue: (u) => u.suggestion?.pn ?? '' },
+];
+
 export function PartNumbersRoute(): JSX.Element {
   const { db, partNumbers } = useStudio();
   const report = useMemo(
     () => (partNumbers === undefined ? undefined : partNumberReport(db, partNumbers.designs ?? [], partNumbers.drawings ?? {}, partNumbers.scheme, partNumbers.extra)),
     [db, partNumbers],
   );
+  const problems = report === undefined ? undefined : report.duplicates.length + report.disagreements.length + report.unnumbered.length + report.format.length;
   return (
-    <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="part-numbers">
-      <h1 className="mb-3 text-[14px] font-semibold">
-        Part numbers
-        <InfoTip topic="part-numbers" text={`Read through ${partNumbers?.scheme.label ?? 'the numbering scheme'}. A connector and the body it is built on share a number without clashing, and a design’s product reference and drawing number are one number written twice.`} />
-      </h1>
+    <Page testId="part-numbers">
+      <RouteHeader title="Part numbers" count={problems === undefined ? undefined : `${problems} to look at`} />
+      <Toolbar label="Numbering scheme">
+        <span className="text-xs text-faint">Read through {partNumbers?.scheme.label ?? 'the numbering scheme'}</span>
+        <InfoTip topic="part-numbers" text="A connector and the body it is built on share a number without clashing, and a design’s product reference and drawing number are one number written twice." />
+      </Toolbar>
+      <PageBody padded>
       {report === undefined ? (
         <div className="text-faint">Loading…</div>
       ) : (
@@ -97,28 +109,9 @@ export function PartNumbersRoute(): JSX.Element {
             </ul>
           </Section>
           <Section title="Without a number" count={report.unnumbered.length} empty="Everything the scheme numbers has a number." testId="pn-unnumbered">
-            <table className="w-full max-w-3xl text-left">
-              <thead>
-                <tr className="text-faint">
-                  <th className="pr-3 font-normal">What</th>
-                  <th className="pr-3 font-normal">Kind</th>
-                  <th className="pr-3 font-normal">Suggested</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.unnumbered.map((u) => (
-                  <tr key={u.where} data-where={u.where}>
-                    <td className="pr-3">
-                      <Place where={u.where} /> <span className="text-faint">{u.label}</span>
-                    </td>
-                    <td className="pr-3">{u.kind}</td>
-                    <td className="pr-3" title={u.suggestion?.explanation}>
-                      {u.suggestion === undefined ? '' : <code className="cs-mono">{u.suggestion.pn}</code>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="max-w-3xl">
+              <DataTable label="Parts and designs without a number" rows={report.unnumbered} columns={UNNUMBERED_COLUMNS} getRowId={(u) => u.where} rowAttrs={(u) => ({ 'data-where': u.where })} noColumnMenu className="cs-ui-dt-inline" />
+            </div>
           </Section>
           <Section title="Numbers the scheme objects to" count={report.format.length} empty="Every number is in the scheme’s form." testId="pn-format">
             <ul className="flex flex-col gap-1">
@@ -131,6 +124,7 @@ export function PartNumbersRoute(): JSX.Element {
           </Section>
         </>
       )}
-    </div>
+      </PageBody>
+    </Page>
   );
 }

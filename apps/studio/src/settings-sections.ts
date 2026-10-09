@@ -5,11 +5,10 @@ export const SETTINGS_SECTIONS = [
   { id: 'numbering', label: 'Part numbering', description: 'Part-number schemes and suggestions.' },
   { id: 'rules', label: 'Validation rules', description: 'Checks applied to designs.' },
   { id: 'authentication', label: 'Sign-in & accounts', description: 'Sign-in providers, access and account settings.' },
+  { id: 'people', label: 'People', description: 'Who can sign in to this hub, and their roles.' },
   { id: 'runtime', label: 'System', description: 'Notifications, integrations, job limits and encrypted settings.', help: "These settings apply at once, with no restart. A value the server's environment sets wins and is shown read-only. Where the database, the files, the ports and the install's secrets are stays on the server." },
   { id: 'webhooks', label: 'Webhooks', description: 'Event deliveries to external services.' },
-  { id: 'stores', label: 'Catalog stores', description: 'Catalog sources and trusted publishers.', help: "Choose which stores supply modules and catalog packs to the Store page. Adding a store does not install anything. Anyone can host a store; WireHub does not check what a store lists. Each store's index must be signed with the key you give here." },
   { id: 'module-settings', label: 'Module settings', description: 'Credentials and options the installed modules declare.', help: "Secrets are kept encrypted with the hub's settings key and never shown again; a change applies at once, with no restart. A value the server's environment sets wins and is shown locked." },
-  { id: 'modules', label: 'Code modules', description: 'Installed modules and their permissions.' },
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]['id'];

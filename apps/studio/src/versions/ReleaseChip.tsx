@@ -48,7 +48,7 @@ export function ReleaseChip(props: { id: string; rev: string | undefined }): JSX
         title={title}
         aria-label={title}
         data-testid="release-chip"
-        className={`flex h-[18px] shrink-0 items-center gap-1 rounded-sm border px-1 font-mono text-[10.5px] leading-none ${
+        className={`flex h-[18px] shrink-0 items-center gap-1 rounded-sm border px-1 font-mono text-2xs leading-none ${
           tone === 'warn' ? 'border-warn text-warn' : tone === 'accent' ? 'border-accent text-accent' : 'border-line2 text-dim hover:text-ink'
         }`}
       >

@@ -115,6 +115,7 @@ export function helpForSettingsSection(section: string, base: string = DEFAULT_D
 
 /** The route prefixes, most specific first, and the topic each one is about. */
 const ROUTES: readonly (readonly [prefix: string, topic: HelpTopic])[] = [
+  ['/extensions', 'store'],
   ['/library/store', 'store'],
   ['/library/connectors', 'library-connectors'],
   ['/library/wires', 'library-wires'],

@@ -132,6 +132,8 @@ describe('Place in… on the cable list', () => {
   it('opens the chosen cable with the lead to place, and the workspace places it once', async () => {
     const router = buildRouter('/cables');
     render(<App router={router} />);
+    const rowLink = await screen.findByRole('link', { name: /DC pigtail lead/ });
+    fireEvent.click(rowLink.closest('tr')!);
     const button = await screen.findByLabelText('Place dc-pigtail-lead in…');
     fireEvent.click(button);
     // not itself; the other cables are offered

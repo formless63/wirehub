@@ -94,11 +94,13 @@
 /* text inputs */
 .cs-ui-input, .cs-ui-textarea, .cs-ui-select-trigger, .cs-ui-combo-input {
   --h: var(--control-md);
-  box-sizing: border-box; width: 100%; min-width: 0; font: inherit; font-size: var(--fs-sm); color: var(--ink); background: var(--panel);
+  box-sizing: border-box; min-width: 0; font: inherit; font-size: var(--fs-sm); color: var(--ink); background: var(--panel);
   border: 1px solid var(--line-field); border-radius: var(--r-sm);
   transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .cs-ui-input, .cs-ui-select-trigger, .cs-ui-combo-input { height: var(--h); padding: 0 var(--space-sm); }
+/* full width by default, from the components layer so a width utility (w-40) on the control wins */
+@layer components { .cs-ui-input, .cs-ui-textarea, .cs-ui-select-trigger, .cs-ui-combo-input { width: 100%; } }
 .cs-ui-input[data-size='xs'], .cs-ui-select-trigger[data-size='xs'], .cs-ui-combo-input[data-size='xs'] { --h: var(--control-sm); font-size: var(--fs-xs); }
 .cs-ui-input[data-size='md'], .cs-ui-select-trigger[data-size='md'], .cs-ui-combo-input[data-size='md'] { --h: var(--control-lg); }
 .cs-ui-textarea { min-height: 56px; padding: var(--space-xs) var(--space-sm); resize: vertical; line-height: 1.4; }
@@ -282,3 +284,116 @@
 .cs-ui-toast-title { font-weight: 500; line-height: 1.35; }
 .cs-ui-toast-desc { color: var(--dim); line-height: 1.35; }
 .cs-ui-toast-action { margin-left: auto; height: var(--control-sm); padding: 0 var(--space-sm); font: inherit; font-size: var(--fs-xs); font-weight: 500; color: var(--ink); background: var(--raised); border: 1px solid var(--line-field); border-radius: var(--r-sm); cursor: pointer; }
+
+/* page anatomy: header 44, toolbar 36, content, 360 side panel */
+.cs-ui-grow { flex: 1 1 0; min-width: 0; }
+.cs-ui-page { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; background: var(--bg); color: var(--ink); }
+.cs-ui-pagehead {
+  display: flex; align-items: center; gap: var(--space-sm); flex-shrink: 0; box-sizing: border-box; height: 44px; padding: 0 var(--space-lg);
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.cs-ui-h1 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.cs-ui-h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.cs-ui-count { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--faint); white-space: nowrap; }
+.cs-ui-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm); flex-shrink: 0; box-sizing: border-box; min-height: 36px; padding: var(--space-2xs) var(--space-lg);
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.cs-ui-pagebody { position: relative; display: flex; flex: 1; min-height: 0; min-width: 0; }
+.cs-ui-pagecontent { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.cs-ui-pagecontent.is-pad { padding: var(--space-lg); }
+.cs-ui-pagecontent.is-form > * { max-width: 640px; }
+
+.cs-ui-sidepanel {
+  display: flex; flex-direction: column; flex-shrink: 0; width: 360px; min-height: 0; box-sizing: border-box;
+  background: var(--panel); border-left: 1px solid var(--line); font-size: var(--fs-sm);
+}
+.cs-ui-sidepanel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--line); }
+.cs-ui-sidepanel-title { display: flex; flex-direction: column; gap: var(--space-2xs); min-width: 0; }
+.cs-ui-sidepanel-sub { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--faint); overflow-wrap: anywhere; }
+.cs-ui-sidepanel-chips { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.cs-ui-sidepanel-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-md) var(--space-lg); }
+.cs-ui-sidepanel-foot { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding: var(--space-md) var(--space-lg); border-top: 1px solid var(--line); }
+@media (max-width: 899px) {
+  .cs-ui-sidepanel { position: absolute; z-index: 5; top: 0; right: 0; bottom: 0; width: min(360px, 100%); box-shadow: var(--elev-3); }
+}
+.cs-ui-kv { margin: 0; display: grid; gap: var(--space-xs); }
+.cs-ui-kv-row { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-sm); font-size: var(--fs-xs); }
+.cs-ui-kv dt { color: var(--faint); }
+.cs-ui-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+.cs-ui-empty { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-md); padding: var(--space-lg); font-size: var(--fs-sm); color: var(--dim); }
+.cs-ui-empty-link { color: var(--dim); text-decoration: underline; }
+.cs-ui-empty-link:hover { color: var(--ink); }
+
+/* data table */
+.cs-ui-dt { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
+.cs-ui-dt-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; font-size: var(--fs-sm); }
+.cs-ui-dt-table th {
+  position: sticky; top: 0; z-index: 2; height: 28px; padding: 0 var(--space-md); text-align: left; white-space: nowrap;
+  font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint);
+  background: var(--raised); border-bottom: 1px solid var(--line);
+}
+.cs-ui-dt-table th.is-num, .cs-ui-dt-table td.is-num { text-align: right; }
+.cs-ui-dt-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+.cs-ui-dt-table th.is-num .cs-ui-dt-head { justify-content: flex-end; }
+.cs-ui-dt-sort { display: inline-flex; align-items: center; gap: var(--space-2xs); padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.cs-ui-dt-sort:hover { color: var(--ink); }
+.cs-ui-dt-sort:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cs-ui-dt-table th[aria-sort] { color: var(--ink); }
+.cs-ui-dt-table td { height: 30px; padding: 0 var(--space-md); border-bottom: 1px solid var(--line); vertical-align: middle; max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-ui-dt-table td.is-mono { font-family: var(--font-mono); font-size: var(--fs-xs); }
+.cs-ui-dt-row { cursor: default; }
+.cs-ui-dt-row:hover { background: var(--hover); }
+.cs-ui-dt-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.cs-ui-dt-row.is-selected { background: var(--selected); box-shadow: inset 2px 0 0 var(--accent); }
+.cs-ui-dt-row.is-muted { opacity: 0.6; }
+.cs-ui-dt-empty td { height: auto; max-width: none; white-space: normal; padding: 0; border-bottom: 0; }
+.cs-ui-dt-card { max-width: none; white-space: normal; padding: 0; }
+.cs-ui-dt-menu { display: flex; flex-direction: column; min-width: 160px; }
+.cs-ui-dt-menu-row { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) var(--space-sm); font: inherit; font-size: var(--fs-xs); text-align: left; color: var(--ink); background: none; border: 0; border-radius: var(--r-xs); cursor: pointer; }
+.cs-ui-dt-menu-row:hover { background: var(--hover); }
+.cs-ui-dt-box { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: var(--accent); border: 1px solid var(--line-field); border-radius: var(--r-xs); }
+
+/* skip link and landmark helpers */
+.cs-ui-skip { position: absolute; z-index: 100; top: -40px; left: var(--space-sm); padding: var(--space-xs) var(--space-md); font-size: var(--fs-sm); color: var(--accent-ink); background: var(--accent); border-radius: var(--r-sm); }
+.cs-ui-skip:focus { top: var(--space-sm); }
+.cs-ui-dt.cs-ui-dt-inline { flex: none; max-height: 60vh; border: 1px solid var(--line); border-radius: var(--r-md); }
+
+/* filter chips */
+.cs-ui-filter-chip {
+  display: inline-flex; align-items: center; gap: var(--space-xs); flex-shrink: 0; height: var(--control-md); padding: 0 var(--space-sm); font: inherit; font-size: var(--fs-xs);
+  color: var(--dim); background: transparent; border: 1px dashed var(--line-field); border-radius: var(--r-md); cursor: pointer;
+}
+.cs-ui-filter-chip:hover { color: var(--ink); background: var(--hover); }
+.cs-ui-filter-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.cs-ui-filter-chip.is-active { color: var(--ink); background: var(--accent-soft); border: 1px solid var(--accent); }
+.cs-ui-filter-list { display: flex; flex-direction: column; gap: var(--space-2xs); min-width: 200px; max-height: 280px; overflow: auto; }
+.cs-ui-filter-row { padding: var(--space-3xs) var(--space-xs); font-size: var(--fs-xs); }
+.cs-ui-filter-none { margin: 0; padding: var(--space-sm); font-size: var(--fs-xs); color: var(--faint); }
+.cs-ui-filter-clear { align-self: flex-start; padding: var(--space-2xs) var(--space-xs); font: inherit; font-size: var(--fs-xs); color: var(--dim); text-decoration: underline; background: none; border: 0; cursor: pointer; }
+.cs-ui-filter-groups { display: flex; flex-direction: column; gap: var(--space-md); max-height: 70vh; overflow: auto; }
+.cs-ui-filter-head { margin: 0 0 var(--space-2xs); font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); }
+
+/* extensions: facets + card grid */
+.cs-ext-browse { display: grid; grid-template-columns: 200px minmax(0, 1fr); flex: 1; min-height: 0; }
+.cs-ext-facets { display: flex; flex-direction: column; gap: var(--space-lg); padding: var(--space-lg); border-right: 1px solid var(--line); overflow: auto; font-size: var(--fs-xs); }
+.cs-ext-facet-head { margin: 0 0 var(--space-xs); font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); }
+.cs-ext-results { min-width: 0; padding: var(--space-lg); overflow: auto; display: flex; flex-direction: column; gap: var(--space-sm); }
+.cs-ext-note { margin: 0; font-size: var(--fs-xs); color: var(--faint); }
+.cs-ext-group { margin: var(--space-sm) 0 var(--space-xs); font-size: var(--fs-sm); font-weight: 600; }
+.cs-ext-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-md); align-content: start; }
+.cs-ext-card { display: flex; flex-direction: column; gap: var(--space-sm); padding: var(--space-md); background: var(--panel); border: 1px solid var(--line2); border-radius: var(--r-md); overflow-wrap: anywhere; }
+.cs-ext-card:hover { border-color: var(--line-field); }
+.cs-ext-card-top { display: flex; align-items: center; gap: var(--space-md); }
+.cs-ext-glyph { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 600; color: var(--dim); background: var(--raised); border: 1px solid var(--line2); border-radius: var(--r-sm); }
+.cs-ext-card-name { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
+.cs-ext-card-sub { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--faint); }
+.cs-ext-card-desc { margin: 0; font-size: var(--fs-xs); color: var(--dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cs-ext-chips { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.cs-ext-card-meta { font-size: var(--fs-2xs); color: var(--faint); }
+.cs-ext-card-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-top: auto; padding-top: var(--space-xs); font-size: var(--fs-2xs); }
+.cs-ext-section { max-width: 720px; display: flex; flex-direction: column; gap: var(--space-sm); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.cs-ext-section + .cs-ext-section { margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--line); }
+.cs-ext-section h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
+@media (max-width: 899px) { .cs-ext-browse { grid-template-columns: 1fr; } .cs-ext-facets { border-right: 0; border-bottom: 1px solid var(--line); } }

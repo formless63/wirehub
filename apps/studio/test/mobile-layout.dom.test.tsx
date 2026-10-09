@@ -133,14 +133,14 @@ describe('the mobile nav sheet', () => {
   });
 });
 
-it('phone navigation includes Store and Settings, traps focus and closes with Escape', async () => {
+it('phone navigation includes Extensions and Settings, traps focus and closes with Escape', async () => {
   stubNarrow(true); render(<App router={buildRouter('/cables')} />);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Navigation' })).toBeTruthy());
   const trigger = screen.getByRole('button', { name: 'Navigation' });trigger.focus();fireEvent.click(trigger);
   const dialog = screen.getByRole('dialog', { name: 'Navigation' });
-  expect(within(dialog).getByRole('link', { name: 'Store' }).getAttribute('href')).toBe('/library/store');
-  expect(within(dialog).getByRole('link', { name: 'Hub settings' }).getAttribute('href')).toBe('/settings');
-  const links = within(dialog).getAllByRole('link');links.at(-1)?.focus();fireEvent.keyDown(window, { key: 'Tab' });
+  expect(within(dialog).getByRole('link', { name: 'Extensions' }).getAttribute('href')).toBe('/extensions');
+  expect(within(dialog).getByRole('link', { name: 'Settings' }).getAttribute('href')).toBe('/settings');
+  const focusable = [...dialog.querySelectorAll<HTMLElement>('a[href],button:not(:disabled):not([tabindex="-1"])')];focusable.at(-1)?.focus();fireEvent.keyDown(window, { key: 'Tab' });
   expect(document.activeElement).toBe(within(dialog).getByRole('link', { name: 'WireHub home mobile' }));
   fireEvent.keyDown(window, { key: 'Escape' });
   expect(screen.queryByRole('dialog', { name: 'Navigation' })).toBeNull();expect(document.activeElement).toBe(trigger);

@@ -34,7 +34,7 @@ import {
 import type { CodePreviewView } from '../code-modules.browser.ts';
 import { CodeConsent } from './CodeConsent.tsx';
 import { useNotify, type ViewTarget } from '../notify.ts';
-import { Drawer } from '@wirehub/editor-react';
+import { Button, Drawer, Input } from '@wirehub/editor-react';
 
 const short = (value: unknown): string => {
   const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -49,7 +49,7 @@ function DiffView({ diff }: { diff: PackDiff }): JSX.Element {
       <div className="flex flex-wrap gap-x-3" data-testid="pack-diff-counts">
         <span>{diff.added.length} added</span><span>{diff.changed.length} changed</span><span>{diff.removed.length} removed</span><span className="text-faint">{diff.unchanged} unchanged</span>
       </div>
-      {total === 0 ? null : <button type="button" className="mt-1 text-dim underline" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide records' : 'Show all records'}</button>}
+      {total === 0 ? null : <Button type="button" aria-expanded={open} onClick={() => setOpen(!open)} variant="ghost" size="xs" className="mt-1">{open ? 'Hide records' : 'Show all records'}</Button>}
       {!open ? null : <ul className="ml-4 mt-1 list-disc">
         {diff.added.map((r) => (
           <li key={`a-${r.file}-${r.id}`}>added {r.kind} {r.id}</li>
@@ -164,7 +164,7 @@ export function PacksPanel(): JSX.Element {
     }
   };
 
-  const confirm = (): Promise<void> =>
+  const applyPending = (): Promise<void> =>
     run(async () => {
       if (pending === undefined) return;
       const major = pending.plan.major === true;
@@ -184,19 +184,13 @@ export function PacksPanel(): JSX.Element {
       await finish(
         pending.kind === 'disable' ? `Disabled ${pending.id}.` : `${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.id}.`,
         `${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`.trim(),
-        pending.kind === 'disable' ? { to: '/modules' } : pending.code === undefined ? { to: '/library' } : { to: '/settings', section: 'modules' },
+        pending.kind === 'disable' ? { to: '/extensions', tab: 'installed' } : pending.code === undefined ? { to: '/library' } : { to: '/extensions', tab: 'installed' },
       );
     });
 
   return (
-    <section className="mb-4 min-w-0 border-b border-line pb-3 [overflow-wrap:anywhere]" data-testid="packs-panel">
-      <h2 className="text-[13px] font-medium">Catalog packs</h2>
-      <p className="mb-2 text-faint">Installed catalog data and uploads. A pack may also carry a signed code module; its preview asks for owner consent before code can run.</p>
-      <div className="mb-3 flex flex-wrap gap-2">
-        <AppLink to="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse store</AppLink>
-        <AppLink to="/settings" section="modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage code modules</AppLink>
-        <AppLink to="/settings" section="stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</AppLink>
-      </div>
+    <section className="cs-ext-section" data-testid="packs-panel">
+      <h2 className="text-md font-semibold">Catalog packs</h2>
       {packs === undefined ? <div className="text-faint">Loading…</div> : packs.length === 0 ? <div className="text-faint">No packs are installed.</div> : null}
       <ul>
         {(packs ?? []).map((p) => (
@@ -208,20 +202,20 @@ export function PacksPanel(): JSX.Element {
                 <span key={n.index} role="alert" className="ml-2 border border-warn px-1 text-warn" data-pack-warning={p.id} title={noticeText(n)}>
                   {n.yanked !== undefined ? 'Yanked' : n.revoked !== undefined ? 'Revoked key' : 'Flagged'}: {noticeText(n)}{' '}
                   {n.suggest === undefined ? null : (
-                    <AppLink to="/library/store" className="underline">
+                    <AppLink to="/extensions" tab="browse" className="underline">
                       Update…
                     </AppLink>
                   )}
                 </span>
               ))}
             {!canWrite || p.available === undefined ? null : (
-              <button type="button" className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void run(async () => showPlan(await previewUpdate(p.id), 'update', p.id))}>
+              <Button type="button" disabled={busy} onClick={() => void run(async () => showPlan(await previewUpdate(p.id), 'update', p.id))} className="ml-2">
                 Update to {p.available}…
-              </button>
+              </Button>
             )}
-            {!canWrite ? null : <button type="button" className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void run(async () => showPlan(await previewDisable(p.id), 'disable', p.id))}>
+            {!canWrite ? null : <Button type="button" disabled={busy} onClick={() => void run(async () => showPlan(await previewDisable(p.id), 'disable', p.id))} className="ml-2">
               Disable…
-            </button>}
+            </Button>}
           </li>
         ))}
       </ul>
@@ -252,25 +246,23 @@ export function PacksPanel(): JSX.Element {
           />
         </div>
         <div className="mt-1">
-          <input
+          <Input
             aria-label="Publisher key for a code module"
             placeholder="Publisher key (RW…), for a pack with code"
             value={trustKey}
-            onChange={(e) => setTrustKey(e.target.value)}
-            className="w-80 max-w-full min-w-0 rounded border border-line bg-panel px-2 py-1.5"
+            onChange={(e) => setTrustKey(e.target.value)} className="w-80 max-w-full min-w-0"
           />{' '}
           <span className="text-faint">only for a code module from a file or address: its publisher's public key, compared with the publisher another way (owners)</span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <input type="url" aria-label="Pack address" placeholder="https://…/pack.zip" value={url} onChange={(e) => setUrl(e.target.value)} className="w-80 max-w-full min-w-0 rounded border border-line-field bg-panel px-2 py-1.5" />
-          <button
+          <Input type="url" aria-label="Pack address" placeholder="https://…/pack.zip" value={url} onChange={(e) => setUrl(e.target.value)} className="w-80 max-w-full min-w-0" />
+          <Button
             type="button"
-            className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50"
-            disabled={busy || url.trim() === ''}
+            disabled={busy || url.trim() === ''} className="ml-2"
             onClick={() => void run(async () => showPlan(await previewInstall({ url: url.trim() }, '/api', { trustKey }), 'install', url.trim(), { url: url.trim() }))}
           >
             Fetch and preview
-          </button>
+          </Button>
         </div>
       </div>}
 
@@ -281,12 +273,10 @@ export function PacksPanel(): JSX.Element {
         testId="pack-pending"
         footer={pending === undefined ? undefined : (
           <>
-            <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="cs-ui-btn is-primary">
+            <Button variant="primary" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void applyPending()}>
               {pending.kind === 'update' ? 'Update' : pending.kind === 'disable' ? 'Disable pack' : 'Install'}
-            </button>
-            <button type="button" onClick={() => setPending(undefined)} className="cs-ui-btn">
-              Cancel
-            </button>
+            </Button>
+            <Button onClick={() => setPending(undefined)}>Cancel</Button>
           </>
         )}
       >

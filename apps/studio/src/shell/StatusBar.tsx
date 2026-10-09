@@ -30,7 +30,7 @@ export function StatusBar(): JSX.Element | null {
   const showIssues = (): void => chrome.handle?.showIssues();
 
   return (
-    <footer className="flex h-[26px] shrink-0 items-center gap-4 border-t border-line bg-panel px-3 text-[11.5px] text-dim">
+    <footer className="flex h-[26px] shrink-0 items-center gap-4 border-t border-line bg-panel px-3 text-xs text-dim">
       <button
         type="button"
         onClick={showIssues}

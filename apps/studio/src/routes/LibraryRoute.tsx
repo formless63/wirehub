@@ -27,9 +27,10 @@ import { LibraryNavigationGuard } from './LibraryNavigationGuard.tsx';
 import type { JSX } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useMatches, useNavigate } from '@tanstack/react-router';
-import { LIBRARY_KINDS, Library, RevisionsSection, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
+import { LIBRARY_KINDS, Library, Page, RevisionsSection, type BoardJourneyHost, type DefinitionKind, type LibraryKind } from '@wirehub/editor-react';
 import { isRevisionKind } from '@wirehub/model';
 
+import { RouteHeader } from '../shell/RouteHeader.tsx';
 import { useStudio } from '../studio-context.tsx';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';
 import { workbenchDocuments } from '../persistence.browser.ts';
@@ -135,7 +136,7 @@ export function LibraryRoute(): JSX.Element {
   // Import… button importers modules contribute
   const listActions = useMemo(() => {
     const store = (
-      <Link to="/library/store" className="cs-small cs-action-link" data-testid="browse-store" title="Catalog packs from the store indexes this hub trusts">
+      <Link to="/extensions" className="cs-small cs-action-link" data-testid="browse-store" title="Catalog packs from the store indexes this hub trusts">
         Browse store
       </Link>
     );
@@ -151,7 +152,9 @@ export function LibraryRoute(): JSX.Element {
 
   // edit locks: the selected definition is the record; a new one locks nothing
   return (
-    <div className="cs-editor">
+    <Page>
+    <RouteHeader title="Library" secondary={<Link to="/part-numbers" className="cs-ui-btn no-underline" title="Numbers used twice, parts without a number, numbers the scheme objects to">Numbering</Link>} />
+    <div className="cs-editor min-h-0 flex-1">
       <EditLockScope record={selectedId === undefined ? undefined : definitionRecord(kind, selectedId)}>
       <LibraryNavigationGuard>
       <Library
@@ -210,5 +213,6 @@ export function LibraryRoute(): JSX.Element {
       </EditLockScope>
       {compare === undefined ? null : <CompareHost registry={modules} db={studio.db} a={compare.a} {...(compare.b === undefined ? {} : { b: compare.b })} revisions={revisions} artwork={studio.artwork} models={models} onClose={() => setCompare(undefined)} />}
     </div>
+    </Page>
   );
 }

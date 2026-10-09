@@ -234,3 +234,27 @@ describe('engineering settings (testing defaults, electrical thresholds, approva
   });
 
 });
+
+describe('hub settings: modules allowed a rail item', () => {
+  const hub = (d: WorkbenchDeps, body?: unknown, user?: { role: string }) =>
+    handleWorkbenchRequest({ method: body === undefined ? 'GET' : 'PUT', path: '/api/settings/hub', ...(body === undefined ? {} : { body }), ...(user === undefined ? {} : { user }) } as never, d);
+
+  it('is empty by default, is saved as a sorted list, and is cleared with an empty list', async () => {
+    const { deps: d } = deps();
+    expect((await hub(d)).body).toMatchObject({ railModules: [] });
+    const saved = await hub(d, { railModules: ['suppliers', 'example', 'suppliers'] });
+    expect(saved.status).toBe(200);
+    expect(saved.body).toMatchObject({ railModules: ['example', 'suppliers'] });
+    expect((await hub(d)).body).toMatchObject({ railModules: ['example', 'suppliers'] });
+    expect((await hub(d, { railModules: [] })).body).toMatchObject({ railModules: [] });
+  });
+
+  it('keeps the welcome dismissal when the list changes, and refuses a malformed list', async () => {
+    const { deps: d } = deps();
+    await hub(d, { welcomeDismissed: true });
+    await hub(d, { railModules: ['example'] });
+    expect((await hub(d)).body).toMatchObject({ welcomeDismissed: true, railModules: ['example'] });
+    expect((await hub(d, { railModules: ['Not An Id'] })).status).toBe(400);
+    expect((await hub(d, { railModules: 'example' })).status).toBe(400);
+  });
+});

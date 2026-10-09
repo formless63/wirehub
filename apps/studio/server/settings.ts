@@ -318,26 +318,36 @@ async function handleEngineering(method: string, body: unknown, deps: SettingsDe
  */
 export interface HubRecord {
   welcomeDismissed?: boolean;
+  /** the modules an owner lets add an item to the left rail (`placement: 'rail'`); by default none */
+  railModules?: string[];
   src: string;
 }
 
-async function handleHub(method: string, body: unknown, deps: SettingsDeps): Promise<ApiResponse> {
+async function handleHub(method: string, body: unknown, deps: SettingsDeps, user?: StudioUser): Promise<ApiResponse> {
   if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = (await deps.docs.read(HUB_PATH)) as HubRecord | undefined;
   // `WIREHUB_DOCS_URL`: where this hub's help links point, for an operator who hosts the docs (read-only here; the app validates it)
   const docsUrl = process.env['WIREHUB_DOCS_URL']?.trim();
-  const view = (record: HubRecord | undefined): ApiResponse => ({ status: 200, body: { welcomeDismissed: record?.welcomeDismissed === true, ...(docsUrl === undefined || docsUrl === '' ? {} : { docsUrl }) }, headers: { ETag: contentETag(record ?? null) } });
+  const view = (record: HubRecord | undefined): ApiResponse => ({ status: 200, body: { welcomeDismissed: record?.welcomeDismissed === true, railModules: record?.railModules ?? [], ...(docsUrl === undefined || docsUrl === '' ? {} : { docsUrl }) }, headers: { ETag: contentETag(record ?? null) } });
   if (method === 'GET') return view(current);
   if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return fail(400, 'Send the settings as a JSON object.');
   const given = (body as Record<string, unknown>)['welcomeDismissed'];
   if (given !== undefined && typeof given !== 'boolean') return fail(400, 'welcomeDismissed is true or false.');
   const dismissed = given === undefined ? current?.welcomeDismissed === true : given;
-  if (!dismissed) {
+  // which modules may have a rail item: the owner's say
+  const rail = (body as Record<string, unknown>)['railModules'];
+  if (rail !== undefined) {
+    if (!Array.isArray(rail) || rail.some((id) => typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(id))) return fail(400, 'railModules is a list of module ids.');
+    if (user?.role === 'editor' || user?.role === 'viewer') return fail(403, 'Only an owner decides which modules appear in the rail.');
+  }
+  const railModules = rail === undefined ? current?.railModules : [...new Set(rail as string[])].sort();
+  const keepRail = railModules !== undefined && railModules.length > 0;
+  if (!dismissed && !keepRail) {
     await deps.docs.remove(HUB_PATH);
     return view(undefined);
   }
-  const next: HubRecord = { welcomeDismissed: true, src: 'Hub settings (entered in the app)' };
+  const next: HubRecord = { ...(dismissed ? { welcomeDismissed: true } : {}), ...(keepRail ? { railModules } : {}), src: 'Hub settings (entered in the app)' };
   await deps.docs.write(HUB_PATH, next);
   return view(next);
 }
@@ -491,7 +501,7 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
   if (parts[0] !== 'api' || parts[1] !== 'settings') return undefined;
   if (isStoreSourcesPath(parts)) return await handleStoreSources(method, body, deps, ifMatch, user);
   if (parts[2] === 'engineering' && parts.length === 3) return await handleEngineering(method, body, deps, ifMatch);
-  if (parts[2] === 'hub' && parts.length === 3) return await handleHub(method, body, deps);
+  if (parts[2] === 'hub' && parts.length === 3) return await handleHub(method, body, deps, user);
   if (parts[2] === 'branding' && parts[3] === 'fonts' && parts.length === 4) {
     if (method === 'GET') return { status: 200, body: { fonts: await listFonts(deps), limits: { bytes: MAX_FONT_BYTES, formats: ['ttf', 'otf', 'woff2'] }, licence: LICENCE_PROMPT } };
     if (method !== 'POST') return fail(405, `${method} is not something this address accepts.`, 'It answers GET (the fonts you may choose) and POST (upload one).');

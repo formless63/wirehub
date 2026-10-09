@@ -13,6 +13,7 @@ import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { clearOfflineCache } from '../src/offline-cache.browser.ts';
 import { LIMIT, PANEL, SUPPLY, USB_SUPPLY } from './resolver-flow.ts';
 import { memoryWriteBackend } from './storage-contract/writes.ts';
+import { pickOption, pickOptionAt } from './ui-helpers.ts';
 
 const { App } = await import('../src/App.tsx');
 const { createStudioRouter } = await import('../src/router.tsx');
@@ -53,23 +54,22 @@ describe('which cable do I need', () => {
     serve();const load=deps.loadDb;deps.loadDb=async()=>({...await load(),devices:[]});
     mount('/resolver');
     const empty=await screen.findByTestId('resolver-empty');
-    const store=within(empty).getByRole('link',{name:'Browse store'});expect(store.getAttribute('href')).toBe('/library/store');
+    const store=within(empty).getByRole('link',{name:'Browse store'});expect(store.getAttribute('href')).toBe('/extensions');
     fireEvent.click(within(empty).getByRole('button',{name:'Device profiles'}));
     const devices=screen.getByRole('tab',{name:'Devices and recipes'});
-    expect(devices.getAttribute('aria-selected')).toBe('true');
+    await vi.waitFor(() => expect(devices.getAttribute('aria-selected')).toBe('true'));
     expect(await screen.findByTestId('resolver-devices')).toBeTruthy();
     devices.focus();fireEvent.keyDown(devices,{key:'Home'});
-    expect(screen.getByRole('tab',{name:'Find'}).getAttribute('aria-selected')).toBe('true');
+    await vi.waitFor(() => expect(screen.getByRole('tab',{name:'Find'}).getAttribute('aria-selected')).toBe('true'));
     expect(document.activeElement).toBe(screen.getByRole('tab',{name:'Find'}));
   });
 
   it('ranks the options for two devices and creates the chosen one as a design with its recipe', async () => {
     serve();
     mount('/resolver');
-    const from = await screen.findByLabelText('From device');
-    await vi.waitFor(() => expect(within(from).getAllByRole('option').length).toBe(4));
-    fireEvent.change(from, { target: { value: 'bench-supply' } });
-    fireEvent.change(screen.getByLabelText('To device'), { target: { value: 'led-panel' } });
+    await screen.findByRole('combobox', { name: 'From device' });
+    await pickOption('From device', 'Bench supply');
+    await pickOption('To device', 'LED panel');
     const options = await screen.findByTestId('resolver-options');
     expect(options.textContent).toContain('LED current limit, 150 Ω');
     const preview = await screen.findByTestId('resolver-preview');
@@ -87,10 +87,9 @@ describe('which cable do I need', () => {
   it('offers proposals for a pair nothing completes, and remembers a decline', async () => {
     serve();
     mount('/resolver');
-    const from = await screen.findByLabelText('From device');
-    await vi.waitFor(() => expect(within(from).getAllByRole('option').length).toBe(4));
-    fireEvent.change(from, { target: { value: 'usb-supply' } });
-    fireEvent.change(screen.getByLabelText('To device'), { target: { value: 'led-panel' } });
+    await screen.findByRole('combobox', { name: 'From device' });
+    await pickOption('From device', 'USB supply');
+    await pickOption('To device', 'LED panel');
     const section = await screen.findByTestId('resolver-proposals');
     expect(section.textContent).toContain('Supply for');
     fireEvent.click(within(section).getAllByRole('button', { name: 'Decline' })[0]!);
@@ -103,7 +102,7 @@ describe('which cable do I need', () => {
   it('shares field edits with advanced JSON and saves unshown facts through the API', async () => {
     serve();
     mount('/resolver');
-    fireEvent.click(await screen.findByRole('tab', { name: 'Devices and recipes' }));
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: 'Devices and recipes' }), { button: 0 });
     const section = await screen.findByTestId('resolver-devices');
     const row = section.querySelector('[data-record="bench-supply"]') as HTMLElement;
     fireEvent.click(within(row).getByRole('button', { name: 'Edit…' }));
@@ -115,7 +114,7 @@ describe('which cable do I need', () => {
     draft.ports[0].pins['1'].note = 'Unshown pin note';
     fireEvent.change(json, { target: { value: JSON.stringify(draft) } });
     fireEvent.change(screen.getByLabelText('Device label'), { target: { value: 'Edited supply' } });
-    fireEvent.change(screen.getByLabelText('Port 1 pin 1 direction'), { target: { value: 'passive' } });
+    await pickOption('Port 1 pin 1 direction', /passive/i);
     expect(JSON.parse(json.value)).toMatchObject({ label: 'Edited supply', note: draft.note, ports: [{ note: draft.ports[0].note, pins: { '1': { dir: 'passive', note: draft.ports[0].pins['1'].note, src: 'synthetic example' } } }] });
     fireEvent.click(within(section).getByRole('button', { name: 'Save' }));
     await vi.waitFor(() => expect(screen.queryByTestId('device-fields')).toBeNull());

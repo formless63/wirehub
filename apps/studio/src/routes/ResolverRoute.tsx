@@ -14,6 +14,7 @@
  */
 
 import { InfoTip } from '../shell/InfoTip.tsx';
+import { RouteHeader } from '../shell/RouteHeader.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState, type JSX } from 'react';
@@ -25,29 +26,33 @@ import { decideProposal, fetchPairProposals, fetchProposalDecisions, resolverKey
 import { canEditFields, DeviceForm, RecipeForm } from './ResolverRecordForms.tsx';
 import { useStudio } from '../studio-context.tsx';
 
-import { RouteTabs } from './RouteTabs.tsx';
+import { Button, Input, Page, Select, Tab, TabList, TabPanel, Tabs, Textarea } from '@wirehub/editor-react';
 
 const pretty = (v: unknown): string => JSON.stringify(v, null, 2);
 const SRC = 'synthetic example';
+const FIRST = '__first__';
+const SUGGESTED = '__suggested__';
 
 type Tab = 'which' | 'proposals' | 'library';
 
 export function ResolverRoute(): JSX.Element {
   const [tab, setTab] = useState<Tab>('which');
   return (
-    <div className="h-full min-h-0 overflow-auto p-4 text-[12.5px]" data-testid="resolver">
-      <h1 className="mb-1 text-[14px] font-semibold">Find a design</h1>
-      <RouteTabs id="resolver" label="resolver" items={[{ id: 'which', label: 'Find' }, { id: 'proposals', label: 'Proposals' }, { id: 'library', label: 'Devices and recipes' }]} value={tab} onChange={setTab} />
-      <div role="tabpanel" id={`resolver-panel-${tab}`} aria-labelledby={`resolver-tab-${tab}`}>
-        {tab === 'which' ? <FindCable onOpenDevices={() => setTab('library')} /> : tab === 'proposals' ? <ProposalDecisions /> : <ResolverLibrary />}
-      </div>
-    </div>
+    <Page testId="resolver">
+      <RouteHeader title="Find a design" />
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="flex min-h-0 flex-1 flex-col">
+        <TabList aria-label="resolver" className="px-4">
+          <Tab value="which">Find</Tab>
+          <Tab value="proposals">Proposals</Tab>
+          <Tab value="library">Devices and recipes</Tab>
+        </TabList>
+        <TabPanel value="which" className="min-h-0 flex-1 overflow-auto p-4 text-sm"><FindCable onOpenDevices={() => setTab('library')} /></TabPanel>
+        <TabPanel value="proposals" className="min-h-0 flex-1 overflow-auto p-4 text-sm"><ProposalDecisions /></TabPanel>
+        <TabPanel value="library" className="min-h-0 flex-1 overflow-auto p-4 text-sm"><ResolverLibrary /></TabPanel>
+      </Tabs>
+    </Page>
   );
 }
-
-/* ------------------------------------------------------------------ *
- * Find a cable
- * ------------------------------------------------------------------ */
 
 function EndPicker(props: { label: string; devices: DeviceProfile[]; device: string; port: string; onChange: (device: string, port: string) => void }): JSX.Element {
   const resolved = props.device === '' ? undefined : resolveDevice(props.devices, props.device);
@@ -55,23 +60,22 @@ function EndPicker(props: { label: string; devices: DeviceProfile[]; device: str
   return (
     <fieldset className="flex flex-col gap-1">
       <legend className="text-faint">{props.label}</legend>
-      <select aria-label={`${props.label} device`} className="rounded border border-line-field bg-panel px-1 py-1" value={props.device} onChange={(e) => props.onChange(e.target.value, '')}>
-        <option value="">Pick a device…</option>
-        {props.devices.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.label}
-          </option>
-        ))}
-      </select>
+      <Select
+        aria-label={`${props.label} device`}
+        className="w-64"
+        value={props.device === '' ? undefined : props.device}
+        placeholder="Pick a device…"
+        options={props.devices.map((d) => ({ value: d.id, label: d.label }))}
+        onValueChange={(value) => props.onChange(value, '')}
+      />
       {ports.length > 1 ? (
-        <select aria-label={`${props.label} port`} className="rounded border border-line-field bg-panel px-1 py-1" value={props.port} onChange={(e) => props.onChange(props.device, e.target.value)}>
-          <option value="">{ports[0]?.label ?? ports[0]?.id} (first)</option>
-          {ports.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label ?? p.id}
-            </option>
-          ))}
-        </select>
+        <Select
+          aria-label={`${props.label} port`}
+          className="w-64"
+          value={props.port === '' ? FIRST : props.port}
+          options={[{ value: FIRST, label: `${ports[0]?.label ?? ports[0]?.id} (first)` }, ...ports.map((p) => ({ value: p.id, label: p.label ?? p.id }))]}
+          onValueChange={(value) => props.onChange(props.device, value === FIRST ? '' : value)}
+        />
       ) : ports.length === 1 ? (
         <span className="text-faint">{ports[0]!.label ?? ports[0]!.id}</span>
       ) : null}
@@ -109,21 +113,19 @@ function OptionCard({ option, chosen, onChoose }: { option: CableOption; chosen:
       {option.unverified.length === 0 ? null : <div className="ml-6 text-faint">Unconfirmed: {option.unverified.join('; ')}</div>}
       <details className="ml-6">
         <summary className="text-faint">Lines</summary>
-        <table className="text-left">
-          <tbody>
-            {option.links.map((l) => (
-              <tr key={`${l.from}-${l.to}`}>
-                <td className="pr-2">{l.from}</td>
-                <td className="pr-2">→ {l.to}</td>
-                <td className="pr-2 text-faint">
-                  {l.signal}
-                  {l.toSignal !== undefined && l.toSignal !== l.signal ? ` → ${l.toSignal}` : ''}
-                </td>
-                <td className="text-faint">{l.recipes.join(', ')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul className="m-0 list-none p-0">
+          {option.links.map((l) => (
+            <li key={`${l.from}-${l.to}`} className="flex flex-wrap gap-x-3">
+              <span>{l.from}</span>
+              <span>→ {l.to}</span>
+              <span className="text-faint">
+                {l.signal}
+                {l.toSignal !== undefined && l.toSignal !== l.signal ? ` → ${l.toSignal}` : ''}
+              </span>
+              <span className="text-faint">{l.recipes.join(', ')}</span>
+            </li>
+          ))}
+        </ul>
         {option.notes.map((n) => (
           <div key={n} className="text-faint">
             {n}
@@ -190,11 +192,11 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
   if (ends.length === 0) {
     return (
       <section className="cs-route-empty" data-testid="resolver-empty" aria-label="Device profiles needed">
-        <h2 className="mb-2 text-[13px] font-semibold">Add device profiles to find a design</h2>
+        <h2 className="mb-2 text-sm font-semibold">Add device profiles to find a design</h2>
         <p className="text-dim">There are no device profiles available to connect yet. Add profiles here, or browse catalog packs that include them.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" className="cs-route-action cs-route-action-primary" onClick={onOpenDevices}>Device profiles</button>
-          <Link to="/library/store" className="cs-route-action">Browse store</Link>
+          <Button type="button" onClick={onOpenDevices} variant="primary">Device profiles</Button>
+          <Link to="/extensions">Browse store</Link>
         </div>
       </section>
     );
@@ -203,16 +205,15 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
     <div className="flex max-w-4xl flex-col gap-3">
       <div className="flex flex-wrap items-start gap-4">
         <EndPicker label="From" devices={ends} device={src.device} port={src.port} onChange={(device, port) => setSrc({ device, port })} />
-        <button
-          type="button"
-          className="cs-route-action mt-5"
+        <Button
+          type="button" className=" mt-5"
           onClick={() => {
             setSrc(dst);
             setDst(src);
           }}
         >
           Swap
-        </button>
+        </Button>
         <EndPicker label="To" devices={ends} device={dst.device} port={dst.port} onChange={(device, port) => setDst({ device, port })} />
       </div>
       {resolution === undefined ? null : (
@@ -243,39 +244,37 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
           {query === undefined || resolution.options.some((o) => o.missing.length === 0) ? null : <PairProposals query={query} />}
           {option === undefined ? null : (
             <section className="border-t border-line pt-2" data-testid="resolver-create">
-              <h2 className="mb-1 text-[13px] font-semibold">Make it a design</h2>
+              <h2 className="mb-1 text-sm font-semibold">Make it a design</h2>
               <div className="flex flex-wrap items-end gap-3">
                 <label className="flex flex-col">
                   <span className="text-faint">Wire stock</span>
-                  <select aria-label="Wire stock" className="rounded border border-line-field bg-panel px-1 py-1" value={stock} onChange={(e) => setStock(e.target.value)}>
-                    <option value="">{stocks[0] === undefined ? 'none fits' : `${stocks[0].label} (suggested)`}</option>
-                    {stocks.map((s) => (
-                      <option key={s.id} value={s.id} title={s.reasons.join('; ')}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    aria-label="Wire stock"
+                    className="w-64"
+                    value={stock === '' ? SUGGESTED : stock}
+                    options={[{ value: SUGGESTED, label: stocks[0] === undefined ? 'none fits' : `${stocks[0].label} (suggested)` }, ...stocks.map((st) => ({ value: st.id, label: st.label }))]}
+                    onValueChange={(value) => setStock(value === SUGGESTED ? '' : value)}
+                  />
                 </label>
                 <label className="flex flex-col">
                   <span className="text-faint">Length, mm</span>
-                  <input aria-label="Length in millimetres" className="w-24 rounded border border-line-field bg-panel px-1 py-1" value={length} onChange={(e) => setLength(e.target.value)} />
+                  <Input aria-label="Length in millimetres" value={length} onChange={(e) => setLength(e.target.value)} className="w-24" />
                 </label>
                 <label className="flex flex-col">
                   <span className="text-faint">Id</span>
-                  <input aria-label="Design id" className="rounded border border-line-field bg-panel px-1 py-1" placeholder={derived?.ok ? derived.design.id : ''} value={id} onChange={(e) => setId(e.target.value)} />
+                  <Input aria-label="Design id" placeholder={derived?.ok ? derived.design.id : ''} value={id} onChange={(e) => setId(e.target.value)} />
                 </label>
                 <label className="flex flex-col">
                   <span className="text-faint">Name</span>
-                  <input aria-label="Design name" className="w-72 rounded border border-line-field bg-panel px-1 py-1" placeholder={derived?.ok ? derived.design.label : ''} value={label} onChange={(e) => setLabel(e.target.value)} />
+                  <Input aria-label="Design name" placeholder={derived?.ok ? derived.design.label : ''} value={label} onChange={(e) => setLabel(e.target.value)} className="w-72" />
                 </label>
-                <button
+                <Button
                   type="button"
-                  className="cs-route-action cs-route-action-primary"
                   disabled={busy || derived === undefined || !derived.ok || errors.length > 0 || taken || studio.me?.role === 'viewer'}
-                  onClick={() => void create()}
+                  onClick={() => void create()} variant="primary"
                 >
                   Create design
-                </button>
+                </Button>
               </div>
               {derived === undefined ? null : derived.ok ? (
                 <div className="mt-1 text-faint" data-testid="resolver-preview">
@@ -336,7 +335,7 @@ function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
   };
   return (
     <section className="border-t border-line pt-2" data-testid="resolver-proposals">
-      <h2 className="mb-1 text-[13px] font-semibold">
+      <h2 className="mb-1 text-sm font-semibold">
         Proposals
         <InfoTip topic="resolver" text="Nothing connects these completely. A board or adapter could; each draft lists its pads, its parts and what nobody has stated yet." />
       </h2>
@@ -355,19 +354,19 @@ function PairProposals({ query }: { query: ResolveQuery }): JSX.Element | null {
                 <div key={o} className="text-warn">Open: {o}</div>
               ))}
               {readOnly || row.state === 'accepted' ? null : row.state === 'declined' ? (
-                <button type="button" className="cs-route-action" onClick={() => void act('reopen', row)}>
+                <Button type="button" onClick={() => void act('reopen', row)}>
                   Offer again
-                </button>
+                </Button>
               ) : (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <input aria-label="Reason" placeholder="why not (optional)" className="rounded border border-line-field bg-panel px-1 py-0.5" value={reason[p.key] ?? ''} onChange={(e) => setReason({ ...reason, [p.key]: e.target.value })} />
-                  <button type="button" className="cs-route-action" onClick={() => void act('decline', row)}>
+                  <Input aria-label="Reason" placeholder="why not (optional)" value={reason[p.key] ?? ''} onChange={(e) => setReason({ ...reason, [p.key]: e.target.value })} />
+                  <Button type="button" onClick={() => void act('decline', row)}>
                     Decline
-                  </button>
-                  <input aria-label="New board id" placeholder="new board id" className="rounded border border-line-field bg-panel px-1 py-0.5" value={boardId[p.key] ?? ''} onChange={(e) => setBoardId({ ...boardId, [p.key]: e.target.value })} />
-                  <button type="button" className="cs-route-action" disabled={(boardId[p.key] ?? '') === ''} onClick={() => void act('accept', row)}>
+                  </Button>
+                  <Input aria-label="New board id" placeholder="new board id" value={boardId[p.key] ?? ''} onChange={(e) => setBoardId({ ...boardId, [p.key]: e.target.value })} />
+                  <Button type="button" disabled={(boardId[p.key] ?? '') === ''} onClick={() => void act('accept', row)}>
                     Start a board
-                  </button>
+                  </Button>
                 </div>
               )}
             </li>
@@ -394,9 +393,8 @@ function ProposalDecisions(): JSX.Element {
         <li key={d.key} className="my-1 border border-line p-2" data-state={d.state}>
           <b>{d.proposal.title}</b> <span className="text-faint">· {d.state}{d.reason === undefined ? '' : ` (${d.reason})`} · {d.by ?? ''} {d.at.slice(0, 10)}{d.pcba === undefined ? '' : ` → board ${d.pcba}`}</span>
           {me?.role === 'viewer' || d.state !== 'declined' ? null : (
-            <button
-              type="button"
-              className="cs-route-action ml-2"
+            <Button
+              type="button" className=" ml-2"
               onClick={async () => {
                 const out = await decideProposal('reopen', { key: d.key });
                 if (!out.ok) return void toast.error(out.message);
@@ -404,7 +402,7 @@ function ProposalDecisions(): JSX.Element {
               }}
             >
               Offer again
-            </button>
+            </Button>
           )}
         </li>
       ))}
@@ -491,7 +489,7 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
   const { iface, body } = firstInterface(view, studio.db);
   return (
     <section className="mt-4 max-w-3xl border-t border-line pt-3" data-testid={`resolver-${list}`}>
-      <h2 className="mb-1 text-[13px] font-semibold">
+      <h2 className="mb-1 text-sm font-semibold">
         {title} <span className="text-faint">{records.length}</span>
       </h2>
       {records.length === 0 ? <div className="text-faint">None yet.</div> : null}
@@ -502,13 +500,13 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
             {r.origin === 'pack' ? <span className="text-faint"> · from pack {r.pack}{r.held ? ', edited here' : ''}</span> : null}
             {readOnly ? null : (
               <span className="ml-2 inline-flex gap-3">
-                <button type="button" className="cs-route-action" onClick={() => setEditing({ text: pretty(strip(r)), replaces: r.id })}>
+                <Button type="button" onClick={() => setEditing({ text: pretty(strip(r)), replaces: r.id })}>
                   {r.origin === 'pack' && !r.held ? 'Override…' : 'Edit…'}
-                </button>
+                </Button>
                 {r.origin === 'local' ? (
-                  <button type="button" className="cs-route-action" disabled={busy} onClick={() => void persist(own.filter((x) => x['id'] !== r.id), `Removed ${r.id}.`)}>
+                  <Button type="button" disabled={busy} onClick={() => void persist(own.filter((x) => x['id'] !== r.id), `Removed ${r.id}.`)}>
                     Remove
-                  </button>
+                  </Button>
                 ) : null}
               </span>
             )}
@@ -516,23 +514,23 @@ function ListEditor({ list, title, view, records, readOnly, onSaved }: { list: R
         ))}
       </ul>
       {readOnly ? null : (
-        <button type="button" className="cs-route-action" onClick={() => setEditing({ text: pretty(EXAMPLES(iface, body)[list]) })}>
+        <Button type="button" onClick={() => setEditing({ text: pretty(EXAMPLES(iface, body)[list]) })}>
           New from an example…
-        </button>
+        </Button>
       )}
       {editing === undefined ? null : (
         <div className="mt-2">
           {fields === undefined ? null : list === 'devices' ? <DeviceForm record={fields as unknown as DeviceProfile} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : list === 'recipes' ? <RecipeForm record={fields as unknown as ConditioningRecipe} db={studio.db} onChange={(record) => setEditing({ ...editing, text: pretty(record) })} /> : null}
           <details open={list === 'hazards' || fields === undefined} className="mt-2"><summary>Advanced JSON</summary>
-            <textarea className="h-64 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label={`${title} record`} value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
+            <Textarea mono className="w-full" aria-label={`${title} record`} value={editing.text} spellCheck={false} onChange={(e) => setEditing({ ...editing, text: e.target.value })} />
           </details>
           <div className="mt-1 flex gap-2">
-            <button type="button" className="cs-route-action cs-route-action-primary" disabled={busy} onClick={() => void save()}>
+            <Button type="button" disabled={busy} onClick={() => void save()} variant="primary">
               Save
-            </button>
-            <button type="button" className="cs-route-action" onClick={() => setEditing(undefined)}>
+            </Button>
+            <Button type="button" onClick={() => setEditing(undefined)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -581,7 +579,7 @@ function ResolverLibrary(): JSX.Element {
       <ListEditor list="recipes" title="Conditioning recipes" view={view} records={view.recipes as never} readOnly={readOnly} onSaved={onSaved} />
       <ListEditor list="hazards" title="Hazards" view={view} records={view.hazards.library as never} readOnly={readOnly} onSaved={onSaved} />
       <section className="mt-4 max-w-3xl border-t border-line pt-3" data-testid="resolver-builtin-hazards">
-        <h2 className="mb-1 text-[13px] font-semibold">Built-in hazards</h2>
+        <h2 className="mb-1 text-sm font-semibold">Built-in hazards</h2>
         <ul>
           {view.hazards.builtIn.map((h) => (
             <li key={h.id}>
@@ -592,29 +590,28 @@ function ResolverLibrary(): JSX.Element {
         <div className="text-faint">A hazard of the same id above replaces one of these; enabled: false switches it off.</div>
       </section>
       <section className="mt-4 max-w-3xl border-t border-line pt-3" data-testid="resolver-policy">
-        <h2 className="mb-1 text-[13px] font-semibold">Ranking</h2>
+        <h2 className="mb-1 text-sm font-semibold">Ranking</h2>
         <div>
           In force: {view.policy.inForce.order.join(' → ')} {view.policy.local === null ? <span className="text-faint">(the default)</span> : null}
         </div>
         <div className="text-faint">Criteria: {view.policy.criteria.join(', ')}</div>
         {readOnly ? null : policyText === undefined ? (
           <div className="mt-1 flex gap-3">
-            <button type="button" className="cs-route-action" onClick={() => setPolicyText(pretty(view.policy.local ?? view.policy.default))}>
+            <Button type="button" onClick={() => setPolicyText(pretty(view.policy.local ?? view.policy.default))}>
               Edit…
-            </button>
+            </Button>
             {view.policy.local === null ? null : (
-              <button type="button" className="cs-route-action" onClick={() => void savePolicy(null)}>
+              <Button type="button" onClick={() => void savePolicy(null)}>
                 Use the default
-              </button>
+              </Button>
             )}
           </div>
         ) : (
           <div className="mt-2">
-            <textarea className="h-40 w-full rounded border border-line-field bg-panel px-2 py-1 font-mono text-[11.5px]" aria-label="Ranking policy" value={policyText} spellCheck={false} onChange={(e) => setPolicyText(e.target.value)} />
+            <Textarea aria-label="Ranking policy" value={policyText} spellCheck={false} onChange={(e) => setPolicyText(e.target.value)} mono className="w-full" />
             <div className="mt-1 flex gap-2">
-              <button
-                type="button"
-                className="rounded border border-line bg-accent px-3 py-1 text-accent-ink"
+              <Button
+                type="button" variant="primary"
                 onClick={() => {
                   try {
                     void savePolicy(JSON.parse(policyText));
@@ -624,10 +621,10 @@ function ResolverLibrary(): JSX.Element {
                 }}
               >
                 Save
-              </button>
-              <button type="button" className="cs-route-action" onClick={() => setPolicyText(undefined)}>
+              </Button>
+              <Button type="button" onClick={() => setPolicyText(undefined)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}

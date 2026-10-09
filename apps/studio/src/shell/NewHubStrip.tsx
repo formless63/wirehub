@@ -11,6 +11,7 @@ import type { JSX } from 'react';
 import { helpUrl } from '../help.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { dismissWelcome, fetchHub, hubKey, type HubSettings } from '../hub-settings.browser.ts';
+import { Button } from '@wirehub/editor-react';
 
 const STEP = 'text-ink underline decoration-line-field underline-offset-2 hover:decoration-accent';
 
@@ -20,7 +21,7 @@ export function NewHubStrip({ firstDesign, onNewDesign }: { firstDesign: string 
   const hub = useQuery({ queryKey: hubKey, queryFn: () => fetchHub(), retry: false, staleTime: Infinity });
   if (hub.data === undefined || hub.data.welcomeDismissed) return null;
   return (
-    <div role="region" aria-label="New hub" data-testid="new-hub-strip" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-accent-soft px-4 py-1.5 text-[12.5px]">
+    <div role="region" aria-label="New hub" data-testid="new-hub-strip" className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-accent-soft px-4 py-1.5 text-sm">
       <strong className="font-semibold text-ink">New hub</strong>
       <span className="text-dim">Start with</span>
       {firstDesign === undefined ? null : (
@@ -28,33 +29,32 @@ export function NewHubStrip({ firstDesign, onNewDesign }: { firstDesign: string 
           open an example
         </Link>
       )}
-      <button type="button" className={`min-h-0! border-0! bg-transparent! p-0! text-[12.5px] ${STEP}`} onClick={onNewDesign}>
+      <Button type="button" className={`min-h-0! border-0! bg-transparent! p-0! text-sm ${STEP}`} onClick={onNewDesign}>
         make a design
-      </button>
+      </Button>
       <Link to="/library" className={STEP}>
         browse the library
       </Link>
       <Link to="/part-numbers" className={STEP}>
         set up part numbers
       </Link>
-      <Link to="/modules" className={STEP}>
+      <Link to="/extensions" search={{ tab: 'installed' }} className={STEP}>
         add a module
       </Link>
       <a href={helpUrl('designs', docsBase)} target="_blank" rel="noreferrer" className="text-dim underline">
         Docs
       </a>
-      <button
+      <Button
         type="button"
         aria-label="Dismiss"
-        title="Dismiss for everyone on this hub"
-        className="ml-auto flex h-6 w-6 items-center justify-center rounded border-0 bg-transparent text-dim hover:text-ink"
+        title="Dismiss for everyone on this hub" variant="ghost" className="ml-auto flex w-6 items-center justify-center"
         onClick={() => {
           client.setQueryData(hubKey, (old: HubSettings | undefined) => ({ ...old, welcomeDismissed: true }));
           void dismissWelcome();
         }}
       >
         <IconX size={14} />
-      </button>
+      </Button>
     </div>
   );
 }

@@ -11,8 +11,10 @@ import { toast } from 'sonner';
 
 /** where "View" goes: a route, optionally with the Settings section */
 export interface ViewTarget {
-  to: '/library' | '/modules' | '/settings' | '/cables';
+  to: '/library' | '/extensions' | '/settings' | '/cables';
   section?: string;
+  /** an Extensions tab */
+  tab?: string;
 }
 
 export interface Notify {
@@ -33,8 +35,8 @@ export function useNotify(): Notify {
               action: {
                 label: 'View',
                 onClick: () => {
-                  if (router === undefined || router === null) window.location.assign(`${view.to}${view.section === undefined ? '' : `?section=${view.section}`}`);
-                  else void router.navigate({ to: view.to, ...(view.section === undefined ? {} : { search: { section: view.section } }) });
+                  if (router === undefined || router === null) window.location.assign(`${view.to}${view.section !== undefined ? `?section=${view.section}` : view.tab !== undefined ? `?tab=${view.tab}` : ''}`);
+                  else void router.navigate({ to: view.to, ...(view.section !== undefined ? { search: { section: view.section } } : view.tab !== undefined ? { search: { tab: view.tab } } : {}) });
                 },
               },
             }),
