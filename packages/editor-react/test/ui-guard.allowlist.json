@@ -59,9 +59,6 @@
     "packages/editor-react/src/panels/KitEditor.tsx": {
       "native-select": 2
     },
-    "packages/editor-react/src/panels/Library.tsx": {
-      "confirm-prompt": 1
-    },
     "packages/editor-react/src/panels/ModelPanel.tsx": {
       "native-select": 3
     },

@@ -91,6 +91,7 @@ import {
 import { libraryColumns, libraryRows, type LibraryTableContext } from '../library-table.ts';
 import { LibraryTable } from './LibraryTable.tsx';
 import { Tab, TabList, Tabs } from '../ui/Tabs.tsx';
+import { Button, Dialog, Field, Input } from '../ui/index.ts';
 import { PropertiesGrid, RecordHead, SourceBlock, WhereUsed, type RecordAction } from './RecordOverview.tsx';
 import {
   LIBRARY_PANE_DEFAULT,
@@ -571,6 +572,8 @@ export function Library(props: LibraryProps): JSX.Element {
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [advanced, setAdvanced] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  /** the Fork to edit dialog: the source id and the id typed for the copy */
+  const [forkAsk, setForkAsk] = useState<{ id: string; newId: string } | undefined>(undefined);
   const [detailTab, setDetailTab] = useState<DetailTab>('definition');
   const [wireLib, setWireLib] = useState<WireLibrary | undefined>(undefined);
   const [wireNew, setWireNew] = useState<WireRecipe | undefined>(undefined);
@@ -1026,6 +1029,17 @@ export function Library(props: LibraryProps): JSX.Element {
     ...db.pcbas,
     ...(db.mechanicals ?? []),
   ].map((record) => record.id);
+  const submitFork = (): void => {
+    const ask = forkAsk;
+    if (ask === undefined || ask.newId.trim() === '' || definitions?.fork === undefined) return;
+    const fork = definitions.fork.bind(definitions);
+    setForkAsk(undefined);
+    void run(async () => {
+      const outcome = await fork(kind, ask.id, ask.newId.trim());
+      if (!outcome.ok) return { ok: false, problem: { message: outcome.message, ...(outcome.hint === undefined ? {} : { hint: outcome.hint }), details: (outcome.issues ?? []).map((issue) => describeIssue(issue)) } };
+      return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Forked ${ask.id} as ${outcome.value.id}` };
+    });
+  };
   /** the record head's actions: Edit, New variant / Duplicate, Compare */
   const recordActions: RecordAction[] = [];
   if (mode.kind === 'edit') {
@@ -1046,13 +1060,7 @@ export function Library(props: LibraryProps): JSX.Element {
         primary: true,
         disabled: busy,
         onClick: () => {
-          const asked = typeof window === 'undefined' ? null : window.prompt('Id for your copy (lowercase words joined by hyphens):', `${id}-local`);
-          if (asked === null || asked.trim() === '') return;
-          void run(async () => {
-            const outcome = await fork(kind, id, asked.trim());
-            if (!outcome.ok) return { ok: false, problem: { message: outcome.message, ...(outcome.hint === undefined ? {} : { hint: outcome.hint }), details: (outcome.issues ?? []).map((issue) => describeIssue(issue)) } };
-            return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Forked ${id} as ${outcome.value.id}` };
-          });
+          setForkAsk({ id, newId: `${id}-local` });
         },
       });
     } else if (kind === 'connectors' && baseline !== undefined && definitions !== undefined) {
@@ -1722,6 +1730,28 @@ export function Library(props: LibraryProps): JSX.Element {
             ) : null}
           </>
         )}
+
+        <Dialog
+          open={forkAsk !== undefined}
+          onOpenChange={(next) => { if (!next) setForkAsk(undefined); }}
+          title="Fork to edit"
+          size="sm"
+          testId="fork-dialog"
+          footer={
+            <>
+              <Button onClick={() => setForkAsk(undefined)}>Cancel</Button>
+              <Button variant="primary" disabled={forkAsk === undefined || forkAsk.newId.trim() === ''} onClick={submitFork} data-testid="fork-dialog-ok">Fork</Button>
+            </>
+          }
+        >
+          <Field label="Id for your copy" hint="Lowercase words joined by hyphens">
+            <Input
+              value={forkAsk?.newId ?? ''}
+              onChange={(e) => setForkAsk((ask) => (ask === undefined ? ask : { ...ask, newId: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitFork(); } }}
+            />
+          </Field>
+        </Dialog>
 
         {confirming && mode.kind === 'edit' ? (
           <div className="cs-modal" role="dialog" aria-modal="true" aria-label="Delete this definition">
