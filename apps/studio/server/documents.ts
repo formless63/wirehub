@@ -2,7 +2,7 @@
  * Documents and exports without a browser — `/api/designs/:id/documents/:kind`
  * and `/api/designs/:id/exports/:format` (`docs/exports.md`).
  *
- *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&quantity=…&scale=…&explode=1
+ *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&preset=…&qr=1&quantity=…&scale=…&explode=1
  *       kind: schematic · build-sheet · bom · test-spec · drawing · labels · formboard
  *       format: html · svg · pdf · csv (which a kind comes in: `render/index.ts`)
  *   GET /api/designs/:id/exports/:format?rev=…&quantity=…
@@ -19,7 +19,7 @@
  */
 
 import { isDesignId } from '@wirehub/catalog';
-import { BASE_EXPORTS, PAPER_IDS, baseExport, parsePaper, parseScale, readTestParameters, type DrawingArt, type RevisionRow, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, LABEL_PRESET_IDS, PAPER_IDS, baseExport, parsePaper, parseScale, readTestParameters, type DrawingArt, type RevisionRow, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import { knownPartNumbers, releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type DesignVersionFile, type KnownPartNumber, type PartNumberScheme, type VersionSummary } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
 
@@ -331,6 +331,13 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const paperAsked = query.get('paper');
   const paper = paperAsked === null || paperAsked === '' ? null : parsePaper(paperAsked);
   if (paperAsked !== null && paperAsked !== '' && paper === undefined) return fail(400, `paper must be one of ${PAPER_IDS.join(', ')}, not '${paperAsked}'.`);
+  // the label stock and the QR code, for this print (absent: the hub's settings)
+  const presetAsked = query.get('preset');
+  if (presetAsked !== null && presetAsked !== '' && !LABEL_PRESET_IDS.includes(presetAsked)) return fail(400, `preset must be one of ${LABEL_PRESET_IDS.join(', ')}, not '${presetAsked}'.`);
+  const preset = presetAsked === null || presetAsked === '' ? undefined : presetAsked;
+  const qrAsked = query.get('qr');
+  if (qrAsked !== null && !['', '0', '1', 'true', 'false'].includes(qrAsked)) return fail(400, `qr must be 1 or 0, not '${qrAsked}'.`);
+  const qr = qrAsked === null || qrAsked === '' ? undefined : qrAsked === '1' || qrAsked === 'true';
   const variation = query.get('variation') ?? undefined;
   // the BOM lists each sub-assembly's parts instead of one line for it
   const explode = query.get('explode') === '1' || query.get('explode') === 'true';
@@ -360,6 +367,8 @@ export async function handleDocumentRequest(method: string, parts: string[], que
       ...(orgDefaults === undefined ? {} : { testDefaults: orgDefaults }),
       ...(page === undefined ? {} : { page }),
       ...(copies === undefined ? {} : { copies }),
+      ...(preset === undefined ? {} : { preset }),
+      ...(qr === undefined ? {} : { qr }),
       ...(quantity === undefined ? {} : { buildQty: quantity }),
       ...(explode ? { explode: true } : {}),
       ...(partNumbers === undefined ? {} : { partNumbers }),
@@ -390,6 +399,8 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(revisions === undefined ? {} : { revisions }),
     ...(page === undefined ? {} : { page }),
     ...(copies === undefined ? {} : { copies }),
+    ...(preset === undefined ? {} : { labelPreset: preset }),
+    ...(qr === undefined ? {} : { labelQr: qr }),
     ...(scale === undefined ? {} : { scale }),
     ...(quantity === undefined ? {} : { buildQty: quantity }),
     ...(explode ? { explode: true } : {}),

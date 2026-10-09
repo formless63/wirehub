@@ -53,6 +53,12 @@ export interface TitleBlockText {
   paper?: PaperId;
   /** the title-block layout of every sheet (Settings › Documents); unset = the paper's own convention (ISO for the A sizes, ANSI for the North American ones) */
   titleBlock?: TitleBlockStandard;
+  /** the label stock the wire labels print on (`exports/label-presets.ts`); unset = the paper's own sheet grid */
+  labelPreset?: string;
+  /** a QR code on each wire label (the part number and revision, or the URL pattern below); unset = none */
+  labelQr?: boolean;
+  /** the QR's URL pattern, `{pn}` `{rev}` `{design}` `{label}`; unset = the part number and revision as text */
+  labelQrUrl?: string;
 }
 
 export interface DrawingArt {
@@ -151,7 +157,7 @@ export function registeredTitleBlock(): TitleBlockText {
   const blocks = registered.map((art) => art.titleBlock).filter((t): t is TitleBlockText => t !== undefined);
   const notes = blocks.find((t) => t.notes !== undefined)?.notes;
   const tolerances = blocks.find((t) => t.tolerances !== undefined)?.tolerances;
-  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer' | 'filePrefix' | 'paper' | 'titleBlock'>(key: K): Partial<Record<K, NonNullable<TitleBlockText[K]>>> => {
+  const first = <K extends 'size' | 'organisation' | 'standard' | 'rights' | 'designer' | 'filePrefix' | 'paper' | 'titleBlock' | 'labelPreset' | 'labelQr' | 'labelQrUrl'>(key: K): Partial<Record<K, NonNullable<TitleBlockText[K]>>> => {
     const found = blocks.find((t) => t[key] !== undefined && t[key] !== '')?.[key];
     return found === undefined ? {} : ({ [key]: found } as Record<K, NonNullable<TitleBlockText[K]>>);
   };
@@ -166,6 +172,9 @@ export function registeredTitleBlock(): TitleBlockText {
     ...first('filePrefix'),
     ...first('paper'),
     ...first('titleBlock'),
+    ...first('labelPreset'),
+    ...first('labelQr'),
+    ...first('labelQrUrl'),
   };
 }
 

@@ -553,6 +553,9 @@ importers:
       '@wirehub/render-svg':
         specifier: workspace:*
         version: link:../render-svg
+      qrcode-generator:
+        specifier: 1.4.4
+        version: 1.4.4
     devDependencies:
       '@types/node':
         specifier: 26.1.2
@@ -2798,6 +2801,9 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
+  qrcode-generator@1.4.4:
+    resolution: {integrity: sha512-HM7yY8O2ilqhmULxGMpcHSF1EhJJ9yBj8gvDEuZ6M+KGJ0YY2hKpnXvRD+hZPLrDVck3ExIGhmPtSdcjC+guuw==}
+
   radix-ui@1.6.7:
     resolution: {integrity: sha512-QBdhh1arIEUvPC0dQ5+nwWAxt7+N+oP/9jPwjJkGFoSk/sqxg32gJtSXGtFh8frAIcS6oC9cx2Q+7KYCQLOAeA==}
     peerDependencies:
@@ -4999,6 +5005,8 @@ snapshots:
       react-is: 17.0.2
 
   punycode@2.3.1: {}
+
+  qrcode-generator@1.4.4: {}
 
   radix-ui@1.6.7(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:

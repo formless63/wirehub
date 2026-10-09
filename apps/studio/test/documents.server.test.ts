@@ -190,6 +190,27 @@ describe('GET /api/designs/:id/documents/:kind', () => {
     expect(labels.images).toBe(2);
   });
 
+  it('the label PDF takes its page from the chosen preset: the stock grid, or one label per page on a label printer (cs-8kj.5)', async () => {
+    const { LABEL_PRESETS, labelSheetPages, deriveLabels } = await import('@wirehub/docs');
+    const { loadDesign, loadDb } = await import('@wirehub/catalog');
+    const count = deriveLabels(loadDesign(ID), loadDb()).length;
+    const pt = (mm: number): number => Math.round((mm / 25.4) * 72 * 100) / 100;
+    for (const preset of LABEL_PRESETS) {
+      const bytes = (await get(`/api/designs/${ID}/documents/labels?format=pdf&preset=${preset.id}&qr=1`)).bytes!;
+      const text = Buffer.from(bytes).toString('latin1');
+      const boxes = [...text.matchAll(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/g)];
+      expect(boxes).toHaveLength(labelSheetPages(count, { preset: preset.id }));
+      for (const box of boxes) {
+        expect(Number(box[1])).toBeCloseTo(pt(preset.layout.pageWidth), 1);
+        expect(Number(box[2])).toBeCloseTo(pt(preset.layout.pageHeight), 1);
+      }
+    }
+    expect((await get(`/api/designs/${ID}/documents/labels?format=pdf&preset=nope`)).status).toBe(400);
+    const withQr = text(await get(`/api/designs/${ID}/documents/labels?format=svg&qr=1`));
+    expect(withQr).toContain('data-qr=');
+    expect(text(await get(`/api/designs/${ID}/documents/labels?format=svg`))).not.toContain('data-qr=');
+  });
+
   it('a long test spec runs over pages, repeating nothing but the table header', async () => {
     const parsed = readPdf((await get(`/api/designs/de9-terminal-board/documents/test-spec?format=pdf`)).bytes!);
     expect(parsed.contents.length).toBe(parsed.pages);

@@ -148,6 +148,21 @@ describe('branding settings', () => {
     expect(cleared.body).not.toHaveProperty('titleBlock');
   });
 
+  it('keeps the label stock, the QR switch and its address, and refuses what is not one', async () => {
+    const { deps: d } = deps();
+    const tag = (await get(d)).headers!.ETag!;
+    const saved = await put(d, { labelPreset: 'dymo-30252', labelQr: true, labelQrUrl: 'https://hub.example/p/{pn}?rev={rev}' }, tag);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect(saved.body).toMatchObject({ labelPreset: 'dymo-30252', labelQr: true, labelQrUrl: 'https://hub.example/p/{pn}?rev={rev}' });
+    const next = (await get(d)).headers!.ETag!;
+    expect((await put(d, { labelPreset: 'avery-l7163' }, next)).status).toBe(400);
+    expect((await put(d, { labelQr: 'yes' }, next)).status).toBe(400);
+    expect((await put(d, { labelQrUrl: 'javascript:alert(1)' }, next)).status).toBe(400);
+    const cleared = await put(d, { labelPreset: '', labelQr: false, labelQrUrl: '' }, next);
+    expect(cleared.body).not.toHaveProperty('labelPreset');
+    expect(cleared.body).not.toHaveProperty('labelQr');
+  });
+
   it('keeps the general note and tolerance rows, dropping empty rows', async () => {
     const { deps: d } = deps();
     const tag = (await get(d)).headers!.ETag!;

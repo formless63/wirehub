@@ -26,6 +26,12 @@ import {
   deriveTestSpec,
   labelSheetPages,
   labelSheetSvg,
+  LABEL_PRESETS,
+  LABEL_PRESET_IDS,
+  labelPresetOf,
+  qrModules,
+  qrPayload,
+  sheetFrameFor,
   readTestParameters,
   renderBuildSheet,
   renderTestSpecSheet,
@@ -289,5 +295,88 @@ describe('bomTable', () => {
     const rows = bomTable(loadDesign('de9-crossover'), db).rows;
     expect(rows.find((r) => r[0] === 'Wire')?.[4]).toBe('ft');
     expect(rows.find((r) => r[0] === 'Connectors')?.[4]).toBe('ea');
+  });
+});
+
+describe('label stock presets, the part number, both ends and the QR code (cs-8kj.5)', () => {
+  const design = loadDesign('de9-crossover');
+  const labels = deriveLabels(design, db);
+  const frame = sheetFrameFor(design, db, {}, 'LABELS', 'portrait', 'strip');
+
+  it('names the ends source end and destination end, this end first', () => {
+    const a = labels.find((l) => l.end === 'a')!;
+    const b = labels.find((l) => l.end === 'b' && l.core === undefined)!;
+    expect(a.lines[1]).toMatch(/^Source end: /);
+    expect(a.lines[2]).toMatch(/^Destination end: /);
+    expect(b.lines[1]).toMatch(/^Destination end: /);
+    expect(b.lines[2]).toMatch(/^Source end: /);
+  });
+
+  it('has the common Brady and Dymo sizes and the A4 and Letter grids as data, each with a source', () => {
+    expect(LABEL_PRESET_IDS).toEqual(expect.arrayContaining(['a4-l7160', 'letter-5160', 'dymo-30252', 'dymo-30336', 'brady-m21-25x51']));
+    for (const p of LABEL_PRESETS) {
+      expect(p.src).not.toBe('');
+      expect(p.layout.columns * p.layout.rows).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it.each(LABEL_PRESETS.map((p) => p.id))('the %s sheet matches its preset geometry', (id) => {
+    const preset = labelPresetOf(id)!;
+    const g = preset.layout;
+    const svg = labelSheetSvg(labels, { preset: id, frame });
+    expect(svg).toContain(`viewBox="0 0 ${g.pageWidth} ${g.pageHeight}"`);
+    expect(svg).toContain(`width="${g.pageWidth}mm" height="${g.pageHeight}mm"`);
+    const perPage = g.columns * g.rows;
+    expect((svg.match(/data-label=/g) ?? []).length).toBe(Math.min(labels.length, perPage));
+    expect(labelSheetPages(labels.length, { preset: id })).toBe(Math.ceil(labels.length / perPage));
+    if (perPage > 1) {
+      // the cut guides sit on the stock's grid: first label at the margin, one pitch to the next
+      expect(svg).toContain(`<rect x="${g.marginLeft}" y="${g.marginTop}" width="${g.labelWidth}" height="${g.labelHeight}"`);
+      expect(svg).toContain(`x="${Math.round((g.marginLeft + g.labelWidth + g.gapX) * 1000) / 1000}"`);
+    }
+  });
+
+  it('falls back to the paper grid: A4 for A4, Letter for Letter', () => {
+    expect(labelSheetSvg(labels, { paper: 'A4' })).toContain('viewBox="0 0 210 297"');
+    expect(labelSheetSvg(labels, { paper: 'letter' })).toContain('viewBox="0 0 215.9 279.4"');
+  });
+
+  it('prints the part number and revision on each label', () => {
+    const svg = labelSheetSvg(labels, { frame, pn: 'CBL-00004', rev: '3' });
+    expect((svg.match(/data-label-pn="CBL-00004 rev 3"/g) ?? []).length).toBe(labels.length);
+  });
+
+  it('draws a QR code per label only when asked, deterministically, of the right payload', () => {
+    expect(labelSheetSvg(labels, { pn: 'CBL-00004', rev: '3' })).not.toContain('data-qr=');
+    const a = labelSheetSvg(labels, { qr: true, pn: 'CBL-00004', rev: '3' });
+    expect((a.match(/data-qr="/g) ?? []).length).toBe(labels.length);
+    expect(labelSheetSvg(labels, { qr: true, pn: 'CBL-00004', rev: '3' })).toBe(a);
+    expect(labelSheetSvg(labels, { qr: true, pn: 'CBL-00005', rev: '3' })).not.toBe(a);
+    expect(qrPayload({ pn: 'CBL-00004', rev: '3' })).toBe('CBL-00004 rev 3');
+    expect(qrPayload({ pn: 'CBL-00004', rev: '3', design: 'x y', label: 'W1-A' }, 'https://hub.example/p/{pn}?rev={rev}&d={design}')).toBe('https://hub.example/p/CBL-00004?rev=3&d=x%20y');
+  });
+
+  it('the QR is a valid code: a version-1..n square with the three finder patterns', () => {
+    const m = qrModules('CBL-00004 rev 3');
+    expect(m.length).toBe(m[0]!.length);
+    expect((m.length - 17) % 4).toBe(0);
+    const finder = (r: number, c: number): string => m.slice(r, r + 7).map((row) => row.slice(c, c + 7).map((d) => (d ? '#' : '.')).join('')).join('/');
+    const expected = '#######/#.....#/#.###.#/#.###.#/#.###.#/#.....#/#######';
+    expect(finder(0, 0)).toBe(expected);
+    expect(finder(0, m.length - 7)).toBe(expected);
+    expect(finder(m.length - 7, 0)).toBe(expected);
+  });
+
+  it('keeps every drawn element on its label', () => {
+    for (const id of ['dymo-30336', 'brady-m21-19x38', 'a4-l7160']) {
+      const g = labelPresetOf(id)!.layout;
+      const svg = labelSheetSvg(labels, { preset: id, qr: true, pn: 'CBL-00004', rev: '3' });
+      const first = svg.slice(svg.indexOf('<g data-label='), svg.indexOf('</g>', svg.indexOf('data-qr')) + 4);
+      const x0 = g.marginLeft;
+      for (const m of first.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"\/>/g)) {
+        expect(Number(m[1]) + Number(m[3])).toBeLessThanOrEqual(x0 + g.labelWidth + 0.01);
+        expect(Number(m[2]) + Number(m[4])).toBeLessThanOrEqual(g.marginTop + g.labelHeight + 0.01);
+      }
+    }
   });
 });

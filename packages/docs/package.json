@@ -15,7 +15,8 @@
     "@wirehub/layout": "workspace:*",
     "@wirehub/model": "workspace:*",
     "@wirehub/modules": "workspace:*",
-    "@wirehub/render-svg": "workspace:*"
+    "@wirehub/render-svg": "workspace:*",
+    "qrcode-generator": "1.4.4"
   },
   "devDependencies": {
     "@types/node": "26.1.2",
