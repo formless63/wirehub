@@ -20,6 +20,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { diffLines, diffVersions, freezeDefinitions, type VersionContent, type VersionHistoryEntry } from '@wirehub/model';
+import { Select } from '@wirehub/editor-react';
 import { Dialog } from 'radix-ui';
 import { useMemo, useState, type JSX } from 'react';
 import { toast } from 'sonner';
@@ -83,18 +84,12 @@ function Compare(props: { id: string; listing: VersionListing; from: Side; to: S
   );
   const options: Side[] = [...props.listing.revisions.map((r) => r.rev).reverse(), 'working'];
   const select = (value: Side, on: (s: Side) => void, label: string): JSX.Element => (
-    <select
+    <Select
       aria-label={label}
       value={String(value)}
-      onChange={(event) => on(event.target.value === 'working' ? 'working' : Number(event.target.value))}
-      className="h-6 rounded border border-line2 bg-bg px-1 text-xs text-ink"
-    >
-      {options.map((option) => (
-        <option key={String(option)} value={String(option)}>
-          {sideLabel(option)}
-        </option>
-      ))}
-    </select>
+      onValueChange={(v) => on(v === 'working' ? 'working' : Number(v))}
+      options={options.map((option) => ({ value: String(option), label: sideLabel(option) }))}
+    />
   );
   return (
     <section className="border-t border-line px-3 py-2">

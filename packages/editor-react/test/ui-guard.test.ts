@@ -7,7 +7,7 @@
  *   - native `<select>`                                              -> use `Select` from `src/ui`
  *   - `confirm(` / `prompt(`                                         -> use `ConfirmDialog` / a Dialog with a Field
  *
- * Today's violations are an explicit allow-list (`ui-guard.allowlist.json`: file -> rule -> count).
+ * Today's violations are an explicit allow-list (`ui-guard.allowlist.json`: file -> rule -> count, and `reasons`: file -> why it stays).
  * The list may only SHRINK:
  *
  *   - a file or rule that is not listed must have zero violations;
@@ -79,9 +79,11 @@ export function scan(): Record<string, Counts> {
   return found;
 }
 
+function readRaw(): { files: Record<string, Counts>; reasons?: Record<string, string> } {
+  return JSON.parse(readFileSync(ALLOW_URL, 'utf8')) as { files: Record<string, Counts>; reasons?: Record<string, string> };
+}
 function readAllow(): Record<string, Counts> {
-  const raw = JSON.parse(readFileSync(ALLOW_URL, 'utf8')) as { files: Record<string, Counts> };
-  return raw.files;
+  return readRaw().files;
 }
 
 const DOC = 'Violations of the UI guard (packages/editor-react/test/ui-guard.test.ts) that exist today. This list may only shrink: lower a count when you fix a violation (UI_GUARD_UPDATE=1 pnpm --filter @wirehub/editor-react test -- ui-guard does it), never raise one.';
@@ -100,7 +102,8 @@ describe('ui guard', () => {
         }
         next[file] = counts;
       }
-      writeFileSync(ALLOW_URL, JSON.stringify({ _doc: DOC, files: Object.fromEntries(Object.entries(next).sort(([a], [b]) => a.localeCompare(b))) }, null, 2) + '\n');
+      const kept = Object.fromEntries(Object.entries(readRaw().reasons ?? {}).filter(([file]) => file in next).sort(([a], [b]) => a.localeCompare(b)));
+      writeFileSync(ALLOW_URL, JSON.stringify({ _doc: DOC, files: Object.fromEntries(Object.entries(next).sort(([a], [b]) => a.localeCompare(b))), reasons: kept }, null, 2) + '\n');
     });
     return;
   }
@@ -130,6 +133,11 @@ describe('ui guard', () => {
       }
     }
     expect(slack, 'lower the numbers: UI_GUARD_UPDATE=1 pnpm --filter @wirehub/editor-react test -- ui-guard').toEqual([]);
+  });
+
+  it('every file still on the list says why', () => {
+    const reasons = readRaw().reasons ?? {};
+    expect(Object.keys(allow).filter((f) => (reasons[f] ?? '').trim() === ''), 'add a reason for the file under "reasons" in ui-guard.allowlist.json').toEqual([]);
   });
 
   it('the rules catch what they claim to', () => {

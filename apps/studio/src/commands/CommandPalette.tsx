@@ -123,7 +123,7 @@ function matches(fields: readonly string[], query: string): boolean {
 
 function Kbd({ children }: { children: ReactNode }): JSX.Element {
   return (
-    <kbd className="rounded border border-line2 px-[5px] font-mono text-[10.5px] leading-4 text-faint">
+    <kbd className="rounded border border-line2 px-[5px] font-mono text-2xs leading-4 text-faint">
       {children}
     </kbd>
   );
@@ -143,9 +143,9 @@ function ResultRow(props: {
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] ${props.badgeClass}`}>
         <Icon size={13} className="text-panel" />
       </span>
-      <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{props.label}</span>
+      <span className="min-w-0 flex-1 truncate text-sm text-ink">{props.label}</span>
       {props.meta !== undefined && props.meta !== '' ? (
-        <span className="shrink-0 whitespace-nowrap font-mono text-[10.5px] text-faint">{props.meta}</span>
+        <span className="shrink-0 whitespace-nowrap font-mono text-2xs text-faint">{props.meta}</span>
       ) : null}
       {props.shortcut !== undefined ? (
         <span className="shrink-0 group-data-[selected=true]:hidden">
@@ -164,7 +164,7 @@ const ITEM_CLASS =
 
 function GroupHeading({ children }: { children: ReactNode }): JSX.Element {
   return (
-    <div className="px-2.5 pb-1 pt-2.5 font-mono text-[10px] tracking-wide text-faint uppercase">{children}</div>
+    <div className="px-2.5 pb-1 pt-2.5 font-mono text-2xs tracking-wide text-faint uppercase">{children}</div>
   );
 }
 
@@ -303,13 +303,13 @@ export function CommandPalette(): JSX.Element {
                 value={rawQuery}
                 onValueChange={setRawQuery}
                 placeholder="Search…"
-                className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint"
+                className="min-w-0 flex-1 border-0 bg-transparent text-lg text-ink outline-none placeholder:text-faint"
               />
               <Kbd>Esc</Kbd>
             </div>
 
             <Command.List className="max-h-[420px] overflow-y-auto px-1.5 pb-1.5">
-              <Command.Empty className="px-3 py-6 text-center text-[12.5px] text-faint">
+              <Command.Empty className="px-3 py-6 text-center text-xs text-faint">
                 Nothing found.
               </Command.Empty>
 
@@ -389,7 +389,7 @@ export function CommandPalette(): JSX.Element {
               ) : null}
             </Command.List>
 
-            <div className="flex h-[30px] items-center gap-3.5 border-t border-line bg-raised px-3.5 text-[11px] text-faint">
+            <div className="flex h-[30px] items-center gap-3.5 border-t border-line bg-raised px-3.5 text-2xs text-faint">
               <span className="flex items-center gap-1.5">
                 <Kbd>↑↓</Kbd> move
               </span>

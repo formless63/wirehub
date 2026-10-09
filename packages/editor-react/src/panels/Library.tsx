@@ -91,6 +91,9 @@ import {
 import { libraryColumns, libraryRows, type LibraryTableContext } from '../library-table.ts';
 import { LibraryTable } from './LibraryTable.tsx';
 import { Tab, TabList, Tabs } from '../ui/Tabs.tsx';
+import { Button } from '../ui/Button.tsx';
+import { Input } from '../ui/Field.tsx';
+import { Dialog } from '../ui/Overlays.tsx';
 import { PropertiesGrid, RecordHead, SourceBlock, WhereUsed, type RecordAction } from './RecordOverview.tsx';
 import {
   LIBRARY_PANE_DEFAULT,
@@ -563,6 +566,8 @@ export function Library(props: LibraryProps): JSX.Element {
   const [comparePick, setComparePick] = useState<string[] | undefined>(undefined);
   useEffect(() => setComparePick(undefined), [kind]);
   const [mode, setMode] = useState<Mode>({ kind: 'browse' });
+  /** "Fork to edit" asking for the id of the copy */
+  const [forkAsk, setForkAsk] = useState<{ id: string; value: string } | undefined>(undefined);
   const [list, setList] = useState<DefinitionList>(() => fromDb(props.db, kind));
   const [draft, setDraft] = useState<DefinitionDraft | undefined>(undefined);
   /** the record as stored — the Revert target and the dirty baseline */
@@ -1039,7 +1044,6 @@ export function Library(props: LibraryProps): JSX.Element {
       onClick: focusEditor,
     });
     if (packOrigin !== undefined && definitions?.fork !== undefined) {
-      const fork = definitions.fork.bind(definitions);
       const id = mode.id;
       recordActions.push({
         id: 'fork',
@@ -1047,15 +1051,7 @@ export function Library(props: LibraryProps): JSX.Element {
         title: `Copy this record under a new id of your own (it remembers it came from ${packOrigin.pack} ${packOrigin.version})`,
         primary: true,
         disabled: busy,
-        onClick: () => {
-          const asked = typeof window === 'undefined' ? null : window.prompt('Id for your copy (lowercase words joined by hyphens):', `${id}-local`);
-          if (asked === null || asked.trim() === '') return;
-          void run(async () => {
-            const outcome = await fork(kind, id, asked.trim());
-            if (!outcome.ok) return { ok: false, problem: { message: outcome.message, ...(outcome.hint === undefined ? {} : { hint: outcome.hint }), details: (outcome.issues ?? []).map((issue) => describeIssue(issue)) } };
-            return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Forked ${id} as ${outcome.value.id}` };
-          });
-        },
+        onClick: () => setForkAsk({ id, value: `${id}-local` }),
       });
     } else if (kind === 'connectors' && baseline !== undefined && definitions !== undefined) {
       const source = baseline as ConnectorDefinition;
@@ -1073,6 +1069,16 @@ export function Library(props: LibraryProps): JSX.Element {
       recordActions.push({ id: 'compare', label: 'Compare', title: 'Open this part in the compare view', onClick: () => props.onCompare?.(`${kind}/${id}`) });
     }
   }
+  const doFork = (id: string, asked: string): void => {
+    const fork = definitions?.fork?.bind(definitions);
+    setForkAsk(undefined);
+    if (fork === undefined) return;
+    void run(async () => {
+      const outcome = await fork(kind, id, asked);
+      if (!outcome.ok) return { ok: false, problem: { message: outcome.message, ...(outcome.hint === undefined ? {} : { hint: outcome.hint }), details: (outcome.issues ?? []).map((issue) => describeIssue(issue)) } };
+      return { ok: true, change: { kind: 'definition-created', defKind: kind, record: outcome.value }, status: `Forked ${id} as ${outcome.value.id}` };
+    });
+  };
   const wireDetail =
     wireRecipe === undefined || wireLib === undefined || wireAdapter === undefined ? null : (
       <>
@@ -1773,6 +1779,33 @@ export function Library(props: LibraryProps): JSX.Element {
           </div>
         ) : null}
       </div>
+      {forkAsk === undefined || definitions?.fork === undefined ? null : (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setForkAsk(undefined);
+          }}
+          title="Fork to edit"
+          description="Id for your copy: lowercase words joined by hyphens."
+          footer={
+            <>
+              <Button onClick={() => setForkAsk(undefined)}>Cancel</Button>
+              <Button variant="primary" disabled={forkAsk.value.trim() === ''} onClick={() => doFork(forkAsk.id, forkAsk.value.trim())}>
+                Fork
+              </Button>
+            </>
+          }
+        >
+          <Input
+            aria-label="Id for your copy"
+            value={forkAsk.value}
+            onChange={(e) => setForkAsk({ ...forkAsk, value: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && forkAsk.value.trim() !== '') doFork(forkAsk.id, forkAsk.value.trim());
+            }}
+          />
+        </Dialog>
+      )}
     </div>
   );
 }

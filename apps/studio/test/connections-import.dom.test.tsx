@@ -63,6 +63,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+
+// the pieces of the platform Radix pokes that jsdom lacks
+Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => undefined, releasePointerCapture: () => undefined, scrollIntoView: () => undefined });
+async function choose(scope: HTMLElement, name: string, option: string | RegExp): Promise<void> {
+  const trigger = within(scope).getByRole('combobox', { name });
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: option }));
+}
+
 const CSV = ['From,To,Note', 'J1.2,J2.3,crossover', 'J1.3,J2.2,crossover', 'J1.9,J2.99,no such pin', 'X7.1,J2.1,'].join('\n');
 
 describe('connections CSV import', () => {
@@ -76,8 +86,8 @@ describe('connections CSV import', () => {
     // nothing is a connector yet: no joints, and the rows say why
     expect(within(dialog).getByTestId('connections-dry-run').textContent).toContain('0 of 4');
     expect(within(dialog).getByRole('table', { name: 'Left out' }).textContent).toContain('is not a library connector');
-    fireEvent.change(within(dialog).getByLabelText('Connector for J1'), { target: { value: 'de9-male' } });
-    fireEvent.change(within(dialog).getByLabelText('Connector for J2'), { target: { value: 'de9-female' } });
+    await choose(dialog, 'Connector for J1', /DE-9 male/);
+    await choose(dialog, 'Connector for J2', /DE-9 female/);
     expect(within(dialog).getByTestId('connections-dry-run').textContent).toContain('2 of 4');
     expect(within(dialog).getByRole('table', { name: 'Left out' }).textContent).toContain("de9-female has no pin '99'");
     fireEvent.change(within(dialog).getByLabelText('Design name'), { target: { value: 'My lead' } });

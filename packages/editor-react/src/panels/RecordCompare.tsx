@@ -255,7 +255,7 @@ export function RecordCompare(props: {
                   <input type="checkbox" checked={overlay} onChange={(e) => setOverlay(e.target.checked)} /> lay over each other (what differs stays bright)
                 </label>
                 {overlay && left.art !== undefined && right.art !== undefined ? (
-                  <div style={{ position: 'relative', background: '#000', maxWidth: 480 }}>
+                  <div style={{ position: 'relative', background: 'black', maxWidth: 480 }}>
                     <img src={left.art} alt={sideText(a)} style={{ width: '100%', display: 'block', filter: 'invert(1)' }} />
                     <img src={right.art} alt={sideText(b)} style={{ position: 'absolute', inset: 0, width: '100%', mixBlendMode: 'difference', filter: 'invert(1)' }} />
                   </div>

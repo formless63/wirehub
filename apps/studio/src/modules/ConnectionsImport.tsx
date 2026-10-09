@@ -16,8 +16,10 @@ import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { startImportJob } from '../jobs.browser.ts';
 import { useStudio } from '../studio-context.tsx';
 import { ImportJob } from './ImportJob.tsx';
-import { Button, Input } from '@wirehub/editor-react';
+import { Button, Input, Select } from '@wirehub/editor-react';
 
+/** the "none" option's value: a Radix Select has no empty value */
+const NONE = '__none__';
 const toBase64 = (bytes: Uint8Array): string => {
   let binary = '';
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
@@ -126,14 +128,12 @@ export function ConnectionsImport({ onImported, expose }: { onImported: () => vo
             </label>
             <label>
               Carried on{' '}
-              <select aria-label="Wire stock" value={wire} onChange={(e) => setWire(e.target.value)}>
-                <option value="">direct pin to pin</option>
-                {studio.db.wires.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.label}
-                  </option>
-                ))}
-              </select>
+              <Select
+                aria-label="Wire stock"
+                value={wire === '' ? NONE : wire}
+                onValueChange={(v) => setWire(v === NONE ? '' : v)}
+                options={[{ value: NONE, label: 'direct pin to pin' }, ...studio.db.wires.map((w) => ({ value: w.id, label: w.label }))]}
+              />
             </label>
           </div>
           {result.error === undefined ? null : <div role="alert">{result.error}</div>}
@@ -153,14 +153,12 @@ export function ConnectionsImport({ onImported, expose }: { onImported: () => vo
                       <td className="font-mono">{p.name}</td>
                       <td>{p.rows}</td>
                       <td>
-                        <select aria-label={`Connector for ${p.name}`} value={parts[p.name] ?? p.connector ?? ''} onChange={(e) => setParts({ ...parts, [p.name]: e.target.value })}>
-                          <option value="">not chosen</option>
-                          {studio.db.connectors.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.label}
-                            </option>
-                          ))}
-                        </select>
+                        <Select
+                          aria-label={`Connector for ${p.name}`}
+                          value={(parts[p.name] ?? p.connector ?? '') === '' ? NONE : (parts[p.name] ?? p.connector ?? '')}
+                          onValueChange={(v) => setParts({ ...parts, [p.name]: v === NONE ? '' : v })}
+                          options={[{ value: NONE, label: 'not chosen' }, ...studio.db.connectors.map((c) => ({ value: c.id, label: c.label }))]}
+                        />
                       </td>
                     </tr>
                   ))}

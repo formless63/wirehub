@@ -56,6 +56,48 @@ export interface SemanticTokens {
   connKind: string;
   wireKind: string;
   compKind: string;
+  paper: string;
+  paper2: string;
+  paper3: string;
+  paperDim: string;
+  paperInk: string;
+  paperInk2: string;
+  padRing: string;
+  padInk: string;
+  trace: string;
+  artChipBodyFill: string;
+  artChipBodyStroke: string;
+  artChipEndFill: string;
+  artChipEndStroke: string;
+  artDiodeBandFill: string;
+  artDiodeBodyFill: string;
+  artDiodeBodyStroke: string;
+  artElecBodyFill: string;
+  artElecBodyStroke: string;
+  artElecStripeFill: string;
+  artIcBodyFill: string;
+  artIcBodyStroke: string;
+  artIcLeadFill: string;
+  artIcLeadStroke: string;
+  artJumperBlobFill: string;
+  artJumperBlobStroke: string;
+  artJumperPadFill: string;
+  artJumperPadStroke: string;
+  artLedBodyFill: string;
+  artLedBodyStroke: string;
+  artLedDomeFill: string;
+  artMarking: string;
+  artMlccBodyFill: string;
+  artMlccBodyStroke: string;
+  artMlccEndFill: string;
+  artMlccEndStroke: string;
+  artPin1: string;
+  artShieldMetal: string;
+  artPlainInsulation: string;
+  artPin1Stroke: string;
+  artTantBandFill: string;
+  artTantBodyFill: string;
+  artTantBodyStroke: string;
 }
 
 export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
@@ -106,6 +148,48 @@ export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
     connKind: "#7ea6db",
     wireKind: "#d2a85a",
     compKind: "#b38be0",
+    paper: "#ffffff",
+    paper2: "#f6f7f8",
+    paper3: "#eceff2",
+    paperDim: "#6b7280",
+    paperInk: "#1b2129",
+    paperInk2: "#16191d",
+    padRing: "#f2f1ed",
+    padInk: "#1b1a18",
+    trace: "#c2602a",
+    artChipBodyFill: "#1c1c1c",
+    artChipBodyStroke: "#050505",
+    artChipEndFill: "#c7ccd2",
+    artChipEndStroke: "#9aa0a8",
+    artDiodeBandFill: "#e6e8ea",
+    artDiodeBodyFill: "#17181a",
+    artDiodeBodyStroke: "#050505",
+    artElecBodyFill: "#46484c",
+    artElecBodyStroke: "#202224",
+    artElecStripeFill: "#d8dadd",
+    artIcBodyFill: "#1c1c1c",
+    artIcBodyStroke: "#050505",
+    artIcLeadFill: "#c7ccd2",
+    artIcLeadStroke: "#9aa0a8",
+    artJumperBlobFill: "#d7dade",
+    artJumperBlobStroke: "#9aa0a8",
+    artJumperPadFill: "#c3a765",
+    artJumperPadStroke: "#8a763f",
+    artLedBodyFill: "#17181a",
+    artLedBodyStroke: "#050505",
+    artLedDomeFill: "#e2894a",
+    artMarking: "#f2f2f2",
+    artMlccBodyFill: "#b9905a",
+    artMlccBodyStroke: "#8a6a3e",
+    artMlccEndFill: "#c7ccd2",
+    artMlccEndStroke: "#9aa0a8",
+    artPin1: "#e7e7ea",
+    artShieldMetal: "#a7aeb5",
+    artPlainInsulation: "#e9edf1",
+    artPin1Stroke: "#8a8f96",
+    artTantBandFill: "#241d15",
+    artTantBodyFill: "#e2a13a",
+    artTantBodyStroke: "#a8741f",
   },
   light: {
     bg: "#f7f6f3",
@@ -154,6 +238,48 @@ export const SEMANTIC_TOKENS: Record<ThemeName, SemanticTokens> = {
     connKind: "#3f6fb0",
     wireKind: "#a97f2c",
     compKind: "#8656c4",
+    paper: "#ffffff",
+    paper2: "#f6f7f8",
+    paper3: "#eceff2",
+    paperDim: "#6b7280",
+    paperInk: "#1b2129",
+    paperInk2: "#16191d",
+    padRing: "#f2f1ed",
+    padInk: "#1b1a18",
+    trace: "#c2602a",
+    artChipBodyFill: "#1c1c1c",
+    artChipBodyStroke: "#050505",
+    artChipEndFill: "#c7ccd2",
+    artChipEndStroke: "#9aa0a8",
+    artDiodeBandFill: "#e6e8ea",
+    artDiodeBodyFill: "#17181a",
+    artDiodeBodyStroke: "#050505",
+    artElecBodyFill: "#46484c",
+    artElecBodyStroke: "#202224",
+    artElecStripeFill: "#d8dadd",
+    artIcBodyFill: "#1c1c1c",
+    artIcBodyStroke: "#050505",
+    artIcLeadFill: "#c7ccd2",
+    artIcLeadStroke: "#9aa0a8",
+    artJumperBlobFill: "#d7dade",
+    artJumperBlobStroke: "#9aa0a8",
+    artJumperPadFill: "#c3a765",
+    artJumperPadStroke: "#8a763f",
+    artLedBodyFill: "#17181a",
+    artLedBodyStroke: "#050505",
+    artLedDomeFill: "#e2894a",
+    artMarking: "#f2f2f2",
+    artMlccBodyFill: "#b9905a",
+    artMlccBodyStroke: "#8a6a3e",
+    artMlccEndFill: "#c7ccd2",
+    artMlccEndStroke: "#9aa0a8",
+    artPin1: "#e7e7ea",
+    artShieldMetal: "#a7aeb5",
+    artPlainInsulation: "#e9edf1",
+    artPin1Stroke: "#8a8f96",
+    artTantBandFill: "#241d15",
+    artTantBodyFill: "#e2a13a",
+    artTantBodyStroke: "#a8741f",
   },
 };
 
@@ -170,6 +296,14 @@ export const SCALES = {
     md: '14px',
     lg: '16px',
     xl: '20px',
+    'canvas-5': '5px',
+    'canvas-7-5': '7.5px',
+    'canvas-8': '8px',
+    'canvas-9': '9px',
+    'canvas-9-5': '9.5px',
+    'canvas-10': '10px',
+    'canvas-10-5': '10.5px',
+    'canvas-11-5': '11.5px',
   },
   space: {
     unit: '4px',

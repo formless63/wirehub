@@ -127,7 +127,7 @@
   padding: 2px 8px;
   border: 1px solid var(--cs-line);
   border-radius: 999px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
   white-space: nowrap;
 }
@@ -145,7 +145,7 @@
   background: color-mix(in oklab, var(--err) 20%, var(--bg));
   border-bottom: 1px solid var(--cs-error);
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-rejection strong {
@@ -283,7 +283,7 @@
   gap: 8px;
   margin: 0;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -293,7 +293,7 @@
 
 .cs-panel h3 {
   margin: 8px 0 4px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--cs-dim);
   text-transform: uppercase;
@@ -311,7 +311,7 @@
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--raised);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 500;
   color: var(--cs-dim);
   letter-spacing: 0;
@@ -332,12 +332,12 @@
   color: var(--cs-error);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 :where(.cs-editor) :where(button) {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-ink);
   background: var(--raised);
   border: 1px solid var(--line2);
@@ -377,7 +377,7 @@
 .cs-textarea {
   width: 100%;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-ink);
   background: var(--bg);
   border: 1px solid var(--line-field);
@@ -433,7 +433,7 @@
 
 .cs-part-label {
   grid-area: label;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -441,7 +441,7 @@
 
 .cs-part-detail {
   grid-area: detail;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--cs-dim);
 }
 
@@ -456,7 +456,7 @@
   grid-template-columns: 84px 1fr;
   gap: 2px 8px;
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-facts dt {
@@ -477,7 +477,7 @@
 
 .cs-field span {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
   margin-bottom: 2px;
 }
@@ -492,7 +492,7 @@
   display: flex;
   align-items: center;
   padding: 2px 0;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-inspector {
@@ -524,7 +524,7 @@
 }
 
 .cs-term {
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-issue {
@@ -535,7 +535,7 @@
   margin-bottom: 4px;
   border-left: 2px solid var(--cs-warn);
   background: var(--raised);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-issue.is-error {
@@ -561,7 +561,7 @@
 
 .cs-issues-compat h3 {
   margin: 8px 0 4px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: var(--cs-dim);
@@ -589,7 +589,7 @@
 }
 
 .cs-issue-terms {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-ink);
 }
 
@@ -622,7 +622,7 @@
 /* depiction diagnostics */
 .cs-issues-artwork h3 {
   margin: 8px 0 4px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: var(--cs-dim);
@@ -630,7 +630,7 @@
 
 .cs-issue-plain {
   margin: 4px 0;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
 }
 
@@ -662,7 +662,7 @@
 .cs-note-n {
   padding-top: 5px;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--cs-dim);
   text-align: right;
 }
@@ -672,7 +672,7 @@
   min-height: 28px;
   resize: vertical;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   line-height: 1.4;
 }
 
@@ -683,7 +683,7 @@
   gap: 6px;
   padding: 2px 0;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-step-label {
@@ -708,7 +708,7 @@
 /* white paper, dark chrome: this wraps the rendered schematic SVG, whose own
    strokes assume a white page regardless of the app's theme */
 .cs-preview-body {
-  background: #fdfdfd;
+  background: var(--paper);
 }
 
 .cs-svg svg {
@@ -723,7 +723,7 @@
 }
 
 .cs-upload {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-ink);
   background: var(--raised);
   border: 1px solid var(--cs-line);
@@ -743,7 +743,7 @@
   width: calc(100% - 20px);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   resize: none;
 }
 
@@ -789,7 +789,7 @@
   width: auto;
   flex: 0 0 auto;
   height: 24px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   padding: 0 4px;
 }
 
@@ -799,7 +799,7 @@
   width: auto;
   flex: 0 0 auto;
   height: 24px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   padding: 0 4px;
   margin-right: 6px;
 }
@@ -817,7 +817,7 @@
   gap: 6px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--cs-line);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-sheet-options .cs-input {
@@ -853,7 +853,7 @@
   margin: 0;
   padding: 6px 10px;
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-doc-warning {
@@ -862,7 +862,7 @@
   border-left: 2px solid var(--cs-warn);
   background: color-mix(in oklab, var(--warn) 18%, var(--bg));
   color: var(--warn);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-doc-warning strong {
@@ -882,7 +882,7 @@
   border-radius: 4px;
   background: color-mix(in oklab, var(--err) 14%, var(--bg));
   color: var(--cs-error);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-drawing-conflict strong {
@@ -939,7 +939,7 @@
   left: 0;
   max-width: none;
   border: 0;
-  background: #ffffff;
+  background: var(--paper);
   transform-origin: 0 0;
 }
 
@@ -950,7 +950,7 @@
   padding: 6px 8px;
   border: 1px solid var(--cs-line);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-drawing-form > summary {
@@ -1003,7 +1003,7 @@
 /* ---------- nodes ---------- */
 
 .cs-editor .react-flow__node {
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
 }
 
 .cs-node {
@@ -1038,7 +1038,7 @@
 
 .cs-badge {
   grid-area: badge;
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 1px 4px;
@@ -1069,7 +1069,7 @@
 .cs-subtitle {
   grid-area: subtitle;
   color: var(--dim);
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1078,7 +1078,7 @@
 .cs-meta {
   grid-area: meta;
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1148,7 +1148,7 @@
 }
 
 .cs-side-label {
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--faint);
@@ -1183,7 +1183,7 @@
 .cs-endpoint {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   color: var(--faint);
   cursor: pointer;
   padding: 0 2px;
@@ -1270,7 +1270,7 @@
 .cs-dir {
   flex: none;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9.5px;
+  font-size: var(--fs-canvas-9-5);
   color: var(--faint);
 }
 
@@ -1376,7 +1376,7 @@
 
 .cs-board-head .cs-instance,
 .cs-art-head .cs-instance {
-  font-size: 10.5px;
+  font-size: var(--fs-canvas-10-5);
   font-weight: 400;
   color: var(--faint);
 }
@@ -1385,7 +1385,7 @@
 .cs-art-head .cs-title {
   flex: 1;
   min-width: 0;
-  font-size: 11.5px;
+  font-size: var(--fs-canvas-11-5);
   font-weight: 600;
   color: var(--ink);
 }
@@ -1395,7 +1395,7 @@
   flex: none;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   color: var(--faint);
 }
 
@@ -1407,7 +1407,7 @@
 .cs-board-caption {
   position: absolute;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
+  font-size: var(--fs-canvas-9);
   line-height: 12px;
   letter-spacing: 0.06em;
   color: var(--faint);
@@ -1448,41 +1448,41 @@
 }
 
 .cs-board-part-pin1 {
-  fill: #e7e7ea;
-  stroke: #8a8f96;
+  fill: var(--art-pin1);
+  stroke: var(--art-pin1-stroke);
   stroke-width: 0.5;
 }
 
 /* Package art: the real top-down colours of the part itself — a
    black chip resistor prints the same whether the canvas around it is light
    or dark, so these never key off theme. */
-.cs-pt-chip-body { fill: #1c1c1c; stroke: #050505; stroke-width: 0.4; }
-.cs-pt-chip-end { fill: #c7ccd2; stroke: #9aa0a8; stroke-width: 0.3; }
-.cs-pt-mlcc-body { fill: #b9905a; stroke: #8a6a3e; stroke-width: 0.4; }
-.cs-pt-mlcc-end { fill: #c7ccd2; stroke: #9aa0a8; stroke-width: 0.3; }
-.cs-pt-tant-body { fill: #e2a13a; stroke: #a8741f; stroke-width: 0.4; }
-.cs-pt-tant-band { fill: #241d15; }
-.cs-pt-elec-body { fill: #46484c; stroke: #202224; stroke-width: 0.5; }
-.cs-pt-elec-stripe { fill: #d8dadd; }
-.cs-pt-ic-body { fill: #1c1c1c; stroke: #050505; stroke-width: 0.4; }
-.cs-pt-ic-lead { fill: #c7ccd2; stroke: #9aa0a8; stroke-width: 0.3; }
-.cs-pt-diode-body { fill: #17181a; stroke: #050505; stroke-width: 0.4; }
-.cs-pt-diode-band { fill: #e6e8ea; }
-.cs-pt-led-body { fill: #17181a; stroke: #050505; stroke-width: 0.4; }
-.cs-pt-led-dome { fill: #e2894a; fill-opacity: 0.55; }
-.cs-pt-jumper-blob { fill: #d7dade; stroke: #9aa0a8; stroke-width: 0.4; }
-.cs-pt-jumper-pad { fill: #c3a765; stroke: #8a763f; stroke-width: 0.4; }
+.cs-pt-chip-body { fill: var(--art-chip-body-fill); stroke: var(--art-chip-body-stroke); stroke-width: 0.4; }
+.cs-pt-chip-end { fill: var(--art-chip-end-fill); stroke: var(--art-chip-end-stroke); stroke-width: 0.3; }
+.cs-pt-mlcc-body { fill: var(--art-mlcc-body-fill); stroke: var(--art-mlcc-body-stroke); stroke-width: 0.4; }
+.cs-pt-mlcc-end { fill: var(--art-mlcc-end-fill); stroke: var(--art-mlcc-end-stroke); stroke-width: 0.3; }
+.cs-pt-tant-body { fill: var(--art-tant-body-fill); stroke: var(--art-tant-body-stroke); stroke-width: 0.4; }
+.cs-pt-tant-band { fill: var(--art-tant-band-fill); }
+.cs-pt-elec-body { fill: var(--art-elec-body-fill); stroke: var(--art-elec-body-stroke); stroke-width: 0.5; }
+.cs-pt-elec-stripe { fill: var(--art-elec-stripe-fill); }
+.cs-pt-ic-body { fill: var(--art-ic-body-fill); stroke: var(--art-ic-body-stroke); stroke-width: 0.4; }
+.cs-pt-ic-lead { fill: var(--art-ic-lead-fill); stroke: var(--art-ic-lead-stroke); stroke-width: 0.3; }
+.cs-pt-diode-body { fill: var(--art-diode-body-fill); stroke: var(--art-diode-body-stroke); stroke-width: 0.4; }
+.cs-pt-diode-band { fill: var(--art-diode-band-fill); }
+.cs-pt-led-body { fill: var(--art-led-body-fill); stroke: var(--art-led-body-stroke); stroke-width: 0.4; }
+.cs-pt-led-dome { fill: var(--art-led-dome-fill); fill-opacity: 0.55; }
+.cs-pt-jumper-blob { fill: var(--art-jumper-blob-fill); stroke: var(--art-jumper-blob-stroke); stroke-width: 0.4; }
+.cs-pt-jumper-pad { fill: var(--art-jumper-pad-fill); stroke: var(--art-jumper-pad-stroke); stroke-width: 0.4; }
 .cs-pt-marking {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 5px;
+  font-size: var(--fs-canvas-5);
   text-anchor: middle;
   dominant-baseline: central;
-  fill: #f2f2f2;
+  fill: var(--art-marking);
 }
 
 .cs-board-part-label {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
+  font-size: var(--fs-canvas-9);
   font-variant-numeric: tabular-nums;
   text-anchor: middle;
   dominant-baseline: central;
@@ -1534,13 +1534,13 @@
 .cs-editor .react-flow__handle.cs-pad-handle::after {
   width: 7px;
   height: 7px;
-  border: 1.5px solid #f2f1ed;
+  border: 1.5px solid var(--pad-ring);
   background: rgba(20, 20, 22, 0.35);
 }
 
 .cs-editor .react-flow__handle.cs-pad-handle.is-used::after {
-  border-color: #1b1a18;
-  background: #f2f1ed;
+  border-color: var(--pad-ink);
+  background: var(--pad-ring);
 }
 
 /* landed through a carrier hole: no edge comes to it, so the pad
@@ -1548,8 +1548,8 @@
 .cs-editor .react-flow__handle.cs-pad-handle.is-through::after {
   width: 9px;
   height: 9px;
-  border: 2px solid #1b1a18;
-  background: var(--pad-through, #f2f1ed);
+  border: 2px solid var(--pad-ink);
+  background: var(--pad-through, var(--pad-ring));
 }
 
 .cs-editor .react-flow__handle.cs-pad-handle.is-on-net::after {
@@ -1628,7 +1628,7 @@
   position: absolute;
   left: 0;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
+  font-size: var(--fs-canvas-9);
   line-height: 12px;
   text-align: center;
   white-space: nowrap;
@@ -1819,7 +1819,7 @@ path.cs-art-t-dark {
 
 .cs-art-num {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 7.5px;
+  font-size: var(--fs-canvas-7-5);
   fill: var(--faint);
 }
 
@@ -1915,14 +1915,14 @@ path.cs-art-t-dark {
 
 .cs-face-caption {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
-  font-size: 9.5px;
+  font-size: var(--fs-canvas-9-5);
   fill: var(--faint);
 }
 
 .cs-wire-label {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   fill: var(--dim);
 }
 
@@ -2237,7 +2237,7 @@ path.cs-art-t-dark {
   background: var(--panel);
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   line-height: 1.4;
   color: var(--ink);
   white-space: nowrap;
@@ -2398,7 +2398,7 @@ path.cs-art-t-dark {
 
 .cs-edge-badge text {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
+  font-size: var(--fs-canvas-8);
   text-anchor: middle;
   fill: var(--dim);
   pointer-events: none;
@@ -2409,7 +2409,7 @@ path.cs-art-t-dark {
 }
 
 .cs-editor .react-flow__attribution {
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
 }
 
 /* ---------- design lifecycle (Save / New / Duplicate / Rename / Delete) ---------- */
@@ -2468,7 +2468,7 @@ path.cs-art-t-dark {
   border: 1px solid var(--cs-error);
   border-radius: 4px;
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-toolbar + .cs-problem {
@@ -2521,13 +2521,13 @@ path.cs-art-t-dark {
 
 .cs-modal-card h2 {
   margin: 0 0 6px;
-  font-size: 15px;
+  font-size: var(--fs-lg);
 }
 
 .cs-modal-say {
   margin: 0 0 10px;
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-modal-warn {
@@ -2536,7 +2536,7 @@ path.cs-art-t-dark {
   border: 1px solid var(--cs-warn);
   border-radius: 4px;
   color: var(--warn);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-field {
@@ -2570,7 +2570,7 @@ path.cs-art-t-dark {
   display: block;
   margin-top: 3px;
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-modal-actions {
@@ -2581,7 +2581,7 @@ path.cs-art-t-dark {
 }
 
 .cs-editor .cs-modal-actions button {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   padding: 5px 12px;
 }
 
@@ -2632,7 +2632,7 @@ path.cs-art-t-dark {
 }
 
 .cs-asset-name {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--cs-ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2640,7 +2640,7 @@ path.cs-art-t-dark {
 }
 
 .cs-asset-meta {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--cs-dim);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -2719,7 +2719,7 @@ path.cs-art-t-dark {
 .cs-artwork-blurb {
   margin: 2px 0 6px;
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 /* ---- upload ---- */
@@ -2782,7 +2782,7 @@ path.cs-art-t-dark {
   white-space: pre-wrap;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   line-height: 1.5;
   color: var(--cs-ink);
 }
@@ -2792,7 +2792,7 @@ path.cs-art-t-dark {
   padding: 6px 8px;
   border-left: 3px solid var(--cs-ok);
   background: color-mix(in oklab, var(--ok) 15%, var(--bg));
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-artwork-report ul {
@@ -2808,7 +2808,7 @@ path.cs-art-t-dark {
   border-left: 3px solid var(--cs-warn);
   background: color-mix(in oklab, var(--warn) 15%, var(--bg));
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 /* ---- the builder's own drawing of a connector ---- */
@@ -2860,7 +2860,7 @@ path.cs-art-t-dark {
 }
 
 .cs-builtin-figure figcaption {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
 }
 
@@ -3073,7 +3073,7 @@ path.cs-art-t-dark {
 
 .cs-artwork-tlabel {
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3095,7 +3095,7 @@ path.cs-art-t-dark {
 .cs-artwork-notice {
   margin: 8px 0 0;
   color: var(--cs-ok);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-artwork-issues {
@@ -3125,7 +3125,7 @@ path.cs-art-t-dark {
   align-items: center;
   gap: 8px;
   padding: 4px 6px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
   border: 1px solid var(--cs-line);
   border-bottom: none;
@@ -3142,8 +3142,8 @@ path.cs-art-t-dark {
   border-radius: 0 0 6px 6px;
   /* white paper: the artwork is monochrome line art on currentColor, and it
      has to read the way it will print */
-  background: #f6f7f8;
-  color: #16191d;
+  background: var(--paper-2);
+  color: var(--paper-ink-2);
   touch-action: none;
   cursor: grab;
 }
@@ -3173,7 +3173,7 @@ path.cs-art-t-dark {
   height: 9px;
   border-radius: 50%;
   background: var(--cs-accent);
-  border: 1.5px solid #fff;
+  border: 1.5px solid var(--paper);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
   pointer-events: auto;
   cursor: move;
@@ -3185,10 +3185,10 @@ path.cs-art-t-dark {
 
 .cs-anchor-dot i {
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  color: #1b2129;
+  color: var(--paper-ink);
   background: rgba(255, 255, 255, 0.78);
   border-radius: 3px;
   padding: 0 3px;
@@ -3203,7 +3203,7 @@ path.cs-art-t-dark {
 /* the derived side is deliberately quieter: it is something the tool worked
    out, not something the user is being asked to check pin by pin */
 .cs-artwork-mirror .cs-artwork-stage {
-  background: #eceff2;
+  background: var(--paper-3);
 }
 
 .cs-artwork-mirror .cs-anchor-dot b {
@@ -3267,7 +3267,7 @@ path.cs-art-t-dark {
 
 .cs-library-rail-kind {
   writing-mode: vertical-rl;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.04em;
   color: var(--cs-dim);
 }
@@ -3392,7 +3392,7 @@ path.cs-art-t-dark {
   display: block;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--cs-dim);
 }
 
@@ -3403,7 +3403,7 @@ path.cs-art-t-dark {
 
 .cs-def-head h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--fs-lg);
 }
 
 /* label, kind chip, mono id, part number — one row, real gaps, not run
@@ -3446,12 +3446,12 @@ path.cs-art-t-dark {
   border-radius: 6px;
   background: var(--cs-panel);
   box-shadow: var(--shadow);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-popover-label {
   margin: 0 0 6px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -3521,7 +3521,7 @@ fieldset.cs-lock-fence {
   align-items: center;
   gap: 8px;
   margin: 0 0 4px;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--cs-dim);
@@ -3529,7 +3529,7 @@ fieldset.cs-lock-fence {
 
 .cs-form-section h4 {
   margin: 12px 0 6px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
 }
 
@@ -3540,7 +3540,7 @@ fieldset.cs-lock-fence {
 .cs-form-say {
   margin: 0 0 10px;
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   max-width: 78ch;
 }
 
@@ -3597,7 +3597,7 @@ fieldset.cs-lock-fence {
   gap: 4px;
   margin-bottom: 12px;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 
@@ -3605,7 +3605,7 @@ fieldset.cs-lock-fence {
   margin: -8px 0 10px;
   padding: 0;
   list-style: none;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-warn);
 }
 
@@ -3614,7 +3614,7 @@ fieldset.cs-lock-fence {
   padding: 6px 8px;
   border: 1px solid var(--cs-line);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-pn-suggestion + .cs-pn-suggestion {
@@ -3655,14 +3655,14 @@ fieldset.cs-lock-fence {
 .cs-rows {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-rows th {
   text-align: left;
   font-weight: 600;
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   padding: 0 6px 4px 0;
 }
 
@@ -3689,7 +3689,7 @@ fieldset.cs-lock-fence {
 .cs-rows small {
   display: block;
   margin-top: 2px;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
 }
 
 .cs-row-tools {
@@ -3749,12 +3749,12 @@ fieldset.cs-lock-fence {
   align-items: baseline;
   gap: 8px;
   margin-bottom: 4px;
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
 }
 
 .cs-path-signal .cs-mono {
   color: var(--cs-dim);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
 }
 
 .cs-path-signal .cs-count {
@@ -3773,11 +3773,11 @@ fieldset.cs-lock-fence {
   flex-wrap: wrap;
   gap: 2px 6px;
   padding: 1px 0;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-path-group li .cs-mono {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
 }
 
 .cs-path-note {
@@ -3795,11 +3795,11 @@ fieldset.cs-lock-fence {
 }
 
 .cs-path-copper {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
 }
 
 .cs-chip.cs-path-via {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   padding: 0 6px;
   color: var(--cs-ink);
   border-color: color-mix(in oklab, var(--comp-kind) 50%, var(--cs-line));
@@ -3807,7 +3807,7 @@ fieldset.cs-lock-fence {
 
 .cs-paths-edit > summary {
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
   margin: 4px 0;
 }
@@ -3865,7 +3865,7 @@ fieldset.cs-lock-fence {
   display: block;
   width: 100%;
   height: auto;
-  background: #fff;
+  background: var(--paper);
   border-radius: 4px;
 }
 
@@ -3898,7 +3898,7 @@ fieldset.cs-lock-fence {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-cutaway-legend li {
@@ -3976,7 +3976,7 @@ fieldset.cs-lock-fence {
 
 .cs-cutaway-large .cs-cutaway-legend {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 
 @media (max-width: 639px) {
@@ -4013,7 +4013,7 @@ fieldset.cs-lock-fence {
 
 .cs-core-detail {
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-core > summary .cs-row-tools {
@@ -4068,7 +4068,7 @@ fieldset.cs-lock-fence {
 .cs-advanced > summary {
   cursor: pointer;
   color: var(--cs-dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-json-view {
@@ -4080,7 +4080,7 @@ fieldset.cs-lock-fence {
   background: var(--canvas);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
 }
 
@@ -4204,7 +4204,7 @@ fieldset.cs-lock-fence {
   border-radius: 4px;
   background: transparent;
   color: var(--cs-ink);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   text-align: left;
   box-shadow: none;
 }
@@ -4293,7 +4293,7 @@ fieldset.cs-lock-fence {
   flex-shrink: 0;
   padding: 6px 6px 6px 10px;
   border-bottom: 1px solid var(--cs-line);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -4345,7 +4345,7 @@ fieldset.cs-lock-fence {
 
 .cs-wizard-head h2 {
   margin: 0 0 4px;
-  font-size: 15px;
+  font-size: var(--fs-lg);
 }
 
 .cs-wizard-body {
@@ -4377,7 +4377,7 @@ fieldset.cs-lock-fence {
   width: 100%;
   text-align: left;
   padding: 6px 8px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
   background: transparent;
   border: 1px solid transparent;
@@ -4401,7 +4401,7 @@ fieldset.cs-lock-fence {
   text-align: center;
   border-radius: 50%;
   background: var(--cs-line);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
 }
 
 .cs-wizard-step.is-active .cs-wizard-num {
@@ -4417,12 +4417,12 @@ fieldset.cs-lock-fence {
 
 .cs-wizard-pane h3 {
   margin: 0 0 4px;
-  font-size: 14px;
+  font-size: var(--fs-md);
 }
 
 .cs-wizard-pane h4 {
   margin: 14px 0 4px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--cs-dim);
@@ -4453,7 +4453,7 @@ fieldset.cs-lock-fence {
   padding: 8px;
   border: 1px solid var(--cs-line);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-wizard-radio small {
@@ -4525,7 +4525,7 @@ fieldset.cs-lock-fence {
   border-radius: 0;
   background: transparent;
   color: var(--cs-dim);
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
   box-shadow: none;
 }
 
@@ -4581,7 +4581,7 @@ fieldset.cs-lock-fence {
   background: var(--cs-warn);
   color: var(--panel);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
 }
 
@@ -4606,7 +4606,7 @@ fieldset.cs-lock-fence {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-conn-chip {
@@ -4629,13 +4629,13 @@ fieldset.cs-lock-fence {
 }
 
 .cs-conn-counts {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--cs-dim);
   white-space: nowrap;
 }
 
 .cs-conn-subtitle {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4653,7 +4653,7 @@ fieldset.cs-lock-fence {
   background: var(--raised);
   color: var(--faint);
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.05em;
 }
 
@@ -4684,12 +4684,12 @@ fieldset.cs-lock-fence {
 }
 
 .cs-conn-pad {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--cs-ink);
 }
 
 .cs-conn-side {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
 }
 
@@ -4719,14 +4719,14 @@ fieldset.cs-lock-fence {
 }
 
 .cs-conn-wire-id {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--cs-ink);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .cs-conn-note {
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--faint);
   white-space: nowrap;
   overflow: hidden;
@@ -4738,7 +4738,7 @@ fieldset.cs-lock-fence {
 .cs-conn-note-input {
   min-width: 0;
   flex: 1;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   padding: 2px 4px;
 }
 
@@ -4826,7 +4826,7 @@ fieldset.cs-lock-fence {
   border-radius: 4px;
   background: transparent;
   color: var(--cs-ink);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
 }
 
 .cs-editor .cs-conn-combo:disabled {
@@ -4883,7 +4883,7 @@ fieldset.cs-lock-fence {
   flex-shrink: 0;
   padding: 8px 12px;
   border-top: 1px solid var(--cs-line);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--cs-dim);
 }
 
@@ -4921,7 +4921,7 @@ fieldset.cs-lock-fence {
   border-radius: 50%;
   background: var(--panel);
   color: var(--dim);
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   line-height: 1;
   opacity: 0;
   pointer-events: none;
@@ -4989,7 +4989,7 @@ fieldset.cs-lock-fence {
   border-radius: 8px;
   box-shadow: var(--shadow);
   overflow: hidden;
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
   color: var(--ink);
 }
 
@@ -5004,7 +5004,7 @@ fieldset.cs-lock-fence {
 .cs-picker-anchor {
   flex-shrink: 0;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--dim);
   background: var(--raised);
   border-radius: 4px;
@@ -5031,7 +5031,7 @@ fieldset.cs-lock-fence {
 
 .cs-picker-group {
   padding: 5px 8px 2px;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -5095,7 +5095,7 @@ fieldset.cs-lock-fence {
 .cs-picker-id {
   flex-shrink: 0;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
 }
 
@@ -5131,7 +5131,7 @@ fieldset.cs-lock-fence {
 .cs-schematic-zoom {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--dim);
 }
 
@@ -5166,7 +5166,7 @@ fieldset.cs-lock-fence {
   left: 0;
   transform-origin: 0 0;
   /* a white sheet in both themes — this is what prints, so it reads as paper */
-  background: #ffffff;
+  background: var(--paper);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   user-select: none;
   -webkit-user-select: none;
@@ -5180,7 +5180,7 @@ fieldset.cs-lock-fence {
 
 .cs-trace-hint {
   margin-left: 8px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
   cursor: help;
 }
@@ -5198,7 +5198,7 @@ fieldset.cs-lock-fence {
   border-radius: 5px;
   background: var(--accent-soft);
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-trace-ends {
@@ -5206,14 +5206,14 @@ fieldset.cs-lock-fence {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
 }
 
 .cs-trace-via,
 .cs-trace-count {
   flex: none;
   color: var(--dim);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   white-space: nowrap;
 }
 
@@ -5255,33 +5255,33 @@ fieldset.cs-lock-fence {
 .cs-schematic-sheet svg.is-tracing .on-trace .edge,
 .cs-schematic-sheet svg.is-tracing .on-trace .track-line,
 .cs-schematic-sheet svg.is-tracing .on-trace .pigtail-line {
-  filter: drop-shadow(0 0 0.5px #c2602a) drop-shadow(0 0 0.5px #c2602a);
+  filter: drop-shadow(0 0 0.5px var(--trace)) drop-shadow(0 0 0.5px var(--trace));
 }
 
 /* board links and parts are thin grey on the art: the trace draws them in copper */
 .cs-schematic-sheet svg.is-tracing .pcba-link.on-trace .internal-link {
-  stroke: #c2602a;
+  stroke: var(--trace);
   stroke-width: 0.7;
 }
 
 .cs-schematic-sheet svg.is-tracing .pcba-link.on-trace .link-ghost {
-  stroke: #c2602a;
+  stroke: var(--trace);
 }
 
 .cs-schematic-sheet svg.is-tracing .board-part.on-trace polygon {
-  fill: #c2602a;
+  fill: var(--trace);
   fill-opacity: 0.55;
-  stroke: #c2602a;
+  stroke: var(--trace);
 }
 
 .cs-schematic-sheet svg.is-tracing .port.on-trace .pad-label,
 .cs-schematic-sheet svg.is-tracing .port.on-trace .callout,
 .cs-schematic-sheet svg.is-tracing .port.on-trace .pin-id {
-  fill: #c2602a;
+  fill: var(--trace);
 }
 
 .cs-schematic-sheet svg.is-tracing .joint-dot.on-trace {
-  fill: #c2602a;
+  fill: var(--trace);
 }
 
 /* ---------- level of detail: Parts | Pins ---------- */
@@ -5298,7 +5298,7 @@ fieldset.cs-lock-fence {
 .cs-editor .cs-lod-btn {
   height: 22px;
   padding: 0 9px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
@@ -5373,12 +5373,12 @@ fieldset.cs-lock-fence {
 .cs-card-id {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-card-title {
   font-weight: 600;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -5389,7 +5389,7 @@ fieldset.cs-lock-fence {
   align-items: center;
   height: 22px;
   padding: 0 8px;
-  font-size: 10.5px;
+  font-size: var(--fs-2xs);
   color: var(--dim);
   white-space: nowrap;
   overflow: hidden;
@@ -5445,7 +5445,7 @@ fieldset.cs-lock-fence {
 
 .cs-bundle-count text {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
+  font-size: var(--fs-canvas-10);
   font-weight: 600;
   text-anchor: middle;
   fill: var(--ink);
@@ -5464,14 +5464,14 @@ fieldset.cs-lock-fence {
   height: 20px;
   padding: 0 2px;
   margin-left: 6px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   max-width: 96px;
 }
 
 .cs-conn-text-btn {
   height: 20px;
   padding: 0 8px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   border: 1px solid var(--cs-line);
   border-radius: 4px;
   background: transparent;
@@ -5502,7 +5502,7 @@ fieldset.cs-lock-fence {
   height: 28px;
   padding: 0 8px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   text-align: left;
   color: var(--ink);
   background: var(--bg);
@@ -5580,7 +5580,7 @@ fieldset.cs-lock-fence {
   height: 28px;
   padding: 0 8px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--ink);
   background: var(--bg);
   border: 1px solid var(--line);
@@ -5605,7 +5605,7 @@ fieldset.cs-lock-fence {
 .cs-pick-group {
   display: block;
   padding: 6px 6px 2px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   color: var(--dim);
 }
@@ -5667,7 +5667,7 @@ fieldset.cs-lock-fence {
 
 .cs-pick-hint {
   min-width: 0;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--faint);
   white-space: normal;
   overflow-wrap: anywhere;
@@ -5691,7 +5691,7 @@ fieldset.cs-lock-fence {
   grid-template-columns: 52px 1fr;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-pick-add label > span {
@@ -5703,7 +5703,7 @@ fieldset.cs-lock-fence {
 }
 
 .cs-pick-add small {
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-pick-add-actions {
@@ -5716,7 +5716,7 @@ fieldset.cs-lock-fence {
   height: 26px;
   padding: 0 10px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--ink);
   background: var(--raised);
   border: 1px solid var(--line);
@@ -5747,7 +5747,7 @@ fieldset.cs-lock-fence {
   align-items: center;
   gap: 6px;
   padding: 0 2px 4px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--cs-dim);
 }
 
@@ -5797,7 +5797,7 @@ fieldset.cs-lock-fence {
 
 .cs-journey-note {
   margin: 8px 0 0;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--cs-dim);
 }
 
@@ -5843,7 +5843,7 @@ fieldset.cs-lock-fence {
 }
 
 .cs-journey-label {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   color: var(--cs-dim);
   margin-right: 2px;
@@ -6019,7 +6019,7 @@ fieldset.cs-lock-fence {
   gap: 5px;
   height: 19px;
   padding: 0 10px;
-  font-size: 9px;
+  font-size: var(--fs-2xs);
 }
 /* the conductor's own run: across the whole mould when it passes through, to
    its solder dot when it ends here, a short cut stub when it is NC */
@@ -6063,7 +6063,7 @@ fieldset.cs-lock-fence {
 .cs-mould-row.is-nc .cs-mould-fate { color: var(--warn); font-weight: 700; }
 .cs-mould-note {
   padding: 0 10px;
-  font-size: 8.5px;
+  font-size: var(--fs-2xs);
   line-height: 14px;
   color: var(--dim);
   white-space: nowrap;
@@ -6089,7 +6089,7 @@ fieldset.cs-lock-fence {
 .cs-breakout-panel .cs-select,
 .cs-breakout-leg .cs-select {
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--cs-ink);
   background: var(--bg);
   border: 1px solid var(--cs-line);
@@ -6098,14 +6098,14 @@ fieldset.cs-lock-fence {
   white-space: nowrap;
 }
 .cs-editor .cs-btn:hover { border-color: var(--cs-accent); color: var(--cs-accent); }
-.cs-breakout-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.cs-breakout-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
 .cs-breakout-table th { text-align: left; font-weight: 600; color: var(--dim); padding: 2px 4px; border-bottom: 1px solid var(--cs-line); }
 .cs-breakout-table td { padding: 1px 4px; border-bottom: 1px solid color-mix(in oklab, var(--cs-line) 50%, transparent); }
-.cs-breakout-table .cs-select { padding: 1px 4px; font-size: 11.5px; }
-.cs-breakout-table .cs-input { padding: 1px 4px; font-size: 11.5px; }
+.cs-breakout-table .cs-select { padding: 1px 4px; font-size: var(--fs-xs); }
+.cs-breakout-table .cs-input { padding: 1px 4px; font-size: var(--fs-xs); }
 .cs-breakout-table tr.is-through td:first-child { color: var(--cs-ink); }
 .cs-breakout-table tr.is-nc td:first-child { color: var(--dim); }
-.cs-breakout-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 11.5px; }
+.cs-breakout-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: var(--fs-xs); }
 .cs-breakout-rows li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -6114,11 +6114,11 @@ fieldset.cs-lock-fence {
   padding: 1px 0;
   border-bottom: 1px solid color-mix(in oklab, var(--cs-line) 50%, transparent);
 }
-.cs-breakout-rows .cs-select { padding: 1px 4px; font-size: 11.5px; }
+.cs-breakout-rows .cs-select { padding: 1px 4px; font-size: var(--fs-xs); }
 .cs-breakout-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cs-breakout-to { color: var(--dim); }
 .cs-breakout-rows li.is-nc .cs-breakout-name { color: var(--dim); }
-.cs-breakout-why { grid-column: 1 / -1; padding: 1px 4px; font-size: 11px; }
+.cs-breakout-why { grid-column: 1 / -1; padding: 1px 4px; font-size: var(--fs-2xs); }
 .cs-breakout-panel > .cs-select { width: 100%; }
 
 /* a pin list holds its ground bus overlay */
@@ -6141,7 +6141,7 @@ fieldset.cs-lock-fence {
   background: none;
   color: var(--cs-dim, var(--dim));
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 1;
   padding: 0 4px;
 }
@@ -6155,7 +6155,7 @@ fieldset.cs-lock-fence {
   align-items: center;
   gap: 4px;
   margin: 4px 0 8px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-bridge-add select {
@@ -6167,7 +6167,7 @@ fieldset.cs-lock-fence {
 .cs-cavity-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   table-layout: fixed;
 }
 
@@ -6201,14 +6201,14 @@ fieldset.cs-lock-fence {
 }
 
 .cs-confirm-delete h2 {
-  font-size: 14px;
+  font-size: var(--fs-md);
 }
 
 .cs-editor .cs-confirm-delete .cs-modal-actions .cs-danger {
   width: auto;
   margin-top: 0;
   padding: 4px 16px;
-  color: #fff;
+  color: var(--paper);
   background: var(--cs-err, var(--err));
   border-color: var(--cs-err, var(--err));
   font-weight: 600;
@@ -6233,7 +6233,7 @@ fieldset.cs-lock-fence {
   gap: 8px;
   padding: 5px 8px;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-model-panel.is-collapsed .cs-model-head {
@@ -6261,7 +6261,7 @@ fieldset.cs-lock-fence {
   padding: 2px 10px;
   background: transparent;
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-editor .cs-seg button + button {
@@ -6291,7 +6291,7 @@ fieldset.cs-lock-fence {
 .cs-editor .cs-model-tools button,
 .cs-editor .cs-model-attach button {
   padding: 2px 9px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-model-view {
@@ -6342,7 +6342,7 @@ fieldset.cs-lock-fence {
   border-radius: 4px;
   background: color-mix(in oklab, var(--panel) 80%, transparent);
   color: var(--dim);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -6352,7 +6352,7 @@ fieldset.cs-lock-fence {
   margin: 0;
   padding: 10px 12px;
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-model-view .cs-model-problem {
@@ -6391,7 +6391,7 @@ fieldset.cs-lock-fence {
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   background: var(--raised);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-model-attach fieldset {
@@ -6438,7 +6438,7 @@ fieldset.cs-lock-fence {
   padding: 6px 8px;
   border-top: 1px solid var(--line);
   background: var(--panel);
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .cs-w3-row {
@@ -6460,7 +6460,7 @@ fieldset.cs-lock-fence {
 
 .cs-w3-field select,
 .cs-w3-field input {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   padding: 1px 4px;
 }
 
@@ -6475,7 +6475,7 @@ fieldset.cs-lock-fence {
 .cs-w3-slider output {
   min-width: 44px;
   color: var(--ink);
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -6527,7 +6527,7 @@ fieldset.cs-lock-fence {
   padding: 5px 0;
   color: var(--dim);
   font-weight: 600;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 /* a faint aside line in a dialog */
@@ -6559,7 +6559,7 @@ fieldset.cs-lock-fence {
   align-items: center;
   justify-content: center;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--ink);
   background: var(--raised);
   border: 1px solid var(--line2);
@@ -6620,7 +6620,7 @@ fieldset.cs-lock-fence {
   padding: 5px 8px;
   text-align: left;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--ink);
   background: none;
   border: 0;

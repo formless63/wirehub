@@ -62,6 +62,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+
+// the pieces of the platform Radix pokes that jsdom lacks
+Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => undefined, releasePointerCapture: () => undefined, scrollIntoView: () => undefined });
+async function choose(scope: HTMLElement, name: string, option: string | RegExp): Promise<void> {
+  const trigger = within(scope).getByRole('combobox', { name });
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: option }));
+}
+
 const CSV = ['Part,Name,Kind,Where from,Price', 'RT-1,Test resistor 1,resistor,vendor page,0.01', 'RT-2,Test resistor 2,resistor,,0.02', 'RT-3,,resistor,x,'].join('\n');
 
 describe('bulk CSV import', () => {
@@ -73,11 +83,11 @@ describe('bulk CSV import', () => {
     });
     const dialog = await screen.findByRole('dialog', { name: 'Bulk CSV import' });
     // headers the file has are paired with fields by name; the rest are mapped by hand
-    expect((within(dialog).getByLabelText('Column for Name') as HTMLSelectElement).value).toBe('1');
-    expect((within(dialog).getByLabelText('Column for Kind') as HTMLSelectElement).value).toBe('2');
-    fireEvent.change(within(dialog).getByLabelText('Column for Part number'), { target: { value: '0' } });
-    fireEvent.change(within(dialog).getByLabelText('Column for Reference'), { target: { value: '3' } });
-    fireEvent.change(within(dialog).getByLabelText('Column for Unit price'), { target: { value: '4' } });
+    expect(within(dialog).getByRole('combobox', { name: 'Column for Name' }).textContent).toBe('Name');
+    expect(within(dialog).getByRole('combobox', { name: 'Column for Kind' }).textContent).toBe('Kind');
+    await choose(dialog, 'Column for Part number', 'Part');
+    await choose(dialog, 'Column for Reference', 'Where from');
+    await choose(dialog, 'Column for Unit price', 'Price');
     // row 2 has no source and row 3 no name: the dry run says so
     expect(within(dialog).getByTestId('csv-dry-run').textContent).toContain('1 new, 0 already in the library (left as they are), 2 invalid');
     expect(within(dialog).getByRole('table', { name: 'Dry run' }).textContent).toContain('no source');

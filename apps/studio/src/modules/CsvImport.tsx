@@ -17,8 +17,10 @@ import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { uploadImportJob, startImportJob } from '../jobs.browser.ts';
 import { useStudio } from '../studio-context.tsx';
 import { ImportJob } from './ImportJob.tsx';
-import { Button, Input } from '@wirehub/editor-react';
+import { Button, Input, Select } from '@wirehub/editor-react';
 
+/** the "none" option's value: a Radix Select has no empty value */
+const NONE = '__none__';
 const KIND_LABEL: Record<LibraryKind, string> = { connectors: 'Connectors', wires: 'Wire stocks', components: 'Components', mechanicals: 'Mechanicals', pcbas: 'Boards (PCBAs)', kits: 'Kits' };
 
 /** a value in the dry run's change list, short */
@@ -148,13 +150,12 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
           <div className="flex flex-wrap items-center gap-2">
             <label>
               These rows are{' '}
-              <select aria-label="Kind of record" value={kind} onChange={(e) => choose(e.target.value as LibraryKind)}>
-                {LIBRARY_KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {KIND_LABEL[k]}
-                  </option>
-                ))}
-              </select>
+              <Select
+                aria-label="Kind of record"
+                value={kind}
+                onValueChange={(v) => choose(v as LibraryKind)}
+                options={LIBRARY_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+              />
             </label>
             <label>
               Reference for rows without one{' '}
@@ -187,18 +188,12 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
                       {f.required ? ' *' : ''}
                     </td>
                     <td>
-                      <select
+                      <Select
                         aria-label={`Column for ${f.label}`}
-                        value={mapping[f.key] ?? ''}
-                        onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value === '' ? undefined : Number(e.target.value) })}
-                      >
-                        <option value="">not in the file</option>
-                        {headers.map((h, i) => (
-                          <option key={i} value={i}>
-                            {h || `(column ${i + 1})`}
-                          </option>
-                        ))}
-                      </select>
+                        value={mapping[f.key] === undefined ? NONE : String(mapping[f.key])}
+                        onValueChange={(v) => setMapping({ ...mapping, [f.key]: v === NONE ? undefined : Number(v) })}
+                        options={[{ value: NONE, label: 'not in the file' }, ...headers.map((h, i) => ({ value: String(i), label: h || `(column ${i + 1})` }))]}
+                      />
                     </td>
                     <td>
                       <Input
