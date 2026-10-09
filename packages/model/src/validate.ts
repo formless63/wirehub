@@ -28,6 +28,7 @@ import {
   type TerminalRef,
   type WireDefinition,
 } from './model.ts';
+import { stockMarksUnused } from './signals.ts';
 import { compatibilityIssues } from './compat.ts';
 import { cavityIssues, terminationDbIssues } from './crimp.ts';
 import { pnDuplicateIssues } from './part-number-health.ts';
@@ -1180,6 +1181,8 @@ function rawDesignIssues(design: CableDesign, db: Db): Issue[] {
     for (const entry of elementPaths(wire.structure)) {
       if (entry.element.kind !== 'conductor' || entry.element.bare === true) continue;
       if (!inScope(segment, entry.path)) continue;
+      // the stock itself marks it a spare or no-connect: that is the explanation
+      if (stockMarksUnused(db, wire, entry.path)) continue;
       const refA: TerminalRef = {
         instance: segment.id,
         terminal: entry.path,
