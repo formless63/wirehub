@@ -350,6 +350,15 @@
 .cs-ui-dt-row.is-muted { opacity: 0.6; }
 .cs-ui-dt-empty td { height: auto; max-width: none; white-space: normal; padding: 0; border-bottom: 0; }
 .cs-ui-dt-card { max-width: none; white-space: normal; padding: 0; }
+.cs-ui-dt-autocard { display: flex; flex-direction: column; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); overflow-wrap: anywhere; }
+.cs-ui-dt-autocard-title { font-weight: 500; color: var(--ink); }
+.cs-ui-dt-autocard-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2xs) var(--space-md); margin: 0; font-size: var(--fs-xs); }
+.cs-ui-dt-autocard-fields > div { display: contents; }
+.cs-ui-dt-autocard-fields dt { color: var(--faint); }
+.cs-ui-dt-autocard-fields dd { margin: 0; min-width: 0; color: var(--dim); }
+.cs-ui-dt-autocard-fields dd, .cs-ui-dt-autocard-fields dd * { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.cs-ui-dt-autocard-fields dd.is-mono { font-family: var(--font-mono); }
+.cs-ui-dt-autocard-actions { display: flex; gap: var(--space-xs); }
 .cs-ui-dt-menu { display: flex; flex-direction: column; min-width: 160px; }
 .cs-ui-dt-menu-row { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) var(--space-sm); font: inherit; font-size: var(--fs-xs); text-align: left; color: var(--ink); background: none; border: 0; border-radius: var(--r-xs); cursor: pointer; }
 .cs-ui-dt-menu-row:hover { background: var(--hover); }

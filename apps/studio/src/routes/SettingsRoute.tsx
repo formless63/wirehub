@@ -10,6 +10,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { settingsRoute } from '../router.tsx';
 import { helpForSettingsSection } from '../help.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
+import { useIsNarrow } from '../hooks/useIsNarrow.ts';
 import { InfoTip } from '../shell/InfoTip.tsx';
 import { SETTINGS_SECTIONS, sectionHelp, settingsSection } from '../settings-sections.ts';
 import './settings-sections.css';
@@ -107,6 +108,7 @@ export function SettingsRoute(): JSX.Element {
   const content = useRef<HTMLDivElement>(null);
   useEffect(() => { if (content.current !== null) content.current.scrollTop = 0; }, [selected]);
   const { me } = useStudio();
+  const phone = useIsNarrow();
   const readOnly = me?.role === 'viewer';
   // People (the hub's accounts) is a section of Settings for an owner of a hub with accounts
   const peopleAvailable = me?.source === 'session' && me.instance?.accounts === true && me.role === 'owner';
@@ -215,6 +217,8 @@ export function SettingsRoute(): JSX.Element {
             <InfoTip text={sectionHelp(currentSection)} href={helpForSettingsSection(selected, docsBase)} />
           </h2>
         </header>
+        {phone ? <p className="m-0 mb-2 text-xs text-faint" data-testid="phone-readonly">Settings are read-only on a phone.</p> : null}
+        <fieldset disabled={phone} className="m-0 min-w-0 border-0 p-0">
         <section hidden={selected !== 'documents'} aria-label="Document settings" data-settings-section="documents">
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The settings could not be read.'}</div> : null}
       {query.data === undefined ? (
@@ -444,6 +448,7 @@ export function SettingsRoute(): JSX.Element {
         <section hidden={selected !== 'runtime'} aria-label="Runtime settings" data-settings-section="runtime"><RuntimeSettings section="runtime" /></section>
         <section hidden={selected !== 'webhooks'} aria-label="Webhook settings" data-settings-section="webhooks"><WebhookSettings /></section>
         <section hidden={selected !== 'module-settings'} aria-label="Module settings" data-settings-section="module-settings"><ModuleSettings /></section>
+        </fieldset>
       </div>
       </div>
     </Page>

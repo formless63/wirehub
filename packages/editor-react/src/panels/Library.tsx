@@ -132,6 +132,8 @@ export interface LibraryProps {
   db: Db;
   /** how this host stores definitions; without one the Library is read-only */
   definitions?: DefinitionsAdapter;
+  /** a read-only look on purpose (a phone): no "can't change" note and no "New" button */
+  viewOnly?: boolean;
   /** the library changed — the host reloads its db and hands a new one down */
   onDefinitionsChange?: (change: DefinitionChange) => void;
   /** the cutaway's renderer, injectable for tests */
@@ -1151,6 +1153,7 @@ export function Library(props: LibraryProps): JSX.Element {
           onChange={(event) => setQuery(event.target.value)}
         />
         <div className="cs-library-actions">
+          {props.viewOnly === true ? null : (
           <button
             type="button"
             className="cs-primary"
@@ -1164,6 +1167,7 @@ export function Library(props: LibraryProps): JSX.Element {
           >
             + New {DEFINITION_NOUNS[kind]}
           </button>
+          )}
           {props.listActions?.[kind] ?? null}
           {props.onCompare !== undefined && (props.compareKinds ?? DEFAULT_COMPARE_KINDS).includes(kind) ? (
             comparePick === undefined ? (
@@ -1288,7 +1292,7 @@ export function Library(props: LibraryProps): JSX.Element {
           </TabList>
         </Tabs>
         {mode.kind === 'browse' ? null : listTools}
-        {mode.kind === 'browse' && (definitions === undefined || status !== undefined || problem !== undefined) ? (
+        {mode.kind === 'browse' && props.viewOnly !== true && (definitions === undefined || status !== undefined || problem !== undefined) ? (
           <div className="cs-library-note">
             {definitions === undefined ? (
               <p className="cs-doc-note" title="Definition editing needs a host that stores the catalog files — WireHub’s own server does.">

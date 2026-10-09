@@ -55,9 +55,11 @@ export function StatusBar(): JSX.Element | null {
         />
         {status?.warningCount ?? 0} warning{(status?.warningCount ?? 0) === 1 ? '' : 's'}
       </button>
-      <span>
-        {status?.partCount ?? 0} parts · {status?.jointCount ?? 0} joints
-      </span>
+      {status === undefined ? null : (
+        <span>
+          {status.partCount} parts · {status.jointCount} joints
+        </span>
+      )}
       <span className="grow" />
       <span>{dirty ? 'Unsaved changes' : (chrome.state.statusMessage ?? 'Saved')}</span>
     </footer>
