@@ -61,6 +61,7 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
+import { usePref } from '@wirehub/editor-react';
 
 import { useSetupMode } from './setup-mode.ts';
 
@@ -75,7 +76,8 @@ import { workbenchVocab } from './vocab.browser.ts';
 import { localLayoutStore } from './layout.browser.ts';
 import { workbenchAssets, workbenchDrawings, workbenchPersistence } from './persistence.browser.ts';
 import { cableListKey, dbKey, designKey, designsKey, loadDb, loadDesign, loadDesigns } from './queries.ts';
-import { applyTheme, initialTheme, persistTheme, watchSystemTheme, type Theme } from './theme.ts';
+import { applyTheme, initialTheme, isTheme, persistTheme, watchSystemTheme, type Theme } from './theme.ts';
+import { hydratePrefs } from './prefs.browser.ts';
 
 export interface StudioApi {
   theme: Theme;
@@ -249,13 +251,19 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
     applyTheme(theme);
   }, [theme]);
   useEffect(() => watchSystemTheme(setTheme), []);
+  // the theme the person chose lives with their account: adopt it when the hub's preferences arrive
+  const [savedTheme, saveTheme] = usePref<Theme | undefined>('theme', undefined, (v): v is Theme | undefined => isTheme(v));
+  useEffect(() => {
+    if (savedTheme === undefined) return;
+    persistTheme(savedTheme);
+    setTheme(savedTheme);
+  }, [savedTheme]);
   const toggleTheme = useCallback((): void => {
-    setTheme((current) => {
-      const next: Theme = current === 'dark' ? 'light' : 'dark';
-      persistTheme(next);
-      return next;
-    });
-  }, []);
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    persistTheme(next);
+    saveTheme(next);
+    setTheme(next);
+  }, [theme, saveTheme]);
 
   /* ------------------------------------------------------------------ *
    * The designs list and the definitions db — plain queries, each with a
@@ -517,6 +525,10 @@ export function StudioProvider({ children }: { children: ReactNode }): JSX.Eleme
   const meQuery = useQuery({ queryKey: meKey, queryFn: () => loadMe(), staleTime: Infinity });
   const me = meQuery.data;
   const user = me?.name ?? 'local';
+  // this person's preferences from the hub (pins, theme, column choices); this browser's copy answers until then
+  useEffect(() => {
+    if (me !== undefined) void hydratePrefs(me.name);
+  }, [me?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const [newCableOpen, setNewCableOpen] = useState(false);
   const openNewCableWizard = useCallback((): void => setNewCableOpen(true), []);
   const closeNewCableWizard = useCallback((): void => setNewCableOpen(false), []);

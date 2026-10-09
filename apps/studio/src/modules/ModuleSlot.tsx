@@ -9,12 +9,12 @@
 
 import { IconChevronRight, IconPin, IconPinFilled } from '@tabler/icons-react';
 import { QueryClientContext, useQuery } from '@tanstack/react-query';
-import { useContext, useState, type JSX, type ReactNode } from 'react';
+import { useContext, useEffect, useState, type JSX, type ReactNode } from 'react';
 
 import { runtimeSettingsQuery, type ModuleFieldView } from '../settings.browser.ts';
 import { AppLink } from '../shell/AppLink.tsx';
 import { useOptionalStudio } from '../studio-context.tsx';
-import { readPins, writePin } from './slot-prefs.ts';
+import { useSlotPins } from './slot-prefs.ts';
 
 export interface ModuleSlotProps {
   /** the module's id and label */
@@ -58,8 +58,13 @@ function SetupGate(props: ModuleSlotProps): JSX.Element {
 function Frame({ module, label, slot, children, incomplete }: ModuleSlotProps & { incomplete: boolean }): JSX.Element {
   const user = useOptionalStudio()?.user ?? 'local';
   const slotKey = `${slot}/${module}`;
-  const [pinned, setPinned] = useState(() => readPins(user).has(slotKey));
+  const [pins, setPin] = useSlotPins(user);
+  const pinned = pins.has(slotKey);
   const [open, setOpen] = useState(pinned);
+  // a pin the account brings in after the first paint (the hub answers a moment later) opens the slot
+  useEffect(() => {
+    if (pinned) setOpen(true);
+  }, [pinned]);
   if (incomplete) {
     return (
       <section className="cs-module-slot is-unset" data-module-slot={slotKey} data-state="not-set-up" aria-label={`${label} (module)`}>
@@ -73,8 +78,7 @@ function Frame({ module, label, slot, children, incomplete }: ModuleSlotProps & 
   }
   const togglePin = (): void => {
     const next = !pinned;
-    setPinned(next);
-    writePin(user, slotKey, next);
+    setPin(slotKey, next);
     if (next) setOpen(true);
   };
   return (

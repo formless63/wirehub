@@ -46,3 +46,6 @@ export { EmptyState, KeyValues, Page, PageBody, PageHeader, SidePanel, Toolbar }
 export type { EmptyStateProps, PageHeaderProps, SidePanelProps, ToolbarProps } from './Page.tsx';
 export { FilterChip, FilterMenu } from './FilterChip.tsx';
 export type { FilterGroup } from './FilterChip.tsx';
+
+export { localPrefsBackend, readPref, setPrefsBackend, usePref, writePref } from './prefs.ts';
+export type { PrefsBackend } from './prefs.ts';

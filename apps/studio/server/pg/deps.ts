@@ -37,6 +37,8 @@ import { authRequested } from '../auth/config.ts';
 import type { StudioAuth } from '../auth/studio-auth.ts';
 import { parseSuggestedModules } from '../setup.ts';
 import { pgLockStore } from './locks.ts';
+import { pgPrefsStore } from './user-prefs.ts';
+import { memoryPrefsStore } from '../user-prefs.ts';
 import type { PgBoss } from 'pg-boss';
 import { remoteConvert } from '../jobs/convert.ts';
 import { stageImportInput } from '../jobs/import.ts';
@@ -144,6 +146,7 @@ export function pgWorkbenchDeps(options: PgDepsOptions): WorkbenchDeps {
     localUser: localStudioUser(process.env),
     // one lease table for every process when there is a database (B6)
     locks: options.db !== undefined ? pgLockStore(options.db, cache.orgId) : memoryLockStore(),
+    userPrefs: options.db !== undefined ? pgPrefsStore(options.db, cache.orgId) : memoryPrefsStore(),
     ...(options.events === undefined ? {} : { events: options.events }),
     modules: options.modules ?? registry,
   };

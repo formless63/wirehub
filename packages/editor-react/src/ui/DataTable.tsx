@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type Keybo
 import { IconButton } from './Button.tsx';
 import { cx } from './cx.ts';
 import { Popover } from './Overlays.tsx';
+import { usePref } from './prefs.ts';
 
 export interface DataColumn<T> {
   id: string;
@@ -91,28 +92,7 @@ export interface DataTableProps<T> {
 const features = tableFeatures({ rowSortingFeature, columnVisibilityFeature, sortedRowModel: createSortedRowModel() });
 type Features = typeof features;
 
-function storageKey(key: string): string {
-  return `wirehub:cols:${key}`;
-}
-function loadHidden(key: string | undefined): string[] | undefined {
-  if (key === undefined) return undefined;
-  try {
-    const raw = globalThis.localStorage?.getItem(storageKey(key));
-    if (raw === null || raw === undefined) return undefined;
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : undefined;
-  } catch {
-    return undefined;
-  }
-}
-function saveHidden(key: string | undefined, hidden: string[]): void {
-  if (key === undefined) return;
-  try {
-    globalThis.localStorage?.setItem(storageKey(key), JSON.stringify(hidden));
-  } catch {
-    /* private mode: the choice lasts for the session */
-  }
-}
+const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
 function useNarrow(): boolean {
   const query = '(max-width: 639px)';
@@ -148,7 +128,9 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
     props.onSortChange?.(first === undefined ? undefined : { id: first.id, dir: first.desc ? 'desc' : 'asc' });
   };
 
-  const [hidden, setHidden] = useState<string[]>(() => loadHidden(props.columnsKey) ?? columns.filter((c) => c.defaultHidden === true).map((c) => c.id));
+  const defaultHidden = useMemo(() => columns.filter((c) => c.defaultHidden === true).map((c) => c.id), [columns]);
+  // the person's column choice: kept with their other preferences (`prefs.ts`), so it follows the account
+  const [hidden, setHidden] = usePref<string[]>(props.columnsKey === undefined ? undefined : `cols.${props.columnsKey}`, defaultHidden, isStrings);
   const visibility = useMemo(() => {
     const out: Record<string, boolean> = {};
     for (const c of columns) out[c.id] = compact ? c.fixed === true : c.fixed === true || !hidden.includes(c.id);
@@ -259,7 +241,6 @@ export function DataTable<T extends object>(props: DataTableProps<T>): JSX.Eleme
   const toggleColumn = (id: string): void => {
     const next = hidden.includes(id) ? hidden.filter((h) => h !== id) : [...hidden, id];
     setHidden(next);
-    saveHidden(props.columnsKey, next);
   };
   const hideable = columns.filter((c) => c.fixed !== true);
   const menu = props.noColumnMenu === true || compact || hideable.length === 0 ? null : (

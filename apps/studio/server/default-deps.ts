@@ -34,6 +34,7 @@ import { fileWireLibraryStore } from './wire-library.ts';
 import { fileVersionStore } from './versions.ts';
 import { localStudioUser } from './me.ts';
 import { memoryLockStore } from './locks/lock-store.ts';
+import { filePrefsStore } from './user-prefs.ts';
 import { fileCatalogVersion } from './storage/catalog-version.ts';
 import { registry } from './modules.ts';
 import { moduleDerivedStore } from './module-derived.ts';
@@ -172,6 +173,8 @@ export function defaultWorkbenchDeps(options: DefaultDepsOptions = {}): Workbenc
     // edit leases: in memory — one process, and a
     // restart just means every holder re-takes its lease on the next heartbeat
     locks: memoryLockStore(),
+    // per-person UI preferences: files beside the catalog, never part of it
+    userPrefs: filePrefsStore(dataPath('.user-prefs')),
     // what changed, for GET /api/events: this process is the only writer
     events: memoryEventHub(),
     // the deployment's modules (modules.config.ts), and the derived records they keep

@@ -28,6 +28,7 @@ import {
 
 import type { DefinitionRecord, LibraryKind } from './definitions.ts';
 import { CONSTRUCTION_SHORT, constructionLabel, mountingSummaryText } from './naming.ts';
+import { readPref, writePref } from './ui/prefs.ts';
 
 /* ------------------------------------------------------------------ *
  * Shapes
@@ -478,10 +479,8 @@ export function filterRows(rows: readonly LibraryRow[], query: string, facets: R
 }
 
 /* ------------------------------------------------------------------ *
- * The viewer's column choice — remembered per kind, in this browser
+ * The viewer's column choice — remembered per kind, with the person's other preferences
  * ------------------------------------------------------------------ */
-
-const PREFS_KEY = 'cs.library.columns.v1';
 
 export interface ColumnPrefs {
   /** columns turned off (of those on by default) */
@@ -490,26 +489,15 @@ export interface ColumnPrefs {
   shown: string[];
 }
 
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
 export function loadColumnPrefs(kind: LibraryKind): ColumnPrefs {
-  try {
-    const raw = globalThis.localStorage?.getItem(`${PREFS_KEY}.${kind}`);
-    if (raw == null) return { hidden: [], shown: [] };
-    const parsed = JSON.parse(raw) as Partial<ColumnPrefs>;
-    return {
-      hidden: Array.isArray(parsed.hidden) ? parsed.hidden.filter((x): x is string => typeof x === 'string') : [],
-      shown: Array.isArray(parsed.shown) ? parsed.shown.filter((x): x is string => typeof x === 'string') : [],
-    };
-  } catch {
-    return { hidden: [], shown: [] };
-  }
+  const parsed = readPref(`library-columns.${kind}`) as Partial<ColumnPrefs> | undefined;
+  return { hidden: strings(parsed?.hidden), shown: strings(parsed?.shown) };
 }
 
 export function saveColumnPrefs(kind: LibraryKind, prefs: ColumnPrefs): void {
-  try {
-    globalThis.localStorage?.setItem(`${PREFS_KEY}.${kind}`, JSON.stringify(prefs));
-  } catch {
-    // a private window or blocked storage: the choice lasts this page only
-  }
+  writePref(`library-columns.${kind}`, prefs);
 }
 
 /** The columns shown, in order, under the viewer's choice. */

@@ -75,6 +75,7 @@ packages/catalog/data/.model-cache/
 # KiCad's 3D library, only the files a link needs, fetched at a pinned tag
 packages/catalog/data/.kicad-3d-cache/
 .model-cache/
+.user-prefs/
 
 # --- beads / Dolt (added by bd init) --------------------------------------
 .dolt/

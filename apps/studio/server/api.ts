@@ -59,6 +59,7 @@ import { runtimeEnv, type RuntimeSettings } from './runtime-settings.ts';
 import { VOCAB_ROUTES, handleVocabRequest } from './vocab.ts';
 import { VERSION_ROUTES, handleVersionRequest, workingStatus, type VersionStore } from './versions.ts';
 import { LOCAL_FALLBACK, ME_ROUTES, type StudioUser } from './me.ts';
+import { PREFS_ROUTES, parsePrefsPatch, prefsUserKey, type UserPrefsStore } from './user-prefs.ts';
 import { BACKUP_DISABLED, type BackupControl } from './backup/status.ts';
 import type { TagStore, VocabStore } from './vocab-store.ts';
 import { LOCK_ROUTES } from './locks/lock-api.ts';
@@ -265,6 +266,8 @@ export interface WorkbenchDeps {
    * router. Absent → no locks; writes are guarded by If-Match alone.
    */
   locks?: LockStore;
+  /** per-person UI preferences (`GET`/`PUT /api/me/prefs`, `user-prefs.ts`); absent → the routes answer 404 and the browser keeps its own */
+  userPrefs?: UserPrefsStore;
   /** now, epoch ms, for lease times (injected by tests) */
   lockClock?: () => number;
   /** what changed, for `GET /api/events` (`events.ts`); absent → no stream */
@@ -983,6 +986,7 @@ const ROUTES = [
   ...WIRE_LIBRARY_ROUTES,
   ...BUILDS_ROUTES,
   ...ME_ROUTES,
+  ...PREFS_ROUTES,
   'GET    /api/backup',
   'POST   /api/backup/retry',
   ...HISTORY_ROUTES,
@@ -1136,6 +1140,18 @@ export async function handleWorkbenchRequest(request: ApiRequest, deps: Workbenc
   return response;
 }
 
+async function handlePrefsRequest(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiResponse> {
+  const method = request.method.toUpperCase();
+  if (method !== 'GET' && method !== 'PUT') return methodNotAllowed(method, ['GET', 'PUT']);
+  if (deps.userPrefs === undefined) return fail(404, 'This hub keeps no per-user preferences.', 'The browser keeps them on this device.');
+  const key = prefsUserKey(request.user ?? deps.localUser ?? LOCAL_FALLBACK);
+  const current = await deps.userPrefs.get(key);
+  if (method === 'GET') return ok({ prefs: current });
+  const parsed = parsePrefsPatch(request.body, current);
+  if (!parsed.ok) return fail(400, parsed.error);
+  return ok({ prefs: await deps.userPrefs.merge(key, parsed.patch) });
+}
+
 async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps): Promise<ApiResponse> {
   // 3D models keep their own write discipline: a STEP conversion
   // takes seconds and must not hold every other save behind the write lock,
@@ -1144,6 +1160,8 @@ async function dispatchWorkbenchRequest(request: ApiRequest, deps: WorkbenchDeps
   if (deps.setupMode?.() === true && !isSetupPath(request.path) && !['/api', '/api/me'].includes((request.path.split('?')[0] ?? '').replace(/\/+$/, ''))) {
     return { status: 503, body: { state: 'setup', error: 'This hub is not set up yet.', hint: 'Open /setup to create the organisation, its catalog and the admin.' } };
   }
+  // a person's own UI preferences: not catalog data, so no unit of work, no history, and every role may write them
+  if ((request.path.split('?')[0] ?? '').replace(/\/+$/, '') === '/api/me/prefs') return handlePrefsRequest(request, deps);
   // jobs: a job's state, an import's plan published (§7.5)
   if (isJobPath(request.path)) return handleJobRequest(request, deps);
   const io = parseModuleIoPath(request.path);
