@@ -64,6 +64,8 @@ export interface BrandingInput {
   labelPreset?: string;
   labelQr?: boolean;
   labelQrUrl?: string;
+  labelTemplate?: string;
+  labelPrinter?: string;
   /** the title block's three-line general note (a line may be empty) */
   notes?: [string, string, string];
   /** the title block's tolerance rows, label and value; empty rows are dropped */

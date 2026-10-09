@@ -21,6 +21,7 @@ wherever it was made. Nothing here is shop-specific: a module adds formats of it
 | Continuity (JSON) | `continuity.json` | the same, structured |
 | Wire labels (CSV) | `labels.csv` | text and position of the marker at each wire end |
 | Label sheet (SVG) | `labels.svg` | the labels laid out on a sheet of label stock |
+| P-touch labels (.lbx) | `labels.lbx` | one Brother P-touch Editor file per wire label on TZe tape (a zip of them; `page=` picks one) |
 
 Files are named `<design>-<what>.<ext>`, with `-rev<N>` after the design when a saved
 revision was chosen. The XLSX is written by hand into an uncompressed zip, so there is no
@@ -81,6 +82,44 @@ carries the design's part number and revision. `preset=` picks the label stock (
 Letter grids, or one label per page for Brady and Dymo sizes; the set is in Settings ›
 Documents, which also sets the default), and `qr=1` adds a QR code of the part number and
 revision, or of the address pattern set there (`{pn}` `{rev}` `{design}` `{label}`).
+
+### Brother P-touch tape (TZe)
+
+`preset=tze-<width>-<code>` is a Brother TZe laminated tape: widths 3.5, 6, 9, 12, 18, 24 and 36
+mm, in white on black, black on white and black on clear (`tze-12-335`, `tze-12-231` and
+`tze-12-131` are the 12 mm cassettes; the 12 mm values are confirmed against P-touch Editor
+files, the other widths' codes and `.lbx` paper values follow Brother's pattern and are marked inferred
+in the preset's `src`). Each is one label per page, the page being the label at true tape
+size, in the tape's colour and ink colour (SVG, PNG, PDF); the length follows the text, or is
+fixed by the template. A QR code is drawn only where its modules print at two dots (0.28 mm)
+or more, else it is left out and the SVG says so (`data-qr-omitted`); on dark tape it is the
+tape showing through an ink-coloured square, so it scans as a normal code.
+
+What goes on the tape comes from a **label template**, data like the rest of the art: lines
+with `{headline}`, `{details}`, `{pnrev}` (and `{line2}`, `{line3}`, `{designation}`, `{end}`,
+`{pn}`, `{rev}`, `{design}`, `{label}`) tokens, a font family, size, weight and alignment per
+line, the separator that joins the detail lines, and the length (`auto` or mm). Built in:
+`wire-id` (the default) and `single-line`. A shop's own go in Settings › Documents › Drawing art
+(JSON) under `labelTemplates`, or in a data pack's `drawing-art.json`; they layer like other art
+(the hub's first), and a pack can name its own fonts. `template=` picks one for a download; Settings
+sets the default. A line's `family` is written to the `.lbx` as a name (P-touch Editor uses the
+fonts installed on the PC), and leads the font stack of the SVG/PNG/PDF (it shows only where the
+renderer has it); with none set, the hub's branding typeface is used.
+
+```json
+{ "labelTemplates": { "house": { "label": "House layout", "src": "shop standard",
+  "family": "Example Sans", "length": 60, "align": "center",
+  "lines": [ { "text": "{headline} → {line2}", "weight": "bold" }, { "text": "{pnrev}", "size": 6 } ] } } }
+```
+
+`labels.lbx` (or `format=lbx` on the labels document, `--format lbx` on the CLI) writes a P-touch Editor
+file for each label: a zip of `label.xml` and `prop.xml` with `style:paper` from the tape and one text
+object per template line, and a QR code object on light tape. Editor opens one label per file, so several
+come as a zip of `.lbx` files (`page=` gives one file). `printer=pt-d610bt` writes the PT-D610BT (Editor's
+printer id 31792); the default names no particular printer, and Settings › Documents sets it. The files are
+deterministic: a fixed timestamp, no clock. A tape preset is required (`tze-12-335` when none is set).
+Not verified against Brother's own files: the auto-length form, the QR object, and the paper values
+of widths other than 12 mm; Editor re-reads the tape from the connected printer on opening.
 
 The generated text can be overridden in the inspector, per segment and connector: a segment's
 **run label** replaces `W<n>`, its **end A / end B text** replaces the generated lines of that
@@ -193,7 +232,7 @@ Documents and the formats each comes in (default first):
 | `bom` | `html`, `svg`, `pdf`, `csv` |
 | `test-spec` | `html`, `svg`, `pdf`, `csv` (the continuity export) |
 | `drawing` | `svg`, `html`, `pdf` |
-| `labels` | `svg` (the label sheet), `pdf`, `csv` |
+| `labels` | `svg` (the label sheet), `pdf`, `csv`, `png` (one label; `page=`), `lbx` (P-touch Editor; a zip, or one file with `page=`) |
 | `formboard` | `svg` (the overview, or one tile with `page=`), `html`, `pdf` (overview then every tile) |
 
 A wire stock's spec sheet (the Library's Spec tab) has its own route:

@@ -71,19 +71,22 @@ export interface BrandingSettings {
   labelPreset?: string;
   labelQr?: boolean;
   labelQrUrl?: string;
+  /** the tape label template and the P-touch printer for `.lbx` files */
+  labelTemplate?: string;
+  labelPrinter?: string;
   notes?: [string, string, string];
   tolerances?: [string, string][];
   logoDataUri?: string;
   /** the hub's own typeface: the uploaded font files with their measured widths (`server/settings.ts`) */
   font?: { regular: BrandFace & { id?: string }; bold?: BrandFace & { id?: string } };
   /** drawing art held as data (`drawing-art.json`: this hub's and its packs'): faces, plugs and cutaways by definition id */
-  art?: { faces?: Record<string, unknown>; plugs?: Record<string, unknown>; cutaways?: Record<string, unknown> };
+  art?: { faces?: Record<string, unknown>; plugs?: Record<string, unknown>; cutaways?: Record<string, unknown>; labelTemplates?: Record<string, unknown> };
 }
 
 /** The drawing art a branding setting stands for; `undefined` when nothing is set (the generic text stays). */
 export function brandingArt(settings: BrandingSettings | undefined): DrawingArt | undefined {
   if (settings === undefined) return undefined;
-  const { organisation, standard, rights, designer, filePrefix, notes, tolerances, logoDataUri, paper, titleBlock: layout, labelPreset, labelQr, labelQrUrl } = settings;
+  const { organisation, standard, rights, designer, filePrefix, notes, tolerances, logoDataUri, paper, titleBlock: layout, labelPreset, labelQr, labelQrUrl, labelTemplate, labelPrinter } = settings;
   const png = logoDataUri === undefined ? undefined : /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(logoDataUri)?.[1];
   const titleBlock = {
     ...(organisation === undefined ? {} : { organisation }),
@@ -98,9 +101,11 @@ export function brandingArt(settings: BrandingSettings | undefined): DrawingArt 
     ...(labelPreset === undefined ? {} : { labelPreset }),
     ...(labelQr === true ? { labelQr } : {}),
     ...(labelQrUrl === undefined ? {} : { labelQrUrl }),
+    ...(labelTemplate === undefined ? {} : { labelTemplate }),
+    ...(labelPrinter === undefined ? {} : { labelPrinter }),
   };
   const { font, art } = settings;
-  const hasArt = art !== undefined && (art.faces !== undefined || art.plugs !== undefined || art.cutaways !== undefined);
+  const hasArt = art !== undefined && (art.faces !== undefined || art.plugs !== undefined || art.cutaways !== undefined || art.labelTemplates !== undefined);
   if (png === undefined && Object.keys(titleBlock).length === 0 && font === undefined && !hasArt) return undefined;
   return {
     ...(Object.keys(titleBlock).length === 0 ? {} : { titleBlock }),
@@ -109,6 +114,7 @@ export function brandingArt(settings: BrandingSettings | undefined): DrawingArt 
     ...(art?.faces === undefined ? {} : { faces: art.faces as DrawingArt['faces'] }),
     ...(art?.plugs === undefined ? {} : { plugs: art.plugs as DrawingArt['plugs'] }),
     ...(art?.cutaways === undefined ? {} : { cutaways: art.cutaways as DrawingArt['cutaways'] }),
+    ...(art?.labelTemplates === undefined ? {} : { labelTemplates: art.labelTemplates as DrawingArt['labelTemplates'] }),
   };
 }
 

@@ -14,6 +14,7 @@ import type { CableDesign, Db } from '@wirehub/model';
 
 import { continuityCsv, continuityJson, deriveContinuityExport } from './continuity.ts';
 import { deriveLabels, labelSheetSvg, labelsTable, type LabelSheetOptions } from './labels.ts';
+import { lbxExport } from './lbx.ts';
 import { bomTable, crimpListTable, cutListTable, wireListTable, type ExportOptions } from './rows.ts';
 import { sheetFrameFor } from '../sheet-frame.ts';
 import type { TestParameters } from './test-params.ts';
@@ -24,6 +25,9 @@ export * from './rows.ts';
 export * from './continuity.ts';
 export * from './labels.ts';
 export * from './label-presets.ts';
+export * from './label-templates.ts';
+export * from './tape-label.ts';
+export * from './lbx.ts';
 export * from './qr.ts';
 export * from './plain.ts';
 export * from './sheet-options.ts';
@@ -109,6 +113,17 @@ export const BASE_EXPORTS: readonly ExportFormat[] = [
       fileName: `${stem(design, options, 'labels')}.svg`,
       body: labelSheetSvg(deriveLabels(design, db), { ...options, frame: options.frame ?? sheetFrameFor(design, db, options, 'LABELS', 'portrait', 'strip') }),
     }),
+  },
+  {
+    id: 'labels.lbx',
+    label: 'P-touch labels (.lbx)',
+    description: 'One P-touch Editor file per wire label on Brother TZe tape (a zip of them for several; page= picks one). preset= is a tze-… tape, template= a label template.',
+    group: 'labels',
+    render: (design, db, options = {}) => {
+      const frame = options.frame ?? sheetFrameFor(design, db, options, 'LABELS', 'portrait', 'strip');
+      const made = lbxExport(deriveLabels(design, db), { ...options, frame, design: design.id }, stem(design, options, 'labels'), options.revisionNumber);
+      return { mimeType: made.mimeType, fileName: made.fileName, body: made.body };
+    },
   },
 ];
 

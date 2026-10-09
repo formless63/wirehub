@@ -671,6 +671,8 @@ export interface DrawingArtData {
   faces?: Record<string, unknown>;
   plugs?: Record<string, unknown>;
   cutaways?: Record<string, unknown>;
+  /** tape label templates by id (`@wirehub/docs` `LabelTemplate`): the shop's own layouts for P-touch tape labels */
+  labelTemplates?: Record<string, unknown>;
 }
 
 /* ------------------------------------------------------------------ *

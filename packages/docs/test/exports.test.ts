@@ -320,7 +320,7 @@ describe('label stock presets, the part number, both ends and the QR code (cs-8k
     }
   });
 
-  it.each(LABEL_PRESETS.map((p) => p.id))('the %s sheet matches its preset geometry', (id) => {
+  it.each(LABEL_PRESETS.filter((p) => p.kind !== 'tape').map((p) => p.id))('the %s sheet matches its preset geometry', (id) => {
     const preset = labelPresetOf(id)!;
     const g = preset.layout;
     const svg = labelSheetSvg(labels, { preset: id, frame });

@@ -163,6 +163,19 @@ describe('branding settings', () => {
     expect(cleared.body).not.toHaveProperty('labelQr');
   });
 
+  it('keeps the tape label layout and printer, and the hub\'s own label templates in its art (cs-gqbj)', async () => {
+    const { deps: d } = deps();
+    const tag = (await get(d)).headers!.ETag!;
+    const template = { label: 'House', src: 'test', lines: [{ text: '{headline}' }] };
+    const saved = await put(d, { labelPreset: 'tze-12-335', labelTemplate: 'house', labelPrinter: 'pt-d610bt', art: { labelTemplates: { house: template } } }, tag);
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect(saved.body).toMatchObject({ labelPreset: 'tze-12-335', labelTemplate: 'house', labelPrinter: 'pt-d610bt', ownArt: { labelTemplates: { house: template } } });
+    const next = (await get(d)).headers!.ETag!;
+    expect((await put(d, { labelPrinter: 'dymo' }, next)).status).toBe(400);
+    expect((await put(d, { labelTemplate: 'Not An Id' }, next)).status).toBe(400);
+    expect((await put(d, { art: { labelTemplates: { bad: { label: 'x', src: 'y', lines: [{ text: '{nope}' }] } } } }, next)).status).toBe(400);
+  });
+
   it('keeps the general note and tolerance rows, dropping empty rows', async () => {
     const { deps: d } = deps();
     const tag = (await get(d)).headers!.ETag!;

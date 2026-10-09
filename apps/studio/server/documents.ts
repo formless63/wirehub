@@ -4,10 +4,10 @@
  *
  *   GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=…&variation=…&page=…&copies=…&preset=…&qr=1&quantity=…&scale=…&explode=1
  *       kind: schematic · build-sheet · bom · test-spec · drawing · labels · formboard
- *       format: html · svg · pdf · csv (which a kind comes in: `render/index.ts`)
+ *       format: html · svg · pdf · csv · png · lbx (which a kind comes in: `render/index.ts`; labels also take template= and printer=)
  *   GET /api/designs/:id/exports/:format?rev=…&quantity=…
  *       format: bom.csv · wire-list.csv · cut-list.csv · crimp-list.csv · production.xlsx ·
- *       continuity.csv · continuity.json · labels.csv · labels.svg
+ *       continuity.csv · continuity.json · labels.csv · labels.svg · labels.lbx
  *   GET /api/definitions/wires/:id/wire-spec?format=html|svg|pdf&paper=…
  *       a wire stock's spec sheet (the Library's Spec tab), named WSS_<document number>
  *   GET /api/exports   the list of export formats
@@ -19,14 +19,14 @@
  */
 
 import { isDesignId } from '@wirehub/catalog';
-import { BASE_EXPORTS, LABEL_PRESET_IDS, PAPER_IDS, baseExport, parsePaper, parseScale, readTestParameters, type DrawingArt, type RevisionRow, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, LABEL_PRESET_IDS, LBX_PRINTER_IDS, registeredLabelTemplates, PAPER_IDS, baseExport, parsePaper, parseScale, readTestParameters, type DrawingArt, type RevisionRow, type DrawingMeta, type FormatOptions, type TestParameters } from '@wirehub/docs';
 import { knownPartNumbers, releasedRevision, versionDb, versionSummary, type CableDesign, type Db, type DesignVersionFile, type KnownPartNumber, type PartNumberScheme, type VersionSummary } from '@wirehub/model';
 import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { ApiResponse } from './api.ts';
 import type { DesignStore } from './designs.ts';
 import type { DrawingStore } from './drawings.ts';
-import { type ApprovalFacts, type PdfProvenance, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument } from './render/index.ts';
+import { type ApprovalFacts, type PdfProvenance, DEFAULT_FORMAT, DOCUMENT_FORMATS, DOCUMENT_KINDS, isDocumentFormat, isDocumentKind, releaseMeta, renderDocument, withBranding } from './render/index.ts';
 import { approvalPolicy, BRANDING_PATH, brandingView, effectiveTestDefaults, type BrandingRecord } from './settings.ts';
 import { brandingArt } from '../module-art.ts';
 import type { AssetStore } from './assets.ts';
@@ -335,6 +335,12 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const presetAsked = query.get('preset');
   if (presetAsked !== null && presetAsked !== '' && !LABEL_PRESET_IDS.includes(presetAsked)) return fail(400, `preset must be one of ${LABEL_PRESET_IDS.join(', ')}, not '${presetAsked}'.`);
   const preset = presetAsked === null || presetAsked === '' ? undefined : presetAsked;
+  const templateAsked = query.get('template');
+  if (templateAsked !== null && templateAsked !== '' && registeredLabelTemplates()[templateAsked] === undefined) return fail(400, `template must be one of ${Object.keys(registeredLabelTemplates()).join(', ')}, not '${templateAsked}'.`);
+  const template = templateAsked === null || templateAsked === '' ? undefined : templateAsked;
+  const printerAsked = query.get('printer');
+  if (printerAsked !== null && printerAsked !== '' && !LBX_PRINTER_IDS.includes(printerAsked)) return fail(400, `printer must be one of ${LBX_PRINTER_IDS.join(', ')}, not '${printerAsked}'.`);
+  const printer = printerAsked === null || printerAsked === '' ? undefined : printerAsked;
   const qrAsked = query.get('qr');
   if (qrAsked !== null && !['', '0', '1', 'true', 'false'].includes(qrAsked)) return fail(400, `qr must be 1 or 0, not '${qrAsked}'.`);
   const qr = qrAsked === null || qrAsked === '' ? undefined : qrAsked === '1' || qrAsked === 'true';
@@ -351,7 +357,7 @@ export async function handleDocumentRequest(method: string, parts: string[], que
   const artwork = section === 'documents' && ['schematic', 'build-sheet', 'bom'].includes(name) ? await artworkOf(deps, loaded) : undefined;
   const partNumbers = wantsProposals ? await partNumbersOf(deps, loaded) : undefined;
   // the title block's organisation, logo and notes: the sheets the browser draws with them
-  const branding = section === 'documents' && (name === 'drawing' || name === 'build-sheet' || name === 'bom' || name === 'test-spec' || name === 'formboard' || name === 'schematic' || name === 'labels') ? await brandingOf(deps, loaded.db) : undefined;
+  const branding = section === 'documents' && (name === 'drawing' || name === 'build-sheet' || name === 'bom' || name === 'test-spec' || name === 'formboard' || name === 'schematic' || name === 'labels') || (section === 'exports' && (name === 'labels.lbx' || name === 'labels.svg')) ? await brandingOf(deps, loaded.db) : undefined;
   // the drawing's revision table: the saved revisions up to the one printed
   const revisions = section === 'documents' && name === 'drawing' ? await revisionRows(deps, id, loaded.target) : undefined;
 
@@ -369,12 +375,14 @@ export async function handleDocumentRequest(method: string, parts: string[], que
       ...(copies === undefined ? {} : { copies }),
       ...(preset === undefined ? {} : { preset }),
       ...(qr === undefined ? {} : { qr }),
+      ...(template === undefined ? {} : { template }),
+      ...(printer === undefined ? {} : { printer }),
       ...(quantity === undefined ? {} : { buildQty: quantity }),
       ...(explode ? { explode: true } : {}),
       ...(partNumbers === undefined ? {} : { partNumbers }),
     };
     try {
-      return file(format.render(loaded.design, loaded.db, options), false);
+      return file(withBranding(branding, () => format.render(loaded.design, loaded.db, options)), false);
     } catch (error) {
       return fail(422, `${format.label} could not be made for ${id}.`, error instanceof Error ? error.message : String(error));
     }
@@ -401,6 +409,8 @@ export async function handleDocumentRequest(method: string, parts: string[], que
     ...(copies === undefined ? {} : { copies }),
     ...(preset === undefined ? {} : { labelPreset: preset }),
     ...(qr === undefined ? {} : { labelQr: qr }),
+    ...(template === undefined ? {} : { labelTemplate: template }),
+    ...(printer === undefined ? {} : { labelPrinter: printer }),
     ...(scale === undefined ? {} : { scale }),
     ...(quantity === undefined ? {} : { buildQty: quantity }),
     ...(explode ? { explode: true } : {}),

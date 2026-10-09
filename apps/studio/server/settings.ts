@@ -27,7 +27,7 @@
  */
 
 import { costingRulesProblems, electricalRulesProblems, type CostingRules, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, type ElectricalRules } from '@wirehub/model';
-import { FILE_PREFIX_PATTERN, LABEL_PRESET_IDS, PAPER_IDS, TITLE_BLOCK_STANDARDS, isPaperId, isTitleBlockStandard, readTestParameters, type PaperId, type TestParameters, type TitleBlockStandard } from '@wirehub/docs';
+import { FILE_PREFIX_PATTERN, LABEL_PRESET_IDS, LBX_PRINTER_IDS, TEMPLATE_ID, PAPER_IDS, TITLE_BLOCK_STANDARDS, isPaperId, isTitleBlockStandard, readTestParameters, type PaperId, type TestParameters, type TitleBlockStandard } from '@wirehub/docs';
 import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
 
 import { drawingArtProblems, type BrandFace } from '@wirehub/docs';
@@ -127,6 +127,9 @@ export interface BrandingRecord {
   labelQr?: boolean;
   /** the QR's URL pattern (`{pn}` `{rev}` `{design}` `{label}`); unset = the part number and revision as text */
   labelQrUrl?: string;
+  /** the tape label template (a built-in or a `drawing-art.json` template id) and the P-touch printer written into `.lbx` files (`LBX_PRINTERS` id); unset = the default template, a generic printer */
+  labelTemplate?: string;
+  labelPrinter?: string;
   /** the title block's three-line general note */
   notes?: [string, string, string];
   /** the title block's tolerance table: up to five label/value rows */
@@ -443,7 +446,7 @@ async function uploadFont(body: unknown, deps: SettingsDeps, user: StudioUser | 
  */
 function layeredArt(merged: DrawingArtData | undefined, before: DrawingArtData | undefined, after: DrawingArtData | undefined): { drawingArt?: DrawingArtData } {
   const out: DrawingArtData = {};
-  for (const section of ['faces', 'plugs', 'cutaways'] as const) {
+  for (const section of ['faces', 'plugs', 'cutaways', 'labelTemplates'] as const) {
     const packs = Object.fromEntries(Object.entries(merged?.[section] ?? {}).filter(([id]) => before?.[section]?.[id] === undefined));
     const all = { ...packs, ...(after?.[section] ?? {}) };
     if (Object.keys(all).length > 0) out[section] = all;
@@ -453,15 +456,15 @@ function layeredArt(merged: DrawingArtData | undefined, before: DrawingArtData |
 
 const MAX_ART_BYTES = 2 * 1024 * 1024;
 const MAX_ART_ENTRIES = 500;
-const ART_SECTIONS = ['faces', 'plugs', 'cutaways'] as const;
+const ART_SECTIONS = ['faces', 'plugs', 'cutaways', 'labelTemplates'] as const;
 const ART_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
 /** This hub's drawing art as entered: only the three sections, ids and SVG checked, every cutaway's SVG stripped of anything active. */
 function cleanArt(input: unknown): { art?: DrawingArtData; error?: string } {
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) return { error: 'art is an object with faces, plugs and cutaways.' };
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) return { error: 'art is an object with faces, plugs, cutaways and labelTemplates.' };
   const raw = input as Record<string, unknown>;
   const stray = Object.keys(raw).filter((k) => k !== 'src' && !(ART_SECTIONS as readonly string[]).includes(k));
-  if (stray.length > 0) return { error: `art has only faces, plugs and cutaways, not '${stray[0]}'.` };
+  if (stray.length > 0) return { error: `art has only faces, plugs, cutaways and labelTemplates, not '${stray[0]}'.` };
   if (JSON.stringify(raw).length > MAX_ART_BYTES) return { error: `The drawing art is larger than ${MAX_ART_BYTES / 1024 / 1024} MiB.` };
   const out: DrawingArtData = {};
   let entries = 0;
@@ -533,6 +536,14 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
   if (input['labelPreset'] !== undefined && input['labelPreset'] !== null && input['labelPreset'] !== '') {
     if (typeof input['labelPreset'] !== 'string' || !LABEL_PRESET_IDS.includes(input['labelPreset'])) return fail(400, `labelPreset must be one of ${LABEL_PRESET_IDS.join(', ')}.`);
     next.labelPreset = input['labelPreset'];
+  }
+  if (input['labelTemplate'] !== undefined && input['labelTemplate'] !== null && input['labelTemplate'] !== '') {
+    if (typeof input['labelTemplate'] !== 'string' || !TEMPLATE_ID.test(input['labelTemplate'])) return fail(400, 'labelTemplate is a label template id (lowercase letters, digits, dot, dash).');
+    next.labelTemplate = input['labelTemplate'];
+  }
+  if (input['labelPrinter'] !== undefined && input['labelPrinter'] !== null && input['labelPrinter'] !== '') {
+    if (typeof input['labelPrinter'] !== 'string' || !LBX_PRINTER_IDS.includes(input['labelPrinter'])) return fail(400, `labelPrinter must be one of ${LBX_PRINTER_IDS.join(', ')}.`);
+    next.labelPrinter = input['labelPrinter'];
   }
   if (input['labelQr'] !== undefined && input['labelQr'] !== null && typeof input['labelQr'] !== 'boolean') return fail(400, 'labelQr is true or false.');
   if (input['labelQr'] === true) next.labelQr = true;
