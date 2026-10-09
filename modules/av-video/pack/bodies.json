@@ -2,6 +2,7 @@
   {
     "id": "hd15-male",
     "label": "HD15 (DE-15) male",
+    "partNumber": "CON-05001",
     "family": "hd15",
     "gender": "male",
     "positions": [
@@ -71,6 +72,7 @@
   {
     "id": "scart-21-male",
     "label": "SCART 21-pin male (cable plug)",
+    "partNumber": "CON-05002",
     "family": "scart",
     "gender": "male",
     "positions": [
@@ -155,6 +157,7 @@
   {
     "id": "bnc-male",
     "label": "BNC plug (male)",
+    "partNumber": "CON-05003",
     "family": "bnc",
     "gender": "male",
     "positions": [

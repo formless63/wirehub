@@ -2,6 +2,7 @@
   {
     "id": "de9-female-rs232",
     "label": "DE-9 female, RS-232 DTE pinout",
+    "partNumber": "CON-00012",
     "family": "d-sub",
     "gender": "female",
     "construction": "solder-cup",
@@ -21,6 +22,7 @@
   {
     "id": "de9-male-profibus",
     "label": "DE-9 male, RS-485 (PROFIBUS DP) pinout",
+    "partNumber": "CON-00013",
     "family": "d-sub",
     "gender": "male",
     "construction": "solder-cup",
@@ -40,6 +42,7 @@
   {
     "id": "usb-a-plug",
     "label": "USB Type-A plug",
+    "partNumber": "CON-01001",
     "family": "usb-a",
     "gender": "male",
     "construction": "solder-cup",

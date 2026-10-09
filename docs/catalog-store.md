@@ -76,6 +76,7 @@ Packs are organised by domain, small enough to review, and may depend on one ano
 | `power-dc` | barrel jacks (5.5 × 2.1 / 2.5), IEC 60320 C13/C14/C5/C7, Anderson Powerpole, XT60, DC stocks by gauge | IEC 60320, manufacturer datasheets, AWG tables (ASTM B258) |
 | `test-measurement` | BNC/SMA/N-type RF connectors, banana plugs, coax stocks (RG-58, RG-174, RG-316) | MIL-STD-348, MIL-DTL-17, vendor datasheets |
 | `kicad-3d` | links from catalog bodies to KiCad 3D models (no model files in the pack) | KiCad 3D library (see §5) |
+| *(3D, built in)* | **parametric** model links: a `models.json` link with `sourceKind: "parametric"` and a `parametric` spec (shape + millimetre dimensions, `@wirehub/model` parametric.ts) has no stored bytes; the viewer draws it the same way every time (`d-sub`, `xlr`, `rj45`, `jst-xh`, `terminal-block`). The base links its four starter connectors and bodies; the pro-audio and networking packs link XLR and RJ45. About 12 KB of JSON in all. | the link's `src` (a standard's figures, or flagged inferred) |
 | `vocab-*` | vocabulary extensions: signals and levels for a domain (`vocab-fieldbus`, `vocab-audio`) | the standards above |
 
 Shops may publish their own packs (`vendor-…`, `community-…`); a manufacturer may publish

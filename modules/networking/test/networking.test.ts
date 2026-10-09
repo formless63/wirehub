@@ -49,7 +49,7 @@ describe('the module', () => {
   it('is an optional domain module, unticked at setup, with one CC0 pack', () => {
     expect(createRegistry([networking]).domains().map((m) => m.id)).toEqual(['networking']);
     expect(networking.setup).not.toHaveProperty('suggested');
-    expect(readPackManifest(packDir)).toMatchObject({ id: 'networking', version: '0.1.1', license: 'CC0-1.0' });
+    expect(readPackManifest(packDir)).toMatchObject({ id: 'networking', version: '0.2.2', license: 'CC0-1.0' });
   });
 
   it('keeps Ethernet out of the base: no MDI signal or RJ45 record without the pack', () => {

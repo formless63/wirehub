@@ -2,6 +2,7 @@
   {
     "id": "xlr3-female",
     "label": "XLR 3-pin female (cable mount)",
+    "partNumber": "CON-02001",
     "family": "xlr",
     "gender": "female",
     "construction": "solder-cup",
@@ -21,6 +22,7 @@
   {
     "id": "xlr3-male",
     "label": "XLR 3-pin male (cable mount)",
+    "partNumber": "CON-02002",
     "family": "xlr",
     "gender": "male",
     "construction": "solder-cup",
@@ -40,6 +42,7 @@
   {
     "id": "rca-male",
     "label": "RCA male (phono plug)",
+    "partNumber": "CON-02003",
     "family": "rca",
     "gender": "male",
     "construction": "solder-cup",
@@ -59,6 +62,7 @@
   {
     "id": "trs-3-5mm-male",
     "label": "3.5 mm TRS male (stereo plug)",
+    "partNumber": "CON-02004",
     "family": "trs-3-5mm",
     "gender": "male",
     "construction": "solder-cup",

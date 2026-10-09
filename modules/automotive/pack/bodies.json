@@ -2,6 +2,7 @@
   {
     "id": "obd2-16-male",
     "label": "OBD-II 16-pin male (J1962 type A plug)",
+    "partNumber": "CON-03001",
     "family": "obd2",
     "gender": "male",
     "positions": [
@@ -69,6 +70,7 @@
   {
     "id": "sealed-3-female",
     "label": "Sealed 3-way housing, female, 1.5 mm class",
+    "partNumber": "CON-03002",
     "family": "sealed-auto",
     "gender": "female",
     "positions": [
@@ -106,6 +108,7 @@
   {
     "id": "sealed-3-male",
     "label": "Sealed 3-way housing, male, 1.5 mm class",
+    "partNumber": "CON-03003",
     "family": "sealed-auto",
     "gender": "male",
     "positions": [

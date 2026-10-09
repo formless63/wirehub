@@ -13,6 +13,8 @@ export { AMPACITY_SRC, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, ampacityOfAre
 export type { AmpacityRow, ContactRow, DbRules, DesignElectrical, ElectricalReport, ElectricalRow, ElectricalRules } from './electrical.ts';
 export { costIssues, costingRulesProblems, costUnit, isCurrencyCode, unitPriceAt } from './cost.ts';
 export type { CostingRules, PartCost, PriceBreak } from './cost.ts';
+export { PARAMETRIC_PARAMS, PARAMETRIC_SHAPES, isParametricAssetId, isParametricShape, parametricAssetId, parametricProblems } from './parametric.ts';
+export type { ParametricShape, ParametricSpec } from './parametric.ts';
 export { PROVENANCE_METHODS, isSourceUrl, isSpdxLike, recordMetaIssues } from './provenance.ts';
 export type { DerivedFrom, ProvenanceMethod, ProvenanceReview, ProvenanceSource, RecordMeta, RecordProvenance, VendorDoc } from './provenance.ts';
 export {

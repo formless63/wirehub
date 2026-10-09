@@ -28,6 +28,7 @@ describePg('pack auxiliary ownership on Postgres', () => {
   afterAll(async () => { await handle?.close(); await database?.drop(); }, 60_000);
   it('updates and removes owned sidecars and links without removing local links or edited drawings', async () => {
     const tree = new Map(readCatalogTree(dataPath('..')));
+    tree.delete('data/drawings/de9-crossover.json'); // the pack supplies this sidecar; the starter's own would shadow it
     tree.set('data/models.json', `${JSON.stringify({ src, links: [link('revisions/local-board/one', 'c')] }, null, 2)}\n`);
     const { orgId } = await importCatalog(handle.db, { org: { slug: 'auxiliary', create: true }, files: tree, blobs: testBlobs() });
     const cache = new SnapshotCache(handle.db, orgId, { reuseMs: 0 });

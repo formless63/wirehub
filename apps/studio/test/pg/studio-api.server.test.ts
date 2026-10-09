@@ -63,6 +63,8 @@ describePg('studio-api against pg with a personal token', () => {
     const viewerToken = await tokens.create({ person: viewer, name: 'viewer script', scopes: ['catalog:write'], days: 1, env: 'dev' });
     const config = readAuthConfig({ AUTH_ENABLED: 'true', BETTER_AUTH_SECRET: 'test-only-secret-test-only-secret-0123456789', BETTER_AUTH_URL: BASE, WIREHUB_BACKEND: 'pg' }) as AuthConfigEnabled;
     const auth = await createStudioAuth(config, { pg: { url: database.appUrl, people, tokens, tokenEnv: 'dev' } });
+    // a pull reads every record one by one; the starter's growth (links, sidecars) must not eat the default minute budget
+    auth.limits = () => ({ read: [{ count: 5000, ms: 60_000 }], write: [{ count: 500, ms: 60_000 }] });
     closeAuth = auth.close;
     const cache = new SnapshotCache(pgh.db, orgId);
     const events = deliveredEventHub();

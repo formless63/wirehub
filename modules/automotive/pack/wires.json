@@ -2,6 +2,7 @@
   {
     "id": "auto-2core-0-5",
     "label": "Automotive cable, 2 × 0.5 mm², thin-wall cores",
+    "partNumber": "WIR-03001",
     "odMm": 4.5,
     "colourCode": "dc-red-black",
     "structure": {
@@ -52,6 +53,7 @@
   {
     "id": "auto-3core-0-5",
     "label": "Automotive cable, 3 × 0.5 mm², thin-wall cores",
+    "partNumber": "WIR-03002",
     "odMm": 5,
     "structure": {
       "kind": "group",

@@ -139,13 +139,13 @@ export async function writeScenario(backend: WriteBackend): Promise<{ log: strin
   await call('tags', { method: 'GET', path: '/api/vocab' }, 200);
 
   // a 3D model: upload (bytes + link in one change set), then detach
-  const model = await call('model upload', { method: 'POST', path: '/api/models/connectors/de9-female/upload', body: { name: 'shell.glb', data: Buffer.from('model bytes').toString('base64') }, headers: { 'if-match': linkETag(undefined) } }, 200);
+  const model = await call('model upload', { method: 'POST', path: '/api/models/components/r-150/upload', body: { name: 'shell.glb', data: Buffer.from('model bytes').toString('base64') }, headers: { 'if-match': linkETag(undefined) } }, 200);
   await call('model list', { method: 'GET', path: '/api/models' }, 200);
   const asset = (model.body as { link: { asset: string } }).link.asset;
   const blob = await call('blob by address', { method: 'GET', path: `/api/blobs/${asset}` }, 200);
   expect(blob.headers?.ETag).toBe(`"${asset}"`);
   await call('no such blob', { method: 'GET', path: `/api/blobs/${'0'.repeat(64)}` }, 404);
-  await call('detach', { method: 'DELETE', path: '/api/models/connectors/de9-female', headers: { 'if-match': etag(model) } }, 200);
+  await call('detach', { method: 'DELETE', path: '/api/models/components/r-150', headers: { 'if-match': etag(model) } }, 200);
 
   // artwork, staged and committed with its manifest
   const upload = { fileName: 'face.svg', widthMm: 31, data: Buffer.from(SVG).toString('base64') };

@@ -2,6 +2,7 @@
   {
     "id": "sealed-1-5-socket-0-5-1",
     "label": "Socket contact, 1.5 mm class, 0.5–1.0 mm², tin",
+    "partNumber": "MEC-03001",
     "kind": "contact",
     "termination": {
       "systems": [
@@ -48,6 +49,7 @@
   {
     "id": "sealed-1-5-socket-0-2-0-35",
     "label": "Socket contact, 1.5 mm class, 0.2–0.35 mm², tin",
+    "partNumber": "MEC-03002",
     "kind": "contact",
     "termination": {
       "systems": [
@@ -84,6 +86,7 @@
   {
     "id": "sealed-1-5-pin-0-5-1",
     "label": "Pin contact, 1.5 mm class, 0.5–1.0 mm², tin",
+    "partNumber": "MEC-03003",
     "kind": "contact",
     "termination": {
       "systems": [
@@ -130,6 +133,7 @@
   {
     "id": "sealed-1-5-seal-1-2-1-6",
     "label": "Single-wire seal, 1.5 mm class, insulation Ø 1.2–1.6 mm",
+    "partNumber": "MEC-03004",
     "kind": "seal",
     "termination": {
       "systems": [
@@ -153,6 +157,7 @@
   {
     "id": "sealed-1-5-seal-1-7-2-4",
     "label": "Single-wire seal, 1.5 mm class, insulation Ø 1.7–2.4 mm",
+    "partNumber": "MEC-03005",
     "kind": "seal",
     "termination": {
       "systems": [
@@ -176,6 +181,7 @@
   {
     "id": "sealed-1-5-cavity-plug",
     "label": "Cavity plug, 1.5 mm class",
+    "partNumber": "MEC-03006",
     "kind": "plug",
     "termination": {
       "systems": [
@@ -197,6 +203,7 @@
   {
     "id": "sealed-1-5-crimp-tool",
     "label": "Hand crimp tool, 1.5 mm class open-barrel contacts, 0.2–1.0 mm²",
+    "partNumber": "MEC-03007",
     "kind": "tool",
     "termination": {
       "systems": [

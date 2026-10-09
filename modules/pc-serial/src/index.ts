@@ -24,11 +24,11 @@ export const PC_SERIAL_PACK = new URL(PACK_DIR, import.meta.url).href;
 export const pcSerial = defineModule({
   id: 'pc-serial',
   label: 'PC & serial',
-  version: '0.2.0',
+  version: '0.3.1',
   license: 'MIT',
   setup: {
     kind: 'domain',
     description: 'RS-232, RS-485 and USB: signals, DE-9 pinouts and the USB-A plug, with a null modem, an RS-485 terminal-board cable and a USB LED lead.',
   },
-  catalogPacks: [{ id: 'pc-serial', label: 'PC & serial', version: '0.2.0', root: PC_SERIAL_PACK, license: 'CC0-1.0' }],
+  catalogPacks: [{ id: 'pc-serial', label: 'PC & serial', version: '0.3.1', root: PC_SERIAL_PACK, license: 'CC0-1.0' }],
 });

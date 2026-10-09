@@ -2,7 +2,7 @@
   "format": 1,
   "id": "pc-serial",
   "name": "PC & serial",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "publisher": {
     "id": "wirehub",
     "name": "WireHub bundled modules"

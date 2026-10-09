@@ -2,17 +2,18 @@
   "schemaVersion": 4,
   "id": "db9-null-modem",
   "label": "DE-9 RS-232 → DE-9 RS-232, null modem (3-wire, local handshake loopback)",
+  "productRef": "CBL-01001",
   "instances": {
     "connectors": [
       {
         "id": "j1",
         "def": "de9-female-rs232",
-        "role": "end A"
+        "role": "first PC end"
       },
       {
         "id": "j2",
         "def": "de9-female-rs232",
-        "role": "end B"
+        "role": "second PC end"
       }
     ],
     "segments": [
@@ -210,7 +211,7 @@
     }
   ],
   "notes": [
-    "w1:drain@b is cut back at end B — the shield is grounded at end A only.",
+    "w1:drain@b is cut back at the destination end — the shield is grounded at the source end only.",
     "w1:pair-2.b@a and w1:pair-2.b@b are a spare core, cut back and insulated at both ends."
   ],
   "src": "synthetic example: the common 3-wire null-modem wiring (TXD/RXD crossed, signal ground straight, RTS/CTS and DTR/DSR/DCD looped back locally at each end) on TIA-574 DE-9 connectors"

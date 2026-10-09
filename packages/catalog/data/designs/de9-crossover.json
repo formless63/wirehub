@@ -8,12 +8,12 @@
       {
         "id": "j1",
         "def": "de9-female",
-        "role": "end A"
+        "role": "PC end"
       },
       {
         "id": "j2",
         "def": "de9-female",
-        "role": "end B"
+        "role": "device end"
       }
     ],
     "segments": [

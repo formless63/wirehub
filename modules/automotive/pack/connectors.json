@@ -2,6 +2,7 @@
   {
     "id": "obd2-male",
     "label": "OBD-II plug, J1962 pinout",
+    "partNumber": "CON-03001",
     "family": "obd2",
     "gender": "male",
     "construction": "crimp",
@@ -21,6 +22,7 @@
   {
     "id": "sealed-3-female-numbered",
     "label": "Sealed 3-way female housing, cavities by number",
+    "partNumber": "CON-03002",
     "family": "sealed-auto",
     "gender": "female",
     "construction": "crimp",
@@ -40,6 +42,7 @@
   {
     "id": "sealed-3-male-numbered",
     "label": "Sealed 3-way male housing, cavities by number",
+    "partNumber": "CON-03003",
     "family": "sealed-auto",
     "gender": "male",
     "construction": "crimp",

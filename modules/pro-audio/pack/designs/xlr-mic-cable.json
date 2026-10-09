@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "xlr-mic-cable",
   "label": "XLR female → XLR male, balanced microphone cable, 5 m",
+  "productRef": "CBL-02002",
   "instances": {
     "connectors": [
       {
@@ -92,6 +93,10 @@
         "terminal": "1"
       }
     }
+  ],
+  "notes": [
+    "Pin 1 is the shield at both ends; pin 2 is hot (red) and pin 3 is cold (white) at both ends, so the cable does not invert polarity.",
+    "The connector shells are not connected to the shield."
   ],
   "src": "synthetic example: AES14 balanced microphone cable — pin 1 shield, pin 2 hot (red), pin 3 cold (white), shield to pin 1 at both ends, shells not connected; end a = the microphone (female) end"
 }

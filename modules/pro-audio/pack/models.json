@@ -1,0 +1,81 @@
+{
+  "src": "Library 3D model links. A parametric link has no stored model: its `parametric` spec (a shape and its dimensions in millimetres) is drawn by the viewer, the same way every time. Each link's own `src` cites where the dimensions came from; values marked inferred are typical envelopes, not a standard's figures.",
+  "links": [
+    {
+      "record": "bodies/xlr3-female",
+      "asset": "parametric-98e53dd6e15f5720",
+      "name": "XLR3 female (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric XLR3 female cable connector: three contacts on a circle (AES14 / IEC 61076-2-103 contact layout); shell diameter 21 mm, length 45 mm, boot 14 mm x 30 mm are a typical cable-connector envelope (inferred)",
+      "parametric": {
+        "shape": "xlr",
+        "gender": "female",
+        "pins": 3,
+        "params": {
+          "shellDiameterMm": 21,
+          "shellLengthMm": 45,
+          "bootDiameterMm": 14,
+          "bootLengthMm": 30,
+          "pinCircleDiameterMm": 8
+        }
+      }
+    },
+    {
+      "record": "bodies/xlr3-male",
+      "asset": "parametric-6ecec407afbb1a85",
+      "name": "XLR3 male (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric XLR3 male cable connector: three contacts on a circle (AES14 / IEC 61076-2-103 contact layout); shell diameter 21 mm, length 45 mm, boot 14 mm x 30 mm are a typical cable-connector envelope (inferred)",
+      "parametric": {
+        "shape": "xlr",
+        "gender": "male",
+        "pins": 3,
+        "params": {
+          "shellDiameterMm": 21,
+          "shellLengthMm": 45,
+          "bootDiameterMm": 14,
+          "bootLengthMm": 30,
+          "pinCircleDiameterMm": 8
+        }
+      }
+    },
+    {
+      "record": "connectors/xlr3-female",
+      "asset": "parametric-98e53dd6e15f5720",
+      "name": "XLR3 female (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric XLR3 female cable connector: three contacts on a circle (AES14 / IEC 61076-2-103 contact layout); shell diameter 21 mm, length 45 mm, boot 14 mm x 30 mm are a typical cable-connector envelope (inferred)",
+      "parametric": {
+        "shape": "xlr",
+        "gender": "female",
+        "pins": 3,
+        "params": {
+          "shellDiameterMm": 21,
+          "shellLengthMm": 45,
+          "bootDiameterMm": 14,
+          "bootLengthMm": 30,
+          "pinCircleDiameterMm": 8
+        }
+      }
+    },
+    {
+      "record": "connectors/xlr3-male",
+      "asset": "parametric-6ecec407afbb1a85",
+      "name": "XLR3 male (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric XLR3 male cable connector: three contacts on a circle (AES14 / IEC 61076-2-103 contact layout); shell diameter 21 mm, length 45 mm, boot 14 mm x 30 mm are a typical cable-connector envelope (inferred)",
+      "parametric": {
+        "shape": "xlr",
+        "gender": "male",
+        "pins": 3,
+        "params": {
+          "shellDiameterMm": 21,
+          "shellLengthMm": 45,
+          "bootDiameterMm": 14,
+          "bootLengthMm": 30,
+          "pinCircleDiameterMm": 8
+        }
+      }
+    }
+  ]
+}
