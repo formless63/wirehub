@@ -1,5 +1,72 @@
 # Changelog
 
+## [0.7.0](https://github.com/formless63/wirehub/compare/v0.6.0...v0.7.0) (2026-10-09)
+
+
+### Features
+
+* **a11y:** per-route document title, one h1, skip link, landmarks and an axe-core run on every route ([9ee4085](https://github.com/formless63/wirehub/commit/9ee40857c50786d81b8de21377615568d35ec61a))
+* **brand:** one mark in the top bar, dev favicon, social card and OpenGraph tags ([899cc37](https://github.com/formless63/wirehub/commit/899cc373225bd43ad27ab98100986ac6e902511f))
+* **catalog:** parametric 3D for the starter connectors (DE-9, JST XH, terminal block in the base; XLR and RJ45 in their packs) ([46a4ff0](https://github.com/formless63/wirehub/commit/46a4ff028dc0ac7b33c8e92c56d5e650bc9b3cd0))
+* **catalog:** part numbers on every starter body and design; drop the stray family number ([831ee9a](https://github.com/formless63/wirehub/commit/831ee9a65de7aa62d0338e4ed23f77878fc16eb1))
+* **catalog:** polish the example designs: drawing sidecars with revision A, build notes, no end A/B wording ([b2f3518](https://github.com/formless63/wirehub/commit/b2f3518dd0c08fb1a8f1cc17337ad5e3ba712d0f))
+* **docs:** Brother P-touch TZe tape labels, label templates as data and .lbx export (cs-gqbj) ([b6b1aa8](https://github.com/formless63/wirehub/commit/b6b1aa89c93c6fb2deef08cc1f21a27df3474a99))
+* **docs:** set raster and vector PDFs in the embedded IBM Plex subsets ([7476fc5](https://github.com/formless63/wirehub/commit/7476fc5a2d14ec0846154d140cd9e6769456fdea))
+* **docs:** SheetFrame, one frame and title block for every sheet ([08fbb97](https://github.com/formless63/wirehub/commit/08fbb975a77581a3654cfcdd928e843d4c173967))
+* **docs:** wire labels carry the part number and both ends, an optional QR code, and a label-stock preset ([2c59420](https://github.com/formless63/wirehub/commit/2c59420da9f727ae05d292d6fea8ac23b1deece5))
+* **docs:** wire spec sheet and headless text PDFs on the SheetFrame ([e892c34](https://github.com/formless63/wirehub/commit/e892c34fdb4edc275546b2f34cfb8a5cfc78c598))
+* **editor:** connector nodes always list their pins with 16 px handles; art is a header thumbnail and a face toggle ([6ce3339](https://github.com/formless63/wirehub/commit/6ce33399ed8fec8a45cc5fd3c4448072d7b1dc36))
+* **editor:** Documents preview at paper size, with zoom ([a66a668](https://github.com/formless63/wirehub/commit/a66a6689a3b3af525a146e4f5df3f84842bbe2d3))
+* **editor:** face view enlarges dense faces to 16 px pin targets; the face toggle is presentation state auto-arrange measures ([7cd4a88](https://github.com/formless63/wirehub/commit/7cd4a88f30e821996a3d7c8388dfd35ce4a91db6))
+* **editor:** fresh layouts keep open ends on the outside with the wire between them ([1515366](https://github.com/formless63/wirehub/commit/1515366263838c935daa2f77c89208c366a48f11))
+* **editor:** node creator groups parts by kind and offers store matches ([a0f988e](https://github.com/formless63/wirehub/commit/a0f988e87685711c4a4a17e119ed96be79ace423))
+* **editor:** wire from the keyboard through the connection table; canvas respects reduced motion ([4eb7e8d](https://github.com/formless63/wirehub/commit/4eb7e8de4c2419bcf270913650ac26c29f7ec8b5))
+* **library:** fork to edit asks for the copy's id in an in-app dialog ([96718f7](https://github.com/formless63/wirehub/commit/96718f7a1c61bb0776e08dd0697527aa30946bfd))
+* **model:** warn on conductors floating at both ends; name terminals for people in issues ([49f04e9](https://github.com/formless63/wirehub/commit/49f04e91f93729fd9b763695344a2d7b482e38eb))
+* **nav:** grouped rail with avatar menu, Extensions page (Browse, Installed, Sources) and rail-module hub setting ([31579ce](https://github.com/formless63/wirehub/commit/31579ceadec2c8c90a6303a361c446f23ed24584))
+* **packs:** part numbers for the domain packs' designs and parts, each pack in its own range ([9b41551](https://github.com/formless63/wirehub/commit/9b415515ff5b5ab552ba321c08f3e6a44264fff0))
+* **prefs:** per-user UI preferences on the server (slot pins, theme, column choices) with localStorage fallback ([f182600](https://github.com/formless63/wirehub/commit/f182600d8726061809328c93ce4c47cd538e09ff))
+* **settings:** system group intros become (?) tips ([bcc0cc0](https://github.com/formless63/wirehub/commit/bcc0cc070b1aa2bfa3e09bb5119f53f93b1dd697))
+* **setup:** standalone first-run page, setup code moved up with a copy button, advanced options collapsed ([fcc3a91](https://github.com/formless63/wirehub/commit/fcc3a915135c2c92d5bc1e5ff1919a423361bcc5))
+* **site:** documentation site at /docs/ (guide, reference, search, app tokens) ([76c08ab](https://github.com/formless63/wirehub/commit/76c08ababfde3e43e11436d7ea92ef4393cbf51e))
+* **site:** README and home show the product; guide screenshots replace placeholders ([6bbba4c](https://github.com/formless63/wirehub/commit/6bbba4ceb0bc83d0de303e329a4e1211e05297e2))
+* **studio:** in-app help links to the docs site, docs results in Ctrl K, WIREHUB_DOCS_URL ([2848260](https://github.com/formless63/wirehub/commit/2848260d5212095741a1830d41e33074f11e9bfe))
+* **studio:** module slots, declared places and the Library Import menu ([8a3d676](https://github.com/formless63/wirehub/commit/8a3d6766200f56290ae990271543c32c39525d55))
+* **studio:** read-only phone views for every route ([d624283](https://github.com/formless63/wirehub/commit/d624283049db8b7034bc467368e7a7b16d5a9566))
+* **studio:** toasts and install drawer for installs, restart confirm and progress ([83a0d44](https://github.com/formless63/wirehub/commit/83a0d4465801d0028d222e38c13d390e79379384))
+* **ui:** copy sweep - no docs paths, env vars, job-engine ids or internal names in rendered copy ([f884bef](https://github.com/formless63/wirehub/commit/f884bef680185e9861ccc52a882a4a19beecb066))
+* **ui:** DataTable on TanStack Table, page anatomy primitives, adopted on Designs, Library, Jobs, History, Part numbers and Products ([850dbce](https://github.com/formless63/wirehub/commit/850dbceb2835eb8965bf35bd8de37c18afb7144e))
+* **ui:** full design token set in tokens.css, with tokens.ts and the Tailwind theme generated from it ([bbe4237](https://github.com/formless63/wirehub/commit/bbe4237931b58d2c9705905bba1526eab5d7bb9e))
+* **ui:** New hub strip (dismissal kept on the hub), empty states with docs links, a central help-link map and a (?) in the top bar ([6d8a286](https://github.com/formless63/wirehub/commit/6d8a286a80190e70dd675ff14aa9c540ec994fec))
+* **ui:** shadcn-style primitives on Radix in WireHub tokens, a dev-only /dev/ui gallery, and Module settings adopting them ([887245d](https://github.com/formless63/wirehub/commit/887245d868292ed8cda2a7e4013325892747f88b))
+* **ui:** skeleton rows on lists, optimistic delete, canvas opens already fitted, gallery shows page anatomy ([569074d](https://github.com/formless63/wirehub/commit/569074dafdff13379a1c1a6a61b473b20c7cd28b))
+* **ui:** terminology - design as the noun, source/destination end, Reference field, Find a design ([388d020](https://github.com/formless63/wirehub/commit/388d0201585e0cc2f63d639c4afe223428e8ffa0))
+* **ui:** undoable toasts for deleting a part or design, and a ten-second window before disabling a pack or clearing a module secret ([b3958ee](https://github.com/formless63/wirehub/commit/b3958ee957576ad92637d213a387e882cede0311))
+* **wizard:** connect a new design by signal, by colour or leave it open, with a live preview ([54d5fae](https://github.com/formless63/wirehub/commit/54d5fae7a7bbbb05af0d5876e679e8e655146539))
+
+
+### Bug Fixes
+
+* **catalog:** keep node:crypto out of the browser import path ([03c504a](https://github.com/formless63/wirehub/commit/03c504a7d5ca43827b158aa7481bbfd76b607574))
+* **catalog:** name the example designs' connector roles for what they are, not end A / end B ([90617a7](https://github.com/formless63/wirehub/commit/90617a74a87843411272245b7118304d8740d1e2))
+* **ci:** generator check needs no install; drawing PDF is the chosen paper, landscape ([bcd6022](https://github.com/formless63/wirehub/commit/bcd602220587c284e3ac4c0bafa0d840ef69a7c2))
+* **ci:** smoke export check expects models.json to differ from the starter ([819f12c](https://github.com/formless63/wirehub/commit/819f12c6b47adec9903ac33f6527a4861acd51ce))
+* **docs:** build sheet end pages anchor the strip at its natural size and give it the row when nothing sits beside it ([3cc455d](https://github.com/formless63/wirehub/commit/3cc455d785dd21b8fbe52a7069b938da279119f8))
+* **docs:** wrap, shrink, then ellipsize a long title in the sheet-frame title cell ([67f8eb1](https://github.com/formless63/wirehub/commit/67f8eb1aa237deee9a7ca78022beb684cc783588))
+* **editor:** conductor colour words no longer read as signals in the wizard ([78bf062](https://github.com/formless63/wirehub/commit/78bf0622187fb7ea967cfac132c479b5895edae4))
+* **editor:** restore the closing brace a merge dropped in editor.css, so the app bundle builds ([15b364f](https://github.com/formless63/wirehub/commit/15b364f41f7964b7e51ba63b5722aca19ea2ec52))
+* **editor:** zoom and paper settings on the new UI primitives; UNAPPROVED state ([1afc51e](https://github.com/formless63/wirehub/commit/1afc51ef54bd244d4a5b77d18250c10b6dea7fb8))
+* **model:** a stock-marked spare or no-connect conductor explains a floating conductor ([11b172f](https://github.com/formless63/wirehub/commit/11b172f4ddd6ba8af42a7f8adf13dda699f13afd))
+* **model:** the resolver notes conductors it leaves unconnected as spares, so derived designs read clean ([86ec427](https://github.com/formless63/wirehub/commit/86ec4278d3cf0d0e70bf53844ae734361ed85bed))
+* reconcile help map and export-menu test after merging navigation and P-touch lanes ([85f6447](https://github.com/formless63/wirehub/commit/85f644778eff1b93cdb36f4329a86c1118667c82))
+* **studio:** docs base hook works outside a query client ([34981f8](https://github.com/formless63/wirehub/commit/34981f88bb4f65c26c199400d37d2acf191e740a))
+* **studio:** throttled sign-in answers 429 with Retry-After and a rate-limit message ([93306ad](https://github.com/formless63/wirehub/commit/93306adceec75e70ec12219c8829a3cdd8bb142a))
+* **studio:** type the throttled auth response ([67c9678](https://github.com/formless63/wirehub/commit/67c9678a6c0dfa1baf84960a7ea3a3f27a19484f))
+* **studio:** unpack WOFF2 under jsdom (SVG logo save), update module wire-spec snapshots for the SheetFrame ([7575a13](https://github.com/formless63/wirehub/commit/7575a1303a60847e8be4d60de79e11e30e9bd5ce))
+* **ui:** contrast hotfix - new --faint, --line-field and light --accent, with an AA contrast test ([6c1cdee](https://github.com/formless63/wirehub/commit/6c1cdeeb66660dc556fee31d2c73bdf477cbb863))
+* **ui:** control width utilities win over the primitives' default full width ([eeaf96d](https://github.com/formless63/wirehub/commit/eeaf96d6acf21582d3a7606387626b2b8f88f1e8))
+* **ui:** the help tip uses the 2xs type token ([84e5ad0](https://github.com/formless63/wirehub/commit/84e5ad069be6d5631884fdf37c4af814d7c604cf))
+
 ## [0.6.0](https://github.com/formless63/wirehub/compare/v0.5.0...v0.6.0) (2026-10-08)
 
 
