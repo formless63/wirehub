@@ -292,9 +292,15 @@ function makeCell(spec: SheetFrameSpec, def: CellDef, box: Rect, strip: boolean)
     inset = cellX + lw + 1.6;
   }
   const width = box.w - inset - cellX;
-  const lineRoom = box.h - 2.4;
-  const lines = def.field === 'title' && !strip ? Math.max(1, Math.min(2, Math.floor(lineRoom / (base * PT_MM * 1.2)))) : 1;
-  const fitted = fitText(v.text, width / PT_MM, base, v.kind, lines);
+  const maxWidth = width / PT_MM;
+  let fitted = fitText(v.text, maxWidth, base, v.kind, 1);
+  if (def.field === 'title' && fitted.lines[0] !== v.text.replace(/\s+/g, ' ').trim()) {
+    // too long for one line even shrunk: wrap to a second line, at a size whose two lines
+    // stack under the caption inside the cell, then shrink to the floor and ellipsize
+    const captionBottom = 0.7 + captionPt * PT_MM;
+    const cap = (box.h - 1.2 - captionBottom) / (1.8 * PT_MM * 1.18);
+    fitted = fitText(v.text, maxWidth, Math.min(base, cap), v.kind, 2);
+  }
   return {
     ...box,
     field: def.field,
