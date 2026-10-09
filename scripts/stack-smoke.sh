@@ -200,15 +200,16 @@ check_stack() { # $1: modules to enable at setup (JSON array)
   echo "smoke: Postgres is up; studio_app connects with its generated password"
   check_worker "$origin"
   if [ "$modules" = "[]" ]; then
-    # S8: the database's export is the starter catalog plus exactly the save (and the setup record)
+    # S8: the database's export is the starter catalog plus exactly the save, the photo, the
+    # STEP upload (it replaces de9-male's starter parametric link) and the setup record
     cli export --out /tmp/smoke-export >/dev/null || fail "pg:export"
     local diff expected
     diff="$(compose exec -T wirehub sh -c 'diff -rq /tmp/smoke-export/data /app/starter-catalog' | sort || true)"
     expected="$(printf '%s\n' \
       'Files /tmp/smoke-export/data/designs/dc-y-splitter.json and /app/starter-catalog/designs/dc-y-splitter.json differ' \
+      'Files /tmp/smoke-export/data/models.json and /app/starter-catalog/models.json differ' \
       'Only in /tmp/smoke-export/data/drawings: dc-y-splitter.photo-ref.json' \
       'Only in /tmp/smoke-export/data: assets' \
-      'Only in /tmp/smoke-export/data: models.json' \
       'Only in /tmp/smoke-export/data: setup.json' | sort)"
     [ "$diff" = "$expected" ] || fail "the export is not the starter plus the save: $diff"
     echo "smoke: the export is the starter catalog plus the save, the photo, the model link and the setup record — nothing else"
