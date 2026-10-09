@@ -57,7 +57,7 @@ async function release(): Promise<void> {
 }
 
 /** Every PDF object, its xref offset checked, its streams inflated. */
-function readPdf(bytes: Uint8Array): { pages: number; streams: string[]; images: number } {
+function readPdf(bytes: Uint8Array): { pages: number; streams: string[]; contents: string[]; images: number } {
   const text = Buffer.from(bytes).toString('latin1');
   expect(text.startsWith('%PDF-1.4')).toBe(true);
   expect(text.trimEnd().endsWith('%%EOF')).toBe(true);
@@ -68,6 +68,8 @@ function readPdf(bytes: Uint8Array): { pages: number; streams: string[]; images:
   expect(entries).toHaveLength(size - 1);
   entries.forEach((offset, i) => expect(text.slice(offset, offset + `${i + 1} 0 obj`.length)).toBe(`${i + 1} 0 obj`));
   const streams: string[] = [];
+  /** the page content streams: not a font program, not a character map */
+  const contents: string[] = [];
   let images = 0;
   for (const offset of entries) {
     const head = text.slice(offset, text.indexOf('\nstream\n', offset));
@@ -81,9 +83,13 @@ function readPdf(bytes: Uint8Array): { pages: number; streams: string[]; images:
     if (/\/Subtype \/Image/.test(head)) {
       images += 1;
       expect(inflated).toHaveLength(Number(/\/Width (\d+)/.exec(head)![1]) * Number(/\/Height (\d+)/.exec(head)![1]) * 3);
-    } else streams.push(inflated.toString('latin1'));
+    } else {
+      const body = inflated.toString('latin1');
+      streams.push(body);
+      if (!/\/Length1/.test(head) && !body.startsWith('/CIDInit')) contents.push(body);
+    }
   }
-  return { pages: Number(/\/Count (\d+)/.exec(text)![1]), streams, images };
+  return { pages: Number(/\/Count (\d+)/.exec(text)![1]), streams, contents, images };
 }
 
 describe('every sheet in the one frame, on the paper asked for', () => {
@@ -169,7 +175,12 @@ describe('GET /api/designs/:id/documents/:kind', () => {
     expect(sheet.contentType).toBe('application/pdf');
     const parsed = readPdf(sheet.bytes!);
     expect(parsed.pages).toBeGreaterThanOrEqual(1);
-    expect(parsed.streams.join('\n')).toContain('(Bench build sheet');
+    // the sheet's headings are set in the embedded Liberation Sans as glyph ids; the frame's title block in IBM Plex (cs-dcuk)
+    const { liberation } = await import('../server/render/fonts.ts');
+    const regular = liberation('bold');
+    const hex = (t: string): string => [...t].map((c) => regular.glyphFor(c.codePointAt(0)!).toString(16).padStart(4, '0')).join('');
+    expect(parsed.contents.join('\n')).toContain(`<${hex('Bench build sheet')}`);
+    expect(parsed.contents.join('\n')).toMatch(/\/E[3-6] [\d.]+ Tf/);
     expect(/\/MediaBox \[0 0 612 792\]/.test(Buffer.from(sheet.bytes!).toString('latin1'))).toBe(true);
 
     for (const kind of ['bom', 'test-spec']) expect(readPdf((await get(`/api/designs/${ID}/documents/${kind}?format=pdf`)).bytes!).pages).toBeGreaterThanOrEqual(1);
@@ -179,9 +190,30 @@ describe('GET /api/designs/:id/documents/:kind', () => {
     expect(labels.images).toBe(2);
   });
 
+  it('the label PDF takes its page from the chosen preset: the stock grid, or one label per page on a label printer (cs-8kj.5)', async () => {
+    const { LABEL_PRESETS, labelSheetPages, deriveLabels } = await import('@wirehub/docs');
+    const { loadDesign, loadDb } = await import('@wirehub/catalog');
+    const count = deriveLabels(loadDesign(ID), loadDb()).length;
+    const pt = (mm: number): number => Math.round((mm / 25.4) * 72 * 100) / 100;
+    for (const preset of LABEL_PRESETS) {
+      const bytes = (await get(`/api/designs/${ID}/documents/labels?format=pdf&preset=${preset.id}&qr=1`)).bytes!;
+      const text = Buffer.from(bytes).toString('latin1');
+      const boxes = [...text.matchAll(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/g)];
+      expect(boxes).toHaveLength(labelSheetPages(count, { preset: preset.id }));
+      for (const box of boxes) {
+        expect(Number(box[1])).toBeCloseTo(pt(preset.layout.pageWidth), 1);
+        expect(Number(box[2])).toBeCloseTo(pt(preset.layout.pageHeight), 1);
+      }
+    }
+    expect((await get(`/api/designs/${ID}/documents/labels?format=pdf&preset=nope`)).status).toBe(400);
+    const withQr = text(await get(`/api/designs/${ID}/documents/labels?format=svg&qr=1`));
+    expect(withQr).toContain('data-qr=');
+    expect(text(await get(`/api/designs/${ID}/documents/labels?format=svg`))).not.toContain('data-qr=');
+  });
+
   it('a long test spec runs over pages, repeating nothing but the table header', async () => {
     const parsed = readPdf((await get(`/api/designs/de9-terminal-board/documents/test-spec?format=pdf`)).bytes!);
-    expect(parsed.streams.length).toBe(parsed.pages);
+    expect(parsed.contents.length).toBe(parsed.pages);
   });
 
   it('refuses what it cannot render, in sentences', async () => {

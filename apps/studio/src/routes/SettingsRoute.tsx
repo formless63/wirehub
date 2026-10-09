@@ -18,7 +18,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 import { Select } from '@wirehub/editor-react';
-import { PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
+import { LABEL_PRESETS, PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
 
 import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
 import { EngineeringSettings } from './EngineeringSettings.tsx';
@@ -36,12 +36,15 @@ const FIELDS = [
   { key: 'standard', label: 'Standard name', hint: 'What the wire spec calls itself; empty keeps “WireHub Standard”.' },
   { key: 'rights', label: 'Rights / confidentiality line', hint: 'The drawing sheet’s title block and the wire spec’s footer.' },
   { key: 'designer', label: 'Default designer', hint: 'Printed when a drawing names none.' },
+  { key: 'labelQrUrl', label: 'Label QR address', hint: 'What a label’s QR code opens: an http(s) address with {pn}, {rev}, {design} and {label}. Empty: the part number and revision as text.' },
   { key: 'filePrefix', label: 'Wire spec file prefix', hint: 'What exported wire spec files start with; empty keeps “WSS_”. Letters, digits, dot, dash, underscore; up to 16.' },
 ] as const;
 
 type Draft = Record<(typeof FIELDS)[number]['key'], string> & {
   paper: PaperId | '';
   titleBlock: TitleBlockStandard | '';
+  labelPreset: string;
+  labelQr: boolean;
   notes: [string, string, string];
   tolerances: [string, string][];
 };
@@ -59,6 +62,9 @@ const DEFAULT_TOLERANCES = [
 const draftOf = (view: BrandingView | undefined): Draft => ({
   paper: view?.paper ?? '',
   titleBlock: view?.titleBlock ?? '',
+  labelPreset: view?.labelPreset ?? '',
+  labelQr: view?.labelQr === true,
+  labelQrUrl: view?.labelQrUrl ?? '',
   notes: [view?.notes?.[0] ?? '', view?.notes?.[1] ?? '', view?.notes?.[2] ?? ''],
   tolerances: DEFAULT_TOLERANCES.map((_, i) => [view?.tolerances?.[i]?.[0] ?? '', view?.tolerances?.[i]?.[1] ?? ''] as [string, string]),
   organisation: view?.organisation ?? '',
@@ -216,7 +222,7 @@ export function SettingsRoute(): JSX.Element {
                 aria-label={f.label}
                 value={draft[f.key]}
                 disabled={readOnly}
-                maxLength={f.key === 'rights' ? 160 : f.key === 'filePrefix' ? 16 : 80}
+                maxLength={f.key === 'rights' ? 160 : f.key === 'filePrefix' ? 16 : f.key === 'labelQrUrl' ? 200 : 80}
                 onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
               />
               <span className="text-faint">{f.hint}</span>
@@ -243,6 +249,22 @@ export function SettingsRoute(): JSX.Element {
                 options={[{ value: 'default', label: 'Follow the paper' }, ...TITLE_BLOCK_STANDARDS.map((id) => ({ value: id, label: TITLE_BLOCKS[id].label }))]}
               />
             </div>
+          </div>
+          <div className="flex items-end gap-3">
+            <div className="flex flex-1 flex-col gap-0.5" title="The label stock the wire labels print on: the A4 and Letter sheets, or one label per page for a Brady or Dymo printer. A download can ask for another.">
+              <span className="font-medium">Label stock</span>
+              <Select
+                aria-label="Label stock"
+                value={draft.labelPreset === '' ? 'default' : draft.labelPreset}
+                disabled={readOnly}
+                onValueChange={(value) => setDraft({ ...draft, labelPreset: value === 'default' ? '' : value })}
+                options={[{ value: 'default', label: 'Follow the paper' }, ...LABEL_PRESETS.map((p) => ({ value: p.id, label: p.label }))]}
+              />
+            </div>
+            <label className="flex items-center gap-1.5 pb-1" title="Print a QR code on each wire label: the part number and revision, or the address below.">
+              <input type="checkbox" aria-label="QR code on labels" checked={draft.labelQr} disabled={readOnly} onChange={(e) => setDraft({ ...draft, labelQr: e.target.checked })} />
+              <span className="font-medium">QR code on labels</span>
+            </label>
           </div>
           <fieldset className="flex flex-col gap-1 border-0 p-0">
             <legend className="font-medium">Drawing general note</legend>

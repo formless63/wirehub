@@ -7,14 +7,14 @@
  * text-anchor, bold) and refuses an element outside it, so a drawing that
  * grows a new primitive fails a test instead of printing without it.
  * Text is set in the bundled Liberation Sans (or the hub's own TrueType typeface, when branding
- * registered one), which the PDF embeds as a
+ * registered one), or in the embedded IBM Plex subsets where the SVG names them (the sheet frame), which the PDF embeds as a
  * TrueType font (subset to the glyphs used), so it looks the same wherever it
  * is opened: it is drawn as glyph ids, and the page names the glyphs it used.
  * Pure and deterministic.
  */
 
 import { latin } from './layout.ts';
-import { pdfFont, type Face, type PdfFont } from './fonts.ts';
+import { FACE_RESOURCE, pdfFont, type Face, type PdfFont } from './fonts.ts';
 import type { PdfPage } from './pdf.ts';
 
 const n = (v: number): string => String(Math.round(v * 1000) / 1000);
@@ -28,6 +28,9 @@ interface Style {
   dash: number[];
   cap: 0 | 1 | 2;
   bold: boolean;
+  /** the first family named (`font-family`), lower-case: the frame's text names IBM Plex */
+  family: string;
+  weight: number;
   anchor: 'start' | 'middle' | 'end';
 }
 
@@ -90,6 +93,8 @@ function inherit(parent: Style, attrs: Attrs): Style {
     dash: dash === undefined ? parent.dash : dash === 'none' ? [] : dash.split(/[\s,]+/).map(Number),
     cap: attrs['stroke-linecap'] === undefined ? parent.cap : attrs['stroke-linecap'] === 'round' ? 1 : attrs['stroke-linecap'] === 'square' ? 2 : 0,
     bold: attrs['font-weight'] === undefined ? parent.bold : attrs['font-weight'] === 'bold' || Number(attrs['font-weight']) >= 600,
+    family: attrs['font-family'] === undefined ? parent.family : (/^\s*['"]?([^,'"]+)/.exec(attrs['font-family'])?.[1] ?? '').trim().toLowerCase(),
+    weight: attrs['font-weight'] === undefined ? parent.weight : attrs['font-weight'] === 'bold' ? 700 : attrs['font-weight'] === 'normal' ? 400 : Number(attrs['font-weight']),
     anchor: attrs['text-anchor'] === undefined ? parent.anchor : (attrs['text-anchor'] as Style['anchor']),
   };
 }
@@ -145,7 +150,7 @@ export function svgToVectorPdfPage(svg: string, page: { width: number; height: n
     );
   };
 
-  const base: Style = { fill: '#000000', stroke: 'none', strokeWidth: 1, fillOpacity: 1, strokeOpacity: 1, dash: [], cap: 0, bold: false, anchor: 'start' };
+  const base: Style = { fill: '#000000', stroke: 'none', strokeWidth: 1, fillOpacity: 1, strokeOpacity: 1, dash: [], cap: 0, bold: false, family: '', weight: 400, anchor: 'start' };
   const styles: Style[] = [inherit(base, parseAttrs(root[1] as string))];
   /** one entry per open element that did a `q` */
   const opened: boolean[] = [];
@@ -247,7 +252,8 @@ export function svgToVectorPdfPage(svg: string, page: { width: number; height: n
 
   function emitText(attrs: Attrs, style: Style, raw: string): void {
     if (style.fill === 'none' || style.fillOpacity === 0) return;
-    const face: Face = style.bold ? 'bold' : 'regular';
+    const face: Face =
+      style.family === 'ibm plex mono' ? (style.weight >= 500 ? 'plexMonoMedium' : 'plexMono') : style.family === 'ibm plex sans' ? (style.weight >= 600 ? 'plexSemi' : 'plexSans') : style.bold ? 'bold' : 'regular';
     const chosen = (fonts[face] ??= pdfFont(face));
     const font = chosen.font;
     // a character the face has no glyph for is shown as the standard-font text would show it
@@ -267,6 +273,6 @@ export function svgToVectorPdfPage(svg: string, page: { width: number; height: n
     out.push('q');
     if (style.fillOpacity !== 1) alphaOp(style.fillOpacity, 1);
     if (attrs['transform'] !== undefined) out.push(...transformOps(attrs['transform']));
-    out.push(`${rgb(style.fill)} rg BT /${style.bold ? 'E2' : 'E1'} ${n(size)} Tf 1 0 0 -1 ${n(x)} ${n(y)} Tm <${hex}> Tj ET`, 'Q');
+    out.push(`${rgb(style.fill)} rg BT /${FACE_RESOURCE[face]} ${n(size)} Tf 1 0 0 -1 ${n(x)} ${n(y)} Tm <${hex}> Tj ET`, 'Q');
   }
 }

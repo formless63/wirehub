@@ -91,3 +91,30 @@ describe('registerBenchSteps', () => {
     }
   });
 });
+
+describe('the end pages lay out around the strip (cs-ld1m)', () => {
+  it('anchors the strip in its own cell at its natural size (112 mm at most), and gives it the row when nothing sits beside it', async () => {
+    const { loadDb, loadDesign, listDesignIds } = await import('@wirehub/catalog');
+    const { renderBuildSheet } = await import('../src/index.ts');
+    const { BENCH_STYLESHEET } = await import('../src/bench/styles.ts');
+    expect(BENCH_STYLESHEET).toContain('.cs-endtop__strip .cs-bench-strip{width:100%;max-width:112mm;margin:0}');
+    expect(BENCH_STYLESHEET).toContain('.cs-endtop--solo{grid-template-columns:minmax(0,1fr)}');
+    let solo = 0;
+    let beside = 0;
+    for (const id of listDesignIds()) {
+      const html = renderBuildSheet(loadDesign(id), loadDb(), { depictions: false });
+      for (const m of html.matchAll(/<div class="cs-cols cs-endtop( cs-endtop--solo)?" data-endtop><div class="cs-endtop__strip">(.*?)<\/div><div>(.*?)<\/div><\/div>/gs)) {
+        if (m[2] === '') continue;
+        expect(m[2]).toContain('cs-bench-strip');
+        if (m[1] !== undefined) {
+          solo += 1;
+          expect(m[3]).toBe('');
+        } else {
+          beside += 1;
+          expect(m[3]).not.toBe('');
+        }
+      }
+    }
+    expect(solo + beside).toBeGreaterThan(0);
+  });
+});

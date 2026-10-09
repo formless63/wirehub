@@ -67,6 +67,10 @@ export interface BrandingSettings {
   /** the paper documents print on by default, and the title-block layout (`ansi` or `iso`) */
   paper?: PaperId;
   titleBlock?: TitleBlockStandard;
+  /** the wire labels' stock (a label-preset id), whether they carry a QR code, and its URL pattern */
+  labelPreset?: string;
+  labelQr?: boolean;
+  labelQrUrl?: string;
   notes?: [string, string, string];
   tolerances?: [string, string][];
   logoDataUri?: string;
@@ -79,7 +83,7 @@ export interface BrandingSettings {
 /** The drawing art a branding setting stands for; `undefined` when nothing is set (the generic text stays). */
 export function brandingArt(settings: BrandingSettings | undefined): DrawingArt | undefined {
   if (settings === undefined) return undefined;
-  const { organisation, standard, rights, designer, filePrefix, notes, tolerances, logoDataUri, paper, titleBlock: layout } = settings;
+  const { organisation, standard, rights, designer, filePrefix, notes, tolerances, logoDataUri, paper, titleBlock: layout, labelPreset, labelQr, labelQrUrl } = settings;
   const png = logoDataUri === undefined ? undefined : /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(logoDataUri)?.[1];
   const titleBlock = {
     ...(organisation === undefined ? {} : { organisation }),
@@ -91,6 +95,9 @@ export function brandingArt(settings: BrandingSettings | undefined): DrawingArt 
     ...(tolerances === undefined ? {} : { tolerances }),
     ...(paper === undefined ? {} : { paper }),
     ...(layout === undefined ? {} : { titleBlock: layout }),
+    ...(labelPreset === undefined ? {} : { labelPreset }),
+    ...(labelQr === true ? { labelQr } : {}),
+    ...(labelQrUrl === undefined ? {} : { labelQrUrl }),
   };
   const { font, art } = settings;
   const hasArt = art !== undefined && (art.faces !== undefined || art.plugs !== undefined || art.cutaways !== undefined);

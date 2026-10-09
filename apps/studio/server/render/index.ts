@@ -64,11 +64,10 @@ import type { CableDesign, Db, KnownPartNumber, PartNumberScheme } from '@wirehu
 import type { DepictionSource } from '@wirehub/render-svg';
 
 import type { PdfEngine } from './browser-pdf.ts';
-import { layoutMarkdown, PAPER } from './layout.ts';
+import { framedPagesToPdf, framedPagesToSvg, framedTextPages } from './framed-text.ts';
 import { pagesToPdf, type PdfPage } from './pdf.ts';
 import { svgToPdfPage } from './raster.ts';
 import { svgToVectorPdfPage } from './vector.ts';
-import { pagesToSvg } from './svg.ts';
 
 export const DOCUMENT_KINDS = ['schematic', 'build-sheet', 'bom', 'test-spec', 'drawing', 'labels', 'formboard'] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
@@ -125,6 +124,9 @@ export interface DocumentRequest {
   /** label sheet: 1-based page and copies of each label */
   page?: number;
   copies?: number;
+  /** label sheet: the label stock (`label-presets.ts`) and whether each label carries a QR code; absent: the hub's settings */
+  labelPreset?: string;
+  labelQr?: boolean;
   /** formboard: paper millimetres per board millimetre (1 = 1:1); page is then a tile, 1-based, and absent is the overview */
   scale?: number;
   /** cables in the build, for the BOM's quantity breaks */
@@ -228,6 +230,8 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     ...(request.testDefaults === undefined ? {} : { testDefaults: request.testDefaults }),
     ...(request.page === undefined ? {} : { page: request.page }),
     ...(request.copies === undefined ? {} : { copies: request.copies }),
+    ...(request.labelPreset === undefined ? {} : { preset: request.labelPreset }),
+    ...(request.labelQr === undefined ? {} : { qr: request.labelQr }),
     ...(request.buildQty === undefined ? {} : { buildQty: request.buildQty }),
     ...(request.explode === true ? { explode: true } : {}),
     depictions: request.depictions ?? true,
@@ -266,7 +270,7 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
     const count = labelSheetPages(labels.length, options);
     return withBranding(request.branding, () => {
       const frame = frameOf('LABELS', 'portrait', 'strip');
-      return Array.from({ length: count }, (_, i) => labelSheetSvg(labels, { ...options, frame, page: i + 1 }));
+      return Array.from({ length: count }, (_, i) => labelSheetSvg(labels, { ...options, frame, design: design.id, page: i + 1 }));
     });
   };
   const sizeOfSvg = (svg: string): { width: number; height: number } => {
@@ -369,9 +373,10 @@ export async function renderDocument(request: DocumentRequest): Promise<Document
               : testSpecToMarkdown(deriveTestSpec(design, db, { continuityOhmsMax: parameters.continuityOhmsMax }), parameters),
         );
         return withBranding(request.branding, () => {
-          const size = PAPER[paper === 'letter' ? 'letter' : 'A4'];
-          const pages = layoutMarkdown(markdown, { paper: size, footer: `${design.id} ${kind}${request.revisionNumber === undefined ? '' : ` rev ${request.revisionNumber}`}` });
-          return format === 'svg' ? out(pagesToSvg(pages)) : out(pagesToPdf(pages.map((page): PdfPage => ({ kind: 'ops', page })), titleOf(request)), 'pdf', 'text-layout');
+          // the text on the sheet frame: the full title block first, the strip and "n of N" after (cs-dcuk)
+          const what = kind === 'build-sheet' ? 'BENCH BUILD SHEET' : kind === 'bom' ? 'BILL OF MATERIALS' : 'CONTINUITY & TEST SPEC';
+          const pages = framedTextPages(markdown, frameOf(what, 'portrait', 'full'));
+          return format === 'svg' ? out(framedPagesToSvg(pages)) : out(pagesToPdf(framedPagesToPdf(pages), titleOf(request)), 'pdf', 'text-layout');
         });
       }
     }

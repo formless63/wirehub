@@ -27,7 +27,7 @@
  */
 
 import { costingRulesProblems, electricalRulesProblems, type CostingRules, DEFAULT_AMPACITY, DEFAULT_ELECTRICAL_RULES, type ElectricalRules } from '@wirehub/model';
-import { FILE_PREFIX_PATTERN, PAPER_IDS, TITLE_BLOCK_STANDARDS, isPaperId, isTitleBlockStandard, readTestParameters, type PaperId, type TestParameters, type TitleBlockStandard } from '@wirehub/docs';
+import { FILE_PREFIX_PATTERN, LABEL_PRESET_IDS, PAPER_IDS, TITLE_BLOCK_STANDARDS, isPaperId, isTitleBlockStandard, readTestParameters, type PaperId, type TestParameters, type TitleBlockStandard } from '@wirehub/docs';
 import { stripUnsafeSvg } from '@wirehub/catalog/src/depictions/index.ts';
 
 import { drawingArtProblems, type BrandFace } from '@wirehub/docs';
@@ -121,6 +121,12 @@ export interface BrandingRecord {
   paper?: PaperId;
   /** the title-block layout of every sheet, `ansi` or `iso`; unset = the paper's own convention */
   titleBlock?: TitleBlockStandard;
+  /** the label stock the wire labels print on (a `label-presets.ts` id); unset = the paper's own sheet grid */
+  labelPreset?: string;
+  /** a QR code on each wire label */
+  labelQr?: boolean;
+  /** the QR's URL pattern (`{pn}` `{rev}` `{design}` `{label}`); unset = the part number and revision as text */
+  labelQrUrl?: string;
   /** the title block's three-line general note */
   notes?: [string, string, string];
   /** the title block's tolerance table: up to five label/value rows */
@@ -162,6 +168,7 @@ const TEXT_FIELDS = [
   ['standard', 80],
   ['rights', 160],
   ['designer', 80],
+  ['labelQrUrl', 200],
 ] as const;
 
 const SRC = 'Hub settings (entered in the app)';
@@ -522,6 +529,14 @@ export async function handleSettingsRequest(method: string, parts: string[], bod
     if (!valid(value)) return fail(400, `${field} must be one of ${choices.join(', ')}.`);
     (next as unknown as Record<string, unknown>)[field] = value;
   }
+  // the wire labels: the stock they print on, whether they carry a QR code, and what it points at
+  if (input['labelPreset'] !== undefined && input['labelPreset'] !== null && input['labelPreset'] !== '') {
+    if (typeof input['labelPreset'] !== 'string' || !LABEL_PRESET_IDS.includes(input['labelPreset'])) return fail(400, `labelPreset must be one of ${LABEL_PRESET_IDS.join(', ')}.`);
+    next.labelPreset = input['labelPreset'];
+  }
+  if (input['labelQr'] !== undefined && input['labelQr'] !== null && typeof input['labelQr'] !== 'boolean') return fail(400, 'labelQr is true or false.');
+  if (input['labelQr'] === true) next.labelQr = true;
+  if (next.labelQrUrl !== undefined && !/^https?:\/\/\S+$/.test(next.labelQrUrl)) return fail(400, 'labelQrUrl must be an http or https address, with no spaces.', 'For example https://hub.example/parts/{pn}?rev={rev}.');
   if (next.filePrefix !== undefined && !FILE_PREFIX_PATTERN.test(next.filePrefix)) {
     return fail(400, 'filePrefix may use letters, digits, dot, dash and underscore, up to 16 characters.', 'For example WSS_ or ACME-WS-.');
   }

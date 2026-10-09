@@ -23,6 +23,8 @@ export * from './table.ts';
 export * from './rows.ts';
 export * from './continuity.ts';
 export * from './labels.ts';
+export * from './label-presets.ts';
+export * from './qr.ts';
 export * from './plain.ts';
 export * from './sheet-options.ts';
 export * from './test-params.ts';

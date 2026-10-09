@@ -9,12 +9,11 @@
  * route prints the `html` sheet instead (`browser-pdf.ts`, `documents.ts`).
  */
 
-import { renderWireSpecSheet, wireSpecFileStem, type WireSpecOptions } from '@wirehub/docs';
+import { effectivePaper, renderWireSpecSheet, wireSpecFileStem, wireSpecFrame, type PaperId, type WireSpecOptions } from '@wirehub/docs';
 import type { WireDefinition } from '@wirehub/model';
 
-import { layoutMarkdown, PAPER } from './layout.ts';
-import { pagesToPdf, type PdfPage } from './pdf.ts';
-import { pagesToSvg } from './svg.ts';
+import { framedPagesToPdf, framedPagesToSvg, framedTextPages } from './framed-text.ts';
+import { pagesToPdf } from './pdf.ts';
 
 export const WIRE_SPEC_FORMATS = ['html', 'svg', 'pdf'] as const;
 export type WireSpecFormat = (typeof WIRE_SPEC_FORMATS)[number];
@@ -80,12 +79,14 @@ export interface WireSpecFile {
 }
 
 /** One stock's spec sheet in `format`, named `<WIRE_SPEC_FILE_PREFIX><doc number>.<ext>`. */
-export function renderWireSpec(wire: WireDefinition, format: WireSpecFormat, options: Omit<WireSpecOptions, 'paper'> & { paper?: 'A4' | 'letter' } = {}): WireSpecFile {
-  const { paper = 'A4', ...sheet } = options;
-  const stem = wireSpecFileStem(wire, sheet.filePrefix);
-  if (format === 'html') return { mimeType: 'text/html; charset=utf-8', fileName: `${stem}.html`, body: renderWireSpecSheet(wire, { ...sheet, paper: paper === 'letter' ? 'Letter' : 'A4' }) };
+export function renderWireSpec(wire: WireDefinition, format: WireSpecFormat, options: WireSpecOptions = {}): WireSpecFile {
+  const stem = wireSpecFileStem(wire, options.filePrefix);
+  const paper: PaperId = effectivePaper(options.paper);
+  const sheet = { ...options, paper };
+  if (format === 'html') return { mimeType: 'text/html; charset=utf-8', fileName: `${stem}.html`, body: renderWireSpecSheet(wire, sheet) };
+  // the headless pages: the sheet's text on the same frame as the printed one (`framed-text.ts`)
   const markdown = wireSpecMarkdown(renderWireSpecSheet(wire, { ...sheet, fragment: true }));
-  const pages = layoutMarkdown(markdown, { paper: PAPER[paper], footer: stem });
-  if (format === 'svg') return { mimeType: 'image/svg+xml', fileName: `${stem}.svg`, body: pagesToSvg(pages) };
-  return { mimeType: 'application/pdf', fileName: `${stem}.pdf`, body: pagesToPdf(pages.map((page): PdfPage => ({ kind: 'ops', page })), `${wire.label} — spec sheet`) };
+  const pages = framedTextPages(markdown, wireSpecFrame(wire, sheet));
+  if (format === 'svg') return { mimeType: 'image/svg+xml', fileName: `${stem}.svg`, body: framedPagesToSvg(pages) };
+  return { mimeType: 'application/pdf', fileName: `${stem}.pdf`, body: pagesToPdf(framedPagesToPdf(pages), `${wire.label} — spec sheet`) };
 }

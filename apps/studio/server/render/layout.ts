@@ -177,6 +177,12 @@ export interface LayoutOptions {
   paper: PaperSize;
   /** printed at the foot of every page, with the page number */
   footer?: string;
+  /**
+   * The text area inside a sheet frame (`framed-text.ts`), points: the left edge and width, the top, and
+   * where the text may run to on the first page and on the pages after it (the full title block takes more
+   * of the first). When set, the frame's strip carries the page counter and no footer is printed.
+   */
+  frame?: { x: number; w: number; top: number; firstBottom: number; restBottom: number };
 }
 
 /** Column widths: natural width, shrunk toward the longest word until the row fits. */
@@ -199,18 +205,22 @@ function columnWidths(header: string[], rows: string[][], size: number, avail: n
 
 export function layoutMarkdown(markdown: string, options: LayoutOptions): Page[] {
   const { width: W, height: H } = options.paper;
-  const avail = W - 2 * MARGIN;
-  const bottom = H - MARGIN - 14;
+  const { frame } = options;
+  const left = frame?.x ?? MARGIN;
+  const top = frame?.top ?? MARGIN;
+  const avail = frame?.w ?? W - 2 * MARGIN;
+  let bottom = frame?.firstBottom ?? H - MARGIN - 14;
   const pages: Page[] = [];
   let page: Page = { width: W, height: H, ops: [] };
-  let y = MARGIN;
+  let y = top;
   const fresh = (): void => {
     pages.push(page);
     page = { width: W, height: H, ops: [] };
-    y = MARGIN;
+    y = top;
+    bottom = frame?.restBottom ?? bottom;
   };
   const ensure = (h: number): void => {
-    if (y + h > bottom && y > MARGIN) fresh();
+    if (y + h > bottom && y > top) fresh();
   };
   const text = (x: number, size: number, bold: boolean, t: string, grey = false): void => {
     page.ops.push({ t: 'text', x, y: y + size, size, bold, text: t, ...(grey ? { grey } : {}) });
@@ -222,9 +232,9 @@ export function layoutMarkdown(markdown: string, options: LayoutOptions): Page[]
       const gap = block.level === 1 ? 4 : 10;
       const lines = wrap(latin(block.text), size, avail, true);
       ensure(gap + lines.length * size * LEAD + 12);
-      y += y === MARGIN ? 0 : gap;
+      y += y === top ? 0 : gap;
       for (const line of lines) {
-        text(MARGIN, size, true, line);
+        text(left, size, true, line);
         y += size * LEAD;
       }
       y += 3;
@@ -233,8 +243,8 @@ export function layoutMarkdown(markdown: string, options: LayoutOptions): Page[]
       const lines = wrap(latin(block.text), BODY, avail - indent);
       for (const [i, line] of lines.entries()) {
         ensure(BODY * LEAD);
-        if (block.kind === 'li' && i === 0) text(MARGIN + 2, BODY, false, '-');
-        text(MARGIN + indent, BODY, false, line);
+        if (block.kind === 'li' && i === 0) text(left + 2, BODY, false, '-');
+        text(left + indent, BODY, false, line);
         y += BODY * LEAD;
       }
       y += 4;
@@ -242,31 +252,31 @@ export function layoutMarkdown(markdown: string, options: LayoutOptions): Page[]
       const header = block.header.map(latin);
       const rows = block.rows.map((r) => r.map(latin));
       const widths = columnWidths(header, rows, TABLE, avail);
-      const xs = widths.reduce<number[]>((acc, w) => [...acc, (acc[acc.length - 1] as number) + w], [MARGIN]);
+      const xs = widths.reduce<number[]>((acc, w) => [...acc, (acc[acc.length - 1] as number) + w], [left]);
       const drawRow = (row: string[], head: boolean): number => {
         const wrapped = row.map((t, c) => wrap(t, TABLE, (widths[c] as number) - 2 * PAD, head));
         const h = Math.max(...wrapped.map((l) => l.length)) * TABLE * LEAD + 2 * PAD;
         ensure(h);
-        if (head) page.ops.push({ t: 'rect', x: MARGIN, y, w: widths.reduce((a, b) => a + b, 0), h, fill: 0.9 });
+        if (head) page.ops.push({ t: 'rect', x: left, y, w: widths.reduce((a, b) => a + b, 0), h, fill: 0.9 });
         wrapped.forEach((lines, c) => {
           lines.forEach((line, i) => {
             const x = block.align[c] === 'right' ? (xs[c + 1] as number) - PAD - width(line, TABLE, head) : (xs[c] as number) + PAD;
             page.ops.push({ t: 'text', x, y: y + PAD + TABLE * (i * LEAD + 1), size: TABLE, bold: head, text: line });
           });
         });
-        page.ops.push({ t: 'line', x1: MARGIN, y1: y + h, x2: xs[xs.length - 1] as number, y2: y + h, w: 0.4 });
+        page.ops.push({ t: 'line', x1: left, y1: y + h, x2: xs[xs.length - 1] as number, y2: y + h, w: 0.4 });
         y += h;
         return h;
       };
       const headerHeight = Math.max(...header.map((t, c) => wrap(t, TABLE, (widths[c] as number) - 2 * PAD, true).length)) * TABLE * LEAD + 2 * PAD;
       ensure(headerHeight + TABLE * LEAD + 2 * PAD);
-      page.ops.push({ t: 'line', x1: MARGIN, y1: y, x2: xs[xs.length - 1] as number, y2: y, w: 0.4 });
+      page.ops.push({ t: 'line', x1: left, y1: y, x2: xs[xs.length - 1] as number, y2: y, w: 0.4 });
       drawRow(header, true);
       for (const row of rows) {
         const need = Math.max(...row.map((t, c) => wrap(t, TABLE, (widths[c] as number) - 2 * PAD).length)) * TABLE * LEAD + 2 * PAD;
-        if (y + need > bottom && y > MARGIN) {
+        if (y + need > bottom && y > top) {
           fresh();
-          page.ops.push({ t: 'line', x1: MARGIN, y1: y, x2: xs[xs.length - 1] as number, y2: y, w: 0.4 });
+          page.ops.push({ t: 'line', x1: left, y1: y, x2: xs[xs.length - 1] as number, y2: y, w: 0.4 });
           drawRow(header, true);
         }
         drawRow(row, false);
@@ -276,9 +286,9 @@ export function layoutMarkdown(markdown: string, options: LayoutOptions): Page[]
   }
   pages.push(page);
   const total = pages.length;
-  pages.forEach((p, i) => {
+  if (frame === undefined) pages.forEach((p, i) => {
     const label = `${options.footer === undefined ? '' : `${latin(options.footer)}  -  `}page ${i + 1} of ${total}`;
-    p.ops.push({ t: 'text', x: MARGIN, y: H - MARGIN + 4, size: 7, bold: false, text: label, grey: true });
+    p.ops.push({ t: 'text', x: left, y: H - MARGIN + 4, size: 7, bold: false, text: label, grey: true });
   });
   return pages;
 }

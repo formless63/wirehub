@@ -14,7 +14,10 @@ import { findWire, resolveElementPath, type CableDesign, type Db } from '@wirehu
 import { trunkSegment } from '../drawing/model.ts';
 import { suppliedEnds } from '../supplied.ts';
 import { compareStrings, escapeHtml, htmlTable } from '../text.ts';
-import { PLEX_SANS_STACK, frameFontStyle, frameGeometry, frameSvgGroup, type PaperId, type SheetFrameSpec } from '../frame/index.ts';
+import { PLEX_MONO_STACK, PLEX_SANS_STACK, fitText, frameFontStyle, frameGeometry, frameSvgGroup, type PaperId, type SheetFrameSpec } from '../frame/index.ts';
+import { registeredTitleBlock } from '../drawing/assets.ts';
+import { LABEL_PRESETS, defaultLabelPreset, labelPresetOf, type LabelPreset } from './label-presets.ts';
+import { qrPayload, qrSvg } from './qr.ts';
 import { PAPERS } from '../frame/paper.ts';
 import type { Table } from './table.ts';
 
@@ -27,7 +30,7 @@ export interface WireLabel {
   designation: string;
   /** a core's conductor path, for a per-core label */
   core?: string;
-  /** the label's text lines, top to bottom: `W1-A`, `at J1`, `to J2` */
+  /** the label's text lines, top to bottom: `W1-A`, `Source end: J1`, `Destination end: J2` (this end first) */
   lines: string[];
   /** distance from the end of the jacket to the near edge of the marker (mm) */
   offsetMm: number;
@@ -39,6 +42,11 @@ export interface WireLabel {
 
 const DEFAULT_OFFSET_MM = 40;
 const MIN_OFFSET_MM = 10;
+
+/** The words for a wire end: `a` is the source end, `b` the destination end. */
+export function endWord(end: 'a' | 'b'): 'Source end' | 'Destination end' {
+  return end === 'a' ? 'Source end' : 'Destination end';
+}
 
 function designationOf(design: CableDesign, instance: string): string {
   const own = design.instances.connectors.find((c) => c.id === instance)?.label?.trim();
@@ -87,8 +95,8 @@ export function deriveLabels(design: CableDesign, db: Db): WireLabel[] {
             ? own
             : [
                 `${designation}-${end.toUpperCase()}`,
-                ...(here.length === 0 ? [] : [`at ${here.join(', ')}`]),
-                ...(there.length === 0 ? [] : [`to ${there.join(', ')}`]),
+                ...(here.length === 0 ? [] : [`${endWord(end)}: ${here.join(', ')}`]),
+                ...(there.length === 0 ? [] : [`${endWord(end === 'a' ? 'b' : 'a')}: ${there.join(', ')}`]),
               ],
         offsetMm: offset,
         position: `${offset} mm from the ${end === 'a' ? 'source' : 'destination'} end of the jacket`,
@@ -163,15 +171,11 @@ export interface LabelSheetLayout {
   gapY: number;
 }
 
-/** 3 × 7 labels of 63.5 × 38.1 mm on A4 (the common L7160 stock). */
-export const LABEL_LAYOUT_A4: LabelSheetLayout = {
-  pageWidth: 210, pageHeight: 297, columns: 3, rows: 7, labelWidth: 63.5, labelHeight: 38.1, marginLeft: 7.2, marginTop: 15.1, gapX: 2.5, gapY: 0,
-};
+/** 3 × 7 labels of 63.5 × 38.1 mm on A4 (the common L7160 stock): the `a4-l7160` preset (`label-presets.ts`). */
+export const LABEL_LAYOUT_A4: LabelSheetLayout = (LABEL_PRESETS.find((p) => p.id === 'a4-l7160') as LabelPreset).layout;
 
-/** 3 × 10 labels of 66.7 × 25.4 mm on US letter (the common 5160 stock). */
-export const LABEL_LAYOUT_LETTER: LabelSheetLayout = {
-  pageWidth: 215.9, pageHeight: 279.4, columns: 3, rows: 10, labelWidth: 66.7, labelHeight: 25.4, marginLeft: 4.8, marginTop: 12.7, gapX: 3.1, gapY: 0,
-};
+/** 3 × 10 labels of 66.7 × 25.4 mm on US letter (the common 5160 stock): the `letter-5160` preset. */
+export const LABEL_LAYOUT_LETTER: LabelSheetLayout = (LABEL_PRESETS.find((p) => p.id === 'letter-5160') as LabelPreset).layout;
 
 export interface LabelSheetOptions {
   /** label stock comes in two grids: A4 and Letter; any other paper takes the one of its standard (ISO sizes A4, ANSI sizes Letter) */
@@ -179,6 +183,17 @@ export interface LabelSheetOptions {
   /** the shared frame's strip and state stamp, printed in the free band under the labels (`frame/`); absent: the labels alone */
   frame?: SheetFrameSpec;
   layout?: LabelSheetLayout;
+  /** a label-stock preset id (`label-presets.ts`): the sheet takes its geometry; default: the hub's setting, else the paper's own grid */
+  preset?: string;
+  /** a QR code on each label (the part number and revision, or the URL pattern); default: the hub's setting, else none */
+  qr?: boolean;
+  /** the QR's URL pattern, `{pn}` `{rev}` `{design}` `{label}`; default: the hub's setting, else the part number and revision as text */
+  qrUrl?: string;
+  /** the part number and revision the label carries; default: the frame's */
+  pn?: string;
+  rev?: string;
+  /** the design's id, for a URL pattern */
+  design?: string;
   /** 1-based page, when the labels need more than one */
   page?: number;
   /** copies of each label (a label is printed twice to flag both sides of a wire) */
@@ -193,8 +208,14 @@ export function labelPaperOf(paper: PaperId | undefined): 'A4' | 'letter' {
   return paper === 'letter' ? 'letter' : PAPERS[paper].standard === 'ansi' ? 'letter' : 'A4';
 }
 
+/** The preset a sheet is laid out on: the layout it was handed, else the preset asked for, else the hub's, else the paper's grid. */
+export function labelPresetFor(options: LabelSheetOptions): LabelPreset {
+  const named = labelPresetOf(options.preset) ?? labelPresetOf(registeredTitleBlock().labelPreset);
+  return named ?? defaultLabelPreset(labelPaperOf(options.paper));
+}
+
 function layoutOf(options: LabelSheetOptions): LabelSheetLayout {
-  return options.layout ?? (labelPaperOf(options.paper) === 'letter' ? LABEL_LAYOUT_LETTER : LABEL_LAYOUT_A4);
+  return options.layout ?? labelPresetFor(options).layout;
 }
 
 export function labelSheetPages(count: number, options: LabelSheetOptions = {}): number {
@@ -216,26 +237,50 @@ export function labelSheetSvg(labels: readonly WireLabel[], options: LabelSheetO
   const slice = all.slice((page - 1) * perPage, page * perPage);
   const out: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n3(layout.pageWidth)} ${n3(layout.pageHeight)}" width="${n3(layout.pageWidth)}mm" height="${n3(layout.pageHeight)}mm" data-page="${page}" data-pages="${pages}" font-family="${PLEX_SANS_STACK}">`,
-    ...(options.frame === undefined ? [] : [frameFontStyle()]),
+    frameFontStyle(),
     `<rect width="${n3(layout.pageWidth)}" height="${n3(layout.pageHeight)}" fill="#ffffff"/>`,
   ];
+  const pn = options.pn ?? options.frame?.pn;
+  const rev = options.rev ?? options.frame?.rev;
+  const withQr = options.qr ?? registeredTitleBlock().labelQr === true;
+  const pattern = options.qrUrl ?? registeredTitleBlock().labelQrUrl;
+  const pad = Math.min(2.5, layout.labelHeight * 0.1);
   slice.forEach((label, index) => {
     const col = index % layout.columns;
     const row = Math.floor(index / layout.columns);
     const x = layout.marginLeft + col * (layout.labelWidth + layout.gapX);
     const y = layout.marginTop + row * (layout.labelHeight + layout.gapY);
     out.push(`<g data-label="${escapeHtml(label.id)}">`);
-    out.push(`<rect x="${n3(x)}" y="${n3(y)}" width="${n3(layout.labelWidth)}" height="${n3(layout.labelHeight)}" rx="1.5" fill="none" stroke="#cfcfcf" stroke-width="0.15"/>`);
-    // the headline scales with the label's height; the detail lines sit under it
-    const head = Math.min(layout.labelHeight * 0.34, 7);
-    const detail = Math.min(layout.labelHeight * 0.2, 3.8);
-    out.push(`<text x="${n3(x + 2.5)}" y="${n3(y + 2.5 + head * 0.85)}" font-size="${n3(head)}" font-weight="bold" fill="#000000">${escapeHtml(label.lines[0] ?? '')}</text>`);
-    label.lines.slice(1).forEach((line, i) => {
-      out.push(`<text x="${n3(x + 2.5)}" y="${n3(y + 2.5 + head + detail * (i * 1.25 + 1.3))}" font-size="${n3(detail)}" fill="#000000">${escapeHtml(line)}</text>`);
-    });
+    // a single label on a roll is its own page: no cut guide
+    if (layout.columns * layout.rows > 1) out.push(`<rect x="${n3(x)}" y="${n3(y)}" width="${n3(layout.labelWidth)}" height="${n3(layout.labelHeight)}" rx="1.5" fill="none" stroke="#cfcfcf" stroke-width="0.15"/>`);
+    const qrSize = withQr ? Math.min(layout.labelHeight - 2 * pad, layout.labelWidth * 0.42, 22) : 0;
+    const room = layout.labelWidth - 2 * pad - (withQr ? qrSize + pad : 0);
+    // the headline scales with the label's height; the detail lines and the part number sit under it, the whole shrunk to fit
+    const lines = label.lines.slice(1);
+    const pnText = pn === undefined || pn === '' ? undefined : `${pn}${rev === undefined || rev === '' || rev === '—' ? '' : ` rev ${rev}`}`;
+    let head = Math.min(layout.labelHeight * 0.3, 7);
+    let detail = Math.min(layout.labelHeight * 0.16, 3.6);
+    const content = head * 1.05 + lines.length * detail * 1.25 + (pnText === undefined ? 0 : detail * 1.35);
+    const k = Math.min(1, (layout.labelHeight - 2 * pad) / content);
+    head *= k;
+    detail *= k;
+    let cursor = y + pad + head * 0.85;
+    const headFit = fitText(label.lines[0] ?? '', room, head, 'semi', 1);
+    out.push(`<text x="${n3(x + pad)}" y="${n3(cursor)}" font-size="${n3(headFit.size)}" font-weight="bold" fill="#000000">${escapeHtml(headFit.lines[0] ?? '')}</text>`);
+    cursor += head * 0.2;
+    for (const line of lines) {
+      cursor += detail * 1.25;
+      const fit = fitText(line, room, detail, 'sans', 1);
+      out.push(`<text x="${n3(x + pad)}" y="${n3(cursor)}" font-size="${n3(fit.size)}" fill="#000000">${escapeHtml(fit.lines[0] ?? '')}</text>`);
+    }
+    if (pnText !== undefined) {
+      const fit = fitText(pnText, room, detail * 0.9, 'mono', 1);
+      out.push(`<text x="${n3(x + pad)}" y="${n3(y + layout.labelHeight - pad)}" font-size="${n3(fit.size)}" font-family="${PLEX_MONO_STACK}" fill="#000000" data-label-pn="${escapeHtml(pnText)}">${escapeHtml(fit.lines[0] ?? '')}</text>`);
+    }
+    if (withQr) out.push(qrSvg(qrPayload({ ...(pn === undefined ? {} : { pn }), ...(rev === undefined ? {} : { rev }), ...(options.design === undefined ? {} : { design: options.design }), label: label.id }, pattern), x + layout.labelWidth - pad - qrSize, y + (layout.labelHeight - qrSize) / 2, qrSize));
     out.push('</g>');
   });
-  if (options.frame !== undefined) {
+  if (options.frame !== undefined && layout.columns * layout.rows > 1) {
     // the strip sits in the band under the stock, 5 mm from the edge; the stock itself is never framed (its registration is the printer's)
     const spec: SheetFrameSpec = { ...options.frame, paper: labelPaperOf(options.paper), orientation: 'portrait', variant: 'strip', inset: 5, sheet: `${page} of ${pages}` };
     out.push(frameSvgGroup(frameGeometry(spec), { border: false }));

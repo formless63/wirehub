@@ -60,6 +60,10 @@ export interface BrandingInput {
   paper?: PaperId | '';
   /** the title-block layout; empty keeps the paper's own convention */
   titleBlock?: TitleBlockStandard | '';
+  /** the wire labels' stock (a label-preset id; empty keeps the paper's own grid), a QR code on each, and its URL pattern (empty: the part number and revision) */
+  labelPreset?: string;
+  labelQr?: boolean;
+  labelQrUrl?: string;
   /** the title block's three-line general note (a line may be empty) */
   notes?: [string, string, string];
   /** the title block's tolerance rows, label and value; empty rows are dropped */

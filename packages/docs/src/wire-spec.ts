@@ -46,6 +46,8 @@ import { renderCrossSection } from '@wirehub/render-svg';
 
 import { registeredTitleBlock } from './drawing/assets.ts';
 import { brandSheetCss } from './drawing/brand-font.ts';
+import { flowFooter, frameCss, frameSpecFor, parsePaper, titleBlockHtml, type PaperId, type SheetFrameSpec, type TitleBlockStandard } from './frame/index.ts';
+import { standaloneDocument } from './standalone.ts';
 import { escapeHtml } from './text.ts';
 
 export interface WireSpecOptions {
@@ -59,8 +61,10 @@ export interface WireSpecOptions {
   date?: string;
   /** return the `.cs-root` fragment only, for embedding */
   fragment?: boolean;
-  /** paper size for `@page` (default A4) */
-  paper?: 'A4' | 'Letter';
+  /** the paper (`frame/paper.ts`): the `@page` size and the frame — default: the organisation's setting, else A4 */
+  paper?: PaperId;
+  /** the title-block layout (`ansi` or `iso`); default: the organisation's setting, else the paper's convention */
+  titleBlock?: TitleBlockStandard;
   /** the `manufacturers` vocab list's entries — the manufacturer's name (default: its id, title-cased) */
   manufacturers?: readonly { id: string; label: string }[];
   /** where a vendor document opens in-app (an asset URL); omitted = cited by name only */
@@ -283,6 +287,27 @@ function layNote(wire: WireDefinition, rows: CoreRow[]): string {
         ? ` Centre pair: ${lay.inner.map(name).join(', ')}.`
         : '';
   return `Adhere to color order shown. ${lay.direction.toUpperCase()} from 12 o'clock: ${lay.ring.map(name).join(', ')}${from}.${centre}`;
+}
+
+/**
+ * The sheet frame of a wire spec sheet: the title block carries the organisation, the title, the document
+ * number and the revision. The same for the printed HTML and the headless pages.
+ */
+export function wireSpecFrame(wire: WireDefinition, options: WireSpecOptions = {}): SheetFrameSpec {
+  const branding = registeredTitleBlock();
+  const latest = options.recipe?.revisions?.[options.recipe.revisions.length - 1];
+  const date = options.date ?? latest?.date;
+  return frameSpecFor({
+    kind: 'WIRE SPEC SHEET',
+    title: wire.label,
+    orientation: 'portrait',
+    ...(options.paper === undefined ? {} : { paper: parsePaper(options.paper) ?? 'A4' }),
+    ...(options.titleBlock === undefined ? {} : { standard: options.titleBlock }),
+    org: options.organisation ?? branding.organisation ?? 'WireHub',
+    pn: wireSpecDocNumber(wire),
+    rev: options.revision ?? latest?.rev ?? '—',
+    ...(date === undefined ? {} : { date }),
+  });
 }
 
 /** The spec sheet, as a standalone printable HTML document (or a fragment). */
@@ -532,16 +557,13 @@ export function renderWireSpecSheet(wire: WireDefinition, options: WireSpecOptio
           '</section>',
         ].join('');
 
+  const frame = wireSpecFrame(wire, options);
+
   const body = [
-    '<div class="cs-root cs-ws">',
-    `<style>${WIRE_SPEC_STYLESHEET}${brandSheetCss()}</style>`,
-    '<header class="cs-ws-head">',
-    '<div class="cs-ws-bar" aria-hidden="true"></div>',
-    `<div class="cs-ws-brand"><span class="cs-ws-mark">${e(organisation.toUpperCase())}</span><span class="cs-ws-kind">${e(standard)} · Wire specification</span></div>`,
-    `<div class="cs-ws-doc"><span class="cs-ws-docno">${e(docNumber)}</span><span class="cs-ws-rev">Rev ${e(revision)}${date === undefined ? '' : ` · ${e(date)}`}</span></div>`,
-    '</header>',
+    '<div class="cs-root cs-ws wh-sheet-col">',
+    `<style>${WIRE_SPEC_STYLESHEET}${frameCss(frame)}${brandSheetCss()}</style>`,
+    titleBlockHtml(frame),
     '<div class="cs-ws-title">',
-    `<p class="cs-ws-over">${e(standard)}</p>`,
     `<h1>${e(wire.label)}</h1>`,
     `<p class="cs-ws-desc">${e(description)}</p>`,
     '<dl class="cs-ws-facts">',
@@ -571,26 +593,13 @@ export function renderWireSpecSheet(wire: WireDefinition, options: WireSpecOptio
     `<ol>${sourceList.map((s) => `<li>${e(s)}</li>`).join('')}</ol>`,
     '</section>',
     `<footer class="cs-ws-foot"><span>${e(standard)} · ${e(docNumber)} · Rev ${e(revision)}</span>${rightsNotice === undefined ? '' : `<span>${e(rightsNotice)}</span>`}<span>Derived from the stock record — one derivation, however it is printed</span></footer>`,
+    flowFooter({ ...frame, variant: 'strip' }),
     '</div>',
   ].join('');
 
   if (options.fragment === true) return body;
-  const paper = options.paper ?? 'A4';
-  return [
-    '<!doctype html>',
-    '<html lang="en">',
-    '<head>',
-    '<meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width,initial-scale=1">',
-    // the title is what a browser names the printed PDF: <prefix><number>
-    `<title>${e(wireSpecFileStem(wire, options.filePrefix))}</title>`,
-    `<style>@page{size:${paper} portrait;margin:12mm}html,body{margin:0;padding:0;background:#ffffff}</style>`,
-    '</head>',
-    '<body>',
-    body,
-    '</body>',
-    '</html>',
-  ].join('');
+  // the title is what a browser names the printed PDF: <prefix><number>
+  return standaloneDocument(wireSpecFileStem(wire, options.filePrefix), body, options, frame);
 }
 
 function fact(key: string, value: string): string {
@@ -615,18 +624,9 @@ export function wireSpecElement(wire: WireDefinition, path: string): Element | u
 export const WIRE_SPEC_STYLESHEET = `@layer wirehub.docs{
 .cs-ws{--ws-ink:#15181c;--ws-muted:#5a636d;--ws-rule:#c9d0d6;--ws-head:#eef1f4;--ws-accent:#c2602a;
 font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:9.5pt;line-height:1.35;color:var(--ws-ink);background:#fff;
-max-width:186mm;margin:0 auto;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .cs-ws *{box-sizing:border-box}
-.cs-ws-head{display:grid;grid-template-columns:1fr auto;align-items:end;gap:4mm;padding-top:3mm;position:relative}
-.cs-ws-bar{grid-column:1/-1;height:1.6mm;border-radius:1mm;background:linear-gradient(90deg,#d6453d,#3aa35b,#3a6fd6,#d6453d)}
-.cs-ws-brand{display:flex;flex-direction:column;gap:.6mm}
-.cs-ws-mark{font-weight:800;letter-spacing:.32em;font-size:15pt}
-.cs-ws-kind{text-transform:uppercase;letter-spacing:.14em;font-size:7.5pt;color:var(--ws-muted)}
-.cs-ws-doc{display:flex;flex-direction:column;align-items:flex-end;gap:.6mm}
-.cs-ws-docno{font-family:ui-monospace,"IBM Plex Mono",Menlo,Consolas,monospace;font-weight:700;font-size:15pt}
-.cs-ws-rev{font-family:ui-monospace,"IBM Plex Mono",Menlo,Consolas,monospace;font-size:8pt;color:var(--ws-muted)}
-.cs-ws-title{border-top:.5mm solid var(--ws-ink);margin-top:2.5mm;padding-top:2.5mm}
-.cs-ws-over{margin:0;text-transform:uppercase;letter-spacing:.12em;font-size:8pt;font-weight:700}
+.cs-ws-title{margin-top:3mm}
 .cs-ws h1{margin:.5mm 0 1.5mm;font-size:17pt;font-weight:600}
 .cs-ws-desc{margin:0 0 2mm;max-width:150mm}
 .cs-ws-facts{display:flex;flex-wrap:wrap;gap:1mm 6mm;margin:0 0 3mm;padding:0}
@@ -659,6 +659,5 @@ max-width:186mm;margin:0 auto;padding:0;-webkit-print-color-adjust:exact;print-c
 .cs-ws-sources ol{margin:0;padding-left:5mm;font-size:7.5pt;color:var(--ws-muted)}
 .cs-ws-sources li{margin:.4mm 0;overflow-wrap:anywhere}
 .cs-ws-foot{display:flex;justify-content:space-between;gap:4mm;border-top:.3mm solid var(--ws-ink);padding-top:1mm;margin-top:3mm;font-size:7pt;color:var(--ws-muted);text-transform:uppercase;letter-spacing:.04em}
-@media screen{.cs-ws{padding:6mm 5mm}}
-@media screen and (max-width:640px){.cs-ws{font-size:10pt;padding:4mm 3mm}.cs-ws-cols{grid-template-columns:1fr}.cs-ws-head{grid-template-columns:1fr}.cs-ws-doc{align-items:flex-start}.cs-ws-foot{flex-direction:column}}
+@media screen and (max-width:640px){.cs-ws{font-size:10pt;padding:4mm 3mm}.cs-ws-cols{grid-template-columns:1fr}.cs-ws-foot{flex-direction:column}}
 }`;
