@@ -20,6 +20,7 @@ import { memorySecretStore, settingsCipher } from '../server/settings-secrets.ts
 import { createWebhookEmitter } from '../server/webhooks/emitter.ts';
 import { clearOfflineCache } from '../src/offline-cache.browser.ts';
 import { memoryWriteBackend } from './storage-contract/writes.ts';
+import { pickOption, pickOptionAt } from './ui-helpers.ts';
 
 const { App } = await import('../src/App.tsx');
 const { createStudioRouter } = await import('../src/router.tsx');
@@ -134,7 +135,7 @@ describe('Settings: validation rules', () => {
   it('edits nested condition and count selectors, tests and saves the rule losslessly', async () => {
     mount('rules');
     const section = await screen.findByTestId('rules-settings');
-    fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '4' } });
+    await pickOptionAt('New rule from an example', 4);
     const editor = await screen.findByTestId('rule-editor');
     const rule = {
       id: 'form-rule', each: 'cable-end', severity: 'warning', message: 'original', src: 'synthetic example', note: 'retained metadata',
@@ -160,7 +161,7 @@ describe('Settings: validation rules', () => {
   it('starts from an example, tests it on the designs, saves it and turns it off', async () => {
     mount('rules');
     const section = await screen.findByTestId('rules-settings');
-    fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '1' } });
+    await pickOptionAt('New rule from an example', 1);
     const editor = await screen.findByTestId('rule-editor');
     expect((within(editor).getByLabelText('Rule definition') as HTMLTextAreaElement).value).toMatch(/example-power-area/);
     fireEvent.click(within(editor).getByRole('button', { name: 'Test on my designs' }));
@@ -182,9 +183,9 @@ describe('Settings: validation rules', () => {
   it('refuses to save while a nested JSON operand is incomplete', async () => {
     mount('rules');
     const section = await screen.findByTestId('rules-settings');
-    fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '0' } });
+    await pickOptionAt('New rule from an example', 0);
     const editor = await screen.findByTestId('rule-editor');
-    fireEvent.change(within(editor).getByLabelText('Require right type'), { target: { value: 'list' } });
+    await pickOption('Require right type', 'Literal list');
     fireEvent.change(within(editor).getByLabelText('Require right list'), { target: { value: '[' } });
     fireEvent.click(within(editor).getByRole('button', { name: 'Save rule' }));
     expect(await screen.findByText('Correct the invalid JSON field before testing or saving.')).toBeTruthy();
@@ -197,7 +198,7 @@ describe('Settings: validation rules', () => {
   it('shows what is wrong with a rule in words', async () => {
     mount('rules');
     const section = await screen.findByTestId('rules-settings');
-    fireEvent.change(await within(section).findByLabelText('New rule from an example'), { target: { value: '0' } });
+    await pickOptionAt('New rule from an example', 0);
     const editor = await screen.findByTestId('rule-editor');
     fireEvent.change(within(editor).getByLabelText('Rule definition'), { target: { value: JSON.stringify({ id: 'x', severity: 'error', each: 'connector', require: { run: 'code()' }, message: 'm', src: 's' }) } });
     fireEvent.click(within(editor).getByRole('button', { name: 'Test on my designs' }));

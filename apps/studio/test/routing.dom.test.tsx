@@ -279,16 +279,25 @@ it('Home is a client navigation and asks before discarding a Library draft', asy
   expect(native).not.toHaveBeenCalled();
 });
 
-it.each([['/resolver', 'Find a design'], ['/products', 'Products'], ['/history', 'History'], ['/part-numbers', 'Part numbers'], ['/settings', 'Hub settings'], ['/library/store', 'Store'], ['/sign-in', 'My account']])('shows the page title for %s', async (path, title) => {
+it.each([['/resolver', 'Find a design'], ['/products', 'Products'], ['/history', 'History'], ['/part-numbers', 'Part numbers'], ['/settings', 'Settings'], ['/extensions', 'Extensions'], ['/sign-in', 'My account']])('shows the page title for %s', async (path, title) => {
   render(<App router={createStudioRouter(createMemoryHistory({ initialEntries: [path] }))} />);
   await waitFor(() => expect(screen.getByTestId('section-title').textContent).toBe(title));
 });
 
-it('Store configuration links navigate directly to the Settings section within the app', async () => {
- const router = createStudioRouter(createMemoryHistory({ initialEntries: ['/library/store'] }));
- render(<App router={router} />);
- const configure = await screen.findByRole('link', { name: 'Configure stores' });fireEvent.click(configure);
- await waitFor(() => expect(router.state.location.pathname).toBe('/settings'));
- expect(router.state.location.search).toEqual({ section: 'stores' });
- expect(screen.getByTestId('section-title').textContent).toBe('Hub settings');
+it('the old Store, Modules and Settings store addresses redirect to Extensions', async () => {
+  for (const [from, tab] of [['/library/store?q=abc&pack=alpha', 'browse'], ['/modules', 'installed'], ['/settings?section=stores', 'sources'], ['/settings?section=modules', 'installed']] as const) {
+    const router = createStudioRouter(createMemoryHistory({ initialEntries: [from] }));
+    render(<App router={router} />);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/extensions'));
+    expect(router.state.location.search).toMatchObject({ tab });
+    if (from.startsWith('/library/store')) expect(router.state.location.search).toMatchObject({ q: 'abc', pack: 'alpha' });
+    cleanup();
+  }
+});
+
+it('People moved under Settings', async () => {
+  const router = createStudioRouter(createMemoryHistory({ initialEntries: ['/settings/people'] }));
+  render(<App router={router} />);
+  await waitFor(() => expect(router.state.location.pathname).toBe('/settings'));
+  expect(router.state.location.search).toEqual({ section: 'people' });
 });

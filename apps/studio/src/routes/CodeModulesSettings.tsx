@@ -1,4 +1,3 @@
-import { AppLink } from '../shell/AppLink.tsx';
 /**
  * The code-module half of `/settings` (`specs/runtime-modules.md`): the code
  * modules installed here and what became of each (loaded, off, failed with its
@@ -62,15 +61,8 @@ export function CodeModulesSettings(): JSX.Element {
       return out;
     }, `${m.id} is ${enabled ? 'on' : 'off'}. It applied at once.`);
   return (
-    <section className="mt-6 min-w-0 max-w-2xl border-t border-line pt-4 [overflow-wrap:anywhere]" data-testid="code-modules-settings">
-      <h2 className="mb-1 text-sm font-semibold">Code modules</h2>
-      <p className="mb-2 text-faint">
-        Control installed code modules here. Built-in modules ship with this image and always run; optional runtime modules are installed separately. Only owners install, turn on or off, or restart.
-      </p>
-      <div className="mb-3 flex flex-wrap gap-2">
-        <AppLink to="/library/store" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</AppLink>
-        <AppLink to="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Install from a file or URL</AppLink>
-      </div>
+    <section className="cs-ext-section" data-testid="code-modules-settings">
+      <h2 className="text-md font-semibold">Code modules</h2>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The code modules could not be read.'}</div> : null}
       {query.data === null ? <div className="text-faint">This server does not run code modules.</div> : null}
       {view === undefined ? (

@@ -1,5 +1,4 @@
 import { helpUrl } from '../help.ts';
-import { AppLink } from '../shell/AppLink.tsx';
 /**
  * The store half of `/settings` (`server/store-settings.ts`): the stores this hub
  * trusts. The deployment's are shown read-only ("set by the server"), with the
@@ -119,12 +118,11 @@ export function StoreSourcesSettings(): JSX.Element {
   const input = 'min-w-0 max-w-full rounded border border-line bg-panel px-2 py-1.5';
 
   return (
-    <section className="mt-6 min-w-0 max-w-xl text-sm [overflow-wrap:anywhere]" data-testid="store-sources">
+    <section className="cs-ext-section" data-testid="store-sources">
       <h2 className="mb-1 text-sm font-semibold">Store sources</h2>
       <p className="mb-2 text-faint">
         <a className="underline" href={helpUrl('store')} target="_blank" rel="noreferrer">Run your own store</a>
       </p>
-      <AppLink to="/library/store" className="mb-3 inline-block rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Browse modules & packs</AppLink>
       {query.isError ? <div role="alert">{query.error instanceof Error ? query.error.message : 'The stores could not be read.'}</div> : null}
       {view === undefined ? (
         query.isError ? null : <div className="text-faint">Loading…</div>

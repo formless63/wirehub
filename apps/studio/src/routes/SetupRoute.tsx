@@ -17,6 +17,7 @@ import { IconCheck, IconCopy } from '@tabler/icons-react';
 
 import { loadSetup, partNumbersChanged, pnExample, saveSetup, signInAdmin, slugOf, type SetupView } from '../setup.browser.ts';
 import { StudioMark } from '../shell/Wordmark.tsx';
+import { Button, Input } from '@wirehub/editor-react';
 
 export function SetupRoute(): JSX.Element {
   const navigate = useNavigate();
@@ -148,7 +149,7 @@ export function SetupRoute(): JSX.Element {
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <label className="flex flex-col gap-1 text-xs text-dim">
                         Name
-                        <input
+                        <Input
                           className={FIELD}
                           value={orgName}
                           disabled={busy}
@@ -161,7 +162,7 @@ export function SetupRoute(): JSX.Element {
                       </label>
                       <label className="flex flex-col gap-1 text-xs text-dim">
                         Short name (lowercase, used in addresses)
-                        <input
+                        <Input
                           className={`${FIELD} font-mono`}
                           value={slug}
                           disabled={busy}
@@ -186,16 +187,16 @@ export function SetupRoute(): JSX.Element {
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <label className="flex flex-col gap-1 text-xs text-dim">
                       Your name
-                      <input className={FIELD} value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
+                      <Input className={FIELD} value={adminName} disabled={busy} autoComplete="name" onChange={(event) => setAdminName(event.target.value)} />
                     </label>
                     <label className="flex flex-col gap-1 text-xs text-dim">
                       Email
-                      <input type="email" className={FIELD} value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
+                      <Input type="email" className={FIELD} value={adminEmail} disabled={busy} autoComplete="username" onChange={(event) => setAdminEmail(event.target.value)} />
                     </label>
                     {create.admin === 'password' ? (
                       <label className="flex flex-col gap-1 text-xs text-dim sm:col-span-2">
                         Password ({create.minPassword} characters or more)
-                        <input type="password" className={FIELD} value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
+                        <Input type="password" className={FIELD} value={password} disabled={busy} autoComplete="new-password" onChange={(event) => setPassword(event.target.value)} />
                       </label>
                     ) : null}
                   </div>
@@ -207,7 +208,7 @@ export function SetupRoute(): JSX.Element {
               <fieldset className="m-0 border-0 p-0">
                 <legend className={LEGEND}>Setup code</legend>
                 <div className="flex flex-wrap items-center gap-2">
-                  <input
+                  <Input
                     type="text"
                     autoComplete="off"
                     spellCheck={false}
@@ -219,15 +220,14 @@ export function SetupRoute(): JSX.Element {
                     onChange={(event) => setCode(event.target.value)}
                   />
                   <span className="text-xs text-dim">Printed in the server log at start.</span>
-                  <button
+                  <Button
                     type="button"
                     title="Copy the command that prints the setup code"
-                    className="flex items-center gap-1 rounded border border-line-field bg-raised px-2 py-1 text-xs text-ink hover:bg-hover"
-                    onClick={copyCommand}
+                    onClick={copyCommand} className="flex items-center gap-1"
                   >
                     {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
                     {copied ? 'Copied' : 'Copy the command'}
-                  </button>
+                  </Button>
                 </div>
               </fieldset>
             ) : null}
@@ -304,7 +304,7 @@ export function SetupRoute(): JSX.Element {
                         {create.partNumbers.kinds.map((kind) => (
                           <label key={kind} className="flex flex-col gap-0.5 text-xs text-dim">
                             {kind}
-                            <input
+                            <Input
                               className={`${FIELD} font-mono uppercase`}
                               value={pnPrefixes[kind] ?? ''}
                               disabled={busy}
@@ -317,7 +317,7 @@ export function SetupRoute(): JSX.Element {
                       </div>
                       <label className="flex flex-col gap-1 text-xs text-dim">
                         Digits
-                        <input type="number" min={1} max={12} className={`w-[80px] ${FIELD} font-mono`} value={pnDigits} disabled={busy} onChange={(event) => setPnDigits(Number(event.target.value))} />
+                        <Input type="number" min={1} max={12} className={`w-[80px] ${FIELD} font-mono`} value={pnDigits} disabled={busy} onChange={(event) => setPnDigits(Number(event.target.value))} />
                       </label>
                     </fieldset>
                   )}
@@ -326,19 +326,18 @@ export function SetupRoute(): JSX.Element {
             )}
 
             <div className="flex items-center gap-3">
-              <button
+              <Button
                 type="button"
-                className="rounded bg-accent px-4 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
                 disabled={
                   busy ||
                   (view.codeRequired === true && code.trim() === '') ||
                   (create !== undefined &&
                     ((create.claim !== true && (orgName.trim() === '' || slug.trim() === '')) || (create.admin !== 'none' && (adminName.trim() === '' || adminEmail.trim() === '')) || (create.admin === 'password' && password.length < create.minPassword)))
                 }
-                onClick={() => void submit()}
+                onClick={() => void submit()} variant="primary"
               >
                 {busy ? 'Setting up…' : view.completed ? 'Add the selected modules' : 'Finish setup'}
-              </button>
+              </Button>
               <span className="text-xs text-dim">Selected: {picked.size === 0 ? 'none — the generic base only' : [...picked].join(', ')}</span>
             </div>
           </>

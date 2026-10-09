@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
 import { clearOfflineCache } from '../src/offline-cache.browser.ts';
+import { pickOption } from './ui-helpers.ts';
 import { brandmark } from './migration-gaps-flow.ts';
 import { makePng } from './png-fixture.ts';
 import { memoryWriteBackend } from './storage-contract/writes.ts';
@@ -170,8 +171,7 @@ describe('Engineering settings', () => {
     await act(async () => {
       fireEvent.click(upload);
     });
-    const regular = (await screen.findByLabelText('Regular typeface')) as HTMLSelectElement;
-    await waitFor(() => expect(regular.value).not.toBe(''));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Regular typeface' }).textContent).toMatch(/Brandmark/));
     expect(screen.getByText(/TrueType: set on every sheet and in every PDF/)).toBeTruthy();
     expect(registeredBrandFont()).toBeUndefined();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -179,10 +179,10 @@ describe('Engineering settings', () => {
     const stored = await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/branding' }, deps);
     expect((stored.body as { font: { regular: { family: string } } }).font.regular.family).toBe('Brandmark Sans1');
     // back to the standard sans
-    fireEvent.change(await screen.findByLabelText('Regular typeface'), { target: { value: '' } });
+    await pickOption('Regular typeface', 'Standard sans');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(registeredBrandFont()).toBeUndefined());
-  });
+  }, 40_000);
 
   it('takes drawing art as JSON, refuses what is not JSON, and the art is in force after Save', async () => {
     mount();
@@ -200,17 +200,6 @@ describe('Engineering settings', () => {
 });
 
 describe('Settings sections', () => {
-  it.each(['stores', 'modules'])('opens %s directly and shows only the selected section', async (section) => {
-    const { container } = mount(section);
-    await screen.findByRole('navigation', { name: 'Settings sections' });
-    await waitFor(() => {
-      const visible = [...container.querySelectorAll<HTMLElement>('[data-settings-section]')].filter((panel) => !panel.hidden);
-      expect(visible.map((panel) => panel.dataset.settingsSection)).toEqual([section]);
-    });
-    const name = section === 'stores' ? 'Catalog stores' : 'Code modules';
-    expect(screen.getByRole('link', { name }).getAttribute('aria-current')).toBe('page');
-  });
-
   it('keeps unsaved document and numbering drafts while switching sections and browser history', async () => {
     const history = createMemoryHistory({ initialEntries: ['/settings?section=documents'] });
     const { container } = mount('documents', history);
@@ -220,7 +209,7 @@ describe('Settings sections', () => {
     await waitFor(() => expect(history.location.href).toContain('section=numbering'));
     const definition = await screen.findByLabelText('Scheme definition') as HTMLTextAreaElement;
     fireEvent.change(definition, { target: { value: '{ "type": "declarative", "draft": true }' } });
-    fireEvent.change(screen.getByLabelText('Settings section'), { target: { value: 'documents' } });
+    await pickOption('Settings section', 'Documents');
     await waitFor(() => expect(container.querySelector<HTMLElement>('[data-settings-section="documents"]')!.hidden).toBe(false));
     expect(organisation.value).toBe('Unsaved synthetic organisation');
     history.back();

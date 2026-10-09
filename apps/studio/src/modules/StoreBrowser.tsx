@@ -1,4 +1,3 @@
-import { AppLink } from '../shell/AppLink.tsx';
 /**
  * Library → Browse store: the packs listed by the store indexes this hub trusts
  * (`WIREHUB_STORE_INDEXES`), each index's signature verified by the server. Search
@@ -20,7 +19,7 @@ import { PlanView } from './PacksPanel.tsx';
 import type { CodePreviewView } from '../code-modules.browser.ts';
 import { CodeConsent } from './CodeConsent.tsx';
 import { useNotify } from '../notify.ts';
-import { Drawer } from '@wirehub/editor-react';
+import { Button, Chip, Drawer, Input, RadioGroup } from '@wirehub/editor-react';
 
 const headline = (a: PackAnswer): string => a.error ?? `That failed (HTTP ${a.status}).`;
 const kb = (bytes: number): string => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(bytes < 10_240 ? 1 : 0)} KB`);
@@ -175,22 +174,36 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
       const description = `${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`.trim();
       notify.success(`${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.pack.id} ${pending.version}.`, {
         ...(description === '' ? {} : { description }),
-        view: pending.code === undefined ? { to: '/library' } : { to: '/settings', section: 'modules' },
+        view: pending.code === undefined ? { to: '/library' } : { to: '/extensions', tab: 'installed' },
       });
       await reload();
     });
 
+  const okIndexes = indexes.filter((i) => i.ok);
+  const kindOptions = [{ value: 'all', label: 'All' }, { value: 'catalog', label: 'Catalog packs' }, { value: 'code', label: 'Code modules' }];
+  const counts = { catalog: (packs ?? []).filter((p) => p.latest?.module === undefined).length, code: (packs ?? []).filter((p) => p.latest?.module !== undefined).length };
   return (
-    <section className="min-w-0 p-3 [overflow-wrap:anywhere]" data-testid="store-browser">
-      <h1 className="text-base font-semibold">Modules & catalog packs</h1>
-      <p className="mt-1 text-dim">Add tools with code modules or extend your Library with catalog packs. Every install starts with a preview; modules that run code require owner consent.</p>
-      <nav aria-label="Store management" className="my-3 flex flex-wrap gap-2">
-        <AppLink to="/settings" section="stores" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Configure stores</AppLink>
-        <AppLink to="/settings" section="modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Manage installed modules</AppLink>
-        <AppLink to="/modules" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover">Installed packs & uploads</AppLink>
-      </nav>
+    <section className="cs-ext-browse" data-testid="store-browser">
+      <aside className="cs-ext-facets" aria-label="Filters">
+        <Input type="search" aria-label="Search modules and packs" placeholder="Search packs and modules" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div>
+          <h3 className="cs-ext-facet-head">Kind</h3>
+          <RadioGroup aria-label="Content type" value={kind === '' ? 'all' : kind} onValueChange={(v) => setKind(v === 'all' ? '' : v)} options={kindOptions.map((o) => ({ ...o, label: o.value === 'all' ? o.label : `${o.label} (${counts[o.value as 'catalog' | 'code']})` }))} />
+        </div>
+        <div>
+          <h3 className="cs-ext-facet-head">Domain</h3>
+          <RadioGroup aria-label="Domain" value={domain === '' ? 'all' : domain} onValueChange={(v) => setDomain(v === 'all' ? '' : v)} options={[{ value: 'all', label: 'All domains' }, ...domains.map((d) => ({ value: d, label: d }))]} />
+        </div>
+        {okIndexes.length < 2 ? null : (
+          <div>
+            <h3 className="cs-ext-facet-head">Source</h3>
+            <RadioGroup aria-label="Store" value={storeUrl === '' ? 'all' : storeUrl} onValueChange={(v) => setStoreUrl(v === 'all' ? '' : v)} options={[{ value: 'all', label: 'All stores' }, ...okIndexes.map((i) => ({ value: i.url, label: nameOf(i) }))]} />
+          </div>
+        )}
+      </aside>
+      <div className="cs-ext-results">
       {disclaimer === undefined ? null : (
-        <p className="my-2 border border-line p-2 text-dim" data-testid="store-disclaimer">
+        <p className="cs-ext-note" data-testid="store-disclaimer" title="A signature proves who published the index, not that its data is right.">
           {disclaimer}
         </p>
       )}
@@ -204,55 +217,35 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
       {notes.map((n) => (
         <div key={n} className="text-dim">{n}</div>
       ))}
-      <div className="my-2 flex flex-wrap gap-2">
-        <input type="search" aria-label="Search modules and packs" placeholder="Search modules & packs" value={query} onChange={(e) => setQuery(e.target.value)} className="w-64 max-w-full min-w-0 rounded border border-line-field bg-panel px-2 py-1.5" />
-        <select aria-label="Content type" value={kind} onChange={(e) => setKind(e.target.value)} className="max-w-full rounded border border-line-field bg-panel px-2 py-1.5">
-          <option value="">Modules & catalog packs</option>
-          <option value="code">Code modules</option>
-          <option value="catalog">Catalog packs</option>
-        </select>
-        {indexes.filter((i) => i.ok).length < 2 ? null : (
-          <select aria-label="Store" value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} className="min-w-0 max-w-full rounded border border-line-field bg-panel px-2 py-1.5">
-            <option value="">All stores</option>
-            {indexes
-              .filter((i) => i.ok)
-              .map((i) => (
-                <option key={i.url} value={i.url}>
-                  {nameOf(i)}
-                </option>
-              ))}
-          </select>
-        )}
-        <select aria-label="Domain" value={domain} onChange={(e) => setDomain(e.target.value)} className="min-w-0 max-w-full rounded border border-line-field bg-panel px-2 py-1.5">
-          <option value="">All domains</option>
-          {domains.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-      </div>
-      {packs === undefined ? <div className="text-dim">Loading…</div> : shown.length === 0 ? <div className="rounded border border-line p-3" role="status">
-        {packs.length === 0 ? indexes.length === 0 ? 'No stores are configured. Configure a store to browse its modules and catalog packs.' : 'No modules or catalog packs are available from these stores. Check the store connection and review policy in Configure stores.' : kind === 'code' ? 'No code modules match. Only modules published to a configured store appear here; built-in modules are listed in Manage installed modules.' : 'No matching modules or catalog packs. Try another search or filter.'}
+      {packs === undefined ? <div className="text-dim">Loading…</div> : shown.length === 0 ? <div className="text-dim" role="status">
+        {packs.length === 0 ? indexes.length === 0 ? 'No stores are configured. Configure a store to browse its modules and catalog packs.' : 'No modules or catalog packs are available from these stores. Check the store connection and review policy in Sources.' : kind === 'code' ? 'No code modules match. Only modules published to a configured store appear here; built-in modules are listed under Installed.' : 'No matching modules or catalog packs. Try another search or filter.'}
       </div> : null}
       {groups.map((g) => (
         <div key={g.index.url} data-store-group={g.index.url}>
-          {groups.length < 2 && indexes.filter((i) => i.ok).length < 2 ? null : (
-            <h3 className="mt-3 text-sm font-medium">
+          {groups.length < 2 && okIndexes.length < 2 ? null : (
+            <h3 className="cs-ext-group">
               {nameOf(g.index)} <span className="text-dim">{g.index.source === 'user' ? 'added here' : 'set by the server'} · {g.packs.length} item{g.packs.length === 1 ? '' : 's'}</span>
             </h3>
           )}
-      <ul>
+      <ul className="cs-ext-grid">
         {g.packs.map((p) => (
-          <li key={`${p.index} ${p.id}`} className="my-3 rounded border border-line bg-panel p-3" data-store-pack={p.id}>
-            <div>
-              <b>{p.name}</b> <span className="text-dim">{p.id}</span> {p.latest?.version ?? ''} · {p.domain} · by {p.author.name}
-              {p.latest === undefined ? null : <> · {kb(p.latest.size)}</>} · <span title="As the author states it; not checked by WireHub">licence: {p.license}</span>
-              {p.latest?.module === undefined ? null : <span className="ml-2 rounded border border-line px-1" title={`Runs code. Permissions stated by the author: ${p.latest.module.permissions.join(', ') || 'none'}. Installation preview confirms the downloaded module and asks for owner consent.`}>Code module</span>}
-              {p.installed === undefined ? null : <> · installed {p.installed}</>}
+          <li key={`${p.index} ${p.id}`} className="cs-ext-card" data-store-pack={p.id}>
+            <div className="cs-ext-card-top">
+              <span className="cs-ext-glyph" aria-hidden>{p.name.split(/[\s&/-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('')}</span>
+              <div className="min-w-0">
+                <h3 className="cs-ext-card-name">{p.name}</h3>
+                <div className="cs-ext-card-sub">{p.id} {p.latest?.version ?? ''}{p.latest === undefined ? '' : ` · ${kb(p.latest.size)}`}{p.installed === undefined ? '' : ` · installed ${p.installed}`}</div>
+              </div>
             </div>
-            {p.description === undefined ? null : <div className="text-dim">{p.description}</div>}
-            <div data-testid="store-trust">
+            {p.description === undefined ? null : <p className="cs-ext-card-desc">{p.description}</p>}
+            <div className="cs-ext-chips">
+              {p.latest?.module === undefined ? <Chip>Pack</Chip> : <Chip tone="info" title={`Runs code. Permissions stated by the author: ${p.latest.module.permissions.join(', ') || 'none'}. Installation preview confirms the downloaded module and asks for owner consent.`}>Code module</Chip>}
+              <Chip title="As the author states it; not checked by WireHub">{`licence: ${p.license}`}</Chip>
+              <Chip>{p.domain}</Chip>
+              {p.installed === undefined ? null : <Chip tone="ok">Installed</Chip>}
+            </div>
+            <div className="cs-ext-card-meta">by {p.author.name}</div>
+            <div className="cs-ext-card-meta" data-testid="store-trust">
               {p.publisher === undefined ? <span className="text-dim">not signed by a publisher (pinned by the index)</span> : <>signed by {p.publisher.name}</>}
               {p.latest === undefined ? null : (
                 <>
@@ -270,9 +263,9 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
                   {r.yanked === undefined ? null : <>Version {r.version} was yanked: {r.yanked.reason}. It is not offered for install.</>}
                   {r.revoked === true ? <> Version {r.version} is signed only by a revoked key and cannot be installed.</> : null}
                   {canWrite && isOwner && r.yanked !== undefined && r.revoked !== true ? (
-                    <button type="button" className="ml-2 rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void preview(p, r.version)}>
+                    <Button size="xs" className="ml-2" disabled={busy} onClick={() => void preview(p, r.version)}>
                       Install {r.version} anyway…
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               ))}
@@ -289,27 +282,30 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
               </div>
             ) : null}
             {p.action === 'unavailable' ? <div className="text-dim">Every version is yanked; nothing is offered.</div> : null}
-            <div className="text-dim">
-              from {p.storeLabel ?? p.store.name}
-              {p.homepage === undefined ? null : (
-                <>
-                  {' · '}
-                  <a href={p.homepage} target="_blank" rel="noreferrer noopener" className="underline">
-                    homepage
-                  </a>
-                </>
+            <div className="cs-ext-card-foot">
+              <span className="text-dim">
+                from {p.storeLabel ?? p.store.name}
+                {p.homepage === undefined ? null : (
+                  <>
+                    {' · '}
+                    <a href={p.homepage} target="_blank" rel="noreferrer noopener" className="underline">
+                      homepage
+                    </a>
+                  </>
+                )}
+              </span>
+              {!canWrite || (p.action !== 'install' && p.action !== 'update') ? null : (
+                <Button size="xs" variant={p.action === 'install' ? 'primary' : 'secondary'} disabled={busy} onClick={() => void preview(p)}>
+                  {p.action === 'install' ? 'Install…' : `Update to ${p.latest?.version ?? ''}…`}
+                </Button>
               )}
             </div>
-            {!canWrite || (p.action !== 'install' && p.action !== 'update') ? null : (
-              <button type="button" className="rounded border border-line bg-panel px-3 py-1.5 hover:bg-hover disabled:cursor-default disabled:opacity-50" disabled={busy} onClick={() => void preview(p)}>
-                {p.action === 'install' ? 'Install…' : `Update to ${p.latest?.version ?? ''}…`}
-              </button>
-            )}
           </li>
         ))}
       </ul>
         </div>
       ))}
+      </div>
       <Drawer
         open={pending !== undefined}
         title={pending === undefined ? '' : `${pending.kind === 'update' ? 'Update' : 'Install'} ${pending.pack.id} ${pending.version}`}
@@ -317,12 +313,10 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
         testId="store-pending"
         footer={pending === undefined ? undefined : (
           <>
-            <button type="button" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()} className="cs-ui-btn is-primary">
+            <Button variant="primary" disabled={busy || !pending.applicable || (pending.code !== undefined && !agreed)} onClick={() => void confirm()}>
               {pending.kind === 'update' ? 'Update' : 'Install'}
-            </button>
-            <button type="button" onClick={() => setPending(undefined)} className="cs-ui-btn">
-              Cancel
-            </button>
+            </Button>
+            <Button onClick={() => setPending(undefined)}>Cancel</Button>
           </>
         )}
       >

@@ -100,8 +100,8 @@ export function JobsRoute(): JSX.Element {
               <EmptyState
                 topic="jobs"
                 action={
-                  <Link to="/modules" className={`${EMPTY_PRIMARY} inline-flex items-center`}>
-                    Open modules
+                  <Link to="/extensions" search={{ tab: 'installed' }} className={`${EMPTY_PRIMARY} inline-flex items-center`}>
+                    Open extensions
                   </Link>
                 }
               >

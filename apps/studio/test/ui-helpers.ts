@@ -14,3 +14,17 @@ export async function pickOption(selectName: string | RegExp, optionLabel: strin
   fireEvent.keyUp(option, { key: 'Enter' });
   await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
 }
+
+/** Open a `Select` and pick its nth option (0-based). */
+export async function pickOptionAt(selectName: string | RegExp, index: number): Promise<void> {
+  const trigger = await screen.findByRole('combobox', { name: selectName });
+  trigger.focus();
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  fireEvent.keyUp(trigger, { key: 'ArrowDown' });
+  const list = await screen.findByRole('listbox');
+  const option = within(list).getAllByRole('option')[index]!;
+  await waitFor(() => expect(document.activeElement).not.toBe(trigger));
+  fireEvent.keyDown(option, { key: 'Enter' });
+  fireEvent.keyUp(option, { key: 'Enter' });
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+}

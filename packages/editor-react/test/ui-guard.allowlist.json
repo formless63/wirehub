@@ -14,26 +14,7 @@
       "confirm-prompt": 1
     },
     "apps/studio/src/modules/StoreBrowser.tsx": {
-      "native-select": 3,
       "confirm-prompt": 1
-    },
-    "apps/studio/src/routes/DeclarativeEditors.tsx": {
-      "native-select": 1
-    },
-    "apps/studio/src/routes/ResolverRecordForms.tsx": {
-      "native-select": 1
-    },
-    "apps/studio/src/routes/ResolverRoute.tsx": {
-      "native-select": 3
-    },
-    "apps/studio/src/routes/RulesSettings.tsx": {
-      "native-select": 1
-    },
-    "apps/studio/src/routes/RuntimeSettings.tsx": {
-      "native-select": 2
-    },
-    "apps/studio/src/routes/SettingsRoute.tsx": {
-      "native-select": 2
     },
     "apps/studio/src/versions/VersionsPanel.tsx": {
       "native-select": 1

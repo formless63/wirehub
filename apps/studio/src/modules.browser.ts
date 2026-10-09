@@ -10,7 +10,7 @@ import { createLiveRegistry, createRegistry, type LiveModuleRegistry, type WireH
 
 import { modules, railModules } from '../modules.config.ts';
 
-/** The module ids the owner allows a rail item (`modules.config.ts`). */
+/** The module ids the build allows a rail item (`modules.config.ts`); the hub setting (Extensions › Installed) adds to them. */
 export const allowedRailModules: readonly string[] = railModules;
 
 /** The modules built into this image. */

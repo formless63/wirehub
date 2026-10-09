@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { startImportJob } from '../jobs.browser.ts';
 import { useStudio } from '../studio-context.tsx';
 import { ImportJob } from './ImportJob.tsx';
+import { Button, Input } from '@wirehub/editor-react';
 
 const toBase64 = (bytes: Uint8Array): string => {
   let binary = '';
@@ -105,9 +106,9 @@ export function ConnectionsImport({ onImported, expose }: { onImported: () => vo
         }}
       />
       {expose !== undefined ? null : (
-        <button type="button" className="cs-small" title="Make a design from a from/to pin CSV (a connection list)" onClick={() => input.current?.click()}>
+        <Button type="button" title="Make a design from a from/to pin CSV (a connection list)" onClick={() => input.current?.click()} className="cs-small">
         Connections CSV…
-      </button>
+      </Button>
       )}
       {jobId === undefined ? null : <ImportJob id={jobId} onClose={() => setJobId(undefined)} onPublished={onImported} />}
       {!open ? null : (
@@ -117,11 +118,11 @@ export function ConnectionsImport({ onImported, expose }: { onImported: () => vo
           <div className="flex flex-wrap items-center gap-2">
             <label>
               Design id{' '}
-              <input aria-label="Design id" value={designId} onChange={(e) => setDesignId(e.target.value)} placeholder={slug(fileName.replace(/\.[^.]+$/, ''))} className="w-48 rounded border border-line-field bg-panel px-1 font-mono" />
+              <Input aria-label="Design id" value={designId} onChange={(e) => setDesignId(e.target.value)} placeholder={slug(fileName.replace(/\.[^.]+$/, ''))} mono className="w-48" />
             </label>
             <label>
               Name{' '}
-              <input aria-label="Design name" value={label} onChange={(e) => setLabel(e.target.value)} className="w-56 rounded border border-line-field bg-panel px-1" />
+              <Input aria-label="Design name" value={label} onChange={(e) => setLabel(e.target.value)} className="w-56" />
             </label>
             <label>
               Carried on{' '}
@@ -197,12 +198,12 @@ export function ConnectionsImport({ onImported, expose }: { onImported: () => vo
           )}
           {message === undefined ? null : <div role="alert">{message}</div>}
           <div className="cs-import-actions">
-            <button type="button" className="cs-primary" disabled={busy || joints === 0} onClick={() => void review()}>
+            <Button type="button" disabled={busy || joints === 0} onClick={() => void review()} className="cs-primary">
               {joints === 0 ? 'Nothing to import' : 'Review the design'}
-            </button>
-            <button type="button" disabled={busy} onClick={() => setOpen(false)}>
+            </Button>
+            <Button type="button" disabled={busy} onClick={() => setOpen(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}

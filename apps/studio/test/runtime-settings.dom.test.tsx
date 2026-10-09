@@ -5,6 +5,7 @@
  * secret is set without ever being shown back. Through the real API router.
  */
 
+import { pickOption } from './ui-helpers.ts';
 import { join } from 'node:path';
 
 import { QueryClient } from '@tanstack/react-query';
@@ -79,9 +80,7 @@ describe('Runtime settings', () => {
   it.each([['github', 'GitHub'], ['google', 'Google']] as const)('requires an explicit %s switch and keeps its saved secret out of the form', async (provider, label) => {
     mount('authentication');
     const signIn = await screen.findByTestId('runtime-sign-in');
-    const enabled = within(signIn).getByLabelText(`${label} sign-in`) as HTMLSelectElement;
-    expect(enabled.value).toBe('');
-    expect(enabled.options[0]?.textContent).toBe('Default (off)');
+    expect(within(signIn).getByRole('combobox', { name: `${label} sign-in` }).textContent).toBe('Default (off)');
     expect(within(signIn).getByText(new RegExp(`PUBLIC_URL followed by /api/auth/callback/${provider}`))).toBeTruthy();
     fireEvent.change(within(signIn).getByLabelText(`${label} client id`), { target: { value: 'synthetic-client' } });
     fireEvent.click(within(signIn).getByRole('button', { name: 'Save sign-in & accounts' }));
@@ -95,7 +94,7 @@ describe('Runtime settings', () => {
     await waitFor(() => expect(input.value).toBe(''));
     expect(document.body.textContent).not.toContain('synthetic-browser-secret');
     await waitFor(() => expect(within(screen.getByTestId(`secret-${provider}.clientSecret`)).getByText(/^Set \(\d{4}-/)).toBeTruthy());
-    fireEvent.change(within(screen.getByTestId('runtime-sign-in')).getByLabelText(`${label} sign-in`), { target: { value: 'on' } });
+    await pickOption(`${label} sign-in`, 'On');
     fireEvent.click(within(screen.getByTestId('runtime-sign-in')).getByRole('button', { name: 'Save sign-in & accounts' }));
     await waitFor(() => expect(settings.env()[`AUTH_${provider.toUpperCase()}_ENABLED`]).toBe('true'));
   }, 30_000);

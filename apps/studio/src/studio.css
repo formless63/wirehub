@@ -160,6 +160,12 @@ body,
 .cs-nav-item span { font-size: var(--fs-2xs); line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
 .cs-nav-item:hover, .cs-mobile-nav-item:hover { color: var(--ink); background: var(--hover); }
 .cs-nav-active { color: var(--accent); background: var(--accent-soft); }
+.cs-navigation-bottom { flex-shrink: 0; padding: 4px; border-top: 1px solid var(--line); }
+.cs-nav-group + .cs-nav-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.cs-nav-group-label { margin: 2px 6px; font-size: var(--fs-2xs); letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.cs-avatar, .cs-avatar-more { display: flex; height: 26px; width: 26px; align-items: center; justify-content: center; border: 1px solid var(--line2); border-radius: 50%; background: var(--raised); color: var(--dim); font: inherit; font-size: var(--fs-2xs); font-weight: 600; cursor: pointer; }
+.cs-avatar:hover, .cs-avatar-more:hover { background: var(--hover); color: var(--ink); }
+.cs-avatar:focus-visible, .cs-avatar-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .cs-navigation-account { flex-shrink: 0; padding: 5px 4px 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .cs-mobile-nav-item { display: flex; align-items: center; gap: 10px; margin: 3px 0; padding: 10px; border-radius: 5px; color: var(--ink); text-decoration: none; }
 .cs-home-mark { width: 76px; }

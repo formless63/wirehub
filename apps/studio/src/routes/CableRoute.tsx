@@ -127,7 +127,7 @@ export function CableRoute(): JSX.Element {
           .filter((p) => (p.action === 'install' || p.action === 'update') && words.every((w) => `${p.id} ${p.name} ${p.description ?? ''} ${p.domain}`.toLowerCase().includes(w)))
           .map((p) => ({ id: p.id, label: p.name, detail: p.domain }));
       },
-      open: (match) => void navigate({ to: '/library/store', search: { pack: match.id } }),
+      open: (match) => void navigate({ to: '/extensions', search: { tab: 'browse', pack: match.id } }),
     };
   }, [navigate]);
 

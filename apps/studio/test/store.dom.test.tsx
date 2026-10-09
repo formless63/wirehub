@@ -71,14 +71,11 @@ afterEach(() => {
 const row = (id: string): HTMLElement | null => document.querySelector(`[data-store-pack="${id}"]`);
 
 describe('Browse store', () => {
-  it('offers store configuration and installed-module controls without registering or installing anything', async () => {
+  it('explains an empty store list without registering or installing anything', async () => {
     deps.store = { indexes: [] };
     render(<StoreBrowser />);
     expect((await screen.findByRole('status')).textContent).toContain('No stores are configured');
-    expect(screen.getByRole('heading', { name: 'Modules & catalog packs' })).not.toBeNull();
-    expect(screen.getByRole('link', { name: 'Configure stores' }).getAttribute('href')).toBe('/settings?section=stores');
-    expect(screen.getByRole('link', { name: 'Manage installed modules' }).getAttribute('href')).toBe('/settings?section=modules');
-    expect(screen.getByRole('link', { name: 'Installed packs & uploads' }).getAttribute('href')).toBe('/modules');
+    expect(screen.getByRole('radiogroup', { name: 'Content type' })).not.toBeNull();
     expect(installedAcross(dir, packs).packs).toEqual([]);
     expect(screen.queryByRole('button', { name: 'Install…' })).toBeNull();
   });
@@ -106,13 +103,13 @@ describe('Browse store', () => {
     expect(row('alpha')?.contains(badge)).toBe(true);
     expect(badge.title).toMatch(/Permissions stated by the author: network/);
     expect(row('beta')?.textContent).not.toContain('Code module');
-    fireEvent.change(screen.getByLabelText('Content type'), { target: { value: 'code' } });
+    fireEvent.click(screen.getByRole('radio', { name: /Code modules/ }));
     expect(row('alpha')).not.toBeNull();
     expect(row('beta')).toBeNull();
-    fireEvent.change(screen.getByLabelText('Content type'), { target: { value: 'catalog' } });
+    fireEvent.click(screen.getByRole('radio', { name: /Catalog packs/ }));
     expect(row('alpha')).toBeNull();
     expect(row('beta')).not.toBeNull();
-    fireEvent.change(screen.getByLabelText('Content type'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'All' }));
     // This index claim does not make the downloaded data-only pack require code consent.
     fireEvent.change(screen.getByLabelText('Search modules and packs'), { target: { value: 'alpha' } });
     fireEvent.click(await screen.findByRole('button', { name: 'Install…' }));
@@ -124,7 +121,7 @@ describe('Browse store', () => {
   it('explains why a configured data-only store has no optional code modules', async () => {
     render(<StoreBrowser />);
     await waitFor(() => expect(row('alpha')).not.toBeNull());
-    fireEvent.change(screen.getByLabelText('Content type'), { target: { value: 'code' } });
+    fireEvent.click(screen.getByRole('radio', { name: /Code modules/ }));
     expect(screen.getByRole('status').textContent).toContain('Only modules published to a configured store appear here');
     expect(screen.getByRole('status').textContent).toContain('built-in modules');
   });
@@ -136,7 +133,7 @@ describe('Browse store', () => {
     await waitFor(() => expect(row('beta')).toBeNull());
     expect(row('alpha')).not.toBeNull();
     fireEvent.change(screen.getByLabelText('Search modules and packs'), { target: { value: '' } });
-    fireEvent.change(screen.getByLabelText('Domain'), { target: { value: 'test-domain' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'test-domain' }));
     await waitFor(() => expect(row('beta')).not.toBeNull());
 
     fireEvent.change(screen.getByLabelText('Search modules and packs'), { target: { value: 'alpha' } });

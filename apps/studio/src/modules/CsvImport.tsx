@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { uploadImportJob, startImportJob } from '../jobs.browser.ts';
 import { useStudio } from '../studio-context.tsx';
 import { ImportJob } from './ImportJob.tsx';
+import { Button, Input } from '@wirehub/editor-react';
 
 const KIND_LABEL: Record<LibraryKind, string> = { connectors: 'Connectors', wires: 'Wire stocks', components: 'Components', mechanicals: 'Mechanicals', pcbas: 'Boards (PCBAs)', kits: 'Kits' };
 
@@ -131,9 +132,9 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
         }}
       />
       {expose !== undefined ? null : (
-        <button type="button" className="cs-small" title="Import library parts from a CSV or an XLSX sheet, with a column mapping and a dry run" onClick={() => input.current?.click()}>
+        <Button type="button" title="Import library parts from a CSV or an XLSX sheet, with a column mapping and a dry run" onClick={() => input.current?.click()} className="cs-small">
         Bulk CSV…
-      </button>
+      </Button>
       )}
       {message === undefined || open ? null : (
         <span role="status" className="cs-count">
@@ -157,16 +158,16 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
             </label>
             <label>
               Reference for rows without one{' '}
-              <input aria-label="Batch source" value={batchSrc} onChange={(e) => setBatchSrc(e.target.value)} placeholder="e.g. supplier catalog 2026" className="w-56 rounded border border-line-field bg-panel px-1" />
+              <Input aria-label="Batch source" value={batchSrc} onChange={(e) => setBatchSrc(e.target.value)} placeholder="e.g. supplier catalog 2026" className="w-56" />
             </label>
             <label title="A row for an id the library has changes that record (blank cells keep what it has) instead of being skipped; the dry run shows each change">
               <input type="checkbox" aria-label="Update existing records" checked={update} onChange={(e) => setUpdate(e.target.checked)} /> Update existing records
             </label>
             <span className="text-faint">Templates:</span>
             {LIBRARY_KINDS.map((k) => (
-              <button key={k} type="button" className="cs-small" onClick={() => download(templateFileName(k), templateCsv(k))}>
+              <Button key={k} type="button" onClick={() => download(templateFileName(k), templateCsv(k))} className="cs-small">
                 {KIND_LABEL[k]}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="cs-import-table">
@@ -200,7 +201,7 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
                       </select>
                     </td>
                     <td>
-                      <input
+                      <Input
                         aria-label={`Fixed ${f.label}`}
                         className="w-40 rounded border border-line bg-panel px-1"
                         value={fixed[f.key] ?? ''}
@@ -257,17 +258,17 @@ export function CsvImport({ onImported, expose }: { onImported: () => void; expo
           ))}
           {message === undefined ? null : <div role="alert">{message}</div>}
           <div className="cs-import-actions">
-            <button type="button" className="cs-primary" disabled={busy || counts.new + counts.update === 0} onClick={() => void review()}>
+            <Button type="button" disabled={busy || counts.new + counts.update === 0} onClick={() => void review()} className="cs-primary">
               {counts.new + counts.update === 0
                 ? 'Nothing to import'
                 : `Review ${[counts.new > 0 ? `${counts.new} new` : '', counts.update > 0 ? `${counts.update} updated` : ''].filter((t) => t !== '').join(' and ')} record${counts.new + counts.update === 1 ? '' : 's'}`}
-            </button>
-            <button type="button" disabled={busy || csv === ''} onClick={() => download(`${fileName.replace(/\.csv$/i, '')}-mapped.csv`, csv)}>
+            </Button>
+            <Button type="button" disabled={busy || csv === ''} onClick={() => download(`${fileName.replace(/\.csv$/i, '')}-mapped.csv`, csv)}>
               Download mapped file
-            </button>
-            <button type="button" disabled={busy} onClick={() => setOpen(false)}>
+            </Button>
+            <Button type="button" disabled={busy} onClick={() => setOpen(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}

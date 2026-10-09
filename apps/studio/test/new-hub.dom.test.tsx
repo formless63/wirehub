@@ -65,7 +65,7 @@ describe('the New hub strip', () => {
     expect(strip.querySelectorAll('a, button').length).toBeGreaterThanOrEqual(5);
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     await waitFor(() => expect(screen.queryByTestId('new-hub-strip')).toBeNull());
-    await waitFor(async () => expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/hub' }, deps)).body).toEqual({ welcomeDismissed: true }));
+    await waitFor(async () => expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/hub' }, deps)).body).toEqual({ welcomeDismissed: true, railModules: [] }));
     cleanup();
     window.localStorage.clear();
     mount('/cables');
@@ -101,7 +101,7 @@ describe('a hub that hosts its own docs', () => {
     process.env['WIREHUB_DOCS_URL'] = 'https://docs.example.org/wh';
     try {
       serve();
-      expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/hub' }, deps)).body).toEqual({ welcomeDismissed: false, docsUrl: 'https://docs.example.org/wh' });
+      expect((await handleWorkbenchRequest({ method: 'GET', path: '/api/settings/hub' }, deps)).body).toEqual({ welcomeDismissed: false, railModules: [], docsUrl: 'https://docs.example.org/wh' });
       mount('/settings?section=rules');
       await screen.findByTestId('help-link');
       const help = await waitFor(() => {

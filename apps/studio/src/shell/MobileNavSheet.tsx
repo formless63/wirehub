@@ -2,6 +2,7 @@
 import { Link } from '@tanstack/react-router';
 import { IconX } from '@tabler/icons-react';
 import { useEffect, useRef, type JSX } from 'react';
+import { AvatarMenu } from './AvatarMenu.tsx';
 import { NavItems } from './NavItems.tsx';
 import { Wordmark } from './Wordmark.tsx';
 
@@ -32,6 +33,7 @@ export function MobileNavSheet({ open, onClose }: { open: boolean; onClose: () =
         <button ref={close} type="button" aria-label="Close" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-md border border-line2 bg-raised text-dim"><IconX size={16} /></button>
       </div>
       <div className="min-h-0 grow overflow-y-auto"><NavItems onNavigate={onClose} /></div>
+      <AvatarMenu onNavigate={onClose} />
     </nav>
   </div>;
 }

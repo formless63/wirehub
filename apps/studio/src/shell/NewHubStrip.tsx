@@ -11,6 +11,7 @@ import type { JSX } from 'react';
 import { helpUrl } from '../help.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { dismissWelcome, fetchHub, hubKey, type HubSettings } from '../hub-settings.browser.ts';
+import { Button } from '@wirehub/editor-react';
 
 const STEP = 'text-ink underline decoration-line-field underline-offset-2 hover:decoration-accent';
 
@@ -28,33 +29,32 @@ export function NewHubStrip({ firstDesign, onNewDesign }: { firstDesign: string 
           open an example
         </Link>
       )}
-      <button type="button" className={`min-h-0! border-0! bg-transparent! p-0! text-sm ${STEP}`} onClick={onNewDesign}>
+      <Button type="button" className={`min-h-0! border-0! bg-transparent! p-0! text-sm ${STEP}`} onClick={onNewDesign}>
         make a design
-      </button>
+      </Button>
       <Link to="/library" className={STEP}>
         browse the library
       </Link>
       <Link to="/part-numbers" className={STEP}>
         set up part numbers
       </Link>
-      <Link to="/modules" className={STEP}>
+      <Link to="/extensions" search={{ tab: 'installed' }} className={STEP}>
         add a module
       </Link>
       <a href={helpUrl('designs', docsBase)} target="_blank" rel="noreferrer" className="text-dim underline">
         Docs
       </a>
-      <button
+      <Button
         type="button"
         aria-label="Dismiss"
-        title="Dismiss for everyone on this hub"
-        className="ml-auto flex h-6 w-6 items-center justify-center rounded border-0 bg-transparent text-dim hover:text-ink"
+        title="Dismiss for everyone on this hub" variant="ghost" className="ml-auto flex w-6 items-center justify-center"
         onClick={() => {
           client.setQueryData(hubKey, (old: HubSettings | undefined) => ({ ...old, welcomeDismissed: true }));
           void dismissWelcome();
         }}
       >
         <IconX size={14} />
-      </button>
+      </Button>
     </div>
   );
 }

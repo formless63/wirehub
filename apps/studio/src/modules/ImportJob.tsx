@@ -12,6 +12,7 @@ import { useState, type JSX } from 'react';
 
 import { fetchJob, isFinished, jobKey, jobsKey, publishJob, type ImportProposal, type JobView } from '../jobs.browser.ts';
 import { designsKey } from '../queries.ts';
+import { Button } from '@wirehub/editor-react';
 
 const when = (iso: string | undefined): string => (iso === undefined ? '' : new Date(iso).toLocaleString());
 
@@ -154,13 +155,13 @@ export function ImportJob({ id, onClose, onPublished }: { id: string; onClose: (
           {message === undefined ? null : <div role="status" data-testid="job-message">{message}</div>}
           <div className="cs-import-actions">
             {job.status === 'done' && job.publishedVersion === undefined ? (
-              <button type="button" className="cs-primary" disabled={busy || added === 0} onClick={() => void publish()}>
+              <Button type="button" disabled={busy || added === 0} onClick={() => void publish()} className="cs-primary">
                 {added === 0 ? 'Nothing new' : `Publish ${added} record${added === 1 ? '' : 's'}`}
-              </button>
+              </Button>
             ) : null}
-            <button type="button" disabled={busy} onClick={onClose}>
+            <Button type="button" disabled={busy} onClick={onClose}>
               {job.status === 'done' && job.publishedVersion === undefined ? 'Close (publish later from Jobs)' : 'Close'}
-            </button>
+            </Button>
           </div>
         </>
       )}

@@ -372,3 +372,26 @@
 .cs-ui-filter-clear { align-self: flex-start; padding: var(--space-2xs) var(--space-xs); font: inherit; font-size: var(--fs-xs); color: var(--dim); text-decoration: underline; background: none; border: 0; cursor: pointer; }
 .cs-ui-filter-groups { display: flex; flex-direction: column; gap: var(--space-md); max-height: 70vh; overflow: auto; }
 .cs-ui-filter-head { margin: 0 0 var(--space-2xs); font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); }
+
+/* extensions: facets + card grid */
+.cs-ext-browse { display: grid; grid-template-columns: 200px minmax(0, 1fr); flex: 1; min-height: 0; }
+.cs-ext-facets { display: flex; flex-direction: column; gap: var(--space-lg); padding: var(--space-lg); border-right: 1px solid var(--line); overflow: auto; font-size: var(--fs-xs); }
+.cs-ext-facet-head { margin: 0 0 var(--space-xs); font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); }
+.cs-ext-results { min-width: 0; padding: var(--space-lg); overflow: auto; display: flex; flex-direction: column; gap: var(--space-sm); }
+.cs-ext-note { margin: 0; font-size: var(--fs-xs); color: var(--faint); }
+.cs-ext-group { margin: var(--space-sm) 0 var(--space-xs); font-size: var(--fs-sm); font-weight: 600; }
+.cs-ext-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-md); align-content: start; }
+.cs-ext-card { display: flex; flex-direction: column; gap: var(--space-sm); padding: var(--space-md); background: var(--panel); border: 1px solid var(--line2); border-radius: var(--r-md); overflow-wrap: anywhere; }
+.cs-ext-card:hover { border-color: var(--line-field); }
+.cs-ext-card-top { display: flex; align-items: center; gap: var(--space-md); }
+.cs-ext-glyph { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 600; color: var(--dim); background: var(--raised); border: 1px solid var(--line2); border-radius: var(--r-sm); }
+.cs-ext-card-name { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
+.cs-ext-card-sub { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--faint); }
+.cs-ext-card-desc { margin: 0; font-size: var(--fs-xs); color: var(--dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cs-ext-chips { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.cs-ext-card-meta { font-size: var(--fs-2xs); color: var(--faint); }
+.cs-ext-card-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-top: auto; padding-top: var(--space-xs); font-size: var(--fs-2xs); }
+.cs-ext-section { max-width: 720px; display: flex; flex-direction: column; gap: var(--space-sm); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.cs-ext-section + .cs-ext-section { margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--line); }
+.cs-ext-section h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
+@media (max-width: 899px) { .cs-ext-browse { grid-template-columns: 1fr; } .cs-ext-facets { border-right: 0; border-bottom: 1px solid var(--line); } }

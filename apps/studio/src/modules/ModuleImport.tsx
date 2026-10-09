@@ -19,6 +19,7 @@ import { startImportJob, uploadImportJob } from '../jobs.browser.ts';
 import { useNotify } from '../notify.ts';
 import { designsKey } from '../queries.ts';
 import { ImportJob } from './ImportJob.tsx';
+import { Button } from '@wirehub/editor-react';
 
 interface Proposal {
   definitions: Record<string, { id: string; label: string }[]>;
@@ -136,9 +137,9 @@ export function ModuleImport({ registry, onImported, expose }: { registry: Modul
         }}
       />
       {expose !== undefined ? null : (
-        <button type="button" disabled={busy} title={`Import from a file (${accepts.join(', ')}) with a module's importer`} onClick={() => input.current?.click()}>
+        <Button type="button" disabled={busy} title={`Import from a file (${accepts.join(', ')}) with a module's importer`} onClick={() => input.current?.click()}>
           Import…
-        </button>
+        </Button>
       )}
       {jobId === undefined ? null : <ImportJob id={jobId} onClose={() => setJobId(undefined)} onPublished={onImported} />}
       {pending === undefined || proposal === undefined ? null : (
@@ -166,12 +167,12 @@ export function ModuleImport({ registry, onImported, expose }: { registry: Modul
             <div key={note}>Check: {note}</div>
           ))}
           <div className="cs-import-actions">
-            <button type="button" className="cs-primary" disabled={busy || added === 0} onClick={() => void accept()}>
+            <Button type="button" disabled={busy || added === 0} onClick={() => void accept()} className="cs-primary">
               {added === 0 ? 'Nothing new' : `Add ${added} record${added === 1 ? '' : 's'}`}
-            </button>
-            <button type="button" disabled={busy} onClick={() => setPending(undefined)}>
+            </Button>
+            <Button type="button" disabled={busy} onClick={() => setPending(undefined)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
