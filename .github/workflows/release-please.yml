@@ -4,7 +4,8 @@ name: Release
 # commits on main (release-please-config.json): the next version, the
 # CHANGELOG and the image tag pinned in compose.yaml and .env.example.
 # Merging it tags vX.Y.Z and publishes a GitHub Release with the notes; the
-# image job below then publishes that version's image.
+# highlights job prepends release-notes/<version>.md to the release body, and the
+# image job then publishes that version's image.
 #
 # A release made with the workflow's GITHUB_TOKEN does not start other
 # workflows, so the image is built from here (workflow_call). A release a
@@ -34,6 +35,28 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # A minor release can have human highlights in release-notes/<version>.md; they are
+  # put above the generated changelog in the release body (once: the marker guards a re-run).
+  highlights:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+      - name: Prepend the highlights
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          file="release-notes/${TAG#v}.md"
+          if [ ! -f "$file" ]; then echo "no $file; the generated notes stand"; exit 0; fi
+          gh release view "$TAG" --json body --jq .body > generated.md
+          if grep -q '<!-- highlights -->' generated.md; then echo "highlights already present"; exit 0; fi
+          { echo '<!-- highlights -->'; cat "$file"; echo; echo '## Changelog'; echo; cat generated.md; } > notes.md
+          gh release edit "$TAG" --notes-file notes.md
 
   image:
     needs: release-please

@@ -76,6 +76,11 @@ a short run, never under 10 mm). The labels are listed on the build sheet's Asse
 exported as CSV, and printable as a sheet: `labels.svg` is one page in millimetres on a
 3 × 7 grid of 63.5 × 38.1 mm labels (A4) or 3 × 10 of 66.7 × 25.4 mm (US letter); print it
 at 100%. `page=` and `copies=` (API and CLI) pick a page and repeat each label.
+Each label names the ends (`Source end: J1`, `Destination end: J2`, this end first) and
+carries the design's part number and revision. `preset=` picks the label stock (the A4 and
+Letter grids, or one label per page for Brady and Dymo sizes; the set is in Settings ›
+Documents, which also sets the default), and `qr=1` adds a QR code of the part number and
+revision, or of the address pattern set there (`{pn}` `{rev}` `{design}` `{label}`).
 
 The generated text can be overridden in the inspector, per segment and connector: a segment's
 **run label** replaces `W<n>`, its **end A / end B text** replaces the generated lines of that
@@ -174,7 +179,7 @@ A token (or a session) may GET these; they render the working copy, or a saved r
 the definitions frozen when it was saved (`rev=<n>` or `rev=latest`).
 
 ```
-GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=<paper>&variation=…&page=…&copies=…
+GET /api/designs/:id/documents/:kind?format=…&rev=…&paper=<paper>&variation=…&page=…&copies=…&preset=…&qr=1
 GET /api/designs/:id/exports/:format?rev=…
 GET /api/exports                       the lists below
 ```
