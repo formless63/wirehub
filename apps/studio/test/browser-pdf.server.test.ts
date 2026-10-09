@@ -267,13 +267,13 @@ describe.skipIf(LIVE === '')(`a real engine (${LIVE === '' ? 'skipped: set WIREH
       for (const id of STARTERS) {
         for (const kind of SHEETS) {
           for (const paper of ['A4', 'letter'] as const) {
-            if (kind === 'drawing' && paper === 'letter') continue; // the drawing sheet is one size
             const res = await get(`/api/designs/${id}/documents/${kind}?format=pdf&paper=${paper}`, deps);
             expect(res.status, `${id} ${kind}`).toBe(200);
             expect(res.headers?.['X-WireHub-PDF-Renderer'], `${id} ${kind}: ${res.headers?.['X-WireHub-PDF-Fallback']}`).toBe('browser');
             const sizes = pageSizes(res.bytes!);
             expect(sizes.length, `${id} ${kind}`).toBeGreaterThanOrEqual(1);
-            const want = kind === 'drawing' ? [792, 612] : paper === 'A4' ? [595, 842] : [612, 792];
+            const portrait = paper === 'A4' ? [595, 842] : [612, 792];
+            const want = kind === 'drawing' ? [portrait[1], portrait[0]] : portrait; // the drawing is the paper, landscape
             for (const size of sizes) expect(size, `${id} ${kind} ${paper}`).toEqual(want);
           }
         }

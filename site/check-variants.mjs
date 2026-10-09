@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { readTemplates } from './build.mjs';
+import { readTemplates } from './templates.mjs';
 import { generate } from './src/generate.js';
 
 const external = { postgres: { mode: 'external', url: 'postgres://u:p@db.example.com:5432/x' } };
