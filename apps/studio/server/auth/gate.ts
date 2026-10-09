@@ -197,6 +197,22 @@ async function bearer(c: Context, auth: StudioAuth, people: PeopleStore | undefi
   return undefined;
 }
 
+/**
+ * Better Auth throttles its own endpoints (sign-in: 3 attempts per 10 s per
+ * client address and path; everything else 100 per 10 s; production only) and
+ * answers 429 with a generic message and a non-standard `X-Retry-After`. Give
+ * clients a rate-limit voice: the standard `Retry-After`, the wait in seconds,
+ * and a message that does not read like an expired session.
+ */
+export function throttledAuthResponse(res: Response): Response {
+  if (res.status !== 429) return res;
+  const waited = Number(res.headers.get('retry-after') ?? res.headers.get('x-retry-after'));
+  const seconds = Number.isFinite(waited) && waited > 0 ? Math.ceil(waited) : 10;
+  const out = json(429, { error: `Too many attempts, try again in ${seconds} s.`, message: `Too many attempts, try again in ${seconds} s.`, hint: 'Sign-in allows 3 attempts every 10 seconds from one address.', retryAfter: seconds });
+  out.headers.set('retry-after', String(seconds));
+  return out;
+}
+
 function retryLater(seconds: number): Response {
   const res = json(429, { error: 'Too many requests.', hint: `Try again in ${seconds} s.` });
   res.headers.set('retry-after', String(seconds));
@@ -252,7 +268,7 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
       host: c.req.header('x-forwarded-host') ?? c.req.header('host') ?? new URL(c.req.url).host,
     });
     if (crossSite !== undefined) return json(crossSite.status, crossSite.body);
-    return auth.handler(c.req.raw);
+    return auth.handler(c.req.raw).then(throttledAuthResponse);
   });
 
   app.get(SIGN_IN_PATH, async (c, next) => {
