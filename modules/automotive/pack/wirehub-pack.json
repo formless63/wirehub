@@ -2,7 +2,7 @@
   "format": 1,
   "id": "automotive",
   "name": "Automotive",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "publisher": {
     "id": "wirehub",
     "name": "WireHub bundled modules"

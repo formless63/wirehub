@@ -9,9 +9,11 @@
  * part can be checked at a glance.
  */
 
+import type { ParametricSpec } from '@wirehub/model';
+
 import type { Outcome } from './persistence.ts';
 
-export type ModelSourceKind = 'kicad-board' | 'resin-print' | 'vendor' | 'uploaded' | 'kicad-library';
+export type ModelSourceKind = 'kicad-board' | 'resin-print' | 'vendor' | 'uploaded' | 'kicad-library' | 'parametric';
 
 export const MODEL_SOURCE_LABEL: Record<ModelSourceKind, string> = {
   'kicad-board': 'KiCad board',
@@ -19,6 +21,7 @@ export const MODEL_SOURCE_LABEL: Record<ModelSourceKind, string> = {
   vendor: 'Vendor model',
   uploaded: 'Uploaded',
   'kicad-library': 'KiCad library',
+  parametric: 'Parametric',
 };
 
 /** One record's model, as the host stores the link. */
@@ -33,6 +36,8 @@ export interface ModelLinkView {
   triangles?: number;
   /** `false`: an imported model whose bytes are not built on this studio yet */
   built?: boolean;
+  /** a model drawn from its dimensions, with no stored bytes (`parametric-model.ts`) */
+  parametric?: ParametricSpec;
 }
 
 /** A stored model anyone can attach ("pick an already imported model"). */

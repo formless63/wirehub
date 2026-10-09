@@ -2,17 +2,18 @@
   "schemaVersion": 4,
   "id": "rj45-crossover-t568a-b",
   "label": "RJ45 T568A → RJ45 T568B, Cat 5e crossover cable",
+  "productRef": "CBL-04001",
   "instances": {
     "connectors": [
       {
         "id": "j1",
         "def": "rj45-plug-t568a",
-        "role": "end A"
+        "role": "first switch end"
       },
       {
         "id": "j2",
         "def": "rj45-plug-t568b",
-        "role": "end B"
+        "role": "second switch end"
       }
     ],
     "segments": [

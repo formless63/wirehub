@@ -7,7 +7,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -72,6 +72,8 @@ export function parityHub(prefix = 'wirehub-parity-'): ParityHub {
   const data = join(root, 'data');
   const packs = join(root, 'packs');
   cpSync(STARTER, data, { recursive: true });
+  // the pack supplies this design's drawing sidecar; the starter's own would shadow it
+  rmSync(join(data, 'drawings', 'de9-crossover.json'), { force: true });
   // the pack carries the photo; the catalog holds none of its own
   const photo = sha(PHOTO);
   const catalog = createCatalog(fsCatalogSource(data));

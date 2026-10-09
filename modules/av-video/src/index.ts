@@ -29,7 +29,7 @@ export const AV_VIDEO_PACK = new URL(PACK_DIR, import.meta.url).href;
 export const avVideo = defineModule({
   id: 'av-video',
   label: 'AV / video',
-  version: '0.1.0',
+  version: '0.2.1',
   license: 'MIT',
   setup: {
     kind: 'domain',
@@ -37,5 +37,5 @@ export const avVideo = defineModule({
   },
   // the SCART and JP21 faces and their body layouts (the 21-pin Peritel shell is this module's to draw), and the BNC side view
   art: { connectors: [scartArt, jp21Art, bncArt], bodyLayouts },
-  catalogPacks: [{ id: 'av-video', label: 'AV / video', version: '0.1.0', root: AV_VIDEO_PACK, license: 'CC0-1.0' }],
+  catalogPacks: [{ id: 'av-video', label: 'AV / video', version: '0.2.1', root: AV_VIDEO_PACK, license: 'CC0-1.0' }],
 });

@@ -2,6 +2,7 @@
   {
     "id": "xlr3-female",
     "label": "XLR 3-pin female (cable)",
+    "partNumber": "CON-02001",
     "family": "xlr",
     "gender": "female",
     "positions": [
@@ -35,6 +36,7 @@
   {
     "id": "xlr3-male",
     "label": "XLR 3-pin male (cable)",
+    "partNumber": "CON-02002",
     "family": "xlr",
     "gender": "male",
     "positions": [
@@ -68,6 +70,7 @@
   {
     "id": "rca-male",
     "label": "RCA plug (male)",
+    "partNumber": "CON-02003",
     "family": "rca",
     "gender": "male",
     "positions": [
@@ -92,6 +95,7 @@
   {
     "id": "trs-3-5mm-male",
     "label": "3.5 mm TRS plug (male)",
+    "partNumber": "CON-02004",
     "family": "trs-3-5mm",
     "gender": "male",
     "positions": [

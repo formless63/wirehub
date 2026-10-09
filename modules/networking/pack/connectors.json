@@ -2,6 +2,7 @@
   {
     "id": "rj45-plug-t568b",
     "label": "RJ45 plug, T568B",
+    "partNumber": "CON-04001",
     "family": "rj45",
     "gender": "male",
     "construction": "crimp",
@@ -21,6 +22,7 @@
   {
     "id": "rj45-plug-t568a",
     "label": "RJ45 plug, T568A",
+    "partNumber": "CON-04002",
     "family": "rj45",
     "gender": "male",
     "construction": "crimp",

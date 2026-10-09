@@ -609,6 +609,7 @@ export type { DocumentRelease, DocumentTarget, ReleaseShowing } from './release.
 export { ModelPanel } from './panels/ModelPanel.tsx';
 export type { ModelPanelProps } from './panels/ModelPanel.tsx';
 export { MODEL_ACCEPT, MODEL_KINDS, MODEL_SOURCE_LABEL, isModelFileName } from './models.ts';
+export { buildParametricGlb, parametricModelFile } from './parametric-model.ts';
 export type { ModelLinkView, ModelsAdapter, ModelSourceKind, ModelUploadStats, StoredModel, ViewPreset } from './models.ts';
 
 export { BoardComponentsSection } from './panels/BoardComponentsSection.tsx';

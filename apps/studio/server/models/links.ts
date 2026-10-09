@@ -18,6 +18,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import { dataPath } from '@wirehub/catalog';
+import type { ParametricSpec } from '@wirehub/model';
 
 import { writeFileAtomic } from '../atomic-write.ts';
 import type { Awaitable } from '../storage/change-set.ts';
@@ -25,7 +26,7 @@ import type { ModelBuild, SourceFile } from './cache.ts';
 import { hubCatalogSource } from '../catalog-files.ts';
 
 /** Where a model came from: a board file, a printed housing, a vendor download, an upload, or KiCad's standard 3D library. */
-export const MODEL_SOURCE_KINDS = ['kicad-board', 'resin-print', 'vendor', 'uploaded', 'kicad-library'] as const;
+export const MODEL_SOURCE_KINDS = ['kicad-board', 'resin-print', 'vendor', 'uploaded', 'kicad-library', 'parametric'] as const;
 export type ModelSourceKind = (typeof MODEL_SOURCE_KINDS)[number];
 
 /**
@@ -67,6 +68,11 @@ export interface ModelLink {
   status?: 'released' | 'wip' | 'superseded';
   /** triangles in the stored model — the viewer's "how heavy" hint */
   triangles?: number;
+  /**
+   * A model drawn from its dimensions (`@wirehub/model` parametric.ts): there are no stored bytes, `asset` is
+   * `parametricAssetId(spec)`, and the viewer builds the geometry from the spec.
+   */
+  parametric?: ParametricSpec;
 }
 
 export interface ModelLinkStore {

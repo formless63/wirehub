@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "vga-monitor-cable",
   "label": "HD15 → HD15, VGA monitor cable, 1.8 m",
+  "productRef": "CBL-05001",
   "instances": {
     "connectors": [
       {

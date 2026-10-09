@@ -2,17 +2,18 @@
   "schemaVersion": 4,
   "id": "rj45-patch-t568b",
   "label": "RJ45 → RJ45, Cat 5e patch cable, T568B straight-through",
+  "productRef": "CBL-04002",
   "instances": {
     "connectors": [
       {
         "id": "j1",
         "def": "rj45-plug-t568b",
-        "role": "end A"
+        "role": "switch end"
       },
       {
         "id": "j2",
         "def": "rj45-plug-t568b",
-        "role": "end B"
+        "role": "device end"
       }
     ],
     "segments": [
@@ -216,6 +217,10 @@
         "terminal": "8"
       }
     }
+  ],
+  "notes": [
+    "Both ends are wired T568B, straight through: pin n to pin n.",
+    "Slide the strain-relief boots onto the cable before crimping the plugs."
   ],
   "src": "synthetic example: a TIA-568 T568B straight-through patch cord (pin 1 white/orange, 2 orange, 3 white/green, 4 blue, 5 white/blue, 6 green, 7 white/brown, 8 brown at both ends)"
 }

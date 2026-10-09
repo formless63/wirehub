@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "rs485-de9-terminal-board",
   "label": "DE-9 RS-485 → terminal adapter board, terminated",
+  "productRef": "CBL-01002",
   "instances": {
     "connectors": [
       {

@@ -33,7 +33,7 @@ describe('a pack is installed in canonical form', () => {
       expect(isCanonicalJson(readFileSync(join(dir, relative), 'utf8')), relative).toBe(true);
     }
     const links = (JSON.parse(readFileSync(join(dir, 'models.json'), 'utf8')) as { links: { record: string }[] }).links;
-    expect(links.map((l) => l.record)).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
+    expect(links.map((l) => l.record).filter((r) => r.startsWith('revisions/'))).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
   });
 
   it('canonicalPackText sorts an asset index and leaves other text alone', () => {
@@ -60,7 +60,7 @@ describe('the flattened catalog is what Postgres would import', () => {
   it('explodes without a problem, revision link keys included', () => {
     const { errors, rows } = explode(tree);
     expect(errors).toEqual([]);
-    expect(rows.modelLinks.map((l) => l.recordKey)).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
+    expect(rows.modelLinks.map((l) => l.recordKey).filter((r) => r.startsWith('revisions/'))).toEqual(['revisions/ABC-123456-00/Rev1', 'revisions/parity-board/rev1', 'revisions/parity-board/rev2']);
     expect(rows.drawingPhotos).toEqual([{ design: hub.designId, sha256: hub.photo }]);
   });
 

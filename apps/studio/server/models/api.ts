@@ -168,6 +168,7 @@ export const NOT_BUILT = {
 
 /** Is `asset` available as bytes — in the asset store, or built in the cache? */
 async function isBuilt(deps: ModelDeps, link: ModelLink): Promise<boolean> {
+  if (link.parametric !== undefined) return true;
   if (link.files !== undefined) return (await deps.cache?.has(link.asset)) ?? false;
   return (await deps.assets?.get(link.asset)) !== undefined;
 }

@@ -44,8 +44,8 @@ describe('the module', () => {
     const registry = createRegistry([pcSerial]);
     expect(registry.domains().map((m) => m.id)).toEqual(['pc-serial']);
     expect(pcSerial.setup).not.toHaveProperty('suggested');
-    expect(registry.catalogPacks().map((p) => `${p.module}:${p.id}@${p.version}`)).toEqual(['pc-serial:pc-serial@0.2.0']);
-    expect(readPackManifest(packDir)).toMatchObject({ id: 'pc-serial', version: '0.2.0', license: 'CC0-1.0' });
+    expect(registry.catalogPacks().map((p) => `${p.module}:${p.id}@${p.version}`)).toEqual(['pc-serial:pc-serial@0.3.1']);
+    expect(readPackManifest(packDir)).toMatchObject({ id: 'pc-serial', version: '0.3.1', license: 'CC0-1.0' });
   });
 
   it('keeps serial out of the base: no RS-232, RS-485 or USB record without the pack', () => {

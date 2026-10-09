@@ -2,6 +2,7 @@
   "schemaVersion": 4,
   "id": "usb-a-led-lead",
   "label": "USB-A → JST XH 2-pin, LED supply lead with series resistor",
+  "productRef": "CBL-01003",
   "instances": {
     "connectors": [
       {
@@ -106,6 +107,10 @@
         "terminal": "2"
       }
     }
+  ],
+  "notes": [
+    "VBUS (pin 1) feeds the 150 ohm series resistor in the plug hood; it is insulated with heatshrink before the hood closes.",
+    "D+ and D- are not connected. Red is positive (JST pin 1), black is ground (JST pin 2)."
   ],
   "src": "synthetic example: a USB Type-A plug feeding an LED module through a 150 Ω series resistor fitted in the plug hood, on a red/black pair to a JST XH 2-pin housing; D+/D− unused"
 }

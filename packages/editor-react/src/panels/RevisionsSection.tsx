@@ -67,7 +67,7 @@ export function RevisionsSection(props: {
     }
     if (props.models !== undefined) {
       const link = await props.models.get(kind, id);
-      if (link.ok && link.value !== null) input.model = { asset: link.value.asset };
+      if (link.ok && link.value !== null && link.value.parametric === undefined) input.model = { asset: link.value.asset }; // a parametric model has no stored bytes to pin
     }
     const out = await props.revisions.save(kind, id, input);
     setBusy(false);

@@ -1,0 +1,167 @@
+{
+  "src": "Library 3D model links. A parametric link has no stored model: its `parametric` spec (a shape and its dimensions in millimetres) is drawn by the viewer, the same way every time. Each link's own `src` cites where the dimensions came from; values marked inferred are typical envelopes, not a standard's figures.",
+  "links": [
+    {
+      "record": "bodies/de9-female",
+      "asset": "parametric-502be91f77a10939",
+      "name": "DE-9 female (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric female DE-9 (D-sub shell size E): flange 30.81 x 12.55 mm, mounting-hole pitch 24.99 mm, contact pitch 2.77 mm, row pitch 2.84 mm (IEC 60807-3 / DIN 41652 outline, rounded); shell and housing depths are typical (inferred); the female shell is drawn to fit inside the male one (inferred)",
+      "parametric": {
+        "shape": "d-sub",
+        "gender": "female",
+        "pins": 9,
+        "params": {
+          "flangeWidthMm": 30.81,
+          "flangeHeightMm": 12.55,
+          "mountPitchMm": 24.99,
+          "shellWidthMm": 16.1,
+          "shellHeightMm": 7.6,
+          "pinPitchMm": 2.77,
+          "rowPitchMm": 2.84,
+          "shellDepthMm": 9,
+          "hoodDepthMm": 10
+        }
+      }
+    },
+    {
+      "record": "bodies/de9-male",
+      "asset": "parametric-369bde8a2d534358",
+      "name": "DE-9 male (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric male DE-9 (D-sub shell size E): flange 30.81 x 12.55 mm, mounting-hole pitch 24.99 mm, contact pitch 2.77 mm, row pitch 2.84 mm (IEC 60807-3 / DIN 41652 outline, rounded); shell and housing depths are typical (inferred)",
+      "parametric": {
+        "shape": "d-sub",
+        "gender": "male",
+        "pins": 9,
+        "params": {
+          "flangeWidthMm": 30.81,
+          "flangeHeightMm": 12.55,
+          "mountPitchMm": 24.99,
+          "shellWidthMm": 16.92,
+          "shellHeightMm": 8.36,
+          "pinPitchMm": 2.77,
+          "rowPitchMm": 2.84,
+          "shellDepthMm": 10,
+          "hoodDepthMm": 10
+        }
+      }
+    },
+    {
+      "record": "bodies/jst-xh-2",
+      "asset": "parametric-3e1eed99c84852f3",
+      "name": "JST XH 2-pin (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric JST XH 2-pin housing: 2.5 mm pitch, width (n-1) x 2.5 + 4.9 = 7.4 mm, 5.75 mm high (JST XH series housing drawing); depth 7.0 mm is typical (inferred)",
+      "parametric": {
+        "shape": "jst-xh",
+        "gender": "female",
+        "pins": 2,
+        "params": {
+          "pitchMm": 2.5,
+          "widthMm": 7.4,
+          "heightMm": 5.75,
+          "depthMm": 7
+        }
+      }
+    },
+    {
+      "record": "bodies/terminal-block-4",
+      "asset": "parametric-1dd51bad25fababf",
+      "name": "Terminal block 4-way (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric 4-way screw terminal block: 5.08 mm pitch (the board-to-wire convention); 10 mm body height and 8 mm depth are a typical envelope (inferred)",
+      "parametric": {
+        "shape": "terminal-block",
+        "gender": "female",
+        "pins": 4,
+        "params": {
+          "pitchMm": 5.08,
+          "heightMm": 10,
+          "depthMm": 8
+        }
+      }
+    },
+    {
+      "record": "connectors/de9-female",
+      "asset": "parametric-502be91f77a10939",
+      "name": "DE-9 female (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric female DE-9 (D-sub shell size E): flange 30.81 x 12.55 mm, mounting-hole pitch 24.99 mm, contact pitch 2.77 mm, row pitch 2.84 mm (IEC 60807-3 / DIN 41652 outline, rounded); shell and housing depths are typical (inferred); the female shell is drawn to fit inside the male one (inferred)",
+      "parametric": {
+        "shape": "d-sub",
+        "gender": "female",
+        "pins": 9,
+        "params": {
+          "flangeWidthMm": 30.81,
+          "flangeHeightMm": 12.55,
+          "mountPitchMm": 24.99,
+          "shellWidthMm": 16.1,
+          "shellHeightMm": 7.6,
+          "pinPitchMm": 2.77,
+          "rowPitchMm": 2.84,
+          "shellDepthMm": 9,
+          "hoodDepthMm": 10
+        }
+      }
+    },
+    {
+      "record": "connectors/de9-male",
+      "asset": "parametric-369bde8a2d534358",
+      "name": "DE-9 male (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric male DE-9 (D-sub shell size E): flange 30.81 x 12.55 mm, mounting-hole pitch 24.99 mm, contact pitch 2.77 mm, row pitch 2.84 mm (IEC 60807-3 / DIN 41652 outline, rounded); shell and housing depths are typical (inferred)",
+      "parametric": {
+        "shape": "d-sub",
+        "gender": "male",
+        "pins": 9,
+        "params": {
+          "flangeWidthMm": 30.81,
+          "flangeHeightMm": 12.55,
+          "mountPitchMm": 24.99,
+          "shellWidthMm": 16.92,
+          "shellHeightMm": 8.36,
+          "pinPitchMm": 2.77,
+          "rowPitchMm": 2.84,
+          "shellDepthMm": 10,
+          "hoodDepthMm": 10
+        }
+      }
+    },
+    {
+      "record": "connectors/jst-xh-2-dc",
+      "asset": "parametric-3e1eed99c84852f3",
+      "name": "JST XH 2-pin (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric JST XH 2-pin housing: 2.5 mm pitch, width (n-1) x 2.5 + 4.9 = 7.4 mm, 5.75 mm high (JST XH series housing drawing); depth 7.0 mm is typical (inferred)",
+      "parametric": {
+        "shape": "jst-xh",
+        "gender": "female",
+        "pins": 2,
+        "params": {
+          "pitchMm": 2.5,
+          "widthMm": 7.4,
+          "heightMm": 5.75,
+          "depthMm": 7
+        }
+      }
+    },
+    {
+      "record": "connectors/terminal-block-4",
+      "asset": "parametric-1dd51bad25fababf",
+      "name": "Terminal block 4-way (parametric)",
+      "sourceKind": "parametric",
+      "src": "Parametric 4-way screw terminal block: 5.08 mm pitch (the board-to-wire convention); 10 mm body height and 8 mm depth are a typical envelope (inferred)",
+      "parametric": {
+        "shape": "terminal-block",
+        "gender": "female",
+        "pins": 4,
+        "params": {
+          "pitchMm": 5.08,
+          "heightMm": 10,
+          "depthMm": 8
+        }
+      }
+    }
+  ]
+}

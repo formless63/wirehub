@@ -186,7 +186,8 @@ describePg('jobs on Postgres', () => {
       expect(run.log).toEqual(filesLog);
       // the same catalog, plus the model link this org was given above
       const { 'data/models.json': models, ...rest } = run.exported.files;
-      expect(rest).toEqual(filesExport);
+      const { 'data/models.json': _starterLinks, ...filesRest } = filesExport as Record<string, string>;
+      expect(rest).toEqual(filesRest);
       expect(models).toContain(key);
     } finally {
       await studioBoss?.stop({ graceful: false }).catch(() => undefined);
