@@ -379,9 +379,9 @@ describe('<CableEditor> — Canvas | Documents', () => {
       render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} />);
       const menu = screen.getByRole('combobox', { name: 'Export' }) as HTMLSelectElement;
       const ids = Array.from(menu.querySelectorAll('option')).map((o) => o.value).filter((v) => v !== '');
-      expect(ids).toEqual(['bom.csv', 'wire-list.csv', 'cut-list.csv', 'crimp-list.csv', 'production.xlsx', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg']);
+      expect(ids).toEqual(['bom.csv', 'wire-list.csv', 'cut-list.csv', 'crimp-list.csv', 'production.xlsx', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg', 'labels.lbx']);
       for (const id of ids) fireEvent.change(menu, { target: { value: id } });
-      expect(names).toEqual(ids.map((id) => `${design.id}-${id.split('.')[0]}.${id.split('.')[1]}`));
+      expect(names).toEqual(ids.map((id) => `${design.id}-${id.split('.')[0]}.${id === 'labels.lbx' ? 'zip' : id.split('.')[1]}`)); // the P-touch labels download as a zip of .lbx files
       expect(await blobs[0]!.text()).toMatch(/^section,part_number,description,quantity,unit/);
       expect(blobs[0]!.type).toContain('text/csv');
     } finally {
