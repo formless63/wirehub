@@ -76,13 +76,14 @@ export function matingConnector(lib: Pick<ResolverLibrary, 'connectors' | 'bodie
   return lib.connectors.find((c) => plugsInto(lib, c, port));
 }
 
-interface StockShape {
+export interface StockShape {
   conductors: string[];
   pairs: [string, string][];
   screens: string[];
 }
 
-function stockShape(wire: WireDefinition): StockShape {
+/** A stock's conductors (the bare drain excluded), its twisted pairs and its screens, as element paths. */
+export function stockShape(wire: WireDefinition): StockShape {
   const conductors = elementPaths(wire.structure)
     .filter((e) => e.element.kind === 'conductor' && e.element.bare !== true)
     .map((e) => e.path);
@@ -103,7 +104,7 @@ export function stockNeeds(lib: ResolverLibrary, option: CableOption): { lines: 
 }
 
 /** Links that are the two halves of one differential pair (`SignalEntry.diffPair`). */
-function diffPairs(lib: ResolverLibrary, links: readonly Link[]): [number, number][] {
+export function diffPairs(lib: ResolverLibrary, links: readonly Link[]): [number, number][] {
   const out: [number, number][] = [];
   const taken = new Set<number>();
   links.forEach((l, i) => {

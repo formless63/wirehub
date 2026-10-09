@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRegistry, forRuntime, type WireHubModule } from '@wirehub/modules';
-import { storePublicKeyOf, verifyPackSignature } from '@wirehub/catalog';
+import { storePublicKeyOf, verifyPackSignature } from '@wirehub/catalog/src/server.ts';
 import { expect, it } from 'vitest';
 import { buildModule } from '../scripts/wirehub-module.ts';
 

@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { storePublicKeyOf } from '@wirehub/catalog';
+import { storePublicKeyOf } from '@wirehub/catalog/src/server.ts';
 
 import type { FetchPackOptions } from '../server/pack-archive.ts';
 

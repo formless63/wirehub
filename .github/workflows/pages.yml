@@ -2,7 +2,7 @@ name: Pages
 
 # Publishes the site (site/) to GitHub Pages: https://formless63.github.io/wirehub/
 # Home (/), the config generator (/generator/, one self-contained page with the
-# repository's compose.yaml embedded), a docs placeholder (/docs/) and the
+# repository's compose.yaml embedded), the documentation (/docs/: guide and reference, built by site/docs.mjs) and the
 # browsable module store (/store/), rebuilt whenever they change.
 # (Settings → Pages → Source: GitHub Actions.)
 #
@@ -17,6 +17,9 @@ on:
     branches: [main]
     paths:
       - site/**
+      - docs/**
+      - packages/editor-react/src/tokens.css
+      - apps/studio/src/help.ts
       - compose.yaml
       - brand/**
       - modules/*/src/**

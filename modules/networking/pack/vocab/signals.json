@@ -20,7 +20,8 @@
             "title": "IEEE 802.3 clause 40 MDI (BI_DA+)"
           }
         ]
-      }
+      },
+      "diffPair": "eth-da-n"
     },
     {
       "id": "eth-da-n",
@@ -39,7 +40,8 @@
             "title": "IEEE 802.3 clause 40 MDI (BI_DA−)"
           }
         ]
-      }
+      },
+      "diffPair": "eth-da-p"
     },
     {
       "id": "eth-db-p",
@@ -58,7 +60,8 @@
             "title": "IEEE 802.3 clause 40 MDI (BI_DB+)"
           }
         ]
-      }
+      },
+      "diffPair": "eth-db-n"
     },
     {
       "id": "eth-db-n",
@@ -77,7 +80,8 @@
             "title": "IEEE 802.3 clause 40 MDI (BI_DB−)"
           }
         ]
-      }
+      },
+      "diffPair": "eth-db-p"
     },
     {
       "id": "eth-dc-p",
@@ -95,7 +99,8 @@
             "title": "IEEE 802.3 clause 40 MDI (BI_DC+)"
           }
         ]
-      }
+      },
+      "diffPair": "eth-dc-n"
     },
     {
       "id": "eth-dc-n",
@@ -113,7 +118,8 @@
             "title": "IEEE 802.3 clause 40 MDI (BI_DC−)"
           }
         ]
-      }
+      },
+      "diffPair": "eth-dc-p"
     },
     {
       "id": "eth-dd-p",
@@ -131,7 +137,8 @@
             "title": "IEEE 802.3 clause 40 MDI (BI_DD+)"
           }
         ]
-      }
+      },
+      "diffPair": "eth-dd-n"
     },
     {
       "id": "eth-dd-n",
@@ -149,7 +156,8 @@
             "title": "IEEE 802.3 clause 40 MDI (BI_DD−)"
           }
         ]
-      }
+      },
+      "diffPair": "eth-dd-p"
     }
   ]
 }

@@ -47,6 +47,7 @@ import { ModulePanels } from '../modules/slots.tsx';
 import { HistoryButton } from '../history/HistoryPanel.tsx';
 import { definitionNoun } from '../history/types.ts';
 import { helpForLibraryKind } from '../help.ts';
+import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { CompareHost } from '../modules/CompareHost.tsx';
 
 const KIND_FROM_URL: Readonly<Record<string, LibraryKind>> = {
@@ -77,6 +78,7 @@ function kindOfUrl(value: string | undefined): LibraryKind {
 }
 
 export function LibraryRoute(): JSX.Element {
+  const docsBase = useDocsBase();
   const studio = useStudio();
   const modules = useModules();
   const navigate = useNavigate();
@@ -168,7 +170,7 @@ export function LibraryRoute(): JSX.Element {
         wireLibrary={wireLibrary}
         vendorDocuments={vendorDocuments}
         kind={kind}
-        emptyHelp={helpForLibraryKind}
+        emptyHelp={(libraryKind) => helpForLibraryKind(libraryKind, docsBase)}
         onKindChange={onKindChange}
         {...(selectedId === undefined ? {} : { selectedId })}
         onSelectId={onSelectId}

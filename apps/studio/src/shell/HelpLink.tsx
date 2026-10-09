@@ -4,9 +4,10 @@ import { IconHelp } from '@tabler/icons-react';
 import type { JSX } from 'react';
 
 import { helpForPath } from '../help.ts';
+import { useDocsBase } from '../hooks/useDocsBase.ts';
 
 export function HelpLink({ pathname }: { pathname: string }): JSX.Element {
-  const { url } = helpForPath(pathname);
+  const { url } = helpForPath(pathname, useDocsBase());
   return (
     <a
       href={url}

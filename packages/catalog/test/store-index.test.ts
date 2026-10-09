@@ -8,19 +8,7 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  buildStoreIndex,
-  latestVersion,
-  parseStoreIndex,
-  parseStorePublicKey,
-  signStoreIndex,
-  storeKeyId,
-  storePrivateKey,
-  storePublicKeyFile,
-  storePublicKeyOf,
-  verifyStoreSignature,
-  type StoreBundle,
-} from '../src/index.ts';
+import { buildStoreIndex, latestVersion, parseStoreIndex, parseStorePublicKey, signStoreIndex, storeKeyId, storePrivateKey, storePublicKeyFile, storePublicKeyOf, verifyStoreSignature, type StoreBundle } from '../src/server.ts';
 
 const freshPem = (): string => generateKeyPairSync('ed25519').privateKey.export({ format: 'pem', type: 'pkcs8' }) as string;
 const hex = (c: string): string => c.repeat(64);

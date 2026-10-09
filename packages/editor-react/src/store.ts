@@ -114,6 +114,11 @@ export interface EditorState {
   layouts: Record<string, Record<string, XY>>;
   selection: Selection | undefined;
   /**
+   * The connectors shown as their face instead of their pin list (instance ids). Presentation only,
+   * like `positions`: not part of the design, not an undo step, but auto-arrange measures with it.
+   */
+  faces?: readonly string[];
+  /**
    * The artwork board nodes draw from, so auto-arrange reserves the size a
    * board node really draws at. Presentation only, like `positions`.
    */
@@ -152,6 +157,8 @@ export type EditorAction =
    */
   | { type: 'load-db'; db: Db }
   | { type: 'select'; selection: Selection | undefined }
+  /** show a connector as its face (or back as its pin list) — presentation, not an edit */
+  | { type: 'set-face'; id: string; on: boolean }
   | { type: 'add-instance'; kind: InstanceKind; def: string; position?: XY }
   /**
    * The node picker's insert: a fresh instance, placed
@@ -617,6 +624,12 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'select':
       return { ...state, selection: action.selection };
 
+    case 'set-face': {
+      const others = (state.faces ?? []).filter((id) => id !== action.id);
+      const faces = action.on ? [...others, action.id] : others;
+      return { ...state, faces };
+    }
+
     case 'begin-move':
       return { ...state, moveStart: state.positions };
 
@@ -639,7 +652,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'auto-arrange': {
       // the one gesture that is allowed to move parts the user placed, because
       // the user asked for it by name
-      const positions = autoLayout(state.design, state.db, state.depictions).positions;
+      const positions = autoLayout(state.design, state.db, state.depictions, state.faces).positions;
       return {
         ...moveEntry(state, state.positions, positions, 'auto-arrange'),
         positions,
@@ -663,7 +676,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       // dropped: exactly where it was dropped. Added from the palette's button:
       // its auto-layout column, dropped down past whatever is already there —
       // a new part must never land on top of an existing one.
-      const spot = action.position ?? vacantPosition(next, state.db, id, state.positions, state.depictions);
+      const spot = action.position ?? vacantPosition(next, state.db, id, state.positions, state.depictions, state.faces);
       const positions = { ...state.positions, [id]: spot };
       const committed = commit(state, next, `add ${action.kind} ${action.def} as ${id}`, positions);
       return committed.design !== state.design

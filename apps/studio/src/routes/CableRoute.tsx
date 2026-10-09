@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CableEditor, type CatalogChange, type DocumentRelease, type DocumentReport, type EditorView } from '@wirehub/editor-react';
+import { CableEditor, type PartStoreSource, type CatalogChange, type DocumentRelease, type DocumentReport, type EditorView } from '@wirehub/editor-react';
 import { versionDb } from '@wirehub/model';
 import { toast } from 'sonner';
 
@@ -34,6 +34,7 @@ import { EditLockScope } from '../locks/EditLockScope.tsx';
 import { designRecord } from '../locks/records.ts';
 import { workbenchWireLibrary } from '../wire-library.browser.ts';
 import { fetchDesignUse, withAssemblyLibrary, workbenchAssemblies } from '../persistence.browser.ts';
+import { listStore, type StorePackView } from '../packs.browser.ts';
 import { useModules } from '../modules/ModulesContext.tsx';
 import { editorExtensions } from '../modules/slots.tsx';
 
@@ -114,6 +115,21 @@ export function CableRoute(): JSX.Element {
     },
     [navigate],
   );
+
+  // the node creator's "From the store" row: installable packs matching the query; picking one opens its install drawer
+  const partStore = useMemo<PartStoreSource>(() => {
+    let packs: Promise<StorePackView[]> | undefined;
+    const load = (): Promise<StorePackView[]> => (packs ??= listStore().then((a) => (a.ok ? ((a.body['packs'] as StorePackView[] | undefined) ?? []) : [])));
+    return {
+      search: async (query) => {
+        const words = query.toLowerCase().split(/\s+/).filter((w) => w !== '');
+        return (await load())
+          .filter((p) => (p.action === 'install' || p.action === 'update') && words.every((w) => `${p.id} ${p.name} ${p.description ?? ''} ${p.domain}`.toLowerCase().includes(w)))
+          .map((p) => ({ id: p.id, label: p.name, detail: p.domain }));
+      },
+      open: (match) => void navigate({ to: '/library/store', search: { pack: match.id } }),
+    };
+  }, [navigate]);
 
   // "Place in…" from the cable list lands here with `place=<design>`: put it
   // in as a sub-assembly once the editor is up, then drop the parameter so a
@@ -314,6 +330,7 @@ export function CableRoute(): JSX.Element {
       onEditRejected={onEditRejected}
       design={studio.design}
       db={studio.db}
+      partStore={partStore}
       // the schematic preview draws the real board artwork, bundled from the
       // catalog's committed tree; the canvas stays abstract on purpose
       depictionSource={studio.depictions}

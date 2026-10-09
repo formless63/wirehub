@@ -18,11 +18,12 @@ import { storeKeyFingerprint } from '../../packages/catalog/src/store-index.ts';
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const files = new Map(buildSite(root));
 const pages = [...files].filter(([path]) => path.endsWith('.html'));
+const topPages = pages.filter(([path]) => !path.startsWith('docs/') || path === 'docs/index.html');
 const csp = (html) => /http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html)?.[1];
 
 describe('the built site', () => {
   it('has home, generator, docs and the store page', () => {
-    expect(pages.map(([p]) => p).sort()).toEqual(['docs/index.html', 'generator/index.html', 'index.html', 'store/index.html']);
+    expect(topPages.map(([p]) => p).sort()).toEqual(['docs/index.html', 'generator/index.html', 'index.html', 'store/index.html']);
   });
 
   it('carries the nav on every page, with the current page marked', () => {
@@ -41,6 +42,8 @@ describe('the built site', () => {
 
   it('makes no external request from any page but the store', () => {
     for (const [path, html] of pages) {
+      // the docs read their own stylesheet, script and search index (CSP 'self'); every other page is one self-contained file
+      if (path.startsWith('docs/')) continue;
       expect(html, path).not.toMatch(/<script[^>]+src=|<link[^>]+rel="?stylesheet|@import/i);
       if (path !== 'store/index.html') expect(csp(html), path).not.toContain('connect-src \'self\'');
     }
@@ -53,12 +56,6 @@ describe('the built site', () => {
     const compose = readFileSync(join(root, 'compose.yaml'), 'utf8');
     expect(html).toContain(JSON.stringify(compose).replace(/</g, '\\u003c'));
     expect(generateCompose(compose, DEFAULTS)).toBe(compose);
-  });
-
-  it('links the docs placeholder to the documents on GitHub', () => {
-    const docs = files.get('docs/index.html');
-    expect(docs).toContain('Full documentation comes with 1.0');
-    for (const path of ['README.md', 'docs/self-hosting.md', 'docs/store-hosting.md', 'docs/modules.md', '.agents/skills']) expect(docs).toContain(path);
   });
 
   it('gives home a quick start and a way to the generator', () => {

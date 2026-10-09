@@ -306,7 +306,8 @@ async function handleEngineering(method: string, body: unknown, deps: SettingsDe
 
 /**
  * `data/settings/hub.json`: UI state of the hub itself. Today one flag, `welcomeDismissed`: the
- * "New hub" strip on the designs list was closed by someone, for everyone.
+ * "New hub" strip on the designs list was closed by someone, for everyone. The answer also carries
+ * `docsUrl` when `WIREHUB_DOCS_URL` is set (it is not stored).
  */
 export interface HubRecord {
   welcomeDismissed?: boolean;
@@ -316,7 +317,9 @@ export interface HubRecord {
 async function handleHub(method: string, body: unknown, deps: SettingsDeps): Promise<ApiResponse> {
   if (deps.docs === undefined) return fail(501, 'This hub does not keep catalog documents by path.', 'Hub settings are stored with the catalog.');
   const current = (await deps.docs.read(HUB_PATH)) as HubRecord | undefined;
-  const view = (record: HubRecord | undefined): ApiResponse => ({ status: 200, body: { welcomeDismissed: record?.welcomeDismissed === true }, headers: { ETag: contentETag(record ?? null) } });
+  // `WIREHUB_DOCS_URL`: where this hub's help links point, for an operator who hosts the docs (read-only here; the app validates it)
+  const docsUrl = process.env['WIREHUB_DOCS_URL']?.trim();
+  const view = (record: HubRecord | undefined): ApiResponse => ({ status: 200, body: { welcomeDismissed: record?.welcomeDismissed === true, ...(docsUrl === undefined || docsUrl === '' ? {} : { docsUrl }) }, headers: { ETag: contentETag(record ?? null) } });
   if (method === 'GET') return view(current);
   if (method !== 'PUT') return fail(405, `${method} is not something this address accepts.`, 'It answers GET and PUT.');
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return fail(400, 'Send the settings as a JSON object.');

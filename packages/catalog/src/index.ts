@@ -96,31 +96,7 @@ export {
   referencesTo,
 } from './pack-lifecycle.ts';
 export type { ChangedRecord, FieldChange, InstalledAcross, LocatedRecord, PackDiff, PackDisablePlan, PackInstallPreview, PackReference, PackUpdatePlan, RecordRef } from './pack-lifecycle.ts';
-export {
-  STORE_DISCLAIMER,
-  STORE_INDEX_FORMAT,
-  STORE_SIGNATURE_SUFFIX,
-  buildStoreIndex,
-  latestVersion,
-  normalStoreKey,
-  offeredVersion,
-  parseStoreIndex,
-  publisherKeys,
-  reviewOf,
-  revokedKeysOf,
-  versionVisible,
-  parseStorePublicKey,
-  signStoreIndex,
-  storeKeyFingerprint,
-  storeKeyId,
-  storePrivateKey,
-  storePublicKeyFile,
-  storePublicKeyOf,
-  verifyStoreSignature,
-} from './store-index.ts';
-export type { StoreBundle, StoreIndex, StoreIndexModule, StoreIndexPack, StoreIndexVersion, StoreMeta, StorePublisher, StoreReview, StoreRevokedKey, StoreSignatureCheck, StoreYank } from './store-index.ts';
-export { PACK_SIGNATURE, packDigests, packFileDigest, packFileProblems, packManifestMessage, signPackManifest, splitPackSignatures, verifyPackSignature } from './pack-signature.ts';
-export type { PackSignatureCheck } from './pack-signature.ts';
+// the store index and pack signatures need node:crypto: server only, see ./server.ts
 export type { AssetOps, InstalledModule, InstalledPack, InstalledPacks, PackInstallPlan, PackLayerInstall, PackManifest, PackModule } from './packs.ts';
 
 /** Absolute path of a file inside this package's `data/` directory — the live catalog. */

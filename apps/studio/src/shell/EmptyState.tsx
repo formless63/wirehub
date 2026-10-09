@@ -3,11 +3,13 @@
 import { EmptyState as UiEmptyState } from '@wirehub/editor-react';
 import type { JSX, ReactNode } from 'react';
 
+import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { helpUrl, type HelpTopic } from '../help.ts';
 
 export function EmptyState({ children, action, topic, href }: { children: ReactNode; action?: ReactNode; topic: HelpTopic; href?: string }): JSX.Element {
+  const docsBase = useDocsBase();
   return (
-    <UiEmptyState action={action} learnMore={href ?? helpUrl(topic)}>
+    <UiEmptyState action={action} learnMore={href ?? helpUrl(topic, docsBase)}>
       {children}
     </UiEmptyState>
   );

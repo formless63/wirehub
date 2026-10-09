@@ -7,7 +7,8 @@
  * naming the module and version. A data pack passes untouched.
  */
 
-import { normalStoreKey, packFileProblems, storeKeyFingerprint, verifyPackSignature, type PackManifest } from '@wirehub/catalog';
+import { type PackManifest } from '@wirehub/catalog';
+import { normalStoreKey, packFileProblems, storeKeyFingerprint, verifyPackSignature } from '@wirehub/catalog/src/server.ts';
 import { MODULE_API_VERSION, apiCompatibility, applyModeOf, codeModuleManifestProblems, isCodeFilePath, type CodeModuleManifest } from '@wirehub/modules';
 
 import type { ApiResponse } from '../api.ts';

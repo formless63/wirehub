@@ -19,7 +19,7 @@
  * `data/settings/stores.json`, so both backends keep them with the catalog.
  */
 
-import { normalStoreKey, parseStorePublicKey } from '@wirehub/catalog';
+import { normalStoreKey, parseStorePublicKey } from '@wirehub/catalog/src/server.ts';
 
 import type { ApiResponse } from './api.ts';
 import { checkIfMatch, contentETag } from './etag.ts';

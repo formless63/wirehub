@@ -3,7 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { packFileProblems, parseStoreIndex, storePublicKeyOf, verifyPackSignature } from '@wirehub/catalog';
+import { packFileProblems, parseStoreIndex, storePublicKeyOf, verifyPackSignature } from '@wirehub/catalog/src/server.ts';
 import { MODULE_API_VERSION } from '@wirehub/modules';
 import { expect, it } from 'vitest';
 import { readPackBytes } from '../server/pack-archive.ts';
