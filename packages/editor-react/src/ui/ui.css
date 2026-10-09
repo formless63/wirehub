@@ -94,11 +94,13 @@
 /* text inputs */
 .cs-ui-input, .cs-ui-textarea, .cs-ui-select-trigger, .cs-ui-combo-input {
   --h: var(--control-md);
-  box-sizing: border-box; width: 100%; min-width: 0; font: inherit; font-size: var(--fs-sm); color: var(--ink); background: var(--panel);
+  box-sizing: border-box; min-width: 0; font: inherit; font-size: var(--fs-sm); color: var(--ink); background: var(--panel);
   border: 1px solid var(--line-field); border-radius: var(--r-sm);
   transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .cs-ui-input, .cs-ui-select-trigger, .cs-ui-combo-input { height: var(--h); padding: 0 var(--space-sm); }
+/* full width by default, from the components layer so a width utility (w-40) on the control wins */
+@layer components { .cs-ui-input, .cs-ui-textarea, .cs-ui-select-trigger, .cs-ui-combo-input { width: 100%; } }
 .cs-ui-input[data-size='xs'], .cs-ui-select-trigger[data-size='xs'], .cs-ui-combo-input[data-size='xs'] { --h: var(--control-sm); font-size: var(--fs-xs); }
 .cs-ui-input[data-size='md'], .cs-ui-select-trigger[data-size='md'], .cs-ui-combo-input[data-size='md'] { --h: var(--control-lg); }
 .cs-ui-textarea { min-height: 56px; padding: var(--space-xs) var(--space-sm); resize: vertical; line-height: 1.4; }
