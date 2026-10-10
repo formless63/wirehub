@@ -158,6 +158,36 @@ export const WIDTH_HEADROOM = 1.8;
 export const NODE_TITLE_MAX_WIDTH = 480;
 export const NODE_TITLE_CAPTION = { padding: 8, line: 15, font: 10, rule: 1 } as const;
 
+/** Parts cards use the same bounded title geometry as Pins nodes. */
+export const PART_CARD_LAYOUT = { width: 216, head: 30, meta: 22, thumbWidth: 192, thumbHeight: 84, thumbGap: 6, border: 1, pad: 8, icon: 18, gap: 6, font: 12, semibold: 1.06 } as const;
+
+function fullCardHeadWidth(instanceId: string, title: string): number {
+  const c = PART_CARD_LAYOUT;
+  return c.border * 2 + c.pad * 2 + c.icon + c.gap * 2 + monoWidth(instanceId, c.font) + textWidth(title, c.font) * c.semibold;
+}
+
+export function partCardWidth(instanceId: string, title: string): number {
+  return Math.ceil(Math.max(PART_CARD_LAYOUT.width, Math.min(NODE_TITLE_MAX_WIDTH, fullCardHeadWidth(instanceId, title))) / 2) * 2;
+}
+
+export type TitleCaptionGeometry = { title: string; lines: string[]; width: number; height: number };
+
+export function partCardCaption(instanceId: string, title: string): TitleCaptionGeometry | undefined {
+  const width = partCardWidth(instanceId, title);
+  return fullCardHeadWidth(instanceId, title) <= width ? undefined : titleCaption(title, width - PART_CARD_LAYOUT.border * 2);
+}
+
+export function partCardThumbSize(width: number, height: number): NodeSize {
+  const scale = Math.min(PART_CARD_LAYOUT.thumbWidth / width, PART_CARD_LAYOUT.thumbHeight / height);
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
+}
+
+export function partCardSize(data: { instanceId: string; title: string; thumb?: { height: number } }): NodeSize {
+  const c = PART_CARD_LAYOUT;
+  const thumb = data.thumb === undefined ? 0 : data.thumb.height + c.thumbGap * 2 + c.border;
+  return { width: partCardWidth(data.instanceId, data.title), height: c.head + c.meta + thumb + c.border * 2 + (partCardCaption(data.instanceId, data.title)?.height ?? 0) };
+}
+
 export interface NodeSize {
   width: number;
   height: number;
@@ -251,14 +281,15 @@ export function rowsTop(data: EditorNodeData): number {
 }
 
 function headWidth(heading: NodeHeading, instanceId: string): number {
-  const badge = textWidth(heading.badge, BOX.fontTiny) + BOX.badgePadX * 2;
+  // The CSS badge is uppercase, 10px, with .06em letter spacing.
+  const badge = textWidth(heading.badge.toUpperCase(), BOX.font) + heading.badge.length * BOX.font * 0.06 + BOX.badgePadX * 2;
   return (
     BOX.headPadX * 2 +
     badge +
     BOX.headGapX +
     monoWidth(instanceId, BOX.font) +
     BOX.headGapX +
-    textWidth(heading.title, BOX.font)
+    textWidth(heading.title, BOX.font) * BOARD_HEAD.semibold
   );
 }
 
@@ -406,7 +437,7 @@ function fullArtHeadWidth(instanceId: string, title: string, meta: string): numb
 }
 
 export function artHeadWidth(instanceId: string, title: string, meta: string): number {
-  return Math.min(NODE_TITLE_MAX_WIDTH, fullArtHeadWidth(instanceId, title, meta));
+  return Math.max(partCardWidth(instanceId, title), Math.min(NODE_TITLE_MAX_WIDTH, fullArtHeadWidth(instanceId, title, meta)));
 }
 
 function boardHeadWidth(data: PcbaNodeData): number {
@@ -493,7 +524,7 @@ function baseNodeSize(data: EditorNodeData): NodeSize {
   // a connector's header also holds its face thumbnail and the face toggle
   const thumb = data.kind === 'connector' && data.art !== undefined ? CONNECTOR_THUMB.width + CONNECTOR_THUMB.toggle + BOX.headGapX * 2 : 0;
   // Long pin descriptions stay bounded, but the part title must remain readable.
-  const wanted = Math.max(base, Math.min(NODE_TITLE_MAX_WIDTH, headWidth(heading, data.instanceId) + thumb), Math.min(body.width, base * WIDTH_HEADROOM));
+  const wanted = Math.max(base, partCardWidth(data.instanceId, heading.title), Math.min(NODE_TITLE_MAX_WIDTH, headWidth(heading, data.instanceId) + thumb), Math.min(body.width, base * WIDTH_HEADROOM));
   return {
     width: Math.ceil(wanted / 2) * 2,
     height: Math.ceil(BOX.border * 2 + headHeight(heading) + body.height + BOX.slack),
@@ -517,7 +548,12 @@ function wrapTitle(title: string, available: number): string[] {
   return lines;
 }
 
-export function nodeTitleCaption(data: EditorNodeData): { title: string; lines: string[]; width: number; height: number } | undefined {
+function titleCaption(title: string, width: number): TitleCaptionGeometry {
+  const lines = wrapTitle(title, Math.max(1, width - NODE_TITLE_CAPTION.padding * 2));
+  return { title, lines, width, height: lines.length * NODE_TITLE_CAPTION.line + NODE_TITLE_CAPTION.padding * 2 + NODE_TITLE_CAPTION.rule };
+}
+
+export function nodeTitleCaption(data: EditorNodeData): TitleCaptionGeometry | undefined {
   if (data.kind === 'connector' && data.dock !== undefined) return undefined;
   const base = baseNodeSize(data);
   const isArt = (data.kind === 'pcba' && data.board !== undefined) || (data.kind === 'segment' && data.wire !== undefined) || (data.kind === 'connector' && data.art !== undefined && data.face === true);
@@ -527,14 +563,17 @@ export function nodeTitleCaption(data: EditorNodeData): { title: string; lines: 
   const wanted = isArt ? fullArtHeadWidth(data.instanceId, title, meta) : headWidth(nodeHeading(data), data.instanceId) + thumb;
   if (wanted <= base.width) return undefined;
   const width = Math.min(NODE_TITLE_MAX_WIDTH, base.width - BOX.border * 2);
-  const lines = wrapTitle(title, Math.max(1, width - NODE_TITLE_CAPTION.padding * 2));
-  return { title, lines, width, height: lines.length * NODE_TITLE_CAPTION.line + NODE_TITLE_CAPTION.padding * 2 + NODE_TITLE_CAPTION.rule };
+  return titleCaption(title, width);
 }
 
 /** The extra caption grows downwards; pin rows and artwork retain their original coordinate origins. */
 export function estimateNodeSize(data: EditorNodeData): NodeSize {
   const base = baseNodeSize(data);
-  return { ...base, height: base.height + (nodeTitleCaption(data)?.height ?? 0) };
+  if (data.kind === 'connector' && data.dock !== undefined) return base;
+  const view = data.kind === 'pcba' ? data.board?.views.find(candidate => candidate.side === 'top') ?? data.board?.views[0] : undefined;
+  const thumb = view !== undefined && view.box.width > 0 && view.box.height > 0 ? partCardThumbSize(view.box.width, view.box.height) : undefined;
+  const card = partCardSize({ instanceId: data.instanceId, title: nodeHeading(data).title, ...(thumb === undefined ? {} : { thumb }) });
+  return { ...base, height: Math.max(base.height + (nodeTitleCaption(data)?.height ?? 0), card.height) };
 }
 
 /* ------------------------------------------------------------------ *

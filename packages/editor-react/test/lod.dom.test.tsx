@@ -31,3 +31,29 @@ describe('the minimap', () => {
   });
 });
 
+describe('readable Parts titles', () => {
+  it('grows ordinary cards and paints excessive imported names in a bounded full caption', () => {
+    const design = loadDesignFromDisk('dc-led-lead');
+    const connector = design.instances.connectors[0]!;
+    const layout = memoryLayoutStore();
+    layout.saveDetail!('parts');
+    const title = 'Terminal block, 4-way, screw clamp';
+    const catalog = { ...db, connectors: db.connectors.map(def => def.id === connector.def ? { ...def, label: title } : def) };
+    const ordinary = render(<CableEditor design={design} db={catalog} layout={layout} />);
+    const card = ordinary.container.querySelector(`[data-id="${connector.id}"] .cs-card`)!;
+    expect(card.querySelector('.cs-card-title')!.textContent).toBe(title);
+    expect(Number.parseFloat((card as HTMLElement).style.width)).toBeGreaterThan(216);
+    expect(card.querySelector('.cs-node-title-caption')).toBeNull();
+    ordinary.unmount();
+
+    const verbose = 'W'.repeat(1000);
+    const imported = { ...catalog, connectors: catalog.connectors.map(def => def.id === connector.def ? { ...def, label: verbose } : def) };
+    const rendered = render(<CableEditor design={design} db={imported} layout={layout} />);
+    const verboseCard = rendered.container.querySelector(`[data-id="${connector.id}"] .cs-card`)!;
+    expect(Number.parseFloat((verboseCard as HTMLElement).style.width)).toBeLessThanOrEqual(480);
+    const caption = verboseCard.querySelector('.cs-node-title-caption')!;
+    expect(caption.textContent).toBe(verbose);
+    expect(caption.querySelectorAll('span').length).toBeGreaterThan(1);
+    expect(Number.parseFloat((verboseCard as HTMLElement).style.height)).toBeGreaterThan(Number.parseFloat((caption as HTMLElement).style.height));
+  });
+});

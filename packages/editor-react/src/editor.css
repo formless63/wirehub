@@ -5356,6 +5356,7 @@ fieldset.cs-lock-fence {
   align-items: center;
   gap: 6px;
   height: 30px;
+  flex: none;
   padding: 0 8px;
   background: var(--raised);
   border-bottom: 1px solid var(--line);
@@ -5379,12 +5380,15 @@ fieldset.cs-lock-fence {
 .cs-card-pcba .cs-card-icon { background: var(--board); }
 
 .cs-card-id {
+  flex: none;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 700;
   font-size: var(--fs-xs);
 }
 
 .cs-card-title {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
   font-size: var(--fs-xs);
   overflow: hidden;
@@ -5396,6 +5400,7 @@ fieldset.cs-lock-fence {
   gap: 6px;
   align-items: center;
   height: 22px;
+  flex: none;
   padding: 0 8px;
   font-size: var(--fs-2xs);
   color: var(--dim);
@@ -5416,6 +5421,7 @@ fieldset.cs-lock-fence {
 
 .cs-card-thumbs {
   display: flex;
+  flex: none;
   justify-content: center;
   padding: 6px 0;
   border-top: 1px solid var(--line);
@@ -6690,5 +6696,5 @@ fieldset.cs-lock-fence {
 .cs-lt-cell.has-number-context { flex-wrap: wrap; }
 .cs-lt-cell.has-number-context .cs-lt-number-context { flex-basis: 100%; font-family: var(--font-sans); }
 /* A verbose title grows below the part; every art/pin origin above it remains unchanged. */
-.cs-node-title-caption { box-sizing: border-box; padding: 8px; border-top: 1px solid var(--line); font-size: var(--fs-canvas-10); line-height: 15px; color: var(--ink); }
+.cs-node-title-caption { box-sizing: border-box; flex: none; padding: 8px; border-top: 1px solid var(--line); font-size: var(--fs-canvas-10); line-height: 15px; color: var(--ink); }
 .cs-node-title-caption span { display: block; white-space: pre; }
