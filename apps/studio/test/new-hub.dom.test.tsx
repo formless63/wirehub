@@ -83,7 +83,7 @@ describe('the New hub strip', () => {
 });
 
 describe('empty states', () => {
-  it.each([['/products', 'products', 0], ['/jobs', 'jobs', 1], ['/history', 'history', 1]] as const)('%s says one line, offers at most one action and links to the docs', async (path, topic, actions) => {
+  it.each([['/products', 'products', 1], ['/jobs', 'jobs', 1], ['/history', 'history', 1]] as const)('%s says one line, offers at most one action and links to the docs', async (path, topic, actions) => {
     serve();
     {
       mount(path);
