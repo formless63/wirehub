@@ -80,6 +80,10 @@ function annotatedGlb(extras: Record<string, unknown>): ArrayBuffer {
   return bytes;
 }
 
+it('labels generated catalog geometry as an approximation', () => {
+  expect(modelPreviewNote(annotatedGlb({ source: 'parametric', shape: 'rj45' }), 'model/gltf-binary')).toContain('Generated approximation');
+});
+
 it('ignores malformed GLB metadata without turning source hints into a loading error', () => {
   const bytes = annotatedGlb({ source: 'kicad-assembly', instances: 0 });
   expect(modelPreviewNote(bytes.slice(0, 16), 'model/gltf-binary')).toBeUndefined();
