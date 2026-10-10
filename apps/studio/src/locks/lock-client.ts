@@ -171,6 +171,9 @@ export function createLockClient(options: LockClientOptions = {}): LockClient {
   let lost = new Map<string, LostLock>();
   let requested = new Set<string>();
   let ready = false;
+  // GET responses must not overwrite newer list requests or mutations acknowledged by the server.
+  let refreshSequence = 0;
+  let lockMutation = 0;
   let live = false;
   let snap: LockSnapshot | undefined;
   const listeners = new Set<() => void>();
@@ -183,15 +186,18 @@ export function createLockClient(options: LockClientOptions = {}): LockClient {
   const setLock = (view: unknown): void => {
     const lock = obj(view) as unknown as LockView;
     if (typeof lock.record !== 'string') return;
+    lockMutation += 1;
     locks = new Map(locks);
     locks.set(lock.record, lock);
   };
   const dropLock = (record: string): void => {
     if (!locks.has(record)) return;
+    lockMutation += 1;
     locks = new Map(locks);
     locks.delete(record);
   };
   const grant = (record: string, body: unknown): void => {
+    lockMutation += 1;
     const b = obj(body);
     if (typeof b['token'] === 'string') tokens.set(record, b['token']);
     setLock(b['lock']);
@@ -217,8 +223,11 @@ export function createLockClient(options: LockClientOptions = {}): LockClient {
     },
 
     async refresh() {
+      const sequence = ++refreshSequence;
+      const mutationAtStart = lockMutation;
       const heldAtStart = new Map(tokens);
       const r = await transport('GET', '/locks');
+      if (sequence !== refreshSequence || mutationAtStart !== lockMutation) return;
       if (r.status !== 200) return;
       const list = obj(r.body)['locks'];
       if (!Array.isArray(list)) return;
@@ -259,6 +268,7 @@ export function createLockClient(options: LockClientOptions = {}): LockClient {
       const token = tokens.get(record);
       if (token === undefined) return;
       tokens.delete(record);
+      lockMutation += 1;
       dropLock(record);
       emit();
       await transport('POST', '/locks/release', { record, token });
@@ -276,6 +286,7 @@ export function createLockClient(options: LockClientOptions = {}): LockClient {
             return;
           }
           if (r.status === 409 && obj(r.body)['lost'] === true) {
+            lockMutation += 1;
             tokens.delete(record);
             const b = obj(r.body);
             const lock = obj(b['lock']) as unknown as LockView;

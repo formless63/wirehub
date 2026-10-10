@@ -203,6 +203,70 @@ describe('edit locks in the browser', () => {
     await waitFor(() => expect(screen.getByTestId('locked').textContent).toBe('editable'));
   });
 
+  it('keeps a newly granted lease when an older refresh finishes after a takeover', async () => {
+    const sam = person('Sam');
+    const delegate = transport();
+    const pending: (() => void)[] = [];
+    const alex = createLockClient({ storage: memoryStorage(), beacon: undefined, newId: () => `id-alex-${++ids}-xxxxxx`,
+      transport: async (method, path, body) => {
+        const answer = await delegate(method, path, body);
+        if (method === 'GET') await new Promise<void>((resolve) => pending.push(resolve));
+        return answer;
+      },
+    });
+    alex.setName('Alex');
+    await alex.acquire(RECORD);
+    await sam.takeOver(RECORD, true);
+    const old = alex.refresh();
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await alex.takeOver(RECORD, true);
+    pending[0]!();
+    await old;
+    expect(alex.snapshot().held.has(RECORD)).toBe(true);
+    expect(alex.snapshot().lost.has(RECORD)).toBe(false);
+    expect(alex.snapshot().locks.get(RECORD)?.holder.tabId).toBe(alex.snapshot().me.tabId);
+  });
+
+  it('keeps its restart-reclaim token when the server lock list is empty', async () => {
+    const alex = person('Alex');
+    await alex.acquire(RECORD);
+    const oldHeader = alex.headerFor('PUT', '/api/designs/de9-terminal-board');
+    store = memoryLockStore();
+    await alex.refresh();
+    expect(alex.snapshot().held.has(RECORD)).toBe(true);
+    expect(alex.snapshot().lost.has(RECORD)).toBe(false);
+    expect(alex.headerFor('PUT', '/api/designs/de9-terminal-board')).toBe(oldHeader);
+    await alex.heartbeat();
+    expect(alex.snapshot().held.has(RECORD)).toBe(true);
+    expect(alex.snapshot().locks.get(RECORD)?.holder.tabId).toBe(alex.snapshot().me.tabId);
+    expect(alex.headerFor('PUT', '/api/designs/de9-terminal-board')).not.toBe(oldHeader);
+  });
+
+  it('keeps the newer refresh when lock-list responses arrive out of order', async () => {
+    const sam = person('Sam');
+    await sam.acquire(RECORD);
+    const delegate = transport();
+    const pending: (() => void)[] = [];
+    const alex = createLockClient({ storage: memoryStorage(), beacon: undefined,
+      transport: async (method, path, body) => {
+        const answer = await delegate(method, path, body);
+        if (method === 'GET') await new Promise<void>((resolve) => pending.push(resolve));
+        return answer;
+      },
+    });
+    const old = alex.refresh();
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await sam.release(RECORD);
+    const latest = alex.refresh();
+    await waitFor(() => expect(pending).toHaveLength(2));
+    pending[1]!();
+    await latest;
+    pending[0]!();
+    await old;
+    expect(alex.snapshot().locks.has(RECORD)).toBe(false);
+    expect(alex.snapshot().ready).toBe(true);
+  });
+
   it('shows a takeover notice for another tab of this browser', async () => {
     const storage = memoryStorage();
     const first = person('Sam', storage);
