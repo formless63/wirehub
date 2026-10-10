@@ -58,5 +58,128 @@
         }
       ]
     }
+  },
+  {
+    "id": "obd2-female",
+    "label": "OBD-II receptacle, J1962 pinout",
+    "family": "obd2",
+    "gender": "female",
+    "construction": "crimp",
+    "body": "obd2-16-female",
+    "interface": "obd2-j1962",
+    "src": "SAE J1962 / ISO 15031-3: generic type-A vehicle-side receptacle, 16 socket contacts in two rows of eight; no manufacturer part identity or dimensional CAD claimed",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "derived",
+      "sources": [
+        {
+          "title": "SAE J1962 / ISO 15031-3: generic type-A vehicle-side receptacle, 16 socket contacts in two rows of eight; no manufacturer part identity or dimensional CAD claimed"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-dt04-2p-numbered",
+    "label": "TE DEUTSCH DT04-2P, 2-way pin receptacle, cavities by number",
+    "aliases": [
+      "DT04-2P",
+      "DEUTSCH DT 2-pin male"
+    ],
+    "family": "deutsch-dt",
+    "gender": "male",
+    "construction": "crimp",
+    "contactRatingA": 13,
+    "body": "deutsch-dt04-2p",
+    "interface": "deutsch-dt-2-numbered",
+    "src": "TE Connectivity DEUTSCH DT04-2P product page and DT04-2P-XXXX customer drawing: 2 numbered cavities, size-16 pin contacts, gray PA GF housing, standard rear mat seal; contacts and secondary wedgelock ordered separately; no signal assignment",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH DT04-2P product page and DT04-2P-XXXX customer drawing: 2 numbered cavities, size-16 pin contacts, gray PA GF housing, standard rear mat seal; contacts and secondary wedgelock ordered separately; no signal assignment",
+          "url": "https://www.te.com/en/product-DT04-2P.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-dt06-2s-numbered",
+    "label": "TE DEUTSCH DT06-2S, 2-way socket plug, cavities by number",
+    "aliases": [
+      "DT06-2S",
+      "DEUTSCH DT 2-pin female"
+    ],
+    "family": "deutsch-dt",
+    "gender": "female",
+    "construction": "crimp",
+    "contactRatingA": 13,
+    "body": "deutsch-dt06-2s",
+    "interface": "deutsch-dt-2-numbered",
+    "src": "TE Connectivity DEUTSCH DT06-2S product page and DT06-2S-XXXX customer drawing: 2 numbered cavities, size-16 socket contacts, gray PA GF housing, standard rear mat seal; contacts and secondary wedgelock ordered separately; no signal assignment",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH DT06-2S product page and DT06-2S-XXXX customer drawing: 2 numbered cavities, size-16 socket contacts, gray PA GF housing, standard rear mat seal; contacts and secondary wedgelock ordered separately; no signal assignment",
+          "url": "https://www.te.com/en/product-DT06-2S.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-dt04-6p-numbered",
+    "label": "TE DEUTSCH DT04-6P, 6-way pin receptacle, cavities by number",
+    "aliases": [
+      "DT04-6P",
+      "DEUTSCH DT 6-pin male"
+    ],
+    "family": "deutsch-dt",
+    "gender": "male",
+    "construction": "crimp",
+    "contactRatingA": 13,
+    "body": "deutsch-dt04-6p",
+    "interface": "deutsch-dt-6-numbered",
+    "src": "TE Connectivity DEUTSCH DT04-6P product page and DT04-6P-XXXX customer drawing: 6 numbered cavities, size-16 pin contacts, gray PA GF housing, standard rear mat seal; contacts and secondary wedgelock ordered separately; no signal assignment",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH DT04-6P product page and DT04-6P-XXXX customer drawing: 6 numbered cavities, size-16 pin contacts, gray PA GF housing, standard rear mat seal; contacts and secondary wedgelock ordered separately; no signal assignment",
+          "url": "https://www.te.com/en/product-DT04-6P.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-dt06-6s-numbered",
+    "label": "TE DEUTSCH DT06-6S, 6-way socket plug, cavities by number",
+    "aliases": [
+      "DT06-6S",
+      "DEUTSCH DT 6-pin female"
+    ],
+    "family": "deutsch-dt",
+    "gender": "female",
+    "construction": "crimp",
+    "contactRatingA": 13,
+    "body": "deutsch-dt06-6s",
+    "interface": "deutsch-dt-6-numbered",
+    "src": "TE Connectivity DEUTSCH DT06-6S product page and DT06-6S-XXXX customer drawing: 6 numbered cavities, size-16 socket contacts, gray PA GF housing, standard rear mat seal; contacts and secondary wedgelock ordered separately; no signal assignment",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH DT06-6S product page and DT06-6S-XXXX customer drawing: 6 numbered cavities, size-16 socket contacts, gray PA GF housing, standard rear mat seal; contacts and secondary wedgelock ordered separately; no signal assignment",
+          "url": "https://www.te.com/en/product-DT06-6S.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
   }
 ]

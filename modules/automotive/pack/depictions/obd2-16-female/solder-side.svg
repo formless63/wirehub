@@ -1,55 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 18" width="40mm" height="18mm">
-  <title>obd2-16-male — mating face</title>
+  <title>obd2-16-female — rear termination side</title>
   <desc>Original WireHub illustration, CC0-1.0; geometry and colors approximate, not manufacturer CAD.</desc>
     <path d="M2 2 Q2 1.5 2.7 1.5 H37.3 Q38 1.5 38 2 L34.5 13.8 Q34.3 14.5 33.6 14.5 H6.4 Q5.7 14.5 5.5 13.8 Z" fill="#262a30" stroke="#8d929c" stroke-width="0.28"/>
     <path d="M3.7 3 H36.3 L33.4 13 H6.6 Z" fill="#15171c" stroke="#6c737d" stroke-width="0.2"/>
     <rect data-pin="1" x="32.95" y="4.6" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="33.62" y="4.95" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="33.3" y="4.95" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="34" y="4.25" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">1</text>
     <rect data-pin="2" x="28.95" y="4.6" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="29.62" y="4.95" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="29.3" y="4.95" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="30" y="4.25" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">2</text>
     <rect data-pin="3" x="24.95" y="4.6" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="25.62" y="4.95" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="25.3" y="4.95" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="26" y="4.25" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">3</text>
     <rect data-pin="4" x="20.95" y="4.6" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="21.62" y="4.95" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="21.3" y="4.95" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="22" y="4.25" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">4</text>
     <rect data-pin="5" x="16.95" y="4.6" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="17.62" y="4.95" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="17.3" y="4.95" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="18" y="4.25" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">5</text>
     <rect data-pin="6" x="12.95" y="4.6" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="13.62" y="4.95" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="13.3" y="4.95" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="14" y="4.25" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">6</text>
     <rect data-pin="7" x="8.95" y="4.6" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="9.62" y="4.95" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="9.3" y="4.95" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="10" y="4.25" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">7</text>
     <rect data-pin="8" x="4.95" y="4.6" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="5.62" y="4.95" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="5.3" y="4.95" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="6" y="4.25" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">8</text>
     <rect data-pin="9" x="32.95" y="9" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="33.62" y="9.35" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="33.3" y="9.35" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="34" y="12.75" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">9</text>
     <rect data-pin="10" x="28.95" y="9" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="29.62" y="9.35" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="29.3" y="9.35" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="30" y="12.75" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">10</text>
     <rect data-pin="11" x="24.95" y="9" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="25.62" y="9.35" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="25.3" y="9.35" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="26" y="12.75" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">11</text>
     <rect data-pin="12" x="20.95" y="9" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="21.62" y="9.35" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="21.3" y="9.35" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="22" y="12.75" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">12</text>
     <rect data-pin="13" x="16.95" y="9" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="17.62" y="9.35" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="17.3" y="9.35" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="18" y="12.75" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">13</text>
     <rect data-pin="14" x="12.95" y="9" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="13.62" y="9.35" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="13.3" y="9.35" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="14" y="12.75" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">14</text>
     <rect data-pin="15" x="8.95" y="9" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="9.62" y="9.35" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="9.3" y="9.35" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="10" y="12.75" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">15</text>
     <rect data-pin="16" x="4.95" y="9" width="2.1" height="2.4" rx="0.3" fill="#111318" stroke="#9a9da3" stroke-width="0.2"/>
-    <rect x="5.62" y="9.35" width="0.76" height="1.7" rx="0.12" fill="#cbd0d7"/>
+    <rect x="5.3" y="9.35" width="0.3" height="1.7" rx="0.12" fill="#cbd0d7"/>
     <text x="6" y="12.75" font-size="1.2" text-anchor="middle" fill="#e5e7eb" font-family="sans-serif">16</text>
 </svg>

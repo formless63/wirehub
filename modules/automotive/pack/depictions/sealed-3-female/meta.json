@@ -1,0 +1,50 @@
+{
+  "defId": "sealed-3-female",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 24,
+      "heightUnits": 17,
+      "src": "Original generic sealed 3-way mating/rear illustration; synthetic example, 24 × 17 mm frame, 6 mm cavity spacing and colors inferred. Male mating face mirrors female, rear pins mirror the mating anchors. Not a manufacturer product or dimensional drawing; CC0-1.0."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 24,
+      "heightUnits": 17,
+      "src": "Original generic sealed 3-way mating/rear illustration; synthetic example, 24 × 17 mm frame, 6 mm cavity spacing and colors inferred. Male mating face mirrors female, rear pins mirror the mating anchors. Not a manufacturer product or dimensional drawing; CC0-1.0.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 6,
+      "y": 8.5
+    },
+    "2": {
+      "x": 12,
+      "y": 8.5
+    },
+    "3": {
+      "x": 18,
+      "y": 8.5
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "Original generic sealed 3-way mating/rear illustration; synthetic example, 24 × 17 mm frame, 6 mm cavity spacing and colors inferred. Male mating face mirrors female, rear pins mirror the mating anchors. Not a manufacturer product or dimensional drawing; CC0-1.0.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "Original generic sealed 3-way mating/rear illustration; synthetic example, 24 × 17 mm frame, 6 mm cavity spacing and colors inferred. Male mating face mirrors female, rear pins mirror the mating anchors. Not a manufacturer product or dimensional drawing; CC0-1.0."
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@
   "format": 1,
   "id": "automotive",
   "name": "Automotive",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "publisher": {
     "id": "wirehub",
     "name": "WireHub bundled modules"
@@ -10,7 +10,7 @@
   "license": "CC0-1.0",
   "catalogSchema": 4,
   "requires": {
-    "wirehub": ">=0.1 <1"
+    "wirehub": ">=0.8.0 <1"
   },
-  "description": "Vehicle diagnostics and buses: CAN, K/L-line and J1850 signals, battery positive, and the OBD-II (SAE J1962) connector with its mandated pins; a generic sealed 3-way connector family with its crimp contacts, single-wire seals, cavity plug and crimp tool, and a sealed sensor lead. Device profiles for the resolver: a control unit sensor port and two 3-wire sensors with different pinouts, and a three-core sensor cable."
+  "description": "Vehicle diagnostics and sealed harness connectors: OBD-II type-A plug and receptacle with a 16-pin extension example; generic sealed 3-way connectors; TE DEUTSCH DT04/DT06 2- and 6-way housings, size-16 contacts, sealing plug and secondary locks. All connectors have generated 3D envelopes, with dimensions and approximations cited; OBD-II and generic sealed connectors include original mating and rear artwork. Existing CAN, K/L-line, J1850 vocabulary, sensor profiles and crimp examples remain."
 }

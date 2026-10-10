@@ -4,7 +4,8 @@
     "label": "OBD-II diagnostic connector (SAE J1962), mandated pins",
     "short": "OBD-II",
     "bodies": [
-      "obd2-16-male"
+      "obd2-16-male",
+      "obd2-16-female"
     ],
     "pins": {
       "1": {
@@ -112,6 +113,84 @@
       "sources": [
         {
           "title": "cavities by number, no signals assigned; synthetic example"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-dt-2-numbered",
+    "label": "DEUTSCH DT 2-way, cavities by number",
+    "short": "DT 2-way",
+    "bodies": [
+      "deutsch-dt04-2p",
+      "deutsch-dt06-2s"
+    ],
+    "pins": {
+      "1": {
+        "signal": "any",
+        "label": "1"
+      },
+      "2": {
+        "signal": "any",
+        "label": "2"
+      }
+    },
+    "src": "TE DEUTSCH DT 2-way housing cavity identifiers 1–2; no vehicle or sensor signals assigned, wire by the equipment documentation",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE DEUTSCH DT 2-way housing cavity identifiers 1–2; no vehicle or sensor signals assigned, wire by the equipment documentation",
+          "url": "https://www.te.com/en/product-DT04-2P.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-dt-6-numbered",
+    "label": "DEUTSCH DT 6-way, cavities by number",
+    "short": "DT 6-way",
+    "bodies": [
+      "deutsch-dt04-6p",
+      "deutsch-dt06-6s"
+    ],
+    "pins": {
+      "1": {
+        "signal": "any",
+        "label": "1"
+      },
+      "2": {
+        "signal": "any",
+        "label": "2"
+      },
+      "3": {
+        "signal": "any",
+        "label": "3"
+      },
+      "4": {
+        "signal": "any",
+        "label": "4"
+      },
+      "5": {
+        "signal": "any",
+        "label": "5"
+      },
+      "6": {
+        "signal": "any",
+        "label": "6"
+      }
+    },
+    "src": "TE DEUTSCH DT 6-way housing cavity identifiers 1–6; no vehicle or sensor signals assigned, wire by the equipment documentation",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE DEUTSCH DT 6-way housing cavity identifiers 1–6; no vehicle or sensor signals assigned, wire by the equipment documentation",
+          "url": "https://www.te.com/en/product-DT04-6P.html",
+          "retrieved": "2026-10-10"
         }
       ]
     }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 18" width="40mm" height="18mm">
-  <title>obd2-16-male — rear termination side</title>
+  <title>obd2-16-female — mating face</title>
   <desc>Original WireHub illustration, CC0-1.0; geometry and colors approximate, not manufacturer CAD.</desc>
     <path d="M2 2 Q2 1.5 2.7 1.5 H37.3 Q38 1.5 38 2 L34.5 13.8 Q34.3 14.5 33.6 14.5 H6.4 Q5.7 14.5 5.5 13.8 Z" fill="#262a30" stroke="#8d929c" stroke-width="0.28"/>
     <path d="M3.7 3 H36.3 L33.4 13 H6.6 Z" fill="#15171c" stroke="#6c737d" stroke-width="0.2"/>

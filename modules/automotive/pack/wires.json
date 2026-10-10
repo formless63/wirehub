@@ -108,5 +108,164 @@
         }
       ]
     }
+  },
+  {
+    "id": "auto-diagnostic-16core-0-35",
+    "label": "16-core diagnostic cable, 16 × 0.35 mm² (synthetic example)",
+    "odMm": 9.8,
+    "structure": {
+      "kind": "group",
+      "id": "auto-diagnostic-16core-0-35",
+      "label": "16-core diagnostic cable",
+      "role": "cable",
+      "children": [
+        {
+          "kind": "conductor",
+          "id": "c01",
+          "label": "Pin 1",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c02",
+          "label": "Pin 2",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c03",
+          "label": "Pin 3",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c04",
+          "label": "Pin 4",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c05",
+          "label": "Pin 5",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c06",
+          "label": "Pin 6",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c07",
+          "label": "Pin 7",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c08",
+          "label": "Pin 8",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c09",
+          "label": "Pin 9",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c10",
+          "label": "Pin 10",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c11",
+          "label": "Pin 11",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c12",
+          "label": "Pin 12",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c13",
+          "label": "Pin 13",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c14",
+          "label": "Pin 14",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c15",
+          "label": "Pin 15",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "conductor",
+          "id": "c16",
+          "label": "Pin 16",
+          "material": "copper",
+          "areaMm2": 0.35,
+          "insulatedOdMm": 1.4
+        },
+        {
+          "kind": "insulation",
+          "id": "jacket",
+          "label": "Jacket",
+          "material": "pvc",
+          "odMm": 9.8,
+          "color": "black"
+        }
+      ]
+    },
+    "src": "synthetic example: 16 independently insulated 0.35 mm² copper cores for a pin-preserving diagnostic extension; 1.4 mm core insulation and 9.8 mm PVC jacket envelope inferred, not a specified purchasable cable",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "synthetic",
+      "sources": [
+        {
+          "title": "synthetic example: 16 independently insulated 0.35 mm² copper cores for a pin-preserving diagnostic extension; 1.4 mm core insulation and 9.8 mm PVC jacket envelope inferred, not a specified purchasable cable"
+        }
+      ]
+    }
   }
 ]

@@ -21,6 +21,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { automotiveFaceArtFiles } from './automotive-face-art.ts';
+
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const r = (v: number): number => Math.round(v * 100) / 100;
 
@@ -233,17 +235,6 @@ function usbA(): Face {
   return { id: 'usb-a-plug', root: 'modules/pc-serial/pack/depictions', title: 'USB Type-A plug', w, h, items, extraAnchors: { shell: [8, 2] }, src: 'USB Standard-A plug mating face, 12.0 x 4.5 mm shell; contacts numbered 4 3 2 1 left to right with centres 3.5 and 1.0 mm either side of the centre line, as in USB 2.0 Specification Figure 6-9 (USB Series "A" Plug Interface Drawing, USB-IF); contact widths and the outline are approximate.' };
 }
 
-function obd2(): Face {
-  const w = 40;
-  const h = 18;
-  const items: Item[] = [{ t: 'poly', pts: [[2, 2], [38, 2], [34, 14], [6, 14]] }, { t: 'poly', pts: [[3.2, 3.2], [36.8, 3.2], [33.2, 12.8], [6.8, 12.8]] }];
-  // viewed as the vehicle socket is (wide row on top, 1-8 then 9-16 left to right); the plug is its mirror
-  for (let n = 0; n < 8; n += 1) items.push({ t: 'pin', id: String(8 - n), shape: 'rect', x: 20 + (n - 3.5) * 4, y: 5.8, w: 2, h: 2.4 });
-  for (let n = 0; n < 8; n += 1) items.push({ t: 'pin', id: String(16 - n), shape: 'rect', x: 20 + (n - 3.5) * 4, y: 10.2, w: 2, h: 2.4 });
-  items.push({ t: 'text', x: 8, y: 1.3, text: '8' }, { t: 'text', x: 32, y: 1.3, text: '1' }, { t: 'text', x: 9, y: 16.6, text: '16' }, { t: 'text', x: 31, y: 16.6, text: '9' });
-  return { id: 'obd2-16-male', root: 'modules/automotive/pack/depictions', title: 'OBD-II (J1962) plug', w, h, items, src: 'SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline).' };
-}
-
 function vga(): Face {
   const w = 32;
   const h = 13.5;
@@ -276,7 +267,7 @@ function multicoreCutaway(): Face & { cutaway: true } {
 }
 
 export function faces(): Face[] {
-  return [dsubDE9('de9-male', true), dsubDE9('de9-female', false), jstXh2(), terminalBlock4(), rj45(), xlr(true), xlr(false), rcaEnd(), trsEnd(), usbA(), obd2(), vga()];
+  return [dsubDE9('de9-male', true), dsubDE9('de9-female', false), jstXh2(), terminalBlock4(), rj45(), xlr(true), xlr(false), rcaEnd(), trsEnd(), usbA(), vga()];
 }
 
 /** Every generated file: repo-relative path → text. */
@@ -303,6 +294,7 @@ export function faceArtFiles(): Record<string, string> {
     null,
     2,
   )}\n`;
+  Object.assign(out, automotiveFaceArtFiles());
   return out;
 }
 

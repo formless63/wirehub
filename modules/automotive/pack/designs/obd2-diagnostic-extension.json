@@ -1,0 +1,397 @@
+{
+  "schemaVersion": 4,
+  "id": "obd2-diagnostic-extension",
+  "label": "OBD-II diagnostic extension, all 16 pins",
+  "instances": {
+    "connectors": [
+      {
+        "id": "j1",
+        "def": "obd2-male",
+        "role": "Vehicle socket connection"
+      },
+      {
+        "id": "j2",
+        "def": "obd2-female",
+        "role": "Diagnostic tool connection"
+      }
+    ],
+    "segments": [
+      {
+        "id": "w1",
+        "def": "auto-diagnostic-16core-0-35",
+        "lengthMm": 1000,
+        "role": "Diagnostic extension"
+      }
+    ],
+    "components": [],
+    "pcbas": []
+  },
+  "joints": [
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "1"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c01",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "1"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c01",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c02",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "2"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c02",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "3"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c03",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "3"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c03",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c04",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "4"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c04",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "5"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c05",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "5"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c05",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "6"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c06",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "6"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c06",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "7"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c07",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "7"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c07",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "8"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c08",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "8"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c08",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "9"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c09",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "9"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c09",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "10"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c10",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "10"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c10",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "11"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c11",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "11"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c11",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "12"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c12",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "12"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c12",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "13"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c13",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "13"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c13",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "14"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c14",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "14"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c14",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "15"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c15",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "15"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c15",
+        "end": "b"
+      }
+    },
+    {
+      "a": {
+        "instance": "j1",
+        "terminal": "16"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c16",
+        "end": "a"
+      }
+    },
+    {
+      "a": {
+        "instance": "j2",
+        "terminal": "16"
+      },
+      "b": {
+        "instance": "w1",
+        "terminal": "c16",
+        "end": "b"
+      }
+    }
+  ],
+  "notes": [
+    "Synthetic build example; manufacturer-discretionary pins remain pin-for-pin, with no assigned vehicle function.",
+    "Use this as a wiring example, not a high-current supply cable; confirm the chosen wire, terminals and vehicle diagnostic limits."
+  ],
+  "src": "synthetic example: 1 m type-A OBD-II diagnostic extension, all 16 pin numbers preserved including manufacturer-discretionary positions; verify wire/contact ratings and vehicle-specific usage before building",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "synthetic",
+    "sources": [
+      {
+        "title": "synthetic example: 1 m type-A OBD-II diagnostic extension, all 16 pin numbers preserved including manufacturer-discretionary positions; verify wire/contact ratings and vehicle-specific usage before building"
+      }
+    ]
+  }
+}
