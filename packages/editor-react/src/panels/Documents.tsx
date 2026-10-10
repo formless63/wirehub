@@ -827,22 +827,22 @@ export function DocumentsPane({
         )}
         <Button
           className="cs-print"
-          disabled={html === undefined}
+          disabled={html === undefined || updating}
           title={
             html === undefined
               ? 'nothing to print yet'
               : `Print the ${tabLabel.toLowerCase()} — choose “Save as PDF” for a file`
           }
-          onClick={() => setPrintFailed(!printDocumentFrame(frame.current))}
+          onClick={() => { if (!updating) setPrintFailed(!printDocumentFrame(frame.current)); }}
         >
           <IconPrinter size={14} aria-hidden /> Print
         </Button>
       </nav>
 
       {kind !== 'labels' ? null : <div className="cs-label-print-options" role="group" aria-label="Label print options">
-        <label>Label stock<Select aria-label="Label stock for this print" value={labelStock} onValueChange={setLabelStock}
+        <label>Label stock<Select aria-label="Label stock for this print" value={labelStock} onValueChange={(value) => { setUpdating(true); setLabelStock(value); }}
           options={[{ value: 'default', label: 'Hub default' }, ...labelPresetOptions()]} /></label>
-        <label>QR code<Select aria-label="QR code for this print" value={labelQr} onValueChange={setLabelQr}
+        <label>QR code<Select aria-label="QR code for this print" value={labelQr} onValueChange={(value) => { setUpdating(true); setLabelQr(value); }}
           options={[{ value: 'default', label: 'Hub default' }, { value: 'yes', label: 'Include QR codes' }, { value: 'no', label: 'Without QR codes' }]} /></label>
         <Button disabled={empty || pending} onClick={() => downloadExport('labels.svg')}>Download label SVG</Button>
         <Button disabled={empty || pending || labelPresetFor({ ...labelOptions, paper: previewPaper }).kind !== 'tape'} title="Choose a Brother TZe tape stock to download P-touch files" onClick={() => downloadExport('labels.lbx')}>Download P-touch files</Button>

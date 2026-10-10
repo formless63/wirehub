@@ -105,7 +105,7 @@ export function EditLockBanner(props: EditLockBannerProps): JSX.Element {
   return (
     <div role={state.lost === undefined ? 'status' : 'alert'} data-testid="edit-lock-banner" data-lock="other" className={`${BAR} border-warn`}>
       <IconLock size={14} className="shrink-0 text-warn" aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-ink" title={`Read only while ${lock.holder.name} edits`}>
+      <span className="min-w-0 flex-1 text-ink" title={`Read only while ${lock.holder.name} edits`}>
         {state.lost === undefined ? null : (
           <span className="text-warn">{`Taken over at ${clockTime(state.lost.at)} — your changes are kept here, unsaved · `}</span>
         )}

@@ -417,6 +417,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
       expect(container.querySelector('iframe')?.getAttribute('srcdoc')).toContain('width="210mm"');
       choose('Label stock for this print', 'Dymo LabelWriter 30336 (25 × 54 mm)');
       choose('QR code for this print', 'Include QR codes');
+      expect((screen.getByRole('button', { name: 'Print' }) as HTMLButtonElement).disabled).toBe(true);
       await act(async () => { await vi.advanceTimersByTimeAsync(20); });
       const frame = container.querySelector('iframe')!;
       const source = frame.getAttribute('srcdoc')!;
@@ -433,6 +434,7 @@ describe('<CableEditor> — Canvas | Documents', () => {
       expect(await blobs[0]!.text()).toContain('width="54mm" height="25mm"');
       expect(await blobs[0]!.text()).toContain('data-qr=');
       choose('QR code for this print', 'Without QR codes');
+      expect((screen.getByRole('button', { name: 'Print' }) as HTMLButtonElement).disabled).toBe(true);
       fireEvent.click(screen.getByRole('button', { name: 'Download label SVG' }));
       expect(await blobs[1]!.text()).not.toContain('data-qr=');
       expect(registeredTitleBlock()).toMatchObject(defaults);
