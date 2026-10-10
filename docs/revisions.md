@@ -128,3 +128,10 @@ invented opposite-side image. Source kind, citation and material presence do not
 the part match, dimensions, manufacturer accuracy or physical finish. Source bytes and
 materials remain unchanged. Where the host has not queried artwork, including source
 model previews without revision artwork, coverage says **artwork not inspected**.
+
+Connector previews use the same artwork precedence as assembly drawings: the
+connector's own manifest, then its shared body's manifest, then the body's drawing
+alias. The first existing manifest supplies all views; missing views are not merged
+from another manifest. Previews fetch pictures from that owner. Editing or uploading
+artwork on a connector continues to target that connector, leaving shared body
+artwork unchanged.

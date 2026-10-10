@@ -536,11 +536,14 @@ function orphanPinouts(db: Db): { id: string; label: string; body: string }[] {
   return out;
 }
 
-/** The builder's own drawing of a connector, for the Views 2D toggle. */
-function connectorBuiltIn2d(db: Db, connector: ConnectorDefinition): { builtIn2d?: JSX.Element } {
+/** Preview the same shared body artwork as the builder, or its built-in face diagram. */
+function connectorPreviewProps(db: Db, connector: ConnectorDefinition): { builtIn2d?: JSX.Element; artworkFallbackIds: string[] } {
   const { body } = connectorArtProps(db, connector);
   const art = builtInConnectorArt(connector, body);
-  return art === undefined ? {} : { builtIn2d: <BuiltInConnectorArt def={connector} art={art} {...(body === undefined ? {} : { body })} /> };
+  return {
+    artworkFallbackIds: [connector.body, body?.drawing].filter((id): id is string => id !== undefined),
+    ...(art === undefined ? {} : { builtIn2d: <BuiltInConnectorArt def={connector} art={art} {...(body === undefined ? {} : { body })} /> }),
+  };
 }
 
 /** The Artwork tab's view of a connector: its body, and every pinout that shares the drawing. */
@@ -1494,7 +1497,7 @@ export function Library(props: LibraryProps): JSX.Element {
                 label={baseline?.label ?? mode.id}
                 models={props.models}
                 {...(props.artworkAdapter === undefined || !hasArtworkTab(kind) ? {} : { artwork: props.artworkAdapter })}
-                {...(kind === 'connectors' && baseline !== undefined ? connectorBuiltIn2d(db, baseline as ConnectorDefinition) : {})}
+                {...(kind === 'connectors' && baseline !== undefined ? connectorPreviewProps(db, baseline as ConnectorDefinition) : {})}
                 readOnly={definitions === undefined}
               />
             ) : null}

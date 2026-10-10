@@ -36,6 +36,8 @@ export interface ModelPanelProps {
   models: ModelsAdapter;
   /** the record's depictions — its 2D art and any photo */
   artwork?: ArtworkAdapter;
+  /** Read-only lookup order after this record, e.g. its shared body and body drawing. Writes still target `id`. */
+  artworkFallbackIds?: readonly string[];
   /** 2D art the builder draws itself (a connector's face), when the record has no uploaded 2D view */
   builtIn2d?: ReactNode;
   /** read-only host (no definitions adapter) */
@@ -101,12 +103,15 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
   const [artRetry, setArtRetry] = useState(0);
   const [viewsLoaded, setViewsLoaded] = useState(artwork === undefined);
   const [views, setViews] = useState<ArtworkView[]>([]);
+  const [artworkOwner, setArtworkOwner] = useState<string | undefined>();
   const [art, setArt] = useState<{ view: string; src: string } | undefined>(undefined);
   const [drawnView, setDrawnView] = useState<string | undefined>();
   const [view, setView] = useState<ViewId | undefined>(undefined);
   const [attaching, setAttaching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | undefined>(undefined);
+  // A value key keeps a host's newly allocated fallback array from restarting requests.
+  const artworkIdsKey = JSON.stringify([...new Set([id, ...(props.artworkFallbackIds ?? [])])]);
 
   // the record's link and its art, afresh per record
   useEffect(() => {
@@ -118,6 +123,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     setViewsError(undefined);
     setArtError(undefined);
     setViews([]);
+    setArtworkOwner(undefined);
     setViewsLoaded(artwork === undefined);
     setArt(undefined);
     setView(undefined);
@@ -130,17 +136,34 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
       else setLinkError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
     }, () => { if (live) setLinkError('The model information could not be loaded.'); });
     if (artwork !== undefined) {
-      void artwork.detail(id).then((outcome) => {
-        if (!live) return;
-        setViewsLoaded(true);
-        if (outcome.ok) setViews(outcome.value.views);
-        else setViewsError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
-      }, () => { if (live) setViewsError('The picture information could not be loaded.'); });
+      void (async () => {
+        try {
+          // Like the renderer, inherit a whole manifest. An existing override,
+          // even empty, wins; an unreadable override must not silently fall back.
+          for (const candidate of JSON.parse(artworkIdsKey) as string[]) {
+            const outcome = await artwork.detail(candidate);
+            if (!live) return;
+            if (!outcome.ok) {
+              setViewsError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
+              return;
+            }
+            if (outcome.value.exists) {
+              setArtworkOwner(candidate);
+              setViews(outcome.value.views);
+              setViewsLoaded(true);
+              return;
+            }
+          }
+          if (live) setViewsLoaded(true);
+        } catch {
+          if (live) setViewsError('The picture information could not be loaded.');
+        }
+      })();
     }
     return () => {
       live = false;
     };
-  }, [kind, id, models, artwork, reload]);
+  }, [kind, id, models, artwork, artworkIdsKey, reload]);
 
   // the model's bytes, once there is a link and the 3D view is wanted
   useEffect(() => {
@@ -181,11 +204,11 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
   // the 2D/photo bytes, when that view is shown
   const wantArt = shown === 'photo' ? photo : shown === '2d' ? twoD : undefined;
   useEffect(() => {
-    if (artwork === undefined || wantArt === undefined || !open) return;
+    if (artwork === undefined || artworkOwner === undefined || wantArt === undefined || !open) return;
     if (art?.view === wantArt.view) return;
     let live = true;
     setArtError(undefined);
-    void artwork.artwork(id, wantArt.view).then((outcome) => {
+    void artwork.artwork(artworkOwner, wantArt.view).then((outcome) => {
       if (!live) return;
       if (!outcome.ok) {
         setArtError({ view: wantArt.view, text: `${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}` });
@@ -198,7 +221,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     return () => {
       live = false;
     };
-  }, [artwork, id, wantArt, open, art, artRetry]);
+  }, [artwork, artworkOwner, wantArt, open, art, artRetry]);
 
   const startAttach = useCallback((): void => {
     setAttaching(true);
