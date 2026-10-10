@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   LENGTH_PRESETS,
+  IMPERIAL_LENGTH_PRESETS,
   describeLength,
   drainNote,
   initialWizardState,
@@ -103,8 +104,10 @@ describe('length', () => {
     expect(parseLengthMm('six feet')).toBeUndefined();
   });
 
-  it('offers the lengths the catalog actually builds', () => {
-    expect(LENGTH_PRESETS.map((preset) => preset.mm)).toContain(1830);
+  it('defaults to metric lengths and retains explicit imperial presets', () => {
+    expect(initialWizardState(db, []).lengthText).toBe('1000');
+    expect(LENGTH_PRESETS.map((preset) => preset.mm)).toEqual([500, 1000, 2000]);
+    expect(IMPERIAL_LENGTH_PRESETS.map((preset) => preset.mm)).toContain(1830);
   });
 
   it('has no ceiling to enforce, because no stock in the catalog states one', () => {

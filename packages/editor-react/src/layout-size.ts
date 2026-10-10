@@ -151,7 +151,7 @@ export const NODE_BASE_WIDTH = {
   subassembly: 230,
 } as const;
 
-/** …and never wider than `base × this`: past it, titles ellipsise instead. */
+/** Pin-description widths stop at `base × this`; complete headers may grow further. */
 export const WIDTH_HEADROOM = 1.8;
 
 export interface NodeSize {
@@ -437,7 +437,7 @@ function boardNodeSize(data: PcbaNodeData & { board: NonNullable<PcbaNodeData['b
 export function connectorArtLayout(instanceId: string, title: string, art: ConnectorArt): ConnectorArtLayout {
   const base = NODE_BASE_WIDTH.connector;
   const wanted = Math.max(base, artHeadWidth(instanceId, title, ''), art.width + CONNECTOR_LAYOUT.padX * 2);
-  const node = Math.ceil(Math.min(wanted, base * WIDTH_HEADROOM) / 2) * 2;
+  const node = Math.ceil(wanted / 2) * 2;
   const width = node - BOX.border * 2;
   return {
     art,
@@ -470,9 +470,8 @@ function connectorArtNodeSize(data: ConnectorNodeData & { art: ConnectorArtLayou
  * The box this node draws as, in flow units — width exact (the shell is given
  * it), height estimated a hair generously.
  *
- * Widths are clamped into `[base, base × WIDTH_HEADROOM]`: a part whose pin
- * labels are prose does not get to be a 900px node, it gets ellipses, which is
- * what the CSS already promises.
+ * Pin-label widths are bounded by `base × WIDTH_HEADROOM`; headers may grow
+ * to keep the complete part title visible.
  */
 export function estimateNodeSize(data: EditorNodeData): NodeSize {
   if (data.kind === 'pcba' && data.board !== undefined) {
@@ -485,9 +484,10 @@ export function estimateNodeSize(data: EditorNodeData): NodeSize {
   const base = NODE_BASE_WIDTH[data.kind];
   // a connector's header also holds its face thumbnail and the face toggle
   const thumb = data.kind === 'connector' && data.art !== undefined ? CONNECTOR_THUMB.width + CONNECTOR_THUMB.toggle + BOX.headGapX * 2 : 0;
-  const wanted = Math.max(base, headWidth(heading, data.instanceId) + thumb, body.width);
+  // Long pin descriptions stay bounded, but the part title must remain readable.
+  const wanted = Math.max(base, headWidth(heading, data.instanceId) + thumb, Math.min(body.width, base * WIDTH_HEADROOM));
   return {
-    width: Math.ceil(Math.min(wanted, base * WIDTH_HEADROOM) / 2) * 2,
+    width: Math.ceil(wanted / 2) * 2,
     height: Math.ceil(BOX.border * 2 + headHeight(heading) + body.height + BOX.slack),
   };
 }

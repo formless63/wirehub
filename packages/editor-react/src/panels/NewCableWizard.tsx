@@ -22,7 +22,7 @@
  *   the real catalog fixtures.
  */
 
-import type { Db } from '@wirehub/model';
+import { cavityPins, type Db } from '@wirehub/model';
 import { wireDisplayName } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 import { useMemo, useReducer, useState, type JSX } from 'react';
@@ -35,6 +35,7 @@ import { describeIssue } from '../store.ts';
 import {
   CONNECT_MODES,
   LENGTH_PRESETS,
+  IMPERIAL_LENGTH_PRESETS,
   STEP_SAY,
   STEP_TITLES,
   WIZARD_STEPS,
@@ -177,16 +178,19 @@ function EndStep(props: {
 }): JSX.Element {
   const { db } = props.state;
   const chosen = props.state[props.side];
-  const [choice, setChoice] = useState<'connector' | 'pcba'>(chosen?.kind ?? 'pcba');
+  const [choice, setChoice] = useState<'connector' | 'pcba'>(chosen?.kind ?? 'connector');
   const kind: 'connector' | 'pcba' = choice;
 
   const rows: PickerRow[] =
     kind === 'connector'
-      ? db.connectors.map((record) => ({
-          id: record.id,
-          label: record.label,
-          detail: definitionDetail('connectors', record),
-        }))
+      ? db.connectors.map((record) => {
+          const pins = cavityPins(record, db).length;
+          return {
+            id: record.id,
+            label: record.label,
+            detail: [record.family, record.gender, `${pins} pin${pins === 1 ? '' : 's'}${record.pins.length > pins ? ' + shell/key contacts' : ''}`].filter(Boolean).join(' · '),
+          };
+        })
       : db.pcbas.map((record) => ({
           id: record.id,
           label: record.label,
@@ -219,8 +223,8 @@ function EndStep(props: {
         <legend>What is at this end?</legend>
         {(
           [
+            ['connector', 'A connector', 'The design is soldered or crimped directly to a connector.'],
             ['pcba', 'A board', 'The design is soldered to a board (PCBA) from the library.'],
-            ['connector', 'A plug on its own', 'The design is soldered straight into the plug’s hood.'],
           ] as const
         ).map(([value, title, say]) => (
           <label key={value} className="cs-wizard-radio" title={say}>
@@ -291,8 +295,11 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
     () => (props.designs ?? []).map((summary) => summary.id),
     [props.designs],
   );
+  const [lengthUnits, setLengthUnits] = useState<'metric' | 'imperial'>(() => {
+    try { return localStorage.getItem('wirehub:wizard-length-units') === 'imperial' ? 'imperial' : 'metric'; } catch { return 'metric'; }
+  });
   const [state, dispatch] = useReducer(wizardReducer, undefined, () =>
-    initialWizardState(props.db, taken),
+    ({ ...initialWizardState(props.db, taken), lengthText: lengthUnits === 'imperial' ? '1830' : '1000' }),
   );
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<LifecycleProblem | undefined>(undefined);
@@ -413,8 +420,12 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
                     : ` Max ${String(maxLengthOf(wire))} mm.`}
                 </small>
               </label>
+              <SegmentedControl aria-label="Length presets" value={lengthUnits} options={[{ value: 'metric', label: 'Metric' }, { value: 'imperial', label: 'Feet and inches' }]} onValueChange={(value) => {
+                setLengthUnits(value as 'metric' | 'imperial');
+                try { localStorage.setItem('wirehub:wizard-length-units', value); } catch { /* storage may be unavailable */ }
+              }} />
               <div className="cs-wizard-presets">
-                {LENGTH_PRESETS.map((preset) => (
+                {(lengthUnits === 'metric' ? LENGTH_PRESETS : IMPERIAL_LENGTH_PRESETS).map((preset) => (
                   <button
                     key={preset.mm}
                     type="button"
@@ -589,7 +600,7 @@ export function NewCableWizard(props: NewCableWizardProps): JSX.Element {
             title={blockers.length > 0 ? blockers.join(' ') : 'Write this design to the catalog'}
             onClick={() => void create()}
           >
-            {busy ? 'Creating…' : 'Create this cable'}
+            {busy ? 'Creating…' : 'Create assembly'}
           </button>
         ) : (
           <button

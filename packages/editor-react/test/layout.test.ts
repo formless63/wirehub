@@ -14,7 +14,6 @@ import { describe, expect, it } from 'vitest';
 import { NODE_DRAG_HANDLE, NODE_METRICS, autoLayout, deriveNodes, vacantPosition } from '../src/derive.ts';
 import {
   NODE_BASE_WIDTH,
-  WIDTH_HEADROOM,
   estimateNodeSize,
   nodeHeading,
   overlappingPairs,
@@ -45,7 +44,7 @@ describe('text metrics', () => {
 });
 
 describe('node sizes', () => {
-  it('are between the base width and the headroom the CSS allows', () => {
+  it('reserve the base width and enough space for complete part titles', () => {
     for (const design of designs) {
       for (const node of deriveNodes(design, db)) {
         // a docked connector (mounted on a board, or housed in a breakout
@@ -55,19 +54,6 @@ describe('node sizes', () => {
         const base = NODE_BASE_WIDTH[node.data.kind];
         const size = estimateNodeSize(node.data);
         expect(size.width).toBeGreaterThanOrEqual(base);
-        // real board/wire/connector artwork is sized *exact* to the art
-        // (layout-size.ts: "Both numbers are exact" for boardNodeSize and
-        // wireNodeSize) — estimateNodeSize deliberately returns before the
-        // headroom clamp for these, so the clamp is only a promise about the
-        // generic pin-list/pad-list fallback row a part with no artwork
-        // draws. a pack's long-label wire heads' long labels
-        // are the first real-art wire heads wide enough
-        // to show the difference.
-        const hasArt =
-          (node.data.kind === 'segment' && node.data.wire !== undefined) ||
-          (node.data.kind === 'pcba' && node.data.board !== undefined) ||
-          (node.data.kind === 'connector' && node.data.art !== undefined);
-        if (!hasArt) expect(size.width).toBeLessThanOrEqual(base * WIDTH_HEADROOM);
         expect(size.height).toBeGreaterThan(0);
       }
     }
@@ -201,3 +187,15 @@ describe.each(designs.map((design) => [design.id, design] as const))(
     });
   },
 );
+
+describe('readable part titles', () => {
+  it('grows connector nodes for a long part title while leaving the pin rows unchanged', () => {
+    const connector = deriveNodes(designs.find(d => d.instances.connectors.length > 0)!, db).find(n => n.data.kind === 'connector')!;
+    const normal = estimateNodeSize(connector.data);
+    const titled = { ...connector.data, title: 'A complete connector description with its mounting style and manufacturer part number' };
+    const longer = estimateNodeSize(titled);
+    expect(longer.width).toBeGreaterThan(normal.width);
+    expect(longer.width).toBeGreaterThan(textWidth(titled.title, 11.5));
+    expect(longer.height).toBe(normal.height);
+  });
+});

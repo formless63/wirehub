@@ -2410,6 +2410,13 @@ path.cs-art-t-dark {
 
 .cs-editor .react-flow__attribution {
   font-size: var(--fs-canvas-10);
+  background: var(--panel);
+  color: var(--dim);
+  border-radius: 3px;
+}
+
+.cs-editor .react-flow__attribution a {
+  color: inherit;
 }
 
 /* ---------- design lifecycle (Save / New / Duplicate / Rename / Delete) ---------- */

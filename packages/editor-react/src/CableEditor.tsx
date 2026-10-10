@@ -733,7 +733,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
   const nodesInitialized = useNodesInitialized();
   useEffect(() => {
     setFitted(false);
-    const frame = requestAnimationFrame(() => void flow.fitView({ padding: 0.15 }));
+    const frame = requestAnimationFrame(() => void flow.fitView({ padding: 0.15, maxZoom: 2 }));
     const reveal = setTimeout(() => setFitted(true), 700);
     return () => {
       cancelAnimationFrame(frame);
@@ -744,7 +744,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
     if (fitted || !nodesInitialized) return;
     let second = 0;
     const first = requestAnimationFrame(() => {
-      void flow.fitView({ padding: 0.15 });
+      void flow.fitView({ padding: 0.15, maxZoom: 2 });
       second = requestAnimationFrame(() => setFitted(true));
     });
     return () => {
@@ -1227,7 +1227,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
       undo: () => dispatch({ type: 'undo' }),
       redo: () => dispatch({ type: 'redo' }),
       autoArrange: () => dispatch({ type: 'auto-arrange' }),
-      fitView: () => void latest.current.flow.fitView({ padding: 0.15 }),
+      fitView: () => void latest.current.flow.fitView({ padding: 0.15, maxZoom: 2 }),
       setTool,
       showIssues: () => latest.current.showIssues(),
       openLifecycle: (action) => latest.current.lifecycle.openLifecycle(action),
@@ -1578,7 +1578,7 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                     className="cs-tool-btn"
                     title="Fit view — Shift 1"
                     aria-label="Fit view"
-                    onClick={() => void flow.fitView({ padding: 0.15 })}
+                    onClick={() => void flow.fitView({ padding: 0.15, maxZoom: 2 })}
                   >
                     <IconMaximize size={15} />
                   </button>
@@ -1707,9 +1707,10 @@ const CableEditorInner = forwardRef(function CableEditorInner(
                   maxZoom={4}
                   proOptions={{ hideAttribution: false }}
                   fitView
+                  fitViewOptions={{ padding: 0.15, maxZoom: 2 }}
                 >
                   <Background gap={24} />
-                  <Controls />
+                  <Controls fitViewOptions={{ padding: 0.15, maxZoom: 2 }} />
                   {/* the minimap is drawn, not defaulted: React Flow's own
                       colours are a white card, which on this canvas read as a
                       blank rectangle someone forgot to style. Nodes
