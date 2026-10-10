@@ -23,7 +23,7 @@ import { sessionStudioUser, type StudioUser } from '../me.ts';
 import { clientAddress } from '../env.ts';
 import { crossSiteRefusal } from '../request-guard.ts';
 import type { Notifier } from '../notify.ts';
-import { renderEmbeddedAccountPage, renderInvitePage, renderPeoplePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
+import { renderEmbeddedAccountPage, renderNotFoundPage, renderInvitePage, renderPeoplePage, renderSignInPage, renderTokensPage } from './sign-in-page.ts';
 import { ROLES, type PeopleStore, type Person, type Role } from './people.ts';
 import { parseToken, READ_LIMITS, scopeFor, TOKEN_DAYS, TOKEN_SCOPES, WRITE_LIMITS, type TokenEnv, type TokenStore } from './tokens.ts';
 import { AUTH_BASE_PATH, EMAIL_NOT_ALLOWED, SIGN_IN_PATH, type StudioAuth } from './studio-auth.ts';
@@ -75,6 +75,11 @@ function signInRedirect(c: Context, extra?: Record<string, string>): Response {
   const url = new URL(c.req.url);
   const params = new URLSearchParams({ next: safeNext(`${url.pathname}${url.search}`), ...(extra ?? {}) });
   return new Response(null, { status: 302, headers: { location: `${SIGN_IN_PATH}?${params}`, 'cache-control': 'no-store' } });
+}
+
+/** Public app route shapes only; no catalog ids or account data are exposed. */
+export function isStudioPage(path: string): boolean {
+  return /^\/(?:$|setup\/?$|cables(?:\/[^/]+)?\/?$|library(?:\/store|\/[^/]+(?:\/[^/]+)?)?\/?$|extensions\/?$|modules\/?$|m\/[^/]+(?:\/.*)?$|jobs\/?$|settings(?:\/people)?\/?$|part-numbers\/?$|history\/?$|resolver\/?$|products(?:\/[^/]+)?\/?$|account\/tokens\/?$|dev\/ui\/?$)/.test(path);
 }
 
 export const INVITE_PATH = '/invite';
@@ -337,7 +342,10 @@ export function mountAuth(app: Hono, auth: StudioAuth, options: { spaAccountPage
           signIn: SIGN_IN_PATH,
         });
       }
-      if (c.req.method === 'GET' || c.req.method === 'HEAD') return signInRedirect(c);
+      if (c.req.method === 'GET' || c.req.method === 'HEAD') {
+        if (options.spaAccountPages && !isStudioPage(path)) return html(renderNotFoundPage(), false, 404);
+        return signInRedirect(c);
+      }
       return c.text('Sign in first.', 401);
     }
 

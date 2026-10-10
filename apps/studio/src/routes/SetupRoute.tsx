@@ -108,6 +108,15 @@ export function SetupRoute(): JSX.Element {
   const LEGEND = 'mb-2 text-xs font-semibold uppercase tracking-wide text-dim';
   const FIELD = 'rounded border border-line-field bg-panel px-2 py-1 text-sm text-ink';
   const create = view?.create;
+  const missing: string[] = [];
+  if (view?.codeRequired === true && code.trim() === '') missing.push('Enter the setup code from the server logs.');
+  if (create !== undefined) {
+    if (create.claim !== true && orgName.trim() === '') missing.push('Enter an organisation name.');
+    if (create.claim !== true && slug.trim() === '') missing.push('Enter an organisation short name.');
+    if (create.admin !== 'none' && adminName.trim() === '') missing.push('Enter the owner’s name.');
+    if (create.admin !== 'none' && adminEmail.trim() === '') missing.push('Enter the owner’s email.');
+    if (create.admin === 'password' && password.length < create.minPassword) missing.push(`Choose a password with at least ${create.minPassword} characters.`);
+  }
   const SETUP_COMMAND = 'docker compose logs wirehub | grep -A2 "setup code"';
   const copyCommand = (): void => {
     void navigator.clipboard?.writeText(SETUP_COMMAND).then(() => {
@@ -328,18 +337,15 @@ export function SetupRoute(): JSX.Element {
             <div className="flex items-center gap-3">
               <Button
                 type="button"
-                disabled={
-                  busy ||
-                  (view.codeRequired === true && code.trim() === '') ||
-                  (create !== undefined &&
-                    ((create.claim !== true && (orgName.trim() === '' || slug.trim() === '')) || (create.admin !== 'none' && (adminName.trim() === '' || adminEmail.trim() === '')) || (create.admin === 'password' && password.length < create.minPassword)))
-                }
+                disabled={busy || missing.length > 0}
+                aria-describedby={missing.length > 0 ? "setup-missing" : undefined}
                 onClick={() => void submit()} variant="primary"
               >
                 {busy ? 'Setting up…' : view.completed ? 'Add the selected modules' : 'Finish setup'}
               </Button>
               <span className="text-xs text-dim">Selected: {picked.size === 0 ? 'none — the generic base only' : [...picked].join(', ')}</span>
             </div>
+            {missing.length === 0 ? null : <p id="setup-missing" className="m-0 text-sm text-dim" role="status">{missing.join(' ')}</p>}
           </>
         )}
       </div>

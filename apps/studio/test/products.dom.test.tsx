@@ -73,6 +73,17 @@ describe('products', () => {
     expect(await screen.findByRole('textbox',{name:'Product record'})).toBeTruthy();
   });
 
+  it('offers an immediate creation action when the product catalog is empty', async () => {
+    await serve();
+    const current = await handleWorkbenchRequest({ method: 'GET', path: '/api/products' }, deps);
+    const emptied = await handleWorkbenchRequest({ method: 'PUT', path: '/api/products', body: { products: [] }, headers: { 'if-match': current.headers?.ETag ?? '' } }, deps);
+    expect(emptied.status).toBe(200);
+    mount('/products');
+    const create = await screen.findByRole('button', { name: 'Create your first product' });
+    fireEvent.click(create);
+    expect(await screen.findByRole('textbox', { name: 'Product record' })).toBeTruthy();
+  });
+
   it('lists the families and shows the lineup', async () => {
     await serve();
     mount('/products');

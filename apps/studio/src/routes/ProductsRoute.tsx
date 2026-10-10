@@ -210,7 +210,7 @@ export function ProductsRoute(): JSX.Element {
                   onActivate={(p) => void navigate({ to: '/products/$id', params: { id: p.id } })}
                   columnsKey="products"
                   rowAttrs={(p) => ({ 'data-product': p.id })}
-                  empty={<EmptyState topic="products">No products yet.</EmptyState>}
+                  empty={<EmptyState topic="products" action={readOnly ? undefined : <Button variant="primary" disabled={editing !== undefined} onClick={() => setEditing(pretty(EXAMPLE))}>Create your first product</Button>}>Group your assembly designs into a product family and its variants.</EmptyState>}
                 />
               </>
             )}
