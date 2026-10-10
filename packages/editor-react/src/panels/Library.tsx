@@ -440,8 +440,6 @@ function InKits(props: {
   kind: LibraryKind;
   id: string;
   definitions?: DefinitionsAdapter;
-  /** Read catalog ownership on a view-only host without exposing write operations. */
-  readDefinitions?: Pick<DefinitionsAdapter, 'list'>;
   readOnly: boolean;
   onChanged: (change: DefinitionChange) => void;
   onOpenKit?: (id: string) => void;
