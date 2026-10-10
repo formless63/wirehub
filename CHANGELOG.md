@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/formless63/wirehub/compare/v0.7.0...v0.8.0) (2026-10-10)
+
+
+### Features
+
+* **catalog:** expand connector packs and add reviewed CAD discovery ([#25](https://github.com/formless63/wirehub/issues/25)) ([0a31744](https://github.com/formless63/wirehub/commit/0a3174490da0ff9f9107e4c07e74e9a6c06f41df))
+* **workflows:** improve editor, catalog reviews and label printing ([#27](https://github.com/formless63/wirehub/issues/27)) ([d47cf3f](https://github.com/formless63/wirehub/commit/d47cf3f8ba1a46ed54d177fde46587ea3deafe1d))
+
 ## [0.7.0](https://github.com/formless63/wirehub/compare/v0.6.0...v0.7.0) (2026-10-09)
 
 
