@@ -47,6 +47,9 @@ it('opens source model revisions with no saved definition snapshots and does not
   expect(await screen.findByText('Synthetic board · source Rev2')).toBeTruthy();
   expect(screen.getByText(/do not establish historical definitions/)).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Compare with now' })).toBeNull();
+  expect(screen.getByText('Top: artwork not inspected')).toBeTruthy();
+  expect(screen.getByText('Bottom: artwork not inspected')).toBeTruthy();
+  expect(screen.queryByText('Bottom: artwork missing')).toBeNull();
   expect(models.fetchModel).toHaveBeenCalledWith('a'.repeat(64)); expect(onCompare).not.toHaveBeenCalled();
   expect(models.attach).not.toHaveBeenCalled(); expect(models.upload).not.toHaveBeenCalled();
 });

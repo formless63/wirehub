@@ -5,7 +5,7 @@ import type { ModelLinkView } from './models.ts';
 
 export interface AssetCoverage { model: string; explanation: string; materials: string; front: string; back: string }
 
-export function assetCoverage(kind: string, link: ModelLinkView | null | undefined, views: readonly ArtworkView[], file?: { bytes: ArrayBuffer; mime: string }, builtIn2d = false): AssetCoverage {
+export function assetCoverage(kind: string, link: ModelLinkView | null | undefined, views: readonly ArtworkView[], file?: { bytes: ArrayBuffer; mime: string }, builtIn2d = false, artworkInspected = false): AssetCoverage {
   const document = file === undefined ? undefined : glbDocument(file.bytes, file.mime);
   const asset = document?.asset as { extras?: { source?: unknown } } | undefined;
   const generated = link?.parametric !== undefined || link?.sourceKind === 'parametric' || asset?.extras?.source === 'parametric';
@@ -16,6 +16,7 @@ export function assetCoverage(kind: string, link: ModelLinkView | null | undefin
   const frontName = kind === 'pcbas' ? 'Top' : 'Front';
   const backName = kind === 'pcbas' ? 'Bottom' : 'Back';
   const face = (names: string[], label: string, fallback = false): string => {
+    if (!artworkInspected) return fallback ? `${label}: generated pin diagram` : `${label}: artwork not inspected`;
     const view = views.find((v) => names.includes(v.view));
     return view === undefined ? fallback ? `${label}: generated pin diagram` : `${label}: artwork missing` : `${label}: artwork available${view.derived ? ' · reflected anchors' : ''}`;
   };

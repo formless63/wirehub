@@ -227,7 +227,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
   };
 
   const hasBuiltIn2d = props.builtIn2d !== undefined;
-  const coverage = useMemo(() => assetCoverage(kind, link, views, model, hasBuiltIn2d), [kind, link, views, model, hasBuiltIn2d]);
+  const coverage = useMemo(() => assetCoverage(kind, link, views, model, hasBuiltIn2d, artwork !== undefined && viewsLoaded), [kind, link, views, model, hasBuiltIn2d, artwork, viewsLoaded]);
   const disabled = locked || props.readOnly === true || busy;
   const toggleOpen = (): void => {
     const next = !open;

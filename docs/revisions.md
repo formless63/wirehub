@@ -126,4 +126,5 @@ missing model or awaiting build; front/back (or board top/bottom) artwork; and t
 material data declared in the file. Reflected anchors describe pin placement, not an
 invented opposite-side image. Source kind, citation and material presence do not verify
 the part match, dimensions, manufacturer accuracy or physical finish. Source bytes and
-materials remain unchanged.
+materials remain unchanged. Where the host has not queried artwork, including source
+model previews without revision artwork, coverage says **artwork not inspected**.

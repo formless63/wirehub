@@ -18,13 +18,18 @@ function glb(document: object): ArrayBuffer {
 
 describe('evidence-based asset coverage', () => {
   it('never treats a vendor label or citation as verified exact CAD', () => {
-    const value = assetCoverage('pcbas', link, [], { bytes: glb({ asset: { version: '2.0' }, materials: [{}] }), mime: 'model/gltf-binary' });
+    const value = assetCoverage('pcbas', link, [], { bytes: glb({ asset: { version: '2.0' }, materials: [{}] }), mime: 'model/gltf-binary' }, false, true);
     expect(value.model).toBe('Source model'); expect(value.explanation).toContain('not been verified');
     expect(value.materials).toContain('finish not verified'); expect(value.back).toBe('Bottom: artwork missing');
   });
   it('recognizes generated GLB bytes even if a link calls them an upload', () => {
     const value = assetCoverage('connectors', { ...link, sourceKind: 'uploaded' }, [], { bytes: glb({ asset: { extras: { source: 'parametric' } }, materials: [{}] }), mime: 'model/gltf-binary' }, true);
     expect(value.model).toBe('Generated approximation'); expect(value.materials).toBe('Illustrative materials'); expect(value.front).toContain('generated pin diagram');
+  });
+  it('does not turn an unqueried artwork adapter into evidence of missing artwork', () => {
+    const value = assetCoverage('pcbas', link, [], undefined, false, false);
+    expect(value.front).toBe('Top: artwork not inspected'); expect(value.back).toBe('Bottom: artwork not inspected');
+    expect(assetCoverage('connectors', link, [], undefined, true, false).front).toBe('Front: generated pin diagram');
   });
   it('distinguishes absent, unavailable, unbuilt and geometry-only assets', () => {
     expect(assetCoverage('pcbas', null, []).model).toBe('3D missing');
