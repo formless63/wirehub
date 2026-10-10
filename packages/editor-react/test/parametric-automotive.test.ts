@@ -8,10 +8,9 @@ import { buildParametricGlb } from '../src/parametric-model.ts';
 const { links } = JSON.parse(readFileSync(new URL('../../../modules/automotive/pack/models.json', import.meta.url), 'utf8')) as { links: { record: string; parametric: ParametricSpec }[] };
 
 describe('the Automotive connector envelopes', () => {
-  it('draws every shipped model deterministically with finite geometry and complete rear views', async () => {
-    for (const link of links) {
+  it.each(links)('draws $record deterministically with finite geometry and complete rear views', async (link) => {
       const bytes = buildParametricGlb(link.parametric);
-      expect(buildParametricGlb(link.parametric), link.record).toEqual(bytes);
+      expect(Buffer.from(buildParametricGlb(link.parametric)).equals(Buffer.from(bytes)), link.record).toBe(true);
       expect(bytes.byteLength).toBeLessThan(600_000);
       const model = await parseModel(bytes.buffer as ArrayBuffer, 'model/gltf-binary');
       expect(countTriangles(model), link.record).toBeGreaterThan(1_000);
@@ -26,9 +25,8 @@ describe('the Automotive connector envelopes', () => {
       model.traverse((object) => {
         if (!(object instanceof THREE.Mesh)) return;
         const positions = object.geometry.getAttribute('position');
-        for (const value of positions.array) expect(Number.isFinite(value), link.record).toBe(true);
+        expect(Array.from(positions.array).every(Number.isFinite), link.record).toBe(true);
       });
-    }
   });
 
   it('uses polymer, metal, rear seal and distinct plug/receptacle secondary-lock appearances', () => {

@@ -6,7 +6,7 @@
       "asset": "parametric-1d7c8d9bde488ca5",
       "name": "RJ45 plug — generic detailed approximation",
       "sourceKind": "parametric",
-      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, chamfers, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
+      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
       "parametric": {
         "shape": "rj45",
         "gender": "male",
@@ -25,7 +25,7 @@
         "method": "derived",
         "sources": [
           {
-            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, chamfers, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
+            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
           },
           {
             "title": "Molex ATS-690081124 revision E",
@@ -40,7 +40,7 @@
       "asset": "parametric-1d7c8d9bde488ca5",
       "name": "RJ45 plug — generic detailed approximation",
       "sourceKind": "parametric",
-      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, chamfers, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
+      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
       "parametric": {
         "shape": "rj45",
         "gender": "male",
@@ -59,7 +59,7 @@
         "method": "derived",
         "sources": [
           {
-            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, chamfers, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
+            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
           },
           {
             "title": "Molex ATS-690081124 revision E",
@@ -74,7 +74,7 @@
       "asset": "parametric-1d7c8d9bde488ca5",
       "name": "RJ45 plug — generic detailed approximation",
       "sourceKind": "parametric",
-      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, chamfers, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
+      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
       "parametric": {
         "shape": "rj45",
         "gender": "male",
@@ -93,7 +93,7 @@
         "method": "derived",
         "sources": [
           {
-            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, chamfers, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
+            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
           },
           {
             "title": "Molex ATS-690081124 revision E",

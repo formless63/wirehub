@@ -87,6 +87,18 @@ describe('RJ45 geometry and materials', () => {
     expect(gold.color.r).toBeGreaterThan(gold.color.b);
   });
 
+  it('keeps the plug body hollow almost to the beveled nose', () => {
+    const mesh = parametricMesh(plug.parametric);
+    const clear = mesh.parts.get('clear')!;
+    const length = plug.parametric.params['lengthMm']!;
+    // Interior wall vertices near the nose establish a shell rather than a solid front half.
+    let hollowWall = false;
+    for (let i = 0; i < clear.pos.length; i += 3) {
+      if (clear.pos[i + 2]! > length - 1 && clear.pos[i + 2]! < length && Math.abs(clear.pos[i]!) < plug.parametric.params['widthMm']! / 2 - 0.5) hollowWall = true;
+    }
+    expect(hollowWall).toBe(true);
+  });
+
   it('has a sloped latch and curved tapered boot rather than axis-aligned cuboids', () => {
     const mesh = parametricMesh(plug.parametric);
     const gold = mesh.parts.get('gold')!.pos;

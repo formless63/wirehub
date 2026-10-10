@@ -280,8 +280,16 @@ function rj45(mesh: Mesh, spec: ParametricSpec, p: Params): void {
   // Clear polycarbonate shell with a recessed rear wire entry, rather than an opaque brick.
   const outer = chamferedRect(w, h, 0.45);
   const entry = chamferedRect(w - 1.4, h - 1.8, 0.65);
-  mesh.ring('clear', outer, entry, 0, l * 0.5);
-  mesh.prism('clear', outer, l * 0.5, l);
+  // Thin hollow molding ends in a beveled nose, rather than half a solid block.
+  // Wall and nose details are illustrative; no vendor geometry is implied.
+  const bevel = 0.35;
+  mesh.ring('clear', outer, entry, 0, l - bevel);
+  const nose = chamferedRect(w - 2 * bevel, h - 2 * bevel, 0.25);
+  for (let i = 0; i < outer.length; i++) {
+    const j = (i + 1) % outer.length;
+    mesh.quad('clear', [outer[i]![0], outer[i]![1], l - bevel], [outer[j]![0], outer[j]![1], l - bevel], [nose[j]![0], nose[j]![1], l], [nose[i]![0], nose[i]![1], l], [0, 0, l / 2]);
+    mesh.tri('clear', [0, 0, l], [nose[i]![0], nose[i]![1], l], [nose[j]![0], nose[j]![1], l], [0, 0, l - 1]);
+  }
   // Eight separate conductor guides and insulation-piercing blades; no invented wire colours.
   for (let i = 0; i < spec.pins; i++) {
     const x = (i - (spec.pins - 1) / 2) * pitch;
