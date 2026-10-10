@@ -187,3 +187,11 @@ Keep a module's `partNumberScheme` for what a definition cannot say: a number th
 lookup elsewhere, a check digit, a register another system owns. The `PartNumberScheme` interface
 (`packages/model/src/part-numbers.ts`) is unchanged and `declarativePartNumberScheme` builds one
 from a definition if a module wants to start from it.
+
+### Shared connector bodies
+
+A connector can use its body's physical stock number or an independent number for the
+body + pinout combination. The Library marks a number reused by several pinouts as
+**Body PN**, and shows the pinout even in the compact list. Equal numbers on the same
+physical body are valid reuse; equal independent connector numbers are reported as
+duplicates. These labels do not renumber existing records or saved designs.

@@ -20,7 +20,7 @@ import { memoryPersistence } from './memory-persistence.ts';
 
 const db: Db = loadDbFromDisk();
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 function setup(): { adapter: ReturnType<typeof memoryPersistence>; created: unknown[] } {
   const adapter = memoryPersistence(db, []);
@@ -88,6 +88,7 @@ describe('the part lists', () => {
     setup();
     name();
     next();
+    fireEvent.click(screen.getByLabelText('A board'));
     fireEvent.change(screen.getByLabelText(/Which board/), { target: { value: 'zzzz' } });
     expect(screen.getByText(/Clear the search/)).toBeTruthy();
   });
@@ -100,12 +101,12 @@ describe('the review verdict', () => {
     setup();
     name();
     next();
-    fireEvent.click(screen.getByLabelText(/A plug on its own/));
+    fireEvent.click(screen.getByLabelText(/A connector/));
     pick('de9-female');
     next();
     pick(wire);
     next();
-    fireEvent.click(screen.getByLabelText(/A plug on its own/));
+    fireEvent.click(screen.getByLabelText(/A connector/));
     pick('de9-female');
     next();
     // the choices step, when there is one, is skipped as it is answered with nothing
@@ -128,12 +129,12 @@ describe('connecting the new design', () => {
     setup();
     name();
     next();
-    fireEvent.click(screen.getByLabelText(/A plug on its own/));
+    fireEvent.click(screen.getByLabelText(/A connector/));
     pick('de9-female');
     next();
     pick('shielded-2pair-24awg');
     next();
-    fireEvent.click(screen.getByLabelText(/A plug on its own/));
+    fireEvent.click(screen.getByLabelText(/A connector/));
     pick('de9-male');
     next();
     while (screen.queryByRole('heading', { name: /Checks/ }) === null) next();
@@ -152,5 +153,26 @@ describe('connecting the new design', () => {
     const before = bySignal();
     expect(colour()).toBeLessThanOrEqual(before);
     expect(open()).toBe(0);
+  });
+});
+
+describe('generic assembly defaults', () => {
+  it('starts with connectors and excludes shell contacts from the pin count', () => {
+    setup(); name(); next();
+    expect((screen.getByLabelText('A connector') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getAllByText(/9 pins \+ shell/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/10 pins/)).toBeNull();
+  });
+  it('keeps millimetres explicit and remembers the chosen preset units', () => {
+    setup(); name(); next(); pick('de9-female'); next();
+    expect((screen.getByLabelText(/^Cut length \(mm\)/) as HTMLInputElement).value).toBe('1000');
+    expect(screen.getByRole('button', { name: '1 m (1000 mm)' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Feet and inches' }));
+    expect(screen.getByRole('button', { name: '6 ft (1830 mm)' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '6 ft (1830 mm)' }));
+    expect((screen.getByLabelText(/^Cut length \(mm\)/) as HTMLInputElement).value).toBe('1830');
+    expect(localStorage.getItem('wirehub:wizard-length-units')).toBe('imperial');
+    cleanup(); setup(); name(); next(); pick('de9-female'); next();
+    expect((screen.getByLabelText(/^Cut length \(mm\)/) as HTMLInputElement).value).toBe('1830');
   });
 });

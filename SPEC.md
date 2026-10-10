@@ -142,6 +142,11 @@ interface ConnectorDefinition {
 }
 ```
 
+A connector may reuse its physical body’s part number, or carry its own stock number for
+the body + pinout combination. Different pinouts sharing a body number identify the same
+physical part; independently numbered connectors remain separate stock identities.
+Existing numbers are never rewritten just to distinguish pinouts in the Library.
+
 Pin ids are strings (`"1"`…`"15"`, `"shell"`, `"tip"`, `"sleeve"`). Signals are vocab ids
 (`vocab/signals.json`, extended by domain packs), which is what lets tags, trace and the continuity spec reason about
 "which pin is ground".

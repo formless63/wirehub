@@ -27,6 +27,7 @@ import { errors, validateDesign, type CableDesign, type Db, type Issue, type Kno
 import type { Outcome } from './persistence.ts';
 import {
   deriveTestSpec,
+  deriveLabels, labelSheetSvg, labelSheetPages, labelPresetFor, type LabelSheetOptions,
   resolveTestParameters,
   sheetRenderOptions,
   baseExport,
@@ -57,10 +58,10 @@ import type { DepictionSource } from '@wirehub/render-svg';
  * The three documents
  * ------------------------------------------------------------------ */
 
-export type DocumentKind = 'build-sheet' | 'bom' | 'test-spec' | 'drawing' | 'formboard';
+export type DocumentKind = 'build-sheet' | 'bom' | 'test-spec' | 'drawing' | 'formboard' | 'labels';
 
 /** Sub-view order, most-used first — the bench opens the build sheet. */
-export const DOCUMENT_KINDS: readonly DocumentKind[] = ['build-sheet', 'bom', 'test-spec', 'drawing', 'formboard'];
+export const DOCUMENT_KINDS: readonly DocumentKind[] = ['build-sheet', 'bom', 'test-spec', 'drawing', 'formboard', 'labels'];
 
 export const DOCUMENT_LABELS: Readonly<Record<DocumentKind, string>> = {
   'build-sheet': 'Build sheet',
@@ -68,6 +69,7 @@ export const DOCUMENT_LABELS: Readonly<Record<DocumentKind, string>> = {
   'test-spec': 'Continuity spec',
   drawing: 'Drawing sheet',
   formboard: 'Formboard',
+  labels: 'Wire labels',
 };
 
 /** One plain sentence per document, for someone who has not met them before. */
@@ -79,9 +81,12 @@ export const DOCUMENT_BLURBS: Readonly<Record<DocumentKind, string>> = {
     'The engineering drawing (landscape, on the sheet’s paper): title block, revision table, BOM, connector faces coloured by conductor, the wire table and remarks. Part number, revision and the other title-block facts are edited above the sheet.',
   formboard:
     'The design laid flat at true length for the board: runs, branch angles, pegs at the ends and breakouts, connectors, labels. An overview sheet, then pages tiled at the chosen scale with registration marks.',
+  labels: 'Wire markers for each end of each run, on the stock chosen for this print.',
 };
 
 export interface DocumentOptions {
+  /** Local print options; absent fields follow the hub defaults. */
+  labels?: LabelSheetOptions;
   /**
    * `false` (default) abstract blocks · `true` the catalog tree (Node only) ·
    * a source: that source. Only the build sheet has a drawing on it.
@@ -129,7 +134,7 @@ function benchInput(options: DocumentOptions): Record<string, unknown> {
 
 export { sheetRenderOptions };
 
-export type DocumentResult = { html: string } | { error: string };
+export type DocumentResult = { html: string; pageSize?: { width: number; height: number } } | { error: string };
 
 /**
  * Render one document as a **complete standalone HTML document** — doctype,
@@ -179,6 +184,24 @@ export function renderDocument(
             },
           ),
         };
+      case 'labels': {
+        const input = { ...options.labels, ...shared, design: design.id,
+          frame: sheetFrameFor(design, db, { ...shared, ...benchInput(options) } as BuildSheetOptions, 'LABELS', 'portrait', 'strip') };
+        const labels = deriveLabels(design, db);
+        const count = labelSheetPages(labels.length, input);
+        const pages = Array.from({ length: count }, (_, i) => labelSheetSvg(labels, { ...input, page: i + 1 }));
+        const preset = labelPresetFor(input);
+        // Tape lengths can differ. Named pages preserve each label's own dimensions when printed.
+        const sizes = pages.map((svg) => {
+          const size = /width="([\d.]+)mm" height="([\d.]+)mm"/.exec(svg);
+          return { width: Number(size?.[1] ?? preset.layout.pageWidth), height: Number(size?.[2] ?? preset.layout.pageHeight) };
+        });
+        const wrapped = pages.map((svg, index) => {
+          const { width, height } = sizes[index]!;
+          return `<style>@page label${index}{size:${width}mm ${height}mm;margin:0}.label-page-${index}{page:label${index};width:${width}mm;height:${height}mm}</style><section class="label-page label-page-${index}">${svg}</section>`;
+        }).join('');
+        return { pageSize: { width: Math.max(...sizes.map((size) => size.width)), height: Math.max(...sizes.map((size) => size.height)) }, html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Wire labels</title><style>html,body{margin:0;padding:0}.label-page{break-after:page;overflow:hidden}.label-page:last-child{break-after:auto}.label-page svg{display:block}</style></head><body>${wrapped}</body></html>` };
+      }
       case 'drawing':
         return {
           html: renderDrawingSheet(design, db, {

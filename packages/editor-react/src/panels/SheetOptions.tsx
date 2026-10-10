@@ -9,6 +9,7 @@
 import type { CableDesign } from '@wirehub/model';
 import { PAPERS, PAPER_IDS, isPaperId, type DrawingMeta, type PaperId, type SheetSettings } from '@wirehub/docs';
 import type { JSX } from 'react';
+import { Select, Checkbox, Button, Combobox } from '../ui/index.ts';
 
 export interface SheetOptionsProps {
   design: CableDesign;
@@ -47,19 +48,9 @@ export function SheetOptions(props: SheetOptionsProps): JSX.Element {
 
   return (
     <div className="cs-sheet-options" role="group" aria-label="Sheet options">
-      <select
-        className="cs-input cs-sheet-paper"
-        aria-label="Paper"
-        title="Paper size"
-        value={sheet.paper ?? props.defaultPaper}
-        onChange={(e) => set('paper', isPaperId(e.target.value) && e.target.value !== props.defaultPaper ? e.target.value : undefined)}
-      >
-        {PAPER_IDS.map((id) => (
-          <option key={id} value={id}>
-            {PAPERS[id].label}
-          </option>
-        ))}
-      </select>
+      <Select className="cs-sheet-paper" aria-label="Paper" value={sheet.paper ?? props.defaultPaper}
+        onValueChange={(value) => set('paper', isPaperId(value) && value !== props.defaultPaper ? value : undefined)}
+        options={PAPER_IDS.map((id) => ({ value: id, label: PAPERS[id].label }))} />
       <input
         aria-label="Document number"
         title="Document number — blank uses the part number"
@@ -86,33 +77,18 @@ export function SheetOptions(props: SheetOptionsProps): JSX.Element {
           readOnly
         />
       )}
-      <input
-        aria-label="Status"
-        title="Document status, printed beside the number"
-        className="cs-input cs-sheet-status"
-        list="cs-sheet-statuses"
-        value={sheet.status ?? ''}
-        placeholder="Status"
-        onChange={(e) => set('status', e.target.value)}
-      />
-      <datalist id="cs-sheet-statuses">
-        {STATUSES.map((s) => (
-          <option key={s} value={s} />
-        ))}
-      </datalist>
-      <label className="cs-sheet-stamp" title="Print the date the sheet is rendered in the title block">
-        <input type="checkbox" checked={sheet.stampDate === true} onChange={(e) => set('stampDate', e.target.checked)} />
-        Date
-      </label>
+      <Combobox aria-label="Status" className="cs-sheet-status" value={sheet.status ?? null} placeholder="Status"
+        onValueChange={(value) => set('status', value === 'none' ? undefined : value)} onCreate={(value) => set('status', value)}
+        options={[{ value: 'none', label: 'No status' }, ...[...new Set([...STATUSES, ...(sheet.status ? [sheet.status] : [])])].map((value) => ({ value, label: value }))]} />
+      <Checkbox checked={sheet.stampDate === true} onCheckedChange={(checked) => set('stampDate', checked)} label="Date" />
       {props.onSave === undefined ? null : (
-        <button
-          type="button"
+        <Button
           disabled={!props.dirty || props.saving}
           title="Save these options beside the design — every print of it uses them"
           onClick={props.onSave}
         >
           {props.saving ? 'saving…' : 'Save'}
-        </button>
+        </Button>
       )}
       {props.dirty ? <span className="cs-chip is-draft">unsaved</span> : null}
       {props.status === undefined ? null : <small className="cs-drawing-status">{props.status}</small>}

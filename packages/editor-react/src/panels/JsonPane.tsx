@@ -6,10 +6,11 @@
  */
 
 import type { CableDesign } from '@wirehub/model';
-import { useEffect, useState, type ChangeEvent, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 
 import { useEditorApi } from '../context.ts';
 import { exportDesignJson } from '../store.ts';
+import { Button, FileDrop } from '../ui/index.ts';
 
 export function JsonPane({ design }: { design: CableDesign }): JSX.Element {
   const { dispatch } = useEditorApi();
@@ -28,30 +29,26 @@ export function JsonPane({ design }: { design: CableDesign }): JSX.Element {
     URL.revokeObjectURL(url);
   };
 
-  const upload = (event: ChangeEvent<HTMLInputElement>): void => {
-    const file = event.target.files?.[0];
+  const upload = (files: File[]): void => {
+    const file = files[0];
     if (file === undefined) return;
     void file.text().then((json) => {
       setDraft(json);
       dispatch({ type: 'import-json', json });
     });
-    event.target.value = '';
   };
 
   return (
     <div className="cs-panel cs-json">
       <h2>design JSON</h2>
       <div className="cs-json-actions">
-        <button type="button" onClick={download}>
+        <Button onClick={download}>
           download
-        </button>
-        <button type="button" onClick={() => dispatch({ type: 'import-json', json: draft })}>
+        </Button>
+        <Button onClick={() => dispatch({ type: 'import-json', json: draft })}>
           import from textarea
-        </button>
-        <label className="cs-upload">
-          upload…
-          <input type="file" accept="application/json,.json" onChange={upload} />
-        </label>
+        </Button>
+        <FileDrop accept="application/json,.json" onFiles={upload}>Import JSON file</FileDrop>
       </div>
       <textarea
         className="cs-textarea"

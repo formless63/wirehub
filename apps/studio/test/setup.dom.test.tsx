@@ -96,6 +96,7 @@ describe('first-run setup', () => {
     expect((screen.getByRole('checkbox', { name: /Networking/ }) as HTMLInputElement).checked).toBe(false);
     const finish = screen.getByRole('button', { name: 'Finish setup' }) as HTMLButtonElement;
     expect(finish.disabled).toBe(true);
+    expect(document.getElementById('setup-missing')?.textContent).toContain('Enter the setup code from the server logs');
     const input = screen.getByPlaceholderText('XXXX-XXXX-XXXX');
     fireEvent.change(input, { target: { value: 'wrong-code-0000' } });
     fireEvent.click(finish);
@@ -162,6 +163,8 @@ describe('first-run setup', () => {
     const name = await screen.findByPlaceholderText('Example Shop');
     const finish = screen.getByRole('button', { name: 'Finish setup' }) as HTMLButtonElement;
     expect(finish.disabled).toBe(true);
+    expect(document.getElementById('setup-missing')?.textContent).toContain('Enter an organisation name');
+    expect(finish.getAttribute('aria-describedby')).toBe('setup-missing');
     fireEvent.change(name, { target: { value: 'Example Shop' } });
     expect((screen.getByPlaceholderText('example-shop') as HTMLInputElement).value).toBe('example-shop');
     fireEvent.click(screen.getByRole('radio', { name: /Empty catalog/ }));

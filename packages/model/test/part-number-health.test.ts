@@ -68,6 +68,17 @@ describe('duplicates', () => {
     expect(partNumberReport(copy, [{ ...d, productRef: 'CBL-88888' }], { [d.id]: { partNumber: 'cbl-88888' } }).duplicates).toEqual([]);
   });
 
+  it('distinguishes independently numbered pinouts on one body without flagging physical reuse', () => {
+    const copy = clone();
+    const first = copy.connectors.find((c) => c.body !== undefined)!;
+    const originalPn = copy.bodies!.find((b) => b.id === first.body)!.partNumber!;
+    copy.connectors = [first, { ...first, id: 'another-pinout', partNumber: originalPn }];
+    expect(partNumberReport(copy).duplicates).toEqual([]);
+    copy.connectors = copy.connectors.map((c) => ({ ...c, partNumber: 'CON-77777' }));
+    expect(partNumberReport(copy).duplicates.map((d) => d.holders.map((h) => h.where))).toContainEqual([`connectors/${first.id}`, 'connectors/another-pinout']);
+    expect(validateDb(copy).some((i) => i.code === 'connector-part-number-mismatch')).toBe(false);
+  });
+
   it('flags two designs sharing a number, and a design sharing a part number', () => {
     const [a, b] = designs;
     const report = partNumberReport(db, [{ ...a!, productRef: 'CBL-00001' }, { ...b!, productRef: 'CBL-00001' }], {});

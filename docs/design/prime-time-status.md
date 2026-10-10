@@ -37,3 +37,11 @@ scenarios (the same design open in two sessions). The screenshots are kept outsi
 | 2.10 Brand and site | Partly | Home and docs share the app tokens and Plex; Lighthouse accessibility 100 on home. Open: generator and store (cs-5ea.28), sign-in page unbranded (cs-5ea.26) |
 | 2.11 Performance perception | Fixed | No change needed |
 | Data | New finding | Duplicate part numbers across starter and pack connectors (cs-5ea.22) |
+
+## Follow-up for 0.8.0
+
+The October 9 tables above retain the original review baseline. The follow-up adds readable canvas titles and usable fit zoom, connector-first wizard defaults, clearer empty/setup/sign-in actions, shared document controls and tabs, and the same fonts and tokens on the standalone generator and store.
+
+Connector stock numbers are now distinguished from shared body numbers; this resolves the identity ambiguity without inventing new stock numbers. Asset coverage reports generated approximations, model materials, artwork views and source build status. Source revision previews remain distinct from saved definition history.
+
+Pack installation and updates show category counts, example designs and conflicts before applying the plan. Editing takeovers are surfaced immediately, and stale refresh responses cannot restore an obsolete lock holder. Wire labels have per-print stock and QR controls; printing waits for the latest preview. Direct printer integration remains a separate follow-up.

@@ -186,6 +186,9 @@ export interface ResolvedPartNumber {
   note: string;
   warning?: string;
   notProduct?: true;
+  /** A physical body reused by several pinouts, shown visibly even in the compact list. */
+  sharedBody?: string;
+  pinout?: string;
 }
 
 /** The record's own number (a kit's SKU), else its connector body's, else none. */
@@ -355,6 +358,14 @@ export function libraryRows(
     const pn = resolvePartPartNumber(record as { id: string; partNumber?: string; sku?: string }, {
       ...(body?.partNumber === undefined ? {} : { bodyPartNumber: body.partNumber, bodyId: body.id }),
     });
+    if (body !== undefined && pn.pn !== undefined && body.partNumber?.trim().toLowerCase() === pn.pn.toLowerCase()) {
+      const sameNumber = ctx.db.connectors.filter((c) => c.body === body.id && (c.partNumber ?? body.partNumber)?.trim().toLowerCase() === pn.pn?.toLowerCase());
+      if (sameNumber.length > 1) {
+        pn.sharedBody = body.id;
+        pn.pinout = ctx.db.interfaces?.find((i) => i.id === connector?.interface)?.label ?? connector?.interface ?? 'Unassigned pinout';
+        pn.note = `Physical body ${body.label} (${body.id}); shared by ${sameNumber.length} pinouts. This connector uses ${pn.pinout}.`;
+      }
+    }
     const flags: LibraryFlag[] = [];
     if (ctx.models?.has(`${kind}/${record.id}`) === true || (body !== undefined && ctx.models?.has(`bodies/${body.id}`) === true)) flags.push('3D');
     if (ctx.art?.has(record.id) === true) flags.push('Art');

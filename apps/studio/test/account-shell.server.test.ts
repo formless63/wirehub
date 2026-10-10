@@ -32,6 +32,22 @@ describe('account pages inside app navigation', () => {
       expect(await embedded.text()).not.toContain('spa-shell');
     }
   });
+  it('brands the signed-out page with bundled fonts and gives invalid addresses a public 404', async () => {
+    const f = fixture();
+    const login = await (await f.request('/sign-in', false)).text();
+    expect(login).toContain('class="brand" aria-label="WireHub"');
+    expect(login).toContain("font-family:'IBM Plex Sans'");
+    expect(login).toContain('data:font/woff2;base64,');
+    const unknown = await f.request('/does-not-exist', false);
+    expect(unknown.status).toBe(404);
+    expect(unknown.headers.get('location')).toBeNull();
+    expect(await unknown.text()).toContain('Page not found');
+    const design = await f.request('/cables/example', false);
+    expect(design.status).toBe(302);
+    expect(design.headers.get('location')).toContain('/sign-in?');
+    const api = await f.request('/api/unknown', false);
+    expect(api.status).toBe(401);
+  });
   it('keeps signed-out login standalone and refuses account frames for missing or disallowed sessions', async () => {
     const f = fixture();
     expect(await (await f.request('/sign-in', false)).text()).toContain('id="password"');

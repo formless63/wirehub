@@ -23,7 +23,7 @@ h1 { margin: 0; font-size: 22px; }
   display: block; width: 100%; margin-top: 3px; padding: 6px 8px; font-size: 13px;
   color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
 }
-.options input:focus, .options select:focus, button:focus-visible, pre:focus-visible { outline: 2px solid var(--copper); outline-offset: 1px; }
+.options input:focus, .options select:focus, button:focus-visible, pre:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .hint { font-weight: 400; color: var(--faint); font-size: 12px; }
 p.hint { margin: 0 0 4px; }
@@ -33,14 +33,14 @@ p.hint { margin: 0 0 4px; }
 .module .hint { display: block; margin-left: 24px; }
 button {
   font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-  background: var(--brand); color: var(--brand-ink); border: 0; border-radius: 4px; padding: 5px 12px; margin-left: 6px;
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 4px; padding: 5px 12px; margin-left: 6px;
 }
 button.secondary { margin: 8px 0 0; background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .layout > * { min-width: 0; }
 .output { position: sticky; top: 12px; }
 .file { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; }
 .file-head { display: flex; justify-content: space-between; align-items: center; }
-.file-head h2 { margin: 0; font-size: 15px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.file-head h2 { margin: 0; font-size: 15px; font-family: var(--font-mono); }
 #compose-out { max-height: 52vh; }
 #env-out { max-height: 30vh; }
 .notes { list-style: none; margin: 0 0 12px; padding: 0; }

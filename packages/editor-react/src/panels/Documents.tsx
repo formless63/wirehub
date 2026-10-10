@@ -21,7 +21,7 @@
  */
 
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
-import { BASE_EXPORTS, PAPER_IDS, PAPERS, effectivePaper, paperSize, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type PaperId, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, labelPresetOptions, labelPresetFor, isDarkTape, tapeContent, type LabelSheetOptions, PAPER_IDS, PAPERS, effectivePaper, paperSize, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type PaperId, type TestParameters } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 import { IconDownload, IconMarkdown, IconPrinter, IconTools } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
@@ -62,7 +62,7 @@ import {
   type DocumentTarget,
 } from '../release.ts';
 import type { PartNumberData } from '../part-numbers.ts';
-import { SegmentedControl } from '../ui/index.ts';
+import { Button, Menu, Select, SegmentedControl } from '../ui/index.ts';
 import { DrawingForm, drawingDate } from './DrawingForm.tsx';
 import { SheetOptions } from './SheetOptions.tsx';
 import { TestParametersRow } from './TestParametersRow.tsx';
@@ -430,9 +430,16 @@ export function DocumentsPane({
   // rather than a bottom dock chrome="host" no longer draws ().
   const [kind, setKind] = useState<DocumentKind | 'json'>('build-sheet');
   const [boardScale, setBoardScale] = useState(1);
+  const [labelStock, setLabelStock] = useState('default');
+  const [labelQr, setLabelQr] = useState('default');
+  useEffect(() => { setLabelStock('default'); setLabelQr('default'); }, [design.id]);
+  const labelOptions = useMemo<LabelSheetOptions>(() => ({
+    ...(labelStock === 'default' ? {} : { preset: labelStock }),
+    ...(labelQr === 'default' ? {} : { qr: labelQr === 'yes' }),
+  }), [labelStock, labelQr]);
   // the drawing, the build sheet and the BOM read the sidecar (part number,
   // lengths, designer); the continuity spec does not, so its edits never re-render it
-  const readsSidecar = kind === 'drawing' || kind === 'build-sheet' || kind === 'bom' || kind === 'formboard';
+  const readsSidecar = kind === 'drawing' || kind === 'build-sheet' || kind === 'bom' || kind === 'formboard' || kind === 'labels';
   const drawingInput = useMemo(
     () =>
       !readsSidecar
@@ -489,18 +496,21 @@ export function DocumentsPane({
   // prints on, in CSS pixels) and as tall as the document, scaled as a whole by the zoom. The
   // drawing and the formboard are landscape, the other sheets portrait.
   const previewPaper: PaperId = effectivePaper(sheetInput.paper ?? sidecar.draft.meta.sheet?.paper ?? paper);
+  const [rendered, setRendered] = useState<{ kind: DocumentKind; result: DocumentResult }>();
   const landscape = kind === 'drawing' || kind === 'formboard';
   const paperPx = useMemo(() => {
-    const size = paperSize(previewPaper, landscape ? 'landscape' : 'portrait');
+    const size = kind === 'labels' ? (rendered?.kind === 'labels' && 'html' in rendered.result ? rendered.result.pageSize : undefined) ?? (() => {
+      const layout = labelPresetFor({ ...labelOptions, paper: previewPaper }).layout;
+      return { width: layout.pageWidth, height: layout.pageHeight };
+    })() : paperSize(previewPaper, landscape ? 'landscape' : 'portrait');
     return { width: Math.round((size.width * 96) / 25.4), height: Math.round((size.height * 96) / 25.4) };
-  }, [previewPaper, landscape]);
+  }, [previewPaper, landscape, kind, labelOptions, rendered]);
   // the state every sheet carries in its title block and corner stamp: the working copy is UNRELEASED,
   // a saved revision RELEASED unless the sheet says otherwise
   const stateText = unreleased ? 'UNRELEASED' : revisionFixed !== undefined ? (sidecar.draft.meta.sheet?.status ?? 'RELEASED') : sidecar.draft.meta.sheet?.status;
   const revisions = useMemo(() => revisionTable(release, target), [release, target]);
   // tagged with the document it *is*, so switching sub-views never shows the
   // previous document under the new one's heading while the new one builds
-  const [rendered, setRendered] = useState<{ kind: DocumentKind; result: DocumentResult }>();
   const [updating, setUpdating] = useState(true);
   const [printFailed, setPrintFailed] = useState(false);
   const [copyNote, setCopyNote] = useState<string>();
@@ -518,6 +528,7 @@ export function DocumentsPane({
   const [zoomMode, setZoomMode] = useState<'fit' | '100'>('fit');
   const [available, setAvailable] = useState(0);
   const [sheetHeight, setSheetHeight] = useState(0);
+  useEffect(() => setSheetHeight(0), [design.id, kind, paperPx.width, paperPx.height]);
   const frameObserver = useRef<ResizeObserver | null>(null);
   useEffect(() => () => {
     frameObserver.current?.disconnect();
@@ -593,6 +604,7 @@ export function DocumentsPane({
           ...(docFacts === undefined ? {} : { facts: docFacts }),
           ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
           ...(kind === 'formboard' ? { scale: boardScale } : {}),
+          ...(kind === 'labels' ? { labels: labelOptions } : {}),
           ...(kind === 'bom' && buildQty !== undefined && buildQty > 1 ? { buildQty } : {}),
           ...(typeof target === 'number' ? { revisionNumber: target } : {}),
           ...(kind === 'test-spec' && sidecar.draft.meta.test !== undefined ? { testParameters: sidecar.draft.meta.test } : {}),
@@ -603,11 +615,13 @@ export function DocumentsPane({
     }, debounceMs);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- target only matters as the revision number
-  }, [kind, docDesign, docDb, docDepictions, previewPaper, stateText, revisions, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, boardScale, buildQty, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
+  }, [kind, docDesign, docDb, docDepictions, previewPaper, stateText, revisions, debounceMs, render, empty, pending, unreleased, drawingInput, sheetInput, pnInputs, docFacts, chosenVariation, boardScale, labelOptions, buildQty, typeof target === 'number' ? target : -1, kind === 'test-spec' ? sidecar.draft.meta.test : undefined, testDefaults]);
 
   const result = rendered?.kind === kind ? rendered.result : undefined;
   const html = result !== undefined && 'html' in result ? result.html : undefined;
   const markdownKind = kind === 'bom' || kind === 'test-spec';
+  const tape = kind === 'labels' ? labelPresetFor({ ...labelOptions, paper: previewPaper }).tape : undefined;
+  const ptouchOmitsQr = tape !== undefined && isDarkTape(tape) && tapeContent(labelOptions).qr === true;
   useEffect(() => setCopyNote(undefined), [kind, design.id]);
   const copyMarkdown = useCallback(async (): Promise<void> => {
     if (kind !== 'bom' && kind !== 'test-spec') return;
@@ -657,6 +671,8 @@ export function DocumentsPane({
           () => drawingDate(new Date()),
         ),
         drawing: meta,
+        ...labelOptions,
+        design: docDesign.id,
         ...(pnInputs === undefined ? {} : { partNumbers: pnInputs }),
         ...(docFacts === undefined ? {} : { facts: docFacts }),
         ...(chosenVariation === undefined ? {} : { variation: chosenVariation }),
@@ -669,17 +685,17 @@ export function DocumentsPane({
       if ('error' in made) say('error', made.error);
       else {
         downloadOutput(made.output);
-        say('success', onReport === undefined ? '' : 'Export downloaded.', made.output.fileName);
+        const notes = made.output.notes?.join(' ');
+        say('success', onReport === undefined ? (notes === undefined ? '' : `Export downloaded. ${notes}`) : 'Export downloaded.', [made.output.fileName, notes].filter(Boolean).join('\n'));
       }
     },
-    [say, onReport, sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, buildQty, target, revisionFixed, testDefaults],
+    [say, onReport, sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, buildQty, target, revisionFixed, testDefaults, labelOptions],
   );
   const tabLabel = kind === 'json' ? 'JSON' : DOCUMENT_LABELS[kind];
 
   return (
     <div className="cs-panel cs-documents">
-      <h2>
-        documents
+      <div className="cs-doc-status" aria-label="Document state">
         <span
           className={classes('cs-chip', status.state !== 'saved' && 'is-draft')}
           title={status.detail}
@@ -687,14 +703,16 @@ export function DocumentsPane({
           {status.label}
         </span>
         {updating ? <span className="cs-count cs-updating">updating…</span> : null}
-      </h2>
+      </div>
 
-      <nav className="cs-tabs cs-doc-tabs">
+      <nav className="cs-ui-tablist cs-doc-tabs" aria-label="Document types and actions">
         {DOCUMENT_KINDS.map((each) => (
           <button
             key={each}
             type="button"
-            className={classes(kind === each && 'is-active')}
+            className="cs-ui-tab"
+            data-state={kind === each ? 'active' : 'inactive'}
+            aria-pressed={kind === each}
             title={DOCUMENT_BLURBS[each]}
             onClick={() => setKind(each)}
           >
@@ -703,7 +721,9 @@ export function DocumentsPane({
         ))}
         <button
           type="button"
-          className={classes(kind === 'json' && 'is-active')}
+          className="cs-ui-tab"
+          data-state={kind === 'json' ? 'active' : 'inactive'}
+          aria-pressed={kind === 'json'}
           title="Advanced: the design document itself — export or import it here."
           onClick={() => setKind('json')}
         >
@@ -711,35 +731,14 @@ export function DocumentsPane({
         </button>
         <span className="cs-spacer" />
         {kind !== 'formboard' ? null : (
-          <select
-            className="cs-input cs-doc-variation"
-            aria-label="Formboard scale"
-            title="Print scale of the formboard pages: 1:1 is true length on the board; the overview sheet is always fitted to one page"
-            value={String(boardScale)}
-            onChange={(event) => setBoardScale(Number(event.target.value))}
-          >
-            {[1, 0.5, 0.25, 0.2, 0.1].map((value) => (
-              <option key={value} value={String(value)}>
-                {value === 1 ? '1:1' : `1:${Math.round(1 / value)}`}
-              </option>
-            ))}
-          </select>
+          <Select className="cs-doc-variation" aria-label="Formboard scale" value={String(boardScale)}
+            onValueChange={(value) => setBoardScale(Number(value))}
+            options={[1, 0.5, 0.25, 0.2, 0.1].map((value) => ({ value: String(value), label: value === 1 ? '1:1' : `1:${Math.round(1 / value)}` }))} />
         )}
         {family === undefined || variations.length === 0 || (kind !== 'build-sheet' && kind !== 'bom' && kind !== 'formboard') ? null : (
-          <select
-            className="cs-input cs-doc-variation"
-            aria-label="Variation to print"
-            title={`${family}: print every variation, or one`}
-            value={chosenVariation ?? ''}
-            onChange={(event) => setVariation(event.target.value)}
-          >
-            <option value="">All variations</option>
-            {variations.map((v) => (
-              <option key={v.suffix} value={v.suffix}>
-                {v.pn} · {v.feet}
-              </option>
-            ))}
-          </select>
+          <Select className="cs-doc-variation" aria-label="Variation to print" value={chosenVariation ?? 'all'}
+            onValueChange={(value) => setVariation(value === 'all' ? '' : value)}
+            options={[{ value: 'all', label: 'All variations' }, ...variations.map((v) => ({ value: v.suffix, label: `${v.pn} · ${v.feet}` }))]} />
         )}
         {kind !== 'bom' ? null : (
           <input
@@ -753,25 +752,9 @@ export function DocumentsPane({
           />
         )}
         {release === undefined ? null : (
-          <select
-            className={classes('cs-input cs-doc-target', unreleased && 'is-unreleased')}
-            aria-label="Revision to print"
-            title={
-              unreleased
-                ? 'The working copy — prints marked UNRELEASED and cannot be exported. Save a version to release it.'
-                : 'Which saved revision these documents show'
-            }
-            value={String(target)}
-            onChange={(event) => setTarget(event.target.value === 'working' ? 'working' : Number(event.target.value))}
-          >
-            {[...release.revisions].reverse().map((rev) => (
-              <option key={rev} value={String(rev)}>
-                Rev {rev}
-                {rev === release.revisions[release.revisions.length - 1] ? ' · latest' : ''}
-              </option>
-            ))}
-            {release.showing.kind === 'working' ? <option value="working">Working · unreleased</option> : null}
-          </select>
+          <Select className={classes('cs-doc-target', unreleased && 'is-unreleased')} aria-label="Revision to print"
+            value={String(target)} onValueChange={(value) => setTarget(value === 'working' ? 'working' : Number(value))}
+            options={[...[...release.revisions].reverse().map((rev) => ({ value: String(rev), label: `Rev ${rev}${rev === release.revisions[release.revisions.length - 1] ? ' · latest' : ''}` })), ...(release.showing.kind === 'working' ? [{ value: 'working', label: 'Working · unreleased' }] : [])]} />
         )}
         {copyNote === undefined ? null : (
           <span className="cs-count" role="status">
@@ -779,38 +762,20 @@ export function DocumentsPane({
           </span>
         )}
         {markdownKind ? (
-          <button
-            type="button"
+          <Button
             className="cs-print"
             disabled={empty}
             title={`Copy the ${kind === 'bom' ? 'BOM' : 'continuity spec'} as markdown — for a work order or a purchase note`}
             onClick={() => void copyMarkdown()}
           >
             <IconMarkdown size={14} aria-hidden /> Copy
-          </button>
+          </Button>
         ) : null}
-        <select
-          className="cs-input cs-doc-export"
-          aria-label="Export"
-          title="Download the BOM, wire list, cut list, continuity data or wire labels as a file"
-          disabled={empty || pending}
-          value=""
-          onChange={(event) => {
-            downloadExport(event.target.value);
-            event.target.value = '';
-          }}
-        >
-          <option value="">Export…</option>
-          {(['production', 'tester', 'labels'] as const).map((group) => (
-            <optgroup key={group} label={{ production: 'Production', tester: 'Continuity tester', labels: 'Labels' }[group]}>
-              {BASE_EXPORTS.filter((format) => format.group === group).map((format) => (
-                <option key={format.id} value={format.id} title={format.description}>
-                  {format.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        <Menu aria-label="Export formats" trigger={<Button disabled={empty || pending} icon={<IconDownload size={14} aria-hidden />}>Export…</Button>}
+          items={(['production', 'tester', 'labels'] as const).flatMap((group, index) => [
+            ...(index === 0 ? [] : [{ type: 'separator' as const }]),
+            ...BASE_EXPORTS.filter((format) => format.group === group).map((format) => ({ label: format.label, onSelect: () => downloadExport(format.id) })),
+          ])} />
         {(extensions?.exporters ?? []).length + (extensions?.toolLinks ?? []).length === 0 ? null : (
           <Popover.Root>
             <Popover.Trigger asChild>
@@ -863,20 +828,31 @@ export function DocumentsPane({
             ]}
           />
         )}
-        <button
-          type="button"
+        <Button
           className="cs-print"
-          disabled={html === undefined}
+          disabled={html === undefined || updating}
           title={
             html === undefined
               ? 'nothing to print yet'
               : `Print the ${tabLabel.toLowerCase()} — choose “Save as PDF” for a file`
           }
-          onClick={() => setPrintFailed(!printDocumentFrame(frame.current))}
+          onClick={() => { if (!updating) setPrintFailed(!printDocumentFrame(frame.current)); }}
         >
           <IconPrinter size={14} aria-hidden /> Print
-        </button>
+        </Button>
       </nav>
+
+      {kind !== 'labels' ? null : <div className="cs-label-print-options" role="group" aria-label="Label print options">
+        <label>Label stock<Select aria-label="Label stock for this print" value={labelStock} onValueChange={(value) => { setUpdating(true); setLabelStock(value); }}
+          options={[{ value: 'default', label: 'Hub default' }, ...labelPresetOptions()]} /></label>
+        <label>QR code<Select aria-label="QR code for this print" value={labelQr} onValueChange={(value) => { setUpdating(true); setLabelQr(value); }}
+          options={[{ value: 'default', label: 'Hub default' }, { value: 'yes', label: 'Include QR codes' }, { value: 'no', label: 'Without QR codes' }]} /></label>
+        <Button disabled={empty || pending} onClick={() => downloadExport('labels.svg')}>Download label SVG</Button>
+        <Button disabled={empty || pending || labelPresetFor({ ...labelOptions, paper: previewPaper }).kind !== 'tape'} title="Choose a Brother TZe tape stock to download P-touch files" onClick={() => downloadExport('labels.lbx')}>Download P-touch files</Button>
+        {ptouchOmitsQr ? <small role="status">P-touch files omit QR codes on light ink over dark tape. Choose dark ink on light tape to include them when they fit.</small> : null}
+        {html?.includes('data-qr-omitted="true"') ? <small role="status">Some QR codes do not fit the printable tape width. Choose a wider stock to include them.</small> : null}
+        <small>Applies to this preview, print and label downloads. Hub defaults stay unchanged. SVG downloads contain the first page; Print includes every page.</small>
+      </div>}
 
       {!empty && sidecar.conflict === undefined && sidecar.error !== undefined ? (
         <div className="cs-drawing-conflict" role="alert">

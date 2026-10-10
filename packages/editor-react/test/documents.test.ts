@@ -44,7 +44,7 @@ describe('renderDocument', () => {
       const document = html(renderDocument(kind, design, db));
       expect(document.startsWith('<!doctype html>'), kind).toBe(true);
       // the drawing and the formboard are landscape on the caller's paper, the other sheets portrait; A4 by default
-      expect(document, kind).toContain(kind === 'drawing' ? '@page{size:297mm 210mm;margin:0}' : kind === 'formboard' ? '@page{size:297mm 210mm;margin:0}' : '@page{size:210mm 297mm;margin:8mm');
+      expect(document, kind).toContain(kind === 'labels' ? '@page label0{size:210mm 297mm;margin:0}' : kind === 'drawing' ? '@page{size:297mm 210mm;margin:0}' : kind === 'formboard' ? '@page{size:297mm 210mm;margin:0}' : '@page{size:210mm 297mm;margin:8mm');
       // nothing to fetch: an iframe with no network is still a correct sheet.
       // (`xmlns="http://www.w3.org/2000/svg"` is a namespace name, not a fetch)
       const clean = document.replace(/xmlns(:\w+)?="[^"]*"/g, '');

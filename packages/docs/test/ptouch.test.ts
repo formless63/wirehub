@@ -5,6 +5,7 @@ import { loadDb, loadDesign } from '@wirehub/catalog';
 import {
   BASE_EXPORTS,
   LABEL_PRESETS,
+  labelPresetOptions,
   TAPE_WIDTHS,
   deriveLabels,
   fillTemplate,
@@ -48,6 +49,22 @@ const unzip = (bytes: Uint8Array): Map<string, Uint8Array> => {
 };
 
 describe('tape presets', () => {
+  it('preserves QR omission notes on the standard P-touch export', () => {
+    const design = loadDesign('de9-crossover');
+    const db = loadDb();
+    const format = BASE_EXPORTS.find((item) => item.id === 'labels.lbx')!;
+    expect(format.render(design, db, { preset: 'tze-12-335', qr: true }).notes?.join(' ')).toContain('QR left out of the .lbx');
+    expect(format.render(design, db, { preset: 'tze-12-231', qr: true }).notes).toBeUndefined();
+  });
+
+  it('groups every existing stock once by family and ascending tape width without changing ids', () => {
+    const options = labelPresetOptions();
+    expect(options).toEqual(labelPresetOptions());
+    expect(options.map((option) => option.value).sort()).toEqual(LABEL_PRESETS.map((preset) => preset.id).sort());
+    expect([...new Set(options.map((option) => option.group))]).toEqual(['Sheet labels', 'Dymo LabelWriter', 'Brady', ...TAPE_WIDTHS.map((width) => `Brother TZe — ${width.mm} mm`)]);
+    expect(options.filter((option) => option.group === 'Brother TZe — 12 mm').map((option) => option.value)).toEqual(['tze-12-335', 'tze-12-231', 'tze-12-131']);
+  });
+
   it('has the TZe widths and the 12 mm colour pairs, each with a source', () => {
     expect(TAPE_WIDTHS.map((w) => w.mm)).toEqual([3.5, 6, 9, 12, 18, 24, 36]);
     const ids = LABEL_PRESETS.filter((p) => p.kind === 'tape').map((p) => p.id);

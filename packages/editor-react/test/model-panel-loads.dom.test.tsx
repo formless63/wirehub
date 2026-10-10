@@ -6,7 +6,7 @@ import type { ModelsAdapter } from '../src/models.ts';
 import { ModelPanel } from '../src/panels/ModelPanel.tsx';
 
 vi.mock('../src/panels/ModelViewer3d.tsx', () => ({ default: () => <p>Loaded synthetic model</p> }));
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => { window.localStorage.clear(); Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => undefined, releasePointerCapture: () => undefined, scrollIntoView: () => undefined }); });
 afterEach(cleanup);
 
 const modelsOf = (): ModelsAdapter => ({
@@ -87,7 +87,10 @@ it('shows supplied bottom artwork with mirrored anchors and switches without edi
   render(<ModelPanel kind="pcbas" id="synthetic-board" label="Synthetic board" models={modelsOf()} artwork={artwork} readOnly />);
   const image = await screen.findByRole('img', { name: '2D art of Synthetic board' });
   expect(decodeURIComponent(image.getAttribute('src')!)).toContain('board-top');
-  fireEvent.change(screen.getByRole('combobox', { name: '2D artwork view' }), { target: { value: 'board-bottom' } });
+  const trigger = screen.getByRole('combobox', { name: '2D artwork view' });
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  const option = await screen.findByRole('option', { name: 'board bottom' });
+  fireEvent.click(option);
   await screen.findByText('board bottom', { selector: 'p' });
   expect(decodeURIComponent(screen.getByRole('img', { name: '2D art of Synthetic board' }).getAttribute('src')!)).toContain('board-bottom');
   expect(artwork.artwork).toHaveBeenCalledWith('synthetic-board', 'board-bottom');
@@ -101,4 +104,72 @@ it('shows bottom-only artwork without inventing a top view', async () => {
   await screen.findByRole('img', { name: '2D art of Synthetic board' });
   expect(artwork.artwork).toHaveBeenCalledWith('synthetic-board', 'board-bottom');
   expect(screen.queryByRole('combobox', { name: '2D artwork view' })).toBeNull();
+});
+
+
+it('shows artwork coverage and never claims a reflected anchor set is a generated opposite-side image', async () => {
+  render(<ModelPanel kind="pcbas" id="synthetic-board" label="Synthetic board" models={modelsOf()} artwork={artworkOf()} readOnly />);
+  await screen.findByText('Top: artwork available');
+  expect(screen.getByText('Bottom: artwork missing')).toBeTruthy();
+  expect(screen.getByText('3D missing')).toBeTruthy();
+});
+
+const bodyDetail: ArtworkDetail = {
+  ...detail, defId: 'synthetic-body', views: [
+    { ...detail.views[0]!, view: 'mating-face', file: 'mating-face.svg' },
+    { ...detail.views[0]!, view: 'solder-side', file: 'solder-side.svg', derived: true, mirrorOf: 'mating-face' },
+  ],
+};
+
+it('inherits a shared body manifest and reads both faces from that body without writes', async () => {
+  const artwork = artworkOf();
+  artwork.detail = vi.fn(async (id) => ({ ok: true as const, value: id === 'synthetic-body' ? bodyDetail : { ...detail, defId: id, exists: false, views: [] } }));
+  artwork.artwork = vi.fn(async (id, view) => ({ ok: true as const, value: { kind: 'vector' as const, source: `<svg xmlns="http://www.w3.org/2000/svg"><title>${id}/${view}</title></svg>` } }));
+  artwork.upload = vi.fn(artwork.upload);
+  artwork.saveAnchors = vi.fn(artwork.saveAnchors);
+  render(<ModelPanel kind="connectors" id="synthetic-pinout" label="Synthetic connector" models={modelsOf()} artwork={artwork} artworkFallbackIds={['synthetic-body', 'synthetic-drawing']} readOnly />);
+  const image = await screen.findByRole('img', { name: '2D art of Synthetic connector' });
+  expect(decodeURIComponent(image.getAttribute('src')!)).toContain('synthetic-body/mating-face');
+  expect(screen.getByText('Front: artwork available')).toBeTruthy();
+  expect(screen.getByText('Back: artwork available · reflected anchors')).toBeTruthy();
+  expect(artwork.detail).toHaveBeenCalledTimes(2);
+  expect(artwork.detail).toHaveBeenNthCalledWith(1, 'synthetic-pinout');
+  expect(artwork.detail).toHaveBeenNthCalledWith(2, 'synthetic-body');
+  fireEvent.keyDown(screen.getByRole('combobox', { name: '2D artwork view' }), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: 'solder side' }));
+  await screen.findByText('solder side', { selector: 'p' });
+  expect(artwork.artwork).toHaveBeenCalledWith('synthetic-body', 'solder-side');
+  expect(decodeURIComponent(screen.getByRole('img', { name: '2D art of Synthetic connector' }).getAttribute('src')!)).toContain('synthetic-body/solder-side');
+  expect(artwork.upload).not.toHaveBeenCalled();
+  expect(artwork.saveAnchors).not.toHaveBeenCalled();
+});
+
+it('keeps a connector-specific manifest authoritative instead of merging missing body views', async () => {
+  const artwork = artworkOf();
+  artwork.detail = vi.fn(async (id) => ({ ok: true as const, value: id === 'synthetic-pinout' ? { ...bodyDetail, defId: id, views: bodyDetail.views.slice(0, 1) } : bodyDetail }));
+  artwork.artwork = vi.fn(artwork.artwork);
+  render(<ModelPanel kind="connectors" id="synthetic-pinout" label="Synthetic connector" models={modelsOf()} artwork={artwork} artworkFallbackIds={['synthetic-body']} />);
+  await screen.findByRole('img', { name: '2D art of Synthetic connector' });
+  expect(screen.getByText('Back: artwork missing')).toBeTruthy();
+  expect(artwork.detail).toHaveBeenCalledTimes(1);
+  expect(artwork.artwork).toHaveBeenCalledWith('synthetic-pinout', 'mating-face');
+});
+
+it('uses the body drawing alias only when neither connector nor body has a manifest', async () => {
+  const artwork = artworkOf();
+  artwork.detail = vi.fn(async (id) => ({ ok: true as const, value: id === 'synthetic-drawing' ? { ...bodyDetail, defId: id } : { ...detail, defId: id, exists: false, views: [] } }));
+  artwork.artwork = vi.fn(artwork.artwork);
+  render(<ModelPanel kind="connectors" id="synthetic-pinout" label="Synthetic connector" models={modelsOf()} artwork={artwork} artworkFallbackIds={['synthetic-body', 'synthetic-drawing']} />);
+  await screen.findByRole('img', { name: '2D art of Synthetic connector' });
+  expect(artwork.detail).toHaveBeenCalledTimes(3);
+  expect(artwork.artwork).toHaveBeenCalledWith('synthetic-drawing', 'mating-face');
+});
+
+it('does not hide a failed connector artwork request behind its shared body', async () => {
+  const artwork = artworkOf();
+  artwork.detail = vi.fn(async () => ({ ok: false as const, message: 'Picture service unavailable' }));
+  render(<ModelPanel kind="connectors" id="synthetic-pinout" label="Synthetic connector" models={modelsOf()} artwork={artwork} artworkFallbackIds={['synthetic-body']} />);
+  expect((await screen.findByRole('alert')).textContent).toContain('Picture service unavailable');
+  expect(artwork.detail).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText('Back: artwork missing')).toBeNull();
 });

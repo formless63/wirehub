@@ -12,7 +12,9 @@ import { useMemo, type JSX, type MouseEvent } from 'react';
 import { boardIdPrefix, stripSvgCaptions } from '../board-art.ts';
 import { classes, useEditorApi } from '../context.ts';
 import { cardSize, type CardNodeData } from '../lod.ts';
+import { partCardCaption } from '../layout-size.ts';
 import { BoardParts } from './BoardNode.tsx';
+import { WrappedTitle } from './TitleCaption.tsx';
 
 const ICONS = {
   connector: IconPlug,
@@ -55,7 +57,7 @@ export function CardNode({ data, selected }: NodeProps<Node<CardNodeData, 'card'
     <div
       className={classes('cs-card', `cs-card-${data.part}`, selected === true && 'is-selected', data.missingDef && 'is-broken')}
       style={{ width: size.width, height: size.height }}
-      title={`${data.instanceId} · ${data.partNumber}`}
+      title={`${data.instanceId} · ${data.title} · ${data.partNumber}`}
       onClick={select}
     >
       <Handle type="source" position={Position.Left} id="l" isConnectable={false} className="cs-card-handle" />
@@ -76,6 +78,7 @@ export function CardNode({ data, selected }: NodeProps<Node<CardNodeData, 'card'
           <Thumb instanceId={data.instanceId} thumb={data.thumb} />
         </div>
       )}
+      <WrappedTitle caption={partCardCaption(data.instanceId, data.title)} />
     </div>
   );
 }

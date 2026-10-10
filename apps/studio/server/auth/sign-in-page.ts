@@ -5,6 +5,14 @@
  * light and dark, following the studio's stored theme choice.
  */
 
+import { plexFaces } from '@wirehub/docs';
+import { SEMANTIC_TOKENS, SCALES, type ThemeName } from '../../../../packages/editor-react/src/tokens.ts';
+
+function palette(theme: ThemeName): string {
+  const t = SEMANTIC_TOKENS[theme];
+  return Object.entries({ bg: t.bg, panel: t.panel, raised: t.raised, line: t.line, line2: t.line2, ink: t.ink, dim: t.dim, faint: t.faint, 'line-field': t.lineField, accent: t.accent, 'accent-ink': t.accentInk, brand: t.brand, 'brand-ink': t.brandInk, 'brand-copper': t.brandCopper, ok: t.ok, err: t.err }).map(([key, value]) => `--${key}:${value}`).join(';');
+}
+
 export interface SignInPageModel {
   /** OIDC button, when configured */
   oidc?: { providerId: string; name: string; emailClaim: string };
@@ -118,22 +126,25 @@ ${(model.connectProviders ?? []).map((provider) => `<button class="btn" type="bu
 <title>Sign in · WireHub</title>
 <script>try{var t=localStorage.getItem('wirehub:theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 <style>
-:root{--bg:#121315;--panel:#18191c;--raised:#1f2024;--line:#27282d;--line2:#34353b;--ink:#ebe8e3;--dim:#a19e96;--faint:#8b887f;--line-field:#6a6b72;--accent:#e39256;--accent-ink:#1c1008;--ok:#5fbf8a;--err:#ef6461}
-[data-theme='light']{--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#6f6b62;--line-field:#8a867c;--accent:#a4531c;--accent-ink:#fff;--ok:#267a4c;--err:#c9403c}
-@media (prefers-color-scheme:light){:root:not([data-theme='dark']){--bg:#f7f6f3;--panel:#fff;--raised:#f4f3ef;--line:#e4e2dc;--line2:#d3d0c8;--ink:#1b1a18;--dim:#5f5c55;--faint:#6f6b62;--line-field:#8a867c;--accent:#a4531c;--accent-ink:#fff;--ok:#267a4c;--err:#c9403c}}
+:root{${palette('dark')}}
+[data-theme='light']{${palette('light')}}
+@media (prefers-color-scheme:light){:root:not([data-theme='dark']){${palette('light')}}}
+@font-face{font-family:'IBM Plex Sans';font-weight:400;src:url(data:font/woff2;base64,${plexFaces().sans.woff2}) format('woff2')}
+@font-face{font-family:'IBM Plex Sans';font-weight:600;src:url(data:font/woff2;base64,${plexFaces().semi.woff2}) format('woff2')}
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:13px/1.4 'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:${SCALES.text.sm}/1.5 ${SCALES.font.sans}}
 main{min-height:100%;display:grid;place-items:center;padding:16px}
-.card{width:100%;max-width:300px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:10px}
-h1{margin:0 0 4px;font-size:14px;font-weight:600;letter-spacing:.01em}
+.card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:24px;display:flex;flex-direction:column;gap:16px}
+.brand{display:flex;align-items:center;gap:12px;font-size:${SCALES.text.xl};font-weight:600}
+h1{margin:0 0 4px;font-size:${SCALES.text.lg};font-weight:600;letter-spacing:.01em}
 h1 span{color:var(--faint);font-weight:400}
-.btn{display:block;width:100%;height:30px;border-radius:5px;border:1px solid var(--line2);background:var(--raised);color:var(--ink);font:inherit;font-weight:500;cursor:pointer;text-align:center;line-height:28px;text-decoration:none}
+.btn{display:block;width:100%;height:36px;border-radius:5px;border:1px solid var(--line2);background:var(--raised);color:var(--ink);font:inherit;font-weight:500;cursor:pointer;text-align:center;line-height:34px;text-decoration:none}
 .btn:hover{border-color:var(--faint)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn:disabled{opacity:.6;cursor:default}
 form{display:flex;flex-direction:column;gap:6px;margin:0}
 label{color:var(--dim);font-size:12px}
-input{height:30px;border-radius:5px;border:1px solid var(--line-field);background:var(--bg);color:var(--ink);font:inherit;padding:0 8px}
+input{height:36px;border-radius:5px;border:1px solid var(--line-field);background:var(--bg);color:var(--ink);font:inherit;padding:0 8px}
 input:focus,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .or{display:flex;align-items:center;gap:8px;color:var(--faint);font-size:11px}
 .or:before,.or:after{content:'';flex:1;border-top:1px solid var(--line)}
@@ -149,6 +160,7 @@ code{font-size:11px;word-break:break-all}
 <body>
 <main>
 <div class="card">
+<div class="brand" aria-label="WireHub"><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="var(--brand)"/><path d="M19 15 V49 M45 15 V49 M19 32 H45" fill="none" stroke="var(--brand-ink)" stroke-width="7" stroke-linecap="round"/><circle cx="32" cy="32" r="5.5" fill="var(--brand-copper)"/></svg><span>WireHub</span></div>
 <h1>WireHub <span>· sign in</span></h1>
 ${error}
 ${body}
@@ -217,7 +229,7 @@ export function renderTokensPage(): string {
   return renderSignInPage({ magicLink: false, next: '/' })
     .replace('<title>Sign in · WireHub</title>', '<title>API tokens · WireHub</title>')
     .replace('<h1>WireHub <span>· sign in</span></h1>', '<h1>WireHub <span>· API tokens</span></h1>')
-    .replace('max-width:300px', 'max-width:520px')
+    .replace('max-width:400px', 'max-width:520px')
     .replace(/<p class="msg" id="status"/, `${body}\n<p class="msg" id="status"`)
     .replace(
       'var out=document.getElementById',
@@ -246,7 +258,7 @@ export function renderPeoplePage(): string {
   return renderSignInPage({ magicLink: false, next: '/' })
     .replace('<title>Sign in · WireHub</title>', '<title>People · WireHub</title>')
     .replace('<h1>WireHub <span>· sign in</span></h1>', '<h1>WireHub <span>· people</span></h1>')
-    .replace('max-width:300px', 'max-width:560px')
+    .replace('max-width:400px', 'max-width:560px')
     .replace(/<p class="msg" id="status"/, `${body}\n<p class="msg" id="status"`)
     .replace(
       'var out=document.getElementById',
@@ -268,6 +280,7 @@ export function renderEmbeddedAccountPage(page: string): string {
     .replace('</style>', `
 main{min-height:0;display:block;padding:16px}
 .card{max-width:720px;background:transparent;border:0;border-radius:0;padding:0;gap:12px}
+.card .brand{display:none}
 .card h1{font-size:16px;margin-bottom:4px}
 .card .btn{width:auto;min-height:32px;height:auto;padding:0 12px;align-self:flex-start}
 .card form .btn{align-self:flex-start}
@@ -280,4 +293,11 @@ main{min-height:0;display:block;padding:16px}
 </style>`)
     .replace(/<a /g, '<a target="_top" ')
     .replace('function go(url){location.href=url}', 'function go(url){window.top.location.href=url}');
+}
+
+/** A public, data-free 404 explains an invalid address without starting sign-in. */
+export function renderNotFoundPage(): string {
+  return renderSignInPage({ magicLink: false, next: '/' })
+    .replace('<title>Sign in · WireHub</title>', '<title>Page not found · WireHub</title>')
+    .replace(/<h1>WireHub <span>· sign in<\/span><\/h1>[\s\S]*?<p class="msg" id="status" aria-live="polite"><\/p>/, '<h1>Page not found</h1><p class="msg">That address does not exist. Check the link or return to your designs.</p><a class="btn primary" href="/cables">Back to Designs</a>');
 }

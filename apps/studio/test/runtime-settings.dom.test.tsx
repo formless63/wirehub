@@ -60,7 +60,7 @@ describe('Runtime settings', () => {
     const max = within(jobs).getByLabelText('Largest import file (MB)') as HTMLInputElement;
     expect(max.value).toBe('25');
     expect(max.disabled).toBe(true);
-    expect(within(jobs).getByText('set by the server (WIREHUB_IMPORT_MAX_MB)')).toBeTruthy();
+    expect(within(jobs).getByText('Set by deployment')).toBeTruthy();
 
     fireEvent.change(within(jobs).getByLabelText('Model build window'), { target: { value: '02:00-04:00' } });
     fireEvent.click(within(jobs).getByRole('button', { name: 'Save jobs & limits' }));

@@ -16,12 +16,6 @@
     "packages/editor-react/src/panels/DesignLifecycleDialogs.tsx": {
       "native-select": 1
     },
-    "packages/editor-react/src/panels/Documents.tsx": {
-      "native-select": 4
-    },
-    "packages/editor-react/src/panels/DrawingForm.tsx": {
-      "native-select": 1
-    },
     "packages/editor-react/src/panels/fields.tsx": {
       "native-select": 1
     },
@@ -32,7 +26,7 @@
       "native-select": 2
     },
     "packages/editor-react/src/panels/ModelPanel.tsx": {
-      "native-select": 3
+      "native-select": 2
     },
     "packages/editor-react/src/panels/NewCableWizard.tsx": {
       "native-select": 2
@@ -44,9 +38,6 @@
       "native-select": 1
     },
     "packages/editor-react/src/panels/RecordCompare.tsx": {
-      "native-select": 1
-    },
-    "packages/editor-react/src/panels/SheetOptions.tsx": {
       "native-select": 1
     },
     "packages/editor-react/src/panels/WireBuilder.tsx": {
@@ -66,8 +57,6 @@
     "packages/editor-react/src/panels/ComponentEditor.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/ConnectorJourney.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/DesignLifecycleDialogs.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
-    "packages/editor-react/src/panels/Documents.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead) and the Export menu test is being rewritten by another lane",
-    "packages/editor-react/src/panels/DrawingForm.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/fields.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/Inspector.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/KitEditor.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
@@ -76,7 +65,6 @@
     "packages/editor-react/src/panels/PcbaEditor.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/Pick.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/RecordCompare.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
-    "packages/editor-react/src/panels/SheetOptions.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/WireBuilder.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)",
     "packages/editor-react/src/panels/WireModel3d.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead); the hex is a three.js material colour for the dark theme's black conductor (a JS number-like value, not CSS)",
     "packages/editor-react/src/panels/WireStockEditor.tsx": "Native select kept for now: its tests drive it with fireEvent.change, so the swap to the ui Select is its own change with the tests rewritten (follow-up bead)"

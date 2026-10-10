@@ -17,6 +17,12 @@ import { defaultDocumentTarget, withUnreleasedMark, type DocumentRelease } from 
 import type { DocumentKind } from '../src/documents.ts';
 import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
 
+Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => undefined, releasePointerCapture: () => undefined, scrollIntoView: () => undefined });
+function choose(name: string, option: string): void {
+  fireEvent.keyDown(screen.getByRole('combobox', { name }), { key: 'ArrowDown' });
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
+
 const db: Db = loadDbFromDisk();
 const design: CableDesign = loadDesignFromDisk('de9-terminal-board');
 
@@ -60,7 +66,7 @@ describe('<DocumentsPane release>', () => {
     expect(derive.mock.calls.at(-1)?.[1].label).toBe('as released in Rev 2');
     expect(derive.mock.calls.at(-1)?.[3]?.document).toMatchObject({ revision: '2', status: 'RELEASED' });
 
-    fireEvent.change(screen.getByLabelText('Revision to print'), { target: { value: 'working' } });
+    choose('Revision to print', 'Working · unreleased');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(50);
     });

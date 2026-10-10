@@ -26,13 +26,14 @@ and a pack may also **carry a code module** (§2, "A pack with code"): then it i
 install, it must be signed by a publisher the hub trusts, and the owner consents to what the code
 may do (`specs/runtime-modules.md`).
 
-Open **Store** (`/library/store`) to browse modules and catalog packs from the stores this
-hub trusts. Search by name or filter **Content type** to code modules or catalog packs.
-**Configure stores** opens Settings → Stores (`/settings?section=stores`): check the index
-URL and public-key fingerprint before trusting a new store. Adding a store does not install
-anything. **Manage installed modules** opens Settings → Modules
-(`/settings?section=modules`) for runtime module status, enable/disable and publisher keys.
-Installed data packs and file/URL uploads remain on `/modules`.
+Open **Extensions** (`/extensions`) to manage what extends the hub:
+**Browse** lists catalog packs and code modules from the stores this hub trusts;
+**Installed** lists installed packs, runtime modules and built-in modules;
+**Sources** lists the store indexes and public keys. Search Browse by name or filter
+**Content type** to code modules or catalog packs. Adding a source does not install
+anything. Check its index URL and public-key fingerprint before trusting it.
+File and URL pack uploads are under Installed. Older Store, Modules and store-settings
+bookmarks redirect to the corresponding Extensions tab.
 
 A fresh deployment trusts the official signed index by default, unless its administrator
 sets `WIREHUB_STORE_INDEXES` to an empty value, `none`, or another list. The modules built into
@@ -57,6 +58,39 @@ from the layer. Photo pointers and asset index entries retain their shared-asset
 Additional auxiliary record lists are owned by id, tag objects by leaf key, and singleton
 configuration documents by file hash. Local keys and edits win. Anonymous list members are
 not assigned guessed ownership after a merged install.
+
+## Using packs in the app
+
+In **Extensions → Browse**, choose **Install…** or **Update to…** to open the review
+before anything is applied. **What this pack adds** groups new records by category,
+including connectors, wire stocks, boards, pinouts, hardware and vocabulary, and names
+its new example designs. If no example designs are added, the preview says so.
+These counts describe additions to this hub; records it already has may be unchanged.
+
+For an update, **Changes by category** shows added, changed and removed counts.
+**Show all records** expands the individual names and ids; changed records show the
+fields with before/after summaries. Review any conflicts, requirements, affected designs
+and validation findings before confirming. A signed code module also needs the owner's
+explicit consent to its declared permissions. Closing the preview leaves the hub unchanged.
+
+After installation, choose **View contents** on the installed pack or its Browse card.
+The Library opens filtered to that pack. Switch among Library categories while keeping
+the filter, or choose **All sources** to see the whole library again. Connectors and
+other parts appear in the Library; the pack's example assemblies appear in Cables.
+Installing a pack does not turn its individual parts into cable designs.
+
+A part's Views panel reports what can actually be inspected: a generated approximation
+or a linked source model, top/bottom or front/back artwork, and material declarations.
+A source label and citation do not verify exact manufacturer CAD or its physical finish;
+unqueried artwork says **artwork not inspected**. **Source model revisions → View 3D**
+opens recorded source assets without inventing historical definition snapshots
+([Revisions](revisions.md#source-models-without-definition-snapshots)).
+
+When multiple pinouts reuse a physical connector's stock number, the Library shows
+**Body PN** and the pinout. This is physical-part reuse rather than a second stock
+identity. Independently stocked connectors may have their own number
+([Part numbers](part-numbers.md#shared-connector-bodies)); installing or browsing a pack
+does not renumber existing designs.
 
 ## 1. Domain packs
 

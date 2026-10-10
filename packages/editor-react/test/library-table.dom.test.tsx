@@ -192,3 +192,14 @@ describe('<LibraryTable> over the starter connectors', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 });
+
+
+it('distinguishes shared body part numbers and pinouts even in the compact list', () => {
+  const first = db.connectors.find((c) => c.body !== undefined)!;
+  const layered = { ...db, connectors: [...db.connectors, { ...first, id: 'synthetic-other-pinout', label: 'Synthetic other pinout', interface: undefined }] };
+  const rows = libraryRows('connectors', layered.connectors, [], { db: layered });
+  render(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" compact onSelect={() => undefined} empty="No connectors" />);
+  const row = document.querySelector(`tr[data-id="${first.id}"]`)!;
+  expect(within(row as HTMLElement).getByText('Body PN')).toBeTruthy();
+  expect(row.textContent).toContain(rows.find((r) => r.id === first.id)!.pn.pinout);
+});

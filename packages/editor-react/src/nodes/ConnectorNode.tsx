@@ -23,6 +23,7 @@ import { classes, useEditorApi } from '../context.ts';
 import { BridgeBusPaths } from './BridgeBus.tsx';
 import { GROUND_CSS, type ConnectorNodeData, type TerminalRow } from '../derive.ts';
 import { BOX, CONNECTOR_THUMB, estimateNodeSize } from '../layout-size.ts';
+import { TitleCaption } from './TitleCaption.tsx';
 
 /** What the drawing needs to know about one pin. */
 export interface PinPaint {
@@ -389,6 +390,7 @@ export function ConnectorArtNode({
         </span>
       </header>
       {area}
+      <TitleCaption data={data} />
     </div>
   );
 }

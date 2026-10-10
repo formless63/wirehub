@@ -30,6 +30,7 @@ import type { BreakoutPort, Pigtail, PortStub } from '../breakout.ts';
 import { useHoveredPort, useHoverStore } from '../hover.ts';
 import type { SegmentNodeData, TerminalRow } from '../derive.ts';
 import { estimateNodeSize, wireHeadMeta } from '../layout-size.ts';
+import { TitleCaption } from './TitleCaption.tsx';
 import {
   WIRE_LAYOUT,
   type WireArt,
@@ -602,6 +603,7 @@ export function WireArtNode({
         ))}
         {hoveredPort?.pigtail === undefined ? null : <PigtailTip port={hoveredPort} />}
       </div>
+      <TitleCaption data={data} />
     </div>
   );
 }

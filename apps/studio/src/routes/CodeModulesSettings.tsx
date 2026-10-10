@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { codeModulesKey, fetchCodeModules, pinKey, setCodeAllowed, setModuleEnabled, unpinKey, type CodeModuleStatusView } from '../code-modules.browser.ts';
 import { RestartWireHub } from './RestartWireHub.tsx';
 import { useStudio } from '../studio-context.tsx';
-import { Button, Input } from '@wirehub/editor-react';
+import { Button, Chip, Input } from '@wirehub/editor-react';
 
 const STATE_TEXT: Record<CodeModuleStatusView['state'], string> = {
   loaded: 'running',
@@ -80,22 +80,23 @@ export function CodeModulesSettings(): JSX.Element {
             <span className="font-medium">Allow code modules</span>
           </label>
           {view.allowed.env ? null : <div className="text-warn">Turned off by the server: no code module runs, whatever is set here.</div>}
-          <div className="mt-1 text-faint">Built in: {view.builtins.join(', ') || 'none'} · module API {view.apiVersion}</div>
+          <details className="mt-2 rounded border border-line p-2"><summary className="cursor-pointer text-dim">Built-in modules and compatibility</summary><div className="mt-2 text-faint">Built in: {view.builtins.join(', ') || 'none'} · module API {view.apiVersion}</div></details>
 
           <h3 className="mt-3 font-medium">Installed</h3>
           {view.modules.length === 0 ? <div className="text-faint">No code module is installed.</div> : null}
           <ul>
             {view.modules.map((m) => (
-              <li key={m.id} className="my-2" data-code-module={m.id}>
-                <div>
-                  <b>{m.label}</b> ({m.id} {m.version}) · <span data-state={m.state}>{STATE_TEXT[m.state]}</span>
+              <li key={m.id} className="my-2 flex flex-col gap-2 rounded border border-line p-3" data-code-module={m.id}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <b>{m.label}</b> <span className="text-dim">{m.version}</span> <Chip tone={m.state === 'loaded' ? 'ok' : m.state === 'failed' || m.state === 'refused' ? 'err' : 'neutral'}><span data-state={m.state}>{STATE_TEXT[m.state]}</span></Chip>
                   {m.restartPending ? <span className="ml-2 text-warn">restart required for {m.restartPoints.join(', ')}</span> : null}
                 </div>
                 {m.error === undefined ? null : <div className="text-err" role="alert">{m.error}</div>}
-                <div className="text-faint">
+                <details className="text-dim"><summary className="cursor-pointer">Permissions and publisher</summary><div className="mt-1 text-faint">
+                  Module id: {m.id}.{' '}
                   Uses {m.extensionPoints.join(', ')}. May: {m.permissions.join(', ')}. {m.trust === undefined ? '' : `Signed by ${m.trust.keys.length} key(s), trusted ${m.trust.via === 'store' ? 'through its store' : 'by a pinned key'}.`}
                   {m.enabledBy === undefined ? '' : ` Last changed by ${m.enabledBy}.`}
-                </div>
+                </div></details>
                 {!owner ? null : (
                   <Button type="button" disabled={busy} onClick={() => void toggle(m, !m.enabled || m.state === 'failed')}>
                     {m.enabled && m.state !== 'failed' ? 'Turn off' : m.state === 'failed' ? 'Try again' : 'Turn on'}

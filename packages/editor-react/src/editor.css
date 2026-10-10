@@ -2410,6 +2410,13 @@ path.cs-art-t-dark {
 
 .cs-editor .react-flow__attribution {
   font-size: var(--fs-canvas-10);
+  background: var(--panel);
+  color: var(--dim);
+  border-radius: 3px;
+}
+
+.cs-editor .react-flow__attribution a {
+  color: inherit;
 }
 
 /* ---------- design lifecycle (Save / New / Duplicate / Rename / Delete) ---------- */
@@ -4604,6 +4611,7 @@ fieldset.cs-lock-fence {
 
 .cs-conn-header-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   font-size: var(--fs-xs);
@@ -4644,7 +4652,7 @@ fieldset.cs-lock-fence {
 
 .cs-conn-columns {
   display: grid;
-  grid-template-columns: 58px 34px minmax(0, 1fr) 40px;
+  grid-template-columns: 58px 44px minmax(0, 1fr) 40px;
   align-items: center;
   height: 24px;
   flex-shrink: 0;
@@ -4666,7 +4674,7 @@ fieldset.cs-lock-fence {
 
 .cs-conn-row {
   display: grid;
-  grid-template-columns: 58px 34px minmax(0, 1fr) 40px;
+  grid-template-columns: 58px 44px minmax(0, 1fr) 40px;
   align-items: center;
   min-height: 27px;
   padding: 0 12px;
@@ -5348,6 +5356,7 @@ fieldset.cs-lock-fence {
   align-items: center;
   gap: 6px;
   height: 30px;
+  flex: none;
   padding: 0 8px;
   background: var(--raised);
   border-bottom: 1px solid var(--line);
@@ -5371,12 +5380,15 @@ fieldset.cs-lock-fence {
 .cs-card-pcba .cs-card-icon { background: var(--board); }
 
 .cs-card-id {
+  flex: none;
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 700;
   font-size: var(--fs-xs);
 }
 
 .cs-card-title {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
   font-size: var(--fs-xs);
   overflow: hidden;
@@ -5388,6 +5400,7 @@ fieldset.cs-lock-fence {
   gap: 6px;
   align-items: center;
   height: 22px;
+  flex: none;
   padding: 0 8px;
   font-size: var(--fs-2xs);
   color: var(--dim);
@@ -5408,6 +5421,7 @@ fieldset.cs-lock-fence {
 
 .cs-card-thumbs {
   display: flex;
+  flex: none;
   justify-content: center;
   padding: 6px 0;
   border-top: 1px solid var(--line);
@@ -6651,3 +6665,45 @@ fieldset.cs-lock-fence {
 
 /* the tablist inside the inspector's nav: layout passes through to the nav */
 .cs-conn-tablist { display: contents; }
+
+/* Documents use the shared underline tabs, with actions wrapping independently on small screens. */
+.cs-doc-status { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) var(--space-sm); }
+.cs-doc-tabs { gap: var(--space-sm); padding: 0 var(--space-sm) var(--space-xs); }
+.cs-doc-tabs .cs-ui-tab { flex: 0 0 auto; }
+.cs-label-print-options { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); padding: var(--space-sm); border-bottom: 1px solid var(--line); }
+.cs-label-print-options label { display: flex; flex-direction: column; gap: var(--space-xs); max-width: 100%; }
+.cs-label-print-options small { flex-basis: 100%; color: var(--dim); }
+.cs-label-print-options .cs-ui-select-trigger { max-width: min(24rem, 100%); }
+/* Library assets: coverage remains readable on narrow screens and in compact lists. */
+.cs-asset-coverage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+.cs-asset-coverage details { flex-basis: 100%; }
+.cs-asset-coverage summary { cursor: pointer; text-decoration: underline; }
+.cs-asset-coverage p { margin: var(--space-sm) 0; }
+.cs-source-models { margin-block: var(--space-md); min-width: 0; }
+.cs-source-models li { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin-block: var(--space-sm); }
+.cs-lt-number-context { display: block; color: var(--dim); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+
+.cs-lt-cell.has-number-context { flex-wrap: wrap; }
+.cs-lt-cell.has-number-context .cs-lt-number-context { flex-basis: 100%; font-family: var(--font-sans); }
+/* A verbose title grows below the part; every art/pin origin above it remains unchanged. */
+.cs-node-title-caption { box-sizing: border-box; flex: none; padding: 8px; border-top: 1px solid var(--line); font-size: var(--fs-canvas-10); line-height: 15px; color: var(--ink); }
+.cs-node-title-caption span { display: block; white-space: pre; }
+
+/* Source artwork retains its original colors on a paper surface in either theme. */
+.cs-model-art.is-drawing { background: var(--paper); color: var(--paper-ink); }
+.cs-model-art.is-drawing .cs-model-hint { color: var(--paper-dim); }
+
+.cs-editor .react-flow__controls { border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
+.cs-editor .react-flow__controls-button { background: var(--raised); color: var(--ink); border-bottom-color: var(--line); }
+.cs-editor .react-flow__controls-button:hover { background: var(--panel); }
+.cs-editor .react-flow__controls-button svg { fill: currentColor; }

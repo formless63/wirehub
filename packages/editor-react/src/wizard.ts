@@ -448,7 +448,7 @@ export function wireLines(wire: WireDefinition, db: Db): WireLine[] {
 }
 
 /* ------------------------------------------------------------------ *
- * Lengths — mm is the model, feet and inches are how the shop talks
+ * Lengths — mm is the model; the UI offers metric and imperial presets
  * ------------------------------------------------------------------ */
 
 const MM_PER_INCH = 25.4;
@@ -465,8 +465,14 @@ export function describeLength(mm: number): string {
   return `${feet} ft ${inches} in`;
 }
 
-/** The lengths the catalog actually builds, offered as one-click presets. */
+/** Generic metric lengths; no shop-specific defaults. */
 export const LENGTH_PRESETS: readonly { mm: number; label: string }[] = [
+  { mm: 500, label: '0.5 m' },
+  { mm: 1000, label: '1 m' },
+  { mm: 2000, label: '2 m' },
+];
+
+export const IMPERIAL_LENGTH_PRESETS: readonly { mm: number; label: string }[] = [
   { mm: 914, label: '3 ft' },
   { mm: 1830, label: '6 ft' },
   { mm: 3048, label: '10 ft' },
@@ -594,7 +600,7 @@ export function initialWizardState(db: Db, taken: string[] = []): WizardState {
     source: undefined,
     destination: undefined,
     wireDef: undefined,
-    lengthText: '1830',
+    lengthText: '1000',
     connect: 'signal',
     picks: {},
     blocked: [],

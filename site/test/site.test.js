@@ -66,6 +66,18 @@ describe('the built site', () => {
     expect(home).toContain('href="docs/quick-start/"');
   });
 
+  it('shares the app tokens and embedded fonts with the standalone generator and store', () => {
+    for (const path of ['generator/index.html', 'store/index.html']) {
+      const html = String(files.get(path));
+      expect(html).toContain(readFileSync(join(root, 'packages/editor-react/src/tokens.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''));
+      expect(html).toContain("font-family:'IBM Plex Sans'");
+      expect(html).toContain('url(data:font/woff2;base64,');
+      expect(csp(html)).toContain('font-src data:');
+      expect(html).not.toMatch(/url\(fonts\//);
+      expect(html).toContain('background: var(--accent)');
+    }
+  });
+
   it('shows the product on home: a hero (light and dark) and the four documents, every image shipped', () => {
     const home = String(files.get('index.html'));
     expect(home).toContain('srcset="assets/media/hero-dark.webp"');

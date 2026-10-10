@@ -41,6 +41,7 @@ import { ConnectorArtNode, ConnectorThumb } from './ConnectorNode.tsx';
 import { WireArtNode } from './WireNode.tsx';
 import { CardNode } from './CardNode.tsx';
 import { PinRow } from './PinRow.tsx';
+import { TitleCaption } from './TitleCaption.tsx';
 import type { MouldNodeData } from '../moulds.ts';
 
 interface ShellProps {
@@ -89,6 +90,7 @@ function NodeShell(props: ShellProps): JSX.Element {
         {props.adornment}
       </header>
       <div className="cs-node-body">{props.children}</div>
+      <TitleCaption data={data} />
     </div>
   );
 }

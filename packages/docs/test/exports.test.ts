@@ -336,6 +336,12 @@ describe('label stock presets, the part number, both ends and the QR code (cs-8k
     }
   });
 
+  it.each([['A4', 'letter-5160', 'letter'], ['letter', 'a4-l7160', 'A4']] as const)('frames %s default with the selected %s stock dimensions', (paper, preset, stockPaper) => {
+    const actual = labelSheetSvg(labels, { paper, preset, frame: sheetFrameFor(design, db, { paper }, 'LABELS', 'portrait', 'strip') });
+    const expected = labelSheetSvg(labels, { paper: stockPaper, preset, frame: sheetFrameFor(design, db, { paper: stockPaper }, 'LABELS', 'portrait', 'strip') });
+    expect(actual.slice(actual.indexOf('<g class="wh-frame"'))).toBe(expected.slice(expected.indexOf('<g class="wh-frame"')));
+  });
+
   it('falls back to the paper grid: A4 for A4, Letter for Letter', () => {
     expect(labelSheetSvg(labels, { paper: 'A4' })).toContain('viewBox="0 0 210 297"');
     expect(labelSheetSvg(labels, { paper: 'letter' })).toContain('viewBox="0 0 215.9 279.4"');

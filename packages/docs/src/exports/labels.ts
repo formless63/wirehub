@@ -289,7 +289,8 @@ export function labelSheetSvg(labels: readonly WireLabel[], options: LabelSheetO
   });
   if (options.frame !== undefined && layout.columns * layout.rows > 1) {
     // the strip sits in the band under the stock, 5 mm from the edge; the stock itself is never framed (its registration is the printer's)
-    const spec: SheetFrameSpec = { ...options.frame, paper: labelPaperOf(options.paper), orientation: 'portrait', variant: 'strip', inset: 5, sheet: `${page} of ${pages}` };
+    const stockPaper = (['A4', 'letter'] as const).find((id) => PAPERS[id].widthMm === layout.pageWidth && PAPERS[id].heightMm === layout.pageHeight) ?? labelPaperOf(options.paper);
+    const spec: SheetFrameSpec = { ...options.frame, paper: stockPaper, orientation: 'portrait', variant: 'strip', inset: 5, sheet: `${page} of ${pages}` };
     out.push(frameSvgGroup(frameGeometry(spec), { border: false }));
   }
   out.push('</svg>');

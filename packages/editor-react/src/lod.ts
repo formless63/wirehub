@@ -20,25 +20,14 @@ import type { Edge, Node } from '@xyflow/react';
 
 import type { BoardViewArt } from './board-art.ts';
 import type { EditorEdge, EditorNode, XY } from './derive.ts';
-import { estimateNodeSize, nodeHeading, type NodeSize } from './layout-size.ts';
+import { PART_CARD_LAYOUT, estimateNodeSize, nodeHeading, partCardSize, partCardThumbSize, type NodeSize } from './layout-size.ts';
 
 export type CanvasDetail = 'parts' | 'pins';
 
 /** Below this zoom the canvas draws Parts whatever the toggle says. */
 export const LOD_ZOOM = 0.5;
 
-export const CARD_LAYOUT = {
-  width: 216,
-  /** icon, id and title */
-  head: 30,
-  /** the meta line */
-  meta: 22,
-  /** a board's thumbnail, at most */
-  thumbWidth: 192,
-  thumbHeight: 84,
-  thumbGap: 6,
-  border: 1,
-} as const;
+export const CARD_LAYOUT = PART_CARD_LAYOUT;
 
 export type CardNodeData = {
   kind: 'card';
@@ -79,8 +68,7 @@ function thumbOf(node: EditorNode): CardNodeData['thumb'] {
   if (node.data.kind !== 'pcba' || node.data.board === undefined) return undefined;
   const view = node.data.board.views.find((candidate) => candidate.side === 'top') ?? node.data.board.views[0];
   if (view === undefined || view.box.width <= 0 || view.box.height <= 0) return undefined;
-  const scale = Math.min(CARD_LAYOUT.thumbWidth / view.box.width, CARD_LAYOUT.thumbHeight / view.box.height);
-  return { view, width: Math.round(view.box.width * scale), height: Math.round(view.box.height * scale) };
+  return { view, ...partCardThumbSize(view.box.width, view.box.height) };
 }
 
 /** What a part's card says. */
@@ -115,8 +103,7 @@ export function cardDataOf(node: EditorNode, docked: readonly string[] = []): Ca
 
 /** The drawn size of a card — what `CardNode` renders at. */
 export function cardSize(data: CardNodeData): NodeSize {
-  const thumb = data.thumb === undefined ? 0 : data.thumb.height + CARD_LAYOUT.thumbGap * 2;
-  return { width: CARD_LAYOUT.width, height: CARD_LAYOUT.head + CARD_LAYOUT.meta + thumb + CARD_LAYOUT.border * 2 };
+  return partCardSize(data);
 }
 
 /** The flow in Parts: one card per placed part, one bundle per pair of parts. */

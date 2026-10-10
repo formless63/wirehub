@@ -98,7 +98,12 @@ export function partNumberHolders(
     for (const r of list ?? []) add(r.partNumber, kind, r.id, r.label, `${group}/${r.id}`, `${group}/${r.id}`, 'partNumber');
   };
   for (const body of db.bodies ?? []) add(body.partNumber, 'connector', body.id, body.label, `bodies/${body.id}`, `body/${body.id}`, 'partNumber');
-  for (const c of db.connectors) add(c.partNumber, 'connector', c.id, c.label, `connectors/${c.id}`, c.body === undefined ? `connectors/${c.id}` : `body/${c.body}`, 'partNumber');
+  for (const c of db.connectors) {
+    const bodyPn = clean(db.bodies?.find((b) => b.id === c.body)?.partNumber);
+    const connectorPn = clean(c.partNumber);
+    const physical = bodyPn !== undefined && connectorPn !== undefined && canon(bodyPn, scheme) === canon(connectorPn, scheme);
+    add(c.partNumber, 'connector', c.id, c.label, `connectors/${c.id}`, physical ? `body/${c.body}` : `connectors/${c.id}`, 'partNumber');
+  }
   plain(db.wires, 'wires', 'wire');
   plain(db.components, 'components', 'component');
   plain(db.pcbas, 'pcbas', 'pcba');

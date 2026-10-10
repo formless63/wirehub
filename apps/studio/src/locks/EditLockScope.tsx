@@ -72,7 +72,7 @@ function Scope({ record: maybeRecord, children, fill = true, client }: EditLockS
     setDirty(dirtyCount.current > 0);
   }, []);
 
-  const locked = other !== undefined || (handedOver && !held);
+  const locked = other !== undefined || (!held && (handedOver || lost !== undefined));
   const session = useMemo<EditSession>(() => ({ locked, onDirtyChange }), [locked, onDirtyChange]);
 
   // take the lease: at the first change, when a request is answered by the
@@ -84,7 +84,7 @@ function Scope({ record: maybeRecord, children, fill = true, client }: EditLockS
   useEffect(() => {
     const firstChange = dirty && !wasDirty.current;
     wasDirty.current = dirty;
-    if (!active || held || other !== undefined || handedOver || inFlight.current) return;
+    if (!active || held || other !== undefined || handedOver || lost !== undefined || inFlight.current) return;
     if (!(firstChange || requested || (dirty && wasBlocked.current))) return;
     inFlight.current = true;
     void client.acquire(record).then((ok) => {
@@ -94,7 +94,7 @@ function Scope({ record: maybeRecord, children, fill = true, client }: EditLockS
         client.forgetLost(record);
       }
     });
-  }, [client, record, active, dirty, held, other, requested, handedOver]);
+  }, [client, record, active, dirty, held, other, requested, handedOver, lost]);
 
   // idle and clean: let it go, so a lease never outlives the work
   useEffect(() => {
@@ -123,6 +123,8 @@ function Scope({ record: maybeRecord, children, fill = true, client }: EditLockS
     };
   } else if (held && lock?.request !== undefined) {
     banner = { kind: 'asked', lock };
+  } else if (!held && lost !== undefined) {
+    banner = { kind: 'lost', lost };
   } else if (handedOver && !held) {
     banner = { kind: 'handed-over' };
   }

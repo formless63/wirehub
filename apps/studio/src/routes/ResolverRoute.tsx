@@ -196,7 +196,7 @@ function FindCable({ onOpenDevices }: { onOpenDevices: () => void }): JSX.Elemen
         <p className="text-dim">There are no device profiles available to connect yet. Add profiles here, or browse catalog packs that include them.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button type="button" onClick={onOpenDevices} variant="primary">Device profiles</Button>
-          <Link to="/extensions">Browse store</Link>
+          <Link to="/extensions" className="cs-ui-btn no-underline">Browse store</Link>
         </div>
       </section>
     );

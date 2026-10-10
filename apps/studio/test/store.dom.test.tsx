@@ -143,7 +143,7 @@ describe('Browse store', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Install…' }));
     const pending = await screen.findByTestId('store-pending');
     expect(pending.textContent).toContain('Install alpha 1.0.0');
-    expect(await showAllRecords()).toContain('added components alpha-r');
+    expect(await showAllRecords()).toMatch(/Added Components: .*alpha-r/);
     expect(readInstalledPacks(packs).packs).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
     await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.0.0.'));
@@ -156,7 +156,7 @@ describe('Browse store', () => {
     render(<StoreBrowser />);
     const update = await screen.findByRole('button', { name: 'Update to 1.1.0…' });
     fireEvent.click(update);
-    expect(await showAllRecords()).toContain('added components alpha-r2');
+    expect(await showAllRecords()).toMatch(/Added Components: .*alpha-r2/);
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
     await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Updated alpha 1.1.0.'));
     expect(readInstalledPacks(packs).packs[0]?.version).toBe('1.1.0');

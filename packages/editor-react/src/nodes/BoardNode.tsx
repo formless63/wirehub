@@ -30,6 +30,7 @@ import type { IntegratedArt, PcbaNodeData, TerminalRow } from '../derive.ts';
 import { ConnectorDrawing } from './ConnectorNode.tsx';
 import { BridgeBusOverlay } from './BridgeBus.tsx';
 import { boardHeadMeta, estimateNodeSize } from '../layout-size.ts';
+import { TitleCaption } from './TitleCaption.tsx';
 
 const SIDE_CAPTION = { top: 'TOP', bottom: 'BOTTOM' } as const;
 
@@ -329,6 +330,7 @@ export function BoardArtNode({
           <PadHandle key={handle.id} handle={handle} row={rows.get(handle.key)} nodeSelected={selected} />
         ))}
       </div>
+      <TitleCaption data={data} />
     </div>
   );
 }

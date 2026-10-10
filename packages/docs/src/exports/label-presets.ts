@@ -169,3 +169,15 @@ export function labelPresetOf(id: string | undefined): LabelPreset | undefined {
 export function defaultLabelPreset(paper: 'A4' | 'letter'): LabelPreset {
   return LABEL_PRESETS.find((p) => p.id === (paper === 'letter' ? 'letter-5160' : 'a4-l7160')) as LabelPreset;
 }
+
+/** Stable picker order: sheets, roll families, then tapes from narrow to wide. */
+export function labelPresetOptions(): { value: string; label: string; group: string }[] {
+  const groupOf = (preset: LabelPreset): string => preset.kind === 'sheet' ? 'Sheet labels'
+    : preset.tape !== undefined ? `Brother TZe — ${preset.tape.width.mm} mm`
+    : preset.id.startsWith('dymo-') ? 'Dymo LabelWriter' : 'Brady';
+  const orderOf = (preset: LabelPreset): number => preset.kind === 'sheet' ? 0
+    : preset.tape !== undefined ? 100 + preset.tape.width.mm
+    : preset.id.startsWith('dymo-') ? 1 : 2;
+  return LABEL_PRESETS.map((preset, index) => ({ preset, index })).sort((a, b) => orderOf(a.preset) - orderOf(b.preset) || a.index - b.index)
+    .map(({ preset }) => ({ value: preset.id, label: preset.label, group: groupOf(preset) }));
+}

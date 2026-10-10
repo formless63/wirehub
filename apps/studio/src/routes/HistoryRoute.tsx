@@ -15,6 +15,7 @@ import { InfoTip } from '../shell/InfoTip.tsx';
 import { RouteHeader } from '../shell/RouteHeader.tsx';
 import { fetchHubHistory, historyTime, type HubHistoryQuery } from '../history.browser.ts';
 import { EntryDetail } from '../history/HistoryPanel.tsx';
+import { historyTouchLabel } from '../history/labels.ts';
 import { HISTORY_KINDS, parseSubject, type HistoryCapabilities, type HistoryEntry, type HistoryKind } from '../history/types.ts';
 
 const KIND_LABEL: Readonly<Record<HistoryKind, string>> = { design: 'Designs', library: 'Library', vocab: 'Lists', builds: 'Board builds', other: 'Other' };
@@ -41,7 +42,7 @@ function SubjectLink(props: { subject: string; label: string }): JSX.Element {
   return <span>{props.label}</span>;
 }
 
-const touched = (entry: HistoryEntry): string => entry.touches.map((t) => t.label).join(', ');
+const touched = (entry: HistoryEntry): string => entry.touches.map(historyTouchLabel).join(', ');
 
 const COLUMNS: DataColumn<HistoryEntry>[] = [
   { id: 'when', header: 'When', width: 140, cell: (e) => <span title={e.at}>{historyTime(e.at)}</span>, sortValue: (e) => e.at },
@@ -149,7 +150,7 @@ export function HistoryRoute(): JSX.Element {
                     .filter((t) => t.subject.startsWith('design:') || t.subject.startsWith('definition:'))
                     .filter((t, i, all) => all.findIndex((x) => x.subject === t.subject) === i)
                     .map((t) => (
-                      <SubjectLink key={t.subject} subject={t.subject} label={t.label.replace(/ \(.*\)$/, '')} />
+                      <SubjectLink key={t.subject} subject={t.subject} label={historyTouchLabel(t)} />
                     ))}
                 </div>
                 <EntryDetail id={entry.id} />

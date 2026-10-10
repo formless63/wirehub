@@ -40,6 +40,8 @@ export interface FormatOutput {
   mimeType: string;
   fileName: string;
   body: string | Uint8Array;
+  /** Output limitations to show alongside the download (for example a QR code omitted by P-touch). */
+  notes?: readonly string[];
 }
 
 export interface ExportFormat {
@@ -122,7 +124,7 @@ export const BASE_EXPORTS: readonly ExportFormat[] = [
     render: (design, db, options = {}) => {
       const frame = options.frame ?? sheetFrameFor(design, db, options, 'LABELS', 'portrait', 'strip');
       const made = lbxExport(deriveLabels(design, db), { ...options, frame, design: design.id }, stem(design, options, 'labels'), options.revisionNumber);
-      return { mimeType: made.mimeType, fileName: made.fileName, body: made.body };
+      return { mimeType: made.mimeType, fileName: made.fileName, body: made.body, ...(made.notes.length === 0 ? {} : { notes: made.notes }) };
     },
   },
 ];

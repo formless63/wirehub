@@ -283,7 +283,7 @@
 .cs-ui-toast[data-type='info'] { border-left-color: var(--info); }
 .cs-ui-toast-title { font-weight: 500; line-height: 1.35; }
 .cs-ui-toast-desc { color: var(--dim); line-height: 1.35; }
-.cs-ui-toast-action { margin-left: auto; height: var(--control-sm); padding: 0 var(--space-sm); font: inherit; font-size: var(--fs-xs); font-weight: 500; color: var(--ink); background: var(--raised); border: 1px solid var(--line-field); border-radius: var(--r-sm); cursor: pointer; }
+.cs-ui-toast-action { margin-left: auto; flex: 0 0 auto; white-space: nowrap; height: var(--control-sm); padding: 0 var(--space-sm); font: inherit; font-size: var(--fs-xs); font-weight: 500; color: var(--ink); background: var(--raised); border: 1px solid var(--line-field); border-radius: var(--r-sm); cursor: pointer; }
 
 /* page anatomy: header 44, toolbar 36, content, 360 side panel */
 .cs-ui-grow { flex: 1 1 0; min-width: 0; }
