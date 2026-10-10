@@ -19,6 +19,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type JSX, ty
 
 import type { ArtworkAdapter, ArtworkView } from '../artwork.ts';
 import { classes } from '../context.ts';
+import { Field, Input } from '../ui/index.ts';
 import { parametricModelFile } from '../parametric-model.ts';
 import { isModelFileName, MODEL_ACCEPT, MODEL_SOURCE_LABEL, type ModelLinkView, type ModelsAdapter, type ModelSourceKind, type StoredModel } from '../models.ts';
 import { useEditLocked, useEditSession } from './edit-session.ts';
@@ -341,6 +342,7 @@ function AttachForm(
   const [pick, setPick] = useState('');
   const [query, setQuery] = useState('');
   const [sourceKind, setSourceKind] = useState<ModelSourceKind>('uploaded');
+  const [sourceCitation, setSourceCitation] = useState('');
   const [working, setWorking] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -362,7 +364,7 @@ function AttachForm(
     }
     setWorking(/\.(step|stp)$/i.test(file.name) ? `Converting ${file.name} — a STEP file can take up to a minute…` : `Uploading ${file.name}…`);
     props.onBusy(true);
-    const outcome = await models.upload(kind, id, { name: file.name, bytes: await file.arrayBuffer() }, sourceKind);
+    const outcome = await models.upload(kind, id, { name: file.name, bytes: await file.arrayBuffer() }, sourceKind, sourceCitation.trim() || undefined);
     props.onBusy(false);
     setWorking(undefined);
     if (outcome.ok) {
@@ -388,6 +390,9 @@ function AttachForm(
   return (
     <div className="cs-model-attach">
       <fieldset disabled={props.disabled}>
+        <Field label="Source citation (optional)" hint="Before choosing a file, add its source URL, license and attribution. These stay with the uploaded model.">
+          <Input value={sourceCitation} maxLength={4000} onChange={(event) => setSourceCitation(event.target.value)} />
+        </Field>
         <div className="cs-model-attach-row">
           <label>
             Upload a file
@@ -406,6 +411,7 @@ function AttachForm(
             <select value={sourceKind} onChange={(event) => setSourceKind(event.target.value as ModelSourceKind)}>
               <option value="uploaded">Uploaded</option>
               <option value="vendor">Vendor model</option>
+              <option value="kicad-library">KiCad library</option>
               <option value="resin-print">Resin print</option>
               <option value="kicad-board">KiCad board</option>
             </select>

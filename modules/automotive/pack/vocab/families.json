@@ -39,6 +39,26 @@
           }
         ]
       }
+    },
+    {
+      "id": "deutsch-dt",
+      "label": "DEUTSCH DT",
+      "aliases": [
+        "DT connector",
+        "Deutsch DT"
+      ],
+      "src": "TE Connectivity DEUTSCH DT wire-to-wire sealed connector family",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "transcribed",
+        "sources": [
+          {
+            "title": "TE Connectivity DEUTSCH DT wire-to-wire sealed connector family",
+            "url": "https://www.te.com/en/product-DT04-2P.html",
+            "retrieved": "2026-10-10"
+          }
+        ]
+      }
     }
   ]
 }

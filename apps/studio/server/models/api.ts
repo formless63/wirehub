@@ -295,6 +295,11 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
   if (method === 'POST' && action === 'upload') {
     const name = body['name'];
     const data = body['data'];
+    const citation = body['sourceCitation'];
+    if (citation !== undefined && (typeof citation !== 'string' || citation.length > 4000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(citation))) {
+      return fail(400, 'The source citation must be text of at most 4000 characters.');
+    }
+    const sourceCitation = typeof citation === 'string' ? citation.trim() : '';
     if (typeof name !== 'string' || name.trim() === '' || name.length > 200 || /[\\/\u0000]/.test(name)) {
       return fail(400, 'The upload needs the file name (no folders).');
     }
@@ -315,7 +320,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
       if (error instanceof ModelRefusal) return fail(422, error.message, error.hint);
       throw error;
     }
-    if (boardUpload) return uploadBoardFile(request, { ...deps, profile }, { kind, id, record, name: name.trim(), bytes, today, guarded });
+    if (boardUpload) return uploadBoardFile(request, { ...deps, profile }, { kind, id, record, name: name.trim(), bytes, today, sourceCitation, guarded });
     let converted: ConvertedModel;
     try {
       converted = await (deps.convert ?? convertModel)(bytes, name.trim(), { boardTextureProfile: profile });
@@ -325,7 +330,7 @@ export async function handleModelRequest(request: ModelRequest, deps: ModelDeps)
     }
     return guarded(async (_current, stores) => {
       const who = deps.who ?? 'the Library';
-      const src = `${name.trim()} (${converted.format.toUpperCase()}${converted.format === 'glb' ? '' : ', converted to GLB'}), uploaded by ${who} on ${today}`;
+      const src = `${name.trim()} (${converted.format.toUpperCase()}${converted.format === 'glb' ? '' : ', converted to GLB'}), uploaded by ${who} on ${today}${sourceCitation === '' ? '' : `; ${sourceCitation}`}`;
       const stored = await stores.assets.put(Buffer.from(converted.glb), 'model/gltf-binary', name.trim(), src);
       const link: ModelLink = {
         record,
@@ -361,6 +366,7 @@ async function uploadBoardFile(
     name: string;
     bytes: Uint8Array;
     today: string;
+    sourceCitation: string;
     guarded: (write: (current: ModelLink | undefined, stores: { links: ModelLinkStore; assets: AssetStore; docs?: DocStore }) => Promise<ApiResponse>) => Promise<ApiResponse>;
   },
 ): Promise<ApiResponse> {
@@ -395,7 +401,7 @@ async function uploadBoardFile(
       build,
       name: upload.name.replace(/\.kicad_pcb$/i, ''),
       sourceKind: 'kicad-board',
-      src: `${upload.name} (KiCad board, ${board.footprints.length} footprints), uploaded by ${who} on ${upload.today}; footprint models from ${KICAD_LIBRARY.name} ${KICAD_LIBRARY.tag} (${KICAD_LIBRARY.licence}), fetched when the model is built, never committed`,
+      src: `${upload.name} (KiCad board, ${board.footprints.length} footprints), uploaded by ${who} on ${upload.today}; footprint models from ${KICAD_LIBRARY.name} ${KICAD_LIBRARY.tag} (${KICAD_LIBRARY.licence}), fetched when the model is built, never committed${upload.sourceCitation === '' ? '' : `; ${upload.sourceCitation}`}`,
     };
     await stores.links.put(link);
     return ok(

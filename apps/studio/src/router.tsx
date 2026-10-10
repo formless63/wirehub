@@ -147,14 +147,20 @@ export const cableRoute = createRoute({
   component: CableRoute,
 });
 
+function librarySearch(search: Record<string, unknown>): { pack?: string } {
+  return typeof search['pack'] === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(search['pack'])
+    ? { pack: search['pack'] } : {};
+}
+
 export const libraryIndexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library',
   // `/library` is not a real place to land — the section always shows one
   // kind's list, so this redirects to the first kind (connectors) exactly as
   // `indexRoute` redirects `/` to `/cables`.
-  beforeLoad: () => {
-    throw redirect({ to: '/library/$kind', params: { kind: 'connectors' } });
+  validateSearch: librarySearch,
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: '/library/$kind', params: { kind: 'connectors' }, search });
   },
 });
 
@@ -187,12 +193,14 @@ export const extensionsRoute = createRoute({
 export const libraryKindRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library/$kind',
+  validateSearch: librarySearch,
   component: LibraryRoute,
 });
 
 export const libraryItemRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library/$kind/$id',
+  validateSearch: librarySearch,
   component: LibraryRoute,
 });
 

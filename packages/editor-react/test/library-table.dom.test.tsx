@@ -51,6 +51,20 @@ const names = (): string[] =>
 const ids = (): string[] => [...document.querySelectorAll('tbody tr[data-id]')].map((tr) => tr.getAttribute('data-id') ?? '');
 
 describe('<LibraryTable> over the starter connectors', () => {
+  it('shows only the linked pack, includes its option while loading, and keeps filtering on category changes', () => {
+    const rows = libraryRows('connectors', db.connectors as ConnectorDefinition[], [], {
+      db, packs: { 'de9-male': { pack: 'automotive', version: '1.0.0' }, 'jst-xh-2-dc': { pack: 'networking', version: '1.0.0' } },
+    });
+    const onPackFilterChange = vi.fn();
+    const { rerender } = render(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" packFilter="automotive" onPackFilterChange={onPackFilterChange} onSelect={() => undefined} empty="No parts from this pack." />);
+    expect(ids()).toEqual(['de9-male']);
+    expect(screen.getByRole('combobox', { name: 'Catalog pack' }).textContent).toContain('automotive');
+    rerender(<LibraryTable kind="components" rows={[]} columns={libraryColumns('components')} query="" packFilter="automotive" onPackFilterChange={onPackFilterChange} onSelect={() => undefined} empty="No parts from this pack." />);
+    expect(screen.getByRole('combobox', { name: 'Catalog pack' }).textContent).toContain('automotive');
+    expect(screen.getByText('No parts from this pack.')).not.toBeNull();
+    expect(onPackFilterChange).not.toHaveBeenCalled();
+  });
+
   it('shows a row per connector with the kind’s columns', () => {
     table();
     expect(ids()).toEqual(['de9-female', 'de9-male', 'jst-xh-2-dc', 'terminal-block-4']);
@@ -105,6 +119,12 @@ describe('<LibraryTable> over the starter connectors', () => {
     rerender(<LibraryTable kind="connectors" rows={rows} columns={columns} query="no such part" onSelect={() => {}} empty="No connectors match." />);
     expect(ids()).toEqual([]);
     expect(screen.getByText('No connectors match.')).toBeDefined();
+  });
+
+  it('keeps the pack selector accessible beside an open detail', () => {
+    const rows = libraryRows('connectors', db.connectors as ConnectorDefinition[], [], { db, packs: { 'de9-male': { pack: 'sample', version: '1.0.0' } } });
+    render(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" compact onSelect={() => {}} empty="-" />);
+    expect(screen.getByRole('combobox', { name: 'Catalog pack' })).toBeTruthy();
   });
 
   it('reports shown and total through onCount', () => {

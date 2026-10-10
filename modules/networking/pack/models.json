@@ -4,9 +4,9 @@
     {
       "record": "bodies/rj45-8p8c-plug",
       "asset": "parametric-1d7c8d9bde488ca5",
-      "name": "RJ45 plug (parametric)",
+      "name": "RJ45 plug — generic detailed approximation",
       "sourceKind": "parametric",
-      "src": "Parametric RJ45 (8P8C) plug: 11.68 mm wide, 8 contacts at 1.02 mm pitch (IEC 60603-7); height, length, latch and boot sizes are a typical plug envelope (inferred)",
+      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
       "parametric": {
         "shape": "rj45",
         "gender": "male",
@@ -19,14 +19,28 @@
           "contactPitchMm": 1.02,
           "bootLengthMm": 22
         }
+      },
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "derived",
+        "sources": [
+          {
+            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
+          },
+          {
+            "title": "Molex ATS-690081124 revision E",
+            "url": "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/applicationtoolingspecificationpdf/690/69008/ATS-690081124-001.pdf",
+            "retrieved": "2026-10-10"
+          }
+        ]
       }
     },
     {
       "record": "connectors/rj45-plug-t568a",
       "asset": "parametric-1d7c8d9bde488ca5",
-      "name": "RJ45 plug (parametric)",
+      "name": "RJ45 plug — generic detailed approximation",
       "sourceKind": "parametric",
-      "src": "Parametric RJ45 (8P8C) plug: 11.68 mm wide, 8 contacts at 1.02 mm pitch (IEC 60603-7); height, length, latch and boot sizes are a typical plug envelope (inferred)",
+      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
       "parametric": {
         "shape": "rj45",
         "gender": "male",
@@ -39,14 +53,28 @@
           "contactPitchMm": 1.02,
           "bootLengthMm": 22
         }
+      },
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "derived",
+        "sources": [
+          {
+            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
+          },
+          {
+            "title": "Molex ATS-690081124 revision E",
+            "url": "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/applicationtoolingspecificationpdf/690/69008/ATS-690081124-001.pdf",
+            "retrieved": "2026-10-10"
+          }
+        ]
       }
     },
     {
       "record": "connectors/rj45-plug-t568b",
       "asset": "parametric-1d7c8d9bde488ca5",
-      "name": "RJ45 plug (parametric)",
+      "name": "RJ45 plug — generic detailed approximation",
       "sourceKind": "parametric",
-      "src": "Parametric RJ45 (8P8C) plug: 11.68 mm wide, 8 contacts at 1.02 mm pitch (IEC 60603-7); height, length, latch and boot sizes are a typical plug envelope (inferred)",
+      "src": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part.",
       "parametric": {
         "shape": "rj45",
         "gender": "male",
@@ -58,6 +86,82 @@
           "latchHeightMm": 4,
           "contactPitchMm": 1.02,
           "bootLengthMm": 22
+        }
+      },
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "derived",
+        "sources": [
+          {
+            "title": "IEC 60603-7 modular interface: 11.68 mm width, 8 contacts at 1.02 mm pitch. Molex ATS-690081124 revision E describes insulation-piercing blades and primary/secondary strain relief. Height, length, narrow flexible latch, thin hollow walls, beveled nose, clear polymer optics and tapered ribbed boot are inferred generic presentation; not manufacturer CAD or an exact purchased part."
+          },
+          {
+            "title": "Molex ATS-690081124 revision E",
+            "url": "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/applicationtoolingspecificationpdf/690/69008/ATS-690081124-001.pdf",
+            "retrieved": "2026-10-10"
+          }
+        ]
+      }
+    },
+    {
+      "record": "bodies/rj45-8p8c-jack",
+      "asset": "parametric-d7e55d97f5b5486d",
+      "name": "RJ45 PCB jack — generic detailed approximation",
+      "sourceKind": "parametric",
+      "src": "Molex SD-95501-001 revision F1, 2022-01-10, sheet 1: 8-position unshielded PCB jack envelope 15.24 × 11.50 × 18.10 mm, black LCP housing and gold-finished copper-alloy contacts. Generic depiction inferred from these dimensions, not a Molex CAD replica; PCB tail locations and latch details illustrative, not a footprint. bootLengthMm is an unused compatibility field for the female variant.",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "derived",
+        "sources": [
+          {
+            "title": "Molex SD-95501-001 revision F1, 2022-01-10, sheet 1: 8-position unshielded PCB jack envelope 15.24 × 11.50 × 18.10 mm, black LCP housing and gold-finished copper-alloy contacts. Generic depiction inferred from these dimensions, not a Molex CAD replica; PCB tail locations and latch details illustrative, not a footprint. bootLengthMm is an unused compatibility field for the female variant.",
+            "url": "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/salesdrawingpdf/955/95501/955012882_sd.pdf",
+            "retrieved": "2026-10-10"
+          }
+        ]
+      },
+      "parametric": {
+        "shape": "rj45",
+        "gender": "female",
+        "pins": 8,
+        "params": {
+          "widthMm": 15.24,
+          "heightMm": 11.5,
+          "lengthMm": 18.1,
+          "latchHeightMm": 2,
+          "contactPitchMm": 1.02,
+          "bootLengthMm": 1
+        }
+      }
+    },
+    {
+      "record": "connectors/rj45-jack-mdi",
+      "asset": "parametric-d7e55d97f5b5486d",
+      "name": "RJ45 PCB jack — generic detailed approximation",
+      "sourceKind": "parametric",
+      "src": "Molex SD-95501-001 revision F1, 2022-01-10, sheet 1: 8-position unshielded PCB jack envelope 15.24 × 11.50 × 18.10 mm, black LCP housing and gold-finished copper-alloy contacts. Generic depiction inferred from these dimensions, not a Molex CAD replica; PCB tail locations and latch details illustrative, not a footprint. bootLengthMm is an unused compatibility field for the female variant.",
+      "license": "CC0-1.0",
+      "provenance": {
+        "method": "derived",
+        "sources": [
+          {
+            "title": "Molex SD-95501-001 revision F1, 2022-01-10, sheet 1: 8-position unshielded PCB jack envelope 15.24 × 11.50 × 18.10 mm, black LCP housing and gold-finished copper-alloy contacts. Generic depiction inferred from these dimensions, not a Molex CAD replica; PCB tail locations and latch details illustrative, not a footprint. bootLengthMm is an unused compatibility field for the female variant.",
+            "url": "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/salesdrawingpdf/955/95501/955012882_sd.pdf",
+            "retrieved": "2026-10-10"
+          }
+        ]
+      },
+      "parametric": {
+        "shape": "rj45",
+        "gender": "female",
+        "pins": 8,
+        "params": {
+          "widthMm": 15.24,
+          "heightMm": 11.5,
+          "lengthMm": 18.1,
+          "latchHeightMm": 2,
+          "contactPitchMm": 1.02,
+          "bootLengthMm": 1
         }
       }
     }

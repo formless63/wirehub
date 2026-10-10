@@ -9,10 +9,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, readPackManifest } from '@wirehub/catalog';
+import { createCatalog, dataPath, fsCatalogSource, installPack, layeredCatalogSource, loadDepictions, readPackManifest } from '@wirehub/catalog';
 import { roleOfLabels } from '@wirehub/editor-react';
 import { crimpListTable, deriveBom, renderBuildSheet } from '@wirehub/docs';
-import { cavityIssues, fillCavities, signalFromLabel, validateDb, validateDesign, withCavities, type CableDesign, type Db } from '@wirehub/model';
+import { cavityIssues, fillCavities, parametricAssetId, parametricProblems, signalFromLabel, validateDb, validateDesign, withCavities, type CableDesign, type Db, type ParametricSpec } from '@wirehub/model';
 import { createRegistry } from '@wirehub/modules';
 import { describe, expect, it } from 'vitest';
 
@@ -24,7 +24,7 @@ const db: Db = createCatalog(layeredCatalogSource([fsCatalogSource(dataPath(''))
 describe('the automotive module', () => {
   it('is a domain module with one pack', () => {
     expect(createRegistry([automotive]).domains().map((m) => m.id)).toEqual(['automotive']);
-    expect(readPackManifest(packDir)).toMatchObject({ id: 'automotive', license: 'CC0-1.0' });
+    expect(readPackManifest(packDir)).toMatchObject({ id: 'automotive', license: 'CC0-1.0', version: automotive.catalogPacks?.[0]?.version });
   });
 
   it('validates over the starter catalog', () => {
@@ -38,7 +38,10 @@ describe('the automotive module', () => {
     const work = mkdtempSync(join(tmpdir(), 'wirehub-auto-'));
     try {
       cpSync(dataPath(''), work, { recursive: true });
-      expect(installPack(work, packDir).added['connectors.json']).toEqual(['obd2-male', 'sealed-3-female-numbered', 'sealed-3-male-numbered']);
+      const expected = db.connectors.filter((c) => ['obd2', 'sealed-auto', 'deutsch-dt'].includes(c.family)).map((c) => c.id);
+      expect(installPack(work, packDir).added['connectors.json']).toEqual(expected);
+      expect(expected).toHaveLength(8);
+      expect(installPack(work, packDir).alreadyInstalled).toBe(true);
     } finally {
       rmSync(work, { recursive: true, force: true });
     }
@@ -48,6 +51,54 @@ describe('the automotive module', () => {
     expect(roleOfLabels(db, ['CAN H'])?.role).toBe('can-h');
     expect(roleOfLabels(db, ['CANL'])?.role).toBe('can-l');
     expect(signalFromLabel('Battery +', db)).toBe('power');
+  });
+
+  it('includes both mating halves without changing the mandated OBD-II assignments', () => {
+    const plug = db.connectors.find((c) => c.id === 'obd2-male')!;
+    const socket = db.connectors.find((c) => c.id === 'obd2-female')!;
+    expect(socket.pins).toEqual(plug.pins);
+    expect(db.bodies?.find((b) => b.id === plug.body)?.mates).toBe(socket.body);
+    expect(db.bodies?.find((b) => b.id === socket.body)?.mates).toBe(plug.body);
+    const extension = JSON.parse(readFileSync(join(packDir, 'designs/obd2-diagnostic-extension.json'), 'utf8')) as CableDesign;
+    expect(validateDesign(extension, db)).toEqual([]);
+    expect(extension.joints).toHaveLength(32);
+  });
+
+  it('keeps DT housings numbered, with mat seals and compatible size-16 contacts', () => {
+    for (const ways of [2, 6]) for (const [part, gender] of [['dt04', 'male'], ['dt06', 'female']] as const) {
+      const connector = db.connectors.find((c) => c.id === `deutsch-${part}-${ways}${gender === 'male' ? 'p' : 's'}-numbered`)!;
+      expect(connector.pins).toHaveLength(ways);
+      expect(connector.pins.every((p) => p.signal === 'any')).toBe(true);
+      expect(db.bodies?.find((b) => b.id === connector.body)?.housing).toMatchObject({ systems: ['deutsch-dt-size-16'], sealing: 'mat', plugUnused: true });
+      expect(connector.provenance?.sources[0]?.url).toMatch(/^https:\/\/www\.te\.com\//);
+    }
+    const contacts = (db.mechanicals ?? []).filter((m) => m.termination?.systems?.includes('deutsch-dt-size-16') && m.kind === 'contact');
+    expect(contacts.map((m) => m.termination?.gender).sort()).toEqual(['female', 'male']);
+    for (const contact of contacts) expect(contact.termination).toMatchObject({ wireMinMm2: 0.5, wireMaxMm2: 1.5, plating: 'nickel' });
+  });
+
+  it('ships immediate generated models for all its bodies and connectors, labeled as approximations', () => {
+    const models = JSON.parse(readFileSync(join(packDir, 'models.json'), 'utf8')) as { links: { record: string; asset: string; name: string; src: string; parametric: ParametricSpec }[] };
+    const records = new Map(models.links.map((link) => [link.record, link]));
+    for (const kind of ['bodies', 'connectors']) {
+      const raw = JSON.parse(readFileSync(join(packDir, `${kind}.json`), 'utf8')) as { id: string }[];
+      for (const record of raw) {
+        const link = records.get(`${kind}/${record.id}`)!;
+        expect(link, record.id).toBeDefined();
+        expect(parametricProblems(link.parametric), record.id).toEqual([]);
+        expect(link.asset, record.id).toBe(parametricAssetId(link.parametric));
+        expect(link.name).toContain('approximation');
+        expect(link.src).toContain('inferred');
+      }
+    }
+  });
+
+  it('validates its original OBD and generic sealed artwork with mirrored rear anchors', () => {
+    const { index, issues } = loadDepictions(db, join(packDir, 'depictions'));
+    expect(issues).toEqual([]);
+    expect(Object.keys(index).sort()).toEqual(['obd2-16-female', 'obd2-16-male', 'sealed-3-female', 'sealed-3-male']);
+    for (const depiction of Object.values(index)) expect(depiction.views['solder-side']).toMatchObject({ mirrorOf: 'mating-face', mirrorAxis: 'x' });
+    expect(index['obd2-16-female']!.pinAnchors['1']!.x + index['obd2-16-male']!.pinAnchors['1']!.x).toBe(40);
   });
 
   describe('the sealed connector family', () => {

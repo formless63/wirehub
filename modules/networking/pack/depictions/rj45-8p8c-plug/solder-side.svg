@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 18" width="14mm" height="18mm">
-  <title>RJ45 (8P8C) plug — solder side</title>
-  <desc>Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.</desc>
-  <g fill="none" stroke="currentColor" stroke-width="0.15" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="1.15" y="1" width="11.7" height="16" rx="0.8"/>
-    <path d="M10.7 17 L10.7 12.5 L3.3 12.5 L3.3 17 Z"/>
-    <rect data-pin="1" x="10.27" y="2.5" width="0.6" height="5"/>
-    <rect data-pin="2" x="9.25" y="2.5" width="0.6" height="5"/>
-    <rect data-pin="3" x="8.23" y="2.5" width="0.6" height="5"/>
-    <rect data-pin="4" x="7.21" y="2.5" width="0.6" height="5"/>
-    <rect data-pin="5" x="6.19" y="2.5" width="0.6" height="5"/>
-    <rect data-pin="6" x="5.17" y="2.5" width="0.6" height="5"/>
-    <rect data-pin="7" x="4.15" y="2.5" width="0.6" height="5"/>
-    <rect data-pin="8" x="3.13" y="2.5" width="0.6" height="5"/>
-    <text x="10.57" y="0.7" font-size="1.3" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">1</text>
-    <text x="3.43" y="0.7" font-size="1.3" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">8</text>
+  <title>RJ45 (8P8C) plug — rear wire entry</title>
+  <desc>Original generic illustration; dimensions and inferred details cited in meta.json. Not manufacturer CAD.</desc>
+  <g stroke="currentColor" stroke-width="0.15" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="1.16" y="2" width="11.68" height="8.1" rx="0.45" fill="currentColor" fill-opacity="0.06"/>
+    <rect x="2.05" y="3" width="9.9" height="5.7" rx="0.7" fill="none"/>
+    <path d="M5.5 10.1 L5.5 14 L8.5 14 L8.5 10.1" fill="none"/>
+    <circle data-pin="1" cx="10.57" cy="5" r="0.35" fill="none"/>
+    <circle data-pin="2" cx="9.55" cy="5" r="0.35" fill="none"/>
+    <circle data-pin="3" cx="8.53" cy="5" r="0.35" fill="none"/>
+    <circle data-pin="4" cx="7.51" cy="5" r="0.35" fill="none"/>
+    <circle data-pin="5" cx="6.49" cy="5" r="0.35" fill="none"/>
+    <circle data-pin="6" cx="5.47" cy="5" r="0.35" fill="none"/>
+    <circle data-pin="7" cx="4.45" cy="5" r="0.35" fill="none"/>
+    <circle data-pin="8" cx="3.43" cy="5" r="0.35" fill="none"/>
+    <text x="10.57" y="1.3" font-size="1.3" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">1</text>
+    <text x="3.43" y="1.3" font-size="1.3" text-anchor="middle" fill="currentColor" stroke="none" font-family="sans-serif">8</text>
   </g>
 </svg>

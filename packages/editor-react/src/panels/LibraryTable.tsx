@@ -23,6 +23,7 @@ import { Button } from '../ui/Button.tsx';
 import { Checkbox } from '../ui/Controls.tsx';
 import { DataTable, type DataColumn, type DataSort } from '../ui/DataTable.tsx';
 import { FilterChip } from '../ui/FilterChip.tsx';
+import { Select } from '../ui/Select.tsx';
 import { Toolbar } from '../ui/Page.tsx';
 
 export interface LibraryTableProps {
@@ -30,6 +31,9 @@ export interface LibraryTableProps {
   rows: readonly LibraryRow[];
   columns: readonly LibraryColumn[];
   query: string;
+  /** A host may link directly to the contents of one installed catalog pack. */
+  packFilter?: string;
+  onPackFilterChange?: (pack: string | undefined) => void;
   /** a record is open beside the table: PN and Name only */
   compact?: boolean;
   selectedId?: string;
@@ -76,6 +80,9 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
   const { kind, rows, columns, query } = props;
   const [sort, setSort] = useState<LibrarySort | undefined>(undefined);
   const [facets, setFacets] = useState<Record<string, string[]>>({});
+  const [localPack, setLocalPack] = useState<string | undefined>(undefined);
+  const pack = props.onPackFilterChange === undefined ? localPack : props.packFilter;
+  const packOptions = useMemo(() => [...new Set([...rows.flatMap((r) => r.pack === undefined ? [] : [r.pack.pack]), ...(pack === undefined ? [] : [pack])])].sort(), [rows, pack]);
   // a new kind: no sort or filter carried over (the table below is keyed by kind, so its columns reset too)
   useEffect(() => {
     setSort(undefined);
@@ -83,7 +90,7 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
   }, [kind]);
 
   const facetColumns = columns.filter((c) => c.facet === true);
-  const shownRows = useMemo(() => sortRows(filterRows(rows, query, facets), sort), [rows, query, facets, sort]);
+  const shownRows = useMemo(() => sortRows(filterRows(rows, query, facets).filter((r) => pack === undefined || r.pack?.pack === pack), sort), [rows, query, facets, sort, pack]);
   const onCount = props.onCount;
   useEffect(() => onCount?.(shownRows.length, rows.length), [onCount, shownRows.length, rows.length]);
   const anyFacet = Object.values(facets).some((v) => v.length > 0);
@@ -130,11 +137,21 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
 
   return (
     <div className={classes('cs-lt', props.compact === true && 'is-compact')}>
-      {props.compact === true ? null : (
+      {props.compact === true && packOptions.length === 0 ? null : (
         <Toolbar label="filters">
-          {props.lead}
-          {facetChips}
-          {anyFacet ? (
+          {props.compact === true ? null : props.lead}
+          {packOptions.length === 0 ? null : <Select
+            aria-label="Catalog pack"
+            value={pack ?? '__all__'}
+            onValueChange={(value) => {
+              const next = value === '__all__' ? undefined : value;
+              if (props.onPackFilterChange === undefined) setLocalPack(next);
+              else props.onPackFilterChange(next);
+            }}
+            options={[{ value: '__all__', label: 'All sources' }, ...packOptions.map((id) => ({ value: id, label: id }))]}
+          />}
+          {props.compact === true ? null : facetChips}
+          {anyFacet && props.compact !== true ? (
             <Button variant="ghost" size="xs" onClick={() => setFacets({})}>
               Reset
             </Button>

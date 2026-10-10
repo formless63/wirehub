@@ -174,7 +174,7 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
       const description = `${codeNote}${offersScheme ? ' It offers a part-numbering scheme: an owner can review and switch to it in Settings, Part numbers. Nothing was switched.' : ''}`.trim();
       notify.success(`${pending.kind === 'update' ? 'Updated' : 'Installed'} ${pending.pack.id} ${pending.version}.`, {
         ...(description === '' ? {} : { description }),
-        view: pending.code === undefined ? { to: '/library' } : { to: '/extensions', tab: 'installed' },
+        view: pending.code === undefined ? { to: '/library', pack: pending.pack.id } : { to: '/extensions', tab: 'installed' },
       });
       await reload();
     });
@@ -283,6 +283,9 @@ export function StoreBrowser({ initialQuery = '', openPack }: { initialQuery?: s
             ) : null}
             {p.action === 'unavailable' ? <div className="text-dim">Every version is yanked; nothing is offered.</div> : null}
             <div className="cs-ext-card-foot">
+              {p.installed === undefined || p.latest?.module !== undefined ? null : (
+                <a href={`/library/connectors?pack=${encodeURIComponent(p.id)}`} className="cs-ui-btn no-underline" data-variant="secondary" data-size="xs">View contents</a>
+              )}
               <span className="text-dim">
                 from {p.storeLabel ?? p.store.name}
                 {p.homepage === undefined ? null : (

@@ -344,3 +344,12 @@ it('an empty list says so once, offers New, and links to the docs when the host 
   expect(within(line).getByRole('button', { name: /New/ })).toBeTruthy();
   expect(within(line).getByRole('link', { name: 'Learn more' }).getAttribute('href')).toBe('https://docs.example/kits');
 });
+
+it('reads pack ownership on a view-only host and filters without enabling editing', async () => {
+  const readDefinitions = { list: vi.fn(async () => ({ ok: true as const, value: { kind: 'connectors' as const, records: db.connectors, packs: { 'de9-male': { pack: 'sample', version: '1.0.0' } } } })) };
+  render(<Library db={db} kind="connectors" viewOnly readDefinitions={readDefinitions} packFilter="sample" onPackFilterChange={() => {}} />);
+  await waitFor(() => expect(document.querySelector('tr[data-id="de9-male"]')).not.toBeNull());
+  expect(document.querySelector('tr[data-id="de9-female"]')).toBeNull();
+  expect(screen.queryByRole('button', { name: /New connector/ })).toBeNull();
+  expect(readDefinitions.list).toHaveBeenCalledWith('connectors');
+});

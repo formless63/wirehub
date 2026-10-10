@@ -42,6 +42,7 @@
     "@wirehub/module-automotive": "workspace:*",
     "@wirehub/module-av-video": "workspace:*",
     "@wirehub/module-board-import": "workspace:*",
+    "@wirehub/module-catalog-assets": "workspace:*",
     "@wirehub/module-csv-library": "workspace:*",
     "@wirehub/module-example": "workspace:*",
     "@wirehub/module-networking": "workspace:*",

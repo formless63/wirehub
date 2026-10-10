@@ -3,7 +3,7 @@
  *
  * A data module: everything it adds is in its catalog pack (`../pack`) —
  * the Ethernet MDI pair signals, the RJ45 (8P8C) plug terminated T568A or
- * T568B, a strain-relief boot, and a straight patch cable and a crossover.
+ * T568B and an unshielded PCB jack, a strain-relief boot, and a straight patch cable and a crossover.
  * The pack is laid over the base starter catalog (it uses the base's
  * generic bodies, stocks and parts); nothing in the base knows these signals
  * until the pack is installed.
@@ -26,7 +26,7 @@ export const networking = defineModule({
   license: 'MIT',
   setup: {
     kind: 'domain',
-    description: 'Ethernet: MDI pair signals, the RJ45 plug wired T568A or T568B, a straight patch cable and a crossover.',
+    description: 'Ethernet: RJ45 T568A/B plugs and an unshielded PCB jack, detailed generic artwork, MDI pair signals, patch and crossover examples.',
   },
-  catalogPacks: [{ id: 'networking', label: 'Networking', version: '0.2.2', root: NETWORKING_PACK, license: 'CC0-1.0' }],
+  catalogPacks: [{ id: 'networking', label: 'Networking', version: '0.3.0', root: NETWORKING_PACK, license: 'CC0-1.0' }],
 });

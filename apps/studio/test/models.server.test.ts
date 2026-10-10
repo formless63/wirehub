@@ -246,6 +246,24 @@ describe('/api/models', () => {
     expect(stored?.record.mime).toBe('model/gltf-binary');
   });
 
+  it('keeps a supplied source citation on both the model link and stored asset', async () => {
+    const citation = 'https://example.org/cad/tetra; CC-BY-SA-4.0; Model author';
+    const up = await call('POST', `/api/models/pcbas/${BOARD}/upload`, { name: 'tetra.stl', data: Buffer.from(TETRA).toString('base64'), sourceCitation: `  ${citation}  ` }, '*');
+    expect(up.status).toBe(200);
+    expect(up.body.link.src).toContain(citation);
+    expect((await assets.get(up.body.link.asset))?.record.src).toBe(up.body.link.src);
+  });
+
+  it('refuses invalid source citations without saving a link or asset', async () => {
+    const before = (await assets.list()).length;
+    for (const sourceCitation of [42, 'x'.repeat(4001), 'invalid\u0000text']) {
+      const up = await call('POST', `/api/models/pcbas/${BOARD}/upload`, { name: 'tetra.stl', data: Buffer.from(TETRA).toString('base64'), sourceCitation }, '*');
+      expect(up.status).toBe(400);
+    }
+    expect(links.links).toHaveLength(0);
+    expect(await assets.list()).toHaveLength(before);
+  });
+
   it('refuses a file that is not a model, and writes nothing', async () => {
     const up = await call('POST', `/api/models/pcbas/${BOARD}/upload`, { name: 'x.stl', data: Buffer.from('not a model').toString('base64') }, '*');
     expect(up.status).toBe(422);

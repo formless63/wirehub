@@ -12,7 +12,9 @@ export function modelPreviewNote(bytes: ArrayBuffer, mime: string): string | und
     const asset = document.asset;
     if (asset === null || typeof asset !== 'object' || !('extras' in asset)) return undefined;
     const extras = asset.extras;
-    if (extras === null || typeof extras !== 'object' || !('source' in extras) || extras.source !== 'kicad-assembly') return undefined;
+    if (extras === null || typeof extras !== 'object' || !('source' in extras)) return undefined;
+    if (extras.source === 'parametric') return 'Generated approximation from catalog dimensions; shape and finish are illustrative. Check the source citation or attach exact manufacturer CAD.';
+    if (extras.source !== 'kicad-assembly') return undefined;
     if ('unreadModels' in extras && typeof extras.unreadModels === 'string' && extras.unreadModels.trim() !== '') {
       return 'Some footprint models could not be read; this preview is incomplete.';
     }

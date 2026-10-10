@@ -221,5 +221,152 @@
         }
       ]
     }
+  },
+  {
+    "id": "deutsch-0460-202-16141",
+    "label": "TE DEUTSCH 0460-202-16141, size-16 pin contact, 0.5–1.5 mm²",
+    "kind": "contact",
+    "termination": {
+      "systems": [
+        "deutsch-dt-size-16"
+      ],
+      "gender": "male",
+      "wireMinMm2": 0.5,
+      "wireMaxMm2": 1.5,
+      "plating": "nickel",
+      "ratedCurrentA": 13,
+      "src": "TE Connectivity DEUTSCH 0460-202-16141: solid size-16 pin contact, nickel plated, 0.5–1.5 mm² (16–20 AWG), typical current 13 A; use manufacturer-approved indent-crimp tooling, no inferred crimp-height recipe"
+    },
+    "src": "TE Connectivity DEUTSCH 0460-202-16141: solid size-16 pin contact, nickel plated, 0.5–1.5 mm² (16–20 AWG), typical current 13 A; use manufacturer-approved indent-crimp tooling, no inferred crimp-height recipe",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH 0460-202-16141: solid size-16 pin contact, nickel plated, 0.5–1.5 mm² (16–20 AWG), typical current 13 A; use manufacturer-approved indent-crimp tooling, no inferred crimp-height recipe",
+          "url": "https://www.te.com/en/product-0460-202-16141.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-0462-201-16141",
+    "label": "TE DEUTSCH 0462-201-16141, size-16 socket contact, 0.5–1.5 mm²",
+    "kind": "contact",
+    "termination": {
+      "systems": [
+        "deutsch-dt-size-16"
+      ],
+      "gender": "female",
+      "wireMinMm2": 0.5,
+      "wireMaxMm2": 1.5,
+      "plating": "nickel",
+      "ratedCurrentA": 13,
+      "src": "TE Connectivity DEUTSCH 0462-201-16141: solid size-16 socket contact, nickel plated, 0.5–1.5 mm² (16–20 AWG), typical current 13 A; use manufacturer-approved indent-crimp tooling, no inferred crimp-height recipe"
+    },
+    "src": "TE Connectivity DEUTSCH 0462-201-16141: solid size-16 socket contact, nickel plated, 0.5–1.5 mm² (16–20 AWG), typical current 13 A; use manufacturer-approved indent-crimp tooling, no inferred crimp-height recipe",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH 0462-201-16141: solid size-16 socket contact, nickel plated, 0.5–1.5 mm² (16–20 AWG), typical current 13 A; use manufacturer-approved indent-crimp tooling, no inferred crimp-height recipe",
+          "url": "https://www.te.com/en/product-0462-201-16141.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-114017",
+    "label": "TE DEUTSCH 114017, size-12/16 cavity sealing plug",
+    "kind": "plug",
+    "termination": {
+      "systems": [
+        "deutsch-dt-size-16"
+      ],
+      "src": "TE Connectivity DEUTSCH Common Contacts catalog, Sealing Plugs: 114017 thermoplastic sealing plug for size-12/16 unused cavities"
+    },
+    "src": "TE Connectivity DEUTSCH Common Contacts catalog, Sealing Plugs: 114017 thermoplastic sealing plug for size-12/16 unused cavities",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH Common Contacts catalog, Sealing Plugs: 114017 thermoplastic sealing plug for size-12/16 unused cavities",
+          "url": "https://www.te.com/content/dam/te-com/documents/channel/global/ts-ict-tccat-01-catalog.pdf",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-w2p",
+    "label": "TE DEUTSCH W2P, green receptacle wedgelock",
+    "kind": "other",
+    "src": "TE Connectivity DEUTSCH DT wedgelocks: W2P, green receptacle secondary contact-position lock, required and sold separately from housing",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH DT wedgelocks: W2P, green receptacle secondary contact-position lock, required and sold separately from housing",
+          "url": "https://www.te.com/en/product-CAT-D487-W416.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-w2s",
+    "label": "TE DEUTSCH W2S, orange plug wedgelock",
+    "kind": "other",
+    "src": "TE Connectivity DEUTSCH DT wedgelocks: W2S, orange plug secondary contact-position lock, required and sold separately from housing",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH DT wedgelocks: W2S, orange plug secondary contact-position lock, required and sold separately from housing",
+          "url": "https://www.te.com/en/product-CAT-D487-W416.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-w6p",
+    "label": "TE DEUTSCH W6P, green receptacle wedgelock",
+    "kind": "other",
+    "src": "TE Connectivity DEUTSCH DT wedgelocks: W6P, green receptacle secondary contact-position lock, required and sold separately from housing",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH DT wedgelocks: W6P, green receptacle secondary contact-position lock, required and sold separately from housing",
+          "url": "https://www.te.com/en/product-CAT-D487-W416.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
+  },
+  {
+    "id": "deutsch-w6s",
+    "label": "TE DEUTSCH W6S, orange plug wedgelock",
+    "kind": "other",
+    "src": "TE Connectivity DEUTSCH DT wedgelocks: W6S, orange plug secondary contact-position lock, required and sold separately from housing",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "TE Connectivity DEUTSCH DT wedgelocks: W6S, orange plug secondary contact-position lock, required and sold separately from housing",
+          "url": "https://www.te.com/en/product-CAT-D487-W416.html",
+          "retrieved": "2026-10-10"
+        }
+      ]
+    }
   }
 ]

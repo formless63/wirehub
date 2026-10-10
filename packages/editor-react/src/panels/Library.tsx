@@ -127,12 +127,17 @@ import { useUnsavedChangesGuard } from './useUnsavedChangesGuard.ts';
 import { useEditLocked } from './edit-session.ts';
 
 export interface LibraryProps {
+  /** Show the contents of an installed pack across the Library's category tabs. */
+  packFilter?: string;
+  onPackFilterChange?: (pack: string | undefined) => void;
   /** where a kind's documentation lives: an empty list offers it as "Learn more" */
   emptyHelp?: (kind: LibraryKind) => string | undefined;
   /** the library as the editor has it, and the fallback when there is no adapter */
   db: Db;
   /** how this host stores definitions; without one the Library is read-only */
   definitions?: DefinitionsAdapter;
+  /** Read catalog ownership on a view-only host without exposing write operations. */
+  readDefinitions?: Pick<DefinitionsAdapter, 'list'>;
   /** a read-only look on purpose (a phone): no "can't change" note and no "New" button */
   viewOnly?: boolean;
   /** the library changed — the host reloads its db and hands a new one down */
@@ -672,12 +677,13 @@ export function Library(props: LibraryProps): JSX.Element {
 
   const refresh = useCallback(
     async (which: DefinitionKind): Promise<DefinitionList> => {
-      if (definitions === undefined) {
+      const reader = definitions ?? props.readDefinitions;
+      if (reader === undefined) {
         const local = fromDb(db, which);
         setList(local);
         return local;
       }
-      const loaded = await definitions.list(which);
+      const loaded = await reader.list(which);
       if (loaded.ok) {
         setList(loaded.value);
         return loaded.value;
@@ -689,7 +695,7 @@ export function Library(props: LibraryProps): JSX.Element {
       setList(local);
       return local;
     },
-    [definitions, db],
+    [definitions, props.readDefinitions, db],
   );
 
   useEffect(() => {
@@ -1318,6 +1324,8 @@ export function Library(props: LibraryProps): JSX.Element {
             rows={list.kind !== kind ? [] : tableRows}
             columns={columns}
             query={query}
+            {...(props.packFilter === undefined ? {} : { packFilter: props.packFilter })}
+            {...(props.onPackFilterChange === undefined ? {} : { onPackFilterChange: props.onPackFilterChange })}
             compact={mode.kind !== 'browse'}
             {...(mode.kind === 'edit' ? { selectedId: mode.id } : {})}
             onSelect={selectRecord}
@@ -1334,7 +1342,9 @@ export function Library(props: LibraryProps): JSX.Element {
                   },
                 })}
             empty={
-              rows.length === 0 ? (
+              props.packFilter !== undefined
+                ? `No ${DEFINITION_LABELS[kind].toLowerCase()} from ${props.packFilter} match this view. Try another category or choose All sources.`
+                : rows.length === 0 ? (
                 <span className="cs-lt-empty-line">
                   No {DEFINITION_LABELS[kind].toLowerCase()} yet.{' '}
                   <button type="button" className="cs-primary" disabled={definitions === undefined || busy} onClick={() => openNew()}>

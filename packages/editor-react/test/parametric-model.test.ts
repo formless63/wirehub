@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { countTriangles, parseModel } from '../src/model-scene.ts';
-import { buildParametricGlb, parametricModelFile } from '../src/parametric-model.ts';
+import { buildParametricGlb, parametricMesh, parametricModelFile } from '../src/parametric-model.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const json = <T>(path: string): T => JSON.parse(readFileSync(join(root, path), 'utf8')) as T;
@@ -64,5 +64,78 @@ describe('the shipped parametric links', () => {
 
   it('refuse a spec that cannot be drawn', () => {
     expect(() => buildParametricGlb({ shape: 'rj45', pins: 8, params: {} })).toThrow(/cannot be drawn/);
+  });
+});
+
+describe('RJ45 geometry and materials', () => {
+  const plug = links.find((l) => l.record === 'bodies/rj45-8p8c-plug')!;
+  const jack = links.find((l) => l.record === 'bodies/rj45-8p8c-jack')!;
+
+  it('shows clear polymer with physical transmission and separate metallic contacts', async () => {
+    const { bytes, mime } = parametricModelFile(plug.parametric);
+    const model = await parseModel(bytes, mime);
+    const materials: THREE.Material[] = [];
+    model.traverse((node) => {
+      if (node instanceof THREE.Mesh) materials.push(...(Array.isArray(node.material) ? node.material : [node.material]));
+    });
+    const clear = materials.find((m) => m.name === 'clear') as THREE.MeshPhysicalMaterial;
+    expect(clear.isMeshPhysicalMaterial).toBe(true);
+    expect(clear.transmission).toBeCloseTo(0.96);
+    expect(clear.ior).toBeCloseTo(1.58);
+    const gold = materials.find((m) => m.name === 'gold') as THREE.MeshStandardMaterial;
+    expect(gold.metalness).toBe(1);
+    expect(gold.color.r).toBeGreaterThan(gold.color.b);
+  });
+
+  it('keeps the plug body hollow almost to the beveled nose', () => {
+    const mesh = parametricMesh(plug.parametric);
+    const clear = mesh.parts.get('clear')!;
+    const length = plug.parametric.params['lengthMm']!;
+    // Interior wall vertices near the nose establish a shell rather than a solid front half.
+    let hollowWall = false;
+    for (let i = 0; i < clear.pos.length; i += 3) {
+      if (clear.pos[i + 2]! > length - 1 && clear.pos[i + 2]! < length && Math.abs(clear.pos[i]!) < plug.parametric.params['widthMm']! / 2 - 0.5) hollowWall = true;
+    }
+    expect(hollowWall).toBe(true);
+  });
+
+  it('has a sloped latch and curved tapered boot rather than axis-aligned cuboids', () => {
+    const mesh = parametricMesh(plug.parametric);
+    const gold = mesh.parts.get('gold')!.pos;
+    // The catalog numbers the mating face clip down: gold above, latch below.
+    expect(gold.filter((_, i) => i % 3 === 1).every((y) => y > 0)).toBe(true);
+    expect(Math.min(...mesh.parts.get('clear')!.pos.filter((_, i) => i % 3 === 1)))
+      .toBeLessThan(-plug.parametric.params['heightMm']! / 2 - 1);
+    for (const name of ['clear', 'rubber'] as const) {
+      const normals = mesh.parts.get(name)!.nor;
+      let oblique = false;
+      for (let i = 0; i < normals.length; i += 3) {
+        if (normals.slice(i, i + 3).filter((n) => Math.abs(n) > 0.1).length >= 2) oblique = true;
+      }
+      expect(oblique, name).toBe(true);
+    }
+    const rubber = mesh.parts.get('rubber')!.pos;
+    const xAt = (z: number): number => {
+      let extent = 0;
+      for (let i = 0; i < rubber.length; i += 3) {
+        if (Math.abs(rubber[i + 2]! - z) < 0.01) extent = Math.max(extent, Math.abs(rubber[i]!));
+      }
+      return extent;
+    };
+    expect(xAt(0)).toBeGreaterThan(xAt(-plug.parametric.params['bootLengthMm']!));
+  });
+
+  it('leaves the jack mouth open and places the solder tails below its housing', async () => {
+    const { bytes, mime } = parametricModelFile(jack.parametric);
+    const model = await parseModel(bytes, mime);
+    model.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster(new THREE.Vector3(0, 0, 50), new THREE.Vector3(0, 0, -1));
+    const hits = ray.intersectObject(model, true);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0]!.point.z).toBeCloseTo(2, 1); // recessed back, not a face over the mouth
+    const bounds = new THREE.Box3().setFromObject(model, true);
+    expect(bounds.getSize(new THREE.Vector3()).x).toBeCloseTo(15.24, 2);
+    expect(bounds.min.y).toBeCloseTo(-11.5 / 2 - 3.3, 2);
+    expect(bounds.max.z).toBeCloseTo(18.1, 2);
   });
 });

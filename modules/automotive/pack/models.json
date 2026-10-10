@@ -1,0 +1,321 @@
+{
+  "src": "Original generated connector envelopes, CC0-1.0. All links cite dimensions and explicitly distinguish inferred display geometry from manufacturer CAD; real uploaded/vendor models may replace them without changing the connector definitions.",
+  "links": [
+    {
+      "record": "bodies/deutsch-dt04-2p",
+      "asset": "parametric-b1f6b17b08cb8ff9",
+      "name": "DT04-2P envelope (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated envelope for TE DEUTSCH DT04-2P, not manufacturer CAD. Width 17.15, height 17.02 and length 43.38 mm transcribed from https://www.te.com/en/product-DT04-2P.html (retrieved 2026-10-10). Gray polymer housing, nickel contacts and contrasting secondary lock/rear seal from TE DT product/drawing descriptions; numerical color shades, cavity depths, latch/ribs and detailed geometry inferred. Secondary lock is shown fitted but sold separately. Physical pin-number placement is not specified by this model; use the manufacturer drawing and molded cavity numbers.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "male",
+        "pins": 2,
+        "params": {
+          "widthMm": 17.15,
+          "heightMm": 17.02,
+          "lengthMm": 43.38,
+          "pinPitchMm": 5.46,
+          "rowPitchMm": 4.45,
+          "rows": 1
+        }
+      }
+    },
+    {
+      "record": "bodies/deutsch-dt04-6p",
+      "asset": "parametric-8d933617b309de51",
+      "name": "DT04-6P envelope (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated envelope for TE DEUTSCH DT04-6P, not manufacturer CAD. Width 20.83, height 24.16 and length 45.92 mm transcribed from https://www.te.com/en/product-DT04-6P.html (retrieved 2026-10-10). Gray polymer housing, nickel contacts and contrasting secondary lock/rear seal from TE DT product/drawing descriptions; numerical color shades, cavity depths, latch/ribs and column pitch (3.81 mm common illustrative layout), detailed geometry inferred. Secondary lock is shown fitted but sold separately. Physical pin-number placement is not specified by this model; use the manufacturer drawing and molded cavity numbers.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "male",
+        "pins": 6,
+        "params": {
+          "widthMm": 20.83,
+          "heightMm": 24.16,
+          "lengthMm": 45.92,
+          "pinPitchMm": 3.81,
+          "rowPitchMm": 4.45,
+          "rows": 2
+        }
+      }
+    },
+    {
+      "record": "bodies/deutsch-dt06-2s",
+      "asset": "parametric-6d1c5fc77cce610d",
+      "name": "DT06-2S envelope (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated envelope for TE DEUTSCH DT06-2S, not manufacturer CAD. Width 15.01, height 15.77 and length 28.4 mm transcribed from https://www.te.com/en/product-DT06-2S.html (retrieved 2026-10-10). Gray polymer housing, nickel contacts and contrasting secondary lock/rear seal from TE DT product/drawing descriptions; numerical color shades, cavity depths, latch/ribs and detailed geometry inferred. Secondary lock is shown fitted but sold separately. Physical pin-number placement is not specified by this model; use the manufacturer drawing and molded cavity numbers.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "female",
+        "pins": 2,
+        "params": {
+          "widthMm": 15.01,
+          "heightMm": 15.77,
+          "lengthMm": 28.4,
+          "pinPitchMm": 5.46,
+          "rowPitchMm": 4.45,
+          "rows": 1
+        }
+      }
+    },
+    {
+      "record": "bodies/deutsch-dt06-6s",
+      "asset": "parametric-bf93a2287e2ba6d6",
+      "name": "DT06-6S envelope (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated envelope for TE DEUTSCH DT06-6S, not manufacturer CAD. Width 18.19, height 22.63 and length 30.94 mm transcribed from https://www.te.com/en/product-DT06-6S.html (retrieved 2026-10-10). Gray polymer housing, nickel contacts and contrasting secondary lock/rear seal from TE DT product/drawing descriptions; numerical color shades, cavity depths, latch/ribs and column pitch (3.81 mm common illustrative layout), detailed geometry inferred. Secondary lock is shown fitted but sold separately. Physical pin-number placement is not specified by this model; use the manufacturer drawing and molded cavity numbers.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "female",
+        "pins": 6,
+        "params": {
+          "widthMm": 18.19,
+          "heightMm": 22.63,
+          "lengthMm": 30.94,
+          "pinPitchMm": 3.81,
+          "rowPitchMm": 4.45,
+          "rows": 2
+        }
+      }
+    },
+    {
+      "record": "bodies/obd2-16-female",
+      "asset": "parametric-474bb7305490db8a",
+      "name": "OBD-II female (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated generic OBD-II type-A envelope, not vendor CAD. SAE J1962 / ISO 15031-3 two rows of eight; 36 × 13 mm outline, length, 4 mm column/4.4 mm row pitch, molded detail, black polymer and silver terminal appearance inferred from the existing WireHub schematic artwork; not a dimensional fit or manufacturing reference.",
+      "parametric": {
+        "shape": "obd2",
+        "gender": "female",
+        "pins": 16,
+        "params": {
+          "widthMm": 36,
+          "heightMm": 13,
+          "lengthMm": 19,
+          "pinPitchMm": 4,
+          "rowPitchMm": 4.4
+        }
+      }
+    },
+    {
+      "record": "bodies/obd2-16-male",
+      "asset": "parametric-3544e549244ca46f",
+      "name": "OBD-II male (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated generic OBD-II type-A envelope, not vendor CAD. SAE J1962 / ISO 15031-3 two rows of eight; 36 × 13 mm outline, length, 4 mm column/4.4 mm row pitch, molded detail, black polymer and silver terminal appearance inferred from the existing WireHub schematic artwork; not a dimensional fit or manufacturing reference.",
+      "parametric": {
+        "shape": "obd2",
+        "gender": "male",
+        "pins": 16,
+        "params": {
+          "widthMm": 36,
+          "heightMm": 13,
+          "lengthMm": 26,
+          "pinPitchMm": 4,
+          "rowPitchMm": 4.4
+        }
+      }
+    },
+    {
+      "record": "bodies/sealed-3-female",
+      "asset": "parametric-82e059cd6f06acab",
+      "name": "Generic sealed 3-way female (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated generic sealed 3-way envelope; synthetic example. 22 × 15 mm envelope, length, 5 mm cavity spacing, gray housing, lock colors, rear seal and molded details inferred for illustration; not a DEUTSCH, AMP or other manufacturer product.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "female",
+        "pins": 3,
+        "params": {
+          "widthMm": 22,
+          "heightMm": 15,
+          "lengthMm": 24,
+          "pinPitchMm": 5,
+          "rowPitchMm": 5,
+          "rows": 1
+        }
+      }
+    },
+    {
+      "record": "bodies/sealed-3-male",
+      "asset": "parametric-e17de8ede1fb0817",
+      "name": "Generic sealed 3-way male (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated generic sealed 3-way envelope; synthetic example. 22 × 15 mm envelope, length, 5 mm cavity spacing, gray housing, lock colors, rear seal and molded details inferred for illustration; not a DEUTSCH, AMP or other manufacturer product.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "male",
+        "pins": 3,
+        "params": {
+          "widthMm": 22,
+          "heightMm": 15,
+          "lengthMm": 29,
+          "pinPitchMm": 5,
+          "rowPitchMm": 5,
+          "rows": 1
+        }
+      }
+    },
+    {
+      "record": "connectors/deutsch-dt04-2p-numbered",
+      "asset": "parametric-b1f6b17b08cb8ff9",
+      "name": "DT04-2P envelope (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated envelope for TE DEUTSCH DT04-2P, not manufacturer CAD. Width 17.15, height 17.02 and length 43.38 mm transcribed from https://www.te.com/en/product-DT04-2P.html (retrieved 2026-10-10). Gray polymer housing, nickel contacts and contrasting secondary lock/rear seal from TE DT product/drawing descriptions; numerical color shades, cavity depths, latch/ribs and detailed geometry inferred. Secondary lock is shown fitted but sold separately. Physical pin-number placement is not specified by this model; use the manufacturer drawing and molded cavity numbers.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "male",
+        "pins": 2,
+        "params": {
+          "widthMm": 17.15,
+          "heightMm": 17.02,
+          "lengthMm": 43.38,
+          "pinPitchMm": 5.46,
+          "rowPitchMm": 4.45,
+          "rows": 1
+        }
+      }
+    },
+    {
+      "record": "connectors/deutsch-dt04-6p-numbered",
+      "asset": "parametric-8d933617b309de51",
+      "name": "DT04-6P envelope (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated envelope for TE DEUTSCH DT04-6P, not manufacturer CAD. Width 20.83, height 24.16 and length 45.92 mm transcribed from https://www.te.com/en/product-DT04-6P.html (retrieved 2026-10-10). Gray polymer housing, nickel contacts and contrasting secondary lock/rear seal from TE DT product/drawing descriptions; numerical color shades, cavity depths, latch/ribs and column pitch (3.81 mm common illustrative layout), detailed geometry inferred. Secondary lock is shown fitted but sold separately. Physical pin-number placement is not specified by this model; use the manufacturer drawing and molded cavity numbers.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "male",
+        "pins": 6,
+        "params": {
+          "widthMm": 20.83,
+          "heightMm": 24.16,
+          "lengthMm": 45.92,
+          "pinPitchMm": 3.81,
+          "rowPitchMm": 4.45,
+          "rows": 2
+        }
+      }
+    },
+    {
+      "record": "connectors/deutsch-dt06-2s-numbered",
+      "asset": "parametric-6d1c5fc77cce610d",
+      "name": "DT06-2S envelope (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated envelope for TE DEUTSCH DT06-2S, not manufacturer CAD. Width 15.01, height 15.77 and length 28.4 mm transcribed from https://www.te.com/en/product-DT06-2S.html (retrieved 2026-10-10). Gray polymer housing, nickel contacts and contrasting secondary lock/rear seal from TE DT product/drawing descriptions; numerical color shades, cavity depths, latch/ribs and detailed geometry inferred. Secondary lock is shown fitted but sold separately. Physical pin-number placement is not specified by this model; use the manufacturer drawing and molded cavity numbers.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "female",
+        "pins": 2,
+        "params": {
+          "widthMm": 15.01,
+          "heightMm": 15.77,
+          "lengthMm": 28.4,
+          "pinPitchMm": 5.46,
+          "rowPitchMm": 4.45,
+          "rows": 1
+        }
+      }
+    },
+    {
+      "record": "connectors/deutsch-dt06-6s-numbered",
+      "asset": "parametric-bf93a2287e2ba6d6",
+      "name": "DT06-6S envelope (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated envelope for TE DEUTSCH DT06-6S, not manufacturer CAD. Width 18.19, height 22.63 and length 30.94 mm transcribed from https://www.te.com/en/product-DT06-6S.html (retrieved 2026-10-10). Gray polymer housing, nickel contacts and contrasting secondary lock/rear seal from TE DT product/drawing descriptions; numerical color shades, cavity depths, latch/ribs and column pitch (3.81 mm common illustrative layout), detailed geometry inferred. Secondary lock is shown fitted but sold separately. Physical pin-number placement is not specified by this model; use the manufacturer drawing and molded cavity numbers.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "female",
+        "pins": 6,
+        "params": {
+          "widthMm": 18.19,
+          "heightMm": 22.63,
+          "lengthMm": 30.94,
+          "pinPitchMm": 3.81,
+          "rowPitchMm": 4.45,
+          "rows": 2
+        }
+      }
+    },
+    {
+      "record": "connectors/obd2-female",
+      "asset": "parametric-474bb7305490db8a",
+      "name": "OBD-II female (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated generic OBD-II type-A envelope, not vendor CAD. SAE J1962 / ISO 15031-3 two rows of eight; 36 × 13 mm outline, length, 4 mm column/4.4 mm row pitch, molded detail, black polymer and silver terminal appearance inferred from the existing WireHub schematic artwork; not a dimensional fit or manufacturing reference.",
+      "parametric": {
+        "shape": "obd2",
+        "gender": "female",
+        "pins": 16,
+        "params": {
+          "widthMm": 36,
+          "heightMm": 13,
+          "lengthMm": 19,
+          "pinPitchMm": 4,
+          "rowPitchMm": 4.4
+        }
+      }
+    },
+    {
+      "record": "connectors/obd2-male",
+      "asset": "parametric-3544e549244ca46f",
+      "name": "OBD-II male (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated generic OBD-II type-A envelope, not vendor CAD. SAE J1962 / ISO 15031-3 two rows of eight; 36 × 13 mm outline, length, 4 mm column/4.4 mm row pitch, molded detail, black polymer and silver terminal appearance inferred from the existing WireHub schematic artwork; not a dimensional fit or manufacturing reference.",
+      "parametric": {
+        "shape": "obd2",
+        "gender": "male",
+        "pins": 16,
+        "params": {
+          "widthMm": 36,
+          "heightMm": 13,
+          "lengthMm": 26,
+          "pinPitchMm": 4,
+          "rowPitchMm": 4.4
+        }
+      }
+    },
+    {
+      "record": "connectors/sealed-3-female-numbered",
+      "asset": "parametric-82e059cd6f06acab",
+      "name": "Generic sealed 3-way female (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated generic sealed 3-way envelope; synthetic example. 22 × 15 mm envelope, length, 5 mm cavity spacing, gray housing, lock colors, rear seal and molded details inferred for illustration; not a DEUTSCH, AMP or other manufacturer product.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "female",
+        "pins": 3,
+        "params": {
+          "widthMm": 22,
+          "heightMm": 15,
+          "lengthMm": 24,
+          "pinPitchMm": 5,
+          "rowPitchMm": 5,
+          "rows": 1
+        }
+      }
+    },
+    {
+      "record": "connectors/sealed-3-male-numbered",
+      "asset": "parametric-e17de8ede1fb0817",
+      "name": "Generic sealed 3-way male (approximation)",
+      "sourceKind": "parametric",
+      "src": "Original generated generic sealed 3-way envelope; synthetic example. 22 × 15 mm envelope, length, 5 mm cavity spacing, gray housing, lock colors, rear seal and molded details inferred for illustration; not a DEUTSCH, AMP or other manufacturer product.",
+      "parametric": {
+        "shape": "sealed-rectangular",
+        "gender": "male",
+        "pins": 3,
+        "params": {
+          "widthMm": 22,
+          "heightMm": 15,
+          "lengthMm": 29,
+          "pinPitchMm": 5,
+          "rowPitchMm": 5,
+          "rows": 1
+        }
+      }
+    }
+  ]
+}

@@ -21,6 +21,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { automotiveFaceArtFiles } from './automotive-face-art.ts';
+import { networkingFaceArtFiles } from './networking-face-art.ts';
+
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const r = (v: number): number => Math.round(v * 100) / 100;
 
@@ -172,18 +175,6 @@ function terminalBlock4(): Face {
   return { id: 'terminal-block-4', root: 'packages/catalog/depictions', title: '4-way 5.08 mm screw terminal block', w, h, items, src: '4-way screw terminal block, 5.08 mm pitch: screw heads above, wire entries below (approximate generic outline); positions numbered left to right.' };
 }
 
-function rj45(): Face {
-  const w = 14;
-  const h = 18;
-  const items: Item[] = [
-    { t: 'rect', x: 1.15, y: 1, w: 11.7, h: 16, rx: 0.8 },
-    { t: 'poly', pts: [[3.3, 17], [3.3, 12.5], [10.7, 12.5], [10.7, 17]] },
-  ];
-  for (let n = 0; n < 8; n += 1) items.push({ t: 'pin', id: String(n + 1), shape: 'rect', x: 7 + (n - 3.5) * 1.02, y: 5, w: 0.6, h: 5 });
-  for (const n of [1, 8]) items.push({ t: 'text', x: 7 + (n === 1 ? -3.57 : 3.57), y: 0.7, text: String(n) });
-  return { id: 'rj45-8p8c-plug', root: 'modules/networking/pack/depictions', title: 'RJ45 (8P8C) plug', w, h, items, extraAnchors: { shell: [7, 14.8] }, src: '8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline.' };
-}
-
 function xlr(male: boolean): Face {
   const w = 24;
   const h = 24;
@@ -233,17 +224,6 @@ function usbA(): Face {
   return { id: 'usb-a-plug', root: 'modules/pc-serial/pack/depictions', title: 'USB Type-A plug', w, h, items, extraAnchors: { shell: [8, 2] }, src: 'USB Standard-A plug mating face, 12.0 x 4.5 mm shell; contacts numbered 4 3 2 1 left to right with centres 3.5 and 1.0 mm either side of the centre line, as in USB 2.0 Specification Figure 6-9 (USB Series "A" Plug Interface Drawing, USB-IF); contact widths and the outline are approximate.' };
 }
 
-function obd2(): Face {
-  const w = 40;
-  const h = 18;
-  const items: Item[] = [{ t: 'poly', pts: [[2, 2], [38, 2], [34, 14], [6, 14]] }, { t: 'poly', pts: [[3.2, 3.2], [36.8, 3.2], [33.2, 12.8], [6.8, 12.8]] }];
-  // viewed as the vehicle socket is (wide row on top, 1-8 then 9-16 left to right); the plug is its mirror
-  for (let n = 0; n < 8; n += 1) items.push({ t: 'pin', id: String(8 - n), shape: 'rect', x: 20 + (n - 3.5) * 4, y: 5.8, w: 2, h: 2.4 });
-  for (let n = 0; n < 8; n += 1) items.push({ t: 'pin', id: String(16 - n), shape: 'rect', x: 20 + (n - 3.5) * 4, y: 10.2, w: 2, h: 2.4 });
-  items.push({ t: 'text', x: 8, y: 1.3, text: '8' }, { t: 'text', x: 32, y: 1.3, text: '1' }, { t: 'text', x: 9, y: 16.6, text: '16' }, { t: 'text', x: 31, y: 16.6, text: '9' });
-  return { id: 'obd2-16-male', root: 'modules/automotive/pack/depictions', title: 'OBD-II (J1962) plug', w, h, items, src: 'SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline).' };
-}
-
 function vga(): Face {
   const w = 32;
   const h = 13.5;
@@ -276,12 +256,12 @@ function multicoreCutaway(): Face & { cutaway: true } {
 }
 
 export function faces(): Face[] {
-  return [dsubDE9('de9-male', true), dsubDE9('de9-female', false), jstXh2(), terminalBlock4(), rj45(), xlr(true), xlr(false), rcaEnd(), trsEnd(), usbA(), obd2(), vga()];
+  return [dsubDE9('de9-male', true), dsubDE9('de9-female', false), jstXh2(), terminalBlock4(), xlr(true), xlr(false), rcaEnd(), trsEnd(), usbA(), vga()];
 }
 
 /** Every generated file: repo-relative path → text. */
 export function faceArtFiles(): Record<string, string> {
-  const out: Record<string, string> = {};
+  const out: Record<string, string> = { ...automotiveFaceArtFiles(), ...networkingFaceArtFiles() };
   for (const face of faces()) {
     const dir = `${face.root}/${face.id}`;
     out[`${dir}/mating-face.svg`] = svg(face, 'mating-face');
@@ -303,6 +283,7 @@ export function faceArtFiles(): Record<string, string> {
     null,
     2,
   )}\n`;
+  Object.assign(out, automotiveFaceArtFiles());
   return out;
 }
 

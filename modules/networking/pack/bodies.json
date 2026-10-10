@@ -44,6 +44,53 @@
           "title": "IEC 60603-7 8-position modular plug; contact numbering 1–8 left to right, clip down, contacts facing the viewer"
         }
       ]
+    },
+    "mates": "rj45-8p8c-jack"
+  },
+  {
+    "id": "rj45-8p8c-jack",
+    "label": "RJ45 (8P8C) unshielded PCB jack",
+    "family": "rj45",
+    "gender": "female",
+    "positions": [
+      {
+        "id": "1"
+      },
+      {
+        "id": "2"
+      },
+      {
+        "id": "3"
+      },
+      {
+        "id": "4"
+      },
+      {
+        "id": "5"
+      },
+      {
+        "id": "6"
+      },
+      {
+        "id": "7"
+      },
+      {
+        "id": "8"
+      }
+    ],
+    "mates": "rj45-8p8c-plug",
+    "construction": "pcb-mount-th",
+    "src": "Molex SD-95501-001 revision F1, 2022-01-10, sheet 1: 8-position unshielded PCB jack envelope 15.24 × 11.50 × 18.10 mm, black LCP housing and gold-finished copper-alloy contacts. Generic depiction inferred from these dimensions, not a Molex CAD replica; PCB tail locations and latch details illustrative, not a footprint.",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "derived",
+      "sources": [
+        {
+          "title": "Molex SD-95501-001 revision F1, 2022-01-10, sheet 1: 8-position unshielded PCB jack envelope 15.24 × 11.50 × 18.10 mm, black LCP housing and gold-finished copper-alloy contacts. Generic depiction inferred from these dimensions, not a Molex CAD replica; PCB tail locations and latch details illustrative, not a footprint.",
+          "url": "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/salesdrawingpdf/955/95501/955012882_sd.pdf",
+          "retrieved": "2026-10-10"
+        }
+      ]
     }
   }
 ]

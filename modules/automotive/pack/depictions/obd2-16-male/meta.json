@@ -8,7 +8,7 @@
       "sourceKind": "hand",
       "widthUnits": 40,
       "heightUnits": 18,
-      "src": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      "src": "Original WireHub SAE J1962 type-A illustration: vehicle receptacle 1–8 above 9–16 left-to-right, mating plug mirrored; rear view mirrors the pin anchors. Trapezoid, terminal proportions and display colors approximate/inferred, not a manufacturer drawing; CC0-1.0."
     },
     "solder-side": {
       "file": "solder-side.svg",
@@ -17,7 +17,7 @@
       "sourceKind": "hand",
       "widthUnits": 40,
       "heightUnits": 18,
-      "src": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "src": "Original WireHub SAE J1962 type-A illustration: vehicle receptacle 1–8 above 9–16 left-to-right, mating plug mirrored; rear view mirrors the pin anchors. Trapezoid, terminal proportions and display colors approximate/inferred, not a manufacturer drawing; CC0-1.0.",
       "mirrorOf": "mating-face",
       "mirrorAxis": "x"
     }
@@ -89,13 +89,13 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "src": "Original WireHub SAE J1962 type-A illustration: vehicle receptacle 1–8 above 9–16 left-to-right, mating plug mirrored; rear view mirrors the pin anchors. Trapezoid, terminal proportions and display colors approximate/inferred, not a manufacturer drawing; CC0-1.0.",
   "license": "CC0-1.0",
   "provenance": {
     "method": "derived",
     "sources": [
       {
-        "title": "SAE J1962 16-pin diagnostic plug mating face: the vehicle socket has pins 1-8 on the upper row and 9-16 on the lower row left to right; the plug is its mirror image (approximate trapezoid outline). Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+        "title": "Original WireHub SAE J1962 type-A illustration: vehicle receptacle 1–8 above 9–16 left-to-right, mating plug mirrored; rear view mirrors the pin anchors. Trapezoid, terminal proportions and display colors approximate/inferred, not a manufacturer drawing; CC0-1.0."
       }
     ]
   }

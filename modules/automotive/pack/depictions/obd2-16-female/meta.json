@@ -1,0 +1,102 @@
+{
+  "defId": "obd2-16-female",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 40,
+      "heightUnits": 18,
+      "src": "Original WireHub SAE J1962 type-A illustration: vehicle receptacle 1–8 above 9–16 left-to-right, mating plug mirrored; rear view mirrors the pin anchors. Trapezoid, terminal proportions and display colors approximate/inferred, not a manufacturer drawing; CC0-1.0."
+    },
+    "solder-side": {
+      "file": "solder-side.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 40,
+      "heightUnits": 18,
+      "src": "Original WireHub SAE J1962 type-A illustration: vehicle receptacle 1–8 above 9–16 left-to-right, mating plug mirrored; rear view mirrors the pin anchors. Trapezoid, terminal proportions and display colors approximate/inferred, not a manufacturer drawing; CC0-1.0.",
+      "mirrorOf": "mating-face",
+      "mirrorAxis": "x"
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 6,
+      "y": 5.8
+    },
+    "2": {
+      "x": 10,
+      "y": 5.8
+    },
+    "3": {
+      "x": 14,
+      "y": 5.8
+    },
+    "4": {
+      "x": 18,
+      "y": 5.8
+    },
+    "5": {
+      "x": 22,
+      "y": 5.8
+    },
+    "6": {
+      "x": 26,
+      "y": 5.8
+    },
+    "7": {
+      "x": 30,
+      "y": 5.8
+    },
+    "8": {
+      "x": 34,
+      "y": 5.8
+    },
+    "9": {
+      "x": 6,
+      "y": 10.2
+    },
+    "10": {
+      "x": 10,
+      "y": 10.2
+    },
+    "11": {
+      "x": 14,
+      "y": 10.2
+    },
+    "12": {
+      "x": 18,
+      "y": 10.2
+    },
+    "13": {
+      "x": 22,
+      "y": 10.2
+    },
+    "14": {
+      "x": 26,
+      "y": 10.2
+    },
+    "15": {
+      "x": 30,
+      "y": 10.2
+    },
+    "16": {
+      "x": 34,
+      "y": 10.2
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "Original WireHub SAE J1962 type-A illustration: vehicle receptacle 1–8 above 9–16 left-to-right, mating plug mirrored; rear view mirrors the pin anchors. Trapezoid, terminal proportions and display colors approximate/inferred, not a manufacturer drawing; CC0-1.0.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "Original WireHub SAE J1962 type-A illustration: vehicle receptacle 1–8 above 9–16 left-to-right, mating plug mirrored; rear view mirrors the pin anchors. Trapezoid, terminal proportions and display colors approximate/inferred, not a manufacturer drawing; CC0-1.0."
+      }
+    ]
+  }
+}

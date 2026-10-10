@@ -14,16 +14,18 @@
  */
 
 /** The shapes the viewer can draw. */
-export const PARAMETRIC_SHAPES = ['d-sub', 'xlr', 'rj45', 'jst-xh', 'terminal-block'] as const;
+export const PARAMETRIC_SHAPES = ['d-sub', 'xlr', 'rj45', 'jst-xh', 'terminal-block', 'obd2', 'sealed-rectangular'] as const;
 export type ParametricShape = (typeof PARAMETRIC_SHAPES)[number];
 
-/** The dimensions each shape reads, in millimetres, besides `pins` (a count) — all required. */
+/** Required parameters: dimensions in millimetres, except `rows` (a count); `pins` is a separate count. */
 export const PARAMETRIC_PARAMS: Record<ParametricShape, readonly string[]> = {
   'd-sub': ['flangeWidthMm', 'flangeHeightMm', 'mountPitchMm', 'shellWidthMm', 'shellHeightMm', 'pinPitchMm', 'rowPitchMm', 'shellDepthMm', 'hoodDepthMm'],
   xlr: ['shellDiameterMm', 'shellLengthMm', 'bootDiameterMm', 'bootLengthMm', 'pinCircleDiameterMm'],
   rj45: ['widthMm', 'heightMm', 'lengthMm', 'latchHeightMm', 'contactPitchMm', 'bootLengthMm'],
   'jst-xh': ['pitchMm', 'widthMm', 'heightMm', 'depthMm'],
   'terminal-block': ['pitchMm', 'heightMm', 'depthMm'],
+  obd2: ['widthMm', 'heightMm', 'lengthMm', 'pinPitchMm', 'rowPitchMm'],
+  'sealed-rectangular': ['widthMm', 'heightMm', 'lengthMm', 'pinPitchMm', 'rowPitchMm', 'rows'],
 };
 
 export interface ParametricSpec {
@@ -54,6 +56,12 @@ export function parametricProblems(spec: unknown): string[] {
   for (const name of PARAMETRIC_PARAMS[s['shape']]) {
     const v = (params as Record<string, unknown>)[name];
     if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0 || v > 500) problems.push(`${name} must be a number of millimetres above 0 and up to 500`);
+  }
+  if (s['shape'] === 'obd2' && pins !== 16) problems.push('obd2 has 16 contacts');
+  if (s['shape'] === 'sealed-rectangular') {
+    const rows = (params as Record<string, unknown>)['rows'];
+    if (typeof rows !== 'number' || !Number.isInteger(rows) || rows < 1 || rows > 4) problems.push('rows must be a whole number from 1 to 4');
+    else if (typeof pins === 'number' && pins % rows !== 0) problems.push('pins must divide evenly between rows');
   }
   return problems;
 }

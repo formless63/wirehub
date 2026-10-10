@@ -38,5 +38,24 @@
         }
       ]
     }
+  },
+  {
+    "id": "rj45-jack-mdi",
+    "label": "RJ45 jack, Ethernet MDI (unshielded PCB)",
+    "family": "rj45",
+    "gender": "female",
+    "construction": "pcb-mount-th",
+    "body": "rj45-8p8c-jack",
+    "interface": "ethernet-mdi-unshielded",
+    "src": "IEEE 802.3 clause 40 MDI pair assignment; IEC 60603-7 8P8C mating interface. Generic PCB receptacle: no magnetics, PoE rating, LED circuitry or PCB footprint implied.",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEEE 802.3 clause 40 MDI pair assignment; IEC 60603-7 8P8C mating interface. Generic PCB receptacle: no magnetics, PoE rating, LED circuitry or PCB footprint implied."
+        }
+      ]
+    }
   }
 ]

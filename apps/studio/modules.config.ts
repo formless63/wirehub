@@ -6,6 +6,7 @@
  *
  * The base also bundles two interop modules that are always on and offer no
  * catalog data (`wireviz`, WireViz YAML in and out; the bulk CSV importer).
+ * CAD model discovery is also always on, with no catalog data of its own.
  *
  * The base bundles its **domain modules** here. They are optional: each is
  * offered at first-run setup (`/setup`), and only the ones a person picks
@@ -19,6 +20,7 @@
 
 import { automotive } from '@wirehub/module-automotive';
 import { avVideo } from '@wirehub/module-av-video';
+import { catalogAssets } from '@wirehub/module-catalog-assets';
 import { csvLibrary } from '@wirehub/module-csv-library';
 import { boardImport } from '@wirehub/module-board-import';
 import { example } from '@wirehub/module-example';
@@ -40,7 +42,7 @@ function exampleFlag(): boolean {
   return node?.WIREHUB_EXAMPLE_MODULE === '1' || vite?.VITE_WIREHUB_EXAMPLE_MODULE === '1';
 }
 
-export const modules: readonly WireHubModule[] = [pcSerial, networking, proAudio, avVideo, automotive, boardImport, wireviz, csvLibrary, ...(exampleFlag() ? [example] : [])];
+export const modules: readonly WireHubModule[] = [pcSerial, networking, proAudio, avVideo, automotive, boardImport, wireviz, csvLibrary, catalogAssets, ...(exampleFlag() ? [example] : [])];
 
 /**
  * The modules the owner lets add an item to the left rail (`placement: 'rail'` on a UI route,

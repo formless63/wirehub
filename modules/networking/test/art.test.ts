@@ -41,4 +41,14 @@ describe('RJ45 pack art', () => {
     expect(diagram.depictions.filter((d) => d.status !== 'no-depiction' && d.status !== 'drawn')).toEqual([]);
     expect(renderSchematic(design, db, { depictions: baseOnly })).not.toContain('rj45-8p8c-plug/mating-face');
   });
+
+  it('draws the new jack from its own open-mouth face with all eight contact anchors', () => {
+    const jackDesign = structuredClone(design);
+    jackDesign.instances.connectors[0]!.def = 'rj45-jack-mdi';
+    const diagram = layoutSchematic(jackDesign, db, { depictions: withPack });
+    const jack = diagram.blocks.find((b) => b.id === 'j1')!;
+    expect(jack.depiction?.defId).toBe('rj45-8p8c-jack');
+    expect(jack.ports).toHaveLength(8);
+    expect(renderSchematic(jackDesign, db, { depictions: withPack })).toContain('data-depiction="rj45-8p8c-jack/mating-face"');
+  });
 });
