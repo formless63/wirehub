@@ -15,6 +15,8 @@ export interface ViewTarget {
   section?: string;
   /** an Extensions tab */
   tab?: string;
+  /** A catalog pack whose contents the Library should show. */
+  pack?: string;
 }
 
 export interface Notify {
@@ -35,8 +37,9 @@ export function useNotify(): Notify {
               action: {
                 label: 'View',
                 onClick: () => {
-                  if (router === undefined || router === null) window.location.assign(`${view.to}${view.section !== undefined ? `?section=${view.section}` : view.tab !== undefined ? `?tab=${view.tab}` : ''}`);
-                  else void router.navigate({ to: view.to, ...(view.section !== undefined ? { search: { section: view.section } } : view.tab !== undefined ? { search: { tab: view.tab } } : {}) });
+                  const search = Object.fromEntries(Object.entries({ section: view.section, tab: view.tab, pack: view.pack }).filter((entry): entry is [string, string] => entry[1] !== undefined));
+                  if (router === undefined || router === null) window.location.assign(`${view.to}${Object.keys(search).length === 0 ? '' : `?${new URLSearchParams(search)}`}`);
+                  else void router.navigate({ to: view.to, search });
                 },
               },
             }),

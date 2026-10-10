@@ -90,6 +90,8 @@ export function LibraryRoute(): JSX.Element {
   // did not match
   const matches = useMatches();
   const params = (matches[matches.length - 1]?.params ?? {}) as { kind?: string; id?: string };
+  const search = (matches[matches.length - 1]?.search ?? {}) as { pack?: string };
+  const packFilter = search.pack;
   const kind = kindOfUrl(params.kind);
   // the wire builder's parts library — only the Library reads it
   const wireLibrary = useMemo(() => workbenchWireLibrary(), []);
@@ -106,20 +108,20 @@ export function LibraryRoute(): JSX.Element {
 
   const onKindChange = useCallback(
     (next: LibraryKind): void => {
-      void navigate({ to: '/library/$kind', params: { kind: KIND_TO_URL[next] } });
+      void navigate({ to: '/library/$kind', params: { kind: KIND_TO_URL[next] }, search: packFilter === undefined ? {} : { pack: packFilter } });
     },
-    [navigate],
+    [navigate, packFilter],
   );
 
   const onSelectId = useCallback(
     (id: string | undefined): void => {
       if (id === undefined) {
-        void navigate({ to: '/library/$kind', params: { kind: KIND_TO_URL[kind] } });
+        void navigate({ to: '/library/$kind', params: { kind: KIND_TO_URL[kind] }, search: packFilter === undefined ? {} : { pack: packFilter } });
       } else {
-        void navigate({ to: '/library/$kind/$id', params: { kind: KIND_TO_URL[kind], id } });
+        void navigate({ to: '/library/$kind/$id', params: { kind: KIND_TO_URL[kind], id }, search: packFilter === undefined ? {} : { pack: packFilter } });
       }
     },
-    [navigate, kind],
+    [navigate, kind, packFilter],
   );
 
   const onOpenRecord = useCallback(
@@ -160,6 +162,11 @@ export function LibraryRoute(): JSX.Element {
       <EditLockScope record={selectedId === undefined ? undefined : definitionRecord(kind, selectedId)}>
       <LibraryNavigationGuard>
       <Library
+        {...(packFilter === undefined ? {} : { packFilter })}
+        onPackFilterChange={(pack) => {
+          const search = pack === undefined ? {} : { pack };
+          void navigate({ to: '/library/$kind', params: { kind: KIND_TO_URL[kind] }, search });
+        }}
         rowMarker={(rowKind, id) => <LockMarker record={definitionRecord(rowKind, id)} />}
         db={studio.db}
         loading={!studio.dbReady}

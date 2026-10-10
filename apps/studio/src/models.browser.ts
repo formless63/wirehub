@@ -72,13 +72,13 @@ export function workbenchModels(base = '/api'): ModelsAdapter {
       const result = await write(() => request<{ link: ModelLinkView }>(url(kind, id), { method: 'PUT', body: { asset }, headers: ifMatch(k) }, remember(k)));
       return result.ok ? { ok: true, value: result.value.link } : result;
     },
-    async upload(kind, id, file, sourceKind) {
+    async upload(kind, id, file, sourceKind, sourceCitation) {
       const k = key(kind, id);
       const data = toBase64(file.bytes);
       return write(() =>
         request<{ link: ModelLinkView; stats?: ModelUploadStats }>(
           url(kind, id, 'upload'),
-          { method: 'POST', body: { name: file.name, data, sourceKind }, headers: ifMatch(k) },
+          { method: 'POST', body: { name: file.name, data, sourceKind, ...(sourceCitation === undefined ? {} : { sourceCitation }) }, headers: ifMatch(k) },
           remember(k),
         ),
       );

@@ -67,7 +67,7 @@ export interface ModelsAdapter {
   /** every link and every stored model */
   list(): Promise<Outcome<{ links: ModelLinkView[]; models: StoredModel[] }>>;
   attach(kind: string, id: string, asset: string): Promise<Outcome<ModelLinkView>>;
-  upload(kind: string, id: string, file: { name: string; bytes: ArrayBuffer }, sourceKind: ModelSourceKind): Promise<Outcome<{ link: ModelLinkView; stats?: ModelUploadStats }>>;
+  upload(kind: string, id: string, file: { name: string; bytes: ArrayBuffer }, sourceKind: ModelSourceKind, sourceCitation?: string): Promise<Outcome<{ link: ModelLinkView; stats?: ModelUploadStats }>>;
   detach(kind: string, id: string): Promise<Outcome<null>>;
   /** the model's bytes and type — from the host's asset API, nowhere else */
   fetchModel(asset: string): Promise<Outcome<{ bytes: ArrayBuffer; mime: string }>>;

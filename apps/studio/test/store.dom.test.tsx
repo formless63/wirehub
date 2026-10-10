@@ -116,6 +116,7 @@ describe('Browse store', () => {
     expect((await screen.findByTestId('store-pending')).textContent).not.toContain('Alpha module');
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
     await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.0.0.'));
+    expect(within(row('alpha')!).queryByRole('link', { name: 'View contents' })).toBeNull();
   });
 
   it('explains why a configured data-only store has no optional code modules', async () => {
@@ -147,6 +148,7 @@ describe('Browse store', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
     await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed alpha 1.0.0.'));
     expect(readInstalledPacks(packs).packs[0]).toMatchObject({ id: 'alpha', version: '1.0.0' });
+    await waitFor(() => expect(within(row('alpha')!).getByRole('link', { name: 'View contents' }).getAttribute('href')).toBe('/library/connectors?pack=alpha'));
     await waitFor(() => expect(row('alpha')?.textContent).toContain('installed 1.0.0'));
 
     store.publish('alpha', '1.1.0', '11', true);

@@ -51,6 +51,20 @@ const names = (): string[] =>
 const ids = (): string[] => [...document.querySelectorAll('tbody tr[data-id]')].map((tr) => tr.getAttribute('data-id') ?? '');
 
 describe('<LibraryTable> over the starter connectors', () => {
+  it('shows only the linked pack, includes its option while loading, and keeps filtering on category changes', () => {
+    const rows = libraryRows('connectors', db.connectors as ConnectorDefinition[], [], {
+      db, packs: { 'de9-male': { pack: 'automotive', version: '1.0.0' }, 'jst-xh-2-dc': { pack: 'networking', version: '1.0.0' } },
+    });
+    const onPackFilterChange = vi.fn();
+    const { rerender } = render(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" packFilter="automotive" onPackFilterChange={onPackFilterChange} onSelect={() => undefined} empty="No parts from this pack." />);
+    expect(ids()).toEqual(['de9-male']);
+    expect(screen.getByRole('combobox', { name: 'Catalog pack' }).textContent).toContain('automotive');
+    rerender(<LibraryTable kind="components" rows={[]} columns={libraryColumns('components')} query="" packFilter="automotive" onPackFilterChange={onPackFilterChange} onSelect={() => undefined} empty="No parts from this pack." />);
+    expect(screen.getByRole('combobox', { name: 'Catalog pack' }).textContent).toContain('automotive');
+    expect(screen.getByText('No parts from this pack.')).not.toBeNull();
+    expect(onPackFilterChange).not.toHaveBeenCalled();
+  });
+
   it('shows a row per connector with the kind’s columns', () => {
     table();
     expect(ids()).toEqual(['de9-female', 'de9-male', 'jst-xh-2-dc', 'terminal-block-4']);
