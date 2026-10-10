@@ -21,8 +21,15 @@ import {
   type DocumentsProps,
 } from '../src/panels/Documents.tsx';
 import type { DocumentKind, DrawingAdapter } from '../src/documents.ts';
-import type { DrawingMeta } from '@wirehub/docs';
+import { registerDrawingArt, type DrawingMeta } from '@wirehub/docs';
+import { registeredTitleBlock } from '../../docs/src/drawing/assets.ts';
 import { loadDbFromDisk, loadDesignFromDisk } from './fixture.ts';
+
+Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => undefined, releasePointerCapture: () => undefined, scrollIntoView: () => undefined });
+function choose(name: string, option: string): void {
+  fireEvent.keyDown(screen.getByRole('combobox', { name }), { key: 'ArrowDown' });
+  fireEvent.click(screen.getByRole('option', { name: option }));
+}
 
 const db: Db = loadDbFromDisk();
 const design: CableDesign = loadDesignFromDisk('de9-terminal-board');
@@ -157,7 +164,7 @@ describe('<DocumentsPane>', () => {
     const derive = spyRender();
     const { container } = render(<DocumentsPane design={design} db={db} paper="A4" debounceMs={10} render={derive} />);
     act(() => void vi.advanceTimersByTime(10));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Paper' }), { target: { value: 'letter' } });
+    choose('Paper', 'Letter');
     act(() => void vi.advanceTimersByTime(10));
     expect(container.querySelector('iframe')?.style.width).toBe('816px');
     expect(derive.mock.calls.at(-1)?.[3]).toMatchObject({ paper: 'letter' });
@@ -377,16 +384,60 @@ describe('<CableEditor> — Canvas | Documents', () => {
     });
     try {
       render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} />);
-      const menu = screen.getByRole('combobox', { name: 'Export' }) as HTMLSelectElement;
-      const ids = Array.from(menu.querySelectorAll('option')).map((o) => o.value).filter((v) => v !== '');
-      expect(ids).toEqual(['bom.csv', 'wire-list.csv', 'cut-list.csv', 'crimp-list.csv', 'production.xlsx', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg', 'labels.lbx']);
-      for (const id of ids) fireEvent.change(menu, { target: { value: id } });
+      const ids = ['bom.csv', 'wire-list.csv', 'cut-list.csv', 'crimp-list.csv', 'production.xlsx', 'continuity.csv', 'continuity.json', 'labels.csv', 'labels.svg', 'labels.lbx'];
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Export…' }), { key: 'ArrowDown' });
+      const formats = screen.getAllByRole('menuitem').map((item) => item.textContent!);
+      expect(formats).toHaveLength(ids.length);
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+      for (const label of formats) {
+        fireEvent.keyDown(screen.getByRole('button', { name: 'Export…' }), { key: 'ArrowDown' });
+        fireEvent.click(screen.getByRole('menuitem', { name: label }));
+      }
       expect(names).toEqual(ids.map((id) => `${design.id}-${id.split('.')[0]}.${id === 'labels.lbx' ? 'zip' : id.split('.')[1]}`)); // the P-touch labels download as a zip of .lbx files
       expect(await blobs[0]!.text()).toMatch(/^section,part_number,description,quantity,unit/);
       expect(blobs[0]!.type).toContain('text/csv');
     } finally {
       click.mockRestore();
     }
+  });
+
+  it('uses local stock and QR choices for preview, printing and downloads without saving hub defaults', async () => {
+    vi.useFakeTimers();
+    const defaults = { labelPreset: 'a4-l7160', labelQr: false };
+    const off = registerDrawingArt({ titleBlock: defaults });
+    const blobs: Blob[] = [];
+    Object.defineProperty(URL, 'createObjectURL', { value: (blob: Blob) => (blobs.push(blob), 'blob:labels'), configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: () => undefined, configurable: true });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const save = vi.fn(async (_id: string, meta: DrawingMeta) => ({ ok: true as const, value: meta }));
+    try {
+      const { container } = render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} drawings={{ load: async () => ({ ok: true as const, value: { meta: {} } }), save, savePhoto: async () => ({ ok: true as const, value: {} }) }} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Wire labels' }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+      expect(container.querySelector('iframe')?.getAttribute('srcdoc')).toContain('width="210mm"');
+      choose('Label stock for this print', 'Dymo LabelWriter 30336 (25 × 54 mm)');
+      choose('QR code for this print', 'Include QR codes');
+      await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+      const frame = container.querySelector('iframe')!;
+      const source = frame.getAttribute('srcdoc')!;
+      expect(source).toContain('width="54mm" height="25mm"');
+      expect(source).toContain('data-qr=');
+      expect((source.match(/class="label-page label-page-/g) ?? []).length).toBe(2);
+      expect(frame.style.width).toBe('204px');
+      const print = vi.spyOn(frame.contentWindow!, 'print').mockImplementation(() => undefined);
+      const focus = vi.spyOn(frame.contentWindow!, 'focus').mockImplementation(() => undefined);
+      fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+      expect(print).toHaveBeenCalledOnce();
+      print.mockRestore(); focus.mockRestore();
+      fireEvent.click(screen.getByRole('button', { name: 'Download label SVG' }));
+      expect(await blobs[0]!.text()).toContain('width="54mm" height="25mm"');
+      expect(await blobs[0]!.text()).toContain('data-qr=');
+      choose('QR code for this print', 'Without QR codes');
+      fireEvent.click(screen.getByRole('button', { name: 'Download label SVG' }));
+      expect(await blobs[1]!.text()).not.toContain('data-qr=');
+      expect(registeredTitleBlock()).toMatchObject(defaults);
+      expect(save).not.toHaveBeenCalled();
+    } finally { off(); click.mockRestore(); }
   });
 
   it('the continuity spec takes test parameters, saved in the sidecar', async () => {

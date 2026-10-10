@@ -10,12 +10,13 @@
 
 import type { CableDesign, Db } from '@wirehub/model';
 import type { DrawingMeta } from '@wirehub/docs';
-import { useState, type ChangeEvent, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 
 import type { AssetsAdapter } from '../assets.ts';
 import { formatLengths, parseLengths } from '../documents.ts';
 import { AssetPicker } from './AssetPicker.tsx';
 import { Field } from './fields.tsx';
+import { Button, FileDrop, Select } from '../ui/index.ts';
 import { PartNumberField } from './PartNumberField.tsx';
 
 export interface DrawingFormProps {
@@ -178,9 +179,7 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
     set('materials', Object.keys(materials).length === 0 ? undefined : materials);
   };
 
-  const onPhotoFile = (event: ChangeEvent<HTMLInputElement>): void => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
+  const onPhotoFile = (file: File | undefined): void => {
     if (file === undefined) return;
     if (!/^image\/(png|jpeg)$/.test(file.type)) {
       setPhotoProblem(`${file.name} is not a PNG or JPEG photo.`);
@@ -252,9 +251,9 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
           <span>Date</span>
           <span className="cs-inline">
             <input value={meta.date ?? ''} placeholder="YYYY.MM.DD" onChange={(e) => set('date', e.target.value)} />
-            <button type="button" onClick={() => set('date', drawingDate(new Date()))}>
+            <Button onClick={() => set('date', drawingDate(new Date()))}>
               today
-            </button>
+            </Button>
           </span>
           <small>Printed as typed; the house style is YYYY.MM.DD.</small>
         </label>
@@ -291,28 +290,24 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
         ))}
         <label className="cs-field">
           <span>Cable illustration</span>
-          <select
-            value={meta.cutaway ?? 'art'}
-            onChange={(e) => set('cutaway', e.target.value === 'drawn' ? 'drawn' : undefined)}
-          >
-            <option value="art">Hand-drawn art (where there is some)</option>
-            <option value="drawn">Generated from the design spec</option>
-          </select>
+          <Select aria-label="Cable illustration" value={meta.cutaway ?? 'art'}
+            onValueChange={(value) => set('cutaway', value === 'drawn' ? 'drawn' : undefined)}
+            options={[{ value: 'art', label: 'Hand-drawn art (where there is some)' }, { value: 'drawn', label: 'Generated from the design spec' }]} />
           <small>Stocks with no hand-drawn art always use the generated one.</small>
         </label>
         <label className={photoProblem === undefined ? 'cs-field' : 'cs-field is-bad'}>
           <span>Product photo</span>
           <span className="cs-inline">
-            <input type="file" accept="image/png,image/jpeg" onChange={onPhotoFile} />
+            <FileDrop aria-label="Upload product photo" accept="image/png,image/jpeg" onFiles={(files) => onPhotoFile(files[0])} onReject={(files) => onPhotoFile(files[0])}>Choose photo</FileDrop>
             {props.assets === undefined ? null : (
-              <button type="button" onClick={() => setPickingPhoto(true)}>
+              <Button onClick={() => setPickingPhoto(true)}>
                 Choose from library…
-              </button>
+              </Button>
             )}
             {props.photo === undefined ? null : (
-              <button type="button" onClick={() => props.onPhoto(undefined)}>
+              <Button onClick={() => props.onPhoto(undefined)}>
                 remove
-              </button>
+              </Button>
             )}
           </span>
           {photoProblem !== undefined ? (
@@ -343,9 +338,9 @@ export function DrawingForm(props: DrawingFormProps): JSX.Element {
         {props.onSave === undefined ? (
           <small>This host cannot store drawing details — they shape the preview and the print only.</small>
         ) : (
-          <button type="button" disabled={!props.dirty || props.saving || parsed.problems.length > 0} onClick={props.onSave}>
+          <Button disabled={!props.dirty || props.saving || parsed.problems.length > 0} onClick={props.onSave}>
             {props.saving ? 'saving…' : 'Save drawing details'}
-          </button>
+          </Button>
         )}
         {props.status === undefined ? null : <small className="cs-drawing-status">{props.status}</small>}
       </div>

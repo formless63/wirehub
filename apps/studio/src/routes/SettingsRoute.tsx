@@ -19,7 +19,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { toast } from 'sonner';
 import { Button, Checkbox, Field, Input, Page, Select, Textarea } from '@wirehub/editor-react';
-import { BUILTIN_LABEL_TEMPLATES, LABEL_PRESETS, LBX_PRINTERS, PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
+import { BUILTIN_LABEL_TEMPLATES, labelPresetOptions, LBX_PRINTERS, PAPERS, PAPER_IDS, TITLE_BLOCKS, TITLE_BLOCK_STANDARDS, type PaperId, type TitleBlockStandard } from '@wirehub/docs';
 
 import { brandingKey, brandingQuery, fetchFonts, fontsKey, saveBranding, uploadFont, type BrandingView, type FontChoice } from '../settings.browser.ts';
 import { EngineeringSettings } from './EngineeringSettings.tsx';
@@ -272,7 +272,7 @@ export function SettingsRoute(): JSX.Element {
                 value={draft.labelPreset === '' ? 'default' : draft.labelPreset}
                 disabled={readOnly}
                 onValueChange={(value) => setDraft({ ...draft, labelPreset: value === 'default' ? '' : value })}
-                options={[{ value: 'default', label: 'Follow the paper' }, ...LABEL_PRESETS.map((p) => ({ value: p.id, label: p.label }))]}
+                options={[{ value: 'default', label: 'Follow the paper' }, ...labelPresetOptions()]}
               />
             </div>
             <label className="flex items-center gap-1.5 pb-1" title="Print a QR code on each wire label: the part number and revision, or the address below.">

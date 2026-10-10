@@ -317,3 +317,13 @@ started with `docker run --rm -p 127.0.0.1:3000:3000 gotenberg/gotenberg:8.37.0-
 `WIREHUB_PDF_ENGINE_URL=http://127.0.0.1:3000`); over HTTP the studio's own setting applies.
 A PDF that fell back to the headless one is reported as a `note:` line. Not built: the wire stock's spec sheet
 (`/api/definitions/wires/:id/wire-spec`) is still browser-only.
+
+### Label stock for one print
+
+Open a cable’s **Documents → Wire labels** to preview its wire markers. Choose a
+stock and whether to include QR codes for this print; **Hub default** follows
+Settings → Documents. These choices apply to the preview, Print, label SVG and
+P-touch downloads without changing the design or saved hub defaults. Stocks are
+grouped by sheet or printer family, with Brother TZe tapes grouped by width.
+Print includes every label page at the stock’s actual dimensions. The SVG download
+contains the first page; P-touch downloads include the label files for the run.

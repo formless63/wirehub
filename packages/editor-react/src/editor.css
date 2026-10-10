@@ -6652,3 +6652,12 @@ fieldset.cs-lock-fence {
 
 /* the tablist inside the inspector's nav: layout passes through to the nav */
 .cs-conn-tablist { display: contents; }
+
+/* Documents use the shared underline tabs, with actions wrapping independently on small screens. */
+.cs-doc-status { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) var(--space-sm); }
+.cs-doc-tabs { gap: var(--space-sm); padding: 0 var(--space-sm) var(--space-xs); }
+.cs-doc-tabs .cs-ui-tab { flex: 0 0 auto; }
+.cs-label-print-options { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-sm); padding: var(--space-sm); border-bottom: 1px solid var(--line); }
+.cs-label-print-options label { display: flex; flex-direction: column; gap: var(--space-xs); max-width: 100%; }
+.cs-label-print-options small { flex-basis: 100%; color: var(--dim); }
+.cs-label-print-options .cs-ui-select-trigger { max-width: min(24rem, 100%); }
