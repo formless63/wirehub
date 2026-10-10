@@ -6702,3 +6702,8 @@ fieldset.cs-lock-fence {
 /* Source artwork retains its original colors on a paper surface in either theme. */
 .cs-model-art.is-drawing { background: var(--paper); color: var(--paper-ink); }
 .cs-model-art.is-drawing .cs-model-hint { color: var(--paper-dim); }
+
+.cs-editor .react-flow__controls { border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
+.cs-editor .react-flow__controls-button { background: var(--raised); color: var(--ink); border-bottom-color: var(--line); }
+.cs-editor .react-flow__controls-button:hover { background: var(--panel); }
+.cs-editor .react-flow__controls-button svg { fill: currentColor; }
