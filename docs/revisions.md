@@ -111,3 +111,19 @@ The history is a catalog document written through the unit of work, on files and
 
 Only its revisions: a module that reads where they live, or a script that imports them through the
 API. The compare views, where used and numbering are the base's.
+
+### Source models without definition snapshots
+
+The Library also lists **Source model revisions** from model links keyed as
+`revisions/<record-id>/<source-revision>` or `revisions/<part-number>/<source-revision>`.
+An exact record-id link takes precedence over its part-number alias. **View 3D** opens
+that source asset read-only, including its citation and build status. This works when
+the pack provides no saved definition snapshots. It does not create hub revisions or
+imply historical electrical definitions, where-used history or released cable designs.
+
+Each Library model panel shows asset coverage: generated approximation, source model,
+missing model or awaiting build; front/back (or board top/bottom) artwork; and the
+material data declared in the file. Reflected anchors describe pin placement, not an
+invented opposite-side image. Source kind, citation and material presence do not verify
+the part match, dimensions, manufacturer accuracy or physical finish. Source bytes and
+materials remain unchanged.

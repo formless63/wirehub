@@ -6668,3 +6668,24 @@ fieldset.cs-lock-fence {
 .cs-label-print-options label { display: flex; flex-direction: column; gap: var(--space-xs); max-width: 100%; }
 .cs-label-print-options small { flex-basis: 100%; color: var(--dim); }
 .cs-label-print-options .cs-ui-select-trigger { max-width: min(24rem, 100%); }
+/* Library assets: coverage remains readable on narrow screens and in compact lists. */
+.cs-asset-coverage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+.cs-asset-coverage details { flex-basis: 100%; }
+.cs-asset-coverage summary { cursor: pointer; text-decoration: underline; }
+.cs-asset-coverage p { margin: var(--space-sm) 0; }
+.cs-source-models { margin-block: var(--space-md); min-width: 0; }
+.cs-source-models li { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin-block: var(--space-sm); }
+.cs-lt-number-context { display: block; color: var(--dim); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+
+.cs-lt-cell.has-number-context { flex-wrap: wrap; }
+.cs-lt-cell.has-number-context .cs-lt-number-context { flex-basis: 100%; font-family: var(--font-sans); }

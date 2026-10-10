@@ -17,9 +17,10 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
 
+import { assetCoverage } from '../asset-coverage.ts';
 import type { ArtworkAdapter, ArtworkView } from '../artwork.ts';
 import { classes } from '../context.ts';
-import { Field, Input } from '../ui/index.ts';
+import { Field, Input, Select } from '../ui/index.ts';
 import { parametricModelFile } from '../parametric-model.ts';
 import { isModelFileName, MODEL_ACCEPT, MODEL_SOURCE_LABEL, type ModelLinkView, type ModelsAdapter, type ModelSourceKind, type StoredModel } from '../models.ts';
 import { useEditLocked, useEditSession } from './edit-session.ts';
@@ -39,6 +40,8 @@ export interface ModelPanelProps {
   builtIn2d?: ReactNode;
   /** read-only host (no definitions adapter) */
   readOnly?: boolean;
+  /** Explicit source-model actions open their preview even if the main panel was folded. */
+  initialOpen?: boolean;
 }
 
 const OPEN_KEY = 'cs-model-panel-open';
@@ -86,7 +89,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
   const { kind, id, models, artwork } = props;
   const locked = useEditLocked();
   const session = useEditSession();
-  const [open, setOpen] = useState(readOpen);
+  const [open, setOpen] = useState(() => props.initialOpen ?? readOpen());
   const [link, setLink] = useState<ModelLinkView | null | undefined>(undefined);
   const [model, setModel] = useState<{ bytes: ArrayBuffer; mime: string } | undefined>(undefined);
   const [modelError, setModelError] = useState<string | undefined>(undefined);
@@ -96,6 +99,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
   const [reload, setReload] = useState(0);
   const [modelRetry, setModelRetry] = useState(0);
   const [artRetry, setArtRetry] = useState(0);
+  const [viewsLoaded, setViewsLoaded] = useState(artwork === undefined);
   const [views, setViews] = useState<ArtworkView[]>([]);
   const [art, setArt] = useState<{ view: string; src: string } | undefined>(undefined);
   const [drawnView, setDrawnView] = useState<string | undefined>();
@@ -114,6 +118,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     setViewsError(undefined);
     setArtError(undefined);
     setViews([]);
+    setViewsLoaded(artwork === undefined);
     setArt(undefined);
     setView(undefined);
     setDrawnView(undefined);
@@ -127,6 +132,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     if (artwork !== undefined) {
       void artwork.detail(id).then((outcome) => {
         if (!live) return;
+        setViewsLoaded(true);
         if (outcome.ok) setViews(outcome.value.views);
         else setViewsError(`${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}`);
       }, () => { if (live) setViewsError('The picture information could not be loaded.'); });
@@ -220,6 +226,8 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
     else setMessage({ tone: 'err', text: `${outcome.message}${outcome.hint === undefined ? '' : ` ${outcome.hint}`}` });
   };
 
+  const hasBuiltIn2d = props.builtIn2d !== undefined;
+  const coverage = useMemo(() => assetCoverage(kind, link, views, model, hasBuiltIn2d), [kind, link, views, model, hasBuiltIn2d]);
   const disabled = locked || props.readOnly === true || busy;
   const toggleOpen = (): void => {
     const next = !open;
@@ -262,7 +270,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
         ) : link === null ? (
           <span className="cs-model-none">No 3D model</span>
         ) : null}
-        <span className="cs-model-actions">
+        {props.readOnly ? null : <span className="cs-model-actions">
           {link === undefined ? null : (
             <button type="button" disabled={disabled} onClick={attaching ? endAttach : startAttach} title={locked ? 'Someone else is editing this part' : undefined}>
               {attaching ? 'Cancel' : link ? 'Replace model' : 'Attach model'}
@@ -273,8 +281,15 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
               Detach
             </button>
           ) : null}
-        </span>
+        </span>}
       </header>
+      <div className="cs-asset-coverage" role="group" aria-label="Asset coverage">
+        <span className="cs-chip">{linkError === undefined ? coverage.model : '3D status unavailable'}</span>
+        <span>{viewsError !== undefined ? 'Front artwork status unavailable' : viewsLoaded ? coverage.front : 'Front artwork loading'}</span>
+        <span>{viewsError !== undefined ? 'Back artwork status unavailable' : viewsLoaded ? coverage.back : 'Back artwork loading'}</span>
+        <span>{coverage.materials}</span>
+        <details><summary>Source and limitations</summary><p>{coverage.explanation}</p>{link?.src ? <p>{link.src}</p> : null}</details>
+      </div>
       {linkError === undefined && viewsError === undefined ? null : (
         <div className="cs-model-problem" role="alert">
           {linkError === undefined ? null : <p>{linkError}</p>}
@@ -289,9 +304,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
       )}
       {open && shown === '2d' && drawings.length > 1 ? (
         <div className="cs-model-actions" role="group" aria-label="2D artwork view">
-          <label>Artwork view <select aria-label="2D artwork view" value={twoD?.view ?? ''} onChange={(event) => setDrawnView(event.target.value)}>
-            {drawings.map((v) => <option key={v.view} value={v.view}>{v.view.replaceAll('-', ' ')}</option>)}
-          </select></label>
+          <Field label="Artwork view"><Select aria-label="2D artwork view" value={twoD?.view} onValueChange={setDrawnView} options={drawings.map((v) => ({ value: v.view, label: v.view.replaceAll('-', ' ') }))} /></Field>
         </div>
       ) : null}
       {attaching ? <AttachForm {...props} disabled={disabled} onBusy={setBusy} onDone={done} onError={(text) => setMessage({ tone: 'err', text })} /> : null}

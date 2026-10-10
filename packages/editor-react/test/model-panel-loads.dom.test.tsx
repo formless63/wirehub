@@ -6,7 +6,7 @@ import type { ModelsAdapter } from '../src/models.ts';
 import { ModelPanel } from '../src/panels/ModelPanel.tsx';
 
 vi.mock('../src/panels/ModelViewer3d.tsx', () => ({ default: () => <p>Loaded synthetic model</p> }));
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => { window.localStorage.clear(); Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => undefined, releasePointerCapture: () => undefined, scrollIntoView: () => undefined }); });
 afterEach(cleanup);
 
 const modelsOf = (): ModelsAdapter => ({
@@ -87,7 +87,10 @@ it('shows supplied bottom artwork with mirrored anchors and switches without edi
   render(<ModelPanel kind="pcbas" id="synthetic-board" label="Synthetic board" models={modelsOf()} artwork={artwork} readOnly />);
   const image = await screen.findByRole('img', { name: '2D art of Synthetic board' });
   expect(decodeURIComponent(image.getAttribute('src')!)).toContain('board-top');
-  fireEvent.change(screen.getByRole('combobox', { name: '2D artwork view' }), { target: { value: 'board-bottom' } });
+  const trigger = screen.getByRole('combobox', { name: '2D artwork view' });
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  const option = await screen.findByRole('option', { name: 'board bottom' });
+  fireEvent.click(option);
   await screen.findByText('board bottom', { selector: 'p' });
   expect(decodeURIComponent(screen.getByRole('img', { name: '2D art of Synthetic board' }).getAttribute('src')!)).toContain('board-bottom');
   expect(artwork.artwork).toHaveBeenCalledWith('synthetic-board', 'board-bottom');
@@ -101,4 +104,12 @@ it('shows bottom-only artwork without inventing a top view', async () => {
   await screen.findByRole('img', { name: '2D art of Synthetic board' });
   expect(artwork.artwork).toHaveBeenCalledWith('synthetic-board', 'board-bottom');
   expect(screen.queryByRole('combobox', { name: '2D artwork view' })).toBeNull();
+});
+
+
+it('shows artwork coverage and never claims a reflected anchor set is a generated opposite-side image', async () => {
+  render(<ModelPanel kind="pcbas" id="synthetic-board" label="Synthetic board" models={modelsOf()} artwork={artworkOf()} readOnly />);
+  await screen.findByText('Top: artwork available');
+  expect(screen.getByText('Bottom: artwork missing')).toBeTruthy();
+  expect(screen.getByText('3D missing')).toBeTruthy();
 });

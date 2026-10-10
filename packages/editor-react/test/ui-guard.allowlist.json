@@ -26,7 +26,7 @@
       "native-select": 2
     },
     "packages/editor-react/src/panels/ModelPanel.tsx": {
-      "native-select": 3
+      "native-select": 2
     },
     "packages/editor-react/src/panels/NewCableWizard.tsx": {
       "native-select": 2

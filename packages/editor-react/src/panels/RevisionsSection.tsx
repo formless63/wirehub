@@ -6,12 +6,14 @@
  * address of its 3D model with the revision, so it can be compared later.
  */
 
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import type { ArtworkAdapter } from '../artwork.ts';
-import type { ModelsAdapter } from '../models.ts';
+import { sourceRevisionModels } from '../asset-coverage.ts';
+import { Button } from '../ui/index.ts';
+import type { ModelLinkView, ModelsAdapter } from '../models.ts';
 import { compareSideId, type RevisionsAdapter, type RevisionsView, type SaveRevisionInput } from '../revisions.ts';
-import { pick2d } from './ModelPanel.tsx';
+import { ModelPanel, pick2d } from './ModelPanel.tsx';
 
 const day = (iso: string | undefined): string => (iso === undefined ? '' : iso.slice(0, 10));
 
@@ -34,6 +36,23 @@ export function RevisionsSection(props: {
   const [busy, setBusy] = useState(false);
   const [numberPending, setNumberPending] = useState(false);
   const suggestionRequest = useRef(0);
+  const [sourceModels, setSourceModels] = useState<{ revision: string; link: ModelLinkView }[]>([]);
+  const [sourceModelError, setSourceModelError] = useState<string>();
+  const [selectedSource, setSelectedSource] = useState<ModelLinkView>();
+
+  useEffect(() => {
+    setSourceModels([]);
+    setSelectedSource(undefined);
+    setSourceModelError(undefined);
+    if (props.models === undefined || view === undefined) return;
+    let live = true;
+    void props.models.list().then((result) => {
+      if (!live) return;
+      if (result.ok) setSourceModels(sourceRevisionModels(result.value.links, id, view.current.partNumber));
+      else setSourceModelError(result.message);
+    }, () => { if (live) setSourceModelError('Source revision models could not be checked.'); });
+    return () => { live = false; };
+  }, [props.models, id, view]);
 
   const reload = useCallback(async (): Promise<void> => {
     const out = await props.revisions.list(kind, id);
@@ -173,6 +192,24 @@ export function RevisionsSection(props: {
               Using a state no revision recorded: {view.whereUsed.unrecorded.map((u) => `${u.label}${u.version === undefined ? '' : ` rev ${u.version}`}`).join('; ')}
             </p>
           )}
+          {sourceModelError === undefined ? null : <p className="cs-small" role="status">{sourceModelError}</p>}
+          {sourceModels.length === 0 ? null : (
+            <section className="cs-source-models" aria-label="Source model revisions">
+              <h4>Source model revisions <span className="cs-count">{sourceModels.length}</span></h4>
+              <p className="cs-small">These are recorded source assets. They do not establish historical definitions, where-used history or released cable designs.</p>
+              <ul>
+                {sourceModels.map(({ revision, link }) => <li key={revision}>
+                  <span>{revision}{link.built === false ? ' · awaiting build' : ''}</span>
+                  <Button variant="secondary" size="sm" onClick={() => setSelectedSource(link)}>View 3D · {revision}</Button>
+                </li>)}
+              </ul>
+              {selectedSource === undefined || props.models === undefined ? null : <>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedSource(undefined)}>Close source model</Button>
+                <SourceModelPreview kind={kind} link={selectedSource} models={props.models} label={`${view.label} · source ${selectedSource.record.split('/').at(-1)}`} />
+              </>}
+            </section>
+          )}
+          {view.external.length === 0 ? null : <p className="cs-small">Source observations below are supplied references, separate from saved definition revisions.</p>}
           {view.external.map((source) => (
             <div key={`${source.module}/${source.source}`} className="cs-small" data-source={`${source.module}/${source.source}`}>
               <b>{source.label}</b>
@@ -227,4 +264,17 @@ export function RevisionsSection(props: {
       )}
     </section>
   );
+}
+
+/** A read-only link to actual source bytes; never synthesizes a historical definition. */
+function SourceModelPreview({ kind, link, models, label }: { kind: string; link: ModelLinkView; models: ModelsAdapter; label: string }): JSX.Element {
+  const sourceModels = useMemo<ModelsAdapter>(() => ({
+    get: async () => ({ ok: true, value: link }),
+    list: () => models.list(),
+    fetchModel: (asset) => models.fetchModel(asset),
+    attach: async () => ({ ok: false, message: 'Source model views are read-only.' }),
+    upload: async () => ({ ok: false, message: 'Source model views are read-only.' }),
+    detach: async () => ({ ok: false, message: 'Source model views are read-only.' }),
+  }), [models, link]);
+  return <ModelPanel key={link.record} kind={kind} id={link.record} label={label} models={sourceModels} readOnly initialOpen />;
 }
