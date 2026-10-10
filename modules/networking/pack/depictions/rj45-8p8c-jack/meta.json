@@ -1,0 +1,61 @@
+{
+  "defId": "rj45-8p8c-jack",
+  "views": {
+    "mating-face": {
+      "file": "mating-face.svg",
+      "kind": "vector",
+      "mmPerUnit": 1,
+      "sourceKind": "hand",
+      "widthUnits": 18,
+      "heightUnits": 18,
+      "src": "Molex SD-95501-001 revision F1, sheet 1: generic unshielded 8-position jack, 15.24 mm wide × 11.50 mm high; 1.02 mm mating pitch per IEC 60603-7. Original drawing with inferred mouth, spring-contact and latch clearance detail; not manufacturer CAD or a PCB footprint. Original WireHub drawing, CC0-1.0."
+    }
+  },
+  "pinAnchors": {
+    "1": {
+      "x": 5.43,
+      "y": 5
+    },
+    "2": {
+      "x": 6.45,
+      "y": 5
+    },
+    "3": {
+      "x": 7.47,
+      "y": 5
+    },
+    "4": {
+      "x": 8.49,
+      "y": 5
+    },
+    "5": {
+      "x": 9.51,
+      "y": 5
+    },
+    "6": {
+      "x": 10.53,
+      "y": 5
+    },
+    "7": {
+      "x": 11.55,
+      "y": 5
+    },
+    "8": {
+      "x": 12.57,
+      "y": 5
+    }
+  },
+  "anchorFrame": "mating-face",
+  "src": "Molex SD-95501-001 revision F1, sheet 1: generic unshielded 8-position jack, 15.24 mm wide × 11.50 mm high; 1.02 mm mating pitch per IEC 60603-7. Original drawing with inferred mouth, spring-contact and latch clearance detail; not manufacturer CAD or a PCB footprint. Original WireHub drawing, CC0-1.0.",
+  "license": "CC0-1.0",
+  "provenance": {
+    "method": "derived",
+    "sources": [
+      {
+        "title": "Molex SD-95501-001 revision F1, sheet 1: generic unshielded 8-position jack, 15.24 mm wide × 11.50 mm high; 1.02 mm mating pitch per IEC 60603-7. Original drawing with inferred mouth, spring-contact and latch clearance detail; not manufacturer CAD or a PCB footprint. Original WireHub drawing, CC0-1.0.",
+        "url": "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/salesdrawingpdf/955/95501/955012882_sd.pdf",
+        "retrieved": "2026-10-10"
+      }
+    ]
+  }
+}

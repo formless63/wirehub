@@ -49,7 +49,7 @@ describe('the module', () => {
   it('is an optional domain module, unticked at setup, with one CC0 pack', () => {
     expect(createRegistry([networking]).domains().map((m) => m.id)).toEqual(['networking']);
     expect(networking.setup).not.toHaveProperty('suggested');
-    expect(readPackManifest(packDir)).toMatchObject({ id: 'networking', version: '0.2.2', license: 'CC0-1.0' });
+    expect(readPackManifest(packDir)).toMatchObject({ id: 'networking', version: '0.3.0', license: 'CC0-1.0', requires: { wirehub: '>=0.8.0 <1' } });
   });
 
   it('keeps Ethernet out of the base: no MDI signal or RJ45 record without the pack', () => {
@@ -74,7 +74,7 @@ describe('the pack over the starter catalog', () => {
       cpSync(dataPath(''), work, { recursive: true });
       const plan = installPack(work, packDir);
       expect(plan.conflicts).toEqual([]);
-      expect(plan.added['connectors.json']).toEqual(['rj45-plug-t568b', 'rj45-plug-t568a']);
+      expect(plan.added['connectors.json']).toEqual(['rj45-plug-t568b', 'rj45-plug-t568a', 'rj45-jack-mdi']);
       const installed = createCatalog(fsCatalogSource(work));
       for (const id of DESIGNS) expect(validateDesign(installed.loadDesign(id), installed.loadDb()), id).toEqual([]);
       expect(installPack(work, packDir).alreadyInstalled).toBe(true);

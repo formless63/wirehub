@@ -8,7 +8,7 @@
       "sourceKind": "hand",
       "widthUnits": 14,
       "heightUnits": 18,
-      "src": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+      "src": "IEC 60603-7 modular plug: 11.68 mm width and 1.02 mm contact pitch. Original generic 8.1 mm-high mating-face illustration, latch down; moulded edge breaks and latch detail inferred, not traced from a vendor drawing. Optional shield attachment anchor is illustrative. Original WireHub drawing, CC0-1.0."
     },
     "solder-side": {
       "file": "solder-side.svg",
@@ -17,7 +17,7 @@
       "sourceKind": "hand",
       "widthUnits": 14,
       "heightUnits": 18,
-      "src": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+      "src": "Generic rear wire-entry view of an insulation-piercing RJ45 plug, not solder cups. Eight conductor guides project at 1.02 mm pitch, numbers mirrored from the mating face; latch and entry shape inferred. IEC 60603-7; Molex ATS-690081124 revision E. Original WireHub drawing, CC0-1.0.",
       "mirrorOf": "mating-face",
       "mirrorAxis": "x"
     }
@@ -61,13 +61,15 @@
     }
   },
   "anchorFrame": "mating-face",
-  "src": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing.",
+  "src": "IEC 60603-7 modular plug: 11.68 mm width and 1.02 mm contact pitch. Original generic 8.1 mm-high mating-face illustration, latch down; moulded edge breaks and latch detail inferred, not traced from a vendor drawing. Optional shield attachment anchor is illustrative. Original WireHub drawing, CC0-1.0.",
   "license": "CC0-1.0",
   "provenance": {
     "method": "derived",
     "sources": [
       {
-        "title": "8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline. Drawn for WireHub from public dimensions; CC0-1.0, not traced from any vendor drawing."
+        "title": "IEC 60603-7 modular plug: 11.68 mm width and 1.02 mm contact pitch. Original generic 8.1 mm-high mating-face illustration, latch down; moulded edge breaks and latch detail inferred, not traced from a vendor drawing. Optional shield attachment anchor is illustrative. Original WireHub drawing, CC0-1.0.",
+        "url": "https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/applicationtoolingspecificationpdf/690/69008/ATS-690081124-001.pdf",
+        "retrieved": "2026-10-10"
       }
     ]
   }

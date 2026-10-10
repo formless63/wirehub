@@ -22,6 +22,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { automotiveFaceArtFiles } from './automotive-face-art.ts';
+import { networkingFaceArtFiles } from './networking-face-art.ts';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const r = (v: number): number => Math.round(v * 100) / 100;
@@ -174,18 +175,6 @@ function terminalBlock4(): Face {
   return { id: 'terminal-block-4', root: 'packages/catalog/depictions', title: '4-way 5.08 mm screw terminal block', w, h, items, src: '4-way screw terminal block, 5.08 mm pitch: screw heads above, wire entries below (approximate generic outline); positions numbered left to right.' };
 }
 
-function rj45(): Face {
-  const w = 14;
-  const h = 18;
-  const items: Item[] = [
-    { t: 'rect', x: 1.15, y: 1, w: 11.7, h: 16, rx: 0.8 },
-    { t: 'poly', pts: [[3.3, 17], [3.3, 12.5], [10.7, 12.5], [10.7, 17]] },
-  ];
-  for (let n = 0; n < 8; n += 1) items.push({ t: 'pin', id: String(n + 1), shape: 'rect', x: 7 + (n - 3.5) * 1.02, y: 5, w: 0.6, h: 5 });
-  for (const n of [1, 8]) items.push({ t: 'text', x: 7 + (n === 1 ? -3.57 : 3.57), y: 0.7, text: String(n) });
-  return { id: 'rj45-8p8c-plug', root: 'modules/networking/pack/depictions', title: 'RJ45 (8P8C) plug', w, h, items, extraAnchors: { shell: [7, 14.8] }, src: '8P8C modular plug (IEC 60603-7): contacts facing the viewer, latch down, eight contacts at 1.02 mm pitch numbered 1-8 left to right; plan view, approximate outline.' };
-}
-
 function xlr(male: boolean): Face {
   const w = 24;
   const h = 24;
@@ -267,12 +256,12 @@ function multicoreCutaway(): Face & { cutaway: true } {
 }
 
 export function faces(): Face[] {
-  return [dsubDE9('de9-male', true), dsubDE9('de9-female', false), jstXh2(), terminalBlock4(), rj45(), xlr(true), xlr(false), rcaEnd(), trsEnd(), usbA(), vga()];
+  return [dsubDE9('de9-male', true), dsubDE9('de9-female', false), jstXh2(), terminalBlock4(), xlr(true), xlr(false), rcaEnd(), trsEnd(), usbA(), vga()];
 }
 
 /** Every generated file: repo-relative path → text. */
 export function faceArtFiles(): Record<string, string> {
-  const out: Record<string, string> = {};
+  const out: Record<string, string> = { ...automotiveFaceArtFiles(), ...networkingFaceArtFiles() };
   for (const face of faces()) {
     const dir = `${face.root}/${face.id}`;
     out[`${dir}/mating-face.svg`] = svg(face, 'mating-face');

@@ -16,6 +16,8 @@
 
 import { parametricProblems, type ParametricSpec } from '@wirehub/model';
 
+import { obd2, sealedRectangular } from './parametric-automotive.ts';
+
 type V = [number, number, number];
 type Poly = [number, number][];
 
@@ -23,15 +25,19 @@ interface Material {
   color: [number, number, number];
   metallic: number;
   roughness: number;
+  transmission?: number;
+  ior?: number;
 }
 
 /** Colours are written as sRGB (what a person reads off a swatch); glTF wants them linear. */
 const MATERIALS = {
+  'polymer-gray': { color: [0.52, 0.54, 0.55], metallic: 0, roughness: 0.7 },
+  'seal-orange': { color: [0.75, 0.28, 0.14], metallic: 0, roughness: 0.85 },
   steel: { color: [0.72, 0.74, 0.77], metallic: 0.9, roughness: 0.38 },
   gold: { color: [0.85, 0.68, 0.2], metallic: 1, roughness: 0.3 },
   black: { color: [0.06, 0.06, 0.07], metallic: 0, roughness: 0.6 },
   rubber: { color: [0.1, 0.1, 0.11], metallic: 0, roughness: 0.85 },
-  clear: { color: [0.6, 0.68, 0.78], metallic: 0, roughness: 0.25 },
+  clear: { color: [0.93, 0.96, 0.98], metallic: 0, roughness: 0.16, transmission: 0.78, ior: 1.58 },
   natural: { color: [0.74, 0.66, 0.46], metallic: 0, roughness: 0.55 },
   green: { color: [0.1, 0.46, 0.26], metallic: 0, roughness: 0.55 },
 } satisfies Record<string, Material>;
@@ -229,16 +235,86 @@ function xlr(mesh: Mesh, spec: ParametricSpec, p: Params): void {
   }
 }
 
+/** Chamfered moulding; the short diagonal faces are real edge breaks, not voxel blocks. */
+function chamferedRect(w: number, h: number, c: number): Poly {
+  return [[-w / 2 + c, -h / 2], [w / 2 - c, -h / 2], [w / 2, -h / 2 + c], [w / 2, h / 2 - c], [w / 2 - c, h / 2], [-w / 2 + c, h / 2], [-w / 2, h / 2 - c], [-w / 2, -h / 2 + c]];
+}
+
+/** A thin latch/contact beam across x, with its side profile in y/z. */
+function beam(mesh: Mesh, material: MaterialName, x: number, width: number, y0: number, z0: number, y1: number, z1: number, thickness: number): void {
+  const outline: Poly = [[z0, y0], [z1, y1], [z1, y1 + thickness], [z0, y0 + thickness]];
+  const ref: V = [x, (y0 + y1 + thickness) / 2, (z0 + z1) / 2];
+  const point = (p: [number, number], side: number): V => [x + side * width / 2, p[1], p[0]];
+  for (let i = 0; i < outline.length; i++) {
+    const a = outline[i]!;
+    const b = outline[(i + 1) % outline.length]!;
+    mesh.quad(material, point(a, -1), point(b, -1), point(b, 1), point(a, 1), ref);
+  }
+  for (const side of [-1, 1]) mesh.quad(material, point(outline[0]!, side), point(outline[1]!, side), point(outline[2]!, side), point(outline[3]!, side), ref);
+}
+
 function rj45(mesh: Mesh, spec: ParametricSpec, p: Params): void {
   const w = p['widthMm']!;
   const h = p['heightMm']!;
   const l = p['lengthMm']!;
-  mesh.box('clear', 0, 0, l / 2, w, h, l);
-  // the latch: a tab standing on the top face, hinged at the cable end
-  mesh.box('clear', 0, h / 2 + p['latchHeightMm']! / 2, l * 0.3, w * 0.62, p['latchHeightMm']!, l * 0.6);
-  // the blades, on the face opposite the latch
-  for (let i = 0; i < spec.pins; i++) mesh.box('gold', (i - (spec.pins - 1) / 2) * p['contactPitchMm']!, -h / 2 - 0.05, l * 0.7, 0.5, 0.12, l * 0.5);
-  mesh.box('rubber', 0, 0, -p['bootLengthMm']! / 2, w + 1.2, h + 2.2, p['bootLengthMm']!);
+  const pitch = p['contactPitchMm']!;
+  if (spec.gender === 'female') {
+    // A real open jack mouth: housing walls, recessed back, latch keyway and spring contacts.
+    // The envelope is a PCB jack; bootLengthMm is retained for older spec compatibility only.
+    const mouthW = Math.min(w - 1.2, 11.9);
+    const mouthH = Math.min(h - 1.2, 8.5);
+    mesh.ring('black', chamferedRect(w, h, 0.45), chamferedRect(mouthW, mouthH, 0.2), 0, l);
+    mesh.box('black', 0, 0, 1, mouthW, mouthH, 2);
+    mesh.box('black', 0, mouthH / 2 - 0.25, l * 0.62, mouthW, 0.5, l * 0.76);
+    // The latch clearance is below the spring contacts in the mating view.
+    for (const side of [-1, 1]) mesh.box('black', side * (mouthW + 3) / 4, -mouthH / 2 + 0.75, l * 0.65, (mouthW - 3) / 2, 1.5, l * 0.7);
+    for (let i = 0; i < spec.pins; i++) {
+      const x = (i - (spec.pins - 1) / 2) * pitch;
+      beam(mesh, 'gold', x, 0.42, mouthH / 2 - 0.6, l * 0.22, mouthH / 2 - 2.5, l * 0.84, 0.18);
+      // Two staggered PCB solder-tail rows; rear-facing wire holes would misrepresent this part.
+      mesh.cylinder('steel', [x, -h / 2, 3 + (i % 2) * 2.54], [x, -h / 2 - 3.3, 3 + (i % 2) * 2.54], 0.23, 0.23, 8);
+    }
+    for (const side of [-1, 1]) mesh.cylinder('black', [side * w * 0.36, -h / 2, l * 0.62], [side * w * 0.36, -h / 2 - 2, l * 0.62], 1.1, 1.1, 12);
+    return;
+  }
+  // Clear polycarbonate shell with a recessed rear wire entry, rather than an opaque brick.
+  const outer = chamferedRect(w, h, 0.45);
+  const entry = chamferedRect(w - 1.4, h - 1.8, 0.65);
+  mesh.ring('clear', outer, entry, 0, l * 0.5);
+  mesh.prism('clear', outer, l * 0.5, l);
+  // Eight separate conductor guides and insulation-piercing blades; no invented wire colours.
+  for (let i = 0; i < spec.pins; i++) {
+    const x = (i - (spec.pins - 1) / 2) * pitch;
+    mesh.cylinder('clear', [x, h * 0.17, 0.8], [x, h * 0.17, l * 0.74], 0.27, 0.27, 8);
+    mesh.box('gold', x, h / 2 + 0.035, l * 0.84, 0.46, 0.18, l * 0.29);
+    beam(mesh, 'gold', x, 0.46, h / 2 - 0.1, l * 0.72, h * 0.17, l * 0.74, 0.15);
+  }
+  // Narrow flexible cantilever, anchored near the nose; the free rear tab stands clear of the body.
+  const rise = p['latchHeightMm']!;
+  beam(mesh, 'clear', 0, 3, -h / 2 - rise, l * 0.18, -h / 2 - 0.6, l * 0.86, 0.45);
+  mesh.box('clear', 0, -h / 2 - rise - 0.25, l * 0.2, 4.5, 0.6, 1.7);
+  // Tapered elastomer boot with a circular cable opening and spaced strain-relief ribs.
+  const boot = p['bootLengthMm']!;
+  const profile = (z: number): Poly => circle(1, 16).map(([x, y]) => {
+    const t = -z / boot;
+    return [x * (w * 0.48 * (1 - t) + 3.4 * t), y * (h * 0.48 * (1 - t) + 3.4 * t)];
+  });
+  const bore = circle(2.8, 16);
+  // Tapered outer skin and open cable bore; its ends are joined with annular faces.
+  const rear = profile(-boot);
+  const front = profile(0);
+  const ref: V = [0, 0, -boot / 2];
+  for (let i = 0; i < front.length; i++) {
+    const j = (i + 1) % front.length;
+    mesh.quad('rubber', [front[i]![0], front[i]![1], 0], [front[j]![0], front[j]![1], 0], [rear[j]![0], rear[j]![1], -boot], [rear[i]![0], rear[i]![1], -boot], ref);
+  }
+  mesh.ring('rubber', front, bore, -0.3, 0);
+  mesh.ring('rubber', rear, bore, -boot, -boot + 0.3);
+  for (let i = 1; i <= 4; i++) {
+    const z = -boot * (0.35 + i * 0.12);
+    const inner = profile(z);
+    mesh.ring('rubber', inner.map(([x, y]) => [x * 1.09, y * 1.09]), inner, z - 0.35, z + 0.35);
+  }
 }
 
 function jstXh(mesh: Mesh, spec: ParametricSpec, p: Params): void {
@@ -275,6 +351,8 @@ const BUILDERS: Record<ParametricSpec['shape'], (mesh: Mesh, spec: ParametricSpe
   'd-sub': dSub,
   xlr,
   rj45,
+  obd2,
+  'sealed-rectangular': sealedRectangular,
   'jst-xh': jstXh,
   'terminal-block': terminalBlock,
 };
@@ -329,9 +407,11 @@ export function buildParametricGlb(spec: ParametricSpec): Uint8Array {
     scenes: [{ nodes: [0] }],
     nodes: [{ mesh: 0, name: spec.shape }],
     meshes: [{ primitives }],
+    extensionsUsed: names.some((name) => 'transmission' in MATERIALS[name]) ? ['KHR_materials_transmission', 'KHR_materials_ior'] : [],
     materials: names.map((name) => ({
       name,
       doubleSided: true,
+      ...('transmission' in MATERIALS[name] ? { extensions: { KHR_materials_transmission: { transmissionFactor: (MATERIALS[name] as Material).transmission }, KHR_materials_ior: { ior: (MATERIALS[name] as Material).ior } } } : {}),
       pbrMetallicRoughness: { baseColorFactor: [...MATERIALS[name].color.map((c) => round(linear(c))), 1], metallicFactor: MATERIALS[name].metallic, roughnessFactor: MATERIALS[name].roughness },
     })),
     accessors,

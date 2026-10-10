@@ -2,7 +2,7 @@
   "format": 1,
   "id": "networking",
   "name": "Networking",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "publisher": {
     "id": "wirehub",
     "name": "WireHub bundled modules"
@@ -10,8 +10,8 @@
   "license": "CC0-1.0",
   "catalogSchema": 4,
   "requires": {
-    "wirehub": ">=0.1 <1"
+    "wirehub": ">=0.8.0 <1"
   },
   "counts": {},
-  "description": "Networking: Ethernet MDI pair signals (IEEE 802.3), the RJ45 (8P8C) plug body with T568A and T568B terminations (TIA-568), a strain-relief boot, a T568B patch cable and a T568A-to-T568B crossover."
+  "description": "Ethernet MDI pair signals, RJ45 T568A/B plugs and an unshielded PCB jack, detailed generic 3D models and front/rear artwork, a strain-relief boot, patch and crossover examples."
 }

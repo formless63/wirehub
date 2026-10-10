@@ -55,5 +55,58 @@
         }
       ]
     }
+  },
+  {
+    "id": "ethernet-mdi-unshielded",
+    "label": "Ethernet MDI, unshielded RJ45",
+    "short": "RJ45",
+    "bodies": [
+      "rj45-8p8c-jack"
+    ],
+    "pins": {
+      "1": {
+        "signal": "eth-da-p",
+        "label": "BI_DA+"
+      },
+      "2": {
+        "signal": "eth-da-n",
+        "label": "BI_DA−"
+      },
+      "3": {
+        "signal": "eth-db-p",
+        "label": "BI_DB+"
+      },
+      "4": {
+        "signal": "eth-dc-p",
+        "label": "BI_DC+"
+      },
+      "5": {
+        "signal": "eth-dc-n",
+        "label": "BI_DC−"
+      },
+      "6": {
+        "signal": "eth-db-n",
+        "label": "BI_DB−"
+      },
+      "7": {
+        "signal": "eth-dd-p",
+        "label": "BI_DD+"
+      },
+      "8": {
+        "signal": "eth-dd-n",
+        "label": "BI_DD−"
+      }
+    },
+    "confidence": "documented",
+    "src": "IEEE 802.3 clause 40 (1000BASE-T) MDI pair assignment; TIA-568 T568B pair-to-pin colours",
+    "license": "CC0-1.0",
+    "provenance": {
+      "method": "transcribed",
+      "sources": [
+        {
+          "title": "IEEE 802.3 clause 40 (1000BASE-T) MDI pair assignment; TIA-568 T568B pair-to-pin colours"
+        }
+      ]
+    }
   }
 ]
