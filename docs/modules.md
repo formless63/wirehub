@@ -147,6 +147,7 @@ move records and designs in and out of other tools. Both are MIT; neither adds a
 | Bundled module | Adds |
 | --- | --- |
 | `modules/wireviz` (`@wirehub/module-wireviz`) | an importer for WireViz YAML (`.yml`, `.yaml`) and a **WireViz (YAML)** exporter in the Documents toolbar. The mapping is written from WireViz's public syntax documentation; none of WireViz's GPL-3.0 code is used or copied (the one dependency is the MIT-compatible `yaml` parser). |
+| `modules/catalog-assets` (`@wirehub/module-catalog-assets`) | CAD model discovery in Library details and `/m/catalog-assets/find`: pinned public KiCad STEP listings and manufacturer/provider searches; downloaded files are reviewed and uploaded with their source citation |
 | `modules/csv-library` (`@wirehub/module-csv-library`) | an importer (new records, or update-existing) for CSV and XLSX files of connectors, wire stocks, components, mechanicals, boards and kits, and the pure column-mapping, validation and dry-run functions behind the Library's **Bulk CSV…** dialog; a third importer, `connection-list`, makes a design from a from/to pin CSV (the Library's **Connections CSV…**) |
 
 **WireViz import** (`docs/interop.md`) runs through the importer and job flow, so the person reviews a plan and publishes

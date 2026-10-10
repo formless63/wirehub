@@ -137,9 +137,9 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
 
   return (
     <div className={classes('cs-lt', props.compact === true && 'is-compact')}>
-      {props.compact === true ? null : (
+      {props.compact === true && packOptions.length === 0 ? null : (
         <Toolbar label="filters">
-          {props.lead}
+          {props.compact === true ? null : props.lead}
           {packOptions.length === 0 ? null : <Select
             aria-label="Catalog pack"
             value={pack ?? '__all__'}
@@ -150,8 +150,8 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
             }}
             options={[{ value: '__all__', label: 'All sources' }, ...packOptions.map((id) => ({ value: id, label: id }))]}
           />}
-          {facetChips}
-          {anyFacet ? (
+          {props.compact === true ? null : facetChips}
+          {anyFacet && props.compact !== true ? (
             <Button variant="ghost" size="xs" onClick={() => setFacets({})}>
               Reset
             </Button>

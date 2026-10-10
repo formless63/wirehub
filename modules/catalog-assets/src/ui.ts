@@ -39,7 +39,7 @@ function Discovery({ api, subject, identity }: { api: ModuleApi; subject?: Asset
   }
 
   return h('section', { 'data-testid': 'catalog-assets-discovery', style: { display: 'grid', gap: 'var(--space-md)', minWidth: 0 } },
-    h('p', null, 'Find a model for the physical part. Download a STEP file, check its dimensions and contact layout, then use Attach model or Replace model in the Library. Keep the provider citation with the record.'),
+    h('p', null, 'Find a model for the physical part. Download a STEP file, check its dimensions and contact layout, then use Attach model or Replace model in the Library. Paste the provider citation into Source citation before choosing the upload file.'),
     subject?.mpn ? h('p', null, `Manufacturer part number: ${subject.mpn}${subject.manufacturer ? ` (${subject.manufacturer})` : ''}. Search results still need verification.`)
       : h('p', null, 'No manufacturer part number is recorded. These are generic searches; a similarly named model can describe a different part.'),
     h('div', { className: 'cs-ui-field' },
@@ -68,7 +68,7 @@ function Discovery({ api, subject, identity }: { api: ModuleApi; subject?: Asset
           h('strong', null, candidate.name), h('p', { className: 'cs-ui-hint' }, 'Candidate — match, dimensions and contact layout not verified.'),
           h('p', { className: 'cs-ui-hint' }, candidate.license),
           h('a', { ...link, href: candidate.url }, 'Download STEP from KiCad ↗'),
-          h('details', { style: { marginTop: 'var(--space-sm)' } }, h('summary', null, 'Source citation'), h('p', null, candidate.source), h('a', { href: candidate.url, target: '_blank', rel: 'noopener noreferrer' }, candidate.url))))),
+          h('details', { style: { marginTop: 'var(--space-sm)' } }, h('summary', null, 'Source citation'), h('p', null, `${candidate.source}; ${candidate.license}; ${candidate.url}`), h('a', { href: candidate.url, target: '_blank', rel: 'noopener noreferrer' }, candidate.url))))),
       h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 'var(--space-sm)' } },
         h('button', { ...button, type: 'button', disabled: busy || listing.page === 1, onClick: () => void load(listing.page - 1) }, 'Previous page'),
         h('button', { ...button, type: 'button', disabled: busy || !listing.hasMore, onClick: () => void load(listing.page + 1) }, 'Next page'))) : null,

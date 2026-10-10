@@ -20,7 +20,7 @@ fetched on opening the panel. No CAD bytes, extracted geometry or provider table
 
 Download a STEP from the provider, then use the Library's **Attach model** / **Replace model**
 upload flow. Preserve the shown source URL, library release or manufacturer revision and
-license in the record's notes/provenance. The module does not automatically attach, infer an
+license in **Source citation** before choosing the upload file. The host preserves it on the model link and stored asset. The module does not automatically attach, infer an
 exact match or rewrite a model; the existing upload and model-cache conversion remain the host's.
 
 External search buttons open TE Connectivity, SnapMagic Search and Ultra Librarian in a new

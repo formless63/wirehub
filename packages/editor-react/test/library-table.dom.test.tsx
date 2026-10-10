@@ -121,6 +121,12 @@ describe('<LibraryTable> over the starter connectors', () => {
     expect(screen.getByText('No connectors match.')).toBeDefined();
   });
 
+  it('keeps the pack selector accessible beside an open detail', () => {
+    const rows = libraryRows('connectors', db.connectors as ConnectorDefinition[], [], { db, packs: { 'de9-male': { pack: 'sample', version: '1.0.0' } } });
+    render(<LibraryTable kind="connectors" rows={rows} columns={libraryColumns('connectors')} query="" compact onSelect={() => {}} empty="-" />);
+    expect(screen.getByRole('combobox', { name: 'Catalog pack' })).toBeTruthy();
+  });
+
   it('reports shown and total through onCount', () => {
     const onCount = vi.fn();
     const rows = libraryRows('connectors', db.connectors as ConnectorDefinition[], [], { db, designs });

@@ -37,7 +37,7 @@ const MATERIALS = {
   gold: { color: [0.85, 0.68, 0.2], metallic: 1, roughness: 0.3 },
   black: { color: [0.06, 0.06, 0.07], metallic: 0, roughness: 0.6 },
   rubber: { color: [0.1, 0.1, 0.11], metallic: 0, roughness: 0.85 },
-  clear: { color: [0.93, 0.96, 0.98], metallic: 0, roughness: 0.16, transmission: 0.78, ior: 1.58 },
+  clear: { color: [0.93, 0.96, 0.98], metallic: 0, roughness: 0.08, transmission: 0.96, ior: 1.58 },
   natural: { color: [0.74, 0.66, 0.46], metallic: 0, roughness: 0.55 },
   green: { color: [0.1, 0.46, 0.26], metallic: 0, roughness: 0.55 },
 } satisfies Record<string, Material>;
@@ -295,11 +295,11 @@ function rj45(mesh: Mesh, spec: ParametricSpec, p: Params): void {
   mesh.box('clear', 0, -h / 2 - rise - 0.25, l * 0.2, 4.5, 0.6, 1.7);
   // Tapered elastomer boot with a circular cable opening and spaced strain-relief ribs.
   const boot = p['bootLengthMm']!;
-  const profile = (z: number): Poly => circle(1, 16).map(([x, y]) => {
+  const profile = (z: number): Poly => circle(1, 20).map(([x, y]) => {
     const t = -z / boot;
     return [x * (w * 0.48 * (1 - t) + 3.4 * t), y * (h * 0.48 * (1 - t) + 3.4 * t)];
   });
-  const bore = circle(2.8, 16);
+  const bore = circle(2.8, 20);
   // Tapered outer skin and open cable bore; its ends are joined with annular faces.
   const rear = profile(-boot);
   const front = profile(0);

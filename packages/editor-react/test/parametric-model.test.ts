@@ -80,7 +80,7 @@ describe('RJ45 geometry and materials', () => {
     });
     const clear = materials.find((m) => m.name === 'clear') as THREE.MeshPhysicalMaterial;
     expect(clear.isMeshPhysicalMaterial).toBe(true);
-    expect(clear.transmission).toBeCloseTo(0.78);
+    expect(clear.transmission).toBeCloseTo(0.96);
     expect(clear.ior).toBeCloseTo(1.58);
     const gold = materials.find((m) => m.name === 'gold') as THREE.MeshStandardMaterial;
     expect(gold.metalness).toBe(1);

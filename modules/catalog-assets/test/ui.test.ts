@@ -32,7 +32,7 @@ describe('CAD discovery panel', () => {
     expect(api).toHaveBeenCalledTimes(1);
     expect(api.mock.calls[0]?.[0]).toBe('GET');
     expect(screen.getByRole('link', { name: 'Download STEP from KiCad ↗' }).getAttribute('href')).toBe(candidate.url);
-    expect(screen.getByText(candidate.source)).toBeTruthy();
+    expect(screen.getByText(`${candidate.source}; ${candidate.license}; ${candidate.url}`)).toBeTruthy();
     expect(screen.getByText(candidate.license)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Attach|Replace/ })).toBeNull();
   });
