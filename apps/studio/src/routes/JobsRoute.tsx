@@ -47,7 +47,7 @@ export function JobsRoute(): JSX.Element {
     { id: 'when', header: 'When', width: 150, cell: (j) => when(j.createdAt), sortValue: (j) => j.createdAt },
     { id: 'kind', header: 'Kind', width: 90, cell: (j) => j.kind, sortValue: (j) => j.kind },
     { id: 'job', header: 'Job', width: 260, cell: (j) => describeJob(j), sortValue: (j) => describeJob(j) },
-    { id: 'by', header: 'By', width: 120, cell: (j) => j.requestedBy?.name ?? '', sortValue: (j) => j.requestedBy?.name ?? '' },
+    { id: 'by', header: 'By', width: 120, cell: (j) => j.requestedBy?.name ?? 'System', sortValue: (j) => j.requestedBy?.name ?? 'System' },
     { id: 'state', header: 'State', width: 140, cell: (j) => <span className={j.status === 'failed' ? 'text-err' : undefined} title={j.error}>{stateOf(j)}</span>, sortValue: (j) => stateOf(j) },
     {
       id: 'open',
@@ -79,7 +79,7 @@ export function JobsRoute(): JSX.Element {
           job === undefined ? undefined : (
             <SidePanel title={describeJob(job)} subtitle={job.id} chips={<Chip tone={job.status === 'failed' ? 'err' : job.status === 'done' ? 'ok' : 'neutral'}>{stateOf(job)}</Chip>} onClose={() => setSelected(undefined)} label="Job details"
               footer={reviewable(job) ? <Button variant="primary" onClick={() => setOpen(job.id)}>{job.status === 'done' && job.publishedVersion === undefined ? 'Review…' : 'Open'}</Button> : undefined}>
-              <KeyValues items={[['Kind', job.kind], ['Requested', when(job.createdAt)], ['By', job.requestedBy?.name ?? '—'], ...(job.error === undefined ? [] : [['Error', job.error] as const])]} />
+              <KeyValues items={[['Kind', job.kind], ['Requested', when(job.createdAt)], ['By', job.requestedBy?.name ?? 'System'], ...(job.error === undefined ? [] : [['Error', job.error] as const])]} />
             </SidePanel>
           )
         }

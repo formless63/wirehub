@@ -17,7 +17,7 @@ import { sonnerMock, toasts } from './toast-spy.ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { handleWorkbenchRequest, type WorkbenchDeps } from '../server/api.ts';
-import { PacksPanel } from '../src/modules/PacksPanel.tsx';
+import { PacksPanel, PlanView } from '../src/modules/PacksPanel.tsx';
 
 const src = 'synthetic example: panel test';
 const bundle = (r: string) => ({
@@ -78,14 +78,35 @@ describe('a viewer', () => {
 });
 
 describe('Install pack…', () => {
+  it('reviews update categories, named examples and conflicts before an apply action is offered', () => {
+    render(<PlanView plan={{
+      pack: { id: 'panel', from: '1.0.0', to: '1.1.0', license: 'CC0-1.0' }, ok: false,
+      diff: {
+        added: [{ file: 'connectors.json', kind: 'connectors', id: 'new-plug', label: 'New plug' }, { file: 'designs/extension.json', kind: 'design', id: 'extension', label: 'Extension lead' }],
+        changed: [{ file: 'connectors.json', kind: 'connectors', id: 'existing', label: 'Existing plug', fields: [{ path: 'label', before: 'Old', after: 'Existing plug' }] }],
+        removed: [{ file: 'mechanicals.json', kind: 'mechanicals', id: 'old-boot' }], unchanged: 7,
+      }, conflicts: ["connectors.json: 'new-plug' already exists with different content"],
+    }} />);
+    const summary = screen.getByRole('region', { name: 'Changes by category' });
+    expect(within(summary).getByText('New example designs')).toBeTruthy();
+    expect(within(summary).getByText('Extension lead (extension)')).toBeTruthy();
+    const connectors = within(summary).getByRole('row', { name: 'Connectors 1 1 0' });
+    expect(connectors.textContent).toContain('Connectors');
+    expect(screen.getByText(/already exists with different content/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Update' })).toBeNull();
+  });
+
   it('previews an uploaded bundle with its diff, installs it, lists it, and disables it', async () => {
     render(<PacksPanel />);
     await screen.findByText('No packs are installed.');
     const file = new File([JSON.stringify(bundle('10 Ω'))], 'panel.json', { type: 'application/json' });
-    fireEvent.change(screen.getByLabelText('Pack file'), { target: { files: [file] } });
+    fireEvent.change(screen.getByTestId('filedrop-input'), { target: { files: [file] } });
     const pending = await screen.findByTestId('pack-pending');
     expect(pending.textContent).toContain('Install panel 1.0.0');
-    expect(await showAllRecords()).toContain('added components pn-r');
+    expect((await screen.findByTestId('pack-contents')).textContent).toContain('Components');
+    expect((screen.getByTestId('pack-contents')).textContent).toContain('No example designs');
+    expect(createCatalog(catalogWithPacksSource(dir, packs)).loadDb().components.some((c) => c.id === 'pn-r')).toBe(false);
+    expect(await showAllRecords()).toContain('Added Components: 10 Ω resistor (pn-r)');
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
     await waitFor(() => expect(toasts.map((t) => t.title)).toContain('Installed panel.json.'));
     expect(toasts.find((t) => t.title === 'Installed panel.json.')?.action?.label).toBe('View');
@@ -130,7 +151,7 @@ describe('Install pack…', () => {
     await screen.findByText('No packs are installed.');
     const bad = bundle('10 Ω');
     delete (bad.files['components.json'][0] as { src?: string }).src;
-    fireEvent.change(screen.getByLabelText('Pack file'), { target: { files: [new File([JSON.stringify(bad)], 'bad.json')] } });
+    fireEvent.change(screen.getByTestId('filedrop-input'), { target: { files: [new File([JSON.stringify(bad)], 'bad.json')] } });
     await waitFor(() => expect(toasts.map((t) => `${t.title} ${t.description ?? ''}`).join(' ')).toMatch(/has no src/));
     expect(screen.queryByTestId('pack-pending')).toBeNull();
   });

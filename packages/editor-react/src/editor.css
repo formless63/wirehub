@@ -4604,6 +4604,7 @@ fieldset.cs-lock-fence {
 
 .cs-conn-header-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   font-size: var(--fs-xs);
@@ -4644,7 +4645,7 @@ fieldset.cs-lock-fence {
 
 .cs-conn-columns {
   display: grid;
-  grid-template-columns: 58px 34px minmax(0, 1fr) 40px;
+  grid-template-columns: 58px 44px minmax(0, 1fr) 40px;
   align-items: center;
   height: 24px;
   flex-shrink: 0;
@@ -4666,7 +4667,7 @@ fieldset.cs-lock-fence {
 
 .cs-conn-row {
   display: grid;
-  grid-template-columns: 58px 34px minmax(0, 1fr) 40px;
+  grid-template-columns: 58px 44px minmax(0, 1fr) 40px;
   align-items: center;
   min-height: 27px;
   padding: 0 12px;

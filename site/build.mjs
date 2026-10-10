@@ -96,8 +96,16 @@ export function renderHeader({ repoRoot = root, depth, current }) {
 const FOOT = `<footer class="site-foot">WireHub is free software (AGPL-3.0). Source and docs: <a href="${REPO}">github.com/formless63/wirehub</a></footer>`;
 
 const PROSE_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'";
-export const STORE_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'";
-export const GENERATOR_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'";
+export const STORE_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'";
+export const GENERATOR_CSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'";
+
+/** IBM Plex stays embedded: generator and third-party store pages also work offline. */
+function standaloneCss(repoRoot, ownCss) {
+  const { faces, files } = fontAssets(repoRoot);
+  const bytes = new Map(files);
+  const inlineFaces = faces.replace(/url\((fonts\/[^)]+)\)/g, (_, file) => `url(data:font/woff2;base64,${bytes.get(file).toString('base64')})`);
+  return `${inlineFaces}\n${sharedCss(repoRoot)}\n${read(repoRoot, 'site/src/base.css')}\n${read(repoRoot, 'site/src/shell.css')}\n${read(repoRoot, ownCss)}`.replace(/\/\*[\s\S]*?\*\//g, '');
+}
 
 /** A page in the shell. `body` is trusted HTML. */
 function page({ repoRoot, title, csp, css, stylesheet, depth, current, body, script = '', description, skip = false }) {
@@ -200,7 +208,7 @@ docker compose logs wirehub        # the first-run setup code</code></pre>
  * branding, a pointer to WireHub).
  */
 export function buildStorePage({ repoRoot = root, shell = 'wirehub', name = 'Module store' } = {}) {
-  const css = `${read(repoRoot, 'site/src/base.css')}\n${read(repoRoot, 'site/src/shell.css')}\n${read(repoRoot, 'site/src/store.css')}`;
+  const css = standaloneCss(repoRoot, 'site/src/store.css');
   const script = `"use strict";\n${asScript(read(repoRoot, 'site/src/store.js'))}\n${asScript(read(repoRoot, 'site/src/store-app.js'))}`;
   const intro = `<main>
   <div class="prose store-head">
@@ -221,7 +229,7 @@ export function buildStorePage({ repoRoot = root, shell = 'wirehub', name = 'Mod
 export function buildPage(repoRoot = root) {
   const templates = readTemplates(repoRoot);
   const html = read(repoRoot, 'site/src/index.html');
-  const css = `${read(repoRoot, 'site/src/base.css')}\n${read(repoRoot, 'site/src/shell.css')}\n${read(repoRoot, 'site/src/style.css')}`;
+  const css = standaloneCss(repoRoot, 'site/src/style.css');
   const generate = read(repoRoot, 'site/src/generate.js');
   const app = read(repoRoot, 'site/src/app.js');
   const mark = read(repoRoot, 'brand/wirehub-mark.svg');

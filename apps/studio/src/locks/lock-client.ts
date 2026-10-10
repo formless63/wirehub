@@ -217,12 +217,22 @@ export function createLockClient(options: LockClientOptions = {}): LockClient {
     },
 
     async refresh() {
+      const heldAtStart = new Map(tokens);
       const r = await transport('GET', '/locks');
       if (r.status !== 200) return;
       const list = obj(r.body)['locks'];
       if (!Array.isArray(list)) return;
       const next = new Map<string, LockView>();
       for (const lock of list as LockView[]) if (typeof lock?.record === 'string') next.set(lock.record, lock);
+      // A locks event is enough to discover a takeover. Waiting for a save
+      // or heartbeat leaves a displaced editor looking writable meanwhile.
+      for (const [record, token] of heldAtStart) {
+        const replacement = next.get(record);
+        if (tokens.get(record) !== token || replacement === undefined || replacement.holder.tabId === me.tabId) continue;
+        tokens.delete(record);
+        lost = new Map(lost);
+        lost.set(record, { by: replacement.holder.name, at: replacement.since });
+      }
       // a lease this tab holds that the server no longer lists (a restart):
       // keep the token — the next heartbeat takes it again
       locks = next;

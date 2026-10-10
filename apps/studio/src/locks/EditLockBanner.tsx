@@ -20,6 +20,8 @@ export type EditLockBannerState =
   | { kind: 'other'; lock: LockView; sameBrowser: boolean; requested: boolean; declined: boolean; lost?: LostLock }
   /** this tab holds it and someone asked for it */
   | { kind: 'asked'; lock: LockView }
+  /** a takeover remains visible even after the new holder leaves */
+  | { kind: 'lost'; lost: LostLock }
   /** this tab handed it over and is waiting for the other side */
   | { kind: 'handed-over' };
 
@@ -37,6 +39,16 @@ export function EditLockBanner(props: EditLockBannerProps): JSX.Element {
   const { state } = props;
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  if (state.kind === 'lost') {
+    return (
+      <div role="alert" data-testid="edit-lock-banner" data-lock="lost" className={`${BAR} border-warn`}>
+        <IconLock size={14} className="shrink-0 text-warn" aria-hidden />
+        <span className="min-w-0 flex-1 text-ink">Editing was taken over{state.lost.by === undefined ? '' : ` by ${state.lost.by}`}. Your unsaved changes are kept in this tab.</span>
+        <button type="button" className={PLAIN_BUTTON} onClick={props.onEdit}>Resume editing</button>
+      </div>
+    );
+  }
 
   if (state.kind === 'asked') {
     const who = state.lock.request?.name ?? 'Someone';
@@ -79,9 +91,9 @@ export function EditLockBanner(props: EditLockBannerProps): JSX.Element {
 
   if (state.sameBrowser) {
     return (
-      <div role="status" data-testid="edit-lock-banner" data-lock="other-tab" className={`${BAR} border-warn`}>
+      <div role={state.lost === undefined ? 'status' : 'alert'} data-testid="edit-lock-banner" data-lock="other-tab" className={`${BAR} border-warn`}>
         <IconLock size={14} className="shrink-0 text-warn" aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-ink">Open in another tab</span>
+        <span className="min-w-0 flex-1 text-ink">{state.lost === undefined ? 'Open in another tab' : 'Taken over in another tab — your unsaved changes are kept here'}</span>
         <button type="button" className={PLAIN_BUTTON} disabled={busy} onClick={() => void takeOver(true)}>
           Take over here
         </button>
@@ -91,7 +103,7 @@ export function EditLockBanner(props: EditLockBannerProps): JSX.Element {
 
   const since = clockTime(lock.since);
   return (
-    <div role="status" data-testid="edit-lock-banner" data-lock="other" className={`${BAR} border-warn`}>
+    <div role={state.lost === undefined ? 'status' : 'alert'} data-testid="edit-lock-banner" data-lock="other" className={`${BAR} border-warn`}>
       <IconLock size={14} className="shrink-0 text-warn" aria-hidden />
       <span className="min-w-0 flex-1 truncate text-ink" title={`Read only while ${lock.holder.name} edits`}>
         {state.lost === undefined ? null : (

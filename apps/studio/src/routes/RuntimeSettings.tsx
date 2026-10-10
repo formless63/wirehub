@@ -44,7 +44,7 @@ function valuesOf(group: RuntimeGroupView, draft: Record<string, string | boolea
 function ServerBadge({ field }: { field: RuntimeFieldView }): JSX.Element {
   return (
     <span className="rounded border border-line px-1 text-2xs text-faint" title={`The server's ${field.env} sets this; it wins over Settings.`}>
-      set by the server ({field.env})
+      Set by deployment
     </span>
   );
 }
@@ -130,7 +130,7 @@ function Field({ field, value, disabled, set }: { field: RuntimeFieldView; value
       />
     );
   return (
-    <label className="flex flex-col gap-0.5">
+    <label className="flex min-w-0 flex-col gap-1 rounded border border-line p-3">
       <span className="flex flex-wrap items-center gap-2 font-medium">
         {field.label} {locked ? <ServerBadge field={field} /> : null}
       </span>
@@ -156,7 +156,7 @@ function Group({ group, draft, setDraft, secretsAvailable, refetch }: { group: R
   };
   return (
     <form
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-3 rounded border border-line p-4"
       data-testid={`runtime-${group.id}`}
       onSubmit={(e) => {
         e.preventDefault();

@@ -182,6 +182,39 @@ describe('edit locks in the browser', () => {
     await waitFor(() => expect(will.snapshot().held.has(RECORD)).toBe(true));
   });
 
+  it('a locks refresh immediately notifies a displaced dirty editor and preserves the draft until they resume', async () => {
+    const alex = person('Alex');
+    mount(alex);
+    await act(() => alex.refresh());
+    fireEvent.click(screen.getByRole('button', { name: 'Change' }));
+    await waitFor(() => expect(alex.snapshot().held.has(RECORD)).toBe(true));
+    const sam = person('Sam');
+    await sam.takeOver(RECORD, true);
+    await act(() => alex.refresh());
+    expect(alex.snapshot().held.has(RECORD)).toBe(false);
+    expect(screen.getByRole('alert').textContent).toContain('your changes are kept here, unsaved');
+    expect(screen.getByTestId('locked').textContent).toBe('locked');
+    expect(alex.headerFor('PUT', '/api/designs/de9-terminal-board')).toBeUndefined();
+    await sam.release(RECORD);
+    await act(() => alex.refresh());
+    expect(screen.getByRole('alert').textContent).toContain('Your unsaved changes are kept in this tab');
+    expect(alex.snapshot().held.has(RECORD)).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Resume editing' }));
+    await waitFor(() => expect(screen.getByTestId('locked').textContent).toBe('editable'));
+  });
+
+  it('shows a takeover notice for another tab of this browser', async () => {
+    const storage = memoryStorage();
+    const first = person('Sam', storage);
+    const second = person('Sam', storage);
+    await first.acquire(RECORD);
+    mount(first);
+    await second.takeOver(RECORD, true);
+    await act(() => first.refresh());
+    expect(screen.getByRole('alert').textContent).toContain('Taken over in another tab');
+    expect(screen.getByTestId('locked').textContent).toBe('locked');
+  });
+
   it('two tabs of one browser are two holders: "Open in another tab — Take over here"', async () => {
     const storage = memoryStorage();
     const tab1 = person('Sam', storage);

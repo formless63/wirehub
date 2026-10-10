@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 
 import { fetchHistoryEntry, fetchRecordHistory, historyTime, restoreRecord } from '../history.browser.ts';
 import { fieldDiff, preview, type FieldChange } from './diff.ts';
+import { historyTouchLabel } from './labels.ts';
 import type { HistoryCapabilities, HistoryEntry, HistoryEntryDetail, RecordDiff, RestoreAnswer } from './types.ts';
 
 const BUTTON =
@@ -47,7 +48,7 @@ export function EntrySummary(props: { entry: HistoryEntry; showTouches?: boolean
           {entry.touches.map((t, i) => (
             <li key={`${t.subject}:${t.part ?? ''}:${i}`} className="rounded border border-line px-1 text-2xs text-dim" title={t.fields === undefined ? t.label : `${t.label}: ${t.fields.join(', ')}`}>
               {t.op === 'delete' ? '− ' : ''}
-              {t.label}
+              {historyTouchLabel(t)}
               {t.fields === undefined || t.fields.length === 0 ? '' : ` · ${t.fields.join(', ')}`}
             </li>
           ))}

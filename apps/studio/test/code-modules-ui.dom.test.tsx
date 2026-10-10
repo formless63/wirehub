@@ -73,7 +73,7 @@ describe('installing a code module from a file', () => {
     render(<PacksPanel />);
     fireEvent.change(await screen.findByLabelText('Publisher key for a code module'), { target: { value: keys.publicKey } });
     const file = new File([tinyBundle(keys.pem) as BlobPart], 'tiny-1.0.0.zip', { type: 'application/zip' });
-    fireEvent.change(screen.getByLabelText('Pack file'), { target: { files: [file] } });
+    fireEvent.change(screen.getByTestId('filedrop-input'), { target: { files: [file] } });
     const consent = await screen.findByTestId('code-consent');
     expect(consent.textContent).toContain('Tiny rule (tiny 1.0.0, module API 1.6)');
     expect(consent.textContent).toContain('runs code in your hub');
