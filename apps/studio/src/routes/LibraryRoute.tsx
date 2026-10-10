@@ -171,6 +171,7 @@ export function LibraryRoute(): JSX.Element {
         db={studio.db}
         loading={!studio.dbReady}
         definitions={phone ? undefined : studio.definitions}
+        readDefinitions={studio.definitions}
         viewOnly={phone}
         onDefinitionsChange={studio.onDefinitionsChange}
         vocab={studio.vocab}

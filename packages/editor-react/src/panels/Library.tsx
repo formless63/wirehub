@@ -136,6 +136,8 @@ export interface LibraryProps {
   db: Db;
   /** how this host stores definitions; without one the Library is read-only */
   definitions?: DefinitionsAdapter;
+  /** Read catalog ownership on a view-only host without exposing write operations. */
+  readDefinitions?: Pick<DefinitionsAdapter, 'list'>;
   /** a read-only look on purpose (a phone): no "can't change" note and no "New" button */
   viewOnly?: boolean;
   /** the library changed — the host reloads its db and hands a new one down */
@@ -438,6 +440,8 @@ function InKits(props: {
   kind: LibraryKind;
   id: string;
   definitions?: DefinitionsAdapter;
+  /** Read catalog ownership on a view-only host without exposing write operations. */
+  readDefinitions?: Pick<DefinitionsAdapter, 'list'>;
   readOnly: boolean;
   onChanged: (change: DefinitionChange) => void;
   onOpenKit?: (id: string) => void;
@@ -675,12 +679,13 @@ export function Library(props: LibraryProps): JSX.Element {
 
   const refresh = useCallback(
     async (which: DefinitionKind): Promise<DefinitionList> => {
-      if (definitions === undefined) {
+      const reader = definitions ?? props.readDefinitions;
+      if (reader === undefined) {
         const local = fromDb(db, which);
         setList(local);
         return local;
       }
-      const loaded = await definitions.list(which);
+      const loaded = await reader.list(which);
       if (loaded.ok) {
         setList(loaded.value);
         return loaded.value;
@@ -692,7 +697,7 @@ export function Library(props: LibraryProps): JSX.Element {
       setList(local);
       return local;
     },
-    [definitions, db],
+    [definitions, props.readDefinitions, db],
   );
 
   useEffect(() => {
