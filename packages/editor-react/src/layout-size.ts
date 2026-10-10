@@ -154,6 +154,10 @@ export const NODE_BASE_WIDTH = {
 /** Pin-description widths stop at `base × this`; complete headers may grow further. */
 export const WIDTH_HEADROOM = 1.8;
 
+/** Headers remain compact; unusually verbose names continue below the body in full. */
+export const NODE_TITLE_MAX_WIDTH = 480;
+export const NODE_TITLE_CAPTION = { padding: 8, line: 15, font: 10, rule: 1 } as const;
+
 export interface NodeSize {
   width: number;
   height: number;
@@ -388,7 +392,7 @@ export function wireHeadMeta(data: Pick<SegmentNodeData, 'lengthMm'>): string {
  * The width an artwork header (board or wire: chip, id, title, meta — the
  * `.cs-board-head` rules) needs to show its title whole.
  */
-export function artHeadWidth(instanceId: string, title: string, meta: string): number {
+function fullArtHeadWidth(instanceId: string, title: string, meta: string): number {
   return (
     BOARD_HEAD.padLeft +
     BOARD_HEAD.chip +
@@ -399,6 +403,10 @@ export function artHeadWidth(instanceId: string, title: string, meta: string): n
     (meta === '' ? 0 : BOARD_HEAD.gap * 2 + monoWidth(meta, BOARD_HEAD.metaFont)) +
     BOARD_HEAD.padRight
   );
+}
+
+export function artHeadWidth(instanceId: string, title: string, meta: string): number {
+  return Math.min(NODE_TITLE_MAX_WIDTH, fullArtHeadWidth(instanceId, title, meta));
 }
 
 function boardHeadWidth(data: PcbaNodeData): number {
@@ -470,10 +478,10 @@ function connectorArtNodeSize(data: ConnectorNodeData & { art: ConnectorArtLayou
  * The box this node draws as, in flow units — width exact (the shell is given
  * it), height estimated a hair generously.
  *
- * Pin-label widths are bounded by `base × WIDTH_HEADROOM`; headers may grow
- * to keep the complete part title visible.
+ * Pin labels and headers are bounded; unusually long full titles are wrapped
+ * in a caption below the body, preserving every pin and artwork origin.
  */
-export function estimateNodeSize(data: EditorNodeData): NodeSize {
+function baseNodeSize(data: EditorNodeData): NodeSize {
   if (data.kind === 'pcba' && data.board !== undefined) {
     return boardNodeSize({ ...data, board: data.board });
   }
@@ -485,11 +493,48 @@ export function estimateNodeSize(data: EditorNodeData): NodeSize {
   // a connector's header also holds its face thumbnail and the face toggle
   const thumb = data.kind === 'connector' && data.art !== undefined ? CONNECTOR_THUMB.width + CONNECTOR_THUMB.toggle + BOX.headGapX * 2 : 0;
   // Long pin descriptions stay bounded, but the part title must remain readable.
-  const wanted = Math.max(base, headWidth(heading, data.instanceId) + thumb, Math.min(body.width, base * WIDTH_HEADROOM));
+  const wanted = Math.max(base, Math.min(NODE_TITLE_MAX_WIDTH, headWidth(heading, data.instanceId) + thumb), Math.min(body.width, base * WIDTH_HEADROOM));
   return {
     width: Math.ceil(wanted / 2) * 2,
     height: Math.ceil(BOX.border * 2 + headHeight(heading) + body.height + BOX.slack),
   };
+}
+
+/** Deterministic wrapping, including unbroken imported names; no text is discarded. */
+function wrapTitle(title: string, available: number): string[] {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of title.trim().split(/\s+/)) {
+    const joined = line === '' ? word : `${line} ${word}`;
+    if (textWidth(joined, NODE_TITLE_CAPTION.font) <= available) { line = joined; continue; }
+    if (line !== '') { lines.push(line); line = ''; }
+    for (const char of word) {
+      if (line !== '' && textWidth(line + char, NODE_TITLE_CAPTION.font) > available) { lines.push(line); line = ''; }
+      line += char;
+    }
+  }
+  if (line !== '') lines.push(line);
+  return lines;
+}
+
+export function nodeTitleCaption(data: EditorNodeData): { title: string; lines: string[]; width: number; height: number } | undefined {
+  if (data.kind === 'connector' && data.dock !== undefined) return undefined;
+  const base = baseNodeSize(data);
+  const isArt = (data.kind === 'pcba' && data.board !== undefined) || (data.kind === 'segment' && data.wire !== undefined) || (data.kind === 'connector' && data.art !== undefined && data.face === true);
+  const title = isArt ? data.title : nodeHeading(data).title;
+  const meta = data.kind === 'pcba' ? boardHeadMeta(data) : data.kind === 'segment' ? wireHeadMeta(data) : '';
+  const thumb = data.kind === 'connector' && data.art !== undefined && !isArt ? CONNECTOR_THUMB.width + CONNECTOR_THUMB.toggle + BOX.headGapX * 2 : 0;
+  const wanted = isArt ? fullArtHeadWidth(data.instanceId, title, meta) : headWidth(nodeHeading(data), data.instanceId) + thumb;
+  if (wanted <= base.width) return undefined;
+  const width = Math.min(NODE_TITLE_MAX_WIDTH, base.width - BOX.border * 2);
+  const lines = wrapTitle(title, Math.max(1, width - NODE_TITLE_CAPTION.padding * 2));
+  return { title, lines, width, height: lines.length * NODE_TITLE_CAPTION.line + NODE_TITLE_CAPTION.padding * 2 + NODE_TITLE_CAPTION.rule };
+}
+
+/** The extra caption grows downwards; pin rows and artwork retain their original coordinate origins. */
+export function estimateNodeSize(data: EditorNodeData): NodeSize {
+  const base = baseNodeSize(data);
+  return { ...base, height: base.height + (nodeTitleCaption(data)?.height ?? 0) };
 }
 
 /* ------------------------------------------------------------------ *

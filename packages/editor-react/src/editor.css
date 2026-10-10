@@ -6689,3 +6689,6 @@ fieldset.cs-lock-fence {
 
 .cs-lt-cell.has-number-context { flex-wrap: wrap; }
 .cs-lt-cell.has-number-context .cs-lt-number-context { flex-basis: 100%; font-family: var(--font-sans); }
+/* A verbose title grows below the part; every art/pin origin above it remains unchanged. */
+.cs-node-title-caption { box-sizing: border-box; padding: 8px; border-top: 1px solid var(--line); font-size: var(--fs-canvas-10); line-height: 15px; color: var(--ink); }
+.cs-node-title-caption span { display: block; white-space: pre; }

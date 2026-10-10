@@ -12,8 +12,15 @@ import type { CableDesign, Db } from '@wirehub/model';
 import { describe, expect, it } from 'vitest';
 
 import { NODE_DRAG_HANDLE, NODE_METRICS, autoLayout, deriveNodes, vacantPosition } from '../src/derive.ts';
+import { connectorArt } from '../src/connector-art.ts';
 import {
   NODE_BASE_WIDTH,
+  NODE_TITLE_MAX_WIDTH,
+  NODE_TITLE_CAPTION,
+  nodeTitleCaption,
+  rowsTop,
+  connectorArtLayout,
+  artHeadWidth,
   estimateNodeSize,
   nodeHeading,
   overlappingPairs,
@@ -192,10 +199,42 @@ describe('readable part titles', () => {
   it('grows connector nodes for a long part title while leaving the pin rows unchanged', () => {
     const connector = deriveNodes(designs.find(d => d.instances.connectors.length > 0)!, db).find(n => n.data.kind === 'connector')!;
     const normal = estimateNodeSize(connector.data);
-    const titled = { ...connector.data, title: 'A complete connector description with its mounting style and manufacturer part number' };
+    const titled = { ...connector.data, title: 'Connector mounting style and complete part number' };
     const longer = estimateNodeSize(titled);
     expect(longer.width).toBeGreaterThan(normal.width);
-    expect(longer.width).toBeGreaterThan(textWidth(titled.title, 11.5));
+    expect(longer.width).toBeGreaterThan(textWidth(titled.title, 10));
     expect(longer.height).toBe(normal.height);
+  });
+});
+
+describe('verbose imported titles', () => {
+  const connector = deriveNodes(designs.find(d => d.instances.connectors.length > 0)!, db).find(n => n.data.kind === 'connector')!;
+  it.each(['Imported connector description '.repeat(18).trim(), 'W'.repeat(1000)])('keeps the complete name visible without making an enormous pin-list node', (title) => {
+    const data = { ...connector.data, title };
+    const size = estimateNodeSize(data);
+    const caption = nodeTitleCaption(data)!;
+    expect(size.width).toBeLessThanOrEqual(NODE_TITLE_MAX_WIDTH);
+    expect(caption.lines.length).toBeGreaterThan(1);
+    expect(caption.lines.join(' ').replace(/\s/g, '')).toBe(title.replace(/\s/g, ''));
+    for (const line of caption.lines) expect(textWidth(line, NODE_TITLE_CAPTION.font)).toBeLessThanOrEqual(caption.width - 2 * NODE_TITLE_CAPTION.padding);
+    expect(rowsTop(data)).toBe(rowsTop(connector.data));
+    expect(size.height).toBe(estimateNodeSize({ ...data, title: 'Connector' }).height + caption.height);
+  });
+  it('keeps art local coordinates and header origins while reserving the full caption below them', () => {
+    if (connector.data.kind !== 'connector') throw new Error('Fixture needs a connector');
+    const original = connector.data;
+    const definition = db.connectors.find(def => def.id === 'de9-male')!;
+    const drawing = connectorArt({ def: definition, facing: 'right' })!;
+    const regularArt = connectorArtLayout(original.instanceId, 'Connector', drawing);
+    const title = 'M'.repeat(500);
+    const art = connectorArtLayout(original.instanceId, title, drawing);
+    const data = { ...original, title, art, face: true };
+    const caption = nodeTitleCaption(data)!;
+    const normal = { ...data, title: 'Connector' };
+    expect(art.width).toBeLessThanOrEqual(NODE_TITLE_MAX_WIDTH);
+    expect(art.art).toBe(drawing);
+    expect(art.oy).toBe(regularArt.oy);
+    expect(estimateNodeSize(data).height).toBe(estimateNodeSize(normal).height + caption.height);
+    expect(artHeadWidth('w1', title, '1000 mm')).toBeLessThanOrEqual(NODE_TITLE_MAX_WIDTH);
   });
 });
