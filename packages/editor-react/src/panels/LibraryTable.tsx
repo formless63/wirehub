@@ -66,11 +66,13 @@ function Cell({ row, column, marker }: { row: LibraryRow; column: LibraryColumn;
   }
   const value = cell?.text ?? '';
   return (
-    <span className={classes('cs-lt-cell', cell?.faint === true && 'is-faint')} title={cell?.title ?? (value === '' ? undefined : value)}>
+    <span className={classes('cs-lt-cell', row.pn.sharedBody !== undefined && (column.id === 'pn' || column.id === 'name') && 'has-number-context', cell?.faint === true && 'is-faint')} title={cell?.title ?? (value === '' ? undefined : value)}>
       {column.id === 'name' ? marker : null}
       <span className="cs-lt-text" data-testid={column.id === 'pn' ? 'part-number' : undefined}>
         {value === '' ? '—' : value}
       </span>
+      {column.id === 'pn' && row.pn.sharedBody !== undefined ? <span className="cs-lt-number-context">Body PN</span> : null}
+      {column.id === 'name' && row.pn.sharedBody !== undefined ? <span className="cs-lt-number-context">{row.pn.pinout}</span> : null}
       {cell?.warning === undefined ? null : <span className="cs-lt-warn" aria-label="part number pending" title={cell.warning} />}
     </span>
   );
@@ -181,6 +183,7 @@ export function LibraryTable(props: LibraryTableProps): JSX.Element {
               <span className="cs-lt-mono">{row.cells['pn']?.text || '—'}</span>
               <strong>{row.label}</strong>
             </span>
+            {row.pn.sharedBody === undefined ? null : <span className="cs-lt-number-context">Body PN · {row.pn.pinout}</span>}
             <span className="cs-lt-card-facts">
               {columns
                 .filter((c) => c.fixed !== true && c.id !== 'flags' && (row.cells[c.id]?.text ?? '') !== '')

@@ -79,6 +79,11 @@ describe('validateInterfaces', () => {
 
   const codes = (d: Db): string[] => validateInterfaces(d).map((i) => i.code);
 
+  it('allows a connector stock number distinct from its shared physical body', () => {
+    const base = db();
+    expect(validateInterfaces({ ...base, bodies: base.bodies!.map((b) => ({ ...b, partNumber: 'CON-00012' })), connectors: [{ ...base.connectors[0]!, partNumber: 'CON-00042' }] })).toEqual([]);
+  });
+
   it('flags unknown references, foreign positions and a wrong gender', () => {
     const base = db();
     expect(codes({ ...base, connectors: [{ ...base.connectors[0]!, body: 'nope' }] })).toContain('connector-body-unknown');

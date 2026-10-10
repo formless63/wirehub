@@ -380,9 +380,8 @@ export function validateInterfaces(db: Db): Issue[] {
     if (connector.gender !== undefined && connector.gender !== body.gender) {
       issues.push(issue('connector-gender-mismatch', `connector '${connector.id}' is ${connector.gender}, its body '${body.id}' is ${body.gender}`, where));
     }
-    if (connector.partNumber !== undefined && body.partNumber !== undefined && connector.partNumber !== body.partNumber) {
-      issues.push(issue('connector-part-number-mismatch', `connector '${connector.id}' is part ${connector.partNumber}, its body '${body.id}' is ${body.partNumber}`, where, 'warning'));
-    }
+    // An independently stocked connector (body + pinout) may have its own number.
+    // Reusing the body's number remains valid for different applications of the same part.
     if (connector.construction !== undefined && body.construction !== undefined && connector.construction !== body.construction) {
       issues.push(issue('connector-construction-mismatch', `connector '${connector.id}' is ${connector.construction}, its body '${body.id}' is ${body.construction}`, where, 'warning'));
     }

@@ -976,7 +976,7 @@ export function ConnectorJourney(props: ConnectorJourneyProps): JSX.Element {
               />
               <Field
                 label="Part number"
-                say="The bare plug or socket as a stock item. Blank where there is nothing to buy."
+                say="Your stock number for this connector. It may differ from the physical body’s number; leave blank to use the body’s."
                 value={identity.partNumber}
                 onChange={(value) => setIdentity((i) => ({ ...i, partNumber: value }))}
                 placeholder={body?.partNumber ?? 'e.g. CON-00012'}

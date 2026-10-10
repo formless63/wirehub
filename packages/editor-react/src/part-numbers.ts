@@ -11,6 +11,7 @@
 
 import { createContext, useContext } from 'react';
 import {
+  canonicalPartNumber,
   holdersOfNumber,
   knownPartNumbers,
   partNumberHolders,
@@ -119,13 +120,16 @@ function kindOfTarget(target: PartNumberTarget): PnKind {
   return target.kind;
 }
 
-/** What physical thing a draft is, as `part-number-health.ts` identifies it: a connector is its body's twin. */
-function identityOfTarget(target: PartNumberTarget): string | undefined {
+/** Shared body numbering remains physical reuse; an independent connector number is its own identity. */
+function identityOfTarget(target: PartNumberTarget, db: Db, scheme: PartNumberScheme, pn: string): string | undefined {
   const id = target.def.id.trim();
   if (id === '') return undefined;
   switch (target.kind) {
-    case 'connector':
-      return target.def.body === undefined ? `connectors/${id}` : `body/${target.def.body}`;
+    case 'connector': {
+      const bodyPn = db.bodies?.find((b) => b.id === target.def.body)?.partNumber;
+      const normalized = (value: string): string => (canonicalPartNumber(value, scheme) ?? value.trim()).toUpperCase();
+      return bodyPn !== undefined && normalized(bodyPn) === normalized(pn) ? `body/${target.def.body}` : `connectors/${id}`;
+    }
     case 'component':
       return `components/${id}`;
     case 'wire':
@@ -147,7 +151,9 @@ export function partNumberScope(data: PartNumberData, db: Db): PartNumberScope {
     taken: (pn, target) => {
       if (pn.trim() === '') return [];
       const holders = partNumberHolders(db, data.designs ?? [], data.drawings ?? {}, data.scheme);
-      return holdersOfNumber(holders, pn, data.scheme, identityOfTarget(target)).map((h) => h.where);
+      return holdersOfNumber(holders, pn, data.scheme, identityOfTarget(target, db, data.scheme, pn))
+        .filter((h) => target.kind !== 'connector' || h.where !== `connectors/${target.def.id.trim()}`)
+        .map((h) => h.where);
     },
     suggest: (target) => {
       const placed = withTarget(db, target);
