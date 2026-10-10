@@ -21,7 +21,7 @@
  */
 
 import { knownPartNumbers, type CableDesign, type Db } from '@wirehub/model';
-import { BASE_EXPORTS, labelPresetOptions, labelPresetFor, type LabelSheetOptions, PAPER_IDS, PAPERS, effectivePaper, paperSize, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type PaperId, type TestParameters } from '@wirehub/docs';
+import { BASE_EXPORTS, labelPresetOptions, labelPresetFor, isDarkTape, tapeContent, type LabelSheetOptions, PAPER_IDS, PAPERS, effectivePaper, paperSize, variationsOf, type DocumentFacts, type DrawingMeta, type FormatOptions, type PaperId, type TestParameters } from '@wirehub/docs';
 import type { DepictionSource } from '@wirehub/render-svg';
 import { IconDownload, IconMarkdown, IconPrinter, IconTools } from '@tabler/icons-react';
 import { Popover } from 'radix-ui';
@@ -620,6 +620,8 @@ export function DocumentsPane({
   const result = rendered?.kind === kind ? rendered.result : undefined;
   const html = result !== undefined && 'html' in result ? result.html : undefined;
   const markdownKind = kind === 'bom' || kind === 'test-spec';
+  const tape = kind === 'labels' ? labelPresetFor({ ...labelOptions, paper: previewPaper }).tape : undefined;
+  const ptouchOmitsQr = tape !== undefined && isDarkTape(tape) && tapeContent(labelOptions).qr === true;
   useEffect(() => setCopyNote(undefined), [kind, design.id]);
   const copyMarkdown = useCallback(async (): Promise<void> => {
     if (kind !== 'bom' && kind !== 'test-spec') return;
@@ -683,7 +685,8 @@ export function DocumentsPane({
       if ('error' in made) say('error', made.error);
       else {
         downloadOutput(made.output);
-        say('success', onReport === undefined ? '' : 'Export downloaded.', made.output.fileName);
+        const notes = made.output.notes?.join(' ');
+        say('success', onReport === undefined ? (notes === undefined ? '' : `Export downloaded. ${notes}`) : 'Export downloaded.', [made.output.fileName, notes].filter(Boolean).join('\n'));
       }
     },
     [say, onReport, sidecar.draft.meta, docDesign, docDb, pnInputs, docFacts, chosenVariation, buildQty, target, revisionFixed, testDefaults, labelOptions],
@@ -846,6 +849,7 @@ export function DocumentsPane({
           options={[{ value: 'default', label: 'Hub default' }, { value: 'yes', label: 'Include QR codes' }, { value: 'no', label: 'Without QR codes' }]} /></label>
         <Button disabled={empty || pending} onClick={() => downloadExport('labels.svg')}>Download label SVG</Button>
         <Button disabled={empty || pending || labelPresetFor({ ...labelOptions, paper: previewPaper }).kind !== 'tape'} title="Choose a Brother TZe tape stock to download P-touch files" onClick={() => downloadExport('labels.lbx')}>Download P-touch files</Button>
+        {ptouchOmitsQr ? <small role="status">P-touch files omit QR codes on light ink over dark tape. Choose dark ink on light tape to include them when they fit.</small> : null}
         {html?.includes('data-qr-omitted="true"') ? <small role="status">Some QR codes do not fit the printable tape width. Choose a wider stock to include them.</small> : null}
         <small>Applies to this preview, print and label downloads. Hub defaults stay unchanged. SVG downloads contain the first page; Print includes every page.</small>
       </div>}

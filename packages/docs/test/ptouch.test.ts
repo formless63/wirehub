@@ -49,6 +49,14 @@ const unzip = (bytes: Uint8Array): Map<string, Uint8Array> => {
 };
 
 describe('tape presets', () => {
+  it('preserves QR omission notes on the standard P-touch export', () => {
+    const design = loadDesign('de9-crossover');
+    const db = loadDb();
+    const format = BASE_EXPORTS.find((item) => item.id === 'labels.lbx')!;
+    expect(format.render(design, db, { preset: 'tze-12-335', qr: true }).notes?.join(' ')).toContain('QR left out of the .lbx');
+    expect(format.render(design, db, { preset: 'tze-12-231', qr: true }).notes).toBeUndefined();
+  });
+
   it('groups every existing stock once by family and ascending tape width without changing ids', () => {
     const options = labelPresetOptions();
     expect(options).toEqual(labelPresetOptions());

@@ -327,3 +327,8 @@ P-touch downloads without changing the design or saved hub defaults. Stocks are
 grouped by sheet or printer family, with Brother TZe tapes grouped by width.
 Print includes every label page at the stock’s actual dimensions. The SVG download
 contains the first page; P-touch downloads include the label files for the run.
+
+When QR codes cannot fit a tape’s printable width, the preview says so. P-touch
+files also omit QR codes on light ink over dark tape to avoid printing an inverted
+code; choose dark ink on light tape for P-touch QR labels. Any export omissions
+are reported with the download.

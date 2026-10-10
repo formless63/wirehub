@@ -442,6 +442,25 @@ describe('<CableEditor> — Canvas | Documents', () => {
     } finally { off(); click.mockRestore(); }
   });
 
+  it('warns before and after a P-touch download when dark tape cannot carry its preview QR', async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(URL, 'createObjectURL', { value: () => 'blob:labels', configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: () => undefined, configurable: true });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    try {
+      render(<DocumentsPane design={design} db={db} saved={design} debounceMs={10} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Wire labels' }));
+      choose('Label stock for this print', 'Brother TZe-335 (12 mm, white on black)');
+      choose('QR code for this print', 'Include QR codes');
+      await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+      expect(screen.getByText(/P-touch files omit QR codes on light ink over dark tape/)).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Download P-touch files' }));
+      expect(screen.getByText(/Export downloaded.*QR left out of the .lbx/)).toBeTruthy();
+      choose('Label stock for this print', 'Brother TZe-231 (12 mm, black on white)');
+      expect(screen.queryByText(/P-touch files omit QR codes on light ink over dark tape/)).toBeNull();
+    } finally { click.mockRestore(); }
+  });
+
   it('the continuity spec takes test parameters, saved in the sidecar', async () => {
     vi.useFakeTimers();
     const derive = spyRender();
