@@ -6698,3 +6698,7 @@ fieldset.cs-lock-fence {
 /* A verbose title grows below the part; every art/pin origin above it remains unchanged. */
 .cs-node-title-caption { box-sizing: border-box; flex: none; padding: 8px; border-top: 1px solid var(--line); font-size: var(--fs-canvas-10); line-height: 15px; color: var(--ink); }
 .cs-node-title-caption span { display: block; white-space: pre; }
+
+/* Source artwork retains its original colors on a paper surface in either theme. */
+.cs-model-art.is-drawing { background: var(--paper); color: var(--paper-ink); }
+.cs-model-art.is-drawing .cs-model-hint { color: var(--paper-dim); }

@@ -355,7 +355,7 @@ export function ModelPanel(props: ModelPanelProps): JSX.Element {
         ) : art === undefined || art.view !== wantArt?.view ? (
           <p className="cs-model-loading">Loading…</p>
         ) : (
-          <div className="cs-model-art">
+          <div className={classes('cs-model-art', shown === '2d' && 'is-drawing')}>
             <img src={art.src} alt={`${shown === 'photo' ? 'Photo' : '2D art'} of ${props.label}`} />
             {shown === '2d' ? <p className="cs-model-hint">{wantArt?.view.replaceAll('-', ' ')}</p> : null}
           </div>
