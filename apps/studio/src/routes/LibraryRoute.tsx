@@ -50,6 +50,7 @@ import { helpForLibraryKind } from '../help.ts';
 import { useDocsBase } from '../hooks/useDocsBase.ts';
 import { useIsNarrow } from '../hooks/useIsNarrow.ts';
 import { CompareHost } from '../modules/CompareHost.tsx';
+import { RecordCover } from '../RecordCover.tsx';
 
 const KIND_FROM_URL: Readonly<Record<string, LibraryKind>> = {
   connectors: 'connectors',
@@ -167,7 +168,8 @@ export function LibraryRoute(): JSX.Element {
           const search = pack === undefined ? {} : { pack };
           void navigate({ to: '/library/$kind', params: { kind: KIND_TO_URL[kind] }, search });
         }}
-        rowMarker={(rowKind, id) => <LockMarker record={definitionRecord(rowKind, id)} />}
+        rowMarker={(rowKind, id) => <>{rowKind !== 'pcbas' ? null : <RecordCover key={id} id={id} label={studio.db.pcbas.find((b) => b.id === id)?.label ?? id} compact />}<LockMarker record={definitionRecord(rowKind, id)} /></>}
+        recordPreview={({ kind, id, label }) => kind !== 'pcbas' ? null : <RecordCover key={id} id={id} label={label} editable={!phone && studio.me?.role !== 'viewer'} />}
         db={studio.db}
         loading={!studio.dbReady}
         definitions={phone ? undefined : studio.definitions}

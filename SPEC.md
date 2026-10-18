@@ -6,10 +6,14 @@ conflict rather than silently choosing.
 
 ## Mission
 
-An **engineering tool for cable assemblies**: capture the cables a shop actually builds as
+An **engineering workshop built on cable assemblies**: capture the cables a shop actually builds as
 canonical, machine-readable definitions, from which wiring schematics, build sheets, BOMs,
-continuity/test specifications and drawings derive. It documents cables as built; it is not
-a generative configurator. It is also not WireViz: the model is hierarchical (cables contain
+continuity/test specifications and drawings derive. Extend these working workflows with source-based
+visuals, reusable assemblies, native PCB and mechanical tooling, solution exploration, firmware,
+workshop records, reproducible jobs and external-agent access. These are incremental extensions;
+they retain the current application, storage seams and ordinary draft editing. Saved versions
+capture effective inputs; deliberate release may impose stronger criteria than draft work.
+The model is hierarchical (cables contain
 coax which contain conductors and shields), connectors are reusable library assets composed
 of a physical body and a pinout, and PCBAs are first-class black boxes with declared internal
 continuity.
@@ -20,7 +24,7 @@ shop knows (its devices, its numbering, its rules) is **data** a private pack or
 (`docs/catalog-store.md`). What was deliberately left out of the base is recorded in
 `docs/boundaries.md`.
 
-There is no 3D renderer for whole cable assemblies; cable documents are 2D. Parts in the
+There is currently no 3D renderer for whole cable assemblies; cable documents are 2D. Parts in the
 Library may show 3D models (KiCad's library, uploads), and wire stocks render parametrically
 in 3D from their definitions.
 

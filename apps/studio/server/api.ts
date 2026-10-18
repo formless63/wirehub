@@ -49,6 +49,7 @@ import { RESOLVER_ROUTES, handleResolverRequest, isResolverPath } from './resolv
 import { PRODUCT_ROUTES, handleProductsRequest, isProductsPath } from './products.ts';
 import { REVISION_ROUTES, handleRevisionsRequest, isRevisionsPath } from './revisions.ts';
 import { PROPOSAL_ROUTES, handleProposalsRequest, isProposalsPath } from './proposals.ts';
+import { REPRESENTATION_ROUTES, handleRepresentationRequest } from './representations.ts';
 import { PN_SETTINGS_ROUTES, handlePartNumberSettings, isPnSettingsPath } from './pn-settings.ts';
 import { handleStoreSourcesQuery, isStoreSourcesQueryPath } from './store-settings.ts';
 import { SETTINGS_ROUTES, effectiveTestDefaults, handleSettingsRequest } from './settings.ts';
@@ -979,6 +980,7 @@ const ROUTES = [
   ...PRODUCT_ROUTES,
   ...REVISION_ROUTES,
   ...PROPOSAL_ROUTES,
+  ...REPRESENTATION_ROUTES,
   ...WEBHOOK_ROUTES,
   ...RUNTIME_SETTINGS_ROUTES,
   ...MODULE_SETTINGS_ROUTES,
@@ -1440,6 +1442,7 @@ export async function routeWorkbenchRequest(request: ApiRequest, deps: Workbench
   }
 
   const user = request.user ?? deps.localUser ?? LOCAL_FALLBACK;
+  if (head === 'representations') return handleRepresentationRequest(request, parts, deps);
   if (head === 'me' && id === undefined) {
     return method === 'GET' ? ok({ user, ...(deps.instance === undefined ? {} : { instance: deps.instance }) }) : methodNotAllowed(method, ['GET']);
   }

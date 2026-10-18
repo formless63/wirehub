@@ -160,6 +160,8 @@ export interface LibraryProps {
    * opens with a 2D / 3D / Photo view and Attach / Detach for its model.
    */
   models?: ModelsAdapter;
+  /** Shared, persisted item cover supplied by the host; physical artwork stays independent. */
+  recordPreview?: (record: { kind: LibraryKind; id: string; label: string }) => ReactNode;
   /**
    * A host's compare view, when it has one: given this, a shell's or
    * board's detail gets a Compare action and the list a "Compare…" pick-two
@@ -1487,6 +1489,7 @@ export function Library(props: LibraryProps): JSX.Element {
                   </button>
                 </nav>
               ) : null}
+              {mode.kind !== 'edit' ? null : props.recordPreview?.({ kind, id: mode.id, label: baseline?.label ?? mode.id })}
             </RecordHead>
 
             {mode.kind === 'edit' && props.models !== undefined && MODEL_KINDS.has(kind) ? (

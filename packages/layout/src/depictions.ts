@@ -323,7 +323,7 @@ function twoFacedBoard(
   const top = meta.views['board-top'];
   const bottom = meta.views['board-bottom'];
   if (top === undefined || bottom === undefined) return undefined;
-  if (top.sourceKind !== 'gerber' || top.kind !== 'vector' || bottom.kind !== 'vector') return undefined;
+  if (!['gerber', 'kicad'].includes(top.sourceKind) || bottom.sourceKind !== top.sourceKind || top.kind !== 'vector' || bottom.kind !== 'vector') return undefined;
   if (meta.anchorFrame !== 'board-top' || bottom.mirrorOf !== 'board-top') return undefined;
   if (top.widthUnits === undefined || top.heightUnits === undefined) return undefined;
   for (const view of ['board-top', 'board-bottom']) {
