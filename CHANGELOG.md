@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/formless63/wirehub/compare/v0.8.0...v0.9.0) (2026-10-30)
+
+
+### Features
+
+* the workshop: native tool packs, devices, inventory, print and firmware ([3bc0c6c](https://github.com/formless63/wirehub/commit/3bc0c6c8b680564f23a5dee7d96ae210a7ed6ae2))
+
+
+### Bug Fixes
+
+* **deps:** security updates for better-auth, hono, nodemailer, zod, vite, vitest, undici and seroval ([cf3a6a5](https://github.com/formless63/wirehub/commit/cf3a6a5270597f38b8b77ec59269f7923d966557))
+
 ## [0.8.0](https://github.com/formless63/wirehub/compare/v0.7.0...v0.8.0) (2026-10-10)
 
 
