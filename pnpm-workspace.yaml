@@ -3,3 +3,9 @@ packages:
   - apps/*
   - modules/*
   - site
+
+# security floors for transitive dependencies (Dependabot): jsdom's undici, the router's seroval
+overrides:
+  undici: ^8.12.3
+  seroval: ~1.6.12
+  seroval-plugins: ~1.6.12
