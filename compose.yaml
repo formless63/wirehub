@@ -58,7 +58,7 @@ services:
   # profile `init-services`: the earlier one-shot; the app's startup does the same by default
   bootstrap:
     profiles: [init-services]
-    image: &wirehub-image ${WIREHUB_IMAGE:-ghcr.io/formless63/wirehub:0.8.0} # x-release-please-version
+    image: &wirehub-image ${WIREHUB_IMAGE:-ghcr.io/formless63/wirehub:0.9.0} # x-release-please-version
     user: "0:0"
     command: ["node", "--experimental-strip-types", "--no-warnings", "stack/bootstrap.ts"]
     environment:
